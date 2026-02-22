@@ -3,6 +3,8 @@
 namespace App\Entity;
 
 use App\Repository\ClienteRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ClienteRepository::class)]
@@ -47,13 +49,15 @@ abstract class Cliente
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $modificadoEm = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $contratoArquivo = null;
+    #[ORM\ManyToMany(targetEntity: Contrato::class, inversedBy: 'clientes', cascade: ['persist'])]
+    #[ORM\JoinTable(name: 'cliente_contrato')]
+    private Collection $contratos;
 
     public function __construct()
     {
         $this->criadoAt = new \DateTimeImmutable();
         $this->modificadoEm = new \DateTimeImmutable();
+        $this->contratos = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -177,19 +181,35 @@ abstract class Cliente
         return $this;
     }
 
-    public function getContratoArquivo(): ?string
-    {
-        return $this->contratoArquivo;
-    }
-
     public function isContratoEnviado(): bool
     {
-        return !empty($this->contratoArquivo);
+        return !$this->contratos->isEmpty();
     }
 
-    public function setContratoArquivo(?string $contratoArquivo): self
+    /**
+     * @return Collection<int, Contrato>
+     */
+    public function getContratos(): Collection
     {
-        $this->contratoArquivo = $contratoArquivo;
+        return $this->contratos;
+    }
+
+    public function addContrato(Contrato $contrato): self
+    {
+        if (!$this->contratos->contains($contrato)) {
+            $this->contratos->add($contrato);
+            $contrato->addCliente($this);
+        }
+
+        return $this;
+    }
+
+    public function removeContrato(Contrato $contrato): self
+    {
+        if ($this->contratos->removeElement($contrato)) {
+            $contrato->removeCliente($this);
+        }
+
         return $this;
     }
 }

@@ -2,8 +2,10 @@
 
 namespace App\Controller;
 
+use App\Entity\Cliente;
 use App\Entity\ClientePF;
 use App\Entity\ClientePJ;
+use App\Entity\Contrato;
 use App\Entity\PreCadastro;
 use App\Form\ClientePFType;
 use App\Form\ClientePJType;
@@ -39,19 +41,7 @@ class ClienteController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $uploadedFile = $form->get('contratoFile')->getData();
-            if ($uploadedFile instanceof UploadedFile) {
-                $uploadsDir = $this->getParameter('kernel.project_dir').'/public/uploads/contratos';
-                if (!is_dir($uploadsDir)) {
-                    @mkdir($uploadsDir, 0755, true);
-                }
-                $newFilename = uniqid('contrato_').'.'.$uploadedFile->guessExtension();
-                try {
-                    $uploadedFile->move($uploadsDir, $newFilename);
-                    $cliente->setContratoArquivo($newFilename);
-                } catch (FileException $e) {
-                    // ignore move errors for now
-                }
-            }
+            $this->handleContratoUpload($uploadedFile, $cliente);
             $repo->save($cliente, true);
             return $this->redirectToRoute('cliente_index');
         }
@@ -70,19 +60,7 @@ class ClienteController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $uploadedFile = $form->get('contratoFile')->getData();
-            if ($uploadedFile instanceof UploadedFile) {
-                $uploadsDir = $this->getParameter('kernel.project_dir').'/public/uploads/contratos';
-                if (!is_dir($uploadsDir)) {
-                    @mkdir($uploadsDir, 0755, true);
-                }
-                $newFilename = uniqid('contrato_').'.'.$uploadedFile->guessExtension();
-                try {
-                    $uploadedFile->move($uploadsDir, $newFilename);
-                    $cliente->setContratoArquivo($newFilename);
-                } catch (FileException $e) {
-                    // ignore move errors for now
-                }
-            }
+            $this->handleContratoUpload($uploadedFile, $cliente);
             $repo->save($cliente, true);
             return $this->redirectToRoute('cliente_index');
         }
@@ -115,19 +93,7 @@ class ClienteController extends AbstractController
 
             if ($form->isSubmitted() && $form->isValid()) {
                 $uploadedFile = $form->get('contratoFile')->getData();
-                if ($uploadedFile instanceof UploadedFile) {
-                    $uploadsDir = $this->getParameter('kernel.project_dir').'/public/uploads/contratos';
-                    if (!is_dir($uploadsDir)) {
-                        @mkdir($uploadsDir, 0755, true);
-                    }
-                    $newFilename = uniqid('contrato_').'.'.$uploadedFile->guessExtension();
-                    try {
-                        $uploadedFile->move($uploadsDir, $newFilename);
-                        $cliente->setContratoArquivo($newFilename);
-                    } catch (FileException $e) {
-                        // ignore
-                    }
-                }
+                $this->handleContratoUpload($uploadedFile, $cliente);
                 $clientePFRepo->save($cliente, true);
                 $preCadastro->setCliente($cliente);
                 $em->persist($preCadastro);
@@ -150,19 +116,7 @@ class ClienteController extends AbstractController
 
             if ($form->isSubmitted() && $form->isValid()) {
                 $uploadedFile = $form->get('contratoFile')->getData();
-                if ($uploadedFile instanceof UploadedFile) {
-                    $uploadsDir = $this->getParameter('kernel.project_dir').'/public/uploads/contratos';
-                    if (!is_dir($uploadsDir)) {
-                        @mkdir($uploadsDir, 0755, true);
-                    }
-                    $newFilename = uniqid('contrato_').'.'.$uploadedFile->guessExtension();
-                    try {
-                        $uploadedFile->move($uploadsDir, $newFilename);
-                        $cliente->setContratoArquivo($newFilename);
-                    } catch (FileException $e) {
-                        // ignore
-                    }
-                }
+                $this->handleContratoUpload($uploadedFile, $cliente);
                 $clientePJRepo->save($cliente, true);
                 $preCadastro->setCliente($cliente);
                 $em->persist($preCadastro);
@@ -210,19 +164,7 @@ class ClienteController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $uploadedFile = $form->get('contratoFile')->getData();
-            if ($uploadedFile instanceof UploadedFile) {
-                $uploadsDir = $this->getParameter('kernel.project_dir').'/public/uploads/contratos';
-                if (!is_dir($uploadsDir)) {
-                    @mkdir($uploadsDir, 0755, true);
-                }
-                $newFilename = uniqid('contrato_').'.'.$uploadedFile->guessExtension();
-                try {
-                    $uploadedFile->move($uploadsDir, $newFilename);
-                    $cliente->setContratoArquivo($newFilename);
-                } catch (FileException $e) {
-                    // ignore
-                }
-            }
+            $this->handleContratoUpload($uploadedFile, $cliente);
             $em->flush();
             return $this->redirectToRoute('cliente_show', ['id' => $cliente->getId()]);
         }
@@ -256,5 +198,30 @@ class ClienteController extends AbstractController
         }
 
         return $this->redirectToRoute('cliente_index');
+    }
+
+    private function handleContratoUpload(?UploadedFile $uploadedFile, Cliente $cliente): void
+    {
+        if (!$uploadedFile instanceof UploadedFile) {
+            return;
+        }
+
+        $uploadsDir = $this->getParameter('kernel.project_dir').'/public/uploads/contratos';
+        if (!is_dir($uploadsDir)) {
+            @mkdir($uploadsDir, 0755, true);
+        }
+
+        $newFilename = uniqid('contrato_').'.'.$uploadedFile->guessExtension();
+
+        try {
+            $uploadedFile->move($uploadsDir, $newFilename);
+            $contrato = new Contrato();
+            $contrato->setNomeArquivo($uploadedFile->getClientOriginalName());
+            $contrato->setCaminhoArquivo('/uploads/contratos/'.$newFilename);
+            $contrato->setStatus(Contrato::STATUS_ATIVO);
+            $cliente->addContrato($contrato);
+        } catch (FileException $e) {
+            // ignore move errors for now
+        }
     }
 }

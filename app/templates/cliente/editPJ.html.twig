@@ -143,8 +143,17 @@
                 {{ form_widget(form.contratoFile, {'attr': {'class': 'form-control'}}) }}
                 {{ form_errors(form.contratoFile) }}
             </div>
-            {% if cliente.contratoArquivo %}
-                <a href="/uploads/contratos/{{ cliente.contratoArquivo }}" target="_blank" class="btn btn-outline-primary">Ver Contrato</a>
+            {% if cliente.contratos|length > 0 %}
+                <ul class="list-group">
+                    {% for contrato in cliente.contratos %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <a href="{{ contrato.caminhoArquivo }}" target="_blank">{{ contrato.nomeArquivo }}</a>
+                            <span class="badge {{ contrato.status == 'ATIVO' ? 'bg-success' : 'bg-secondary' }}">
+                                {{ contrato.status }}
+                            </span>
+                        </li>
+                    {% endfor %}
+                </ul>
             {% else %}
                 <span class="text-muted">Nenhum contrato enviado</span>
             {% endif %}

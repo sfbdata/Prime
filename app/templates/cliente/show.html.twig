@@ -159,16 +159,27 @@
 
         <div class="card mt-3">
             <div class="card-header bg-dark text-white">
-                <h5>Contrato</h5>
+                <h5>Contratos</h5>
             </div>
             <div class="card-body">
-                {% if cliente.contratoEnviado %}
-                    <p><strong>Arquivo do Contrato:</strong>
-                        <a href="/uploads/contratos/{{ cliente.contratoArquivo }}" target="_blank">{{ cliente.contratoArquivo }}</a>
-                        <span class="badge bg-success ms-2">Enviado</span>
-                    </p>
+                {% if cliente.contratos|length > 0 %}
+                    <ul class="list-group">
+                        {% for contrato in cliente.contratos %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <a href="{{ contrato.caminhoArquivo }}" target="_blank">{{ contrato.nomeArquivo }}</a>
+                                    <div class="text-muted small">
+                                        Criado em {{ contrato.criadoAt|date('d/m/Y H:i') }}
+                                    </div>
+                                </div>
+                                <span class="badge {{ contrato.status == 'ATIVO' ? 'bg-success' : 'bg-secondary' }}">
+                                    {{ contrato.status }}
+                                </span>
+                            </li>
+                        {% endfor %}
+                    </ul>
                 {% else %}
-                    <p><strong>Arquivo do Contrato:</strong> <span class="badge bg-secondary">Não enviado</span></p>
+                    <span class="badge bg-secondary">Nenhum contrato cadastrado</span>
                 {% endif %}
             </div>
         </div>

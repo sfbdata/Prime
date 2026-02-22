@@ -1,0 +1,244 @@
+/* Estilos globais para o sistema */
+
+/* Conteúdo principal com sidebar */
+.content {
+    margin-left: 220px;
+    padding: 20px;
+}
+
+/* Conteúdo sem sidebar (login, etc.) */
+.no-sidebar {
+    margin: 0;
+    padding: 0;
+}
+
+/* Fonte e fundo padrão */
+body {
+    background: #f9fafb; /* cinza bem claro */
+    font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+}
+
+/* Container padronizado */
+.tenant-container, .invite-container {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    padding: 30px;
+    max-width: 800px;
+    margin: 40px auto;
+    animation: fadeIn 0.6s ease-in-out;
+}
+
+/* Títulos */
+.page-title, .tenant-container h2, .invite-container h2 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #1f2937;
+    font-weight: 600;
+}
+
+/* Botões principais */
+.btn-primary, .btn-dark, .btn-login {
+    border-radius: 8px;
+    background: linear-gradient(135deg, #1f2937, #374151);
+    color: #fff;
+    border: none;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover, .btn-dark:hover, .btn-login:hover {
+    background: linear-gradient(135deg, #111827, #1f2937);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Botão de exclusão */
+.btn-delete {
+    border-radius: 8px;
+    background: linear-gradient(135deg, #dc2626, #b91c1c);
+    color: #fff;
+    border: none;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.btn-delete:hover {
+    background: linear-gradient(135deg, #991b1b, #7f1d1d);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* Inputs */
+.form-control {
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 15px;
+    margin-bottom: 15px;
+}
+
+/* Labels */
+.form-label {
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+/* Tabelas */
+.tenant-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.tenant-table th, .tenant-table td {
+    padding: 12px;
+    text-align: left;
+}
+
+.tenant-table th {
+    background-color: #f3f4f6;
+    font-weight: 600;
+}
+
+/* Sidebar */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 220px;
+    height: 100%;
+    background-color: #1e1e2f;
+    color: #fff;
+    padding-top: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.sidebar .nav-link {
+    display: block;
+    padding: 10px 20px;
+    color: #fff;
+    text-decoration: none;
+}
+
+.sidebar .nav-link:hover {
+    background-color: #33334d;
+}
+
+.sidebar-user {
+    padding: 20px;
+    margin-bottom: 40px;
+    border-top: 1px solid #33334d;
+    font-size: 14px;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+}
+
+.avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: #4a4a6a;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-name {
+    font-weight: bold;
+    color: #fff;
+    text-decoration: none;
+}
+
+.user-name:hover {
+    text-decoration: underline;
+}
+
+.user-email {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 2px;
+}
+
+/* Página de Login */
+.login-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh; /* ocupa toda a altura da tela */
+    padding: 20px;
+    background: #ffffff; /* fundo branco */
+}
+
+.login-container {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    padding: 40px;
+    width: 100%;
+    max-width: 420px;
+    animation: fadeIn 0.6s ease-in-out;
+}
+
+.login-container h1 {
+    text-align: center;
+    margin-bottom: 25px;
+    color: #1f2937;
+    font-weight: 600;
+    font-size: 1.8rem;
+}
+
+.extra-links {
+    text-align: center;
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+.extra-links a {
+    color: #1f2937;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.extra-links a:hover {
+    text-decoration: underline;
+}
+
+/* Animação */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.nav-link .arrow {
+  display: inline-block;
+  width: 0; 
+  height: 0; 
+  margin-left: 5px;
+  vertical-align: middle;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #333; /* seta para cima */
+  transition: transform 0.2s ease;
+}
+
+.nav-link[aria-expanded="true"] .arrow {
+  transform: rotate(180deg); /* seta para baixo quando expandido */
+}
+

@@ -50,9 +50,9 @@
                     </td>
                     <td>
                         {% if cliente.contratoEnviado %}
-                            <span class="badge bg-success">Enviado</span>
+                            <span class="badge bg-success">Com contrato</span>
                         {% else %}
-                            <span class="badge bg-secondary">Não enviado</span>
+                            <span class="badge bg-secondary">Sem contrato</span>
                         {% endif %}
                     </td>
                     <td>{{ cliente.telefoneCelular ?: '-' }}</td>
