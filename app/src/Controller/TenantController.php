@@ -2,8 +2,8 @@
 
 namespace App\Controller;
 
-use App\Entity\Tenant;
-use App\Entity\User;
+use App\Entity\Tenant\Tenant;
+use App\Entity\Auth\User;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;

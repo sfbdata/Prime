@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\Entity\PreCadastro;
+use App\Entity\Comercial\PreCadastro;
 use App\Form\PreCadastroType;
 use App\Repository\PreCadastroRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;

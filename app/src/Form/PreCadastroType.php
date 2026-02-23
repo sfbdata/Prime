@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\PreCadastro;
+use App\Entity\Comercial\PreCadastro;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;

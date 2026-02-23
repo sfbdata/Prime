@@ -13,6 +13,7 @@
             <tr>
                 <th>Nome</th>
                 <th>CPF/CNPJ</th>
+                <th>Tipo</th>
                 <th>Registrado</th>
                 <th>Status do Contrato</th>
                 <th>Criado em</th>
@@ -25,6 +26,13 @@
                     <td>{{ preCadastro.nomeCliente }}</td>
                     <td>{{ preCadastro.cpf }}</td>
                     <td>
+                        {% if preCadastro.tipo == 'PF' %}
+                            <span class="badge bg-info">Pessoa Física</span>
+                        {% else %}
+                            <span class="badge bg-warning">Pessoa Jurídica</span>
+                        {% endif %}
+                    </td>
+                    <td>
                         {% if preCadastro.cliente %}
                             <a href="{{ path('cliente_show', {id: preCadastro.cliente.id}) }}" class="text-decoration-none">
                                 <span class="badge bg-success">Registrado</span>
@@ -34,22 +42,7 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% if preCadastro.statusContrato %}
-                            <span class="badge 
-                                {% if preCadastro.statusContrato == 'PENDENTE' %}bg-warning{% 
-                                elseif preCadastro.statusContrato == 'EM_ANDAMENTO' %}bg-info{% 
-                                elseif preCadastro.statusContrato == 'FINALIZADO' %}bg-success{% 
-                                elseif preCadastro.statusContrato == 'CANCELADO' %}bg-danger{% 
-                                endif %}">
-                                {{ preCadastro.statusContrato == 'PENDENTE' ? 'Pendente' : (
-                                   preCadastro.statusContrato == 'EM_ANDAMENTO' ? 'Em Andamento' : (
-                                   preCadastro.statusContrato == 'FINALIZADO' ? 'Finalizado' : (
-                                   preCadastro.statusContrato == 'CANCELADO' ? 'Cancelado' : preCadastro.statusContrato
-                                ))) }}
-                            </span>
-                        {% else %}
-                            -
-                        {% endif %}
+                        {% include '_status_contrato_badge.html.twig' with {status: preCadastro.statusContratoCentralizado} %}
                     </td>
                     <td>
                         {% if preCadastro.criadoAt %}
@@ -65,7 +58,7 @@
                 </tr>
             {% else %}
                 <tr>
-                    <td colspan="6" class="text-center">Nenhum pré-cadastro encontrado.</td>
+                    <td colspan="7" class="text-center">Nenhum pré-cadastro encontrado.</td>
                 </tr>
             {% endfor %}
         </tbody>

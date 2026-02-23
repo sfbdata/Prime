@@ -5,6 +5,12 @@
             <a class="nav-link" href="{{ path('homepage') }}">Home</a>
         </li>
 
+        {% if 'ROLE_COMERCIAL' in app.user.roles %}
+            <li class="nav-item">
+                <a class="nav-link" href="{{ path('pre_cadastro_index') }}">Pré-Cadastros</a>
+            </li>
+        {% endif %}
+
         <li class="nav-item">
             <a class="nav-link" href="{{ path('cliente_index') }}">Clientes</a>
         </li>
@@ -70,7 +76,6 @@
                 </a>
                 <div class="collapse{% if isComercialActive %} show{% endif %}" id="comercialMenu">
                     <ul class="nav flex-column ms-3">
-                        <li class="nav-item"><a class="nav-link" href="{{ path('pre_cadastro_index') }}" onclick="event.stopPropagation()">Pré-Cadastros</a></li>
                     </ul>
                 </div>
             </li>

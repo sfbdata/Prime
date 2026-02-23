@@ -2,7 +2,7 @@
 
 namespace App\Repository;
 
-use App\Entity\MovimentacaoProcesso;
+use App\Entity\Processo\MovimentacaoProcesso;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 

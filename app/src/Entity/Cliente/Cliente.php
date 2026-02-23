@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Entity;
+namespace App\Entity\Cliente;
 
+use App\Entity\Contrato\Contrato;
 use App\Repository\ClienteRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -184,6 +185,21 @@ abstract class Cliente
     public function isContratoEnviado(): bool
     {
         return !$this->contratos->isEmpty();
+    }
+
+    public function getStatusContratoCentralizado(): string
+    {
+        if ($this->contratos->isEmpty()) {
+            return 'SEM_CONTRATO';
+        }
+
+        foreach ($this->contratos as $contrato) {
+            if ($contrato->getStatus() === Contrato::STATUS_ATIVO) {
+                return Contrato::STATUS_ATIVO;
+            }
+        }
+
+        return 'INATIVO';
     }
 
     /**

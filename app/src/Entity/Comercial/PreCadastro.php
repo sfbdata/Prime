@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Entity;
+namespace App\Entity\Comercial;
 
+use App\Entity\Cliente\Cliente;
 use App\Repository\PreCadastroRepository;
-use App\Entity\Cliente;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: PreCadastroRepository::class)]
@@ -210,6 +210,19 @@ class PreCadastro
     public function getStatusContrato(): ?string
     {
         return $this->statusContrato;
+    }
+
+    public function getStatusContratoCentralizado(): string
+    {
+        if ($this->cliente instanceof Cliente) {
+            return $this->cliente->getStatusContratoCentralizado();
+        }
+
+        if ($this->statusContrato !== null && $this->statusContrato !== '') {
+            return $this->statusContrato;
+        }
+
+        return 'SEM_CONTRATO';
     }
 
     public function setStatusContrato(?string $statusContrato): self

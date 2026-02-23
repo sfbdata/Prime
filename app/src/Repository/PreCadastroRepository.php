@@ -2,7 +2,7 @@
 
 namespace App\Repository;
 
-use App\Entity\PreCadastro;
+use App\Entity\Comercial\PreCadastro;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 

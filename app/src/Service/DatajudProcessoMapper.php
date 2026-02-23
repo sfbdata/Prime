@@ -2,9 +2,9 @@
 
 namespace App\Service;
 
-use App\Entity\MovimentacaoProcesso;
-use App\Entity\ParteProcesso;
-use App\Entity\Processo;
+use App\Entity\Processo\MovimentacaoProcesso;
+use App\Entity\Processo\ParteProcesso;
+use App\Entity\Processo\Processo;
 
 class DatajudProcessoMapper
 {

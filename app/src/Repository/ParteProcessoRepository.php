@@ -2,7 +2,7 @@
 
 namespace App\Repository;
 
-use App\Entity\ParteProcesso;
+use App\Entity\Processo\ParteProcesso;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 

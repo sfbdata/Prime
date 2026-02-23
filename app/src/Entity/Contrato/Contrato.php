@@ -1,7 +1,9 @@
 <?php
 
-namespace App\Entity;
+namespace App\Entity\Contrato;
 
+use App\Entity\Cliente\Cliente;
+use App\Entity\Processo\Processo;
 use App\Repository\ContratoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -27,6 +29,12 @@ class Contrato
 
     #[ORM\Column(length: 20)]
     private string $status = self::STATUS_ATIVO;
+
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $dataInicio = null;
+
+    #[ORM\Column(type: 'decimal', precision: 12, scale: 2, nullable: true)]
+    private ?string $valorTotal = null;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $criadoAt = null;
@@ -91,6 +99,28 @@ class Contrato
     public function setStatus(string $status): self
     {
         $this->status = $status;
+        return $this;
+    }
+
+    public function getDataInicio(): ?\DateTimeImmutable
+    {
+        return $this->dataInicio;
+    }
+
+    public function setDataInicio(?\DateTimeImmutable $dataInicio): self
+    {
+        $this->dataInicio = $dataInicio;
+        return $this;
+    }
+
+    public function getValorTotal(): ?string
+    {
+        return $this->valorTotal;
+    }
+
+    public function setValorTotal(?string $valorTotal): self
+    {
+        $this->valorTotal = $valorTotal;
         return $this;
     }
 

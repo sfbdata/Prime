@@ -2,7 +2,7 @@
 
 namespace App\Command;
 
-use App\Entity\Processo;
+use App\Entity\Processo\Processo;
 use App\Repository\ContratoRepository;
 use App\Repository\ProcessoRepository;
 use App\Service\DatajudClient;

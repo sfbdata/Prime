@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Entity;
+namespace App\Entity\Processo;
 
 use App\Repository\ParteProcessoRepository;
 use Doctrine\ORM\Mapping as ORM;

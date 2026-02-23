@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Tenant;
+use App\Entity\Tenant\Tenant;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
