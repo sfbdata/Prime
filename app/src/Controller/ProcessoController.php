@@ -2,10 +2,10 @@
 
 namespace App\Controller;
 
-use App\Entity\Contrato;
-use App\Entity\Processo;
-use App\Entity\ParteProcesso;
-use App\Entity\MovimentacaoProcesso;
+use App\Entity\Contrato\Contrato;
+use App\Entity\Processo\Processo;
+use App\Entity\Processo\ParteProcesso;
+use App\Entity\Processo\MovimentacaoProcesso;
 use App\Repository\ProcessoRepository;
 use App\Repository\ContratoRepository;
 use App\Repository\ClienteRepository;
@@ -34,64 +34,11 @@ class ProcessoController extends AbstractController
     {
         $contratos = $contratoRepo->findAll();
         $clientes = $clienteRepo->findAll();
+        $processo = new Processo();
 
         if ($request->isMethod('POST')) {
             $data = $request->request->all();
-
-            $processo = new Processo();
-            $processo->setNumeroProcesso($data['numeroProcesso'] ?? '');
-            $processo->setOrgaoJulgador($data['orgaoJulgador'] ?? '');
-            $processo->setSiglaTribunal($data['siglaTribunal'] ?? '');
-            $processo->setClasseProcessual($data['classeProcessual'] ?? '');
-            $processo->setAssuntoProcessual($data['assuntoProcessual'] ?? '');
-            $processo->setSituacaoProcesso($data['situacaoProcesso'] ?? 'EM_ANDAMENTO');
-            $processo->setInstancia($data['instancia'] ?? 'G1');
-
-            if (!empty($data['dataDistribuicao'])) {
-                $processo->setDataDistribuicao(\DateTime::createFromFormat('Y-m-d', $data['dataDistribuicao']));
-            }
-
-            if (!empty($data['dataBaixa'])) {
-                $processo->setDataBaixa(\DateTime::createFromFormat('Y-m-d', $data['dataBaixa']));
-            }
-
-            // Associar contrato
-            if (!empty($data['contrato_id'])) {
-                $contrato = $contratoRepo->find($data['contrato_id']);
-                if ($contrato) {
-                    $processo->setContrato($contrato);
-                }
-            }
-
-            // Adicionar partes
-            if (!empty($data['partes']) && is_array($data['partes'])) {
-                foreach ($data['partes'] as $parteData) {
-                    if (!empty($parteData['nome'])) {
-                        $parte = new ParteProcesso();
-                        $parte->setTipo($parteData['tipo'] ?? 'PARTE');
-                        $parte->setNome($parteData['nome']);
-                        $parte->setDocumento($parteData['documento'] ?? null);
-                        $parte->setPapel($parteData['papel'] ?? null);
-                        $processo->addParte($parte);
-                    }
-                }
-            }
-
-            // Adicionar movimentações
-            if (!empty($data['movimentacoes']) && is_array($data['movimentacoes'])) {
-                foreach ($data['movimentacoes'] as $movData) {
-                    if (!empty($movData['descricao'])) {
-                        $mov = new MovimentacaoProcesso();
-                        $mov->setDescricao($movData['descricao']);
-                        $mov->setTipo($movData['tipo'] ?? null);
-                        $mov->setOrgao($movData['orgao'] ?? null);
-                        if (!empty($movData['dataMovimentacao'])) {
-                            $mov->setDataMovimentacao(\DateTime::createFromFormat('Y-m-d', $movData['dataMovimentacao']));
-                        }
-                        $processo->addMovimentacao($mov);
-                    }
-                }
-            }
+            $this->fillProcessoFromRequest($processo, $data, $contratoRepo);
 
             $em->persist($processo);
             $em->flush();
@@ -102,6 +49,30 @@ class ProcessoController extends AbstractController
         return $this->render('processo/new.html.twig', [
             'contratos' => $contratos,
             'clientes' => $clientes,
+            'processo' => $processo,
+            'isEdit' => false,
+        ]);
+    }
+
+    #[Route('/{id}/editar', name: 'processo_edit', methods: ['GET', 'POST'])]
+    public function edit(Processo $processo, Request $request, ContratoRepository $contratoRepo, ClienteRepository $clienteRepo, EntityManagerInterface $em): Response
+    {
+        $contratos = $contratoRepo->findAll();
+        $clientes = $clienteRepo->findAll();
+
+        if ($request->isMethod('POST')) {
+            $data = $request->request->all();
+            $this->fillProcessoFromRequest($processo, $data, $contratoRepo);
+            $em->flush();
+
+            return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
+        }
+
+        return $this->render('processo/new.html.twig', [
+            'contratos' => $contratos,
+            'clientes' => $clientes,
+            'processo' => $processo,
+            'isEdit' => true,
         ]);
     }
 
@@ -113,11 +84,24 @@ class ProcessoController extends AbstractController
         ]);
     }
 
+    #[Route('/{id}/deletar', name: 'processo_delete', methods: ['POST'])]
+    public function delete(Request $request, Processo $processo, EntityManagerInterface $em): Response
+    {
+        if (!$this->isCsrfTokenValid('delete_processo_'.$processo->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $em->remove($processo);
+        $em->flush();
+
+        return $this->redirectToRoute('processo_index');
+    }
+
     #[Route('/api/search', name: 'api_datajud_search', methods: ['POST'])]
     public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em): JsonResponse
     {
         $data = json_decode($request->getContent(), true);
-        $numeroProcesso = $data['numeroProcesso'] ?? '';
+        $numeroProcesso = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
         $tribunalAlias = $data['tribunalAlias'] ?? '';
 
         if (!$numeroProcesso || !$tribunalAlias) {
@@ -129,58 +113,32 @@ class ProcessoController extends AbstractController
         try {
             $apiResponse = $datajudClient->searchByNumeroProcesso($tribunalAlias, $numeroProcesso);
 
-            // Log completo da resposta
-            error_log('DataJud Response: ' . json_encode($apiResponse));
-
             // Verificar se a resposta contém erros da API
             if (isset($apiResponse['error'])) {
                 $response = new JsonResponse([
-                    'error' => 'Erro da API DataJud: ' . ($apiResponse['error']['reason'] ?? $apiResponse['error']),
-                    'debug' => [
-                        'numeroProcesso' => $numeroProcesso,
-                        'tribunalAlias' => $tribunalAlias,
-                        'apiError' => $apiResponse['error'],
-                        'fullResponse' => $apiResponse
-                    ]
+                    'error' => 'Erro ao consultar o CNJ/DataJud.'
                 ], 400);
                 $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
                 return $response;
             }
 
-            // Debug: retornar resposta completa se houver erro
             if (!isset($apiResponse['hits'])) {
                 $response = new JsonResponse([
-                    'error' => 'Resposta inesperada da API DataJud - estrutura inválida',
-                    'debug' => [
-                        'numeroProcesso' => $numeroProcesso,
-                        'tribunalAlias' => $tribunalAlias,
-                        'fullResponse' => $apiResponse,
-                        'keys' => array_keys($apiResponse)
-                    ]
+                    'error' => 'Resposta inesperada da API CNJ/DataJud.'
                 ], 400);
                 $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
                 return $response;
             }
 
-            // Se há results na resposta
             if (!isset($apiResponse['hits']['hits']) || empty($apiResponse['hits']['hits'])) {
                 $response = new JsonResponse([
-                    'error' => 'Nenhum processo encontrado',
-                    'debug' => [
-                        'numeroProcesso' => $numeroProcesso,
-                        'tribunalAlias' => $tribunalAlias,
-                        'hitsCount' => isset($apiResponse['hits']['total']) ? $apiResponse['hits']['total'] : 0,
-                        'fullResponse' => $apiResponse
-                    ]
+                    'error' => 'Nenhum processo encontrado.'
                 ], 404);
                 $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
                 return $response;
             }
 
             $processData = $apiResponse['hits']['hits'][0]['_source'];
-
-            // DEBUG: Log completo dos dados da API
-            error_log('DataJud Response received');
 
             // Criar um processo temporário para mapping
             $processo = new Processo();
@@ -216,9 +174,76 @@ class ProcessoController extends AbstractController
             $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
             return $response;
         } catch (\Exception $e) {
-            $response = new JsonResponse(['error' => $e->getMessage()], 500);
+            $response = new JsonResponse(['error' => 'Falha ao consultar processo no CNJ/DataJud.'], 500);
             $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
             return $response;
+        }
+    }
+
+    private function fillProcessoFromRequest(Processo $processo, array $data, ContratoRepository $contratoRepo): void
+    {
+        $numeroProcessoNormalizado = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
+
+        $processo->setNumeroProcesso($numeroProcessoNormalizado ?? '');
+        $processo->setOrgaoJulgador((string) ($data['orgaoJulgador'] ?? ''));
+        $processo->setSiglaTribunal((string) ($data['siglaTribunal'] ?? ''));
+        $processo->setClasseProcessual((string) ($data['classeProcessual'] ?? ''));
+        $processo->setAssuntoProcessual((string) ($data['assuntoProcessual'] ?? ''));
+        $processo->setSituacaoProcesso((string) ($data['situacaoProcesso'] ?? 'EM_ANDAMENTO'));
+        $processo->setInstancia((string) ($data['instancia'] ?? 'G1'));
+
+        if (!empty($data['dataDistribuicao'])) {
+            $processo->setDataDistribuicao(\DateTime::createFromFormat('Y-m-d', $data['dataDistribuicao']) ?: null);
+        } else {
+            $processo->setDataDistribuicao(null);
+        }
+
+        if (!empty($data['dataBaixa'])) {
+            $processo->setDataBaixa(\DateTime::createFromFormat('Y-m-d', $data['dataBaixa']) ?: null);
+        } else {
+            $processo->setDataBaixa(null);
+        }
+
+        if (!empty($data['contrato_id'])) {
+            $processo->setContrato($contratoRepo->find($data['contrato_id']));
+        } else {
+            $processo->setContrato(null);
+        }
+
+        foreach ($processo->getPartes()->toArray() as $parteExistente) {
+            $processo->removeParte($parteExistente);
+        }
+
+        if (!empty($data['partes']) && is_array($data['partes'])) {
+            foreach ($data['partes'] as $parteData) {
+                if (!empty($parteData['nome'])) {
+                    $parte = new ParteProcesso();
+                    $parte->setTipo($parteData['tipo'] ?? 'PARTE');
+                    $parte->setNome($parteData['nome']);
+                    $parte->setDocumento($parteData['documento'] ?? null);
+                    $parte->setPapel($parteData['papel'] ?? null);
+                    $processo->addParte($parte);
+                }
+            }
+        }
+
+        foreach ($processo->getMovimentacoes()->toArray() as $movExistente) {
+            $processo->removeMovimentacao($movExistente);
+        }
+
+        if (!empty($data['movimentacoes']) && is_array($data['movimentacoes'])) {
+            foreach ($data['movimentacoes'] as $movData) {
+                if (!empty($movData['descricao'])) {
+                    $mov = new MovimentacaoProcesso();
+                    $mov->setDescricao($movData['descricao']);
+                    $mov->setTipo($movData['tipo'] ?? null);
+                    $mov->setOrgao($movData['orgao'] ?? null);
+                    if (!empty($movData['dataMovimentacao'])) {
+                        $mov->setDataMovimentacao(\DateTime::createFromFormat('Y-m-d', $movData['dataMovimentacao']) ?: null);
+                    }
+                    $processo->addMovimentacao($mov);
+                }
+            }
         }
     }
 }

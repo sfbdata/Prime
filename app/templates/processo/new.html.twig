@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Cadastrar Processo{% endblock %}
+{% block title %}{{ isEdit ? 'Editar Processo' : 'Cadastrar Processo' }}{% endblock %}
 
 {% block body %}
 <div class="container mt-4">
@@ -10,10 +10,10 @@
 
     <div class="card">
         <div class="card-header">
-            <h2>Cadastrar Novo Processo</h2>
+            <h2>{{ isEdit ? 'Editar Processo' : 'Cadastrar Novo Processo' }}</h2>
         </div>
         <div class="card-body">
-            <form method="POST" id="processoForm">
+            <form method="POST" id="processoForm" action="{{ isEdit ? path('processo_edit', {id: processo.id}) : path('processo_new') }}">
                 <!-- Seleção de Cliente com Pesquisa (Select2) -->
                 <div class="mb-3">
                     <label for="cliente_id" class="form-label">Cliente</label>
@@ -37,7 +37,7 @@
                     <select id="contrato_id" name="contrato_id" class="form-control">
                         <option value="">SELECIONE UM CONTRATO (opcional)</option>
                         {% for contrato in contratos %}
-                            <option value="{{ contrato.id }}" data-cliente-ids="{{ contrato.clientes|map(c => c.id)|join(',') }}">{{ contrato.nomeArquivo }}</option>
+                            <option value="{{ contrato.id }}" data-cliente-ids="{{ contrato.clientes|map(c => c.id)|join(',') }}" {% if processo is defined and processo.contrato and processo.contrato.id == contrato.id %}selected{% endif %}>{{ contrato.nomeArquivo }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -50,7 +50,7 @@
                 <div class="row mb-3">
                     <div class="col-md-8">
                         <label for="numeroProcesso" class="form-label">Número do Processo</label>
-                        <input type="text" id="numeroProcesso" name="numeroProcesso" class="form-control" placeholder="Ex: 1234567-89.2024.1.23.4567" required>
+                        <input type="text" id="numeroProcesso" name="numeroProcesso" class="form-control" placeholder="Ex: 1234567-89.2024.1.23.4567" value="{{ processo.numeroProcesso ?? '' }}" required>
                         <small class="form-text text-muted">Formato: NNNNNNN-DD.AAAA.J.TT.OOOO</small>
                     </div>
                     <div class="col-md-4">
@@ -86,7 +86,7 @@
                                 <option value="tjap">TJAP - Tribunal de Justiça de Amapá</option>
                                 <option value="tjba">TJBA - Tribunal de Justiça da Bahia</option>
                                 <option value="tjce">TJCE - Tribunal de Justiça do Ceará</option>
-                                <option value="tjdft" selected>TJDFT - Tribunal de Justiça do Distrito Federal e Territórios</option>
+                                <option value="tjdft" {% if (processo.siglaTribunal ?? 'tjdft') == 'tjdft' %}selected{% endif %}>TJDFT - Tribunal de Justiça do Distrito Federal e Territórios</option>
                                 <option value="tjes">TJES - Tribunal de Justiça do Espírito Santo</option>
                                 <option value="tjgo">TJGO - Tribunal de Justiça de Goiás</option>
                                 <option value="tjma">TJMA - Tribunal de Justiça do Maranhão</option>
@@ -172,18 +172,18 @@
                     </div>
                     <div class="col-md-6">
                         <label for="orgaoJulgador" class="form-label">Órgão Julgador</label>
-                        <input type="text" id="orgaoJulgador" name="orgaoJulgador" class="form-control" required>
+                        <input type="text" id="orgaoJulgador" name="orgaoJulgador" class="form-control" value="{{ processo.orgaoJulgador ?? '' }}" required>
                     </div>
                 </div>
 
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="classeProcessual" class="form-label">Classe Processual</label>
-                        <input type="text" id="classeProcessual" name="classeProcessual" class="form-control" required>
+                        <input type="text" id="classeProcessual" name="classeProcessual" class="form-control" value="{{ processo.classeProcessual ?? '' }}" required>
                     </div>
                     <div class="col-md-6">
                         <label for="assuntoProcessual" class="form-label">Assunto Processual</label>
-                        <input type="text" id="assuntoProcessual" name="assuntoProcessual" class="form-control" required>
+                        <input type="text" id="assuntoProcessual" name="assuntoProcessual" class="form-control" value="{{ processo.assuntoProcessual ?? '' }}" required>
                     </div>
                 </div>
 
@@ -191,29 +191,29 @@
                     <div class="col-md-4">
                         <label for="situacaoProcesso" class="form-label">Situação</label>
                         <select id="situacaoProcesso" name="situacaoProcesso" class="form-control" required>
-                            <option value="EM_ANDAMENTO">Em Andamento</option>
-                            <option value="ENCERRADO">Encerrado</option>
-                            <option value="SUSPENSO">Suspenso</option>
-                            <option value="PARALISADO">Paralisado</option>
+                            <option value="EM_ANDAMENTO" {% if (processo.situacaoProcesso ?? 'EM_ANDAMENTO') == 'EM_ANDAMENTO' %}selected{% endif %}>Em Andamento</option>
+                            <option value="ENCERRADO" {% if (processo.situacaoProcesso ?? '') == 'ENCERRADO' %}selected{% endif %}>Encerrado</option>
+                            <option value="SUSPENSO" {% if (processo.situacaoProcesso ?? '') == 'SUSPENSO' %}selected{% endif %}>Suspenso</option>
+                            <option value="PARALISADO" {% if (processo.situacaoProcesso ?? '') == 'PARALISADO' %}selected{% endif %}>Paralisado</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label for="instancia" class="form-label">Instância</label>
                         <select id="instancia" name="instancia" class="form-control" required>
-                            <option value="G1">G1 - Primeira Instância</option>
-                            <option value="G2">G2 - Segunda Instância</option>
-                            <option value="ST">ST - Superior Tribunal</option>
+                            <option value="G1" {% if (processo.instancia ?? 'G1') == 'G1' %}selected{% endif %}>G1 - Primeira Instância</option>
+                            <option value="G2" {% if (processo.instancia ?? '') == 'G2' %}selected{% endif %}>G2 - Segunda Instância</option>
+                            <option value="ST" {% if (processo.instancia ?? '') == 'ST' %}selected{% endif %}>ST - Superior Tribunal</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label for="dataDistribuicao" class="form-label">Data Distribuição</label>
-                        <input type="date" id="dataDistribuicao" name="dataDistribuicao" class="form-control">
+                        <input type="date" id="dataDistribuicao" name="dataDistribuicao" class="form-control" value="{{ processo.dataDistribuicao ? processo.dataDistribuicao|date('Y-m-d') : '' }}">
                     </div>
                 </div>
 
                 <div class="mb-3">
                     <label for="dataBaixa" class="form-label">Data Baixa</label>
-                    <input type="date" id="dataBaixa" name="dataBaixa" class="form-control">
+                    <input type="date" id="dataBaixa" name="dataBaixa" class="form-control" value="{{ processo.dataBaixa ? processo.dataBaixa|date('Y-m-d') : '' }}">
                 </div>
 
                 <hr>
@@ -221,32 +221,63 @@
                 <!-- Partes do Processo -->
                 <h5>Partes do Processo</h5>
                 <div id="partesContainer" class="mb-3">
-                    <div class="parte-row card mb-2 p-3">
-                        <div class="row mb-2">
-                            <div class="col-md-3">
-                                <label class="form-label">Tipo</label>
-                                <select name="partes[0][tipo]" class="form-control">
-                                    <option value="PARTE">Parte</option>
-                                    <option value="ADVOGADO">Advogado</option>
-                                    <option value="JUIZ">Juiz</option>
-                                    <option value="PROMOTOR">Promotor</option>
-                                </select>
+                    {% if isEdit and processo.partes|length > 0 %}
+                        {% for parte in processo.partes %}
+                            <div class="parte-row card mb-2 p-3">
+                                <div class="row mb-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Tipo</label>
+                                        <select name="partes[{{ loop.index0 }}][tipo]" class="form-control">
+                                            <option value="PARTE" {% if parte.tipo == 'PARTE' %}selected{% endif %}>Parte</option>
+                                            <option value="ADVOGADO" {% if parte.tipo == 'ADVOGADO' %}selected{% endif %}>Advogado</option>
+                                            <option value="JUIZ" {% if parte.tipo == 'JUIZ' %}selected{% endif %}>Juiz</option>
+                                            <option value="PROMOTOR" {% if parte.tipo == 'PROMOTOR' %}selected{% endif %}>Promotor</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">Nome</label>
+                                        <input type="text" name="partes[{{ loop.index0 }}][nome]" class="form-control parte-nome" placeholder="Nome da parte" value="{{ parte.nome }}">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Documento</label>
+                                        <input type="text" name="partes[{{ loop.index0 }}][documento]" class="form-control" placeholder="CPF/CNPJ" value="{{ parte.documento ?: '' }}">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Papel</label>
+                                        <input type="text" name="partes[{{ loop.index0 }}][papel]" class="form-control" placeholder="Polo ativo/passivo" value="{{ parte.papel ?: '' }}">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: {{ processo.partes|length > 1 ? 'block' : 'none' }};">Remover</button>
                             </div>
-                            <div class="col-md-5">
-                                <label class="form-label">Nome</label>
-                                <input type="text" name="partes[0][nome]" class="form-control parte-nome" placeholder="Nome da parte">
+                        {% endfor %}
+                    {% else %}
+                        <div class="parte-row card mb-2 p-3">
+                            <div class="row mb-2">
+                                <div class="col-md-3">
+                                    <label class="form-label">Tipo</label>
+                                    <select name="partes[0][tipo]" class="form-control">
+                                        <option value="PARTE">Parte</option>
+                                        <option value="ADVOGADO">Advogado</option>
+                                        <option value="JUIZ">Juiz</option>
+                                        <option value="PROMOTOR">Promotor</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label">Nome</label>
+                                    <input type="text" name="partes[0][nome]" class="form-control parte-nome" placeholder="Nome da parte">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Documento</label>
+                                    <input type="text" name="partes[0][documento]" class="form-control" placeholder="CPF/CNPJ">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Papel</label>
+                                    <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                                </div>
                             </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Documento</label>
-                                <input type="text" name="partes[0][documento]" class="form-control" placeholder="CPF/CNPJ">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Papel</label>
-                                <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
-                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: none;">Remover</button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: none;">Remover</button>
-                    </div>
+                    {% endif %}
                 </div>
                 <button type="button" id="btn-add-parte" class="btn btn-sm btn-primary mb-3">+ Adicionar Parte</button>
 
@@ -255,34 +286,60 @@
                 <!-- Movimentações -->
                 <h5>Movimentações do Processo</h5>
                 <div id="movimentacoesContainer" class="mb-3">
-                    <div class="movimentacao-row card mb-2 p-3">
-                        <div class="row mb-2">
-                            <div class="col-md-3">
-                                <label class="form-label">Data</label>
-                                <input type="date" name="movimentacoes[0][dataMovimentacao]" class="form-control">
+                    {% if isEdit and processo.movimentacoes|length > 0 %}
+                        {% for mov in processo.movimentacoes %}
+                            <div class="movimentacao-row card mb-2 p-3">
+                                <div class="row mb-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Data</label>
+                                        <input type="date" name="movimentacoes[{{ loop.index0 }}][dataMovimentacao]" class="form-control" value="{{ mov.dataMovimentacao ? mov.dataMovimentacao|date('Y-m-d') : '' }}">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Descrição</label>
+                                        <input type="text" name="movimentacoes[{{ loop.index0 }}][descricao]" class="form-control mov-descricao" placeholder="Descrição da movimentação" value="{{ mov.descricao }}" required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Tipo</label>
+                                        <input type="text" name="movimentacoes[{{ loop.index0 }}][tipo]" class="form-control" placeholder="Tipo de movimento" value="{{ mov.tipo ?: '' }}">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Órgão</label>
+                                        <input type="text" name="movimentacoes[{{ loop.index0 }}][orgao]" class="form-control" placeholder="Órgão" value="{{ mov.orgao ?: '' }}">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-sm btn-danger remove-movimentacao" style="display: {{ processo.movimentacoes|length > 1 ? 'block' : 'none' }};">Remover</button>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Descrição</label>
-                                <input type="text" name="movimentacoes[0][descricao]" class="form-control mov-descricao" placeholder="Descrição da movimentação" required>
+                        {% endfor %}
+                    {% else %}
+                        <div class="movimentacao-row card mb-2 p-3">
+                            <div class="row mb-2">
+                                <div class="col-md-3">
+                                    <label class="form-label">Data</label>
+                                    <input type="date" name="movimentacoes[0][dataMovimentacao]" class="form-control">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Descrição</label>
+                                    <input type="text" name="movimentacoes[0][descricao]" class="form-control mov-descricao" placeholder="Descrição da movimentação" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Tipo</label>
+                                    <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="Tipo de movimento">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Órgão</label>
+                                    <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
+                                </div>
                             </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Tipo</label>
-                                <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="Tipo de movimento">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label">Órgão</label>
-                                <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
-                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-movimentacao" style="display: none;">Remover</button>
                         </div>
-                        <button type="button" class="btn btn-sm btn-danger remove-movimentacao" style="display: none;">Remover</button>
-                    </div>
+                    {% endif %}
                 </div>
                 <button type="button" id="btn-add-movimentacao" class="btn btn-sm btn-primary mb-3">+ Adicionar Movimentação</button>
 
                 <hr>
 
                 <div class="d-flex gap-2">
-                    <button type="submit" class="btn btn-success">Salvar Processo</button>
+                    <button type="submit" class="btn btn-success">{{ isEdit ? 'Salvar Alterações' : 'Salvar Processo' }}</button>
                     <a href="{{ path('processo_index') }}" class="btn btn-secondary">Cancelar</a>
                 </div>
             </form>
@@ -304,20 +361,16 @@
     </div>
 </div>
 
-<!-- Modal de Erro Customizado -->
-<div id="errorModal" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+<!-- Modal de Mensagens -->
+<div id="feedbackModal" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">❌ Erro na Busca DataJud</h5>
+            <div id="feedbackHeader" class="modal-header bg-secondary text-white">
+                <h5 id="feedbackTitle" class="modal-title">Mensagem</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
-                <p id="errorMessage"></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="copyErrorBtn">📋 Copiar Texto</button>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <p id="feedbackMessage" class="mb-0"></p>
             </div>
         </div>
     </div>
@@ -347,6 +400,11 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    const initialTribunal = '{{ processo.siglaTribunal ?? '' }}';
+    if (initialTribunal) {
+        $('#siglaTribunal').val(initialTribunal).trigger('change');
+    }
 
     // Filtrar contratos por cliente
     const clienteSelect = document.getElementById('cliente_id');
@@ -528,47 +586,43 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Função para mostrar erro em modal
-    function showErrorModal(errorMsg) {
-        const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
-        document.getElementById('errorMessage').innerHTML = errorMsg.replace(/\n/g, '<br>');
-        errorModal.show();
-    }
+    function showFeedbackModal(type, message) {
+        const modalElement = document.getElementById('feedbackModal');
+        const headerElement = document.getElementById('feedbackHeader');
+        const titleElement = document.getElementById('feedbackTitle');
+        const messageElement = document.getElementById('feedbackMessage');
 
-    // Botão para copiar erro
-    document.getElementById('copyErrorBtn').addEventListener('click', function() {
-        const errorText = document.getElementById('errorMessage').innerText;
-        navigator.clipboard.writeText(errorText).then(() => {
-            alert('✅ Erro copiado para a área de transferência!');
-        }).catch(() => {
-            alert('❌ Erro ao copiar para a área de transferência');
-        });
-    });
+        const styles = {
+            success: { title: '✅ Sucesso', headerClass: 'modal-header bg-success text-white' },
+            warning: { title: '⚠️ Atenção', headerClass: 'modal-header bg-warning text-dark' },
+            error: { title: '❌ Erro', headerClass: 'modal-header bg-danger text-white' }
+        };
+
+        const selectedStyle = styles[type] ?? styles.error;
+        headerElement.className = selectedStyle.headerClass;
+        titleElement.textContent = selectedStyle.title;
+        messageElement.innerHTML = message;
+
+        const feedbackModal = new bootstrap.Modal(modalElement);
+        feedbackModal.show();
+    }
 
     // Buscar no DataJud
     const btnDataJud = document.getElementById('btn-datajud');
-    console.log('🔍 Elemento btn-datajud encontrado:', btnDataJud);
-    
-    if (!btnDataJud) {
-        console.error('❌ Erro: Elemento btn-datajud NÃO ENCONTRADO no DOM!');
-    } else {
+    if (btnDataJud) {
         btnDataJud.addEventListener('click', async function(e) {
             e.preventDefault();
-            console.log('✅ Clique em Buscar CNJ detectado');
             
             const numeroProcesso = document.getElementById('numeroProcesso').value;
             const siglaTribunal = document.getElementById('siglaTribunal').value;
 
-            console.log('Número do Processo:', numeroProcesso);
-            console.log('Sigla do Tribunal:', siglaTribunal);
-
             if (!numeroProcesso) {
-                showErrorModal('Informe o número do processo');
+                showFeedbackModal('warning', 'Informe o número do processo.');
                 return;
             }
 
             if (!siglaTribunal) {
-                showErrorModal('Informe a sigla do tribunal');
+                showFeedbackModal('warning', 'Informe a sigla do tribunal.');
                 return;
             }
 
@@ -592,44 +646,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
             if (!response.ok) {
                 modal.hide();
-                let errorMsg = data.error || 'Erro ao buscar processo';
-                if (data.debug) {
-                    console.error('🔴 Erro DataJud - Debug Response:', data.debug);
-                    errorMsg += '\n\n⚠️ Informações de Debug:\n';
-                    errorMsg += '• Número do Processo: ' + (data.debug.numeroProcesso || 'N/A') + '\n';
-                    errorMsg += '• Tribunal Alias: ' + (data.debug.tribunalAlias || 'N/A') + '\n';
-                    if (data.debug.apiError) {
-                        errorMsg += '• Erro da API: ' + JSON.stringify(data.debug.apiError) + '\n';
-                    }
-                    errorMsg += '\n📋 Verifique o console (F12) para a resposta completa.';
-                    if (data.debug.fullResponse) {
-                        console.table(data.debug.fullResponse);
-                    }
-                }
-                showErrorModal(errorMsg);
+                const errorMsg = data.error || 'Erro ao buscar processo no CNJ/DataJud.';
+                showFeedbackModal('error', errorMsg);
                 return;
             }
 
             if (!data.success) {
                 modal.hide();
-                let errorMsg = data.error || 'Erro ao buscar processo';
-                if (data.debug) {
-                    console.error('🔴 Erro DataJud - Debug Response:', data.debug);
-                    errorMsg += '\n\n⚠️ Informações de Debug:\n';
-                    errorMsg += '• Número do Processo: ' + (data.debug.numeroProcesso || 'N/A') + '\n';
-                    errorMsg += '• Tribunal Alias: ' + (data.debug.tribunalAlias || 'N/A') + '\n';
-                    if (data.debug.hitsCount !== undefined) {
-                        errorMsg += `• Total de resultados encontrados: ${data.debug.hitsCount}\n`;
-                    }
-                    errorMsg += '\n✅ Dicas:\n';
-                    errorMsg += '• O número de processo está correto?\n';
-                    errorMsg += '• O tribunal alias está em minúsculas?\n';
-                    errorMsg += '• Abra o console (F12) para ver a resposta completa.';
-                    if (data.debug.fullResponse) {
-                        console.table(data.debug.fullResponse);
-                    }
-                }
-                showErrorModal(errorMsg);
+                const errorMsg = data.error || 'Erro ao buscar processo no CNJ/DataJud.';
+                showFeedbackModal('error', errorMsg);
                 return;
             }
 
@@ -772,12 +797,11 @@ document.addEventListener('DOMContentLoaded', function() {
             sortarMovimentacoesPorData();
 
             modal.hide();
-            showErrorModal('✅ <strong>Processo carregado com sucesso!</strong><br>Os dados foram preenchidos no formulário. Você pode editá-los se necessário antes de salvar.');
+            showFeedbackModal('success', 'Processo carregado com sucesso! Os dados foram preenchidos no formulário. Você pode editá-los antes de salvar.');
 
         } catch (error) {
             modal.hide();
-            console.error('Error:', error);
-            showErrorModal('❌ <strong>Erro ao buscar processo:</strong><br>' + error.message);
+            showFeedbackModal('error', 'Erro ao buscar processo no CNJ/DataJud. Tente novamente em instantes.');
         }
         });
     }

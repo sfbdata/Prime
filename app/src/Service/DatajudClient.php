@@ -23,6 +23,11 @@ class DatajudClient
             throw new \RuntimeException('DATAJUD_API_KEY nao configurada.');
         }
 
+        $numeroProcesso = $this->normalizeNumeroProcessoCnj($numeroProcesso);
+        if ($numeroProcesso === '') {
+            throw new \InvalidArgumentException('Numero do processo invalido.');
+        }
+
         $url = $this->baseUrl . '/api_publica_' . trim($tribunalAlias, '/') . '/_search';
 
         try {
@@ -43,10 +48,8 @@ class DatajudClient
             $result = $response->toArray(false);
             // Corrigir encoding UTF-8 dos dados
             $result = $this->fixUtf8Encoding($result);
-            error_log('DataJud Request Successful - URL: ' . $url . ' - Response: ' . json_encode($result));
             return $result;
         } catch (\Exception $e) {
-            error_log('DataJud Request Error: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -58,5 +61,10 @@ class DatajudClient
     {
         // Apenas retorna os dados como estão - conversão aqui estava corrompendo outros campos
         return $data;
+    }
+
+    private function normalizeNumeroProcessoCnj(string $numeroProcesso): string
+    {
+        return preg_replace('/\D+/', '', $numeroProcesso) ?? '';
     }
 }
