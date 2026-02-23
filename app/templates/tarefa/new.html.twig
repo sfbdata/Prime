@@ -1,0 +1,62 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Nova Tarefa{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="mb-3">
+        <a href="{{ path('tarefa_admin_index') }}" class="btn btn-secondary">← Voltar</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Nova Tarefa</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label class="form-label">Título</label>
+                    <input type="text" name="titulo" class="form-control" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Descrição</label>
+                    <textarea name="descricao" class="form-control" rows="5" required></textarea>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Prazo</label>
+                        <input type="datetime-local" name="prazo" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Processo vinculado (opcional)</label>
+                        <select name="processo_id" class="form-control">
+                            <option value="">Nenhum</option>
+                            {% for processo in processos %}
+                                <option value="{{ processo.id }}">{{ processo.numeroProcesso }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Arquivos do Admin</label>
+                    <input type="file" name="arquivos_admin[]" class="form-control" multiple>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Atribuir para usuários</label>
+                    <select name="usuarios[]" class="form-control" multiple required>
+                        {% for usuario in usuarios %}
+                            <option value="{{ usuario.id }}">{{ usuario.fullName }} ({{ usuario.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-success">Criar Tarefa</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

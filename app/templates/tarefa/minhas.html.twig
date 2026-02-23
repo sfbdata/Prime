@@ -1,0 +1,49 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Minhas Tarefas{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h2 class="mb-3">Minhas Tarefas</h2>
+
+    {% if atribuicoes|length > 0 %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Título</th>
+                    <th>Status</th>
+                    <th>Prazo</th>
+                    <th>Processo</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for atribuicao in atribuicoes %}
+                {% set tarefa = atribuicao.tarefa %}
+                <tr>
+                    <td>{{ tarefa.titulo }}</td>
+                    <td>
+                        <span class="badge {% if atribuicao.status == 'concluida' %}bg-success{% elseif atribuicao.status == 'em_revisao' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                            {{ atribuicao.status|replace({'_': ' '})|upper }}
+                        </span>
+                    </td>
+                    <td>{{ tarefa.prazo ? tarefa.prazo|date('d/m/Y H:i') : '-' }}</td>
+                    <td>
+                        {% if tarefa.processo %}
+                            <a href="{{ path('processo_show', {id: tarefa.processo.id}) }}">{{ tarefa.processo.numeroProcesso }}</a>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="btn btn-sm btn-primary">Abrir</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-info">Você não possui tarefas atribuídas.</div>
+    {% endif %}
+</div>
+{% endblock %}

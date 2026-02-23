@@ -79,8 +79,46 @@ class ProcessoController extends AbstractController
     #[Route('/{id}', name: 'processo_show', methods: ['GET'])]
     public function show(Processo $processo): Response
     {
+        $historicoTarefas = [];
+
+        foreach ($processo->getTarefas() as $tarefa) {
+            $usuariosAtribuidos = [];
+            $ultimaRevisao = null;
+
+            foreach ($tarefa->getAtribuicoes() as $atribuicao) {
+                $nomeUsuario = $atribuicao->getUsuario()?->getFullName();
+                if ($nomeUsuario !== null && $nomeUsuario !== '') {
+                    $usuariosAtribuidos[] = $nomeUsuario;
+                }
+
+                $dataEnvioRevisao = $atribuicao->getDataEnvioRevisao();
+                if ($dataEnvioRevisao !== null && ($ultimaRevisao === null || $dataEnvioRevisao > $ultimaRevisao)) {
+                    $ultimaRevisao = $dataEnvioRevisao;
+                }
+            }
+
+            $usuariosAtribuidos = array_values(array_unique($usuariosAtribuidos));
+
+            $historicoTarefas[] = [
+                'tarefaId' => $tarefa->getId(),
+                'titulo' => $tarefa->getTitulo(),
+                'usuarios' => $usuariosAtribuidos !== [] ? implode(', ', $usuariosAtribuidos) : '-',
+                'statusAtual' => $tarefa->getStatus(),
+                'dataCriacao' => $tarefa->getDataCriacao(),
+                'dataUltimaRevisao' => $ultimaRevisao,
+                'dataConclusaoFinal' => $tarefa->getDataConclusao(),
+                'tempoTotalSegundos' => $tarefa->getTempoTotalSegundos(),
+            ];
+        }
+
+        usort(
+            $historicoTarefas,
+            fn (array $a, array $b): int => $b['dataCriacao'] <=> $a['dataCriacao']
+        );
+
         return $this->render('processo/show.html.twig', [
             'processo' => $processo,
+            'historicoTarefas' => $historicoTarefas,
         ]);
     }
 

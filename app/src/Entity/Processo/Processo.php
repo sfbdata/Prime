@@ -3,6 +3,7 @@
 namespace App\Entity\Processo;
 
 use App\Entity\Contrato\Contrato;
+use App\Entity\Tarefa\Tarefa;
 use App\Repository\ProcessoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -52,6 +53,13 @@ class Processo
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $processoPai = null;
 
+    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'processosFilhos')]
+    #[ORM\JoinColumn(name: 'processo_pai_id', referencedColumnName: 'id', nullable: true, onDelete: 'SET NULL')]
+    private ?self $processoPaiRef = null;
+
+    #[ORM\OneToMany(mappedBy: 'processoPaiRef', targetEntity: self::class)]
+    private Collection $processosFilhos;
+
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $dataAtualizacao = null;
 
@@ -59,10 +67,15 @@ class Processo
     #[ORM\JoinColumn(nullable: true)]
     private ?Contrato $contrato = null;
 
+    #[ORM\OneToMany(mappedBy: 'processo', targetEntity: Tarefa::class)]
+    private Collection $tarefas;
+
     public function __construct()
     {
         $this->partes = new ArrayCollection();
         $this->movimentacoes = new ArrayCollection();
+        $this->processosFilhos = new ArrayCollection();
+        $this->tarefas = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -235,6 +248,53 @@ class Processo
     public function setProcessoPai(?string $processoPai): self
     {
         $this->processoPai = $processoPai;
+
+        if ($this->processoPaiRef !== null && $this->processoPaiRef->getNumeroProcesso() !== $processoPai) {
+            $this->processoPaiRef = null;
+        }
+
+        return $this;
+    }
+
+    public function getProcessoPaiRef(): ?self
+    {
+        return $this->processoPaiRef;
+    }
+
+    public function setProcessoPaiRef(?self $processoPaiRef): self
+    {
+        $this->processoPaiRef = $processoPaiRef;
+        $this->processoPai = $processoPaiRef?->getNumeroProcesso();
+
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, self>
+     */
+    public function getProcessosFilhos(): Collection
+    {
+        return $this->processosFilhos;
+    }
+
+    public function addProcessoFilho(self $processoFilho): self
+    {
+        if (!$this->processosFilhos->contains($processoFilho)) {
+            $this->processosFilhos->add($processoFilho);
+            $processoFilho->setProcessoPaiRef($this);
+        }
+
+        return $this;
+    }
+
+    public function removeProcessoFilho(self $processoFilho): self
+    {
+        if ($this->processosFilhos->removeElement($processoFilho)) {
+            if ($processoFilho->getProcessoPaiRef() === $this) {
+                $processoFilho->setProcessoPaiRef(null);
+            }
+        }
+
         return $this;
     }
 
@@ -258,5 +318,13 @@ class Processo
     {
         $this->contrato = $contrato;
         return $this;
+    }
+
+    /**
+     * @return Collection<int, Tarefa>
+     */
+    public function getTarefas(): Collection
+    {
+        return $this->tarefas;
     }
 }

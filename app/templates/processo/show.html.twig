@@ -46,6 +46,50 @@
             <hr>
 
             <div class="mb-3">
+                <h5>Histórico de Tarefas (ordem decrescente)</h5>
+                {% if historicoTarefas|length > 0 %}
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Título</th>
+                                <th>Usuário (atribuído)</th>
+                                <th>Status Atual</th>
+                                <th>Data de Criação</th>
+                                <th>Data da Última Revisão</th>
+                                <th>Data de Conclusão Final</th>
+                                <th>Tempo Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in historicoTarefas %}
+                                <tr>
+                                    <td><a href="{{ path('tarefa_show', {id: item.tarefaId}) }}">{{ item.titulo }}</a></td>
+                                    <td>{{ item.usuarios }}</td>
+                                    <td>{{ item.statusAtual|replace({'_': ' '})|upper }}</td>
+                                    <td>{{ item.dataCriacao|date('d/m/Y H:i') }}</td>
+                                    <td>{% if item.dataUltimaRevisao %}{{ item.dataUltimaRevisao|date('d/m/Y H:i') }}{% else %}-{% endif %}</td>
+                                    <td>{% if item.dataConclusaoFinal %}{{ item.dataConclusaoFinal|date('d/m/Y H:i') }}{% else %}-{% endif %}</td>
+                                    <td>
+                                        {% if item.tempoTotalSegundos is not null %}
+                                            {% set horas = item.tempoTotalSegundos // 3600 %}
+                                            {% set minutos = (item.tempoTotalSegundos % 3600) // 60 %}
+                                            {{ horas }}h {{ '%02d'|format(minutos) }}min
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info mb-0">Não há tarefas vinculadas a este processo.</div>
+                {% endif %}
+            </div>
+
+            <hr>
+
+            <div class="mb-3">
                 <h5>Partes do Processo</h5>
                 {% if processo.partes|length > 0 %}
                     <table class="table table-sm table-bordered">

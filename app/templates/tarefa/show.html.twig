@@ -1,0 +1,153 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Tarefa {{ tarefa.id }}{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="mb-3 d-flex gap-2">
+        {% if isAdmin %}
+            <a href="{{ path('tarefa_admin_index') }}" class="btn btn-secondary">← Voltar</a>
+        {% else %}
+            <a href="{{ path('tarefa_minhas') }}" class="btn btn-secondary">← Voltar</a>
+        {% endif %}
+
+        {% if tarefa.processo %}
+            <a href="{{ path('processo_show', {id: tarefa.processo.id}) }}" class="btn btn-outline-primary">Ir para Processo {{ tarefa.processo.numeroProcesso }}</a>
+        {% endif %}
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h2 class="mb-0">{{ tarefa.titulo }}</h2>
+            <span class="badge {% if tarefa.status == 'concluida' %}bg-success{% elseif tarefa.status == 'em_revisao' %}bg-warning text-dark{% elseif tarefa.status == 'reaberta' %}bg-danger{% else %}bg-secondary{% endif %}">
+                {{ tarefa.status|replace({'_': ' '})|upper }}
+            </span>
+        </div>
+        <div class="card-body">
+            <p><strong>Descrição:</strong><br>{{ tarefa.descricao|nl2br }}</p>
+            <p><strong>Prazo:</strong> {{ tarefa.prazo ? tarefa.prazo|date('d/m/Y H:i') : '-' }}</p>
+            <p><strong>Criada em:</strong> {{ tarefa.dataCriacao|date('d/m/Y H:i') }}</p>
+            <p><strong>Concluída em:</strong> {{ tarefa.dataConclusao ? tarefa.dataConclusao|date('d/m/Y H:i') : '-' }}</p>
+            <p><strong>Tempo total:</strong>
+                {% if tarefa.tempoTotalSegundos is not null %}
+                    {% set horas = tarefa.tempoTotalSegundos // 3600 %}
+                    {% set minutos = (tarefa.tempoTotalSegundos % 3600) // 60 %}
+                    {{ horas }}h {{ '%02d'|format(minutos) }}min
+                {% else %}
+                    -
+                {% endif %}
+            </p>
+
+            {% if tarefa.arquivosAdmin|length > 0 %}
+                <h5>Arquivos do Admin</h5>
+                <ul>
+                    {% for arquivo in tarefa.arquivosAdmin %}
+                        <li><a href="{{ arquivo }}" target="_blank">{{ arquivo|split('/')|last }}</a></li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if isAdmin %}
+        <div class="card mb-3">
+            <div class="card-header"><h4 class="mb-0">Ações do Admin</h4></div>
+            <div class="card-body">
+                <form method="post" action="{{ path('tarefa_atualizar_status', {id: tarefa.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('atualizar_status_tarefa_' ~ tarefa.id) }}">
+                    <div class="mb-0">
+                        <label class="form-label">Status da tarefa</label>
+                        <select name="status" class="form-select" onchange="this.form.submit()">
+                            <option value="pendente" {% if tarefa.status == 'pendente' %}selected{% endif %}>Pendente</option>
+                            <option value="em_revisao" {% if tarefa.status == 'em_revisao' %}selected{% endif %}>Em revisão</option>
+                            <option value="reaberta" {% if tarefa.status == 'reaberta' %}selected{% endif %}>Reaberta</option>
+                            <option value="concluida" {% if tarefa.status == 'concluida' %}selected{% endif %}>Concluída</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="card mb-3">
+        <div class="card-header"><h4 class="mb-0">Atribuições</h4></div>
+        <div class="card-body">
+            {% for atr in tarefa.atribuicoes %}
+                <div class="border rounded p-3 mb-3">
+                    <p class="mb-1"><strong>Usuário:</strong> {{ atr.usuario.fullName }} ({{ atr.usuario.email }})</p>
+                    <p class="mb-1"><strong>Status:</strong> {{ atr.status|replace({'_': ' '})|upper }}</p>
+                    <p class="mb-1"><strong>Data atribuição:</strong> {{ atr.dataAtribuicao|date('d/m/Y H:i') }}</p>
+                    <p class="mb-1"><strong>Envio para revisão:</strong> {{ atr.dataEnvioRevisao ? atr.dataEnvioRevisao|date('d/m/Y H:i') : '-' }}</p>
+                    {% if atr.arquivosUsuario|length > 0 %}
+                        <p class="mb-1"><strong>Arquivos do Usuário:</strong></p>
+                        <ul>
+                            {% for arquivo in atr.arquivosUsuario %}
+                                <li><a href="{{ arquivo }}" target="_blank">{{ arquivo|split('/')|last }}</a></li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    {% set podeParticiparChat = isAdmin or atribuicaoDoUsuario %}
+    {% if podeParticiparChat %}
+        <div class="card mb-3">
+            <div class="card-header"><h4 class="mb-0">Chat da Tarefa</h4></div>
+            <div class="card-body">
+                <div class="border rounded p-3 mb-3" style="max-height: 300px; overflow-y: auto;">
+                    {% if tarefa.mensagens|length > 0 %}
+                        {% for mensagem in tarefa.mensagens %}
+                            <div class="mb-3 pb-2 border-bottom">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ mensagem.usuario.fullName }}</strong>
+                                    <small class="text-muted">{{ mensagem.criadoEm|date('d/m/Y H:i') }}</small>
+                                </div>
+                                <div>{{ mensagem.mensagem|nl2br }}</div>
+                                {% if mensagem.arquivoAnexo %}
+                                    <div class="mt-1">
+                                        <a href="{{ mensagem.arquivoAnexo }}" target="_blank">📎 {{ mensagem.arquivoAnexo|split('/')|last }}</a>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-muted">Ainda não há mensagens.</div>
+                    {% endif %}
+                </div>
+
+                <form method="post" action="{{ path('tarefa_mensagem', {id: tarefa.id}) }}" enctype="multipart/form-data">
+                    <input type="hidden" name="_token" value="{{ csrf_token('mensagem_tarefa_' ~ tarefa.id) }}">
+                    <div class="mb-2">
+                        <label class="form-label">Nova mensagem</label>
+                        <textarea name="mensagem" class="form-control" rows="3" placeholder="Digite uma mensagem (opcional se anexar arquivo)"></textarea>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Arquivo (opcional)</label>
+                        <input type="file" name="arquivo_mensagem" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Enviar mensagem</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if not isAdmin and atribuicaoDoUsuario %}
+        <div class="card mb-3">
+            <div class="card-header"><h4 class="mb-0">Enviar para Revisão</h4></div>
+            <div class="card-body">
+                <form method="post" action="{{ path('tarefa_enviar_revisao', {id: tarefa.id}) }}" enctype="multipart/form-data">
+                    <input type="hidden" name="_token" value="{{ csrf_token('enviar_revisao_' ~ tarefa.id) }}">
+                    <div class="mb-3">
+                        <label class="form-label">Arquivos da resposta</label>
+                        <input type="file" name="arquivos_usuario[]" class="form-control" multiple>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Enviar para revisão</button>
+                </form>
+            </div>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

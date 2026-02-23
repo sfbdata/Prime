@@ -69,6 +69,8 @@ class AtualizarProcessoDatajudCommand extends Command
             return Command::SUCCESS;
         }
 
+        $processosPorNumero = [];
+
         foreach ($hits as $hit) {
             $source = $hit['_source'] ?? null;
             if (!is_array($source)) {
@@ -83,8 +85,11 @@ class AtualizarProcessoDatajudCommand extends Command
                 $processo->setNumeroProcesso($numero);
             }
 
+            $processosPorNumero[$numero] = $processo;
+
             $processo->setContrato($contrato);
             $this->mapper->mapFromSource($processo, $source);
+            $this->resolveProcessoPaiFromBatch($processo, $processosPorNumero);
 
             $this->entityManager->persist($processo);
         }
@@ -93,5 +98,25 @@ class AtualizarProcessoDatajudCommand extends Command
         $output->writeln('<info>Processo atualizado com sucesso.</info>');
 
         return Command::SUCCESS;
+    }
+
+    /**
+     * @param array<string, Processo> $processosPorNumero
+     */
+    private function resolveProcessoPaiFromBatch(Processo $processo, array $processosPorNumero): void
+    {
+        if ($processo->getProcessoPaiRef() !== null) {
+            return;
+        }
+
+        $numeroPai = $processo->getProcessoPai();
+        if ($numeroPai === null || $numeroPai === '' || $numeroPai === $processo->getNumeroProcesso()) {
+            return;
+        }
+
+        $paiNoLote = $processosPorNumero[$numeroPai] ?? null;
+        if ($paiNoLote !== null) {
+            $processo->setProcessoPaiRef($paiNoLote);
+        }
     }
 }

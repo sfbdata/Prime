@@ -1,0 +1,57 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gestão de Tarefas{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Gestão de Tarefas</h2>
+        <a href="{{ path('tarefa_new') }}" class="btn btn-success">Nova Tarefa</a>
+    </div>
+
+    {% if tarefas|length > 0 %}
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Título</th>
+                    <th>Status</th>
+                    <th>Prazo</th>
+                    <th>Processo</th>
+                    <th>Atribuições</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for tarefa in tarefas %}
+                <tr>
+                    <td>{{ tarefa.titulo }}</td>
+                    <td>
+                        <span class="badge {% if tarefa.status == 'concluida' %}bg-success{% elseif tarefa.status == 'em_revisao' %}bg-warning text-dark{% elseif tarefa.status == 'reaberta' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ tarefa.status|replace({'_': ' '})|upper }}
+                        </span>
+                    </td>
+                    <td>{{ tarefa.prazo ? tarefa.prazo|date('d/m/Y H:i') : '-' }}</td>
+                    <td>
+                        {% if tarefa.processo %}
+                            <a href="{{ path('processo_show', {id: tarefa.processo.id}) }}">{{ tarefa.processo.numeroProcesso }}</a>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% for atr in tarefa.atribuicoes %}
+                            <div>{{ atr.usuario.fullName }} ({{ atr.status|replace({'_': ' '}) }})</div>
+                        {% endfor %}
+                    </td>
+                    <td>
+                        <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="btn btn-sm btn-primary">Detalhes</a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-info">Nenhuma tarefa cadastrada.</div>
+    {% endif %}
+</div>
+{% endblock %}

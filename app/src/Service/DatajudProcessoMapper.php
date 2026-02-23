@@ -5,9 +5,15 @@ namespace App\Service;
 use App\Entity\Processo\MovimentacaoProcesso;
 use App\Entity\Processo\ParteProcesso;
 use App\Entity\Processo\Processo;
+use App\Repository\ProcessoRepository;
 
 class DatajudProcessoMapper
 {
+    public function __construct(
+        private readonly ProcessoRepository $processoRepository
+    ) {
+    }
+
     public function mapFromSource(Processo $processo, array $source): Processo
     {
         $processo->setNumeroProcesso((string) ($source['numeroProcesso'] ?? $processo->getNumeroProcesso()));
@@ -21,7 +27,7 @@ class DatajudProcessoMapper
         $processo->setAssuntoProcessual($this->stringOrDefault($this->resolveAssunto($source['assuntos'] ?? null)));
         $processo->setSituacaoProcesso($this->stringOrDefault($source['situacaoProcesso'] ?? $source['situacao'] ?? 'EM_ANDAMENTO'));
         $processo->setInstancia($this->stringOrDefault($source['grau'] ?? $source['instancia'] ?? 'G1'));
-        $processo->setProcessoPai($source['processoPai'] ?? null);
+        $this->mapProcessoPai($processo, $source);
 
         $processo->setDataDistribuicao($this->parseDateOnly($source['dataAjuizamento'] ?? $source['dataDistribuicao'] ?? null));
         $processo->setDataBaixa($this->parseDateOnly($source['dataBaixa'] ?? null));
@@ -31,6 +37,28 @@ class DatajudProcessoMapper
         $this->replaceMovimentacoes($processo, $source['movimentos'] ?? $source['movimentacoes'] ?? []);
 
         return $processo;
+    }
+
+    private function mapProcessoPai(Processo $processo, array $source): void
+    {
+        $processoPaiNumero = $source['processoPai'] ?? null;
+
+        if (!is_string($processoPaiNumero) || trim($processoPaiNumero) === '') {
+            $processo->setProcessoPai(null);
+            $processo->setProcessoPaiRef(null);
+            return;
+        }
+
+        $processoPaiNumero = trim($processoPaiNumero);
+        $processo->setProcessoPai($processoPaiNumero);
+
+        if ($processoPaiNumero === $processo->getNumeroProcesso()) {
+            $processo->setProcessoPaiRef(null);
+            return;
+        }
+
+        $processoPai = $this->processoRepository->findOneBy(['numeroProcesso' => $processoPaiNumero]);
+        $processo->setProcessoPaiRef($processoPai);
     }
 
     private function replacePartes(Processo $processo, array $partes): void
