@@ -55,7 +55,7 @@ class Processo
     private ?\DateTimeImmutable $dataAtualizacao = null;
 
     #[ORM\ManyToOne(targetEntity: Contrato::class, inversedBy: 'processos')]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: true)]
     private ?Contrato $contrato = null;
 
     public function __construct()

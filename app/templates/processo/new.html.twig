@@ -1,0 +1,857 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cadastrar Processo{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="mb-3">
+        <a href="{{ path('processo_index') }}" class="btn btn-secondary">← Voltar aos Processos</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Cadastrar Novo Processo</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" id="processoForm">
+                <!-- Seleção de Cliente com Pesquisa (Select2) -->
+                <div class="mb-3">
+                    <label for="cliente_id" class="form-label">Cliente</label>
+                    <select id="cliente_id" name="cliente_id" class="form-control select2-search">
+                        <option value="">SELECIONE UM CLIENTE (opcional)</option>
+                        {% for cliente in clientes %}
+                            <option value="{{ cliente.id }}" data-contratos="{{ cliente.contratos|map(c => c.id)|join(',') }}" data-nome="{% if cliente.cpf is defined %}{{ cliente.nomeCompleto }}{% else %}{{ cliente.razaoSocial }}{% endif %}" data-documento="{% if cliente.cpf is defined %}{{ cliente.cpf }}{% else %}{{ cliente.cnpj }}{% endif %}">
+                                {% if cliente.cpf is defined %}
+                                    {{ cliente.nomeCompleto }} ({{ cliente.cpf }})
+                                {% else %}
+                                    {{ cliente.razaoSocial }} ({{ cliente.cnpj }})
+                                {% endif %}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Seleção de Contrato -->
+                <div class="mb-3">
+                    <label for="contrato_id" class="form-label">Contrato Associado (opcional)</label>
+                    <select id="contrato_id" name="contrato_id" class="form-control">
+                        <option value="">SELECIONE UM CONTRATO (opcional)</option>
+                        {% for contrato in contratos %}
+                            <option value="{{ contrato.id }}" data-cliente-ids="{{ contrato.clientes|map(c => c.id)|join(',') }}">{{ contrato.nomeArquivo }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <hr>
+
+                <!-- Informações Principais do Processo -->
+                <h5>Informações do Processo</h5>
+
+                <div class="row mb-3">
+                    <div class="col-md-8">
+                        <label for="numeroProcesso" class="form-label">Número do Processo</label>
+                        <input type="text" id="numeroProcesso" name="numeroProcesso" class="form-control" placeholder="Ex: 1234567-89.2024.1.23.4567" required>
+                        <small class="form-text text-muted">Formato: NNNNNNN-DD.AAAA.J.TT.OOOO</small>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="btn-datajud" class="form-label">&nbsp;</label>
+                        <button id="btn-datajud" type="button" class="btn btn-info w-100" data-bs-toggle="tooltip" title="Busca o processo na base de dados do CNJ">
+                            <i class="bi bi-search"></i> Buscar no CNJ
+                        </button>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="siglaTribunal" class="form-label">Sigla do Tribunal (para busca)</label>
+                        <select id="siglaTribunal" name="siglaTribunal" class="form-control select2-tribunal" required>
+                            <optgroup label="Tribunais Superiores">
+                                <option value="tst">TST - Tribunal Superior do Trabalho</option>
+                                <option value="tse">TSE - Tribunal Superior Eleitoral</option>
+                                <option value="stj">STJ - Superior Tribunal de Justiça</option>
+                                <option value="stm">STM - Superior Tribunal Militar</option>
+                            </optgroup>
+                            <optgroup label="Justiça Federal">
+                                <option value="trf1">TRF1 - Tribunal Regional Federal 1ª Região</option>
+                                <option value="trf2">TRF2 - Tribunal Regional Federal 2ª Região</option>
+                                <option value="trf3">TRF3 - Tribunal Regional Federal 3ª Região</option>
+                                <option value="trf4">TRF4 - Tribunal Regional Federal 4ª Região</option>
+                                <option value="trf5">TRF5 - Tribunal Regional Federal 5ª Região</option>
+                                <option value="trf6">TRF6 - Tribunal Regional Federal 6ª Região</option>
+                            </optgroup>
+                            <optgroup label="Justiça Estadual">
+                                <option value="tjac">TJAC - Tribunal de Justiça do Acre</option>
+                                <option value="tjal">TJAL - Tribunal de Justiça de Alagoas</option>
+                                <option value="tjam">TJAM - Tribunal de Justiça do Amazonas</option>
+                                <option value="tjap">TJAP - Tribunal de Justiça de Amapá</option>
+                                <option value="tjba">TJBA - Tribunal de Justiça da Bahia</option>
+                                <option value="tjce">TJCE - Tribunal de Justiça do Ceará</option>
+                                <option value="tjdft" selected>TJDFT - Tribunal de Justiça do Distrito Federal e Territórios</option>
+                                <option value="tjes">TJES - Tribunal de Justiça do Espírito Santo</option>
+                                <option value="tjgo">TJGO - Tribunal de Justiça de Goiás</option>
+                                <option value="tjma">TJMA - Tribunal de Justiça do Maranhão</option>
+                                <option value="tjmg">TJMG - Tribunal de Justiça de Minas Gerais</option>
+                                <option value="tjms">TJMS - Tribunal de Justiça do Mato Grosso do Sul</option>
+                                <option value="tjmt">TJMT - Tribunal de Justiça do Mato Grosso</option>
+                                <option value="tjpa">TJPA - Tribunal de Justiça do Pará</option>
+                                <option value="tjpb">TJPB - Tribunal de Justiça da Paraíba</option>
+                                <option value="tjpe">TJPE - Tribunal de Justiça de Pernambuco</option>
+                                <option value="tjpi">TJPI - Tribunal de Justiça do Piauí</option>
+                                <option value="tjpr">TJPR - Tribunal de Justiça do Paraná</option>
+                                <option value="tjrj">TJRJ - Tribunal de Justiça do Rio de Janeiro</option>
+                                <option value="tjrn">TJRN - Tribunal de Justiça do Rio Grande do Norte</option>
+                                <option value="tjro">TJRO - Tribunal de Justiça de Rondônia</option>
+                                <option value="tjrr">TJRR - Tribunal de Justiça de Roraima</option>
+                                <option value="tjrs">TJRS - Tribunal de Justiça do Rio Grande do Sul</option>
+                                <option value="tjsc">TJSC - Tribunal de Justiça de Santa Catarina</option>
+                                <option value="tjse">TJSE - Tribunal de Justiça de Sergipe</option>
+                                <option value="tjsp">TJSP - Tribunal de Justiça de São Paulo</option>
+                                <option value="tjto">TJTO - Tribunal de Justiça do Tocantins</option>
+                            </optgroup>
+                            <optgroup label="Justiça do Trabalho">
+                                <option value="trt1">TRT1 - Tribunal Regional do Trabalho 1ª Região</option>
+                                <option value="trt2">TRT2 - Tribunal Regional do Trabalho 2ª Região</option>
+                                <option value="trt3">TRT3 - Tribunal Regional do Trabalho 3ª Região</option>
+                                <option value="trt4">TRT4 - Tribunal Regional do Trabalho 4ª Região</option>
+                                <option value="trt5">TRT5 - Tribunal Regional do Trabalho 5ª Região</option>
+                                <option value="trt6">TRT6 - Tribunal Regional do Trabalho 6ª Região</option>
+                                <option value="trt7">TRT7 - Tribunal Regional do Trabalho 7ª Região</option>
+                                <option value="trt8">TRT8 - Tribunal Regional do Trabalho 8ª Região</option>
+                                <option value="trt9">TRT9 - Tribunal Regional do Trabalho 9ª Região</option>
+                                <option value="trt10">TRT10 - Tribunal Regional do Trabalho 10ª Região</option>
+                                <option value="trt11">TRT11 - Tribunal Regional do Trabalho 11ª Região</option>
+                                <option value="trt12">TRT12 - Tribunal Regional do Trabalho 12ª Região</option>
+                                <option value="trt13">TRT13 - Tribunal Regional do Trabalho 13ª Região</option>
+                                <option value="trt14">TRT14 - Tribunal Regional do Trabalho 14ª Região</option>
+                                <option value="trt15">TRT15 - Tribunal Regional do Trabalho 15ª Região</option>
+                                <option value="trt16">TRT16 - Tribunal Regional do Trabalho 16ª Região</option>
+                                <option value="trt17">TRT17 - Tribunal Regional do Trabalho 17ª Região</option>
+                                <option value="trt18">TRT18 - Tribunal Regional do Trabalho 18ª Região</option>
+                                <option value="trt19">TRT19 - Tribunal Regional do Trabalho 19ª Região</option>
+                                <option value="trt20">TRT20 - Tribunal Regional do Trabalho 20ª Região</option>
+                                <option value="trt21">TRT21 - Tribunal Regional do Trabalho 21ª Região</option>
+                                <option value="trt22">TRT22 - Tribunal Regional do Trabalho 22ª Região</option>
+                                <option value="trt23">TRT23 - Tribunal Regional do Trabalho 23ª Região</option>
+                                <option value="trt24">TRT24 - Tribunal Regional do Trabalho 24ª Região</option>
+                            </optgroup>
+                            <optgroup label="Justiça Eleitoral">
+                                <option value="tre-ac">TRE-AC - Tribunal Regional Eleitoral do Acre</option>
+                                <option value="tre-al">TRE-AL - Tribunal Regional Eleitoral de Alagoas</option>
+                                <option value="tre-am">TRE-AM - Tribunal Regional Eleitoral do Amazonas</option>
+                                <option value="tre-ap">TRE-AP - Tribunal Regional Eleitoral de Amapá</option>
+                                <option value="tre-ba">TRE-BA - Tribunal Regional Eleitoral da Bahia</option>
+                                <option value="tre-ce">TRE-CE - Tribunal Regional Eleitoral do Ceará</option>
+                                <option value="tre-dft">TRE-DFT - Tribunal Regional Eleitoral do DF</option>
+                                <option value="tre-es">TRE-ES - Tribunal Regional Eleitoral do Espírito Santo</option>
+                                <option value="tre-go">TRE-GO - Tribunal Regional Eleitoral de Goiás</option>
+                                <option value="tre-ma">TRE-MA - Tribunal Regional Eleitoral do Maranhão</option>
+                                <option value="tre-mg">TRE-MG - Tribunal Regional Eleitoral de Minas Gerais</option>
+                                <option value="tre-ms">TRE-MS - Tribunal Regional Eleitoral do Mato Grosso do Sul</option>
+                                <option value="tre-mt">TRE-MT - Tribunal Regional Eleitoral do Mato Grosso</option>
+                                <option value="tre-pa">TRE-PA - Tribunal Regional Eleitoral do Pará</option>
+                                <option value="tre-pb">TRE-PB - Tribunal Regional Eleitoral da Paraíba</option>
+                                <option value="tre-pe">TRE-PE - Tribunal Regional Eleitoral de Pernambuco</option>
+                                <option value="tre-pi">TRE-PI - Tribunal Regional Eleitoral do Piauí</option>
+                                <option value="tre-pr">TRE-PR - Tribunal Regional Eleitoral do Paraná</option>
+                                <option value="tre-rj">TRE-RJ - Tribunal Regional Eleitoral do Rio de Janeiro</option>
+                                <option value="tre-rn">TRE-RN - Tribunal Regional Eleitoral do Rio Grande do Norte</option>
+                                <option value="tre-ro">TRE-RO - Tribunal Regional Eleitoral de Rondônia</option>
+                                <option value="tre-rr">TRE-RR - Tribunal Regional Eleitoral de Roraima</option>
+                                <option value="tre-rs">TRE-RS - Tribunal Regional Eleitoral do Rio Grande do Sul</option>
+                                <option value="tre-sc">TRE-SC - Tribunal Regional Eleitoral de Santa Catarina</option>
+                                <option value="tre-se">TRE-SE - Tribunal Regional Eleitoral de Sergipe</option>
+                                <option value="tre-sp">TRE-SP - Tribunal Regional Eleitoral de São Paulo</option>
+                                <option value="tre-to">TRE-TO - Tribunal Regional Eleitoral do Tocantins</option>
+                            </optgroup>
+                            <optgroup label="Justiça Militar">
+                                <option value="tjmmg">TJMMG - Tribunal de Justiça Militar de Minas Gerais</option>
+                                <option value="tjmrs">TJMRS - Tribunal de Justiça Militar do Rio Grande do Sul</option>
+                                <option value="tjmsp">TJMSP - Tribunal de Justiça Militar de São Paulo</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="orgaoJulgador" class="form-label">Órgão Julgador</label>
+                        <input type="text" id="orgaoJulgador" name="orgaoJulgador" class="form-control" required>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="classeProcessual" class="form-label">Classe Processual</label>
+                        <input type="text" id="classeProcessual" name="classeProcessual" class="form-control" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="assuntoProcessual" class="form-label">Assunto Processual</label>
+                        <input type="text" id="assuntoProcessual" name="assuntoProcessual" class="form-control" required>
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="situacaoProcesso" class="form-label">Situação</label>
+                        <select id="situacaoProcesso" name="situacaoProcesso" class="form-control" required>
+                            <option value="EM_ANDAMENTO">Em Andamento</option>
+                            <option value="ENCERRADO">Encerrado</option>
+                            <option value="SUSPENSO">Suspenso</option>
+                            <option value="PARALISADO">Paralisado</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="instancia" class="form-label">Instância</label>
+                        <select id="instancia" name="instancia" class="form-control" required>
+                            <option value="G1">G1 - Primeira Instância</option>
+                            <option value="G2">G2 - Segunda Instância</option>
+                            <option value="ST">ST - Superior Tribunal</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="dataDistribuicao" class="form-label">Data Distribuição</label>
+                        <input type="date" id="dataDistribuicao" name="dataDistribuicao" class="form-control">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="dataBaixa" class="form-label">Data Baixa</label>
+                    <input type="date" id="dataBaixa" name="dataBaixa" class="form-control">
+                </div>
+
+                <hr>
+
+                <!-- Partes do Processo -->
+                <h5>Partes do Processo</h5>
+                <div id="partesContainer" class="mb-3">
+                    <div class="parte-row card mb-2 p-3">
+                        <div class="row mb-2">
+                            <div class="col-md-3">
+                                <label class="form-label">Tipo</label>
+                                <select name="partes[0][tipo]" class="form-control">
+                                    <option value="PARTE">Parte</option>
+                                    <option value="ADVOGADO">Advogado</option>
+                                    <option value="JUIZ">Juiz</option>
+                                    <option value="PROMOTOR">Promotor</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Nome</label>
+                                <input type="text" name="partes[0][nome]" class="form-control parte-nome" placeholder="Nome da parte">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Documento</label>
+                                <input type="text" name="partes[0][documento]" class="form-control" placeholder="CPF/CNPJ">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Papel</label>
+                                <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: none;">Remover</button>
+                    </div>
+                </div>
+                <button type="button" id="btn-add-parte" class="btn btn-sm btn-primary mb-3">+ Adicionar Parte</button>
+
+                <hr>
+
+                <!-- Movimentações -->
+                <h5>Movimentações do Processo</h5>
+                <div id="movimentacoesContainer" class="mb-3">
+                    <div class="movimentacao-row card mb-2 p-3">
+                        <div class="row mb-2">
+                            <div class="col-md-3">
+                                <label class="form-label">Data</label>
+                                <input type="date" name="movimentacoes[0][dataMovimentacao]" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Descrição</label>
+                                <input type="text" name="movimentacoes[0][descricao]" class="form-control mov-descricao" placeholder="Descrição da movimentação" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Tipo</label>
+                                <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="Tipo de movimento">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Órgão</label>
+                                <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger remove-movimentacao" style="display: none;">Remover</button>
+                    </div>
+                </div>
+                <button type="button" id="btn-add-movimentacao" class="btn btn-sm btn-primary mb-3">+ Adicionar Movimentação</button>
+
+                <hr>
+
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-success">Salvar Processo</button>
+                    <a href="{{ path('processo_index') }}" class="btn btn-secondary">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de carregamento durante busca -->
+<div id="loadingModal" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Buscando...</span>
+                </div>
+                <p class="mt-3">Buscando processo no DataJud...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Erro Customizado -->
+<div id="errorModal" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">❌ Erro na Busca DataJud</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+                <p id="errorMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="copyErrorBtn">📋 Copiar Texto</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar Select2 para o campo de cliente
+    $('.select2-search').select2({
+        width: '100%',
+        placeholder: 'SELECIONE UM CLIENTE (opcional)',
+        allowClear: true,
+        language: {
+            noResults: function() {
+                return 'Nenhum cliente encontrado';
+            }
+        }
+    });
+
+    // Inicializar Select2 para o campo de tribunal
+    $('.select2-tribunal').select2({
+        width: '100%',
+        placeholder: 'Selecione um tribunal',
+        language: {
+            noResults: function() {
+                return 'Nenhum tribunal encontrado';
+            }
+        }
+    });
+
+    // Filtrar contratos por cliente
+    const clienteSelect = document.getElementById('cliente_id');
+    const contratoSelect = document.getElementById('contrato_id');
+    
+    // Guardar as opções originais (incluindo a de seleção)
+    const originalContratoOptions = Array.from(contratoSelect.querySelectorAll('option'));
+
+    clienteSelect.addEventListener('change', function() {
+        const selectedClienteId = this.value;
+        
+        // Remover TODAS as opções de contrato (exceto a primeira)
+        const currentOptions = contratoSelect.querySelectorAll('option');
+        for (let i = currentOptions.length - 1; i > 0; i--) {
+            currentOptions[i].remove();
+        }
+
+        // Se nenhum cliente foi selecionado, mostrar todos os contratos
+        if (!selectedClienteId) {
+            // Adicionar todas as opções originais (menos a primeira que será a padrão)
+            originalContratoOptions.slice(1).forEach(option => {
+                contratoSelect.appendChild(option.cloneNode(true));
+            });
+            contratoSelect.value = '';
+            return;
+        }
+
+        // Adicionar apenas contratos que pertencem ao cliente selecionado
+        originalContratoOptions.slice(1).forEach(option => {
+            const clienteIds = (option.dataset.clienteIds || '').split(',').filter(id => id);
+            if (clienteIds.includes(selectedClienteId)) {
+                contratoSelect.appendChild(option.cloneNode(true));
+            }
+        });
+
+        // Limpar seleção
+        contratoSelect.value = '';
+    });
+
+    // Adicionar parte
+    document.getElementById('btn-add-parte').addEventListener('click', function() {
+        const container = document.getElementById('partesContainer');
+        const index = container.querySelectorAll('.parte-row').length;
+        const html = `
+            <div class="parte-row card mb-2 p-3">
+                <div class="row mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Tipo</label>
+                        <select name="partes[${index}][tipo]" class="form-control">
+                            <option value="PARTE">Parte</option>
+                            <option value="ADVOGADO">Advogado</option>
+                            <option value="JUIZ">Juiz</option>
+                            <option value="PROMOTOR">Promotor</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label">Nome</label>
+                        <input type="text" name="partes[${index}][nome]" class="form-control parte-nome" placeholder="Nome da parte">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Documento</label>
+                        <input type="text" name="partes[${index}][documento]" class="form-control" placeholder="CPF/CNPJ">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Papel</label>
+                        <input type="text" name="partes[${index}][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger remove-parte">Remover</button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+        attachRemoveParteListener();
+    });
+
+    // Remover parte
+    function attachRemoveParteListener() {
+        document.querySelectorAll('.remove-parte').forEach(btn => {
+            btn.removeEventListener('click', removeParteFn);
+            btn.addEventListener('click', removeParteFn);
+        });
+        updateRemoveButtons();
+    }
+
+    function removeParteFn(e) {
+        e.preventDefault();
+        e.target.closest('.parte-row').remove();
+        updateRemoveButtons();
+    }
+
+    // Adicionar movimentação
+    document.getElementById('btn-add-movimentacao').addEventListener('click', function() {
+        const container = document.getElementById('movimentacoesContainer');
+        const index = container.querySelectorAll('.movimentacao-row').length;
+        const html = `
+            <div class="movimentacao-row card mb-2 p-3">
+                <div class="row mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Data</label>
+                        <input type="date" name="movimentacoes[${index}][dataMovimentacao]" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Descrição</label>
+                        <input type="text" name="movimentacoes[${index}][descricao]" class="form-control mov-descricao" placeholder="Descrição da movimentação" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Tipo</label>
+                        <input type="text" name="movimentacoes[${index}][tipo]" class="form-control" placeholder="Tipo de movimento">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Órgão</label>
+                        <input type="text" name="movimentacoes[${index}][orgao]" class="form-control" placeholder="Órgão">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger remove-movimentacao">Remover</button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+        attachRemoveMovimentacaoListener();
+        sortarMovimentacoesPorData();
+    });
+
+    // Remover movimentação
+    function attachRemoveMovimentacaoListener() {
+        document.querySelectorAll('.remove-movimentacao').forEach(btn => {
+            btn.removeEventListener('click', removeMovimentacaoFn);
+            btn.addEventListener('click', removeMovimentacaoFn);
+        });
+        updateRemoveButtons();
+    }
+
+    function removeMovimentacaoFn(e) {
+        e.preventDefault();
+        e.target.closest('.movimentacao-row').remove();
+        updateRemoveButtons();
+    }
+
+    // Atualizar visibilidade do botão remover
+    function updateRemoveButtons() {
+        const partes = document.querySelectorAll('.parte-row').length;
+        document.querySelectorAll('.remove-parte').forEach((btn, idx) => {
+            btn.style.display = partes > 1 ? 'block' : 'none';
+        });
+
+        const movs = document.querySelectorAll('.movimentacao-row').length;
+        document.querySelectorAll('.remove-movimentacao').forEach((btn, idx) => {
+            btn.style.display = movs > 1 ? 'block' : 'none';
+        });
+    }
+
+    // Ordenar movimentações por data decrescente
+    function sortarMovimentacoesPorData() {
+        const container = document.getElementById('movimentacoesContainer');
+        const movimentacoes = Array.from(container.querySelectorAll('.movimentacao-row'));
+        
+        movimentacoes.sort((a, b) => {
+            const dataInputA = a.querySelector('input[name*="dataMovimentacao"]').value;
+            const dataInputB = b.querySelector('input[name*="dataMovimentacao"]').value;
+            
+            // Se uma data está vazia, coloca no final
+            if (!dataInputA && !dataInputB) return 0;
+            if (!dataInputA) return 1;
+            if (!dataInputB) return -1;
+            
+            // Compara as datas em ordem decrescente (mais recentes primeiro)
+            return new Date(dataInputB) - new Date(dataInputA);
+        });
+        
+        // Reposicionar elementos no DOM e atualizar índices
+        movimentacoes.forEach((mov, idx) => {
+            container.appendChild(mov);
+            // Atualizar os nomes dos campos com o novo índice
+            mov.querySelectorAll('input, select').forEach(field => {
+                const name = field.getAttribute('name');
+                if (name) {
+                    field.setAttribute('name', name.replace(/\[\d+\]/, `[${idx}]`));
+                }
+            });
+        });
+    }
+
+    // Função para mostrar erro em modal
+    function showErrorModal(errorMsg) {
+        const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+        document.getElementById('errorMessage').innerHTML = errorMsg.replace(/\n/g, '<br>');
+        errorModal.show();
+    }
+
+    // Botão para copiar erro
+    document.getElementById('copyErrorBtn').addEventListener('click', function() {
+        const errorText = document.getElementById('errorMessage').innerText;
+        navigator.clipboard.writeText(errorText).then(() => {
+            alert('✅ Erro copiado para a área de transferência!');
+        }).catch(() => {
+            alert('❌ Erro ao copiar para a área de transferência');
+        });
+    });
+
+    // Buscar no DataJud
+    const btnDataJud = document.getElementById('btn-datajud');
+    console.log('🔍 Elemento btn-datajud encontrado:', btnDataJud);
+    
+    if (!btnDataJud) {
+        console.error('❌ Erro: Elemento btn-datajud NÃO ENCONTRADO no DOM!');
+    } else {
+        btnDataJud.addEventListener('click', async function(e) {
+            e.preventDefault();
+            console.log('✅ Clique em Buscar CNJ detectado');
+            
+            const numeroProcesso = document.getElementById('numeroProcesso').value;
+            const siglaTribunal = document.getElementById('siglaTribunal').value;
+
+            console.log('Número do Processo:', numeroProcesso);
+            console.log('Sigla do Tribunal:', siglaTribunal);
+
+            if (!numeroProcesso) {
+                showErrorModal('Informe o número do processo');
+                return;
+            }
+
+            if (!siglaTribunal) {
+                showErrorModal('Informe a sigla do tribunal');
+                return;
+            }
+
+            // Mostrar modal de carregamento
+            const modal = new bootstrap.Modal(document.getElementById('loadingModal'));
+        modal.show();
+
+        try {
+            const response = await fetch('{{ path("api_datajud_search") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    numeroProcesso: numeroProcesso,
+                    tribunalAlias: siglaTribunal.toLowerCase(),
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                modal.hide();
+                let errorMsg = data.error || 'Erro ao buscar processo';
+                if (data.debug) {
+                    console.error('🔴 Erro DataJud - Debug Response:', data.debug);
+                    errorMsg += '\n\n⚠️ Informações de Debug:\n';
+                    errorMsg += '• Número do Processo: ' + (data.debug.numeroProcesso || 'N/A') + '\n';
+                    errorMsg += '• Tribunal Alias: ' + (data.debug.tribunalAlias || 'N/A') + '\n';
+                    if (data.debug.apiError) {
+                        errorMsg += '• Erro da API: ' + JSON.stringify(data.debug.apiError) + '\n';
+                    }
+                    errorMsg += '\n📋 Verifique o console (F12) para a resposta completa.';
+                    if (data.debug.fullResponse) {
+                        console.table(data.debug.fullResponse);
+                    }
+                }
+                showErrorModal(errorMsg);
+                return;
+            }
+
+            if (!data.success) {
+                modal.hide();
+                let errorMsg = data.error || 'Erro ao buscar processo';
+                if (data.debug) {
+                    console.error('🔴 Erro DataJud - Debug Response:', data.debug);
+                    errorMsg += '\n\n⚠️ Informações de Debug:\n';
+                    errorMsg += '• Número do Processo: ' + (data.debug.numeroProcesso || 'N/A') + '\n';
+                    errorMsg += '• Tribunal Alias: ' + (data.debug.tribunalAlias || 'N/A') + '\n';
+                    if (data.debug.hitsCount !== undefined) {
+                        errorMsg += `• Total de resultados encontrados: ${data.debug.hitsCount}\n`;
+                    }
+                    errorMsg += '\n✅ Dicas:\n';
+                    errorMsg += '• O número de processo está correto?\n';
+                    errorMsg += '• O tribunal alias está em minúsculas?\n';
+                    errorMsg += '• Abra o console (F12) para ver a resposta completa.';
+                    if (data.debug.fullResponse) {
+                        console.table(data.debug.fullResponse);
+                    }
+                }
+                showErrorModal(errorMsg);
+                return;
+            }
+
+            // Preencher formulário com dados
+            const processData = data.data;
+            document.getElementById('orgaoJulgador').value = processData.orgaoJulgador || '';
+            document.getElementById('classeProcessual').value = processData.classeProcessual || '';
+            document.getElementById('assuntoProcessual').value = processData.assuntoProcessual || '';
+            document.getElementById('situacaoProcesso').value = processData.situacaoProcesso || 'EM_ANDAMENTO';
+            document.getElementById('instancia').value = processData.instancia || 'G1';
+            document.getElementById('dataDistribuicao').value = processData.dataDistribuicao || '';
+            document.getElementById('dataBaixa').value = processData.dataBaixa || '';
+
+            // Limpar e preencher partes
+            const partesContainer = document.getElementById('partesContainer');
+            partesContainer.innerHTML = '';
+            
+            if (processData.partes && processData.partes.length > 0) {
+                processData.partes.forEach((parte, idx) => {
+                    const html = `
+                        <div class="parte-row card mb-2 p-3">
+                            <div class="row mb-2">
+                                <div class="col-md-3">
+                                    <label class="form-label">Tipo</label>
+                                    <select name="partes[${idx}][tipo]" class="form-control">
+                                        <option value="PARTE" ${parte.tipo === 'PARTE' ? 'selected' : ''}>Parte</option>
+                                        <option value="ADVOGADO" ${parte.tipo === 'ADVOGADO' ? 'selected' : ''}>Advogado</option>
+                                        <option value="JUIZ" ${parte.tipo === 'JUIZ' ? 'selected' : ''}>Juiz</option>
+                                        <option value="PROMOTOR" ${parte.tipo === 'PROMOTOR' ? 'selected' : ''}>Promotor</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label">Nome</label>
+                                    <input type="text" name="partes[${idx}][nome]" class="form-control parte-nome" value="${parte.nome || ''}" placeholder="Nome da parte">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Documento</label>
+                                    <input type="text" name="partes[${idx}][documento]" class="form-control" value="${parte.documento || ''}" placeholder="CPF/CNPJ">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Papel</label>
+                                    <input type="text" name="partes[${idx}][papel]" class="form-control" value="${parte.papel || ''}" placeholder="Polo ativo/passivo">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: ${processData.partes.length > 1 ? 'block' : 'none'};">Remover</button>
+                        </div>
+                    `;
+                    partesContainer.insertAdjacentHTML('beforeend', html);
+                });
+            } else {
+                partesContainer.innerHTML = `
+                    <div class="parte-row card mb-2 p-3">
+                        <div class="row mb-2">
+                            <div class="col-md-3">
+                                <label class="form-label">Tipo</label>
+                                <select name="partes[0][tipo]" class="form-control">
+                                    <option value="PARTE">Parte</option>
+                                    <option value="ADVOGADO">Advogado</option>
+                                    <option value="JUIZ">Juiz</option>
+                                    <option value="PROMOTOR">Promotor</option>
+                                </select>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label">Nome</label>
+                                <input type="text" name="partes[0][nome]" class="form-control parte-nome" placeholder="Nome da parte">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Documento</label>
+                                <input type="text" name="partes[0][documento]" class="form-control" placeholder="CPF/CNPJ">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Papel</label>
+                                <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: none;">Remover</button>
+                    </div>
+                `;
+            }
+
+            // Limpar e preencher movimentações
+            const movimentacoesContainer = document.getElementById('movimentacoesContainer');
+            movimentacoesContainer.innerHTML = '';
+
+            if (processData.movimentacoes && processData.movimentacoes.length > 0) {
+                processData.movimentacoes.forEach((mov, idx) => {
+                    const html = `
+                        <div class="movimentacao-row card mb-2 p-3">
+                            <div class="row mb-2">
+                                <div class="col-md-3">
+                                    <label class="form-label">Data</label>
+                                    <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control" value="${mov.dataMovimentacao || ''}">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Descrição</label>
+                                    <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control mov-descricao" value="${mov.descricao || ''}" placeholder="Descrição da movimentação" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Tipo</label>
+                                    <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mov.tipo || ''}" placeholder="Tipo de movimento">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label">Órgão</label>
+                                    <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mov.orgao || ''}" placeholder="Órgão">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-movimentacao" style="display: ${processData.movimentacoes.length > 1 ? 'block' : 'none'};">Remover</button>
+                        </div>
+                    `;
+                    movimentacoesContainer.insertAdjacentHTML('beforeend', html);
+                });
+            } else {
+                movimentacoesContainer.innerHTML = `
+                    <div class="movimentacao-row card mb-2 p-3">
+                        <div class="row mb-2">
+                            <div class="col-md-3">
+                                <label class="form-label">Data</label>
+                                <input type="date" name="movimentacoes[0][dataMovimentacao]" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Descrição</label>
+                                <input type="text" name="movimentacoes[0][descricao]" class="form-control mov-descricao" placeholder="Descrição da movimentação" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Tipo</label>
+                                <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="Tipo de movimento">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Órgão</label>
+                                <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
+                            </div>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-danger remove-movimentacao" style="display: none;">Remover</button>
+                    </div>
+                `;
+            }
+
+            attachRemoveParteListener();
+            attachRemoveMovimentacaoListener();
+            sortarMovimentacoesPorData();
+
+            modal.hide();
+            showErrorModal('✅ <strong>Processo carregado com sucesso!</strong><br>Os dados foram preenchidos no formulário. Você pode editá-los se necessário antes de salvar.');
+
+        } catch (error) {
+            modal.hide();
+            console.error('Error:', error);
+            showErrorModal('❌ <strong>Erro ao buscar processo:</strong><br>' + error.message);
+        }
+        });
+    }
+
+    // Inicializar listeners
+    attachRemoveParteListener();
+    attachRemoveMovimentacaoListener();
+});
+</script>
+
+<style>
+.bi::before {
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+/* Estilos customizados para Select2 */
+.select2-container--default .select2-selection--single {
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+    height: 38px;
+    padding: 6px 12px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 1.5;
+    padding-left: 0;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px;
+    right: 1px;
+}
+
+.select2-container--default .select2-search--dropdown .select2-search__field {
+    border: 1px solid #ced4da;
+    border-radius: 0.25rem;
+}
+
+.select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #0d6efd;
+}
+
+.select2-container--focus .select2-selection {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Barra de rolagem para movimentações */
+#movimentacoesContainer {
+    max-height: 500px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem;
+    padding: 10px;
+    background-color: #f8f9fa;
+}
+
+#movimentacoesContainer::-webkit-scrollbar {
+    width: 8px;
+}
+
+#movimentacoesContainer::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+#movimentacoesContainer::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+}
+
+#movimentacoesContainer::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+{% endblock %}

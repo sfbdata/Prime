@@ -1,0 +1,83 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Contratos{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h2 class="mb-4">Contratos</h2>
+
+    <div class="mb-3">
+        <a href="{{ path('cliente_index') }}" class="btn btn-secondary">← Voltar aos Clientes</a>
+    </div>
+
+    {% if contratos|length > 0 %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nome do Arquivo</th>
+                <th>Status</th>
+                <th>Clientes Associados</th>
+                <th>Processos</th>
+                <th>Criado em</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for contrato in contratos %}
+                <tr>
+                    <td>{{ contrato.nomeArquivo }}</td>
+                    <td>
+                        {% if contrato.status == 'ATIVO' %}
+                            <span class="badge bg-success">{{ contrato.status }}</span>
+                        {% else %}
+                            <span class="badge bg-danger">{{ contrato.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contrato.clientes|length > 0 %}
+                            <ul class="mb-0" style="list-style: none; padding: 0;">
+                                {% for cliente in contrato.clientes %}
+                                    <li>
+                                        <a href="{{ path('cliente_show', {id: cliente.id}) }}">
+                                            {% if cliente.cpf is defined %}
+                                                {{ cliente.nomeCompleto }}
+                                            {% else %}
+                                                {{ cliente.razaoSocial }}
+                                            {% endif %}
+                                        </a>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contrato.processos|length > 0 %}
+                            <span class="badge bg-info">{{ contrato.processos|length }}</span>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if contrato.criadoAt %}
+                            {{ contrato.criadoAt|date('d/m/Y H:i') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ path('contrato_show', {id: contrato.id}) }}" class="btn btn-sm btn-info">Ver</a>
+                        <a href="{{ contrato.caminhoArquivo }}" class="btn btn-sm btn-primary" target="_blank">Baixar</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">
+        Nenhum contrato encontrado.
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

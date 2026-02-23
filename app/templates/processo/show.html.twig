@@ -1,0 +1,109 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Detalhes do Processo{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="mb-3">
+        <a href="{{ path('processo_index') }}" class="btn btn-secondary">← Voltar aos Processos</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ processo.numeroProcesso }}</h2>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>Informações do Processo</h5>
+                    <p><strong>Tribunal:</strong> {{ processo.siglaTribunal }}</p>
+                    <p><strong>Órgão Julgador:</strong> {{ processo.orgaoJulgador }}</p>
+                    <p><strong>Classe Processual:</strong> {{ processo.classeProcessual }}</p>
+                    <p><strong>Assunto:</strong> {{ processo.assuntoProcessual }}</p>
+                    <p><strong>Situação:</strong>
+                        <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ processo.situacaoProcesso|replace({'_': ' '}) }}
+                        </span>
+                    </p>
+                    <p><strong>Instância:</strong> {{ processo.instancia }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Datas</h5>
+                    <p><strong>Distribuição:</strong> {% if processo.dataDistribuicao %}{{ processo.dataDistribuicao|date('d/m/Y') }}{% else %}-{% endif %}</p>
+                    <p><strong>Baixa:</strong> {% if processo.dataBaixa %}{{ processo.dataBaixa|date('d/m/Y') }}{% else %}-{% endif %}</p>
+                    <p><strong>Última Atualização:</strong> {% if processo.dataAtualizacao %}{{ processo.dataAtualizacao|date('d/m/Y H:i') }}{% else %}-{% endif %}</p>
+                </div>
+            </div>
+
+            {% if processo.contrato %}
+            <div class="mt-3 p-3 bg-light rounded">
+                <strong>Contrato Associado:</strong>
+                <a href="{{ path('contrato_show', {id: processo.contrato.id}) }}">
+                    {{ processo.contrato.nomeArquivo }}
+                </a>
+            </div>
+            {% endif %}
+
+            <hr>
+
+            <div class="mb-3">
+                <h5>Partes do Processo</h5>
+                {% if processo.partes|length > 0 %}
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Nome</th>
+                                <th>Documento</th>
+                                <th>Papel</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for parte in processo.partes %}
+                                <tr>
+                                    <td>{{ parte.tipo }}</td>
+                                    <td>{{ parte.nome }}</td>
+                                    <td>{{ parte.documento ?: '-' }}</td>
+                                    <td>{{ parte.papel ?: '-' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info mb-0">Nenhuma parte cadastrada.</div>
+                {% endif %}
+            </div>
+
+            <hr>
+
+            <div class="mb-3">
+                <h5>Movimentações</h5>
+                {% if processo.movimentacoes|length > 0 %}
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Tipo</th>
+                                <th>Órgão</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mov in processo.movimentacoes %}
+                                <tr>
+                                    <td>{% if mov.dataMovimentacao %}{{ mov.dataMovimentacao|date('d/m/Y') }}{% else %}-{% endif %}</td>
+                                    <td>{{ mov.descricao }}</td>
+                                    <td>{{ mov.tipo ?: '-' }}</td>
+                                    <td>{{ mov.orgao ?: '-' }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info mb-0">Nenhuma movimentação cadastrada.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

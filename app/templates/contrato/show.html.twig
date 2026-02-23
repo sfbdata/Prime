@@ -1,0 +1,144 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Detalhes do Contrato{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="mb-3">
+        <a href="{{ path('contrato_index') }}" class="btn btn-secondary">← Voltar aos Contratos</a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>{{ contrato.nomeArquivo }}</h2>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h5>Informações do Contrato</h5>
+                    <p>
+                        <strong>Status:</strong>
+                        {% if contrato.status == 'ATIVO' %}
+                            <span class="badge bg-success">{{ contrato.status }}</span>
+                        {% else %}
+                            <span class="badge bg-danger">{{ contrato.status }}</span>
+                        {% endif %}
+                    </p>
+                    <p>
+                        <strong>Criado em:</strong>
+                        {% if contrato.criadoAt %}
+                            {{ contrato.criadoAt|date('d/m/Y \\à\\s H:i') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </p>
+                    <p>
+                        <strong>Modificado em:</strong>
+                        {% if contrato.modificadoEm %}
+                            {{ contrato.modificadoEm|date('d/m/Y \\à\\s H:i') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Ações</h5>
+                    <a href="{{ contrato.caminhoArquivo }}" class="btn btn-primary" target="_blank">
+                        <i class="bi bi-download"></i> Baixar Contrato
+                    </a>
+                </div>
+            </div>
+
+            <hr>
+
+            <div class="mb-3">
+                <h5>Clientes Associados</h5>
+                {% if contrato.clientes|length > 0 %}
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Nome/Razão Social</th>
+                                <th>CPF/CNPJ</th>
+                                <th>Tipo</th>
+                                <th>Telefone</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cliente in contrato.clientes %}
+                                <tr>
+                                    <td>
+                                        {% if cliente.cpf is defined %}
+                                            {{ cliente.nomeCompleto }}
+                                        {% else %}
+                                            {{ cliente.razaoSocial }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if cliente.cpf is defined %}
+                                            {{ cliente.cpf }}
+                                        {% else %}
+                                            {{ cliente.cnpj }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if cliente.cpf is defined %}
+                                            <span class="badge bg-info">Pessoa Física</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Pessoa Jurídica</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ cliente.telefoneCelular ?: '-' }}</td>
+                                    <td>
+                                        <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-info">Ver Cliente</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info">
+                        Nenhum cliente associado a este contrato.
+                    </div>
+                {% endif %}
+            </div>
+
+            <hr>
+
+            <div class="mb-3">
+                <h5>Processos Judiciais Associados</h5>
+                {% if contrato.processos|length > 0 %}
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Número do Processo</th>
+                                <th>Tribunal</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for processo in contrato.processos %}
+                                <tr>
+                                    <td>{{ processo.numeroProcesso }}</td>
+                                    <td>{{ processo.nomeOrgaoJudicial }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ processo.status }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="#" class="btn btn-sm btn-info" disabled>Ver Processo</a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <div class="alert alert-info">
+                        Nenhum processo judicial associado a este contrato.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

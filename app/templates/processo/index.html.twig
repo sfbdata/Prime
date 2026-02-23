@@ -1,0 +1,61 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Processos Judiciais{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h2 class="mb-4">Processos Judiciais</h2>
+
+    <div class="mb-3">
+        <a href="{{ path('contrato_index') }}" class="btn btn-secondary">← Voltar aos Contratos</a>
+        <a href="{{ path('processo_new') }}" class="btn btn-success">Cadastrar Processo</a>
+    </div>
+
+    {% if processos|length > 0 %}
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Número do Processo</th>
+                <th>Tribunal</th>
+                <th>Classe</th>
+                <th>Assunto</th>
+                <th>Situação</th>
+                <th>Contrato</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for processo in processos %}
+                <tr>
+                    <td>{{ processo.numeroProcesso }}</td>
+                    <td>{{ processo.siglaTribunal }}</td>
+                    <td>{{ processo.classeProcessual }}</td>
+                    <td>{{ processo.assuntoProcessual }}</td>
+                    <td>
+                        <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}bg-danger{% else %}bg-secondary{% endif %}">
+                            {{ processo.situacaoProcesso|replace({'_': ' '}) }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if processo.contrato %}
+                            <a href="{{ path('contrato_show', {id: processo.contrato.id}) }}">
+                                {{ processo.contrato.nomeArquivo }}
+                            </a>
+                        {% else %}
+                            <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ path('processo_show', {id: processo.id}) }}" class="btn btn-sm btn-info">Ver</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">
+        Nenhum processo encontrado. <a href="{{ path('processo_new') }}">Criar novo processo</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -9,6 +9,14 @@
             <a class="nav-link" href="{{ path('cliente_index') }}">Clientes</a>
         </li>
 
+        <li class="nav-item">
+            <a class="nav-link" href="{{ path('contrato_index') }}">Contratos</a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="{{ path('processo_index') }}">Processos</a>
+        </li>
+
         <hr class="my-2">
 
         {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
