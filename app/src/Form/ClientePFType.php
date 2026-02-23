@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\ClientePF;
+use App\Entity\Cliente\ClientePF;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -10,6 +10,7 @@ use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\TelType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
+use Symfony\Component\Form\Extension\Core\Type\MoneyType;
 use Symfony\Component\Validator\Constraints\File;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -101,6 +102,18 @@ class ClientePFType extends AbstractType
                         'mimeTypesMessage' => 'Por favor envie um PDF válido',
                     ])
                 ],
+            ]);
+        $builder->add('contratoDataInicio', DateType::class, [
+                'label' => 'Data de Início do Contrato',
+                'widget' => 'single_text',
+                'mapped' => false,
+                'required' => false,
+            ]);
+        $builder->add('contratoValorTotal', MoneyType::class, [
+                'label' => 'Valor Total do Contrato',
+                'currency' => 'BRL',
+                'mapped' => false,
+                'required' => false,
             ]);
 
     }

@@ -170,11 +170,16 @@
                                     <a href="{{ contrato.caminhoArquivo }}" target="_blank">{{ contrato.nomeArquivo }}</a>
                                     <div class="text-muted small">
                                         Criado em {{ contrato.criadoAt|date('d/m/Y H:i') }}
+                                        | {% if contrato.dataInicio %}Início: {{ contrato.dataInicio|date('d/m/Y') }}{% else %}Início: -{% endif %}
+                                        | Valor: {% if contrato.valorTotal %}R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}{% else %}-{% endif %}
                                     </div>
                                 </div>
-                                <span class="badge {{ contrato.status == 'ATIVO' ? 'bg-success' : 'bg-secondary' }}">
-                                    {{ contrato.status }}
-                                </span>
+                                <div class="d-flex align-items-center gap-2">
+                                    <a href="{{ path('contrato_show', {id: contrato.id}) }}" class="btn btn-sm btn-info">Detalhes</a>
+                                    <span class="badge {{ contrato.status == 'ATIVO' ? 'bg-success' : 'bg-secondary' }}">
+                                        {{ contrato.status }}
+                                    </span>
+                                </div>
                             </li>
                         {% endfor %}
                     </ul>

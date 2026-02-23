@@ -151,6 +151,18 @@
                 {{ form_widget(form.contratoFile, {'attr': {'class': 'form-control'}}) }}
                 {{ form_errors(form.contratoFile) }}
             </div>
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    {{ form_label(form.contratoDataInicio, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.contratoDataInicio, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(form.contratoDataInicio) }}
+                </div>
+                <div class="col-md-4 mb-3">
+                    {{ form_label(form.contratoValorTotal, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.contratoValorTotal, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_errors(form.contratoValorTotal) }}
+                </div>
+            </div>
         </div>
     </div>
 

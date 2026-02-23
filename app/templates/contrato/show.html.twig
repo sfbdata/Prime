@@ -19,9 +19,49 @@
                     <p>
                         <strong>Status:</strong>
                         {% if contrato.status == 'ATIVO' %}
-                            <span class="badge bg-success">{{ contrato.status }}</span>
+                            <span class="badge bg-success">ATIVO</span>
                         {% else %}
-                            <span class="badge bg-danger">{{ contrato.status }}</span>
+                            <span class="badge bg-danger">INATIVO</span>
+                        {% endif %}
+                    </p>
+                    <div class="mb-3">
+                        <strong>Chave de status:</strong>
+                        <form method="post" action="{{ path('contrato_toggle_status', {id: contrato.id}) }}" class="mt-1">
+                            <input type="hidden" name="_token" value="{{ csrf_token('toggle_status_' ~ contrato.id) }}">
+                            <div class="form-check form-switch">
+                                <input
+                                    class="form-check-input"
+                                    type="checkbox"
+                                    role="switch"
+                                    name="status_ativo"
+                                    id="statusSwitch"
+                                    onchange="this.form.submit()"
+                                    {% if contrato.status == 'ATIVO' %}checked{% endif %}
+                                >
+                                <label class="form-check-label" for="statusSwitch">
+                                    {% if contrato.status == 'ATIVO' %}
+                                        ATIVO
+                                    {% else %}
+                                        INATIVO
+                                    {% endif %}
+                                </label>
+                            </div>
+                        </form>
+                    </div>
+                    <p>
+                        <strong>Data de início:</strong>
+                        {% if contrato.dataInicio %}
+                            {{ contrato.dataInicio|date('d/m/Y') }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </p>
+                    <p>
+                        <strong>Valor total:</strong>
+                        {% if contrato.valorTotal %}
+                            R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}
+                        {% else %}
+                            -
                         {% endif %}
                     </p>
                     <p>
@@ -53,6 +93,43 @@
 
             <div class="mb-3">
                 <h5>Clientes Associados</h5>
+                <div class="mb-3">
+                    <button class="btn btn-success" type="button" data-bs-toggle="collapse" data-bs-target="#associarClienteCollapse" aria-expanded="false" aria-controls="associarClienteCollapse">
+                        Associar Cliente
+                    </button>
+                </div>
+                <div class="collapse" id="associarClienteCollapse">
+                    <div class="card mb-3 border-0 bg-light">
+                        <div class="card-body">
+                            <h6 class="mb-2">Adicionar Cliente Associado</h6>
+                            {% if clientesNaoAssociados|length > 0 %}
+                                <form method="post" action="{{ path('contrato_associar_cliente', {id: contrato.id}) }}" class="row g-2 align-items-end">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('associar_cliente_' ~ contrato.id) }}">
+                                    <div class="col-md-9">
+                                        <label for="clienteSelect" class="form-label">Cliente</label>
+                                        <select id="clienteSelect" name="cliente_id" class="form-select" required>
+                                            <option value="">Selecione um cliente</option>
+                                            {% for cliente in clientesNaoAssociados %}
+                                                <option value="{{ cliente.id }}">
+                                                    {% if cliente.cpf is defined %}
+                                                        {{ cliente.nomeCompleto }} - CPF: {{ cliente.cpf }}
+                                                    {% else %}
+                                                        {{ cliente.razaoSocial }} - CNPJ: {{ cliente.cnpj }}
+                                                    {% endif %}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button type="submit" class="btn btn-success w-100">Associar Cliente</button>
+                                    </div>
+                                </form>
+                            {% else %}
+                                <span class="text-muted">Todos os clientes já estão associados a este contrato.</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
                 {% if contrato.clientes|length > 0 %}
                     <table class="table table-sm table-bordered">
                         <thead>
@@ -91,6 +168,10 @@
                                     <td>{{ cliente.telefoneCelular ?: '-' }}</td>
                                     <td>
                                         <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-info">Ver Cliente</a>
+                                        <form method="post" action="{{ path('contrato_desassociar_cliente', {id: contrato.id, clienteId: cliente.id}) }}" class="d-inline" onsubmit="return confirm('Tem certeza que deseja remover este cliente do contrato?');">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('desassociar_cliente_' ~ contrato.id ~ '_' ~ cliente.id) }}">
+                                            <button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+                                        </form>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -112,7 +193,7 @@
                         <thead>
                             <tr>
                                 <th>Número do Processo</th>
-                                <th>Tribunal</th>
+                                <th>Órgão Julgador</th>
                                 <th>Status</th>
                                 <th>Ações</th>
                             </tr>
@@ -121,12 +202,12 @@
                             {% for processo in contrato.processos %}
                                 <tr>
                                     <td>{{ processo.numeroProcesso }}</td>
-                                    <td>{{ processo.nomeOrgaoJudicial }}</td>
+                                    <td>{{ processo.orgaoJulgador }}</td>
                                     <td>
-                                        <span class="badge bg-secondary">{{ processo.status }}</span>
+                                        <span class="badge bg-secondary">{{ processo.situacaoProcesso|replace({'_': ' '}) }}</span>
                                     </td>
                                     <td>
-                                        <a href="#" class="btn btn-sm btn-info" disabled>Ver Processo</a>
+                                        <a href="{{ path('processo_show', {id: processo.id}) }}" class="btn btn-sm btn-info">Ver Processo</a>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -141,4 +222,20 @@
         </div>
     </div>
 </div>
+
+<script>
+    $(document).ready(function () {
+        const $clienteSelect = $('#clienteSelect');
+        if ($clienteSelect.length) {
+            $clienteSelect.select2({
+                placeholder: 'Pesquisar cliente...',
+                width: '100%'
+            });
+
+            $('#associarClienteCollapse').on('shown.bs.collapse', function () {
+                $clienteSelect.select2('close');
+            });
+        }
+    });
+</script>
 {% endblock %}

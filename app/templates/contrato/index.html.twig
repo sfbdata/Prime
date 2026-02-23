@@ -15,6 +15,8 @@
         <thead>
             <tr>
                 <th>Nome do Arquivo</th>
+                <th>Data de Início</th>
+                <th>Valor Total</th>
                 <th>Status</th>
                 <th>Clientes Associados</th>
                 <th>Processos</th>
@@ -26,6 +28,8 @@
             {% for contrato in contratos %}
                 <tr>
                     <td>{{ contrato.nomeArquivo }}</td>
+                    <td>{% if contrato.dataInicio %}{{ contrato.dataInicio|date('d/m/Y') }}{% else %}-{% endif %}</td>
+                    <td>{% if contrato.valorTotal %}R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}{% else %}-{% endif %}</td>
                     <td>
                         {% if contrato.status == 'ATIVO' %}
                             <span class="badge bg-success">{{ contrato.status }}</span>
