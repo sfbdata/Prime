@@ -26,6 +26,11 @@
                         </span>
                     </p>
                     <p><strong>Instância:</strong> {{ processo.instancia }}</p>
+                    <p><strong>Status dos Documentos:</strong>
+                        <span class="badge {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'bg-success' : 'bg-warning text-dark' }}">
+                            {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'Apto para Protocolar' : 'Pendente de Documentação' }}
+                        </span>
+                    </p>
                 </div>
                 <div class="col-md-6">
                     <h5>Datas</h5>
@@ -85,6 +90,103 @@
                 {% else %}
                     <div class="alert alert-info mb-0">Não há tarefas vinculadas a este processo.</div>
                 {% endif %}
+            </div>
+
+            <hr>
+
+            <div class="mb-3">
+                <h5>Checklist de Documentação</h5>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">Peça: {{ processo.docPecaOk ? '✅' : '❌' }}</li>
+                    <li class="list-group-item">Procuração: {{ processo.docProcuracaoOk ? '✅' : '❌' }}</li>
+                    <li class="list-group-item">Identificação: {{ processo.docIdentificacaoOk ? '✅' : '❌' }}</li>
+                    <li class="list-group-item">Comprovante de residência: {{ processo.docComprovanteResidenciaOk ? '✅' : '❌' }}</li>
+                    <li class="list-group-item">Gratuidade de justiça: {{ processo.docGratuidadeJusticaOk ? '✅' : '❌' }}</li>
+                    <li class="list-group-item">Demais documentos: {{ processo.docDemaisOk ? '✅' : '❌' }}</li>
+                </ul>
+            </div>
+
+            <hr>
+
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Documentos do Processo</h5>
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadDocumentosModal">
+                        Upload de Documentos
+                    </button>
+                </div>
+
+                {% for tipo, label in documentTypeOptions %}
+                    <div class="card mb-2">
+                        <div class="card-body">
+                            <h6 class="card-title">{{ label }}</h6>
+
+                            {% set docs = documentosPorTipo[tipo] ?? [] %}
+                            {% if docs|length > 0 %}
+                                <ul class="mb-0">
+                                    {% for doc in docs %}
+                                        <li>
+                                            <a href="/{{ doc.caminhoArquivo }}" target="_blank" rel="noopener noreferrer">{{ doc.nomeOriginal }}</a>
+                                            <small class="text-muted">({{ doc.criadoEm|date('d/m/Y H:i') }})</small>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <span class="text-muted">Nenhum arquivo enviado.</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="uploadDocumentosModalLabel">Upload de Documentos do Processo</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            {% for tipo, label in documentTypeOptions %}
+                                <div class="border rounded p-3 mb-3">
+                                    <h6 class="mb-2">{{ label }}</h6>
+
+                                    {% set docs = documentosPorTipo[tipo] ?? [] %}
+                                    {% if docs|length > 0 %}
+                                        <ul class="list-group mb-3">
+                                            {% for doc in docs %}
+                                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                                    <div>
+                                                        <a href="/{{ doc.caminhoArquivo }}" target="_blank" rel="noopener noreferrer">{{ doc.nomeOriginal }}</a>
+                                                        <small class="text-muted d-block">{{ doc.criadoEm|date('d/m/Y H:i') }}</small>
+                                                    </div>
+                                                    <form method="post" action="{{ path('processo_documento_delete', {id: processo.id, documentoId: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');" class="ms-3">
+                                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_processo_' ~ doc.id) }}">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
+                                                    </form>
+                                                </li>
+                                            {% endfor %}
+                                        </ul>
+                                    {% else %}
+                                        <p class="text-muted mb-2">Nenhum arquivo enviado para este tipo.</p>
+                                    {% endif %}
+
+                                    <form method="post" enctype="multipart/form-data" action="{{ path('processo_documento_upload', {id: processo.id}) }}" class="row g-2 align-items-end">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_processo_' ~ processo.id) }}">
+                                    <input type="hidden" name="tipo" value="{{ tipo }}">
+                                    <div class="col-md-9">
+                                        <label class="form-label">Arquivo</label>
+                                        <input type="file" name="documento[]" class="form-control" multiple required>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button type="submit" class="btn btn-primary w-100">Enviar</button>
+                                    </div>
+                                </form>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <hr>

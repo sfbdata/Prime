@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Contrato\Contrato;
+use App\Entity\Processo\DocumentoProcesso;
 use App\Entity\Processo\Processo;
 use App\Entity\Processo\ParteProcesso;
 use App\Entity\Processo\MovimentacaoProcesso;
@@ -16,11 +17,22 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/processo')]
 class ProcessoController extends AbstractController
 {
+    /** @var array<string, string> */
+    private const DOCUMENT_TYPES = [
+        DocumentoProcesso::TIPO_PECA => 'Peça',
+        DocumentoProcesso::TIPO_PROCURACAO => 'Procuração',
+        DocumentoProcesso::TIPO_IDENTIFICACAO => 'Identificação',
+        DocumentoProcesso::TIPO_COMPROVANTE_RESIDENCIA => 'Comprovante de residência',
+        DocumentoProcesso::TIPO_GRATUIDADE_JUSTICA => 'Gratuidade de justiça',
+        DocumentoProcesso::TIPO_DEMAIS => 'Demais documentos',
+    ];
+
     #[Route('/', name: 'processo_index', methods: ['GET'])]
     public function index(ProcessoRepository $repo): Response
     {
@@ -119,7 +131,112 @@ class ProcessoController extends AbstractController
         return $this->render('processo/show.html.twig', [
             'processo' => $processo,
             'historicoTarefas' => $historicoTarefas,
+            'documentTypeOptions' => self::DOCUMENT_TYPES,
+            'documentosPorTipo' => $this->groupDocumentsByType($processo),
         ]);
+    }
+
+    #[Route('/{id}/documentos/upload', name: 'processo_documento_upload', methods: ['POST'])]
+    public function uploadDocumento(Processo $processo, Request $request, EntityManagerInterface $entityManager): Response
+    {
+        if (!$this->isCsrfTokenValid('upload_documento_processo_'.$processo->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $tipo = strtoupper(trim((string) $request->request->get('tipo', '')));
+        if (!array_key_exists($tipo, self::DOCUMENT_TYPES)) {
+            $this->addFlash('error', 'Tipo de documento inválido.');
+
+            return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
+        }
+
+        $uploadedFiles = $request->files->all('documento');
+
+        if ($uploadedFiles === [] || !is_array($uploadedFiles)) {
+            $this->addFlash('error', 'Arquivo inválido para upload.');
+
+            return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
+        }
+
+        $uploadPath = $this->getParameter('kernel.project_dir').'/public/uploads/processo_documentos/'.$processo->getId();
+        if (!is_dir($uploadPath) && !mkdir($uploadPath, 0775, true) && !is_dir($uploadPath)) {
+            $this->addFlash('error', 'Não foi possível preparar o diretório de upload.');
+
+            return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
+        }
+
+        $uploadedCount = 0;
+
+        foreach ($uploadedFiles as $file) {
+            if (!$file instanceof UploadedFile || !$file->isValid()) {
+                continue;
+            }
+
+            $safeName = preg_replace('/[^a-zA-Z0-9_\.-]/', '_', (string) $file->getClientOriginalName()) ?: 'documento';
+            $storedFileName = sprintf('%s_%s', uniqid('doc_', true), $safeName);
+            $fileSize = $file->getSize();
+            $mimeType = $file->getClientMimeType();
+            $originalName = (string) $file->getClientOriginalName();
+
+            $file->move($uploadPath, $storedFileName);
+
+            $documento = (new DocumentoProcesso())
+                ->setTipo($tipo)
+                ->setNomeOriginal($originalName)
+                ->setCaminhoArquivo('uploads/processo_documentos/'.$processo->getId().'/'.$storedFileName)
+                ->setMimeType($mimeType)
+                ->setTamanho($fileSize);
+
+            $processo->addDocumento($documento);
+            $uploadedCount++;
+        }
+
+        if ($uploadedCount === 0) {
+            $this->addFlash('error', 'Nenhum arquivo válido foi enviado.');
+
+            return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
+        }
+
+        $this->markChecklistByDocumentType($processo, $tipo);
+        $entityManager->flush();
+
+        $this->addFlash('success', sprintf('%d arquivo(s) enviado(s) para %s.', $uploadedCount, self::DOCUMENT_TYPES[$tipo]));
+
+        return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
+    }
+
+    #[Route('/{id}/documentos/{documentoId}/excluir', name: 'processo_documento_delete', methods: ['POST'])]
+    public function deleteDocumento(Processo $processo, int $documentoId, Request $request, EntityManagerInterface $entityManager): Response
+    {
+        if (!$this->isCsrfTokenValid('delete_documento_processo_'.$documentoId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $documento = null;
+        foreach ($processo->getDocumentos() as $item) {
+            if ($item->getId() === $documentoId) {
+                $documento = $item;
+                break;
+            }
+        }
+
+        if (!$documento instanceof DocumentoProcesso) {
+            $this->addFlash('error', 'Documento não encontrado para este processo.');
+
+            return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
+        }
+
+        $fullPath = $this->getParameter('kernel.project_dir').'/public/'.$documento->getCaminhoArquivo();
+        if (is_file($fullPath)) {
+            @unlink($fullPath);
+        }
+
+        $processo->removeDocumento($documento);
+        $entityManager->flush();
+
+        $this->addFlash('success', 'Documento removido com sucesso.');
+
+        return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
     }
 
     #[Route('/{id}/deletar', name: 'processo_delete', methods: ['POST'])]
@@ -274,8 +391,48 @@ class ProcessoController extends AbstractController
             $processo->setContrato($novoContrato);
         }
 
+        $processo->setDocPecaOk($this->requestHasChecked($data, 'doc_peca_ok'));
+        $processo->setDocProcuracaoOk($this->requestHasChecked($data, 'doc_procuracao_ok'));
+        $processo->setDocIdentificacaoOk($this->requestHasChecked($data, 'doc_identificacao_ok'));
+        $processo->setDocComprovanteResidenciaOk($this->requestHasChecked($data, 'doc_comprovante_residencia_ok'));
+        $processo->setDocGratuidadeJusticaOk($this->requestHasChecked($data, 'doc_gratuidade_justica_ok'));
+        $processo->setDocDemaisOk($this->requestHasChecked($data, 'doc_demais_ok'));
+
         $this->syncPartesFromRequest($processo, is_array($data['partes'] ?? null) ? $data['partes'] : []);
         $this->syncMovimentacoesFromRequest($processo, is_array($data['movimentacoes'] ?? null) ? $data['movimentacoes'] : []);
+    }
+
+    private function groupDocumentsByType(Processo $processo): array
+    {
+        $grouped = [];
+
+        foreach (array_keys(self::DOCUMENT_TYPES) as $type) {
+            $grouped[$type] = [];
+        }
+
+        foreach ($processo->getDocumentos() as $documento) {
+            $grouped[$documento->getTipo()][] = $documento;
+        }
+
+        return $grouped;
+    }
+
+    private function markChecklistByDocumentType(Processo $processo, string $tipo): void
+    {
+        match ($tipo) {
+            DocumentoProcesso::TIPO_PECA => $processo->setDocPecaOk(true),
+            DocumentoProcesso::TIPO_PROCURACAO => $processo->setDocProcuracaoOk(true),
+            DocumentoProcesso::TIPO_IDENTIFICACAO => $processo->setDocIdentificacaoOk(true),
+            DocumentoProcesso::TIPO_COMPROVANTE_RESIDENCIA => $processo->setDocComprovanteResidenciaOk(true),
+            DocumentoProcesso::TIPO_GRATUIDADE_JUSTICA => $processo->setDocGratuidadeJusticaOk(true),
+            DocumentoProcesso::TIPO_DEMAIS => $processo->setDocDemaisOk(true),
+            default => null,
+        };
+    }
+
+    private function requestHasChecked(array $data, string $key): bool
+    {
+        return array_key_exists($key, $data);
     }
 
     private function syncPartesFromRequest(Processo $processo, array $partesData): void

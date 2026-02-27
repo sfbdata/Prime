@@ -20,6 +20,7 @@
                 <th>Classe</th>
                 <th>Assunto</th>
                 <th>Situação</th>
+                <th>Status Documentos</th>
                 <th>Contrato</th>
                 <th>Ações</th>
             </tr>
@@ -34,6 +35,11 @@
                     <td>
                         <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}bg-danger{% else %}bg-secondary{% endif %}">
                             {{ processo.situacaoProcesso|replace({'_': ' '}) }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'bg-success' : 'bg-warning text-dark' }}">
+                            {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'Apto para Protocolar' : 'Pendente de Documentação' }}
                         </span>
                     </td>
                     <td>

@@ -217,6 +217,45 @@
                     <input type="date" id="dataBaixa" name="dataBaixa" class="form-control" value="{{ processo.dataBaixa ? processo.dataBaixa|date('Y-m-d') : '' }}">
                 </div>
 
+                <div class="card mb-3">
+                    <div class="card-header">Documentação do Processo</div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-4 form-check">
+                                <input class="form-check-input" type="checkbox" id="doc_peca_ok" name="doc_peca_ok" {{ processo.docPecaOk ? 'checked' : '' }}>
+                                <label class="form-check-label" for="doc_peca_ok">Peça</label>
+                            </div>
+                            <div class="col-md-4 form-check">
+                                <input class="form-check-input" type="checkbox" id="doc_procuracao_ok" name="doc_procuracao_ok" {{ processo.docProcuracaoOk ? 'checked' : '' }}>
+                                <label class="form-check-label" for="doc_procuracao_ok">Procuração</label>
+                            </div>
+                            <div class="col-md-4 form-check">
+                                <input class="form-check-input" type="checkbox" id="doc_identificacao_ok" name="doc_identificacao_ok" {{ processo.docIdentificacaoOk ? 'checked' : '' }}>
+                                <label class="form-check-label" for="doc_identificacao_ok">Identificação</label>
+                            </div>
+                            <div class="col-md-4 form-check">
+                                <input class="form-check-input" type="checkbox" id="doc_comprovante_residencia_ok" name="doc_comprovante_residencia_ok" {{ processo.docComprovanteResidenciaOk ? 'checked' : '' }}>
+                                <label class="form-check-label" for="doc_comprovante_residencia_ok">Comprovante de residência</label>
+                            </div>
+                            <div class="col-md-4 form-check">
+                                <input class="form-check-input" type="checkbox" id="doc_gratuidade_justica_ok" name="doc_gratuidade_justica_ok" {{ processo.docGratuidadeJusticaOk ? 'checked' : '' }}>
+                                <label class="form-check-label" for="doc_gratuidade_justica_ok">Gratuidade de justiça</label>
+                            </div>
+                            <div class="col-md-4 form-check">
+                                <input class="form-check-input" type="checkbox" id="doc_demais_ok" name="doc_demais_ok" {{ processo.docDemaisOk ? 'checked' : '' }}>
+                                <label class="form-check-label" for="doc_demais_ok">Demais documentos relacionados ao caso</label>
+                            </div>
+                        </div>
+
+                        <div class="mt-3">
+                            <strong>Status dos documentos:</strong>
+                            <span class="badge {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'bg-success' : 'bg-warning text-dark' }}">
+                                {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'Apto para Protocolar' : 'Pendente de Documentação' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
                 <hr>
 
                 <!-- Partes do Processo -->
