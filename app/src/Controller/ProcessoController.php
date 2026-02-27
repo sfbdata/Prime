@@ -222,66 +222,190 @@ class ProcessoController extends AbstractController
     {
         $numeroProcessoNormalizado = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
 
-        $processo->setNumeroProcesso($numeroProcessoNormalizado ?? '');
-        $processo->setOrgaoJulgador((string) ($data['orgaoJulgador'] ?? ''));
-        $processo->setSiglaTribunal((string) ($data['siglaTribunal'] ?? ''));
-        $processo->setClasseProcessual((string) ($data['classeProcessual'] ?? ''));
-        $processo->setAssuntoProcessual((string) ($data['assuntoProcessual'] ?? ''));
-        $processo->setSituacaoProcesso((string) ($data['situacaoProcesso'] ?? 'EM_ANDAMENTO'));
-        $processo->setInstancia((string) ($data['instancia'] ?? 'G1'));
-
-        if (!empty($data['dataDistribuicao'])) {
-            $processo->setDataDistribuicao(\DateTime::createFromFormat('Y-m-d', $data['dataDistribuicao']) ?: null);
-        } else {
-            $processo->setDataDistribuicao(null);
+        $numeroProcesso = $numeroProcessoNormalizado ?? '';
+        if ($processo->getNumeroProcesso() !== $numeroProcesso) {
+            $processo->setNumeroProcesso($numeroProcesso);
         }
 
-        if (!empty($data['dataBaixa'])) {
-            $processo->setDataBaixa(\DateTime::createFromFormat('Y-m-d', $data['dataBaixa']) ?: null);
-        } else {
-            $processo->setDataBaixa(null);
+        $orgaoJulgador = (string) ($data['orgaoJulgador'] ?? '');
+        if ($processo->getOrgaoJulgador() !== $orgaoJulgador) {
+            $processo->setOrgaoJulgador($orgaoJulgador);
         }
 
-        if (!empty($data['contrato_id'])) {
-            $processo->setContrato($contratoRepo->find($data['contrato_id']));
-        } else {
-            $processo->setContrato(null);
+        $siglaTribunal = (string) ($data['siglaTribunal'] ?? '');
+        if ($processo->getSiglaTribunal() !== $siglaTribunal) {
+            $processo->setSiglaTribunal($siglaTribunal);
+        }
+
+        $classeProcessual = (string) ($data['classeProcessual'] ?? '');
+        if ($processo->getClasseProcessual() !== $classeProcessual) {
+            $processo->setClasseProcessual($classeProcessual);
+        }
+
+        $assuntoProcessual = (string) ($data['assuntoProcessual'] ?? '');
+        if ($processo->getAssuntoProcessual() !== $assuntoProcessual) {
+            $processo->setAssuntoProcessual($assuntoProcessual);
+        }
+
+        $situacaoProcesso = (string) ($data['situacaoProcesso'] ?? 'EM_ANDAMENTO');
+        if ($processo->getSituacaoProcesso() !== $situacaoProcesso) {
+            $processo->setSituacaoProcesso($situacaoProcesso);
+        }
+
+        $instancia = (string) ($data['instancia'] ?? 'G1');
+        if ($processo->getInstancia() !== $instancia) {
+            $processo->setInstancia($instancia);
+        }
+
+        $dataDistribuicao = $this->parseDateOrNull($data['dataDistribuicao'] ?? null);
+        if (!$this->isSameDate($processo->getDataDistribuicao(), $dataDistribuicao)) {
+            $processo->setDataDistribuicao($dataDistribuicao);
+        }
+
+        $dataBaixa = $this->parseDateOrNull($data['dataBaixa'] ?? null);
+        if (!$this->isSameDate($processo->getDataBaixa(), $dataBaixa)) {
+            $processo->setDataBaixa($dataBaixa);
+        }
+
+        $novoContrato = !empty($data['contrato_id']) ? $contratoRepo->find($data['contrato_id']) : null;
+        $contratoAtualId = $processo->getContrato()?->getId();
+        $novoContratoId = $novoContrato?->getId();
+        if ($contratoAtualId !== $novoContratoId) {
+            $processo->setContrato($novoContrato);
+        }
+
+        $this->syncPartesFromRequest($processo, is_array($data['partes'] ?? null) ? $data['partes'] : []);
+        $this->syncMovimentacoesFromRequest($processo, is_array($data['movimentacoes'] ?? null) ? $data['movimentacoes'] : []);
+    }
+
+    private function syncPartesFromRequest(Processo $processo, array $partesData): void
+    {
+        $existingById = [];
+        foreach ($processo->getPartes() as $parte) {
+            $id = $parte->getId();
+            if ($id !== null) {
+                $existingById[(string) $id] = $parte;
+            }
+        }
+
+        $kept = [];
+
+        foreach ($partesData as $parteData) {
+            $nome = trim((string) ($parteData['nome'] ?? ''));
+            if ($nome === '') {
+                continue;
+            }
+
+            $id = trim((string) ($parteData['id'] ?? ''));
+            $parte = ($id !== '' && isset($existingById[$id])) ? $existingById[$id] : new ParteProcesso();
+
+            if (!$processo->getPartes()->contains($parte)) {
+                $processo->addParte($parte);
+            }
+
+            $tipo = (string) ($parteData['tipo'] ?? 'PARTE');
+            if ($parte->getTipo() !== $tipo) {
+                $parte->setTipo($tipo);
+            }
+
+            if ($parte->getNome() !== $nome) {
+                $parte->setNome($nome);
+            }
+
+            $documento = ($parteData['documento'] ?? '') !== '' ? (string) $parteData['documento'] : null;
+            if ($parte->getDocumento() !== $documento) {
+                $parte->setDocumento($documento);
+            }
+
+            $papel = ($parteData['papel'] ?? '') !== '' ? (string) $parteData['papel'] : null;
+            if ($parte->getPapel() !== $papel) {
+                $parte->setPapel($papel);
+            }
+
+            $kept[spl_object_id($parte)] = true;
         }
 
         foreach ($processo->getPartes()->toArray() as $parteExistente) {
-            $processo->removeParte($parteExistente);
+            if (!isset($kept[spl_object_id($parteExistente)])) {
+                $processo->removeParte($parteExistente);
+            }
         }
+    }
 
-        if (!empty($data['partes']) && is_array($data['partes'])) {
-            foreach ($data['partes'] as $parteData) {
-                if (!empty($parteData['nome'])) {
-                    $parte = new ParteProcesso();
-                    $parte->setTipo($parteData['tipo'] ?? 'PARTE');
-                    $parte->setNome($parteData['nome']);
-                    $parte->setDocumento($parteData['documento'] ?? null);
-                    $parte->setPapel($parteData['papel'] ?? null);
-                    $processo->addParte($parte);
-                }
+    private function syncMovimentacoesFromRequest(Processo $processo, array $movimentacoesData): void
+    {
+        $existingById = [];
+        foreach ($processo->getMovimentacoes() as $movimentacao) {
+            $id = $movimentacao->getId();
+            if ($id !== null) {
+                $existingById[(string) $id] = $movimentacao;
             }
         }
 
-        foreach ($processo->getMovimentacoes()->toArray() as $movExistente) {
-            $processo->removeMovimentacao($movExistente);
+        $kept = [];
+
+        foreach ($movimentacoesData as $movData) {
+            $descricao = trim((string) ($movData['descricao'] ?? ''));
+            if ($descricao === '') {
+                continue;
+            }
+
+            $id = trim((string) ($movData['id'] ?? ''));
+            $movimentacao = ($id !== '' && isset($existingById[$id])) ? $existingById[$id] : new MovimentacaoProcesso();
+
+            if (!$processo->getMovimentacoes()->contains($movimentacao)) {
+                $processo->addMovimentacao($movimentacao);
+            }
+
+            if ($movimentacao->getDescricao() !== $descricao) {
+                $movimentacao->setDescricao($descricao);
+            }
+
+            $tipo = ($movData['tipo'] ?? '') !== '' ? (string) $movData['tipo'] : null;
+            if ($movimentacao->getTipo() !== $tipo) {
+                $movimentacao->setTipo($tipo);
+            }
+
+            $orgao = ($movData['orgao'] ?? '') !== '' ? (string) $movData['orgao'] : null;
+            if ($movimentacao->getOrgao() !== $orgao) {
+                $movimentacao->setOrgao($orgao);
+            }
+
+            $dataMovimentacao = $this->parseDateOrNull($movData['dataMovimentacao'] ?? null);
+            if (!$this->isSameDate($movimentacao->getDataMovimentacao(), $dataMovimentacao)) {
+                $movimentacao->setDataMovimentacao($dataMovimentacao);
+            }
+
+            $kept[spl_object_id($movimentacao)] = true;
         }
 
-        if (!empty($data['movimentacoes']) && is_array($data['movimentacoes'])) {
-            foreach ($data['movimentacoes'] as $movData) {
-                if (!empty($movData['descricao'])) {
-                    $mov = new MovimentacaoProcesso();
-                    $mov->setDescricao($movData['descricao']);
-                    $mov->setTipo($movData['tipo'] ?? null);
-                    $mov->setOrgao($movData['orgao'] ?? null);
-                    if (!empty($movData['dataMovimentacao'])) {
-                        $mov->setDataMovimentacao(\DateTime::createFromFormat('Y-m-d', $movData['dataMovimentacao']) ?: null);
-                    }
-                    $processo->addMovimentacao($mov);
-                }
+        foreach ($processo->getMovimentacoes()->toArray() as $movimentacaoExistente) {
+            if (!isset($kept[spl_object_id($movimentacaoExistente)])) {
+                $processo->removeMovimentacao($movimentacaoExistente);
             }
         }
+    }
+
+    private function parseDateOrNull(mixed $value): ?\DateTimeInterface
+    {
+        $dateValue = is_string($value) ? trim($value) : '';
+        if ($dateValue === '') {
+            return null;
+        }
+
+        return \DateTime::createFromFormat('!Y-m-d', $dateValue) ?: null;
+    }
+
+    private function isSameDate(?\DateTimeInterface $left, ?\DateTimeInterface $right): bool
+    {
+        if ($left === null && $right === null) {
+            return true;
+        }
+
+        if ($left === null || $right === null) {
+            return false;
+        }
+
+        return $left->format('Y-m-d') === $right->format('Y-m-d');
     }
 }

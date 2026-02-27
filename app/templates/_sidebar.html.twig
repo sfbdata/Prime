@@ -30,7 +30,7 @@
         <hr class="my-2">
 
         {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-            {% set superAdminRoutes = ['app_tenant_index', 'app_tenant_new', 'app_tenant_show', 'app_tenant_users'] %}
+            {% set superAdminRoutes = ['app_tenant_index', 'app_tenant_new', 'app_tenant_show', 'app_tenant_users', 'audit_log_index'] %}
             {% set isSuperAdminActive = app.request.attributes.get('_route') in superAdminRoutes %}
             <li class="nav-item">
                 <a class="nav-link d-flex justify-content-between align-items-center" 
@@ -43,13 +43,14 @@
                     <ul class="nav flex-column ms-3">
                         <li class="nav-item"><a class="nav-link" href="{{ path('app_tenant_index') }}" onclick="event.stopPropagation()">Tenants</a></li>
                         <li class="nav-item"><a class="nav-link" href="{{ path('app_tenant_new') }}" onclick="event.stopPropagation()">Novo Tenant</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ path('audit_log_index') }}" onclick="event.stopPropagation()">Trilha de Auditoria</a></li>
                     </ul>
                 </div>
             </li>
         {% endif %}
 
         {% if 'ROLE_ADMIN' in app.user.roles %}
-            {% set adminRoutes = ['invite_user', 'app_tenant_users', 'app_tenant_show', 'tarefa_admin_index', 'tarefa_new'] %}
+            {% set adminRoutes = ['invite_user', 'app_tenant_users', 'app_tenant_show', 'tarefa_admin_index', 'tarefa_new', 'audit_log_index'] %}
             {% set isAdminActive = app.request.attributes.get('_route') in adminRoutes %}
             <li class="nav-item">
                 <a class="nav-link d-flex justify-content-between align-items-center" 
@@ -64,6 +65,7 @@
                         <li class="nav-item"><a class="nav-link" href="{{ path('app_tenant_users', {'id': app.user.tenant.id}) }}" onclick="event.stopPropagation()">Funcionários</a></li>
                         <li class="nav-item"><a class="nav-link" href="{{ path('app_tenant_show', {'id': app.user.tenant.id}) }}" onclick="event.stopPropagation()">Meu Escritório</a></li>
                         <li class="nav-item"><a class="nav-link" href="{{ path('tarefa_admin_index') }}" onclick="event.stopPropagation()">Gestão de Tarefas</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{{ path('audit_log_index') }}" onclick="event.stopPropagation()">Trilha de Auditoria</a></li>
                     </ul>
                 </div>
             </li>

@@ -8,8 +8,10 @@ use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
 use App\Repository\TenantRepository;
+use App\Service\InvitationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -44,31 +46,59 @@ final class TenantController extends AbstractController
     public function new(
         Request $request,
         EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher
+        InvitationService $invitationService
     ): Response {
         $tenant = new Tenant();
         $form = $this->createForm(TenantType::class, $tenant);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $adminEmail = mb_strtolower(trim((string) $form->get('adminEmail')->getData()));
+            $existingUser = $entityManager->getRepository(User::class)->findOneBy(['email' => $adminEmail]);
+
+            if ($existingUser) {
+                $form->get('adminEmail')->addError(new FormError('Este e-mail já está em uso. Informe outro e-mail para o administrador.'));
+
+                return $this->render('tenant/new.html.twig', [
+                    'tenant' => $tenant,
+                    'form' => $form,
+                ]);
+            }
+
             $entityManager->persist($tenant);
             $entityManager->flush();
 
-            $adminEmail = $form->get('adminEmail')->getData();
-            $adminPassword = $form->get('adminPassword')->getData();
-
             $adminUser = new User();
             $adminUser->setEmail($adminEmail);
-            $adminUser->setPassword($passwordHasher->hashPassword($adminUser, $adminPassword));
             $adminUser->setRoles(['ROLE_ADMIN']);
             $adminUser->setTenant($tenant);
-            $adminUser->setIsActive(true);
             $adminUser->setFullName('Administrador do Tenant');
 
-            $entityManager->persist($adminUser);
-            $entityManager->flush();
+            $result = $invitationService->sendInvitation($adminUser, 'Confirme seu acesso ao Tenant');
 
-            $this->addFlash('success', 'Tenant criado com sucesso e administrador configurado.');
+            if ($result['duplicateEmail']) {
+                $entityManager->remove($tenant);
+                $entityManager->flush();
+
+                $form->get('adminEmail')->addError(new FormError('Este e-mail já está cadastrado. Informe outro e-mail para o administrador.'));
+
+                return $this->render('tenant/new.html.twig', [
+                    'tenant' => $tenant,
+                    'form' => $form,
+                ]);
+            }
+
+            if (!$result['sent']) {
+                $this->addFlash('warning', 'Tenant criado, mas não foi possível enviar o e-mail de ativação do administrador agora. Verifique SMTP e reenvie o convite.');
+
+                if ($this->getParameter('kernel.environment') === 'dev') {
+                    $this->addFlash('info', sprintf('Link de confirmação (dev): %s', $result['link']));
+                }
+
+                return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
+            }
+
+            $this->addFlash('success', 'Tenant criado com sucesso! O administrador receberá um e-mail para criar a senha.');
 
             return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
         }
@@ -206,7 +236,8 @@ final class TenantController extends AbstractController
         int $tenantId,
         User $user,
         Request $request,
-        EntityManagerInterface $entityManager
+        EntityManagerInterface $entityManager,
+        UserPasswordHasherInterface $passwordHasher
     ): Response {
         $currentUser = $this->getUser();
 
@@ -223,8 +254,14 @@ final class TenantController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $newPassword = $form->get('newPassword')->getData();
+
+            if (is_string($newPassword) && trim($newPassword) !== '') {
+                $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
+            }
+
             $entityManager->flush();
-            $this->addFlash('success', 'Roles atualizadas com sucesso!');
+            $this->addFlash('success', 'Usuário atualizado com sucesso!');
             return $this->redirectToRoute('app_tenant_users', ['id' => $tenantId]);
         }
 

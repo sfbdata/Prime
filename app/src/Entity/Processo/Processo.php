@@ -18,19 +18,19 @@ class Processo
     private ?int $id = null;
 
     #[ORM\Column(length: 50, unique: true)]
-    private string $numeroProcesso;
+    private string $numeroProcesso = '';
 
     #[ORM\Column(length: 255)]
-    private string $orgaoJulgador;
+    private string $orgaoJulgador = '';
 
     #[ORM\Column(length: 20)]
-    private string $siglaTribunal;
+    private string $siglaTribunal = '';
 
     #[ORM\Column(length: 255)]
-    private string $classeProcessual;
+    private string $classeProcessual = '';
 
     #[ORM\Column(length: 255)]
-    private string $assuntoProcessual;
+    private string $assuntoProcessual = '';
 
     #[ORM\OneToMany(mappedBy: 'processo', targetEntity: ParteProcesso::class, orphanRemoval: true, cascade: ['persist'])]
     private Collection $partes;
@@ -45,10 +45,10 @@ class Processo
     private ?\DateTimeInterface $dataBaixa = null;
 
     #[ORM\Column(length: 30)]
-    private string $situacaoProcesso;
+    private string $situacaoProcesso = '';
 
     #[ORM\Column(length: 20)]
-    private string $instancia;
+    private string $instancia = '';
 
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $processoPai = null;

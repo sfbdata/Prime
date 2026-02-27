@@ -72,8 +72,21 @@ class TarefaController extends AbstractController
                 $tarefa->setPrazo(new \DateTimeImmutable($prazo));
             }
 
-            $processoId = $request->request->getInt('processo_id');
-            if ($processoId > 0) {
+            $processoInput = $request->request->get('processo_id');
+            $processoId = null;
+
+            if (is_string($processoInput) && trim($processoInput) !== '') {
+                $processoId = filter_var($processoInput, FILTER_VALIDATE_INT, [
+                    'options' => ['min_range' => 1],
+                ]);
+
+                if ($processoId === false) {
+                    $this->addFlash('error', 'Processo selecionado é inválido. Escolha um processo válido.');
+                    $processoId = null;
+                }
+            }
+
+            if (is_int($processoId)) {
                 $processo = $processoRepository->find($processoId);
                 if ($processo instanceof Processo) {
                     $tarefa->setProcesso($processo);

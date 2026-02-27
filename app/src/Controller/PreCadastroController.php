@@ -75,6 +75,16 @@ class PreCadastroController extends AbstractController
     #[Route('/{id}/delete', name: 'pre_cadastro_delete', methods: ['POST'])]
     public function delete(Request $request, PreCadastro $preCadastro, PreCadastroRepository $repo): Response
     {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException('Você precisa estar logado.');
+        }
+
+        if (!(in_array('ROLE_ADMIN', $currentUser->getRoles(), true) || in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true))) {
+            throw $this->createAccessDeniedException('Apenas usuários com perfil ADMIN podem excluir pré-cadastros.');
+        }
+
         if ($this->isCsrfTokenValid('delete'.$preCadastro->getId(), $request->request->get('_token'))) {
             $repo->remove($preCadastro, true);
         }

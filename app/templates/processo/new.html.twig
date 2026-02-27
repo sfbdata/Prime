@@ -40,6 +40,7 @@
                             <option value="{{ contrato.id }}" data-cliente-ids="{{ contrato.clientes|map(c => c.id)|join(',') }}" {% if processo is defined and processo.contrato and processo.contrato.id == contrato.id %}selected{% endif %}>{{ contrato.nomeArquivo }}</option>
                         {% endfor %}
                     </select>
+                    <small id="contrato-sem-vinculo-msg" class="form-text text-warning d-none">Este cliente não possui contratos vinculados.</small>
                 </div>
 
                 <hr>
@@ -224,6 +225,7 @@
                     {% if isEdit and processo.partes|length > 0 %}
                         {% for parte in processo.partes %}
                             <div class="parte-row card mb-2 p-3">
+                                <input type="hidden" name="partes[{{ loop.index0 }}][id]" value="{{ parte.id }}">
                                 <div class="row mb-2">
                                     <div class="col-md-3">
                                         <label class="form-label">Tipo</label>
@@ -289,6 +291,7 @@
                     {% if isEdit and processo.movimentacoes|length > 0 %}
                         {% for mov in processo.movimentacoes %}
                             <div class="movimentacao-row card mb-2 p-3">
+                                <input type="hidden" name="movimentacoes[{{ loop.index0 }}][id]" value="{{ mov.id }}">
                                 <div class="row mb-2">
                                     <div class="col-md-3">
                                         <label class="form-label">Data</label>
@@ -409,40 +412,98 @@ document.addEventListener('DOMContentLoaded', function() {
     // Filtrar contratos por cliente
     const clienteSelect = document.getElementById('cliente_id');
     const contratoSelect = document.getElementById('contrato_id');
-    
-    // Guardar as opções originais (incluindo a de seleção)
+    const contratoSemVinculoMsg = document.getElementById('contrato-sem-vinculo-msg');
+
+    // Guardar as opções originais (incluindo a opção padrão)
     const originalContratoOptions = Array.from(contratoSelect.querySelectorAll('option'));
+    const placeholderContratoOption = originalContratoOptions[0]?.cloneNode(true);
 
-    clienteSelect.addEventListener('change', function() {
-        const selectedClienteId = this.value;
-        
-        // Remover TODAS as opções de contrato (exceto a primeira)
-        const currentOptions = contratoSelect.querySelectorAll('option');
-        for (let i = currentOptions.length - 1; i > 0; i--) {
-            currentOptions[i].remove();
+    function preencherContratosPermitidos(allowedContratoIds, clienteSelecionado) {
+        const valorAtual = contratoSelect.value;
+        contratoSelect.innerHTML = '';
+
+        if (placeholderContratoOption) {
+            contratoSelect.appendChild(placeholderContratoOption.cloneNode(true));
         }
 
-        // Se nenhum cliente foi selecionado, mostrar todos os contratos
-        if (!selectedClienteId) {
-            // Adicionar todas as opções originais (menos a primeira que será a padrão)
-            originalContratoOptions.slice(1).forEach(option => {
-                contratoSelect.appendChild(option.cloneNode(true));
-            });
-            contratoSelect.value = '';
-            return;
-        }
+        const mostrarTodos = !Array.isArray(allowedContratoIds);
+        const allowedSet = new Set((allowedContratoIds || []).map(id => String(id).trim()).filter(id => id !== ''));
 
-        // Adicionar apenas contratos que pertencem ao cliente selecionado
         originalContratoOptions.slice(1).forEach(option => {
-            const clienteIds = (option.dataset.clienteIds || '').split(',').filter(id => id);
-            if (clienteIds.includes(selectedClienteId)) {
+            const contratoId = String(option.value).trim();
+            if (mostrarTodos || allowedSet.has(contratoId)) {
                 contratoSelect.appendChild(option.cloneNode(true));
             }
         });
 
-        // Limpar seleção
+        const quantidadeContratos = Math.max(0, contratoSelect.options.length - 1);
+        if (clienteSelecionado && quantidadeContratos === 0) {
+            contratoSelect.disabled = true;
+            contratoSemVinculoMsg?.classList.remove('d-none');
+        } else {
+            contratoSelect.disabled = false;
+            contratoSemVinculoMsg?.classList.add('d-none');
+        }
+
+        if (valorAtual && contratoSelect.querySelector(`option[value="${valorAtual}"]`)) {
+            contratoSelect.value = valorAtual;
+            return;
+        }
+
         contratoSelect.value = '';
+    }
+
+    function obterContratosDoClienteSelecionado(selectedClienteId) {
+        if (!selectedClienteId) {
+            return null;
+        }
+
+        const selectedOption = clienteSelect.options[clienteSelect.selectedIndex];
+        const contratosViaCliente = (selectedOption?.dataset.contratos || '')
+            .split(',')
+            .map(id => id.trim())
+            .filter(id => id !== '');
+
+        if (contratosViaCliente.length > 0) {
+            return contratosViaCliente;
+        }
+
+        return originalContratoOptions
+            .slice(1)
+            .filter(option => {
+                const clienteIds = (option.dataset.clienteIds || '')
+                    .split(',')
+                    .map(id => id.trim())
+                    .filter(id => id !== '');
+
+                return clienteIds.includes(String(selectedClienteId));
+            })
+            .map(option => String(option.value).trim())
+            .filter(id => id !== '');
+    }
+
+    function aplicarFiltroContratos() {
+        const selectedClienteId = clienteSelect.value;
+
+        if (!selectedClienteId) {
+            preencherContratosPermitidos(null, false);
+            return;
+        }
+
+        const contratosDoCliente = obterContratosDoClienteSelecionado(selectedClienteId);
+        preencherContratosPermitidos(contratosDoCliente, true);
+    }
+
+    clienteSelect.addEventListener('change', function() {
+        aplicarFiltroContratos();
     });
+
+    $('#cliente_id').on('select2:select select2:clear', function() {
+        aplicarFiltroContratos();
+    });
+
+    // Aplicar filtro inicial da tela (edição ou cliente pré-selecionado)
+    aplicarFiltroContratos();
 
     // Adicionar parte
     document.getElementById('btn-add-parte').addEventListener('click', function() {

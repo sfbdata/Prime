@@ -18,6 +18,7 @@
 /app/.env
 .env.local
 .env.*.local
+.env.prod
 
 # Uploads de usuários
 /app/public/uploads/
@@ -27,3 +28,14 @@
 /app/var/log/*
 !/app/var/cache/.gitkeep
 !/app/var/log/.gitkeep
+
+# Build context
+.docker/
+
+# Certificados TLS
+/certs/*
+!/certs/.gitkeep
+
+# ACME challenge webroot
+/certbot/*
+!/certbot/.gitkeep

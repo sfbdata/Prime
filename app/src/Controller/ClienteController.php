@@ -13,6 +13,7 @@ use App\Repository\ClienteRepository;
 use App\Repository\ClientePFRepository;
 use App\Repository\ClientePJRepository;
 use App\Repository\PreCadastroRepository;
+use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -196,6 +197,16 @@ class ClienteController extends AbstractController
     #[Route('/{id}/deletar', name: 'cliente_delete', methods: ['POST'])]
     public function delete(Request $request, ClienteRepository $repo, EntityManagerInterface $em, int $id): Response
     {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException('Você precisa estar logado.');
+        }
+
+        if (!(in_array('ROLE_ADMIN', $currentUser->getRoles(), true) || in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true))) {
+            throw $this->createAccessDeniedException('Apenas usuários com perfil ADMIN podem excluir clientes.');
+        }
+
         $cliente = $repo->find($id);
 
         if (!$cliente) {
@@ -203,8 +214,13 @@ class ClienteController extends AbstractController
         }
 
         if ($this->isCsrfTokenValid('delete' . $id, $request->request->get('_token'))) {
-            $em->remove($cliente);
-            $em->flush();
+            try {
+                $em->remove($cliente);
+                $em->flush();
+                $this->addFlash('success', 'Cliente excluído com sucesso.');
+            } catch (ForeignKeyConstraintViolationException) {
+                $this->addFlash('error', 'Não é possível excluir este cliente porque ele está vinculado a outros registros (ex.: pré-cadastro).');
+            }
         }
 
         return $this->redirectToRoute('cliente_index');

@@ -4,61 +4,65 @@ namespace App\Controller;
 
 use App\Entity\Auth\User;
 use App\Form\InvitationType;
+use App\Service\InvitationService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormError;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Email;
-use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 class InvitationController extends AbstractController
 {
     #[Route('/invite', name: 'invite_user')]
     public function invite(
         Request $request,
-        EntityManagerInterface $em,
-        MailerInterface $mailer,
-        UrlGeneratorInterface $urlGenerator
+        EntityManagerInterface $entityManager,
+        InvitationService $invitationService
     ): Response {
         $user = new User();
         $form = $this->createForm(InvitationType::class, $user);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            // Gerar token único
-            $token = bin2hex(random_bytes(32));
-            $user->setInvitationToken($token);
-            $user->setIsActive(false);
+            $email = mb_strtolower(trim((string) $user->getEmail()));
+            $user->setEmail($email);
 
-            // Roles padrão
+            $existingUser = $entityManager->getRepository(User::class)->findOneBy(['email' => $email]);
+            if ($existingUser) {
+                $form->get('email')->addError(new FormError('Este e-mail já está cadastrado. Informe outro e-mail para enviar o convite.'));
+
+                return $this->render('invitation/index.html.twig', [
+                    'form' => $form->createView(),
+                ]);
+            }
+
             if (empty($user->getRoles())) {
                 $user->setRoles(['ROLE_USER']);
             }
 
-            // Associar ao mesmo tenant do admin logado
             $currentTenant = $this->getUser()->getTenant();
             $user->setTenant($currentTenant);
 
-            $em->persist($user);
-            $em->flush();
+            $result = $invitationService->sendInvitation($user);
 
-            // Gerar link absoluto para confirmação
-            $link = $urlGenerator->generate(
-                'register_confirm',
-                ['token' => $token],
-                UrlGeneratorInterface::ABSOLUTE_URL
-            );
+            if ($result['duplicateEmail']) {
+                $form->get('email')->addError(new FormError('Este e-mail já está cadastrado. Informe outro e-mail para enviar o convite.'));
 
-            // Enviar email de convite
-            $email = (new Email())
-                ->from('jusprime.samuel@gmail.com')
-                ->to($user->getEmail())
-                ->subject('Convite para acessar o sistema')
-                ->text("Olá {$user->getFullName()},\n\nVocê foi convidado para acessar o sistema.\nClique no link abaixo para criar sua senha:\n\n$link");
+                return $this->render('invitation/index.html.twig', [
+                    'form' => $form->createView(),
+                ]);
+            }
 
-            $mailer->send($email);
+            if (!$result['sent']) {
+                $this->addFlash('warning', 'Usuário criado, mas não foi possível enviar o e-mail de convite agora. Verifique a configuração SMTP e tente novamente.');
+
+                if ($this->getParameter('kernel.environment') === 'dev') {
+                    $this->addFlash('info', sprintf('Link de confirmação (dev): %s', $result['link']));
+                }
+
+                return $this->redirectToRoute('homepage');
+            }
 
             $this->addFlash('success', 'Convite enviado com sucesso!');
             return $this->redirectToRoute('homepage');

@@ -8,7 +8,6 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
-use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 
 class TenantType extends AbstractType
 {
@@ -21,10 +20,6 @@ class TenantType extends AbstractType
             ->add('adminEmail', EmailType::class, [
                 'mapped' => false, // não pertence ao Tenant, mas usado para criar User
                 'label' => 'E-mail do Administrador',
-            ])
-            ->add('adminPassword', PasswordType::class, [
-                'mapped' => false,
-                'label' => 'Senha do Administrador',
             ]);
     }
 

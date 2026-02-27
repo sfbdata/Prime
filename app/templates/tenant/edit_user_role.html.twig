@@ -16,6 +16,25 @@
             {% endfor %}
         </div>
 
+        <hr class="my-4">
+
+        <h5>Alterar senha (opcional)</h5>
+        <p class="text-muted">Preencha os dois campos somente se desejar alterar a senha deste usuário.</p>
+
+        <div class="mb-3">
+            {{ form_label(form.newPassword.first, null, {'label_attr': {'class': 'form-label'}}) }}
+            {{ form_widget(form.newPassword.first, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.newPassword.first) }}
+        </div>
+
+        <div class="mb-3">
+            {{ form_label(form.newPassword.second, null, {'label_attr': {'class': 'form-label'}}) }}
+            {{ form_widget(form.newPassword.second, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.newPassword.second) }}
+        </div>
+
+        {{ form_errors(form.newPassword) }}
+
         <button class="btn btn-primary mt-3">Salvar</button>
     {{ form_end(form) }}
 

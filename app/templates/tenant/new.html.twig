@@ -20,12 +20,6 @@
         {{ form_errors(form.adminEmail) }}
     </div>
 
-    <div class="mb-3">
-        {{ form_label(form.adminPassword, 'Senha do Administrador', {'label_attr': {'class': 'form-label'}}) }}
-        {{ form_widget(form.adminPassword, {'attr': {'class': 'form-control'}}) }}
-        {{ form_errors(form.adminPassword) }}
-    </div>
-
     <div class="d-grid mt-4">
         <button type="submit" class="btn btn-dark btn-lg">Criar Tenant</button>
     </div>

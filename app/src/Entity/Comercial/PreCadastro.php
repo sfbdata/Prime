@@ -5,6 +5,7 @@ namespace App\Entity\Comercial;
 use App\Entity\Cliente\Cliente;
 use App\Repository\PreCadastroRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PreCadastroRepository::class)]
 #[ORM\HasLifecycleCallbacks]
@@ -49,6 +50,10 @@ class PreCadastro
     private ?string $descricaoContrato = null;
 
     #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
+    #[Assert\Range(
+        max: 99999999.99,
+        notInRangeMessage: 'O valor do contrato deve ser menor ou igual a R$ 99.999.999,99.'
+    )]
     private ?string $valorContrato = null;
 
     #[ORM\Column(length: 50, nullable: true)]
