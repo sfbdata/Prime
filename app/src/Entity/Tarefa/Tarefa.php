@@ -242,4 +242,50 @@ class Tarefa
 
         return max(0, $fim->getTimestamp() - $inicio->getTimestamp());
     }
+
+    /**
+     * Retorna informações sobre o prazo da tarefa
+     * 
+     * @return array{dias: int|null, cor: string, texto: string}
+     */
+    public function getPrazoInfo(): array
+    {
+        if ($this->prazo === null || $this->status === self::STATUS_CONCLUIDA) {
+            return [
+                'dias' => null,
+                'cor' => '',
+                'texto' => '-',
+            ];
+        }
+        
+        $hoje = new \DateTimeImmutable('today');
+        $diff = $hoje->diff($this->prazo);
+        $dias = (int) $diff->format('%r%a');
+        
+        // Determinar cor
+        if ($dias > 3) {
+            $cor = 'success'; // verde
+        } elseif ($dias >= 1) {
+            $cor = 'warning'; // amarelo
+        } else {
+            $cor = 'danger'; // vermelho (inclui 0 e negativos)
+        }
+        
+        // Determinar texto
+        if ($dias < 0) {
+            $texto = abs($dias) . ' dia(s) atrasado';
+        } elseif ($dias === 0) {
+            $texto = 'Vence hoje';
+        } elseif ($dias === 1) {
+            $texto = '1 dia';
+        } else {
+            $texto = $dias . ' dias';
+        }
+        
+        return [
+            'dias' => $dias,
+            'cor' => $cor,
+            'texto' => $texto,
+        ];
+    }
 }
