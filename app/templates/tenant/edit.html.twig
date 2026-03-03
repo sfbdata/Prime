@@ -1,33 +1,61 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Editar Escritórios{% endblock %}
+{% block title %}Editar Escritório{% endblock %}
 
 {% block body %}
-<div class="tenant-container tenant-form">
-    <h2 class="page-title">Editar Escritório</h2>
-
-    {# Formulário para editar nome #}
-    <h4>Editar Nome</h4>
-    {{ form_start(nameForm) }}
-        {{ form_row(nameForm.name, {'attr': {'class': 'form-control'}}) }}
-        <button class="btn btn-primary">Salvar Nome</button>
-    {{ form_end(nameForm) }}
-
-    <hr class="my-4">
-
-    {# Formulário para alterar senha #}
-    <h4>Alterar Senha</h4>
-    {{ form_start(passwordForm) }}
-        {{ form_row(passwordForm.password) }}
-        {{ form_row(passwordForm.confirm_password) }}
-        <button class="btn btn-dark">Alterar Senha</button>
-    {{ form_end(passwordForm) }}
-
-    <div class="mt-3 text-center">
-        {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-            <a href="{{ path('app_tenant_index') }}" class="btn btn-secondary">Voltar</a>
-            {{ include('tenant/_delete_form.html.twig') }}
-        {% endif %}
+<section class="content-header">
+    <div class="container-fluid">
+        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Editar Escritório</h1>
     </div>
-</div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-lg-6 col-md-8">
+                <div class="card card-outline card-primary mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-building me-2"></i>Nome do Escritório</h3>
+                    </div>
+                    <div class="card-body">
+                        {{ form_start(nameForm) }}
+                            {{ form_row(nameForm.name, {'attr': {'class': 'form-control'}}) }}
+                            <div class="mt-3">
+                                <button class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>Salvar Nome
+                                </button>
+                            </div>
+                        {{ form_end(nameForm) }}
+                    </div>
+                </div>
+
+                <div class="card card-outline card-secondary mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-key me-2"></i>Alterar Senha</h3>
+                    </div>
+                    <div class="card-body">
+                        {{ form_start(passwordForm) }}
+                            {{ form_row(passwordForm.password) }}
+                            {{ form_row(passwordForm.confirm_password) }}
+                            <div class="mt-3">
+                                <button class="btn btn-secondary">
+                                    <i class="bi bi-shield-lock me-1"></i>Alterar Senha
+                                </button>
+                            </div>
+                        {{ form_end(passwordForm) }}
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 justify-content-between">
+                    <a href="{{ path('app_tenant_show', {'id': tenant.id}) }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left me-1"></i>Voltar
+                    </a>
+                    {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
+                        {{ include('tenant/_delete_form.html.twig') }}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 {% endblock %}

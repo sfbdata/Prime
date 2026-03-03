@@ -1,4 +1,4 @@
 <form method="post" action="{{ path('app_tenant_delete', {'id': tenant.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este Tenant?');" style="display:inline-block">
     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ tenant.id) }}">
-    <button class="btn-delete">Excluir</button>
+    <button class="btn btn-danger">Excluir</button>
 </form>

@@ -1,13 +1,13 @@
 {% set normalizedStatus = status ?: 'SEM_CONTRATO' %}
 
 {% set badgeClass =
-    normalizedStatus == 'ATIVO' ? 'bg-success' :
-    (normalizedStatus in ['INATIVO', 'ENCERRADO'] ? 'bg-danger' :
-    (normalizedStatus == 'SEM_CONTRATO' ? 'bg-secondary' :
-    (normalizedStatus == 'PENDENTE' ? 'bg-warning' :
-    (normalizedStatus == 'EM_ANDAMENTO' ? 'bg-info' :
-    (normalizedStatus == 'FINALIZADO' ? 'bg-success' :
-    (normalizedStatus == 'CANCELADO' ? 'bg-danger' : 'bg-secondary')))))) %}
+    normalizedStatus == 'ATIVO' ? 'text-bg-success' :
+    (normalizedStatus in ['INATIVO', 'ENCERRADO'] ? 'text-bg-danger' :
+    (normalizedStatus == 'SEM_CONTRATO' ? 'text-bg-secondary' :
+    (normalizedStatus == 'PENDENTE' ? 'text-bg-warning' :
+    (normalizedStatus == 'EM_ANDAMENTO' ? 'text-bg-info' :
+    (normalizedStatus == 'FINALIZADO' ? 'text-bg-success' :
+    (normalizedStatus == 'CANCELADO' ? 'text-bg-danger' : 'text-bg-secondary')))))) %}
 
 {% set label =
     normalizedStatus == 'ATIVO' ? 'Ativo' :

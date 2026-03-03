@@ -3,48 +3,58 @@
 {% block title %}Tenants{% endblock %}
 
 {% block body %}
-<div class="tenant-container">
-    <h2 class="page-title">
-        {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-            Todos os Escritórios
-        {% else %}
-            Meu Escritório
-        {% endif %}
-    </h2>
+<section class="content-header">
+    <div class="container-fluid">
+        <h1 class="m-0">
+            {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
+                Todos os Escritórios
+            {% else %}
+                Meu Escritório
+            {% endif %}
+        </h1>
+    </div>
+</section>
 
-    <table class="tenant-table table table-striped table-bordered">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Nome</th>
-                <th>Criado em</th>
-                <th>Status</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-        {% for tenant in tenants %}
-            <tr>
-                <td>{{ tenant.id }}</td>
-                <td>{{ tenant.name }}</td>
-                <td>{{ tenant.createdAt|date('d/m/Y H:i') }}</td>
-                <td>{{ tenant.isActive ? 'Ativo' : 'Inativo' }}</td>
-                <td>
-                    {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-                        <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-sm btn-primary">Editar</a>
-                        <form method="post" action="{{ path('app_tenant_delete', {'id': tenant.id}) }}" style="display:inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este Tenant?');">
-                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ tenant.id) }}">
-                            <button class="btn btn-sm btn-delete">Excluir</button>
-                        </form>
-                    {% elseif 'ROLE_ADMIN' in app.user.roles and app.user.tenant.id == tenant.id %}
-                        <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-sm btn-primary">Editar</a>
-                    {% else %}
-                        <span class="text-muted">Sem permissões</span>
-                    {% endif %}
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
+<section class="content">
+    <div class="container-fluid">
+        <div class="card">
+            <div class="card-body table-responsive p-0">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Nome</th>
+                            <th>Criado em</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for tenant in tenants %}
+                        <tr>
+                            <td>{{ tenant.id }}</td>
+                            <td>{{ tenant.name }}</td>
+                            <td>{{ tenant.createdAt|date('d/m/Y H:i') }}</td>
+                            <td>{{ tenant.isActive ? 'Ativo' : 'Inativo' }}</td>
+                            <td>
+                                {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
+                                    <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-sm btn-primary">Editar</a>
+                                    <form method="post" action="{{ path('app_tenant_delete', {'id': tenant.id}) }}" class="d-inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este Tenant?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ tenant.id) }}">
+                                        <button class="btn btn-sm btn-danger">Excluir</button>
+                                    </form>
+                                {% elseif 'ROLE_ADMIN' in app.user.roles and app.user.tenant.id == tenant.id %}
+                                    <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-sm btn-primary">Editar</a>
+                                {% else %}
+                                    <span class="text-muted">Sem permissões</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
 {% endblock %}

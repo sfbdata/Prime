@@ -22,9 +22,9 @@ class InvitationType extends AbstractType
                 'label' => 'Email',
             ])
             ->add('roles', ChoiceType::class, [
-                'label' => 'Perfil',
+                'label' => 'Selecionar Perfil',
                 'choices' => RolesProfile::ROLES,
-                'expanded' => false,
+                'expanded' => true,
                 'multiple' => true, // retorna array
             ]);
     }
