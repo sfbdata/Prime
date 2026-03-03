@@ -3,84 +3,256 @@
 {% block title %}Clientes{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <h2 class="mb-4">Clientes</h2>
-
-    <div class="mb-3">
-        <a href="{{ path('cliente_new_pf') }}" class="btn btn-success">Novo Cliente PF</a>
-        <a href="{{ path('cliente_new_pj') }}" class="btn btn-primary">Novo Cliente PJ</a>
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">Clientes</h1>
+        <div class="d-flex gap-2">
+            <a href="{{ path('cliente_new_pf') }}" class="btn btn-success">Novo Cliente PF</a>
+            <a href="{{ path('cliente_new_pj') }}" class="btn btn-primary">Novo Cliente PJ</a>
+        </div>
     </div>
+</section>
 
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Nome/Razão Social</th>
-                <th>CPF/CNPJ</th>
-                <th>Tipo</th>
-                <th>Status do Contrato</th>
-                <th>Celular</th>
-                <th>Criado em</th>
-                <th>Modificado em</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for cliente in clientes %}
-                <tr>
-                    <td>
-                        {% if cliente.cpf is defined %}
-                            {{ cliente.nomeCompleto }}
+<section class="content">
+    <div class="container-fluid">
+        {# Filtros #}
+        <div class="card card-outline card-primary mb-3">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-funnel me-1"></i> Filtros</h3>
+                <div class="card-tools">
+                    <button type="button" class="btn btn-tool" data-bs-toggle="collapse" data-bs-target="#filtrosCliente">
+                        <i class="bi bi-dash-lg"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="collapse show" id="filtrosCliente">
+                <div class="card-body">
+                    <form method="GET" action="{{ path('cliente_index') }}" id="formFiltrosCliente">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="filter_nome" class="form-label">Nome/Razão Social</label>
+                                <select id="filter_nome" name="nome" class="form-control select2-filter">
+                                    <option value="">Todos</option>
+                                    {% for nome in nomes|keys %}
+                                        <option value="{{ nome }}" {% if filters.nome == nome %}selected{% endif %}>{{ nome }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="filter_documento" class="form-label">CPF/CNPJ</label>
+                                <select id="filter_documento" name="documento" class="form-control select2-filter">
+                                    <option value="">Todos</option>
+                                    {% for doc in documentos|keys %}
+                                        <option value="{{ doc }}" {% if filters.documento == doc %}selected{% endif %}>{{ doc }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="filter_tipo" class="form-label">Tipo</label>
+                                <select id="filter_tipo" name="tipo" class="form-control select2-filter">
+                                    <option value="">Todos</option>
+                                    <option value="PF" {% if filters.tipo == 'PF' %}selected{% endif %}>Pessoa Física</option>
+                                    <option value="PJ" {% if filters.tipo == 'PJ' %}selected{% endif %}>Pessoa Jurídica</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="filter_celular" class="form-label">Celular</label>
+                                <select id="filter_celular" name="celular" class="form-control select2-filter">
+                                    <option value="">Todos</option>
+                                    {% for celular in celulares|keys %}
+                                        <option value="{{ celular }}" {% if filters.celular == celular %}selected{% endif %}>{{ celular }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-search me-1"></i> Filtrar
+                                </button>
+                                <a href="{{ path('cliente_index') }}" class="btn btn-secondary">
+                                    <i class="bi bi-x-lg me-1"></i> Limpar
+                                </a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted"><i class="bi bi-list-ul me-1"></i> {{ clientes|length }} resultado(s) encontrado(s)</span>
+        </div>
+
+        <div class="card">
+            <div class="card-body table-responsive p-0">
+                <table class="table table-striped table-hover mb-0" id="tabelaClientes">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-col="0"><i class="bi bi-hash me-1"></i> NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i> Nome/Razão Social <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="2"><i class="bi bi-card-text me-1"></i> CPF/CNPJ <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="3"><i class="bi bi-tag me-1"></i> Tipo <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="4"><i class="bi bi-file-earmark-text me-1"></i> Status do Contrato <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="5"><i class="bi bi-phone me-1"></i> Celular <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="6" data-type="date"><i class="bi bi-calendar-plus me-1"></i> Criado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="7" data-type="date"><i class="bi bi-calendar-check me-1"></i> Modificado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th><i class="bi bi-gear me-1"></i> Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cliente in clientes %}
+                            <tr>
+                                <td>{{ cliente.nup ?: '-' }}</td>
+                                <td>
+                                    {% if cliente.cpf is defined %}
+                                        {{ cliente.nomeCompleto }}
+                                    {% else %}
+                                        {{ cliente.razaoSocial }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cliente.cpf is defined %}
+                                        {{ cliente.cpf }}
+                                    {% else %}
+                                        {{ cliente.cnpj }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cliente.cpf is defined %}
+                                        <span class="badge text-bg-info">Pessoa Física</span>
+                                    {% else %}
+                                        <span class="badge text-bg-warning">Pessoa Jurídica</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% include '_status_contrato_badge.html.twig' with {status: cliente.statusContratoCentralizado} %}
+                                </td>
+                                <td>{{ cliente.telefoneCelular ?: '-' }}</td>
+                                <td>
+                                    {% if cliente.criadoAt %}
+                                        {{ cliente.criadoAt|date('d/m/Y H:i') }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if cliente.modificadoEm %}
+                                        {{ cliente.modificadoEm|date('d/m/Y H:i') }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-info">Ver</a>
+                                    <a href="{{ path('cliente_edit', {id: cliente.id}) }}" class="btn btn-sm btn-warning">Editar</a>
+                                    <form method="POST" action="{{ path('cliente_delete', {id: cliente.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')">Deletar</button>
+                                    </form>
+                                </td>
+                            </tr>
                         {% else %}
-                            {{ cliente.razaoSocial }}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if cliente.cpf is defined %}
-                            {{ cliente.cpf }}
-                        {% else %}
-                            {{ cliente.cnpj }}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if cliente.cpf is defined %}
-                            <span class="badge bg-info">Pessoa Física</span>
-                        {% else %}
-                            <span class="badge bg-warning">Pessoa Jurídica</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% include '_status_contrato_badge.html.twig' with {status: cliente.statusContratoCentralizado} %}
-                    </td>
-                    <td>{{ cliente.telefoneCelular ?: '-' }}</td>
-                    <td>
-                        {% if cliente.criadoAt %}
-                            {{ cliente.criadoAt|date('d/m/Y H:i') }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if cliente.modificadoEm %}
-                            {{ cliente.modificadoEm|date('d/m/Y H:i') }}
-                        {% else %}
-                            -
-                        {% endif %}
-                    </td>
-                    <td>
-                        <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-info">Ver</a>
-                        <a href="{{ path('cliente_edit', {id: cliente.id}) }}" class="btn btn-sm btn-warning">Editar</a>
-                        <form method="POST" action="{{ path('cliente_delete', {id: cliente.id}) }}" style="display:inline;">
-                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
-                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')">Deletar</button>
-                        </form>
-                    </td>
-                </tr>
-            {% else %}
-                <tr>
-                    <td colspan="8" class="text-center">Nenhum cliente encontrado.</td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+                            <tr>
+                                <td colspan="9" class="text-center">Nenhum cliente encontrado.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<style>
+.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+.sortable:hover {
+    background-color: rgba(0,0,0,0.05);
+}
+.sort-icon {
+    font-size: 0.7em;
+    opacity: 0.4;
+    margin-left: 3px;
+}
+.sortable.asc .sort-icon,
+.sortable.desc .sort-icon {
+    opacity: 1;
+}
+.sortable.asc .sort-icon::before {
+    content: "\F148";
+}
+.sortable.desc .sort-icon::before {
+    content: "\F128";
+}
+</style>
+<script>
+$(document).ready(function() {
+    $('.select2-filter').select2({
+        placeholder: 'Selecione...',
+        allowClear: true,
+        width: '100%'
+    });
+    
+    // Ordenação da tabela
+    const table = document.getElementById('tabelaClientes');
+    const headers = table.querySelectorAll('th.sortable');
+    const tbody = table.querySelector('tbody');
+    
+    headers.forEach(header => {
+        header.addEventListener('click', function() {
+            const col = parseInt(this.dataset.col);
+            const type = this.dataset.type || 'text';
+            const isAsc = this.classList.contains('asc');
+            
+            // Remover classes de ordenação de todos os headers
+            headers.forEach(h => {
+                h.classList.remove('asc', 'desc');
+            });
+            
+            // Adicionar classe de ordenação ao header clicado
+            this.classList.add(isAsc ? 'desc' : 'asc');
+            
+            // Ordenar as linhas
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                let aVal = a.cells[col]?.textContent.trim() || '';
+                let bVal = b.cells[col]?.textContent.trim() || '';
+                
+                // Tratar datas no formato dd/mm/yyyy HH:ii
+                if (type === 'date') {
+                    const parseDate = (str) => {
+                        if (str === '-') return new Date(0);
+                        const parts = str.match(/(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})/);
+                        if (parts) {
+                            return new Date(parts[3], parts[2]-1, parts[1], parts[4], parts[5]);
+                        }
+                        return new Date(0);
+                    };
+                    aVal = parseDate(aVal);
+                    bVal = parseDate(bVal);
+                    return isAsc ? bVal - aVal : aVal - bVal;
+                }
+                
+                // Ordenação de texto
+                aVal = aVal.toLowerCase();
+                bVal = bVal.toLowerCase();
+                
+                if (isAsc) {
+                    return bVal.localeCompare(aVal, 'pt-BR');
+                } else {
+                    return aVal.localeCompare(bVal, 'pt-BR');
+                }
+            });
+            
+            // Re-adicionar linhas ordenadas
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+});
+</script>
 {% endblock %}

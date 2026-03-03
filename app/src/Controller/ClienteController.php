@@ -22,14 +22,45 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\File\Exception\FileException;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/cliente')]
+/**
+ * ClienteController - Gerencia clientes (PF e PJ).
+ *
+ * Estrutura de rotas REST:
+ * - GET  /clientes                           → Lista todos os clientes
+ * - GET  /clientes/novo-pf                   → Formulário de criação PF
+ * - POST /clientes/novo-pf                   → Cria cliente PF
+ * - GET  /clientes/novo-pj                   → Formulário de criação PJ
+ * - POST /clientes/novo-pj                   → Cria cliente PJ
+ * - GET  /clientes/from-pre-cadastro/{id}    → Cria cliente a partir de pré-cadastro
+ * - GET  /clientes/{id}                      → Exibe detalhes do cliente
+ * - GET  /clientes/{id}/editar               → Formulário de edição
+ * - POST /clientes/{id}/editar               → Atualiza cliente
+ * - POST /clientes/{id}/deletar              → Remove cliente
+ *
+ * Rotas aninhadas por contexto (opcional):
+ * - GET  /clientes/{clienteId}/contratos     → Lista contratos do cliente
+ */
+#[Route('/clientes')]
 class ClienteController extends AbstractController
 {
     #[Route('/', name: 'cliente_index', methods: ['GET'])]
-    public function index(ClienteRepository $repo): Response
+    public function index(Request $request, ClienteRepository $repo): Response
     {
+        $filters = [
+            'nome' => $request->query->get('nome', ''),
+            'documento' => $request->query->get('documento', ''),
+            'tipo' => $request->query->get('tipo', ''),
+            'celular' => $request->query->get('celular', ''),
+        ];
+
+        $hasFilters = array_filter($filters, fn($v) => $v !== '');
+
         return $this->render('cliente/index.html.twig', [
-            'clientes' => $repo->findAll(),
+            'clientes' => $hasFilters ? $repo->findByFilters($filters) : $repo->findAll(),
+            'filters' => $filters,
+            'nomes' => $repo->findAllNomes(),
+            'documentos' => $repo->findAllDocumentos(),
+            'celulares' => $repo->findAllCelulares(),
         ]);
     }
 
@@ -224,6 +255,36 @@ class ClienteController extends AbstractController
         }
 
         return $this->redirectToRoute('cliente_index');
+    }
+
+    #[Route('/{clienteId}/contrato/{contratoId}/desvincular', name: 'cliente_contrato_unlink', methods: ['POST'])]
+    public function unlinkContrato(Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em, int $clienteId, int $contratoId): Response
+    {
+        $cliente = $clienteRepo->find($clienteId);
+
+        if (!$cliente) {
+            throw $this->createNotFoundException('Cliente não encontrado');
+        }
+
+        $contratoToRemove = null;
+        foreach ($cliente->getContratos() as $contrato) {
+            if ($contrato->getId() === $contratoId) {
+                $contratoToRemove = $contrato;
+                break;
+            }
+        }
+
+        if (!$contratoToRemove) {
+            throw $this->createNotFoundException('Contrato não encontrado');
+        }
+
+        if ($this->isCsrfTokenValid('unlink_contrato' . $contratoId, $request->request->get('_token'))) {
+            $cliente->removeContrato($contratoToRemove);
+            $em->flush();
+            $this->addFlash('success', 'Vínculo com contrato removido com sucesso.');
+        }
+
+        return $this->redirectToRoute('cliente_edit', ['id' => $clienteId]);
     }
 
     private function handleContratoUpload(?UploadedFile $uploadedFile, Cliente $cliente, ?\DateTimeInterface $dataInicio, mixed $valorTotal): void

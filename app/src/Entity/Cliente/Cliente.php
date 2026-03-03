@@ -20,6 +20,9 @@ abstract class Cliente
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $nup = null;
+
     #[ORM\Column(length: 255)]
     private string $email;
 
@@ -226,6 +229,17 @@ abstract class Cliente
             $contrato->removeCliente($this);
         }
 
+        return $this;
+    }
+
+    public function getNup(): ?string
+    {
+        return $this->nup;
+    }
+
+    public function setNup(?string $nup): self
+    {
+        $this->nup = $nup;
         return $this;
     }
 }

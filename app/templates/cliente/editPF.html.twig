@@ -3,13 +3,36 @@
 {% block title %}Editar Cliente - Pessoa Física{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <h2 class="mb-3">Editar Cliente - Pessoa Física</h2>
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">Editar Cliente - Pessoa Física</h1>
+        <a href="{{ path('cliente_index') }}" class="btn btn-secondary">Voltar</a>
+    </div>
+</section>
+
+<section class="content">
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-body">
 
     {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
 
+    <!-- NUP -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white"><h5>Identificação</h5></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    {{ form_label(form.nup, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.nup, {'attr': {'class': 'form-control', 'placeholder': 'Número Único de Protocolo'}}) }}
+                    {{ form_errors(form.nup) }}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Dados Pessoais -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-primary text-white"><h5>Dados Pessoais</h5></div>
         <div class="card-body">
             <div class="mb-3">
@@ -43,7 +66,7 @@
     </div>
 
     <!-- RG -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-success text-white"><h5>RG</h5></div>
         <div class="card-body">
             <div class="row">
@@ -67,7 +90,7 @@
     </div>
 
     <!-- Contato -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-info text-white"><h5>Contato</h5></div>
         <div class="card-body">
             <div class="mb-3">
@@ -91,7 +114,7 @@
     </div>
 
     <!-- Endereço -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-warning text-white"><h5>Endereço</h5></div>
         <div class="card-body">
             <div class="mb-3">
@@ -125,7 +148,7 @@
     </div>
 
     <!-- Contrato -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-dark text-white"><h5>Contrato</h5></div>
         <div class="card-body">
             <div class="mb-3">
@@ -156,7 +179,15 @@
                                     | Valor: {% if contrato.valorTotal %}R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}{% else %}-{% endif %}
                                 </div>
                             </div>
-                            <span class="badge {{ contrato.status == 'ATIVO' ? 'bg-success' : 'bg-secondary' }}">{{ contrato.status }}</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge {{ contrato.status == 'ATIVO' ? 'bg-success' : 'bg-secondary' }}">{{ contrato.status }}</span>
+                                <a href="#" class="btn btn-sm btn-outline-danger btn-unlink-contrato" 
+                                   data-action="{{ path('cliente_contrato_unlink', {clienteId: cliente.id, contratoId: contrato.id}) }}"
+                                   data-token="{{ csrf_token('unlink_contrato' ~ contrato.id) }}"
+                                   title="Remover vínculo">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </div>
                         </li>
                     {% endfor %}
                 </ul>
@@ -166,9 +197,34 @@
         </div>
     </div>
 
-    <button class="btn btn-success btn-lg mt-3">Salvar Alterações</button>
+    <button type="submit" class="btn btn-success mt-3">Salvar Alterações</button>
     {{ form_end(form) }}
 
-    <a href="{{ path('cliente_index') }}" class="btn btn-secondary mt-3">Voltar</a>
+        </div>
+    </div>
 </div>
+</section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.querySelectorAll('.btn-unlink-contrato').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (confirm('Tem certeza que deseja remover o vínculo com este contrato?')) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = this.dataset.action;
+            var token = document.createElement('input');
+            token.type = 'hidden';
+            token.name = '_token';
+            token.value = this.dataset.token;
+            form.appendChild(token);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+});
+</script>
 {% endblock %}

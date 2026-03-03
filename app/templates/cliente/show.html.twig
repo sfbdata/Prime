@@ -1,195 +1,410 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Detalhes do Cliente{% endblock %}
+{% block title %}Cliente - {{ cliente.cpf is defined ? cliente.nomeCompleto : cliente.razaoSocial }}{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    {% if cliente.cpf is defined %}
-        <h2 class="mb-3">Cliente - Pessoa Física</h2>
-
-        <div class="card mb-3">
-            <div class="card-header bg-primary text-white">
-                <h5>Dados Pessoais</h5>
+{# Content Header #}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1 class="m-0">
+                    <i class="bi bi-person me-2"></i>{{ cliente.cpf is defined ? cliente.nomeCompleto : cliente.razaoSocial }}
+                </h1>
             </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Nome:</strong> {{ cliente.nomeCompleto }}</p>
-                        <p><strong>CPF:</strong> {{ cliente.cpf }}</p>
-                        <p><strong>Data de Nascimento:</strong> 
-                            {% if cliente.dataNascimento %}
-                                {{ cliente.dataNascimento|date('d/m/Y') }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Estado Civil:</strong> {{ cliente.estadoCivil ?: '-' }}</p>
-                        <p><strong>Profissão:</strong> {{ cliente.profissao ?: '-' }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card mb-3">
-            <div class="card-header bg-success text-white">
-                <h5>RG</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-4">
-                        <p><strong>RG:</strong> {{ cliente.rg }}</p>
-                    </div>
-                    <div class="col-md-4">
-                        <p><strong>Órgão Expedidor:</strong> {{ cliente.rgOrgaoExpedidor }}</p>
-                    </div>
-                    <div class="col-md-4">
-                        <p><strong>Data de Emissão:</strong> 
-                            {% if cliente.rgDataEmissao %}
-                                {{ cliente.rgDataEmissao|date('d/m/Y') }}
-                            {% else %}
-                                -
-                            {% endif %}
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% else %}
-        <h2 class="mb-3">Cliente - Pessoa Jurídica</h2>
-
-        <div class="card mb-3">
-            <div class="card-header bg-primary text-white">
-                <h5>Dados da Empresa</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Razão Social:</strong> {{ cliente.razaoSocial }}</p>
-                        <p><strong>Nome Fantasia:</strong> {{ cliente.nomeFantasia ?: '-' }}</p>
-                        <p><strong>CNPJ:</strong> {{ cliente.cnpj }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Inscrição Estadual:</strong> {{ cliente.inscricaoEstadual ?: '-' }}</p>
-                        <p><strong>Inscrição Municipal:</strong> {{ cliente.inscricaoMunicipal ?: '-' }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card mb-3">
-            <div class="card-header bg-success text-white">
-                <h5>Representante Legal</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Nome:</strong> {{ cliente.representanteLegal }}</p>
-                        <p><strong>CPF:</strong> {{ cliente.representanteCpf }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>RG:</strong> {{ cliente.representanteRg }}</p>
-                        <p><strong>Cargo:</strong> {{ cliente.representanteCargo }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-
-    <div class="card mb-3">
-        <div class="card-header bg-info text-white">
-            <h5>Contato</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <p><strong>E-mail:</strong> {{ cliente.email }}</p>
-                    <p><strong>Celular:</strong> {{ cliente.telefoneCelular ?: '-' }}</p>
-                </div>
-                <div class="col-md-6">
-                    <p><strong>Telefone Fixo:</strong> {{ cliente.telefoneFixo ?: '-' }}</p>
-                </div>
+            <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end">
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('cliente_index') }}">Clientes</a></li>
+                    <li class="breadcrumb-item active">Detalhes</li>
+                </ol>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="card mb-3">
-        <div class="card-header bg-warning text-white">
-            <h5>Endereço</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-12">
-                    <p><strong>CEP:</strong> {{ cliente.cep }}</p>
-                    <p><strong>Endereço:</strong> {{ cliente.endereco }}</p>
-                    {% if cliente.complemento %}
-                        <p><strong>Complemento:</strong> {{ cliente.complemento }}</p>
-                    {% endif %}
-                    <p><strong>Cidade:</strong> {{ cliente.cidade }} - {{ cliente.estado }}</p>
-                    {% if cliente.enderecSede is defined and cliente.enderecSede %}
-                        <p><strong>Endereço da Sede:</strong> {{ cliente.enderecSede }}</p>
-                    {% endif %}
+{# Main Content #}
+<section class="content">
+    <div class="container-fluid">
+        <div class="card card-primary card-outline">
+            <div class="card-header">
+                <h3 class="card-title">{{ cliente.cpf is defined ? 'Pessoa Física' : 'Pessoa Jurídica' }}</h3>
+                <div class="card-tools">
+                    <span class="badge text-bg-primary">
+                        {{ cliente.cpf is defined ? cliente.cpf : cliente.cnpj }}
+                    </span>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <div class="card">
-        <div class="card-header bg-secondary text-white">
-            <h5>Informações</h5>
-        </div>
-        <div class="card-body">
-            <p><strong>Criado em:</strong> 
-                {% if cliente.criadoAt %}
-                    {{ cliente.criadoAt|date('d/m/Y H:i') }}
-                {% else %}
-                    -
-                {% endif %}
-            </p>
-            <p><strong>Modificado em:</strong> 
-                {% if cliente.modificadoEm %}
-                    {{ cliente.modificadoEm|date('d/m/Y H:i') }}
-                {% else %}
-                    -
-                {% endif %}
-            </p>
-        </div>
-    </div>
-
-        <div class="card mt-3">
-            <div class="card-header bg-dark text-white">
-                <h5>Contratos</h5>
-            </div>
             <div class="card-body">
-                {% if cliente.contratos|length > 0 %}
-                    <ul class="list-group">
-                        {% for contrato in cliente.contratos %}
-                            <li class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <a href="{{ contrato.caminhoArquivo }}" target="_blank">{{ contrato.nomeArquivo }}</a>
-                                    <div class="text-muted small">
-                                        Criado em {{ contrato.criadoAt|date('d/m/Y H:i') }}
-                                        | {% if contrato.dataInicio %}Início: {{ contrato.dataInicio|date('d/m/Y') }}{% else %}Início: -{% endif %}
-                                        | Valor: {% if contrato.valorTotal %}R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}{% else %}-{% endif %}
+                <div class="row">
+                    {# Left Column - Tabs #}
+                    <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1">
+                        {# Info Boxes #}
+                        <div class="row">
+                            <div class="col-12 col-sm-4">
+                                <div class="info-box bg-light">
+                                    <div class="info-box-content">
+                                        <span class="info-box-text text-center text-muted">Contratos</span>
+                                        <span class="info-box-number text-center text-muted mb-0">{{ cliente.contratos|length }}</span>
                                     </div>
                                 </div>
-                                <div class="d-flex align-items-center gap-2">
-                                    <a href="{{ path('contrato_show', {id: contrato.id}) }}" class="btn btn-sm btn-info">Detalhes</a>
-                                    <span class="badge {{ contrato.status == 'ATIVO' ? 'bg-success' : 'bg-secondary' }}">
-                                        {{ contrato.status }}
-                                    </span>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <div class="info-box bg-light">
+                                    <div class="info-box-content">
+                                        <span class="info-box-text text-center text-muted">Processos</span>
+                                        {% set totalProcessos = 0 %}
+                                        {% for contrato in cliente.contratos %}
+                                            {% set totalProcessos = totalProcessos + contrato.processos|length %}
+                                        {% endfor %}
+                                        <span class="info-box-number text-center text-muted mb-0">{{ totalProcessos }}</span>
+                                    </div>
                                 </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <div class="info-box bg-light">
+                                    <div class="info-box-content">
+                                        <span class="info-box-text text-center text-muted">Tipo</span>
+                                        <span class="info-box-number text-center text-muted mb-0">{{ cliente.cpf is defined ? 'PF' : 'PJ' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Tabs #}
+                        <ul class="nav nav-tabs" id="clienteTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="dados-tab" data-bs-toggle="tab" data-bs-target="#dados" type="button" role="tab" aria-controls="dados" aria-selected="true">
+                                    <i class="bi bi-person-vcard me-1"></i> Dados do Cliente
+                                </button>
                             </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <span class="badge bg-secondary">Nenhum contrato cadastrado</span>
-                {% endif %}
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="false">
+                                    <i class="bi bi-info-circle me-1"></i> Informações
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content mt-3" id="clienteTabsContent">
+                            {# Tab: Dados do Cliente #}
+                            <div class="tab-pane fade show active" id="dados" role="tabpanel" aria-labelledby="dados-tab">
+                                {# NUP - comum a PF e PJ #}
+                                <div class="row mb-4">
+                                    <div class="col-md-6">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2">NUP <i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" data-bs-placement="top" title="NÚMERO ÚNICO DE PASTA"></i>
+                                                <b class="d-block">{{ cliente.nup ?: '-' }}{% if cliente.nup %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.nup }}" title="Copiar"></i>{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if cliente.cpf is defined %}
+                                    {# Pessoa Física #}
+                                    <h5 class="mb-3"><i class="bi bi-person-badge me-1"></i> Dados Pessoais</h5>
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">Nome Completo
+                                                    <b class="d-block">{{ cliente.nomeCompleto }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.nomeCompleto }}" title="Copiar"></i></b>
+                                                </p>
+                                                <p class="text-sm mb-2">CPF
+                                                    <b class="d-block">{{ cliente.cpf }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cpf }}" title="Copiar"></i></b>
+                                                </p>
+                                                <p class="text-sm mb-2">Data de Nascimento
+                                                    <b class="d-block">{% if cliente.dataNascimento %}{{ cliente.dataNascimento|date('d/m/Y') }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.dataNascimento|date('d/m/Y') }}" title="Copiar"></i>{% else %}-{% endif %}</b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">Estado Civil
+                                                    <b class="d-block">{{ cliente.estadoCivil ?: '-' }}{% if cliente.estadoCivil %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.estadoCivil }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                                <p class="text-sm mb-2">Profissão
+                                                    <b class="d-block">{{ cliente.profissao ?: '-' }}{% if cliente.profissao %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.profissao }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <h5 class="mb-3"><i class="bi bi-card-text me-1"></i> Documento RG</h5>
+                                    <div class="row mb-4">
+                                        <div class="col-md-4">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">RG
+                                                    <b class="d-block">{{ cliente.rg ?: '-' }}{% if cliente.rg %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rg }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">Órgão Expedidor
+                                                    <b class="d-block">{{ cliente.rgOrgaoExpedidor ?: '-' }}{% if cliente.rgOrgaoExpedidor %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rgOrgaoExpedidor }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">Data de Emissão
+                                                    <b class="d-block">{% if cliente.rgDataEmissao %}{{ cliente.rgDataEmissao|date('d/m/Y') }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.rgDataEmissao|date('d/m/Y') }}" title="Copiar"></i>{% else %}-{% endif %}</b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    {# Pessoa Jurídica #}
+                                    <h5 class="mb-3"><i class="bi bi-building me-1"></i> Dados da Empresa</h5>
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">Razão Social
+                                                    <b class="d-block">{{ cliente.razaoSocial }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.razaoSocial }}" title="Copiar"></i></b>
+                                                </p>
+                                                <p class="text-sm mb-2">Nome Fantasia
+                                                    <b class="d-block">{{ cliente.nomeFantasia ?: '-' }}{% if cliente.nomeFantasia %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.nomeFantasia }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                                <p class="text-sm mb-2">CNPJ
+                                                    <b class="d-block">{{ cliente.cnpj }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cnpj }}" title="Copiar"></i></b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">Inscrição Estadual
+                                                    <b class="d-block">{{ cliente.inscricaoEstadual ?: '-' }}{% if cliente.inscricaoEstadual %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.inscricaoEstadual }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                                <p class="text-sm mb-2">Inscrição Municipal
+                                                    <b class="d-block">{{ cliente.inscricaoMunicipal ?: '-' }}{% if cliente.inscricaoMunicipal %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.inscricaoMunicipal }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <h5 class="mb-3"><i class="bi bi-person-workspace me-1"></i> Representante Legal</h5>
+                                    <div class="row mb-4">
+                                        <div class="col-md-6">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">Nome
+                                                    <b class="d-block">{{ cliente.representanteLegal ?: '-' }}{% if cliente.representanteLegal %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteLegal }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                                <p class="text-sm mb-2">CPF
+                                                    <b class="d-block">{{ cliente.representanteCpf ?: '-' }}{% if cliente.representanteCpf %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteCpf }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="text-muted">
+                                                <p class="text-sm mb-2">RG
+                                                    <b class="d-block">{{ cliente.representanteRg ?: '-' }}{% if cliente.representanteRg %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteRg }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                                <p class="text-sm mb-2">Cargo
+                                                    <b class="d-block">{{ cliente.representanteCargo ?: '-' }}{% if cliente.representanteCargo %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.representanteCargo }}" title="Copiar"></i>{% endif %}</b>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+
+                                <h5 class="mb-3"><i class="bi bi-telephone me-1"></i> Contato</h5>
+                                <div class="row mb-4">
+                                    <div class="col-md-6">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2">E-mail
+                                                <b class="d-block">{{ cliente.email }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.email }}" title="Copiar"></i></b>
+                                            </p>
+                                            <p class="text-sm mb-2">Celular
+                                                <b class="d-block">{{ cliente.telefoneCelular ?: '-' }}{% if cliente.telefoneCelular %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.telefoneCelular }}" title="Copiar"></i>{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2">Telefone Fixo
+                                                <b class="d-block">{{ cliente.telefoneFixo ?: '-' }}{% if cliente.telefoneFixo %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.telefoneFixo }}" title="Copiar"></i>{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h5 class="mb-3"><i class="bi bi-geo-alt me-1"></i> Endereço</h5>
+                                <div class="row">
+                                    <div class="col-md-12">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2">CEP
+                                                <b class="d-block">{{ cliente.cep ?: '-' }}{% if cliente.cep %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cep }}" title="Copiar"></i>{% endif %}</b>
+                                            </p>
+                                            <p class="text-sm mb-2">Endereço
+                                                <b class="d-block">{{ cliente.endereco ?: '-' }}{% if cliente.endereco %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.endereco }}" title="Copiar"></i>{% endif %}</b>
+                                            </p>
+                                            {% if cliente.complemento %}
+                                            <p class="text-sm mb-2">Complemento
+                                                <b class="d-block">{{ cliente.complemento }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.complemento }}" title="Copiar"></i></b>
+                                            </p>
+                                            {% endif %}
+                                            <p class="text-sm mb-0">Cidade/Estado
+                                                <b class="d-block">{{ cliente.cidade ?: '-' }} - {{ cliente.estado ?: '-' }}{% if cliente.cidade %} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ cliente.cidade }} - {{ cliente.estado }}" title="Copiar"></i>{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# Tab: Informações #}
+                            <div class="tab-pane fade" id="info" role="tabpanel" aria-labelledby="info-tab">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-calendar-plus me-2"></i> Criado em
+                                                <b class="d-block">{% if cliente.criadoAt %}{{ cliente.criadoAt|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-calendar-check me-2"></i> Modificado em
+                                                <b class="d-block">{% if cliente.modificadoEm %}{{ cliente.modificadoEm|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Right Column - Sidebar #}
+                    <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
+                        <div class="card card-primary card-outline">
+                            <div class="card-header">
+                                <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> Vínculos</h3>
+                            </div>
+                            <div class="card-body">
+                                {# Contratos #}
+                                <h6 class="text-muted mb-3"><i class="bi bi-file-earmark-text me-1"></i> Contratos</h6>
+                                {% if cliente.contratos|length > 0 %}
+                                    {% for contrato in cliente.contratos %}
+                                        <a href="{{ path('contrato_show', {id: contrato.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <span class="fw-semibold text-primary">
+                                                        <i class="bi bi-file-earmark me-1"></i>{{ contrato.nomeArquivo }}
+                                                    </span>
+                                                    <small class="text-muted d-block">
+                                                        {% if contrato.dataInicio %}Início: {{ contrato.dataInicio|date('d/m/Y') }}{% endif %}
+                                                        {% if contrato.valorTotal %} | R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}{% endif %}
+                                                    </small>
+                                                </div>
+                                                <span class="badge {{ contrato.status == 'ATIVO' ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                                    {{ contrato.status }}
+                                                </span>
+                                            </div>
+                                        </a>
+                                    {% endfor %}
+                                {% else %}
+                                    <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum contrato cadastrado.</p>
+                                {% endif %}
+
+                                <hr>
+
+                                {# Processos #}
+                                <h6 class="text-muted mb-3"><i class="bi bi-briefcase me-1"></i> Processos</h6>
+                                {% set hasProcessos = false %}
+                                {% for contrato in cliente.contratos %}
+                                    {% for processo in contrato.processos %}
+                                        {% set hasProcessos = true %}
+                                        <a href="{{ path('processo_show', {id: processo.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div>
+                                                    <span class="fw-semibold text-primary">
+                                                        <i class="bi bi-briefcase me-1"></i>{{ processo.numeroProcesso }}
+                                                    </span>
+                                                    <small class="text-muted d-block">
+                                                        {{ processo.siglaTribunal ?: '-' }} | {{ processo.classeProcessual ?: '-' }}
+                                                    </small>
+                                                </div>
+                                                <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}text-bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                                    {{ processo.situacaoProcesso|replace({'_': ' '}) }}
+                                                </span>
+                                            </div>
+                                        </a>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% if not hasProcessos %}
+                                    <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum processo cadastrado.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ path('cliente_index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Voltar aos Clientes
+                    </a>
+                    <div class="d-flex gap-2">
+                        <a href="{{ path('cliente_edit', {id: cliente.id}) }}" class="btn btn-warning">
+                            <i class="bi bi-pencil me-1"></i> Editar
+                        </a>
+                        <form method="post" action="{{ path('cliente_delete', {id: cliente.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este cliente?');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash me-1"></i> Excluir Cliente
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
+    </div>
+</section>
 
-    <a href="{{ path('cliente_edit', {id: cliente.id}) }}" class="btn btn-warning mt-3">Editar</a>
-    <a href="{{ path('cliente_index') }}" class="btn btn-secondary mt-3">Voltar</a>
-</div>
+<style>
+.copy-btn {
+    cursor: pointer;
+    opacity: 0.6;
+    font-size: 0.85em;
+    transition: opacity 0.2s, color 0.2s;
+}
+.copy-btn:hover {
+    opacity: 1;
+}
+.copy-btn.copied {
+    color: #198754 !important;
+}
+.vinculo-link {
+    transition: background-color 0.2s;
+    border-radius: 4px;
+    padding: 8px;
+    margin-left: -8px;
+    margin-right: -8px;
+}
+.vinculo-link:hover {
+    background-color: rgba(0,0,0,0.03);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips do Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    document.querySelectorAll('.copy-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const text = this.getAttribute('data-copy');
+            navigator.clipboard.writeText(text).then(() => {
+                this.classList.remove('bi-copy');
+                this.classList.add('bi-check-lg', 'copied');
+                setTimeout(() => {
+                    this.classList.remove('bi-check-lg', 'copied');
+                    this.classList.add('bi-copy');
+                }, 1500);
+            });
+        });
+    });
+});
+</script>
 {% endblock %}

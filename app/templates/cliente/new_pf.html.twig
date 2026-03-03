@@ -3,8 +3,17 @@
 {% block title %}Novo Cliente PF{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <h2 class="mb-3">Novo Cliente - Pessoa Física</h2>
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">Novo Cliente - Pessoa Física</h1>
+        <a href="{{ path('cliente_index') }}" class="btn btn-secondary">Voltar</a>
+    </div>
+</section>
+
+<section class="content">
+<div class="container-fluid">
+    <div class="card">
+        <div class="card-body">
 
     {% if preCadastro is defined %}
         <div class="alert alert-info mb-3">
@@ -14,8 +23,22 @@
 
     {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
 
+    <!-- NUP -->
+    <div class="card mb-4">
+        <div class="card-header bg-secondary text-white"><h5>Identificação</h5></div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    {{ form_label(form.nup, null, {'label_attr': {'class': 'form-label'}}) }}
+                    {{ form_widget(form.nup, {'attr': {'class': 'form-control', 'placeholder': 'Número Único de Protocolo'}}) }}
+                    {{ form_errors(form.nup) }}
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Dados Pessoais -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-primary text-white"><h5>Dados Pessoais</h5></div>
         <div class="card-body">
             <div class="mb-3">
@@ -49,7 +72,7 @@
     </div>
 
     <!-- RG -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-success text-white"><h5>RG</h5></div>
         <div class="card-body">
             <div class="row">
@@ -73,7 +96,7 @@
     </div>
 
     <!-- Contato -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-info text-white"><h5>Contato</h5></div>
         <div class="card-body">
             <div class="mb-3">
@@ -97,7 +120,7 @@
     </div>
 
     <!-- Endereço -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-warning text-white"><h5>Endereço</h5></div>
         <div class="card-body">
             <div class="row">
@@ -133,7 +156,7 @@
     </div>
 
     <!-- Contrato -->
-    <div class="card mb-4 shadow-sm">
+    <div class="card mb-4">
         <div class="card-header bg-dark text-white"><h5>Contrato</h5></div>
         <div class="card-body">
             <div class="mb-3">
@@ -156,9 +179,11 @@
         </div>
     </div>
 
-    <button class="btn btn-success btn-lg mt-3">Salvar Cliente</button>
+    <button class="btn btn-success mt-3">Salvar Cliente</button>
     {{ form_end(form) }}
 
-    <a href="{{ path('cliente_index') }}" class="btn btn-secondary mt-3">Voltar</a>
+        </div>
+    </div>
 </div>
+</section>
 {% endblock %}
