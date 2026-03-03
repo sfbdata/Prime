@@ -3,15 +3,16 @@
 {% block title %}{{ isEdit ? 'Editar Processo' : 'Cadastrar Processo' }}{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <div class="mb-3">
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">{{ isEdit ? 'Editar Processo' : 'Cadastrar Novo Processo' }}</h1>
         <a href="{{ path('processo_index') }}" class="btn btn-secondary">← Voltar aos Processos</a>
     </div>
+</section>
 
+<section class="content">
+<div class="container-fluid">
     <div class="card">
-        <div class="card-header">
-            <h2>{{ isEdit ? 'Editar Processo' : 'Cadastrar Novo Processo' }}</h2>
-        </div>
         <div class="card-body">
             <form method="POST" id="processoForm" action="{{ isEdit ? path('processo_edit', {id: processo.id}) : path('processo_new') }}">
                 <!-- Seleção de Cliente com Pesquisa (Select2) -->
@@ -388,6 +389,7 @@
         </div>
     </div>
 </div>
+</section>
 
 <!-- Modal de carregamento durante busca -->
 <div id="loadingModal" class="modal fade" tabindex="-1" role="dialog" aria-hidden="true">

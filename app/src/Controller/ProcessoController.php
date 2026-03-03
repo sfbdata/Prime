@@ -20,7 +20,26 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/processo')]
+/**
+ * ProcessoController - Gerencia processos judiciais.
+ *
+ * Estrutura de rotas REST:
+ * - GET  /processos              → Lista todos os processos
+ * - GET  /processos/novo         → Formulário de criação
+ * - POST /processos/novo         → Cria novo processo
+ * - GET  /processos/{id}         → Exibe detalhes do processo
+ * - GET  /processos/{id}/editar  → Formulário de edição
+ * - POST /processos/{id}/editar  → Atualiza processo
+ * - POST /processos/{id}/deletar → Remove processo
+ *
+ * Rotas de documentos (aninhadas por contexto):
+ * - POST /processos/{id}/documentos/upload              → Upload de documento
+ * - POST /processos/{id}/documentos/{documentoId}/excluir → Remove documento
+ *
+ * API DataJud:
+ * - POST /processos/api/search → Busca processo no CNJ/DataJud
+ */
+#[Route('/processos')]
 class ProcessoController extends AbstractController
 {
     /** @var array<string, string> */
@@ -34,15 +53,31 @@ class ProcessoController extends AbstractController
     ];
 
     #[Route('/', name: 'processo_index', methods: ['GET'])]
-    public function index(ProcessoRepository $repo): Response
+    public function index(Request $request, ProcessoRepository $repo): Response
     {
+        $filters = [
+            'numero_processo' => $request->query->get('numero_processo', ''),
+            'tribunal' => $request->query->get('tribunal', ''),
+            'classe' => $request->query->get('classe', ''),
+            'assunto' => $request->query->get('assunto', ''),
+            'situacao' => $request->query->get('situacao', ''),
+            'status_documentos' => $request->query->get('status_documentos', ''),
+        ];
+
+        $hasFilters = array_filter($filters, fn($v) => $v !== '');
+
         return $this->render('processo/index.html.twig', [
-            'processos' => $repo->findAll(),
+            'processos' => $hasFilters ? $repo->findByFilters($filters) : $repo->findAll(),
+            'filters' => $filters,
+            'numerosProcesso' => $repo->findAllNumerosProcesso(),
+            'tribunais' => $repo->findAllTribunais(),
+            'classes' => $repo->findAllClasses(),
+            'assuntos' => $repo->findAllAssuntos(),
         ]);
     }
 
     #[Route('/novo', name: 'processo_new', methods: ['GET', 'POST'])]
-    public function new(Request $request, ContratoRepository $contratoRepo, ClienteRepository $clienteRepo, EntityManagerInterface $em): Response
+    public function new(Request $request, ContratoRepository $contratoRepo, ClienteRepository $clienteRepo, ProcessoRepository $processoRepo, EntityManagerInterface $em): Response
     {
         $contratos = $contratoRepo->findAll();
         $clientes = $clienteRepo->findAll();
@@ -50,6 +85,22 @@ class ProcessoController extends AbstractController
 
         if ($request->isMethod('POST')) {
             $data = $request->request->all();
+            
+            // Verificar se o número do processo já está cadastrado
+            $numeroProcessoNormalizado = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
+            if (!empty($numeroProcessoNormalizado)) {
+                $processoExistente = $processoRepo->findByNumeroProcesso($numeroProcessoNormalizado);
+                if ($processoExistente !== null) {
+                    $this->addFlash('warning', 'Este número de processo já está cadastrado no sistema. Por favor, verifique o número informado ou acesse o processo existente.');
+                    return $this->render('processo/new.html.twig', [
+                        'contratos' => $contratos,
+                        'clientes' => $clientes,
+                        'processo' => $processo,
+                        'isEdit' => false,
+                    ]);
+                }
+            }
+            
             $this->fillProcessoFromRequest($processo, $data, $contratoRepo);
 
             $em->persist($processo);
@@ -114,6 +165,8 @@ class ProcessoController extends AbstractController
             $historicoTarefas[] = [
                 'tarefaId' => $tarefa->getId(),
                 'titulo' => $tarefa->getTitulo(),
+                'descricao' => $tarefa->getDescricao(),
+                'prazo' => $tarefa->getPrazo(),
                 'usuarios' => $usuariosAtribuidos !== [] ? implode(', ', $usuariosAtribuidos) : '-',
                 'statusAtual' => $tarefa->getStatus(),
                 'dataCriacao' => $tarefa->getDataCriacao(),

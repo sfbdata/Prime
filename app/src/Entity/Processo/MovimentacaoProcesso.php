@@ -17,7 +17,7 @@ class MovimentacaoProcesso
     private ?\DateTimeInterface $dataMovimentacao = null;
 
     #[ORM\Column(length: 255)]
-    private string $descricao;
+    private string $descricao = '';
 
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $tipo = null;

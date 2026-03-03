@@ -12,14 +12,39 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/contrato')]
+/**
+ * ContratoController - Gerencia contratos.
+ *
+ * Estrutura de rotas REST:
+ * - GET  /contratos                                       → Lista todos os contratos
+ * - GET  /contratos/{id}                                  → Exibe detalhes do contrato
+ * - POST /contratos/{id}/associar-cliente                 → Associa cliente ao contrato
+ * - POST /contratos/{id}/desassociar-cliente/{clienteId}  → Desassocia cliente
+ * - POST /contratos/{id}/status                           → Altera status do contrato
+ *
+ * Rotas aninhadas por contexto (opcional):
+ * - GET  /contratos/{contratoId}/processos → Lista processos do contrato
+ */
+#[Route('/contratos')]
 class ContratoController extends AbstractController
 {
     #[Route('/', name: 'contrato_index', methods: ['GET'])]
-    public function index(ContratoRepository $repo): Response
+    public function index(Request $request, ContratoRepository $repo, ClienteRepository $clienteRepo): Response
     {
+        $filters = [
+            'cliente_id' => $request->query->get('cliente_id', ''),
+            'data_inicio_de' => $request->query->get('data_inicio_de', ''),
+            'data_inicio_ate' => $request->query->get('data_inicio_ate', ''),
+            'valor_min' => $request->query->get('valor_min', ''),
+            'valor_max' => $request->query->get('valor_max', ''),
+        ];
+
+        $hasFilters = array_filter($filters, fn($v) => $v !== '');
+
         return $this->render('contrato/index.html.twig', [
-            'contratos' => $repo->findAll(),
+            'contratos' => $hasFilters ? $repo->findByFilters($filters) : $repo->findAll(),
+            'filters' => $filters,
+            'clientes' => $clienteRepo->findAll(),
         ]);
     }
 

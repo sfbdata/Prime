@@ -1,266 +1,539 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Detalhes do Processo{% endblock %}
+{% block title %}Processo {{ processo.numeroProcesso }}{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <div class="mb-3">
-        <a href="{{ path('processo_index') }}" class="btn btn-secondary">← Voltar aos Processos</a>
-    </div>
-
-    <div class="card">
-        <div class="card-header">
-            <h2>{{ processo.numeroProcesso }}</h2>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-6">
-                    <h5>Informações do Processo</h5>
-                    <p><strong>Tribunal:</strong> {{ processo.siglaTribunal }}</p>
-                    <p><strong>Órgão Julgador:</strong> {{ processo.orgaoJulgador }}</p>
-                    <p><strong>Classe Processual:</strong> {{ processo.classeProcessual }}</p>
-                    <p><strong>Assunto:</strong> {{ processo.assuntoProcessual }}</p>
-                    <p><strong>Situação:</strong>
-                        <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}bg-danger{% else %}bg-secondary{% endif %}">
-                            {{ processo.situacaoProcesso|replace({'_': ' '}) }}
-                        </span>
-                    </p>
-                    <p><strong>Instância:</strong> {{ processo.instancia }}</p>
-                    <p><strong>Status dos Documentos:</strong>
-                        <span class="badge {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'bg-success' : 'bg-warning text-dark' }}">
-                            {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'Apto para Protocolar' : 'Pendente de Documentação' }}
-                        </span>
-                    </p>
-                </div>
-                <div class="col-md-6">
-                    <h5>Datas</h5>
-                    <p><strong>Distribuição:</strong> {% if processo.dataDistribuicao %}{{ processo.dataDistribuicao|date('d/m/Y') }}{% else %}-{% endif %}</p>
-                    <p><strong>Baixa:</strong> {% if processo.dataBaixa %}{{ processo.dataBaixa|date('d/m/Y') }}{% else %}-{% endif %}</p>
-                    <p><strong>Última Atualização:</strong> {% if processo.dataAtualizacao %}{{ processo.dataAtualizacao|date('d/m/Y H:i') }}{% else %}-{% endif %}</p>
-                </div>
+{# Content Header #}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1 class="m-0">
+                    <i class="bi bi-briefcase me-2"></i>Processo {{ processo.numeroProcesso }}
+                </h1>
             </div>
-
-            {% if processo.contrato %}
-            <div class="mt-3 p-3 bg-light rounded">
-                <strong>Contrato Associado:</strong>
-                <span class="me-2">{{ processo.contrato.nomeArquivo }}</span>
-                <a href="{{ path('contrato_show', {id: processo.contrato.id}) }}" class="btn btn-sm btn-outline-primary">Visualizar detalhes do contrato</a>
-            </div>
-            {% endif %}
-
-            <hr>
-
-            <div class="mb-3">
-                <h5>Histórico de Tarefas (ordem decrescente)</h5>
-                {% if historicoTarefas|length > 0 %}
-                    <table class="table table-sm table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Título</th>
-                                <th>Usuário (atribuído)</th>
-                                <th>Status Atual</th>
-                                <th>Data de Criação</th>
-                                <th>Data da Última Revisão</th>
-                                <th>Data de Conclusão Final</th>
-                                <th>Tempo Total</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for item in historicoTarefas %}
-                                <tr>
-                                    <td><a href="{{ path('tarefa_show', {id: item.tarefaId}) }}">{{ item.titulo }}</a></td>
-                                    <td>{{ item.usuarios }}</td>
-                                    <td>{{ item.statusAtual|replace({'_': ' '})|upper }}</td>
-                                    <td>{{ item.dataCriacao|date('d/m/Y H:i') }}</td>
-                                    <td>{% if item.dataUltimaRevisao %}{{ item.dataUltimaRevisao|date('d/m/Y H:i') }}{% else %}-{% endif %}</td>
-                                    <td>{% if item.dataConclusaoFinal %}{{ item.dataConclusaoFinal|date('d/m/Y H:i') }}{% else %}-{% endif %}</td>
-                                    <td>
-                                        {% if item.tempoTotalSegundos is not null %}
-                                            {% set horas = item.tempoTotalSegundos // 3600 %}
-                                            {% set minutos = (item.tempoTotalSegundos % 3600) // 60 %}
-                                            {{ horas }}h {{ '%02d'|format(minutos) }}min
-                                        {% else %}
-                                            -
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <div class="alert alert-info mb-0">Não há tarefas vinculadas a este processo.</div>
-                {% endif %}
-            </div>
-
-            <hr>
-
-            <div class="mb-3">
-                <h5>Checklist de Documentação</h5>
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item">Peça: {{ processo.docPecaOk ? '✅' : '❌' }}</li>
-                    <li class="list-group-item">Procuração: {{ processo.docProcuracaoOk ? '✅' : '❌' }}</li>
-                    <li class="list-group-item">Identificação: {{ processo.docIdentificacaoOk ? '✅' : '❌' }}</li>
-                    <li class="list-group-item">Comprovante de residência: {{ processo.docComprovanteResidenciaOk ? '✅' : '❌' }}</li>
-                    <li class="list-group-item">Gratuidade de justiça: {{ processo.docGratuidadeJusticaOk ? '✅' : '❌' }}</li>
-                    <li class="list-group-item">Demais documentos: {{ processo.docDemaisOk ? '✅' : '❌' }}</li>
-                </ul>
-            </div>
-
-            <hr>
-
-            <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="mb-0">Documentos do Processo</h5>
-                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadDocumentosModal">
-                        Upload de Documentos
-                    </button>
-                </div>
-
-                {% for tipo, label in documentTypeOptions %}
-                    <div class="card mb-2">
-                        <div class="card-body">
-                            <h6 class="card-title">{{ label }}</h6>
-
-                            {% set docs = documentosPorTipo[tipo] ?? [] %}
-                            {% if docs|length > 0 %}
-                                <ul class="mb-0">
-                                    {% for doc in docs %}
-                                        <li>
-                                            <a href="/{{ doc.caminhoArquivo }}" target="_blank" rel="noopener noreferrer">{{ doc.nomeOriginal }}</a>
-                                            <small class="text-muted">({{ doc.criadoEm|date('d/m/Y H:i') }})</small>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            {% else %}
-                                <span class="text-muted">Nenhum arquivo enviado.</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-
-            <div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="uploadDocumentosModalLabel">Upload de Documentos do Processo</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            {% for tipo, label in documentTypeOptions %}
-                                <div class="border rounded p-3 mb-3">
-                                    <h6 class="mb-2">{{ label }}</h6>
-
-                                    {% set docs = documentosPorTipo[tipo] ?? [] %}
-                                    {% if docs|length > 0 %}
-                                        <ul class="list-group mb-3">
-                                            {% for doc in docs %}
-                                                <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <a href="/{{ doc.caminhoArquivo }}" target="_blank" rel="noopener noreferrer">{{ doc.nomeOriginal }}</a>
-                                                        <small class="text-muted d-block">{{ doc.criadoEm|date('d/m/Y H:i') }}</small>
-                                                    </div>
-                                                    <form method="post" action="{{ path('processo_documento_delete', {id: processo.id, documentoId: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');" class="ms-3">
-                                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_processo_' ~ doc.id) }}">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger">Excluir</button>
-                                                    </form>
-                                                </li>
-                                            {% endfor %}
-                                        </ul>
-                                    {% else %}
-                                        <p class="text-muted mb-2">Nenhum arquivo enviado para este tipo.</p>
-                                    {% endif %}
-
-                                    <form method="post" enctype="multipart/form-data" action="{{ path('processo_documento_upload', {id: processo.id}) }}" class="row g-2 align-items-end">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_processo_' ~ processo.id) }}">
-                                    <input type="hidden" name="tipo" value="{{ tipo }}">
-                                    <div class="col-md-9">
-                                        <label class="form-label">Arquivo</label>
-                                        <input type="file" name="documento[]" class="form-control" multiple required>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <button type="submit" class="btn btn-primary w-100">Enviar</button>
-                                    </div>
-                                </form>
-                                </div>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <hr>
-
-            <div class="mb-3">
-                <h5>Partes do Processo</h5>
-                {% if processo.partes|length > 0 %}
-                    <table class="table table-sm table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Tipo</th>
-                                <th>Nome</th>
-                                <th>Documento</th>
-                                <th>Papel</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for parte in processo.partes %}
-                                <tr>
-                                    <td>{{ parte.tipo }}</td>
-                                    <td>{{ parte.nome }}</td>
-                                    <td>{{ parte.documento ?: '-' }}</td>
-                                    <td>{{ parte.papel ?: '-' }}</td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                {% else %}
-                    <div class="alert alert-info mb-0">Nenhuma parte cadastrada.</div>
-                {% endif %}
-            </div>
-
-            <hr>
-
-            <div class="mb-3">
-                <h5>Movimentações</h5>
-                {% if processo.movimentacoes|length > 0 %}
-                    <div style="max-height: 360px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.25rem;">
-                        <table class="table table-sm table-bordered mb-0">
-                            <thead class="table-light" style="position: sticky; top: 0; z-index: 1;">
-                                <tr>
-                                    <th>Data</th>
-                                    <th>Descrição</th>
-                                    <th>Tipo</th>
-                                    <th>Órgão</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for mov in processo.movimentacoes %}
-                                    <tr>
-                                        <td>{% if mov.dataMovimentacao %}{{ mov.dataMovimentacao|date('d/m/Y') }}{% else %}-{% endif %}</td>
-                                        <td>{{ mov.descricao }}</td>
-                                        <td>{{ mov.tipo ?: '-' }}</td>
-                                        <td>{{ mov.orgao ?: '-' }}</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                {% else %}
-                    <div class="alert alert-info mb-0">Nenhuma movimentação cadastrada.</div>
-                {% endif %}
-            </div>
-
-            <hr>
-
-            <div class="d-flex justify-content-end gap-2">
-                <a href="{{ path('processo_edit', {id: processo.id}) }}" class="btn btn-warning">Editar Processo</a>
-                <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este processo?');">
-                    <input type="hidden" name="_token" value="{{ csrf_token('delete_processo_' ~ processo.id) }}">
-                    <button type="submit" class="btn btn-danger">Excluir Processo</button>
-                </form>
+            <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end">
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('processo_index') }}">Processos</a></li>
+                    <li class="breadcrumb-item active">Detalhes</li>
+                </ol>
             </div>
         </div>
     </div>
 </div>
+
+{# Main Content #}
+<section class="content">
+    <div class="container-fluid">
+        <div class="card card-primary card-outline">
+            <div class="card-header">
+                <h3 class="card-title">{{ processo.numeroProcesso }}</h3>
+                <div class="card-tools">
+                    <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}text-bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                        {{ processo.situacaoProcesso|replace({'_': ' '}) }}
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {# Left Column - Tabs #}
+                    <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1">
+                        {# Info Boxes #}
+                        <div class="row">
+                            <div class="col-12 col-sm-4">
+                                <div class="info-box bg-light">
+                                    <div class="info-box-content">
+                                        <span class="info-box-text text-center text-muted">Tribunal</span>
+                                        <span class="info-box-number text-center text-muted mb-0">{{ processo.siglaTribunal ?: '-' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <div class="info-box bg-light">
+                                    <div class="info-box-content">
+                                        <span class="info-box-text text-center text-muted">Instância</span>
+                                        <span class="info-box-number text-center text-muted mb-0">{{ processo.instancia ?: '-' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <div class="info-box bg-light">
+                                    <div class="info-box-content">
+                                        <span class="info-box-text text-center text-muted">Distribuição</span>
+                                        <span class="info-box-number text-center text-muted mb-0">{% if processo.dataDistribuicao %}{{ processo.dataDistribuicao|date('d/m/Y') }}{% else %}-{% endif %}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {# Tabs #}
+                        <ul class="nav nav-tabs" id="processoTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button" role="tab" aria-controls="info" aria-selected="true">
+                                    <i class="bi bi-info-circle me-1"></i> Informações
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="partes-tab" data-bs-toggle="tab" data-bs-target="#partes" type="button" role="tab" aria-controls="partes" aria-selected="false">
+                                    <i class="bi bi-people me-1"></i> Partes
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="movimentacoes-tab" data-bs-toggle="tab" data-bs-target="#movimentacoes" type="button" role="tab" aria-controls="movimentacoes" aria-selected="false">
+                                    <i class="bi bi-clock-history me-1"></i> Movimentações
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
+                                    <i class="bi bi-list-task me-1"></i> Tarefas
+                                    {% if historicoTarefas|length > 0 %}<span class="badge text-bg-secondary ms-1">{{ historicoTarefas|length }}</span>{% endif %}
+                                </button>
+                            </li>
+                        </ul>
+
+                        <div class="tab-content mt-3" id="processoTabsContent">
+                            {# Tab: Informações do Processo #}
+                            <div class="tab-pane fade show active" id="info" role="tabpanel" aria-labelledby="info-tab">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="text-muted">
+                                            <p class="text-sm">Órgão Julgador
+                                                <b class="d-block">{{ processo.orgaoJulgador ?: '-' }}</b>
+                                            </p>
+                                            <p class="text-sm">Classe Processual
+                                                <b class="d-block">{{ processo.classeProcessual ?: '-' }}</b>
+                                            </p>
+                                            <p class="text-sm">Assunto
+                                                <b class="d-block">{{ processo.assuntoProcessual ?: '-' }}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="text-muted">
+                                            <p class="text-sm">Data de Baixa
+                                                <b class="d-block">{% if processo.dataBaixa %}{{ processo.dataBaixa|date('d/m/Y') }}{% else %}-{% endif %}</b>
+                                            </p>
+                                            <p class="text-sm">Última Atualização
+                                                <b class="d-block">{% if processo.dataAtualizacao %}{{ processo.dataAtualizacao|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if processo.contrato %}
+                                <div class="mt-3 p-3 bg-light rounded">
+                                    <strong><i class="bi bi-file-earmark-text me-1"></i> Contrato Associado:</strong>
+                                    <span class="me-2">{{ processo.contrato.nomeArquivo }}</span>
+                                    <a href="{{ path('contrato_show', {id: processo.contrato.id}) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye me-1"></i> Ver Contrato
+                                    </a>
+                                </div>
+                                {% endif %}
+
+                                {# Clientes Vinculados #}
+                                {% set clientesVinculados = processo.contrato ? processo.contrato.clientes : [] %}
+                                {% if clientesVinculados|length > 0 %}
+                                <div class="mt-3 p-3 bg-light rounded">
+                                    <strong><i class="bi bi-people me-1"></i> Clientes Vinculados:</strong>
+                                    <div class="mt-2">
+                                        {% for cliente in clientesVinculados %}
+                                            <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-outline-secondary me-2 mb-1">
+                                                <i class="bi bi-person me-1"></i>
+                                                {% if cliente.cpf is defined and cliente.cpf %}
+                                                    {{ cliente.nomeCompleto }}
+                                                {% else %}
+                                                    {{ cliente.razaoSocial }}
+                                                {% endif %}
+                                            </a>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% else %}
+                                <div class="mt-3 p-3 bg-light rounded">
+                                    <span class="text-muted"><i class="bi bi-people me-1"></i> Nenhum cliente vinculado a este processo.</span>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            {# Tab: Partes do Processo #}
+                            <div class="tab-pane fade" id="partes" role="tabpanel" aria-labelledby="partes-tab">
+                                {% if processo.partes|length > 0 %}
+                                    <div class="table-responsive">
+                                        <table class="table table-striped table-hover">
+                                            <thead>
+                                                <tr>
+                                                    <th><i class="bi bi-tag me-1"></i> Tipo</th>
+                                                    <th><i class="bi bi-person me-1"></i> Nome</th>
+                                                    <th><i class="bi bi-card-text me-1"></i> Documento</th>
+                                                    <th><i class="bi bi-bookmark me-1"></i> Papel</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for parte in processo.partes %}
+                                                    <tr>
+                                                        <td><span class="badge text-bg-secondary">{{ parte.tipo }}</span></td>
+                                                        <td>{{ parte.nome }}</td>
+                                                        <td>{{ parte.documento ?: '-' }}</td>
+                                                        <td>{{ parte.papel ?: '-' }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte cadastrada.</div>
+                                {% endif %}
+                            </div>
+
+                            {# Tab: Movimentações #}
+                            <div class="tab-pane fade" id="movimentacoes" role="tabpanel" aria-labelledby="movimentacoes-tab">
+                                {% if processo.movimentacoes|length > 0 %}
+                                    <div style="max-height: 400px; overflow-y: auto;">
+                                        <table class="table table-striped table-hover">
+                                            <thead class="table-light sticky-top">
+                                                <tr>
+                                                    <th style="width: 100px;"><i class="bi bi-calendar me-1"></i> Data</th>
+                                                    <th><i class="bi bi-chat-left-text me-1"></i> Descrição</th>
+                                                    <th style="width: 120px;"><i class="bi bi-tag me-1"></i> Tipo</th>
+                                                    <th style="width: 150px;"><i class="bi bi-building me-1"></i> Órgão</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for mov in processo.movimentacoes %}
+                                                    <tr>
+                                                        <td>{% if mov.dataMovimentacao %}{{ mov.dataMovimentacao|date('d/m/Y') }}{% else %}-{% endif %}</td>
+                                                        <td>{{ mov.descricao }}</td>
+                                                        <td><span class="badge text-bg-light">{{ mov.tipo ?: '-' }}</span></td>
+                                                        <td>{{ mov.orgao ?: '-' }}</td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma movimentação cadastrada.</div>
+                                {% endif %}
+                            </div>
+
+                            {# Tab: Tarefas #}
+                            <div class="tab-pane fade" id="tarefas" role="tabpanel" aria-labelledby="tarefas-tab">
+                                {% if historicoTarefas|length > 0 %}
+                                    <h4 class="mb-3"><i class="bi bi-list-task me-1"></i> Atividades Recentes</h4>
+                                    {% for item in historicoTarefas %}
+                                    <div class="card mb-3 tarefa-card" 
+                                         style="cursor: pointer; transition: all 0.2s ease;"
+                                         data-bs-toggle="modal" 
+                                         data-bs-target="#modalTarefa"
+                                         data-tarefa-id="{{ item.tarefaId }}"
+                                         data-tarefa-titulo="{{ item.titulo }}"
+                                         data-tarefa-descricao="{{ item.descricao|e('html_attr') }}"
+                                         data-tarefa-status="{{ item.statusAtual }}"
+                                         data-tarefa-usuarios="{{ item.usuarios }}"
+                                         data-tarefa-prazo="{% if item.prazo %}{{ item.prazo|date('d/m/Y H:i') }}{% else %}-{% endif %}"
+                                         data-tarefa-criacao="{{ item.dataCriacao|date('d/m/Y H:i') }}"
+                                         data-tarefa-revisao="{% if item.dataUltimaRevisao %}{{ item.dataUltimaRevisao|date('d/m/Y H:i') }}{% else %}-{% endif %}"
+                                         data-tarefa-conclusao="{% if item.dataConclusaoFinal %}{{ item.dataConclusaoFinal|date('d/m/Y H:i') }}{% else %}-{% endif %}"
+                                         data-tarefa-tempo="{% if item.tempoTotalSegundos is not null %}{% set horas = item.tempoTotalSegundos // 3600 %}{% set minutos = (item.tempoTotalSegundos % 3600) // 60 %}{{ horas }}h {{ '%02d'|format(minutos) }}min{% else %}-{% endif %}"
+                                         data-tarefa-url="{{ path('tarefa_show', {id: item.tarefaId}) }}">
+                                        <div class="card-body py-3">
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <h5 class="card-title mb-0">{{ item.titulo }}</h5>
+                                                <span class="badge {% if item.statusAtual == 'concluida' %}text-bg-success{% elseif item.statusAtual == 'em_revisao' %}text-bg-info{% elseif item.statusAtual == 'pendente' or item.statusAtual == 'reaberta' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
+                                                    {{ item.statusAtual|replace({'_': ' '})|upper }}
+                                                </span>
+                                            </div>
+                                            <p class="card-text text-muted small mb-2">
+                                                {{ item.descricao|length > 150 ? item.descricao|slice(0, 150) ~ '...' : item.descricao }}
+                                            </p>
+                                            <div class="d-flex flex-wrap gap-3 text-muted small">
+                                                <span><i class="bi bi-person me-1"></i>{{ item.usuarios }}</span>
+                                                <span><i class="bi bi-calendar me-1"></i>{{ item.dataCriacao|date('d/m/Y H:i') }}</span>
+                                                {% if item.tempoTotalSegundos is not null %}
+                                                    {% set horas = item.tempoTotalSegundos // 3600 %}
+                                                    {% set minutos = (item.tempoTotalSegundos % 3600) // 60 %}
+                                                    <span><i class="bi bi-stopwatch me-1"></i>{{ horas }}h {{ '%02d'|format(minutos) }}min</span>
+                                                {% endif %}
+                                                {% if item.prazo %}
+                                                    <span><i class="bi bi-alarm me-1"></i>Prazo: {{ item.prazo|date('d/m/Y') }}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Não há tarefas vinculadas a este processo.</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Right Column - Sidebar #}
+                    <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
+                        <div class="card card-primary card-outline">
+                            <div class="card-header">
+                                <h3 class="card-title"><i class="bi bi-briefcase-fill me-1"></i> Resumo do Processo</h3>
+                            </div>
+                            <div class="card-body">
+                                <h5 class="text-primary mb-1">{{ processo.numeroProcesso }}</h5>
+                                <p class="text-muted small mb-3">{{ processo.classeProcessual ?: 'Processo judicial' }}</p>
+
+                                <div class="text-muted">
+                                    <p class="text-sm mb-0">Tribunal
+                                        <b class="d-block">{{ processo.siglaTribunal ?: '-' }}</b>
+                                    </p>
+                                </div>
+
+                                <hr>
+
+                                {# Checklist de Documentação #}
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="text-muted mb-0"><i class="bi bi-check2-square me-1"></i> Checklist de Documentação</h6>
+                                    <span class="badge {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'text-bg-success' : 'text-bg-warning' }}">
+                                        {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'Apto para Protocolar' : 'Pendente de Documentação' }}
+                                    </span>
+                                </div>
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-2">
+                                        <i class="bi {{ processo.docPecaOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
+                                        Peça
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi {{ processo.docProcuracaoOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
+                                        Procuração
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi {{ processo.docIdentificacaoOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
+                                        Identificação
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi {{ processo.docComprovanteResidenciaOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
+                                        Comprovante de Residência
+                                    </li>
+                                    <li class="mb-2">
+                                        <i class="bi {{ processo.docGratuidadeJusticaOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
+                                        Gratuidade de Justiça
+                                    </li>
+                                    <li class="mb-0">
+                                        <i class="bi {{ processo.docDemaisOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
+                                        Demais Documentos
+                                    </li>
+                                </ul>
+
+                                <hr>
+
+                                {# Arquivos do Processo #}
+                                <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> Arquivos do Processo</h6>
+                                <ul class="list-unstyled mb-0">
+                                    {% set hasDocuments = false %}
+                                    {% for tipo, label in documentTypeOptions %}
+                                        {% set docs = documentosPorTipo[tipo] ?? [] %}
+                                        {% for doc in docs %}
+                                            {% set hasDocuments = true %}
+                                            <li class="mb-2">
+                                                <a href="/{{ doc.caminhoArquivo }}" target="_blank" class="btn-link text-secondary text-decoration-none">
+                                                    <i class="bi bi-download me-1"></i>
+                                                    <i class="bi bi-file-earmark me-1"></i>
+                                                    {{ doc.nomeOriginal }}
+                                                </a>
+                                                <small class="text-muted d-block ms-4">{{ label }} - {{ doc.criadoEm|date('d/m/Y') }}</small>
+                                            </li>
+                                        {% endfor %}
+                                    {% endfor %}
+                                    {% if not hasDocuments %}
+                                        <li class="text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado.</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                            <div class="card-footer text-center">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentosModal">
+                                    <i class="bi bi-cloud-upload me-1"></i> Upload
+                                </button>
+                                <a href="{{ path('processo_edit', {id: processo.id}) }}" class="btn btn-sm btn-warning">
+                                    <i class="bi bi-pencil me-1"></i> Editar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ path('processo_index') }}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-left me-1"></i> Voltar aos Processos
+                    </a>
+                    <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este processo?');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete_processo_' ~ processo.id) }}">
+                        <button type="submit" class="btn btn-danger">
+                            <i class="bi bi-trash me-1"></i> Excluir Processo
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# Modal: Upload de Documentos #}
+<div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadDocumentosModalLabel">
+                    <i class="bi bi-cloud-upload me-1"></i> Upload de Documentos do Processo
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {% for tipo, label in documentTypeOptions %}
+                    <div class="border border-secondary rounded p-3 mb-3">
+                        <h6 class="mb-2"><i class="bi bi-folder me-1"></i> {{ label }}</h6>
+
+                        {% set docs = documentosPorTipo[tipo] ?? [] %}
+                        {% if docs|length > 0 %}
+                            <ul class="list-group mb-3">
+                                {% for doc in docs %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <a href="/{{ doc.caminhoArquivo }}" target="_blank" rel="noopener noreferrer">
+                                                <i class="bi bi-file-earmark me-1"></i> {{ doc.nomeOriginal }}
+                                            </a>
+                                            <small class="text-muted d-block">{{ doc.criadoEm|date('d/m/Y H:i') }}</small>
+                                        </div>
+                                        <form method="post" action="{{ path('processo_documento_delete', {id: processo.id, documentoId: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');" class="ms-3">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_processo_' ~ doc.id) }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted mb-2"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado para este tipo.</p>
+                        {% endif %}
+
+                        <form method="post" enctype="multipart/form-data" action="{{ path('processo_documento_upload', {id: processo.id}) }}" class="row g-2 align-items-end">
+                            <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_processo_' ~ processo.id) }}">
+                            <input type="hidden" name="tipo" value="{{ tipo }}">
+                            <div class="col-md-9">
+                                <label class="form-label">Arquivo</label>
+                                <input type="file" name="documento[]" class="form-control" multiple required>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-upload me-1"></i> Enviar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal: Visualizar Tarefa #}
+<div class="modal fade" id="modalTarefa" tabindex="-1" aria-labelledby="modalTarefaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTarefaLabel">
+                    <i class="bi bi-list-task me-1"></i> <span id="modalTarefaTitulo"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="text-sm text-muted mb-1">Status</p>
+                        <span id="modalTarefaStatus" class="badge"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="text-sm text-muted mb-1">Atribuído a</p>
+                        <p class="mb-0 fw-semibold" id="modalTarefaUsuarios"></p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-calendar-plus me-1"></i> Criada em</p>
+                        <p class="mb-0" id="modalTarefaCriacao"></p>
+                    </div>
+                    <div class="col-md-4">
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-calendar-check me-1"></i> Prazo</p>
+                        <p class="mb-0" id="modalTarefaPrazo"></p>
+                    </div>
+                    <div class="col-md-4">
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-stopwatch me-1"></i> Tempo Total</p>
+                        <p class="mb-0" id="modalTarefaTempo"></p>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-arrow-repeat me-1"></i> Última Revisão</p>
+                        <p class="mb-0" id="modalTarefaRevisao"></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="text-sm text-muted mb-1"><i class="bi bi-check-circle me-1"></i> Conclusão</p>
+                        <p class="mb-0" id="modalTarefaConclusao"></p>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-0">
+                    <p class="text-sm text-muted mb-1"><i class="bi bi-card-text me-1"></i> Descrição</p>
+                    <div class="p-3 bg-light rounded" id="modalTarefaDescricao" style="white-space: pre-wrap;"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x me-1"></i> Fechar
+                </button>
+                <a href="#" id="modalTarefaLink" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-up-right me-1"></i> Abrir Tarefa
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modalTarefa = document.getElementById('modalTarefa');
+    if (modalTarefa) {
+        modalTarefa.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            
+            // Preencher dados
+            document.getElementById('modalTarefaTitulo').textContent = button.dataset.tarefaTitulo;
+            document.getElementById('modalTarefaDescricao').textContent = button.dataset.tarefaDescricao;
+            document.getElementById('modalTarefaUsuarios').textContent = button.dataset.tarefaUsuarios;
+            document.getElementById('modalTarefaCriacao').textContent = button.dataset.tarefaCriacao;
+            document.getElementById('modalTarefaPrazo').textContent = button.dataset.tarefaPrazo;
+            document.getElementById('modalTarefaRevisao').textContent = button.dataset.tarefaRevisao;
+            document.getElementById('modalTarefaConclusao').textContent = button.dataset.tarefaConclusao;
+            document.getElementById('modalTarefaTempo').textContent = button.dataset.tarefaTempo;
+            document.getElementById('modalTarefaLink').href = button.dataset.tarefaUrl;
+            
+            // Status badge
+            const statusEl = document.getElementById('modalTarefaStatus');
+            const status = button.dataset.tarefaStatus;
+            statusEl.textContent = status.replace('_', ' ').toUpperCase();
+            statusEl.className = 'badge ';
+            if (status === 'concluida') {
+                statusEl.className += 'text-bg-success';
+            } else if (status === 'em_revisao') {
+                statusEl.className += 'text-bg-info';
+            } else if (status === 'pendente' || status === 'reaberta') {
+                statusEl.className += 'text-bg-warning';
+            } else {
+                statusEl.className += 'text-bg-secondary';
+            }
+        });
+    }
+});
+</script>
 {% endblock %}

@@ -3,14 +3,18 @@
 {% block title %}Detalhes do Contrato{% endblock %}
 
 {% block body %}
-<div class="container mt-4">
-    <div class="mb-3">
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">Detalhes do Contrato</h1>
         <a href="{{ path('contrato_index') }}" class="btn btn-secondary">← Voltar aos Contratos</a>
     </div>
+</section>
 
+<section class="content">
+<div class="container-fluid">
     <div class="card">
         <div class="card-header">
-            <h2>{{ contrato.nomeArquivo }}</h2>
+            <h3 class="card-title">{{ contrato.nomeArquivo }}</h3>
         </div>
         <div class="card-body">
             <div class="row mb-3">
@@ -222,6 +226,7 @@
         </div>
     </div>
 </div>
+</section>
 
 <script>
     $(document).ready(function () {
