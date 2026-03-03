@@ -1,0 +1,130 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Notificações{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1 class="m-0"><i class="bi bi-bell me-2"></i>Notificações</h1>
+            </div>
+            <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end">
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                    <li class="breadcrumb-item active">Notificações</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="card-title"><i class="bi bi-list-ul me-1"></i> Todas as Notificações</h3>
+                {% if notificacoes|length > 0 %}
+                    <form method="post" action="{{ path('notificacao_marcar_todas_lidas') }}" class="d-inline">
+                        <input type="hidden" name="_token" value="{{ csrf_token('marcar_todas_lidas') }}">
+                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-check-all me-1"></i> Marcar todas como lidas
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+            <div class="card-body p-0">
+                {% if notificacoes|length > 0 %}
+                    <div class="list-group list-group-flush">
+                        {% for notif in notificacoes %}
+                            <div class="list-group-item{% if not notif.lida %} list-group-item-light{% endif %}" id="notif-{{ notif.id }}">
+                                <div class="d-flex w-100 justify-content-between align-items-start">
+                                    <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}" 
+                                       class="d-flex align-items-start text-decoration-none text-dark flex-grow-1">
+                                        <i class="bi {{ notif.icone }} me-3 fs-4"></i>
+                                        <div>
+                                            <h6 class="mb-1 {% if not notif.lida %}fw-bold{% endif %}">{{ notif.titulo }}</h6>
+                                            <p class="mb-1 text-muted">{{ notif.mensagem }}</p>
+                                            {% if notif.tarefa %}
+                                                <small class="text-primary">
+                                                    <i class="bi bi-list-task me-1"></i> Tarefa #{{ notif.tarefa.id }}
+                                                </small>
+                                            {% elseif notif.url %}
+                                                <small class="text-primary">
+                                                    <i class="bi bi-calendar-event me-1"></i> Ver detalhes
+                                                </small>
+                                            {% endif %}
+                                        </div>
+                                    </a>
+                                    <div class="text-end ms-3">
+                                        <small class="text-muted d-block">{{ notif.tempoRelativo }}</small>
+                                        {% if not notif.lida %}
+                                            <span class="badge text-bg-primary mt-1">Nova</span>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-marcar-lida" 
+                                                    data-notif-id="{{ notif.id }}" title="Marcar como lida">
+                                                <i class="bi bi-check2"></i>
+                                            </button>
+                                        {% else %}
+                                            <span class="badge text-bg-secondary mt-1">Lida</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-bell-slash fs-1 text-muted"></i>
+                        <p class="text-muted mt-3">Você não possui notificações.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Marcar notificação individual como lida
+    document.querySelectorAll('.btn-marcar-lida').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const notifId = this.dataset.notifId;
+            const notifElement = document.getElementById('notif-' + notifId);
+            const btnElement = this;
+            
+            fetch('/notificacoes/' + notifId + '/ler', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Atualizar visual da notificação
+                    notifElement.classList.remove('list-group-item-light');
+                    
+                    // Remover badge "Nova" e botão
+                    const badgeContainer = btnElement.parentElement;
+                    badgeContainer.innerHTML = '<small class="text-muted d-block">' + badgeContainer.querySelector('small').textContent + '</small><span class="badge text-bg-secondary mt-1">Lida</span>';
+                    
+                    // Remover negrito do título
+                    const titulo = notifElement.querySelector('h6');
+                    if (titulo) {
+                        titulo.classList.remove('fw-bold');
+                    }
+                }
+            })
+            .catch(err => console.log('Erro ao marcar como lida:', err));
+        });
+    });
+});
+</script>
+{% endblock %}
