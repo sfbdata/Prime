@@ -39,3 +39,6 @@
 # ACME challenge webroot
 /certbot/*
 !/certbot/.gitkeep
+# AdminLTE assets (baixar separadamente)
+AdminLTE-4.0.0-rc4/
+app/public/adminlte4/
