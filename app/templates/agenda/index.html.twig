@@ -1,0 +1,494 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Agenda{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
+<style>
+.fc-event {
+    cursor: pointer;
+}
+.fc-toolbar-title {
+    font-size: 1.5rem !important;
+}
+.fc-day-today {
+    background-color: rgba(0, 123, 255, 0.1) !important;
+}
+#external-events .fc-event {
+    margin: 5px 0;
+    padding: 5px;
+    cursor: move;
+}
+/* Dias e nomes das semanas em cinza escuro */
+.fc-daygrid-day-number {
+    color: #495057 !important;
+}
+.fc-col-header-cell-cushion {
+    color: #495057 !important;
+}
+/* Eventos cancelados com linha no meio */
+.evento-cancelado .fc-event-title,
+.evento-cancelado .fc-event-main {
+    text-decoration: line-through !important;
+    opacity: 0.7;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-calendar3 me-2"></i>Agenda</h1>
+        <div class="d-flex gap-2">
+            <a href="{{ path('agenda_lista') }}" class="btn btn-outline-primary">
+                <i class="bi bi-list-ul me-1"></i> Ver Lista
+            </a>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#novoEventoModal">
+                <i class="bi bi-plus-lg me-1"></i> Novo Evento
+            </button>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            {# Sidebar com próximos eventos #}
+            <div class="col-md-3">
+                <div class="card card-outline card-primary">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-calendar-event me-1"></i> Criar Evento</h3>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small">Clique em uma data no calendário ou use o botão abaixo para criar um novo evento.</p>
+                        <button type="button" class="btn btn-success w-100" data-bs-toggle="modal" data-bs-target="#novoEventoModal">
+                            <i class="bi bi-plus-lg me-1"></i> Novo Evento
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card card-outline card-info">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-palette me-1"></i> Legenda</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <span class="badge" style="background-color: #0073b7;">&nbsp;&nbsp;&nbsp;</span>
+                            <small class="ms-1">Azul</small>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge" style="background-color: #00a65a;">&nbsp;&nbsp;&nbsp;</span>
+                            <small class="ms-1">Verde</small>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge" style="background-color: #f39c12;">&nbsp;&nbsp;&nbsp;</span>
+                            <small class="ms-1">Amarelo</small>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge" style="background-color: #f56954;">&nbsp;&nbsp;&nbsp;</span>
+                            <small class="ms-1">Vermelho</small>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge" style="background-color: #605ca8;">&nbsp;&nbsp;&nbsp;</span>
+                            <small class="ms-1">Roxo</small>
+                        </div>
+                        <div class="mb-2">
+                            <span class="badge" style="background-color: #00c0ef;">&nbsp;&nbsp;&nbsp;</span>
+                            <small class="ms-1">Ciano</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Calendário #}
+            <div class="col-md-9">
+                <div class="card card-primary">
+                    <div class="card-body p-0">
+                        <div id="calendar" style="padding: 15px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{# Modal para exibir detalhes do evento #}
+<div class="modal fade" id="eventoModal" tabindex="-1" aria-labelledby="eventoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="eventoModalLabel">Detalhes do Evento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <h5 id="modal-titulo"></h5>
+                <p id="modal-descricao" class="text-muted"></p>
+                <hr>
+                <p><i class="bi bi-clock me-1"></i> <strong>Início:</strong> <span id="modal-inicio"></span></p>
+                <p><i class="bi bi-clock-history me-1"></i> <strong>Fim:</strong> <span id="modal-fim"></span></p>
+                <p id="modal-local-container"><i class="bi bi-geo-alt me-1"></i> <strong>Local:</strong> <span id="modal-local"></span></p>
+                <p><i class="bi bi-flag me-1"></i> <strong>Status:</strong> <span id="modal-status"></span></p>
+                <p><i class="bi bi-person me-1"></i> <strong>Criado por:</strong> <span id="modal-criador"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                <a href="#" id="modal-link-ver" class="btn btn-info">Ver Detalhes</a>
+                <a href="#" id="modal-link-editar" class="btn btn-warning">Editar</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal para criar novo evento #}
+<div class="modal fade" id="novoEventoModal" tabindex="-1" aria-labelledby="novoEventoModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="novoEventoModalLabel"><i class="bi bi-calendar-plus me-2"></i>Novo Evento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="formNovoEvento">
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="novo_titulo" class="form-label">Título *</label>
+                            <input type="text" class="form-control" id="novo_titulo" name="titulo" required placeholder="Título do evento">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="novo_cor" class="form-label">Cor</label>
+                            <div class="d-flex gap-2 align-items-center">
+                                <select class="form-select" id="novo_cor" name="cor">
+                                    <option value="#0073b7">Azul</option>
+                                    <option value="#00a65a">Verde</option>
+                                    <option value="#f39c12">Amarelo</option>
+                                    <option value="#f56954">Vermelho</option>
+                                    <option value="#605ca8">Roxo</option>
+                                    <option value="#00c0ef">Ciano</option>
+                                </select>
+                                <span id="novo-cor-preview" class="badge" style="width: 30px; height: 30px; background-color: #0073b7;">&nbsp;</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="novo_descricao" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="novo_descricao" name="descricao" rows="2" placeholder="Descrição do evento (opcional)"></textarea>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="novo_dataInicio" class="form-label">Data/Hora Início *</label>
+                            <input type="datetime-local" class="form-control" id="novo_dataInicio" name="dataInicio" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="novo_duracao" class="form-label">Duração (horas)</label>
+                            <input type="number" class="form-control" id="novo_duracao" name="duracao" value="1" min="0.5" max="24" step="0.5">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-8 mb-3">
+                            <label for="novo_local" class="form-label">Local</label>
+                            <input type="text" class="form-control" id="novo_local" name="local" placeholder="Local do evento (físico ou virtual)">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label for="novo_status" class="form-label">Status</label>
+                            <select class="form-select" id="novo_status" name="status">
+                                <option value="agendado" selected>Agendado</option>
+                                <option value="concluido">Concluído</option>
+                                <option value="cancelado">Cancelado</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <div class="form-check mt-2">
+                                <input type="checkbox" class="form-check-input" id="novo_diaInteiro" name="diaInteiro">
+                                <label class="form-check-label" for="novo_diaInteiro">Dia inteiro</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h6><i class="bi bi-people me-1"></i> Participantes</h6>
+                    <div class="mb-3">
+                        <select class="form-select" id="novo_participantes" name="participantes[]" multiple>
+                            {% for user in usuarios %}
+                                <option value="{{ user.id }}">{{ user.fullName }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Segure Ctrl para selecionar múltiplos</small>
+                    </div>
+
+                    <hr>
+                    <h6><i class="bi bi-arrow-repeat me-1"></i> Recorrência</h6>
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="novo_recorrente" name="recorrente">
+                                <label class="form-check-label" for="novo_recorrente">Evento recorrente</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="novo-recorrencia-fields" class="row" style="display: none;">
+                        <div class="col-md-6 mb-3">
+                            <label for="novo_tipoRecorrencia" class="form-label">Repetir</label>
+                            <select class="form-select" id="novo_tipoRecorrencia" name="tipoRecorrencia">
+                                <option value="">Selecione...</option>
+                                <option value="diario">Diariamente</option>
+                                <option value="semanal">Semanalmente</option>
+                                <option value="mensal">Mensalmente</option>
+                                <option value="anual">Anualmente</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="novo_fimRecorrencia" class="form-label">Repetir até</label>
+                            <input type="datetime-local" class="form-control" id="novo_fimRecorrencia" name="fimRecorrencia">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-lg me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg me-1"></i> Salvar Evento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    var eventoModal = new bootstrap.Modal(document.getElementById('eventoModal'));
+    
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        themeSystem: 'bootstrap5',
+        locale: 'pt-br',
+        initialView: 'dayGridMonth',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        buttonText: {
+            today: 'Hoje',
+            month: 'Mês',
+            week: 'Semana',
+            day: 'Dia'
+        },
+        scrollTime: '08:00:00',
+        slotMinTime: '06:00:00',
+        slotMaxTime: '22:00:00',
+        events: '{{ path('agenda_eventos') }}',
+        editable: true,
+        selectable: true,
+        selectMirror: true,
+        dayMaxEvents: true,
+        
+        // Clique no dia para criar evento (abre modal)
+        dateClick: function(info) {
+            // Definir data/hora clicada no formulário
+            var clickedDate = info.dateStr;
+            if (clickedDate.length === 10) {
+                // Se é só data (YYYY-MM-DD), adiciona hora padrão
+                clickedDate += 'T09:00';
+            }
+            document.getElementById('novo_dataInicio').value = clickedDate;
+            // Abrir modal
+            new bootstrap.Modal(document.getElementById('novoEventoModal')).show();
+        },
+        
+        // Clique no evento para ver detalhes
+        eventClick: function(info) {
+            var event = info.event;
+            var props = event.extendedProps;
+            
+            document.getElementById('modal-titulo').textContent = event.title;
+            document.getElementById('modal-descricao').textContent = props.descricao || 'Sem descrição';
+            document.getElementById('modal-inicio').textContent = formatDate(event.start);
+            document.getElementById('modal-fim').textContent = event.end ? formatDate(event.end) : '-';
+            
+            var localContainer = document.getElementById('modal-local-container');
+            if (props.local) {
+                localContainer.style.display = 'block';
+                document.getElementById('modal-local').textContent = props.local;
+            } else {
+                localContainer.style.display = 'none';
+            }
+            
+            document.getElementById('modal-status').textContent = formatStatus(props.status);
+            document.getElementById('modal-criador').textContent = props.criador;
+            
+            // Usar ID original para eventos recorrentes (formato: "123_2026-03-05")
+            var eventoId = event.id;
+            if (eventoId.includes('_')) {
+                eventoId = eventoId.split('_')[0];
+            }
+            
+            document.getElementById('modal-link-ver').href = '{{ path('agenda_show', {id: 0}) }}'.replace('0', eventoId);
+            document.getElementById('modal-link-editar').href = '{{ path('agenda_editar', {id: 0}) }}'.replace('0', eventoId);
+            
+            // Mostrar badge se for recorrente
+            var recorrenteInfo = props.recorrente ? ' <span class="badge bg-info">Recorrente</span>' : '';
+            document.getElementById('modal-titulo').innerHTML = event.title + recorrenteInfo;
+            
+            eventoModal.show();
+        },
+        
+        // Drag & Drop para mover eventos
+        eventDrop: function(info) {
+            // Não permitir mover ocorrências de eventos recorrentes
+            if (info.event.extendedProps.recorrente) {
+                alert('Não é possível mover ocorrências de eventos recorrentes. Edite o evento original.');
+                info.revert();
+                return;
+            }
+            updateEventDates(info.event);
+        },
+        
+        // Resize para alterar duração
+        eventResize: function(info) {
+            // Não permitir redimensionar ocorrências de eventos recorrentes
+            if (info.event.extendedProps.recorrente) {
+                alert('Não é possível redimensionar ocorrências de eventos recorrentes. Edite o evento original.');
+                info.revert();
+                return;
+            }
+            updateEventDates(info.event);
+        }
+    });
+    
+    calendar.render();
+    
+    function formatDate(date) {
+        if (!date) return '-';
+        return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+    }
+    
+    function formatStatus(status) {
+        switch(status) {
+            case 'agendado': return 'Agendado';
+            case 'concluido': return 'Concluído';
+            case 'cancelado': return 'Cancelado';
+            default: return status;
+        }
+    }
+    
+    function updateEventDates(event) {
+        fetch('{{ path('agenda_atualizar_datas', {id: 0}) }}'.replace('0', event.id), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                start: event.start.toISOString(),
+                end: event.end ? event.end.toISOString() : event.start.toISOString(),
+                allDay: event.allDay
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.success) {
+                alert('Erro ao atualizar evento');
+                calendar.refetchEvents();
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            calendar.refetchEvents();
+        });
+    }
+    
+    // Modal Novo Evento
+    var novoEventoModal = document.getElementById('novoEventoModal');
+    var formNovoEvento = document.getElementById('formNovoEvento');
+    var corSelect = document.getElementById('novo_cor');
+    var corPreview = document.getElementById('novo-cor-preview');
+    
+    // Atualizar preview da cor
+    corSelect.addEventListener('change', function() {
+        corPreview.style.backgroundColor = this.value;
+    });
+    
+    // Mostrar/ocultar campos de recorrência
+    var recorrenteCheck = document.getElementById('novo_recorrente');
+    var recorrenciaFields = document.getElementById('novo-recorrencia-fields');
+    recorrenteCheck.addEventListener('change', function() {
+        recorrenciaFields.style.display = this.checked ? 'flex' : 'none';
+    });
+    
+    // Definir data/hora inicial quando modal abre
+    novoEventoModal.addEventListener('show.bs.modal', function() {
+        var now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('novo_dataInicio').value = now.toISOString().slice(0, 16);
+    });
+    
+    // Submit do formulário via AJAX
+    formNovoEvento.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        var formData = new FormData(formNovoEvento);
+        
+        // Obter participantes selecionados
+        var participantesSelect = document.getElementById('novo_participantes');
+        var participantes = [];
+        for (var i = 0; i < participantesSelect.selectedOptions.length; i++) {
+            participantes.push(parseInt(participantesSelect.selectedOptions[i].value));
+        }
+        
+        var data = {
+            titulo: formData.get('titulo'),
+            descricao: formData.get('descricao'),
+            dataInicio: formData.get('dataInicio'),
+            duracao: parseFloat(formData.get('duracao')) || 1,
+            local: formData.get('local'),
+            cor: formData.get('cor'),
+            status: formData.get('status'),
+            diaInteiro: document.getElementById('novo_diaInteiro').checked,
+            participantes: participantes,
+            recorrente: document.getElementById('novo_recorrente').checked,
+            tipoRecorrencia: formData.get('tipoRecorrencia'),
+            fimRecorrencia: formData.get('fimRecorrencia')
+        };
+        
+        fetch('{{ path('agenda_criar_ajax') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.success) {
+                // Fechar modal
+                bootstrap.Modal.getInstance(novoEventoModal).hide();
+                // Limpar formulário
+                formNovoEvento.reset();
+                corPreview.style.backgroundColor = '#0073b7';
+                recorrenciaFields.style.display = 'none';
+                // Recarregar eventos do calendário
+                calendar.refetchEvents();
+            } else {
+                alert('Erro ao criar evento: ' + (result.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => {
+            console.error('Erro:', error);
+            alert('Erro ao criar evento');
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,161 +1,120 @@
-{# templates/_sidebar.html.twig #}
-<div class="sidebar">
-    <ul class="nav flex-column">
-        <li class="nav-item">
-            <a class="nav-link" href="{{ path('homepage') }}">Home</a>
-        </li>
-
-        {% if 'ROLE_COMERCIAL' in app.user.roles %}
-            <li class="nav-item">
-                <a class="nav-link" href="{{ path('pre_cadastro_index') }}">Pré-Cadastros</a>
-            </li>
-        {% endif %}
-
-        <li class="nav-item">
-            <a class="nav-link" href="{{ path('cliente_index') }}">Clientes</a>
-        </li>
-
-        <li class="nav-item">
-            <a class="nav-link" href="{{ path('contrato_index') }}">Contratos</a>
-        </li>
-
-        <li class="nav-item">
-            <a class="nav-link" href="{{ path('processo_index') }}">Processos</a>
-        </li>
-
-        <li class="nav-item">
-            <a class="nav-link" href="{{ path('tarefa_minhas') }}">Minhas Tarefas</a>
-        </li>
-
-        <hr class="my-2">
-
-        {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-            {% set superAdminRoutes = ['app_tenant_index', 'app_tenant_new', 'app_tenant_show', 'app_tenant_users', 'audit_log_index'] %}
-            {% set isSuperAdminActive = app.request.attributes.get('_route') in superAdminRoutes %}
-            <li class="nav-item">
-                <a class="nav-link d-flex justify-content-between align-items-center" 
-                   data-bs-toggle="collapse" href="#superAdminMenu" role="button" 
-                   aria-expanded="{{ isSuperAdminActive ? 'true' : 'false' }}" aria-controls="superAdminMenu">
-                    SUPER-ADMIN
-                    <span class="arrow"></span>
-                </a>
-                <div class="collapse{% if isSuperAdminActive %} show{% endif %}" id="superAdminMenu">
-                    <ul class="nav flex-column ms-3">
-                        <li class="nav-item"><a class="nav-link" href="{{ path('app_tenant_index') }}" onclick="event.stopPropagation()">Tenants</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ path('app_tenant_new') }}" onclick="event.stopPropagation()">Novo Tenant</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ path('audit_log_index') }}" onclick="event.stopPropagation()">Trilha de Auditoria</a></li>
-                    </ul>
-                </div>
-            </li>
-        {% endif %}
-
-        {% if 'ROLE_ADMIN' in app.user.roles %}
-            {% set adminRoutes = ['invite_user', 'app_tenant_users', 'app_tenant_show', 'tarefa_admin_index', 'tarefa_new', 'audit_log_index'] %}
-            {% set isAdminActive = app.request.attributes.get('_route') in adminRoutes %}
-            <li class="nav-item">
-                <a class="nav-link d-flex justify-content-between align-items-center" 
-                   data-bs-toggle="collapse" href="#adminMenu" role="button" 
-                   aria-expanded="{{ isAdminActive ? 'true' : 'false' }}" aria-controls="adminMenu">
-                    ADMIN
-                    <span class="arrow"></span>
-                </a>
-                <div class="collapse{% if isAdminActive %} show{% endif %}" id="adminMenu">
-                    <ul class="nav flex-column ms-3">
-                        <li class="nav-item"><a class="nav-link" href="{{ path('invite_user') }}" onclick="event.stopPropagation()">Convidar Usuários</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ path('app_tenant_users', {'id': app.user.tenant.id}) }}" onclick="event.stopPropagation()">Funcionários</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ path('app_tenant_show', {'id': app.user.tenant.id}) }}" onclick="event.stopPropagation()">Meu Escritório</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ path('tarefa_admin_index') }}" onclick="event.stopPropagation()">Gestão de Tarefas</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{{ path('audit_log_index') }}" onclick="event.stopPropagation()">Trilha de Auditoria</a></li>
-                    </ul>
-                </div>
-            </li>
-        {% endif %}
-
-        {% if 'ROLE_COMERCIAL' in app.user.roles %}
-            {% set comercialRoutes = ['pre_cadastro_index', 'pre_cadastro_new', 'pre_cadastro_show', 'cliente_from_pre_cadastro'] %}
-            {% set isComercialActive = app.request.attributes.get('_route') in comercialRoutes %}
-            <li class="nav-item">
-                <a class="nav-link d-flex justify-content-between align-items-center" 
-                   data-bs-toggle="collapse" href="#comercialMenu" role="button" 
-                   aria-expanded="{{ isComercialActive ? 'true' : 'false' }}" aria-controls="comercialMenu">
-                    COMERCIAL
-                    <span class="arrow"></span>
-                </a>
-                <div class="collapse{% if isComercialActive %} show{% endif %}" id="comercialMenu">
-                    <ul class="nav flex-column ms-3">
-                    </ul>
-                </div>
-            </li>
-        {% endif %}
-
-        {% if 'ROLE_CLOSER' in app.user.roles %}
-            {% set closerRoutes = ['closer_negociacoes', 'closer_contratos'] %}
-            {% set isCloserActive = app.request.attributes.get('_route') in closerRoutes %}
-            <li class="nav-item">
-                <a class="nav-link d-flex justify-content-between align-items-center" 
-                   data-bs-toggle="collapse" href="#closerMenu" role="button" 
-                   aria-expanded="{{ isCloserActive ? 'true' : 'false' }}" aria-controls="closerMenu">
-                    CLOSER
-                    <span class="arrow"></span>
-                </a>
-                <div class="collapse{% if isCloserActive %} show{% endif %}" id="closerMenu">
-                    <ul class="nav flex-column ms-3">
-                        <li class="nav-item"><a class="nav-link" href="#" onclick="event.stopPropagation()">Negociações</a></li>
-                        <li class="nav-item"><a class="nav-link" href="#" onclick="event.stopPropagation()">Contratos</a></li>
-                    </ul>
-                </div>
-            </li>
-        {% endif %}
-
-        {% if 'ROLE_FINANCEIRO' in app.user.roles %}
-            {% set financeiroRoutes = ['financeiro_relatorios', 'financeiro_pagamentos'] %}
-            {% set isFinanceiroActive = app.request.attributes.get('_route') in financeiroRoutes %}
-            <li class="nav-item">
-                <a class="nav-link d-flex justify-content-between align-items-center" 
-                   data-bs-toggle="collapse" href="#financeiroMenu" role="button" 
-                   aria-expanded="{{ isFinanceiroActive ? 'true' : 'false' }}" aria-controls="financeiroMenu">
-                    FINANCEIRO
-                    <span class="arrow"></span>
-                </a>
-                <div class="collapse{% if isFinanceiroActive %} show{% endif %}" id="financeiroMenu">
-                    <ul class="nav flex-column ms-3">
-                        <li class="nav-item"><a class="nav-link" href="#" onclick="event.stopPropagation()">Relatórios</a></li>
-                        <li class="nav-item"><a class="nav-link" href="#" onclick="event.stopPropagation()">Pagamentos</a></li>
-                    </ul>
-                </div>
-            </li>
-        {% endif %}
-
-        {% if 'ROLE_OPERACIONAL' in app.user.roles %}
-            {% set operacionalRoutes = ['operacional_tarefas', 'operacional_projetos'] %}
-            {% set isOperacionalActive = app.request.attributes.get('_route') in operacionalRoutes %}
-            <li class="nav-item">
-                <a class="nav-link d-flex justify-content-between align-items-center" 
-                   data-bs-toggle="collapse" href="#operacionalMenu" role="button" 
-                   aria-expanded="{{ isOperacionalActive ? 'true' : 'false' }}" aria-controls="operacionalMenu">
-                    OPERACIONAL
-                    <span class="arrow"></span>
-                </a>
-                <div class="collapse{% if isOperacionalActive %} show{% endif %}" id="operacionalMenu">
-                    <ul class="nav flex-column ms-3">
-                        <li class="nav-item"><a class="nav-link" href="#" onclick="event.stopPropagation()">Tarefas</a></li>
-                        <li class="nav-item"><a class="nav-link" href="#" onclick="event.stopPropagation()">Projetos</a></li>
-                    </ul>
-                </div>
-            </li>
-        {% endif %}
-
-    </ul>
-
-    <div class="sidebar-user">
-        <div class="user-info">
-            <div class="avatar">
-                {{ app.user.fullName|slice(0,1)|upper }}
-            </div>
-            <div class="user-details">
-                <a href="{{ path('app_profile') }}" class="user-name">{{ app.user.fullName }}</a>
-                <div class="user-email">{{ app.user.email }}</div>
-            </div>
-        </div>
+{# templates/_sidebar.html.twig - AdminLTE 4 #}
+{% set currentRoute = app.request.attributes.get('_route')|default('') %}
+<aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+    {# Sidebar Brand #}
+    <div class="sidebar-brand">
+        <a href="{{ path('homepage') }}" class="brand-link">
+            <span class="brand-text fw-light">JusPrime</span>
+        </a>
     </div>
-</div>
+    
+    {# Sidebar Wrapper #}
+    <div class="sidebar-wrapper">
+        {# Sidebar Menu #}
+        <nav class="mt-2">
+            <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="navigation" data-accordion="false">
+                <li class="nav-item">
+                    <a class="nav-link {{ currentRoute in ['homepage', 'home'] ? 'active' : '' }}" href="{{ path('homepage') }}">
+                        <i class="nav-icon bi bi-house"></i>
+                        <p>Home</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ currentRoute starts with 'cliente_' ? 'active' : '' }}" href="{{ path('cliente_index') }}">
+                        <i class="nav-icon bi bi-people"></i>
+                        <p>Clientes</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ currentRoute starts with 'contrato_' ? 'active' : '' }}" href="{{ path('contrato_index') }}">
+                        <i class="nav-icon bi bi-file-earmark-text"></i>
+                        <p>Contratos</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ currentRoute starts with 'processo_' ? 'active' : '' }}" href="{{ path('processo_index') }}">
+                        <i class="nav-icon bi bi-briefcase"></i>
+                        <p>Processos</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ currentRoute starts with 'tarefa_' ? 'active' : '' }}" href="{{ path('tarefa_minhas') }}">
+                        <i class="nav-icon bi bi-list-check"></i>
+                        <p>Minhas Tarefas</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ currentRoute starts with 'agenda_' ? 'active' : '' }}" href="{{ path('agenda_index') }}">
+                        <i class="nav-icon bi bi-calendar3"></i>
+                        <p>Agenda</p>
+                    </a>
+                </li>
+
+                {% if 'ROLE_COMERCIAL' in app.user.roles %}
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute starts with 'pre_cadastro_' ? 'active' : '' }}" href="{{ path('pre_cadastro_index') }}">
+                            <i class="nav-icon bi bi-person-plus"></i>
+                            <p>Pré-Cadastros</p>
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
+                    <li class="nav-header">SUPER-ADMIN</li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute starts with 'app_tenant_' ? 'active' : '' }}" href="{{ path('app_tenant_index') }}">
+                            <i class="nav-icon bi bi-building"></i>
+                            <p>Tenants</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute == 'app_tenant_new' ? 'active' : '' }}" href="{{ path('app_tenant_new') }}">
+                            <i class="nav-icon bi bi-plus-square"></i>
+                            <p>Novo Tenant</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute starts with 'audit_log_' ? 'active' : '' }}" href="{{ path('audit_log_index') }}">
+                            <i class="nav-icon bi bi-shield-check"></i>
+                            <p>Trilha de Auditoria</p>
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% if 'ROLE_ADMIN' in app.user.roles %}
+                    <li class="nav-header">ADMIN</li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute == 'invite_user' ? 'active' : '' }}" href="{{ path('invite_user') }}">
+                            <i class="nav-icon bi bi-envelope"></i>
+                            <p>Convidar Usuários</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute == 'app_tenant_users' ? 'active' : '' }}" href="{{ path('app_tenant_users', {'id': app.user.tenant.id}) }}">
+                            <i class="nav-icon bi bi-people-fill"></i>
+                            <p>Funcionários</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute == 'app_tenant_show' ? 'active' : '' }}" href="{{ path('app_tenant_show', {'id': app.user.tenant.id}) }}">
+                            <i class="nav-icon bi bi-building-gear"></i>
+                            <p>Meu Escritório</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute starts with 'tarefa_admin_' ? 'active' : '' }}" href="{{ path('tarefa_admin_index') }}">
+                            <i class="nav-icon bi bi-kanban"></i>
+                            <p>Gestão de Tarefas</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute starts with 'audit_log_' ? 'active' : '' }}" href="{{ path('audit_log_index') }}">
+                            <i class="nav-icon bi bi-shield-check"></i>
+                            <p>Trilha de Auditoria</p>
+                        </a>
+                    </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</aside>

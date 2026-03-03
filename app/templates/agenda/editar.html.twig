@@ -1,0 +1,188 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Evento{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Editar Evento</h1>
+            </div>
+            <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end">
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('agenda_index') }}">Agenda</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('agenda_show', {id: evento.id}) }}">{{ evento.titulo }}</a></li>
+                    <li class="breadcrumb-item active">Editar</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card card-warning">
+                    <div class="card-header">
+                        <h3 class="card-title">Editar Informações do Evento</h3>
+                    </div>
+                    {{ form_start(form, {'attr': {'novalidate': 'novalidate'}}) }}
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                {{ form_row(form.titulo, {'attr': {'class': 'form-control'}}) }}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    {{ form_label(form.cor) }}
+                                    <div class="d-flex gap-2 align-items-center">
+                                        {{ form_widget(form.cor, {'attr': {'class': 'form-select', 'id': 'evento_cor'}}) }}
+                                        <span id="cor-preview" class="badge" style="width: 30px; height: 30px;">&nbsp;</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{ form_row(form.descricao, {'attr': {'class': 'form-control'}}) }}
+
+                        <div class="row">
+                            <div class="col-md-8">
+                                {{ form_row(form.dataInicio, {'attr': {'class': 'form-control'}}) }}
+                            </div>
+                            <div class="col-md-4">
+                                {{ form_row(form.duracao, {'attr': {'class': 'form-control', 'type': 'number'}}) }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-8">
+                                {{ form_row(form.local, {'attr': {'class': 'form-control'}}) }}
+                            </div>
+                            <div class="col-md-4">
+                                {{ form_row(form.status, {'attr': {'class': 'form-select'}}) }}
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-check mt-4">
+                                    {{ form_widget(form.diaInteiro, {'attr': {'class': 'form-check-input'}}) }}
+                                    {{ form_label(form.diaInteiro, null, {'label_attr': {'class': 'form-check-label'}}) }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+                        <h5><i class="bi bi-people me-1"></i> Participantes</h5>
+                        {{ form_row(form.participantes, {'attr': {'class': 'form-control select2-participantes'}}) }}
+
+                        <hr>
+                        <h5><i class="bi bi-arrow-repeat me-1"></i> Recorrência</h5>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="form-check">
+                                    {{ form_widget(form.recorrente, {'attr': {'class': 'form-check-input', 'id': 'recorrente_check'}}) }}
+                                    {{ form_label(form.recorrente, null, {'label_attr': {'class': 'form-check-label'}}) }}
+                                </div>
+                            </div>
+                        </div>
+                        <div id="recorrencia-fields" class="row mt-3" style="display: none;">
+                            <div class="col-md-6">
+                                {{ form_row(form.tipoRecorrencia, {'attr': {'class': 'form-select'}}) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_row(form.fimRecorrencia, {'attr': {'class': 'form-control'}}) }}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-check-lg me-1"></i> Salvar Alterações
+                        </button>
+                        <a href="{{ path('agenda_show', {id: evento.id}) }}" class="btn btn-secondary">
+                            <i class="bi bi-x-lg me-1"></i> Cancelar
+                        </a>
+                    </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card card-outline card-secondary">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> Informações</h3>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Criado por:</strong> {{ evento.criador.fullName }}</p>
+                        <p><strong>Criado em:</strong> {{ evento.criadoEm|date('d/m/Y H:i') }}</p>
+                        {% if evento.modificadoEm %}
+                        <p><strong>Modificado em:</strong> {{ evento.modificadoEm|date('d/m/Y H:i') }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="card card-outline card-danger">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-exclamation-triangle me-1"></i> Ações</h3>
+                    </div>
+                    <div class="card-body">
+                        {% if evento.status != 'cancelado' %}
+                        <form method="POST" action="{{ path('agenda_cancelar', {id: evento.id}) }}" class="mb-2">
+                            <input type="hidden" name="_token" value="{{ csrf_token('cancelar' ~ evento.id) }}">
+                            <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Tem certeza que deseja cancelar este evento?')">
+                                <i class="bi bi-x-circle me-1"></i> Cancelar Evento
+                            </button>
+                        </form>
+                        {% endif %}
+                        <form method="POST" action="{{ path('agenda_excluir', {id: evento.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ evento.id) }}">
+                            <button type="submit" class="btn btn-danger w-100" onclick="return confirm('Tem certeza que deseja EXCLUIR permanentemente este evento?')">
+                                <i class="bi bi-trash me-1"></i> Excluir Evento
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+$(document).ready(function() {
+    // Select2 para participantes
+    $('.select2-participantes').select2({
+        placeholder: 'Selecione os participantes...',
+        allowClear: true,
+        width: '100%'
+    });
+
+    // Preview da cor
+    function updateColorPreview() {
+        var cor = $('#evento_cor').val();
+        $('#cor-preview').css('background-color', cor);
+    }
+    updateColorPreview();
+    $('#evento_cor').on('change', updateColorPreview);
+
+    // Toggle recorrência
+    $('#recorrente_check').on('change', function() {
+        if ($(this).is(':checked')) {
+            $('#recorrencia-fields').slideDown();
+        } else {
+            $('#recorrencia-fields').slideUp();
+        }
+    });
+
+    // Verificar estado inicial
+    if ($('#recorrente_check').is(':checked')) {
+        $('#recorrencia-fields').show();
+    }
+});
+</script>
+{% endblock %}
