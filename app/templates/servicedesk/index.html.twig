@@ -1,0 +1,228 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Service Desk - Dashboard{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-headset me-2"></i>Service Desk</h1>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        {# Cards de estatísticas #}
+        <div class="row mb-4">
+            <div class="col-lg-3 col-6">
+                <div class="small-box text-bg-warning">
+                    <div class="inner">
+                        <h3>{{ stats.abertos }}</h3>
+                        <p>Abertos</p>
+                    </div>
+                    <div class="icon">
+                        <i class="bi bi-inbox"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-6">
+                <div class="small-box text-bg-primary">
+                    <div class="inner">
+                        <h3>{{ stats.em_andamento }}</h3>
+                        <p>Em Andamento</p>
+                    </div>
+                    <div class="icon">
+                        <i class="bi bi-gear-wide-connected"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-6">
+                <div class="small-box text-bg-success">
+                    <div class="inner">
+                        <h3>{{ stats.resolvidos }}</h3>
+                        <p>Resolvidos</p>
+                    </div>
+                    <div class="icon">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-6">
+                <div class="small-box text-bg-danger">
+                    <div class="inner">
+                        <h3>{{ stats.urgentes }}</h3>
+                        <p>Urgentes</p>
+                    </div>
+                    <div class="icon">
+                        <i class="bi bi-exclamation-triangle"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Alertas #}
+        {% if stats.nao_atribuidos > 0 %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-circle me-2"></i>
+            <strong>{{ stats.nao_atribuidos }}</strong> chamado(s) aguardando atribuição.
+        </div>
+        {% endif %}
+
+        {# Filtros #}
+        <div class="card mb-3">
+            <div class="card-body">
+                <form method="GET" action="{{ path('servicedesk_index') }}" class="row g-2 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select name="status" class="form-select form-select-sm">
+                            <option value="">Todos</option>
+                            {% for value, label in statusList %}
+                                <option value="{{ value }}" {{ filtros.status == value ? 'selected' : '' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Categoria</label>
+                        <select name="categoria" class="form-select form-select-sm">
+                            <option value="">Todas</option>
+                            {% for value, label in categorias %}
+                                <option value="{{ value }}" {{ filtros.categoria == value ? 'selected' : '' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Prioridade</label>
+                        <select name="prioridade" class="form-select form-select-sm">
+                            <option value="">Todas</option>
+                            {% for value, label in prioridades %}
+                                <option value="{{ value }}" {{ filtros.prioridade == value ? 'selected' : '' }}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Responsável</label>
+                        <select name="responsavel" class="form-select form-select-sm">
+                            <option value="">Todos</option>
+                            {% for tecnico in tecnicos %}
+                                <option value="{{ tecnico.id }}" {{ filtros.responsavel == tecnico.id ? 'selected' : '' }}>{{ tecnico.fullName }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Busca</label>
+                        <input type="text" name="busca" class="form-control form-control-sm" placeholder="Título, descrição..." value="{{ filtros.busca }}">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div>
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-search me-1"></i> Filtrar
+                            </button>
+                            <a href="{{ path('servicedesk_index') }}" class="btn btn-secondary btn-sm">
+                                <i class="bi bi-x-lg"></i>
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {# Lista de chamados #}
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-list-task me-2"></i>Chamados ({{ stats.total }})</h3>
+            </div>
+            <div class="card-body table-responsive p-0">
+                {% if chamados|length > 0 %}
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Título</th>
+                            <th>Solicitante</th>
+                            <th>Categoria</th>
+                            <th>Prioridade</th>
+                            <th>Status</th>
+                            <th>Responsável</th>
+                            <th>Aberto em</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for chamado in chamados %}
+                        <tr>
+                            <td><strong>{{ chamado.id }}</strong></td>
+                            <td>{{ chamado.titulo|length > 50 ? chamado.titulo|slice(0, 50) ~ '...' : chamado.titulo }}</td>
+                            <td>{{ chamado.solicitante.fullName }}</td>
+                            <td>
+                                <span class="badge text-bg-secondary">
+                                    <i class="{{ chamado.categoriaIcone }} me-1"></i>{{ chamado.categoriaLabel }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {{ chamado.prioridadeBadgeClass }}">
+                                    {{ chamado.prioridadeLabel }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {{ chamado.statusBadgeClass }}">
+                                    {{ chamado.statusLabel }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if chamado.responsavel %}
+                                    {{ chamado.responsavel.fullName }}
+                                {% else %}
+                                    <span class="text-muted">Não atribuído</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ chamado.criadoEm|date('d/m/Y H:i') }}</small>
+                            </td>
+                            <td>
+                                <a href="{{ path('servicedesk_show', {id: chamado.id}) }}" class="btn btn-sm btn-info">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-4 text-center">
+                    <i class="bi bi-inbox display-4 text-muted"></i>
+                    <p class="mt-2 text-muted">Nenhum chamado encontrado.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {# Estatísticas por categoria #}
+        {% if stats.por_categoria|length > 0 %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h3 class="card-title"><i class="bi bi-bar-chart me-2"></i>Chamados por Categoria</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for cat in stats.por_categoria %}
+                    <div class="col-md-3 col-6 mb-2">
+                        <div class="d-flex justify-content-between align-items-center p-2 border rounded">
+                            <span>{{ categorias[cat.categoria] ?? cat.categoria }}</span>
+                            <span class="badge text-bg-primary">{{ cat.total }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if stats.tempo_medio %}
+        <div class="alert alert-info mt-3">
+            <i class="bi bi-clock-history me-2"></i>
+            <strong>Tempo médio de resolução:</strong> {{ stats.tempo_medio|number_format(1) }} horas
+        </div>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

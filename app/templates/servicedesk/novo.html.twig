@@ -1,0 +1,149 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Abrir Chamado{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="m-0"><i class="bi bi-plus-circle me-2"></i>Abrir Chamado</h1>
+            <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-pencil-square me-2"></i>Dados do Chamado</h3>
+                    </div>
+                    {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
+                    <div class="card-body">
+                        <div class="mb-3">
+                            {{ form_label(form.titulo) }}
+                            {{ form_widget(form.titulo, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.titulo) }}
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                {{ form_label(form.categoria) }}
+                                {{ form_widget(form.categoria, {'attr': {'class': 'form-select'}}) }}
+                                {{ form_errors(form.categoria) }}
+                            </div>
+                            <div class="col-md-6">
+                                {{ form_label(form.prioridade) }}
+                                {{ form_widget(form.prioridade, {'attr': {'class': 'form-select'}}) }}
+                                {{ form_errors(form.prioridade) }}
+                                <small class="text-muted">
+                                    <b>Crítica:</b> Sistema parado | <b>Alta:</b> Impacto significativo | <b>Média:</b> Problema comum | <b>Baixa:</b> Pode aguardar
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.departamento) }}
+                            {{ form_widget(form.departamento, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.departamento) }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.descricao) }}
+                            {{ form_widget(form.descricao, {'attr': {'class': 'form-control'}}) }}
+                            {{ form_errors(form.descricao) }}
+                            <small class="text-muted">
+                                Descreva o problema com o máximo de detalhes possível: o que estava fazendo, 
+                                mensagens de erro, quando começou, etc.
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form_label(form.anexos) }}
+                            {{ form_widget(form.anexos, {'attr': {'class': 'form-control', 'multiple': 'multiple'}}) }}
+                            {{ form_errors(form.anexos) }}
+                            <small class="text-muted">
+                                Arquivos permitidos: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, ZIP, TXT (máx. 10MB cada)
+                            </small>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send me-1"></i> Abrir Chamado
+                        </button>
+                        <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-outline-secondary">
+                            Cancelar
+                        </a>
+                    </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card text-bg-light">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Dicas</h3>
+                    </div>
+                    <div class="card-body">
+                        <h6><i class="bi bi-1-circle text-primary me-2"></i>Seja específico</h6>
+                        <p class="small text-muted">Descreva exatamente o que aconteceu e quando o problema começou.</p>
+
+                        <h6><i class="bi bi-2-circle text-primary me-2"></i>Inclua detalhes</h6>
+                        <p class="small text-muted">Mensagens de erro, nome do programa, horário do problema, etc.</p>
+
+                        <h6><i class="bi bi-3-circle text-primary me-2"></i>Anexe imagens</h6>
+                        <p class="small text-muted">Capturas de tela ajudam muito a identificar o problema.</p>
+
+                        <h6><i class="bi bi-4-circle text-primary me-2"></i>Prioridade adequada</h6>
+                        <p class="small text-muted">Use prioridade crítica apenas para problemas que pararam o trabalho completamente.</p>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-book me-2"></i>Categorias</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <i class="bi bi-pc-display text-primary me-2"></i>
+                                <strong>Software</strong>
+                                <small class="d-block text-muted">Programas, sistemas, aplicativos</small>
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-motherboard text-success me-2"></i>
+                                <strong>Hardware</strong>
+                                <small class="d-block text-muted">Computador, monitor, teclado, mouse</small>
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-printer text-warning me-2"></i>
+                                <strong>Impressora</strong>
+                                <small class="d-block text-muted">Impressão, scanner, toner</small>
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-wifi text-danger me-2"></i>
+                                <strong>Rede/Internet</strong>
+                                <small class="d-block text-muted">Conexão, VPN, lentidão</small>
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-key text-info me-2"></i>
+                                <strong>Acesso/Permissões</strong>
+                                <small class="d-block text-muted">Login, senhas, liberações</small>
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-envelope text-secondary me-2"></i>
+                                <strong>E-mail</strong>
+                                <small class="d-block text-muted">Outlook, caixa postal, calendário</small>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

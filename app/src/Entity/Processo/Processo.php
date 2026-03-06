@@ -39,6 +39,7 @@ class Processo
     private Collection $partes;
 
     #[ORM\OneToMany(mappedBy: 'processo', targetEntity: MovimentacaoProcesso::class, orphanRemoval: true, cascade: ['persist'])]
+    #[ORM\OrderBy(['dataMovimentacao' => 'DESC', 'id' => 'DESC'])]
     private Collection $movimentacoes;
 
     #[ORM\OneToMany(mappedBy: 'processo', targetEntity: DocumentoProcesso::class, orphanRemoval: true, cascade: ['persist', 'remove'])]

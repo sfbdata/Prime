@@ -14,15 +14,15 @@
     <div class="container-fluid">
         {# Filtros #}
         <div class="card card-outline card-primary mb-3">
-            <div class="card-header">
+            <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosContrato">
                 <h3 class="card-title"><i class="bi bi-funnel me-1"></i> Filtros</h3>
                 <div class="card-tools">
-                    <button type="button" class="btn btn-tool" data-bs-toggle="collapse" data-bs-target="#filtrosContrato">
-                        <i class="bi bi-dash-lg"></i>
+                    <button type="button" class="btn btn-tool">
+                        <i class="bi bi-chevron-down"></i>
                     </button>
                 </div>
             </div>
-            <div class="collapse show" id="filtrosContrato">
+            <div class="collapse" id="filtrosContrato">
                 <div class="card-body">
                     <form method="GET" action="{{ path('contrato_index') }}" id="formFiltrosContrato">
                         <div class="row g-3">
@@ -81,9 +81,10 @@
             <table class="table table-striped table-hover mb-0">
                 <thead>
                     <tr>
-                        <th><i class="bi bi-file-earmark me-1"></i> Nome do Arquivo</th>
+                        <th><i class="bi bi-file-earmark me-1"></i> Título</th>
                         <th><i class="bi bi-calendar-event me-1"></i> Data de Início</th>
                         <th><i class="bi bi-currency-dollar me-1"></i> Valor Total</th>
+                        <th><i class="bi bi-person me-1"></i> Responsável</th>
                         <th><i class="bi bi-flag me-1"></i> Status</th>
                         <th><i class="bi bi-people me-1"></i> Clientes Associados</th>
                         <th><i class="bi bi-briefcase me-1"></i> Processos</th>
@@ -94,9 +95,10 @@
                 <tbody>
                     {% for contrato in contratos %}
                         <tr>
-                            <td>{{ contrato.nomeArquivo }}</td>
+                            <td>{{ contrato.titulo }}</td>
                             <td>{% if contrato.dataInicio %}{{ contrato.dataInicio|date('d/m/Y') }}{% else %}-{% endif %}</td>
                             <td>{% if contrato.valorTotal %}R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}{% else %}-{% endif %}</td>
+                            <td>{% if contrato.responsavel %}{{ contrato.responsavel.fullName }}{% else %}<span class="text-muted">-</span>{% endif %}</td>
                             <td>
                                 {% if contrato.status == 'ATIVO' %}
                                     <span class="badge text-bg-success">{{ contrato.status }}</span>
@@ -132,14 +134,22 @@
                             </td>
                             <td>
                                 {% if contrato.criadoAt %}
-                                    {{ contrato.criadoAt|date('d/m/Y H:i') }}
+                                    {% set diasCriado = ((date('now')|date('U') - contrato.criadoAt|date('U')) / 86400)|round(0, 'floor') %}
+                                    <span title="{{ contrato.criadoAt|date('d/m/Y H:i') }}">
+                                        {% if diasCriado == 0 %}
+                                            <i class="bi bi-clock me-1"></i>Hoje
+                                        {% elseif diasCriado == 1 %}
+                                            <i class="bi bi-calendar me-1"></i>1 dia
+                                        {% else %}
+                                            <i class="bi bi-calendar me-1"></i>{{ diasCriado }} dias
+                                        {% endif %}
+                                    </span>
                                 {% else %}
                                     -
                                 {% endif %}
                             </td>
                             <td>
                                 <a href="{{ path('contrato_show', {id: contrato.id}) }}" class="btn btn-sm btn-info">Ver</a>
-                                <a href="{{ contrato.caminhoArquivo }}" class="btn btn-sm btn-primary" target="_blank">Baixar</a>
                             </td>
                         </tr>
                     {% endfor %}

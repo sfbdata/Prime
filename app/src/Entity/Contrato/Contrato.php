@@ -2,6 +2,7 @@
 
 namespace App\Entity\Contrato;
 
+use App\Entity\Auth\User;
 use App\Entity\Cliente\Cliente;
 use App\Entity\Processo\Processo;
 use App\Repository\ContratoRepository;
@@ -22,10 +23,10 @@ class Contrato
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
-    private string $nomeArquivo;
+    private string $titulo;
 
-    #[ORM\Column(length: 255)]
-    private string $caminhoArquivo;
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $descricao = null;
 
     #[ORM\Column(length: 20)]
     private string $status = self::STATUS_ATIVO;
@@ -48,6 +49,10 @@ class Contrato
     #[ORM\OneToMany(mappedBy: 'contrato', targetEntity: Processo::class, orphanRemoval: true)]
     private Collection $processos;
 
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $responsavel = null;
+
     public function __construct()
     {
         $this->clientes = new ArrayCollection();
@@ -69,25 +74,25 @@ class Contrato
         return $this->id;
     }
 
-    public function getNomeArquivo(): string
+    public function getTitulo(): string
     {
-        return $this->nomeArquivo;
+        return $this->titulo;
     }
 
-    public function setNomeArquivo(string $nomeArquivo): self
+    public function setTitulo(string $titulo): self
     {
-        $this->nomeArquivo = $nomeArquivo;
+        $this->titulo = $titulo;
         return $this;
     }
 
-    public function getCaminhoArquivo(): string
+    public function getDescricao(): ?string
     {
-        return $this->caminhoArquivo;
+        return $this->descricao;
     }
 
-    public function setCaminhoArquivo(string $caminhoArquivo): self
+    public function setDescricao(?string $descricao): self
     {
-        $this->caminhoArquivo = $caminhoArquivo;
+        $this->descricao = $descricao;
         return $this;
     }
 
@@ -196,6 +201,17 @@ class Contrato
             }
         }
 
+        return $this;
+    }
+
+    public function getResponsavel(): ?User
+    {
+        return $this->responsavel;
+    }
+
+    public function setResponsavel(?User $responsavel): self
+    {
+        $this->responsavel = $responsavel;
         return $this;
     }
 }

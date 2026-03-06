@@ -1,0 +1,369 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Chamado #{{ chamado.id }}{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="m-0">
+                <i class="bi bi-ticket-detailed me-2"></i>Chamado #{{ chamado.id }}
+                <span class="badge {{ chamado.statusBadgeClass }} ms-2">{{ chamado.statusLabel }}</span>
+            </h1>
+            {% if isAdmin %}
+                <a href="{{ path('servicedesk_index') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Voltar ao Dashboard
+                </a>
+            {% else %}
+                <a href="{{ path('servicedesk_meus_chamados') }}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Meus Chamados
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row">
+            {# Coluna principal #}
+            <div class="col-lg-8">
+                {# Detalhes do chamado #}
+                <div class="card mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3 class="card-title mb-0">{{ chamado.titulo }}</h3>
+                        <span class="badge {{ chamado.prioridadeBadgeClass }}">
+                            {{ chamado.prioridadeLabel }}
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Descrição</label>
+                            <div class="p-3 bg-light rounded">
+                                {{ chamado.descricao|nl2br }}
+                            </div>
+                        </div>
+
+                        {# Anexos #}
+                        {% if chamado.anexos|length > 0 %}
+                        <div class="mb-3">
+                            <label class="form-label text-muted">Anexos</label>
+                            <div class="list-group">
+                                {% for anexo in chamado.anexos %}
+                                <a href="{{ asset('uploads/chamados/' ~ anexo.nomeArquivo) }}" 
+                                   target="_blank" 
+                                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <span>
+                                        <i class="{{ anexo.icone }} me-2"></i>
+                                        {{ anexo.nomeOriginal }}
+                                    </span>
+                                    <span class="badge text-bg-secondary">{{ anexo.tamanhoFormatado }}</span>
+                                </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Timeline de interações #}
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-chat-dots me-2"></i>Histórico ({{ chamado.interacoes|length }})</h3>
+                    </div>
+                    <div class="card-body">
+                        {% if chamado.interacoes|length > 0 %}
+                        <div class="timeline">
+                            {% for interacao in chamado.interacoes %}
+                            <div class="time-label">
+                                <span class="text-bg-secondary">{{ interacao.criadoEm|date('d/m/Y') }}</span>
+                            </div>
+                            <div>
+                                <i class="{{ interacao.icone }} {{ interacao.badgeClass }}"></i>
+                                <div class="timeline-item {% if interacao.interno %}border-warning{% endif %}">
+                                    <span class="time">
+                                        <i class="bi bi-clock"></i> {{ interacao.criadoEm|date('H:i') }}
+                                        {% if interacao.interno %}
+                                            <span class="badge text-bg-warning ms-2">Interno</span>
+                                        {% endif %}
+                                    </span>
+                                    <h3 class="timeline-header">
+                                        <strong>{{ interacao.usuario ? interacao.usuario.fullName : 'Sistema' }}</strong>
+                                        <small class="text-muted">- {{ interacao.tipoLabel }}</small>
+                                    </h3>
+                                    <div class="timeline-body">
+                                        {{ interacao.mensagem|nl2br }}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            <div>
+                                <i class="bi bi-clock-history text-bg-secondary"></i>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-chat-dots display-4"></i>
+                            <p class="mt-2">Nenhuma interação ainda.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Formulário de nova interação #}
+                {% if chamado.status != 'fechado' %}
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-reply me-2"></i>Adicionar Resposta</h3>
+                    </div>
+                    {{ form_start(interacaoForm) }}
+                    <div class="card-body">
+                        <div class="mb-3">
+                            {{ form_widget(interacaoForm.mensagem, {'attr': {'class': 'form-control', 'rows': 4, 'placeholder': 'Digite sua mensagem...'}}) }}
+                            {{ form_errors(interacaoForm.mensagem) }}
+                        </div>
+                        {% if isAdmin and interacaoForm.interno is defined %}
+                        <div class="form-check">
+                            {{ form_widget(interacaoForm.interno, {'attr': {'class': 'form-check-input'}}) }}
+                            {{ form_label(interacaoForm.interno, null, {'label_attr': {'class': 'form-check-label'}}) }}
+                            <small class="text-muted d-block">Comentários internos são visíveis apenas para a equipe de TI.</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send me-1"></i> Enviar
+                        </button>
+                    </div>
+                    {{ form_end(interacaoForm) }}
+                </div>
+                {% endif %}
+            </div>
+
+            {# Coluna lateral #}
+            <div class="col-lg-4">
+                {# Informações #}
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Informações</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <tr>
+                                <th class="w-50">Solicitante</th>
+                                <td>{{ chamado.solicitante.fullName }}</td>
+                            </tr>
+                            <tr>
+                                <th>Categoria</th>
+                                <td>
+                                    <span class="badge text-bg-secondary">{{ chamado.categoriaLabel }}</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Departamento</th>
+                                <td>{{ chamado.departamento ?? '-' }}</td>
+                            </tr>
+                            <tr>
+                                <th>Responsável</th>
+                                <td>
+                                    {% if chamado.responsavel %}
+                                        {{ chamado.responsavel.fullName }}
+                                    {% else %}
+                                        <span class="text-warning">Não atribuído</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Aberto em</th>
+                                <td>{{ chamado.criadoEm|date('d/m/Y H:i') }}</td>
+                            </tr>
+                            {% if chamado.resolvidoEm %}
+                            <tr>
+                                <th>Resolvido em</th>
+                                <td>{{ chamado.resolvidoEm|date('d/m/Y H:i') }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if chamado.fechadoEm %}
+                            <tr>
+                                <th>Fechado em</th>
+                                <td>{{ chamado.fechadoEm|date('d/m/Y H:i') }}</td>
+                            </tr>
+                            {% endif %}
+                            {% if chamado.tempoResolucaoHoras %}
+                            <tr>
+                                <th>Tempo de resolução</th>
+                                <td>{{ chamado.tempoResolucaoHoras|number_format(1) }} horas</td>
+                            </tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+
+                {# Ações administrativas #}
+                {% if isAdmin %}
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-gear me-2"></i>Ações</h3>
+                    </div>
+                    <div class="card-body">
+                        {# Atribuir responsável #}
+                        <form action="{{ path('servicedesk_atribuir', {id: chamado.id}) }}" method="POST" class="mb-3">
+                            <label class="form-label">Atribuir para</label>
+                            <div class="input-group">
+                                <select name="responsavel_id" class="form-select">
+                                    <option value="">Não atribuído</option>
+                                    {% for tecnico in tecnicos %}
+                                        <option value="{{ tecnico.id }}" 
+                                                {{ chamado.responsavel and chamado.responsavel.id == tecnico.id ? 'selected' : '' }}>
+                                            {{ tecnico.fullName }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-person-check"></i>
+                                </button>
+                            </div>
+                        </form>
+
+                        {# Alterar status #}
+                        <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <label class="form-label">Alterar Status</label>
+                            <div class="input-group">
+                                <select name="status" class="form-select">
+                                    {% for value, label in statusList %}
+                                        <option value="{{ value }}" {{ chamado.status == value ? 'selected' : '' }}>
+                                            {{ label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                {# Ações rápidas #}
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-lightning me-2"></i>Ações Rápidas</h3>
+                    </div>
+                    <div class="card-body d-grid gap-2">
+                        {% if chamado.status == 'aberto' %}
+                        <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="status" value="em_andamento">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-play-fill me-1"></i> Iniciar Atendimento
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if chamado.status == 'em_andamento' %}
+                        <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="status" value="resolvido">
+                            <button type="submit" class="btn btn-success w-100">
+                                <i class="bi bi-check-lg me-1"></i> Marcar como Resolvido
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if chamado.status == 'resolvido' %}
+                        <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="status" value="fechado">
+                            <button type="submit" class="btn btn-secondary w-100">
+                                <i class="bi bi-archive me-1"></i> Fechar Chamado
+                            </button>
+                        </form>
+                        <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="status" value="em_andamento">
+                            <button type="submit" class="btn btn-outline-warning w-100">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir
+                            </button>
+                        </form>
+                        {% endif %}
+
+                        {% if chamado.status == 'fechado' %}
+                        <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="status" value="aberto">
+                            <button type="submit" class="btn btn-outline-primary w-100">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir Chamado
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+    .timeline {
+        position: relative;
+        margin: 0;
+        padding: 0;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: #dee2e6;
+        left: 31px;
+        margin-left: -2px;
+    }
+    .timeline > div {
+        position: relative;
+        margin-bottom: 15px;
+    }
+    .timeline > div > i {
+        position: absolute;
+        left: 18px;
+        width: 30px;
+        height: 30px;
+        line-height: 30px;
+        text-align: center;
+        border-radius: 50%;
+        background: #fff;
+        z-index: 1;
+    }
+    .timeline-item {
+        margin-left: 60px;
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 10px 15px;
+    }
+    .timeline-item .time {
+        float: right;
+        color: #999;
+        font-size: 12px;
+    }
+    .timeline-header {
+        margin: 0;
+        font-size: 14px;
+        border-bottom: 1px solid #f4f4f4;
+        padding-bottom: 8px;
+        margin-bottom: 8px;
+    }
+    .timeline-body {
+        font-size: 14px;
+    }
+    .time-label span {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .time-label {
+        margin-left: 60px;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}

@@ -3,9 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\Agenda\Evento;
+use App\Entity\Agenda\LegendaCor;
 use App\Entity\Auth\User;
 use App\Form\EventoType;
 use App\Repository\EventoRepository;
+use App\Repository\LegendaCorRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -35,7 +37,8 @@ class AgendaController extends AbstractController
 {
     public function __construct(
         private readonly NotificacaoService $notificacaoService,
-        private readonly UserRepository $userRepository
+        private readonly UserRepository $userRepository,
+        private readonly LegendaCorRepository $legendaCorRepository
     ) {
     }
 
@@ -46,9 +49,11 @@ class AgendaController extends AbstractController
     public function index(): Response
     {
         $usuarios = $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
+        $legendas = $this->legendaCorRepository->findAllOrdered();
         
         return $this->render('agenda/index.html.twig', [
             'usuarios' => $usuarios,
+            'legendas' => $legendas,
         ]);
     }
 
@@ -373,5 +378,84 @@ class AgendaController extends AbstractController
         $em->flush();
 
         return $this->json(['success' => true]);
+    }
+
+    /**
+     * Salvar legendas (AJAX)
+     */
+    #[Route('/legendas/salvar', name: 'agenda_legendas_salvar', methods: ['POST'])]
+    public function salvarLegendas(Request $request, EntityManagerInterface $em): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true);
+        
+        if (!isset($data['legendas']) || !is_array($data['legendas'])) {
+            return $this->json(['success' => false, 'message' => 'Dados inválidos'], 400);
+        }
+
+        // Obter IDs existentes
+        $legendasExistentes = $this->legendaCorRepository->findAll();
+        $idsExistentes = array_map(fn($l) => $l->getId(), $legendasExistentes);
+        $idsRecebidos = [];
+
+        foreach ($data['legendas'] as $index => $legendaData) {
+            $id = $legendaData['id'] ?? null;
+            $nome = trim($legendaData['nome'] ?? '');
+            $cor = $legendaData['cor'] ?? '#0073b7';
+
+            if (empty($nome)) {
+                continue;
+            }
+
+            if ($id && is_numeric($id)) {
+                $legenda = $this->legendaCorRepository->find($id);
+                if ($legenda) {
+                    $legenda->setNome($nome);
+                    $legenda->setCor($cor);
+                    $legenda->setOrdem($index);
+                    $idsRecebidos[] = (int) $id;
+                }
+            } else {
+                $legenda = new LegendaCor();
+                $legenda->setNome($nome);
+                $legenda->setCor($cor);
+                $legenda->setOrdem($index);
+                $em->persist($legenda);
+            }
+        }
+
+        // Remover legendas que não foram enviadas
+        foreach ($legendasExistentes as $legenda) {
+            if (!in_array($legenda->getId(), $idsRecebidos)) {
+                $em->remove($legenda);
+            }
+        }
+
+        $em->flush();
+
+        // Retornar legendas atualizadas
+        $legendas = $this->legendaCorRepository->findAllOrdered();
+        $legendasArray = array_map(fn($l) => [
+            'id' => $l->getId(),
+            'nome' => $l->getNome(),
+            'cor' => $l->getCor(),
+        ], $legendas);
+
+        return $this->json(['success' => true, 'legendas' => $legendasArray]);
+    }
+
+    /**
+     * Obter legendas (AJAX)
+     */
+    #[Route('/legendas', name: 'agenda_legendas', methods: ['GET'])]
+    public function getLegendas(): JsonResponse
+    {
+        $legendas = $this->legendaCorRepository->findAllOrdered();
+        $legendasArray = array_map(fn($l) => [
+            'id' => $l->getId(),
+            'nome' => $l->getNome(),
+            'cor' => $l->getCor(),
+        ], $legendas);
+
+        return $this->json($legendasArray);
     }
 }

@@ -17,15 +17,15 @@
     <div class="container-fluid">
         {# Filtros #}
         <div class="card card-outline card-primary mb-3">
-            <div class="card-header">
+            <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosProcesso">
                 <h3 class="card-title"><i class="bi bi-funnel me-1"></i> Filtros</h3>
                 <div class="card-tools">
-                    <button type="button" class="btn btn-tool" data-bs-toggle="collapse" data-bs-target="#filtrosProcesso">
-                        <i class="bi bi-dash-lg"></i>
+                    <button type="button" class="btn btn-tool">
+                        <i class="bi bi-chevron-down"></i>
                     </button>
                 </div>
             </div>
-            <div class="collapse show" id="filtrosProcesso">
+            <div class="collapse" id="filtrosProcesso">
                 <div class="card-body">
                     <form method="GET" action="{{ path('processo_index') }}" id="formFiltrosProcesso">
                         <div class="row g-3">
@@ -139,7 +139,7 @@
                             <td>
                                 {% if processo.contrato %}
                                     <a href="{{ path('contrato_show', {id: processo.contrato.id}) }}">
-                                        {{ processo.contrato.nomeArquivo }}
+                                        {{ processo.contrato.titulo }}
                                     </a>
                                 {% else %}
                                     <span class="text-muted">-</span>

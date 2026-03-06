@@ -17,15 +17,15 @@
     <div class="container-fluid">
         {# Filtros #}
         <div class="card card-outline card-primary mb-3">
-            <div class="card-header">
+            <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosCliente">
                 <h3 class="card-title"><i class="bi bi-funnel me-1"></i> Filtros</h3>
                 <div class="card-tools">
-                    <button type="button" class="btn btn-tool" data-bs-toggle="collapse" data-bs-target="#filtrosCliente">
-                        <i class="bi bi-dash-lg"></i>
+                    <button type="button" class="btn btn-tool">
+                        <i class="bi bi-chevron-down"></i>
                     </button>
                 </div>
             </div>
-            <div class="collapse show" id="filtrosCliente">
+            <div class="collapse" id="filtrosCliente">
                 <div class="card-body">
                     <form method="GET" action="{{ path('cliente_index') }}" id="formFiltrosCliente">
                         <div class="row g-3">
@@ -129,14 +129,32 @@
                                 <td>{{ cliente.telefoneCelular ?: '-' }}</td>
                                 <td>
                                     {% if cliente.criadoAt %}
-                                        {{ cliente.criadoAt|date('d/m/Y H:i') }}
+                                        {% set diasCriado = ((date('now')|date('U') - cliente.criadoAt|date('U')) / 86400)|round(0, 'floor') %}
+                                        <span title="{{ cliente.criadoAt|date('d/m/Y H:i') }}">
+                                            {% if diasCriado == 0 %}
+                                                <i class="bi bi-clock me-1"></i>Hoje
+                                            {% elseif diasCriado == 1 %}
+                                                <i class="bi bi-calendar me-1"></i>1 dia
+                                            {% else %}
+                                                <i class="bi bi-calendar me-1"></i>{{ diasCriado }} dias
+                                            {% endif %}
+                                        </span>
                                     {% else %}
                                         -
                                     {% endif %}
                                 </td>
                                 <td>
                                     {% if cliente.modificadoEm %}
-                                        {{ cliente.modificadoEm|date('d/m/Y H:i') }}
+                                        {% set diasModificado = ((date('now')|date('U') - cliente.modificadoEm|date('U')) / 86400)|round(0, 'floor') %}
+                                        <span title="{{ cliente.modificadoEm|date('d/m/Y H:i') }}">
+                                            {% if diasModificado == 0 %}
+                                                <i class="bi bi-clock me-1"></i>Hoje
+                                            {% elseif diasModificado == 1 %}
+                                                <i class="bi bi-calendar me-1"></i>1 dia
+                                            {% else %}
+                                                <i class="bi bi-calendar me-1"></i>{{ diasModificado }} dias
+                                            {% endif %}
+                                        </span>
                                     {% else %}
                                         -
                                     {% endif %}

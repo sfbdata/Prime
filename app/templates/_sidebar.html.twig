@@ -49,6 +49,12 @@
                         <p>Agenda</p>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ currentRoute == 'servicedesk_meus_chamados' or currentRoute == 'servicedesk_novo' ? 'active' : '' }}" href="{{ path('servicedesk_meus_chamados') }}">
+                        <i class="nav-icon bi bi-headset"></i>
+                        <p>Service Desk</p>
+                    </a>
+                </li>
 
                 {% if 'ROLE_COMERCIAL' in app.user.roles %}
                     <li class="nav-item">
@@ -105,6 +111,12 @@
                         <a class="nav-link {{ currentRoute starts with 'tarefa_admin_' ? 'active' : '' }}" href="{{ path('tarefa_admin_index') }}">
                             <i class="nav-icon bi bi-kanban"></i>
                             <p>Gestão de Tarefas</p>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {{ currentRoute == 'servicedesk_index' or (currentRoute == 'servicedesk_show' and is_granted('ROLE_ADMIN')) ? 'active' : '' }}" href="{{ path('servicedesk_index') }}">
+                            <i class="nav-icon bi bi-headset"></i>
+                            <p>Service Desk (TI)</p>
                         </a>
                     </li>
                     <li class="nav-item">

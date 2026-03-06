@@ -69,34 +69,24 @@
                 </div>
 
                 <div class="card card-outline card-info">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-palette me-1"></i> Legenda</h3>
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3 class="card-title mb-0"><i class="bi bi-palette me-1"></i> Legenda</h3>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnEditarLegendas" title="Editar legendas">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                     </div>
-                    <div class="card-body">
-                        <div class="mb-2">
+                    <div class="card-body" id="legendasContainer">
+                        {% for legenda in legendas %}
+                        <div class="mb-2 legenda-item" data-id="{{ legenda.id }}" data-cor="{{ legenda.cor }}" data-nome="{{ legenda.nome }}">
+                            <span class="badge" style="background-color: {{ legenda.cor }};">&nbsp;&nbsp;&nbsp;</span>
+                            <small class="ms-1 legenda-nome">{{ legenda.nome }}</small>
+                        </div>
+                        {% else %}
+                        <div class="mb-2 legenda-item" data-id="" data-cor="#0073b7" data-nome="Audiência">
                             <span class="badge" style="background-color: #0073b7;">&nbsp;&nbsp;&nbsp;</span>
-                            <small class="ms-1">Azul</small>
+                            <small class="ms-1 legenda-nome">Audiência</small>
                         </div>
-                        <div class="mb-2">
-                            <span class="badge" style="background-color: #00a65a;">&nbsp;&nbsp;&nbsp;</span>
-                            <small class="ms-1">Verde</small>
-                        </div>
-                        <div class="mb-2">
-                            <span class="badge" style="background-color: #f39c12;">&nbsp;&nbsp;&nbsp;</span>
-                            <small class="ms-1">Amarelo</small>
-                        </div>
-                        <div class="mb-2">
-                            <span class="badge" style="background-color: #f56954;">&nbsp;&nbsp;&nbsp;</span>
-                            <small class="ms-1">Vermelho</small>
-                        </div>
-                        <div class="mb-2">
-                            <span class="badge" style="background-color: #605ca8;">&nbsp;&nbsp;&nbsp;</span>
-                            <small class="ms-1">Roxo</small>
-                        </div>
-                        <div class="mb-2">
-                            <span class="badge" style="background-color: #00c0ef;">&nbsp;&nbsp;&nbsp;</span>
-                            <small class="ms-1">Ciano</small>
-                        </div>
+                        {% endfor %}
                     </div>
                 </div>
             </div>
@@ -156,17 +146,16 @@
                             <input type="text" class="form-control" id="novo_titulo" name="titulo" required placeholder="Título do evento">
                         </div>
                         <div class="col-md-4 mb-3">
-                            <label for="novo_cor" class="form-label">Cor</label>
+                            <label for="novo_cor" class="form-label">Tipo/Cor</label>
                             <div class="d-flex gap-2 align-items-center">
                                 <select class="form-select" id="novo_cor" name="cor">
-                                    <option value="#0073b7">Azul</option>
-                                    <option value="#00a65a">Verde</option>
-                                    <option value="#f39c12">Amarelo</option>
-                                    <option value="#f56954">Vermelho</option>
-                                    <option value="#605ca8">Roxo</option>
-                                    <option value="#00c0ef">Ciano</option>
+                                    {% for legenda in legendas %}
+                                    <option value="{{ legenda.cor }}" data-nome="{{ legenda.nome }}">{{ legenda.nome }}</option>
+                                    {% else %}
+                                    <option value="#0073b7">Audiência</option>
+                                    {% endfor %}
                                 </select>
-                                <span id="novo-cor-preview" class="badge" style="width: 30px; height: 30px; background-color: #0073b7;">&nbsp;</span>
+                                <span id="novo-cor-preview" class="badge" style="width: 30px; height: 30px; background-color: {{ legendas|first ? legendas|first.cor : '#0073b7' }};">&nbsp;</span>
                             </div>
                         </div>
                     </div>
@@ -258,6 +247,32 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+{# Modal para editar legendas #}
+<div class="modal fade" id="editarLegendasModal" tabindex="-1" aria-labelledby="editarLegendasModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="editarLegendasModalLabel"><i class="bi bi-palette me-2"></i>Editar Legendas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="legendasEditContainer">
+                    <!-- Legendas serão carregadas aqui -->
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-success mt-2" id="btnAddLegenda">
+                    <i class="bi bi-plus-lg me-1"></i> Adicionar Legenda
+                </button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarLegendas">
+                    <i class="bi bi-check-lg me-1"></i> Salvar
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -487,6 +502,149 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             console.error('Erro:', error);
             alert('Erro ao criar evento');
+        });
+    });
+
+    // ===== EDIÇÃO DE LEGENDAS =====
+    const btnEditarLegendas = document.getElementById('btnEditarLegendas');
+    const editarLegendasModal = document.getElementById('editarLegendasModal');
+    const legendasEditContainer = document.getElementById('legendasEditContainer');
+    const btnAddLegenda = document.getElementById('btnAddLegenda');
+    const btnSalvarLegendas = document.getElementById('btnSalvarLegendas');
+    
+    // Cores disponíveis para escolha
+    const coresDisponiveis = [
+        '#0073b7', '#00a65a', '#f39c12', '#f56954', '#605ca8', '#00c0ef',
+        '#3c8dbc', '#dd4b39', '#00c0ef', '#f0ad4e', '#5cb85c', '#337ab7',
+        '#d9534f', '#5bc0de', '#999999', '#444444'
+    ];
+    
+    function criarLegendaRow(legenda = {id: '', nome: '', cor: '#0073b7'}) {
+        const div = document.createElement('div');
+        div.className = 'legenda-edit-row d-flex align-items-center gap-2 mb-2';
+        div.innerHTML = `
+            <input type="hidden" class="legenda-id" value="${legenda.id || ''}">
+            <input type="color" class="form-control form-control-color legenda-cor-input" value="${legenda.cor}" title="Escolher cor" style="width: 40px; height: 38px;">
+            <input type="text" class="form-control legenda-nome-input" value="${legenda.nome}" placeholder="Nome da legenda" required>
+            <button type="button" class="btn btn-sm btn-outline-danger btn-remove-legenda" title="Remover">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        return div;
+    }
+    
+    function carregarLegendasParaEdicao() {
+        legendasEditContainer.innerHTML = '';
+        const legendaItems = document.querySelectorAll('.legenda-item');
+        
+        if (legendaItems.length === 0) {
+            // Adicionar uma legenda padrão se não existir nenhuma
+            legendasEditContainer.appendChild(criarLegendaRow());
+        } else {
+            legendaItems.forEach(item => {
+                const legenda = {
+                    id: item.dataset.id,
+                    nome: item.dataset.nome,
+                    cor: item.dataset.cor
+                };
+                legendasEditContainer.appendChild(criarLegendaRow(legenda));
+            });
+        }
+        
+        attachRemoveLegendaListeners();
+    }
+    
+    function attachRemoveLegendaListeners() {
+        document.querySelectorAll('.btn-remove-legenda').forEach(btn => {
+            btn.addEventListener('click', function() {
+                if (legendasEditContainer.querySelectorAll('.legenda-edit-row').length > 1) {
+                    this.closest('.legenda-edit-row').remove();
+                } else {
+                    alert('Você deve manter pelo menos uma legenda.');
+                }
+            });
+        });
+    }
+    
+    btnEditarLegendas.addEventListener('click', function() {
+        carregarLegendasParaEdicao();
+        new bootstrap.Modal(editarLegendasModal).show();
+    });
+    
+    btnAddLegenda.addEventListener('click', function() {
+        legendasEditContainer.appendChild(criarLegendaRow());
+        attachRemoveLegendaListeners();
+    });
+    
+    btnSalvarLegendas.addEventListener('click', function() {
+        const rows = legendasEditContainer.querySelectorAll('.legenda-edit-row');
+        const legendas = [];
+        
+        rows.forEach(row => {
+            const nome = row.querySelector('.legenda-nome-input').value.trim();
+            const cor = row.querySelector('.legenda-cor-input').value;
+            const id = row.querySelector('.legenda-id').value;
+            
+            if (nome) {
+                legendas.push({ id: id || null, nome, cor });
+            }
+        });
+        
+        if (legendas.length === 0) {
+            alert('Adicione pelo menos uma legenda.');
+            return;
+        }
+        
+        btnSalvarLegendas.disabled = true;
+        btnSalvarLegendas.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Salvando...';
+        
+        fetch('{{ path('agenda_legendas_salvar') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ legendas })
+        })
+        .then(response => response.json())
+        .then(result => {
+            btnSalvarLegendas.disabled = false;
+            btnSalvarLegendas.innerHTML = '<i class="bi bi-check-lg me-1"></i> Salvar';
+            
+            if (result.success) {
+                // Atualizar legendas na sidebar
+                const container = document.getElementById('legendasContainer');
+                container.innerHTML = '';
+                result.legendas.forEach(legenda => {
+                    container.innerHTML += `
+                        <div class="mb-2 legenda-item" data-id="${legenda.id}" data-cor="${legenda.cor}" data-nome="${legenda.nome}">
+                            <span class="badge" style="background-color: ${legenda.cor};">&nbsp;&nbsp;&nbsp;</span>
+                            <small class="ms-1 legenda-nome">${legenda.nome}</small>
+                        </div>
+                    `;
+                });
+                
+                // Atualizar dropdown de cores no formulário de novo evento
+                const selectCor = document.getElementById('novo_cor');
+                selectCor.innerHTML = '';
+                result.legendas.forEach(legenda => {
+                    selectCor.innerHTML += `<option value="${legenda.cor}" data-nome="${legenda.nome}">${legenda.nome}</option>`;
+                });
+                
+                // Atualizar preview
+                if (result.legendas.length > 0) {
+                    corPreview.style.backgroundColor = result.legendas[0].cor;
+                }
+                
+                bootstrap.Modal.getInstance(editarLegendasModal).hide();
+            } else {
+                alert('Erro ao salvar legendas: ' + (result.message || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => {
+            btnSalvarLegendas.disabled = false;
+            btnSalvarLegendas.innerHTML = '<i class="bi bi-check-lg me-1"></i> Salvar';
+            console.error('Erro:', error);
+            alert('Erro ao salvar legendas');
         });
     });
 });

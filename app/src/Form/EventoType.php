@@ -4,6 +4,7 @@ namespace App\Form;
 
 use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
+use App\Repository\LegendaCorRepository;
 use App\Repository\UserRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
@@ -18,8 +19,32 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class EventoType extends AbstractType
 {
+    public function __construct(
+        private readonly LegendaCorRepository $legendaCorRepository
+    ) {
+    }
+
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        // Obter legendas do banco de dados
+        $legendas = $this->legendaCorRepository->findAllOrdered();
+        $coresChoices = [];
+        foreach ($legendas as $legenda) {
+            $coresChoices[$legenda->getNome()] = $legenda->getCor();
+        }
+        
+        // Se não houver legendas, usar cores padrão
+        if (empty($coresChoices)) {
+            $coresChoices = [
+                'Audiência' => Evento::COR_AZUL,
+                'Prazo' => Evento::COR_VERDE,
+                'Reunião' => Evento::COR_AMARELO,
+                'Urgente' => Evento::COR_VERMELHO,
+                'Pessoal' => Evento::COR_ROXO,
+                'Lembrete' => Evento::COR_CIANO,
+            ];
+        }
+
         $builder
             ->add('titulo', TextType::class, [
                 'label' => 'Título',
@@ -57,15 +82,8 @@ class EventoType extends AbstractType
                 'required' => false,
             ])
             ->add('cor', ChoiceType::class, [
-                'label' => 'Cor',
-                'choices' => [
-                    'Azul' => Evento::COR_AZUL,
-                    'Verde' => Evento::COR_VERDE,
-                    'Amarelo' => Evento::COR_AMARELO,
-                    'Vermelho' => Evento::COR_VERMELHO,
-                    'Roxo' => Evento::COR_ROXO,
-                    'Ciano' => Evento::COR_CIANO,
-                ],
+                'label' => 'Tipo/Cor',
+                'choices' => $coresChoices,
             ])
             ->add('status', ChoiceType::class, [
                 'label' => 'Status',

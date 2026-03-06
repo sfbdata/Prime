@@ -42,16 +42,6 @@ class ClienteRepository extends ServiceEntityRepository
     {
         $qb = $this->createQueryBuilder('c');
 
-        if (!empty($filters['nome'])) {
-            $qb->andWhere('c.nomeCompleto LIKE :nome OR c.razaoSocial LIKE :nome')
-               ->setParameter('nome', '%' . $filters['nome'] . '%');
-        }
-
-        if (!empty($filters['documento'])) {
-            $qb->andWhere('c.cpf LIKE :documento OR c.cnpj LIKE :documento')
-               ->setParameter('documento', '%' . $filters['documento'] . '%');
-        }
-
         if (!empty($filters['tipo'])) {
             if ($filters['tipo'] === 'PF') {
                 $qb->andWhere('c INSTANCE OF App\Entity\Cliente\ClientePF');
@@ -65,7 +55,33 @@ class ClienteRepository extends ServiceEntityRepository
                ->setParameter('celular', '%' . $filters['celular'] . '%');
         }
 
-        return $qb->orderBy('c.id', 'DESC')->getQuery()->getResult();
+        $results = $qb->orderBy('c.id', 'DESC')->getQuery()->getResult();
+
+        // Filtrar por nome (nomeCompleto para PF, razaoSocial para PJ)
+        if (!empty($filters['nome'])) {
+            $nome = mb_strtolower($filters['nome']);
+            $results = array_filter($results, function ($cliente) use ($nome) {
+                if ($cliente instanceof \App\Entity\Cliente\ClientePF) {
+                    return str_contains(mb_strtolower($cliente->getNomeCompleto()), $nome);
+                } else {
+                    return str_contains(mb_strtolower($cliente->getRazaoSocial()), $nome);
+                }
+            });
+        }
+
+        // Filtrar por documento (cpf para PF, cnpj para PJ)
+        if (!empty($filters['documento'])) {
+            $documento = $filters['documento'];
+            $results = array_filter($results, function ($cliente) use ($documento) {
+                if ($cliente instanceof \App\Entity\Cliente\ClientePF) {
+                    return str_contains($cliente->getCpf(), $documento);
+                } else {
+                    return str_contains($cliente->getCnpj(), $documento);
+                }
+            });
+        }
+
+        return array_values($results);
     }
 
     /**

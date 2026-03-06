@@ -1,0 +1,123 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Meus Chamados{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-ticket-detailed me-2"></i>Meus Chamados</h1>
+        <a href="{{ path('servicedesk_novo') }}" class="btn btn-success">
+            <i class="bi bi-plus-lg me-1"></i> Abrir Chamado
+        </a>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        {# Resumo #}
+        <div class="row mb-4">
+            <div class="col-md-3 col-6">
+                <div class="info-box">
+                    <span class="info-box-icon text-bg-warning"><i class="bi bi-inbox"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Abertos</span>
+                        <span class="info-box-number">{{ chamados|filter(c => c.status == 'aberto')|length }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-box">
+                    <span class="info-box-icon text-bg-primary"><i class="bi bi-gear-wide-connected"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Em Andamento</span>
+                        <span class="info-box-number">{{ chamados|filter(c => c.status == 'em_andamento')|length }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-box">
+                    <span class="info-box-icon text-bg-success"><i class="bi bi-check-circle"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Resolvidos</span>
+                        <span class="info-box-number">{{ chamados|filter(c => c.status == 'resolvido')|length }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6">
+                <div class="info-box">
+                    <span class="info-box-icon text-bg-secondary"><i class="bi bi-archive"></i></span>
+                    <div class="info-box-content">
+                        <span class="info-box-text">Fechados</span>
+                        <span class="info-box-number">{{ chamados|filter(c => c.status == 'fechado')|length }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Lista de chamados #}
+        <div class="card">
+            <div class="card-body table-responsive p-0">
+                {% if chamados|length > 0 %}
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Título</th>
+                            <th>Categoria</th>
+                            <th>Prioridade</th>
+                            <th>Status</th>
+                            <th>Aberto em</th>
+                            <th>Última atualização</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for chamado in chamados %}
+                        <tr>
+                            <td><strong>{{ chamado.id }}</strong></td>
+                            <td>{{ chamado.titulo|length > 50 ? chamado.titulo|slice(0, 50) ~ '...' : chamado.titulo }}</td>
+                            <td>
+                                <span class="badge text-bg-secondary">
+                                    {{ chamado.categoriaLabel }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {{ chamado.prioridadeBadgeClass }}">
+                                    {{ chamado.prioridadeLabel }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge {{ chamado.statusBadgeClass }}">
+                                    {{ chamado.statusLabel }}
+                                </span>
+                            </td>
+                            <td>
+                                <small>{{ chamado.criadoEm|date('d/m/Y H:i') }}</small>
+                            </td>
+                            <td>
+                                <small>{{ chamado.atualizadoEm ? chamado.atualizadoEm|date('d/m/Y H:i') : '-' }}</small>
+                            </td>
+                            <td>
+                                <a href="{{ path('servicedesk_show', {id: chamado.id}) }}" class="btn btn-sm btn-info">
+                                    <i class="bi bi-eye"></i> Ver
+                                </a>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+                {% else %}
+                <div class="p-5 text-center">
+                    <i class="bi bi-ticket display-1 text-muted"></i>
+                    <h4 class="mt-3 text-muted">Você ainda não abriu nenhum chamado</h4>
+                    <p class="text-muted">Precisa de ajuda com algo? Abra um chamado e nossa equipe de TI irá auxiliá-lo.</p>
+                    <a href="{{ path('servicedesk_novo') }}" class="btn btn-primary mt-2">
+                        <i class="bi bi-plus-lg me-1"></i> Abrir meu primeiro chamado
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

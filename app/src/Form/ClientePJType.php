@@ -8,10 +8,6 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\TelType;
-use Symfony\Component\Form\Extension\Core\Type\DateType;
-use Symfony\Component\Form\Extension\Core\Type\FileType;
-use Symfony\Component\Form\Extension\Core\Type\MoneyType;
-use Symfony\Component\Validator\Constraints\File;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 class ClientePJType extends AbstractType
@@ -91,31 +87,6 @@ class ClientePJType extends AbstractType
             ->add('email', EmailType::class, [
                 'label' => 'E-mail',
             ]);
-
-        $builder->add('contratoFile', FileType::class, [
-            'label' => 'Arquivo do Contrato (PDF)',
-            'mapped' => false,
-            'required' => false,
-            'constraints' => [
-                new File([
-                    'maxSize' => '5M',
-                    'mimeTypes' => ['application/pdf', 'application/x-pdf'],
-                    'mimeTypesMessage' => 'Por favor envie um PDF válido',
-                ])
-            ],
-        ]);
-        $builder->add('contratoDataInicio', DateType::class, [
-            'label' => 'Data de Início do Contrato',
-            'widget' => 'single_text',
-            'mapped' => false,
-            'required' => false,
-        ]);
-        $builder->add('contratoValorTotal', MoneyType::class, [
-            'label' => 'Valor Total do Contrato',
-            'currency' => 'BRL',
-            'mapped' => false,
-            'required' => false,
-        ]);
     }
 
     public function configureOptions(OptionsResolver $resolver): void

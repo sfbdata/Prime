@@ -123,4 +123,22 @@ class ContratoController extends AbstractController
 
         return $this->redirectToRoute('contrato_show', ['id' => $contrato->getId()]);
     }
+
+    #[Route('/{id}/editar', name: 'contrato_edit', methods: ['GET', 'POST'])]
+    public function edit(Request $request, Contrato $contrato, EntityManagerInterface $em): Response
+    {
+        $form = $this->createForm(\App\Form\ContratoType::class, $contrato);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $em->flush();
+            $this->addFlash('success', 'Contrato atualizado com sucesso.');
+            return $this->redirectToRoute('contrato_show', ['id' => $contrato->getId()]);
+        }
+
+        return $this->render('contrato/edit.html.twig', [
+            'form' => $form,
+            'contrato' => $contrato,
+        ]);
+    }
 }
