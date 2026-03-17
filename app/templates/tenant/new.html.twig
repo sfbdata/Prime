@@ -3,38 +3,30 @@
 {% block title %}Novo Tenant{% endblock %}
 
 {% block body %}
-<section class="content-header">
-    <div class="container-fluid">
-        <h1 class="m-0">Criar Tenant</h1>
-    </div>
-</section>
+<div class="login-wrapper">
+    <div class="login-container">
+        <h1>Criar novo escritório</h1>
 
-<section class="content">
-    <div class="container-fluid">
-        <div class="card card-primary">
-            <div class="card-body">
-                {{ form_start(form) }}
+        {{ form_start(form) }}
 
-                <div class="mb-3">
-                    {{ form_label(form.name, 'Nome do Tenant', {'label_attr': {'class': 'form-label'}}) }}
-                    {{ form_widget(form.name, {'attr': {'class': 'form-control'}}) }}
-                    {{ form_errors(form.name) }}
-                </div>
-
-                <div class="mb-3">
-                    {{ form_label(form.adminEmail, 'Email do Administrador', {'label_attr': {'class': 'form-label'}}) }}
-                    {{ form_widget(form.adminEmail, {'attr': {'class': 'form-control'}}) }}
-                    {{ form_errors(form.adminEmail) }}
-                </div>
-
-                <div class="d-flex gap-2 mt-4">
-                    <button type="submit" class="btn btn-primary">Criar Tenant</button>
-                    <a href="{{ path('app_tenant_index') }}" class="btn btn-secondary">Voltar</a>
-                </div>
-
-                {{ form_end(form) }}
-            </div>
+        <div class="mb-3">
+            {{ form_label(form.name, 'Nome do Escritório', {'label_attr': {'class': 'form-label'}}) }}
+            {{ form_widget(form.name, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.name) }}
         </div>
+
+        <div class="mb-3">
+            {{ form_label(form.adminEmail, 'Email do Administrador', {'label_attr': {'class': 'form-label'}}) }}
+            {{ form_widget(form.adminEmail, {'attr': {'class': 'form-control'}}) }}
+            {{ form_errors(form.adminEmail) }}
+        </div>
+
+        <button class="btn-login" type="submit">Criar Escritório</button>
+        <div class="extra-links mt-3">
+            <a href="{{ path('app_tenant_index') }}">Voltar</a>
+        </div>
+
+        {{ form_end(form) }}
     </div>
-</section>
+</div>
 {% endblock %}

@@ -3,29 +3,32 @@
 {% block title %}Criar senha{% endblock %}
 
 {% block body %}
-    <h1>Bem-vindo, {{ user.fullName }}!</h1>
+<div class="login-wrapper">
+    <div class="login-container">
+        <h1>Bem-vindo, {{ user.fullName }}!</h1>
+        <p>Você foi convidado para acessar o sistema. Para ativar sua conta, crie uma senha abaixo:</p>
 
-    <p>Você foi convidado para acessar o sistema. Para ativar sua conta, crie uma senha abaixo:</p>
+        {% for message in app.flashes('error') %}
+            <div class="alert alert-danger">{{ message }}</div>
+        {% endfor %}
 
-    {% for message in app.flashes('error') %}
-        <div class="alert alert-danger">{{ message }}</div>
-    {% endfor %}
+        {% for message in app.flashes('success') %}
+            <div class="alert alert-success">{{ message }}</div>
+        {% endfor %}
 
-    {% for message in app.flashes('success') %}
-        <div class="alert alert-success">{{ message }}</div>
-    {% endfor %}
+        <form method="post">
+            <div class="mb-3">
+                <label for="password" class="form-label">Senha</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
 
-    <form method="post">
-        <div class="mb-3">
-            <label for="password" class="form-label">Senha</label>
-            <input type="password" id="password" name="password" class="form-control" required>
-        </div>
+            <div class="mb-3">
+                <label for="confirm_password" class="form-label">Confirme a senha</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+            </div>
 
-        <div class="mb-3">
-            <label for="confirm_password" class="form-label">Confirme a senha</label>
-            <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
-        </div>
-
-        <button type="submit" class="btn btn-primary">Criar senha</button>
-    </form>
+            <button class="btn-login" type="submit">Criar senha</button>
+        </form>
+    </div>
+</div>
 {% endblock %}
