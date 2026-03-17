@@ -243,7 +243,7 @@ class AuditLogSubscriber
             }
         }
 
-        $roles = method_exists($user, 'getRoles') ? $user->getRoles() : null;
+        $roles = ($user && method_exists($user, 'getRoles')) ? $user->getRoles() : null;
 
         return array_filter([
             'module' => is_string($module) && $module !== '' ? $module : null,
@@ -306,11 +306,11 @@ class AuditLogSubscriber
         $user = $this->security->getUser();
         $request = $this->requestStack->getMainRequest();
 
-        $actorUserId = method_exists($user, 'getId') ? $user->getId() : null;
-        $actorEmail = method_exists($user, 'getUserIdentifier') ? $user->getUserIdentifier() : null;
+        $actorUserId = ($user && method_exists($user, 'getId')) ? $user->getId() : null;
+        $actorEmail = ($user && method_exists($user, 'getUserIdentifier')) ? $user->getUserIdentifier() : null;
         $tenantId = null;
 
-        if (method_exists($user, 'getTenant') && $user->getTenant() && method_exists($user->getTenant(), 'getId')) {
+        if ($user && method_exists($user, 'getTenant') && $user->getTenant() && method_exists($user->getTenant(), 'getId')) {
             $tenantId = $user->getTenant()->getId();
         }
 
