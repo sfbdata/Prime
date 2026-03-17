@@ -2,6 +2,7 @@
 
 namespace App\DataFixtures;
 
+use App\Entity\Tenant\Tenant;
 use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Comercial\PreCadastro;
@@ -81,49 +82,19 @@ class AppFixtures extends Fixture
     // -----------------------------------------------
     private function loadUsers(ObjectManager $manager): array
     {
+        // Cria o Tenant do escritório
+        $tenant = new Tenant();
+        $tenant->setName('Escritório Almeida & Associados');
+        $tenant->setIsActive(true);
+        $manager->persist($tenant);
+
         $dados = [
-            [
-                'email'    => 'admin@escritorio.com.br',
-                'nome'     => 'Dr. Ricardo Almeida',
-                'roles'    => ['ROLE_ADMIN'],
-                'senha'    => 'admin123',
-                'ativo'    => true,
-            ],
-            [
-                'email'    => 'advogado1@escritorio.com.br',
-                'nome'     => 'Dra. Fernanda Costa',
-                'roles'    => ['ROLE_ADVOGADO'],
-                'senha'    => 'senha123',
-                'ativo'    => true,
-            ],
-            [
-                'email'    => 'advogado2@escritorio.com.br',
-                'nome'     => 'Dr. Marcelo Souza',
-                'roles'    => ['ROLE_ADVOGADO'],
-                'senha'    => 'senha123',
-                'ativo'    => true,
-            ],
-            [
-                'email'    => 'estagiario@escritorio.com.br',
-                'nome'     => 'Lucas Pereira',
-                'roles'    => ['ROLE_ESTAGIARIO'],
-                'senha'    => 'senha123',
-                'ativo'    => true,
-            ],
-            [
-                'email'    => 'secretaria@escritorio.com.br',
-                'nome'     => 'Ana Paula Rodrigues',
-                'roles'    => ['ROLE_SECRETARIA'],
-                'senha'    => 'senha123',
-                'ativo'    => true,
-            ],
-            [
-                'email'    => 'ti@escritorio.com.br',
-                'nome'     => 'Carlos Eduardo Lima',
-                'roles'    => ['ROLE_TI'],
-                'senha'    => 'senha123',
-                'ativo'    => true,
-            ],
+            ['email' => 'admin@escritorio.com.br',      'nome' => 'Dr. Ricardo Almeida',    'roles' => ['ROLE_ADMIN'],      'senha' => 'admin123', 'ativo' => true],
+            ['email' => 'advogado1@escritorio.com.br',  'nome' => 'Dra. Fernanda Costa',    'roles' => ['ROLE_ADVOGADO'],   'senha' => 'senha123', 'ativo' => true],
+            ['email' => 'advogado2@escritorio.com.br',  'nome' => 'Dr. Marcelo Souza',      'roles' => ['ROLE_ADVOGADO'],   'senha' => 'senha123', 'ativo' => true],
+            ['email' => 'estagiario@escritorio.com.br', 'nome' => 'Lucas Pereira',          'roles' => ['ROLE_ESTAGIARIO'], 'senha' => 'senha123', 'ativo' => true],
+            ['email' => 'secretaria@escritorio.com.br', 'nome' => 'Ana Paula Rodrigues',    'roles' => ['ROLE_SECRETARIA'], 'senha' => 'senha123', 'ativo' => true],
+            ['email' => 'ti@escritorio.com.br',         'nome' => 'Carlos Eduardo Lima',    'roles' => ['ROLE_TI'],         'senha' => 'senha123', 'ativo' => true],
         ];
 
         $users = [];
@@ -133,9 +104,8 @@ class AppFixtures extends Fixture
             $user->setFullName($dado['nome']);
             $user->setRoles($dado['roles']);
             $user->setIsActive($dado['ativo']);
-            $user->setPassword(
-                $this->passwordHasher->hashPassword($user, $dado['senha'])
-            );
+            $user->setTenant($tenant); // <- vincula ao tenant
+            $user->setPassword($this->passwordHasher->hashPassword($user, $dado['senha']));
             $manager->persist($user);
             $users[] = $user;
         }
