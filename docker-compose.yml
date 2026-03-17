@@ -14,6 +14,7 @@ services:
       APP_DEBUG: 1
     volumes:
       - .:/var/www
+    entrypoint: ["/var/www/app/bin/entrypoint.sh", "php-fpm"]
     networks:
       - saas_net
 
