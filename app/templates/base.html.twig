@@ -178,24 +178,7 @@
         <script src="https://cdn.jsdelivr.net/npm/admin-lte@4.0.0-rc3/dist/js/adminlte.min.js" crossorigin="anonymous"></script>
         
         <script>
-            // OverlayScrollbars initialization
             document.addEventListener('DOMContentLoaded', function() {
-                const SELECTOR_SIDEBAR_WRAPPER = '.sidebar-wrapper';
-                const Default = {
-                    scrollbarTheme: 'os-theme-light',
-                    scrollbarAutoHide: 'leave',
-                    scrollbarClickScroll: true,
-                };
-                const sidebarEl = document.querySelectorAll(SELECTOR_SIDEBAR_WRAPPER);
-                if (typeof OverlayScrollbarsGlobal?.OverlayScrollbars !== 'undefined' && sidebarEl.length > 0) {
-                    OverlayScrollbarsGlobal.OverlayScrollbars(sidebarEl, {
-                        scrollbars: {
-                            theme: Default.scrollbarTheme,
-                            autoHide: Default.scrollbarAutoHide,
-                            clickScroll: Default.scrollbarClickScroll,
-                        },
-                    });
-                }
 
                 // Polling de notificações a cada 30 segundos
                 function atualizarNotificacoes() {
@@ -220,10 +203,8 @@
                         .catch(err => console.log('Erro ao buscar notificações:', err));
                 }
 
-                // Atualizar notificações a cada 30 segundos
                 setInterval(atualizarNotificacoes, 30000);
 
-                // Atualizar dropdown ao abrir
                 const dropdownToggle = document.getElementById('notificacaoDropdownToggle');
                 if (dropdownToggle) {
                     dropdownToggle.addEventListener('show.bs.dropdown', function() {
