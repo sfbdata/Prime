@@ -80,6 +80,9 @@ RUN touch /var/www/app/.env
 RUN mkdir -p /var/www/app/var/cache /var/www/app/var/log /var/www/app/public/uploads \
     && chown -R www-data:www-data /var/www/app/var /var/www/app/public/uploads
 
+RUN mkdir -p /var/www/static \
+    && chown -R www-data:www-data /var/www/static
+
 COPY app/bin/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
