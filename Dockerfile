@@ -51,6 +51,7 @@ RUN composer install \
 
 COPY app/ ./
 
+# ENV fake só para build
 RUN printf "APP_ENV=prod\nAPP_SECRET=build_placeholder\nDATABASE_URL=pgsql://u:p@db:5432/db\nMAILER_DSN=null://null\nDATAJUD_API_KEY=x\nDATAJUD_BASE_URL=x\nDEFAULT_URI=http://localhost\n" > .env
 
 RUN composer dump-autoload --classmap-authoritative --no-dev --no-interaction \
@@ -75,14 +76,21 @@ WORKDIR /var/www
 
 COPY --from=prod_builder --chown=www-data:www-data /var/www/app /var/www/app
 
+# Garante arquivo .env (mesmo usando env_file)
 RUN touch /var/www/app/.env
 
-RUN mkdir -p /var/www/app/var/cache /var/www/app/var/log /var/www/app/public/uploads \
+# 🔥 CORREÇÃO DEFINITIVA (permissão + estrutura)
+RUN mkdir -p /var/www/app/var/cache \
+    /var/www/app/var/log \
+    /var/www/app/public/uploads \
+    && chmod -R 775 /var/www/app/var /var/www/app/public/uploads \
     && chown -R www-data:www-data /var/www/app/var /var/www/app/public/uploads
 
+# Pasta de arquivos estáticos (nginx)
 RUN mkdir -p /var/www/static \
     && chown -R www-data:www-data /var/www/static
 
+# Entrypoint (onde garantimos tudo em runtime)
 COPY app/bin/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
