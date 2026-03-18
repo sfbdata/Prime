@@ -51,8 +51,12 @@ RUN composer install \
 
 COPY app/ ./
 
+RUN printf "APP_ENV=prod\nAPP_SECRET=build_placeholder\nDATABASE_URL=pgsql://u:p@db:5432/db\nMAILER_DSN=null://null\nDATAJUD_API_KEY=x\nDATAJUD_BASE_URL=x\nDEFAULT_URI=http://localhost\n" > .env
+
 RUN composer dump-autoload --classmap-authoritative --no-dev --no-interaction \
     && APP_ENV=prod APP_DEBUG=0 php bin/console cache:warmup
+
+RUN rm .env
 
 # -----------------------------------------------
 # PROD (imagem final)
@@ -70,6 +74,8 @@ RUN { \
 WORKDIR /var/www
 
 COPY --from=prod_builder --chown=www-data:www-data /var/www/app /var/www/app
+
+RUN touch /var/www/app/.env
 
 RUN mkdir -p /var/www/app/var/cache /var/www/app/var/log /var/www/app/public/uploads \
     && chown -R www-data:www-data /var/www/app/var /var/www/app/public/uploads

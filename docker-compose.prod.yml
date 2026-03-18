@@ -16,6 +16,7 @@ services:
         condition: service_healthy
     volumes:
       - uploads_prod:/var/www/app/public/uploads
+      - static_prod:/var/www/app/public
     networks:
       - saas_net
 
@@ -26,6 +27,7 @@ services:
     volumes:
       - ./nginx.prod.conf:/etc/nginx/conf.d/default.conf:ro
       - uploads_prod:/var/www/app/public/uploads:ro
+      - static_prod:/var/www/app/public:ro
     ports:
       - "80:80"
     depends_on:
@@ -59,3 +61,4 @@ networks:
 volumes:
   db_data_prod:
   uploads_prod:
+  static_prod:
