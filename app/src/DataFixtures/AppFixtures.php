@@ -30,7 +30,7 @@ class AppFixtures extends Fixture
     public function load(ObjectManager $manager): void
     {
         // =============================================
-        // 1. USUÁRIOS
+        // 1. USUÁRIOS (e Tenant)
         // =============================================
         $users = $this->loadUsers($manager);
 
@@ -51,6 +51,8 @@ class AppFixtures extends Fixture
 
         // =============================================
         // 5. CONTRATOS
+        // FIX: addContrato() chamado pelo lado owner (Cliente),
+        //      garantindo que a tabela cliente_contrato seja populada.
         // =============================================
         $contratos = $this->loadContratos($manager, $clientesPF, $clientesPJ, $users);
 
@@ -71,6 +73,7 @@ class AppFixtures extends Fixture
 
         // =============================================
         // 9. EVENTOS DE AGENDA
+        // FIX: datas com horário construídas corretamente via setTime().
         // =============================================
         $this->loadEventos($manager, $users);
 
@@ -82,10 +85,10 @@ class AppFixtures extends Fixture
     // -----------------------------------------------
     private function loadUsers(ObjectManager $manager): array
     {
-        // Cria o Tenant do escritório
+        // Cria o Tenant do escritório de demonstração
+        // FIX: removido setIsActive(true) — o construtor do Tenant já define true automaticamente.
         $tenant = new Tenant();
         $tenant->setName('Escritório Almeida & Associados');
-        $tenant->setIsActive(true);
         $manager->persist($tenant);
 
         $dados = [
@@ -104,7 +107,7 @@ class AppFixtures extends Fixture
             $user->setFullName($dado['nome']);
             $user->setRoles($dado['roles']);
             $user->setIsActive($dado['ativo']);
-            $user->setTenant($tenant); // <- vincula ao tenant
+            $user->setTenant($tenant);
             $user->setPassword($this->passwordHasher->hashPassword($user, $dado['senha']));
             $manager->persist($user);
             $users[] = $user;
@@ -130,7 +133,7 @@ class AppFixtures extends Fixture
                 'profissao'       => 'Engenheiro Civil',
                 'email'           => 'joao.ferreira@email.com',
                 'celular'         => '(11) 98765-4321',
-                'cep'             => '01310-100',
+                'cep'             => '01310100',
                 'endereco'        => 'Av. Paulista, 1000, Apto 52',
                 'cidade'          => 'São Paulo',
                 'estado'          => 'SP',
@@ -147,7 +150,7 @@ class AppFixtures extends Fixture
                 'profissao'       => 'Professora',
                 'email'           => 'maria.silva@email.com',
                 'celular'         => '(31) 97654-3210',
-                'cep'             => '30130-010',
+                'cep'             => '30130010',
                 'endereco'        => 'Rua da Bahia, 500, Sala 301',
                 'cidade'          => 'Belo Horizonte',
                 'estado'          => 'MG',
@@ -164,7 +167,7 @@ class AppFixtures extends Fixture
                 'profissao'       => 'Médico',
                 'email'           => 'roberto.santos@email.com',
                 'celular'         => '(21) 96543-2109',
-                'cep'             => '20040-020',
+                'cep'             => '20040020',
                 'endereco'        => 'Av. Rio Branco, 200, Bloco B',
                 'cidade'          => 'Rio de Janeiro',
                 'estado'          => 'RJ',
@@ -181,7 +184,7 @@ class AppFixtures extends Fixture
                 'profissao'       => 'Contadora',
                 'email'           => 'patricia.mendes@email.com',
                 'celular'         => '(51) 95432-1098',
-                'cep'             => '90010-140',
+                'cep'             => '90010140',
                 'endereco'        => 'Rua dos Andradas, 1200, Conj. 84',
                 'cidade'          => 'Porto Alegre',
                 'estado'          => 'RS',
@@ -198,7 +201,7 @@ class AppFixtures extends Fixture
                 'profissao'       => 'Comerciante',
                 'email'           => 'antonio.gomes@email.com',
                 'celular'         => '(71) 94321-0987',
-                'cep'             => '40010-010',
+                'cep'             => '40010010',
                 'endereco'        => 'Av. Sete de Setembro, 300',
                 'cidade'          => 'Salvador',
                 'estado'          => 'BA',
@@ -241,16 +244,16 @@ class AppFixtures extends Fixture
                 'razaoSocial'        => 'Construtora Horizonte Ltda.',
                 'nomeFantasia'       => 'Horizonte Construções',
                 'cnpj'               => '12345678000190',
-                'inscricaoEstadual'  => '123.456.789.110',
+                'inscricaoEstadual'  => '123456789110',
                 'inscricaoMunicipal' => '12345678',
                 'enderecSede'        => 'Av. das Nações Unidas, 14401, Torre A',
                 'repLegal'           => 'Marcos Antônio Braga',
-                'repCpf'             => '678.901.234-56',
+                'repCpf'             => '67890123456',
                 'repRg'              => '6789012',
                 'repCargo'           => 'Diretor Executivo',
                 'email'              => 'juridico@horizonteconstrucoes.com.br',
                 'celular'            => '(11) 3456-7890',
-                'cep'                => '04794-000',
+                'cep'                => '04794000',
                 'endereco'           => 'Av. das Nações Unidas, 14401',
                 'cidade'             => 'São Paulo',
                 'estado'             => 'SP',
@@ -260,16 +263,16 @@ class AppFixtures extends Fixture
                 'razaoSocial'        => 'Supermercados Família S.A.',
                 'nomeFantasia'       => 'Família Supermercados',
                 'cnpj'               => '23456789000101',
-                'inscricaoEstadual'  => '234.567.890.221',
+                'inscricaoEstadual'  => '234567890221',
                 'inscricaoMunicipal' => '23456789',
                 'enderecSede'        => 'Rua Comercial, 500, Centro',
                 'repLegal'           => 'Sandra Cristina Farias',
-                'repCpf'             => '789.012.345-67',
+                'repCpf'             => '78901234567',
                 'repRg'              => '7890123',
                 'repCargo'           => 'Sócia Administradora',
                 'email'              => 'contato@familiasupermercados.com.br',
                 'celular'            => '(41) 3567-8901',
-                'cep'                => '80010-020',
+                'cep'                => '80010020',
                 'endereco'           => 'Rua Marechal Deodoro, 630',
                 'cidade'             => 'Curitiba',
                 'estado'             => 'PR',
@@ -283,12 +286,12 @@ class AppFixtures extends Fixture
                 'inscricaoMunicipal' => '34567890',
                 'enderecSede'        => 'Rua do Parque Tecnológico, 200',
                 'repLegal'           => 'Felipe Augusto Nunes',
-                'repCpf'             => '890.123.456-78',
+                'repCpf'             => '89012345678',
                 'repRg'              => '8901234',
                 'repCargo'           => 'CEO',
                 'email'              => 'legal@techsoft.com.br',
                 'celular'            => '(48) 3678-9012',
-                'cep'                => '88034-001',
+                'cep'                => '88034001',
                 'endereco'           => 'Parque Tecnológico Alfa, Bloco C',
                 'cidade'             => 'Florianópolis',
                 'estado'             => 'SC',
@@ -331,7 +334,7 @@ class AppFixtures extends Fixture
         $dados = [
             [
                 'nomeCliente'       => 'Carlos Eduardo Martins',
-                'cpf'               => '901.234.567-89',
+                'cpf'               => '90123456789',
                 'tipo'              => 'PF',
                 'telefone'          => '(11) 91234-5678',
                 'areaDireito'       => 'Direito Trabalhista',
@@ -347,7 +350,7 @@ class AppFixtures extends Fixture
             ],
             [
                 'nomeCliente'       => 'Fernanda Queiroz Lima',
-                'cpf'               => '012.345.678-90',
+                'cpf'               => '01234567890',
                 'tipo'              => 'PF',
                 'telefone'          => '(31) 92345-6789',
                 'areaDireito'       => 'Direito de Família',
@@ -379,7 +382,7 @@ class AppFixtures extends Fixture
             ],
             [
                 'nomeCliente'       => 'Bruno Rafael Costa',
-                'cpf'               => '113.456.789-01',
+                'cpf'               => '11345678901',
                 'tipo'              => 'PF',
                 'telefone'          => '(21) 93456-7890',
                 'areaDireito'       => 'Direito do Consumidor',
@@ -435,6 +438,8 @@ class AppFixtures extends Fixture
 
     // -----------------------------------------------
     // CONTRATOS
+    // FIX: vínculo cliente↔contrato feito pelo lado owner (Cliente::addContrato),
+    //      garantindo que a tabela cliente_contrato seja populada corretamente.
     // -----------------------------------------------
     private function loadContratos(ObjectManager $manager, array $pfs, array $pjs, array $users): array
     {
@@ -488,20 +493,24 @@ class AppFixtures extends Fixture
 
         $contratos = [];
         foreach ($dados as $dado) {
-            $c = new Contrato();
-            $c->setTitulo($dado['titulo']);
-            $c->setDescricao($dado['descricao']);
-            $c->setStatus($dado['status']);
+            $contrato = new Contrato();
+            $contrato->setTitulo($dado['titulo']);
+            $contrato->setDescricao($dado['descricao']);
+            $contrato->setStatus($dado['status']);
             if ($dado['dataInicio']) {
-                $c->setDataInicio(new \DateTimeImmutable($dado['dataInicio']));
+                $contrato->setDataInicio(new \DateTimeImmutable($dado['dataInicio']));
             }
-            $c->setValorTotal($dado['valorTotal']);
-            $c->setResponsavel($dado['responsavel']);
+            $contrato->setValorTotal($dado['valorTotal']);
+            $contrato->setResponsavel($dado['responsavel']);
+
+            // FIX: chama pelo lado owner (Cliente), que faz addContrato internamente
+            // e garante a inserção na tabela de junção cliente_contrato.
             foreach ($dado['clientes'] as $cliente) {
-                $c->addCliente($cliente);
+                $cliente->addContrato($contrato);
             }
-            $manager->persist($c);
-            $contratos[] = $c;
+
+            $manager->persist($contrato);
+            $contratos[] = $contrato;
         }
 
         return $contratos;
@@ -524,19 +533,19 @@ class AppFixtures extends Fixture
                 'distribuicao'   => '2024-01-25',
                 'contrato'       => $contratos[0],
                 'partes'         => [
-                    ['tipo' => 'RECLAMANTE', 'nome' => 'João Carlos Ferreira',  'documento' => '123.456.789-01', 'papel' => 'Autor'],
-                    ['tipo' => 'RECLAMADO',  'nome' => 'Empresa XYZ Comércio Ltda.', 'documento' => '98.765.432/0001-10', 'papel' => 'Réu'],
+                    ['tipo' => 'RECLAMANTE', 'nome' => 'João Carlos Ferreira',       'documento' => '123.456.789-01',      'papel' => 'Autor'],
+                    ['tipo' => 'RECLAMADO',  'nome' => 'Empresa XYZ Comércio Ltda.', 'documento' => '98.765.432/0001-10',  'papel' => 'Réu'],
                 ],
                 'movimentacoes' => [
-                    ['data' => '2024-01-25', 'descricao' => 'Distribuição do processo por dependência', 'tipo' => 'Distribuição', 'orgao' => 'TRT2'],
-                    ['data' => '2024-02-10', 'descricao' => 'Notificação do reclamado para apresentar defesa no prazo de 10 dias', 'tipo' => 'Notificação', 'orgao' => 'TRT2'],
-                    ['data' => '2024-03-01', 'descricao' => 'Apresentação de contestação pelo reclamado', 'tipo' => 'Petição', 'orgao' => 'TRT2'],
-                    ['data' => '2024-04-15', 'descricao' => 'Audiência de instrução e julgamento designada para 15/04/2024', 'tipo' => 'Pauta', 'orgao' => 'TRT2'],
+                    ['data' => '2024-01-25', 'descricao' => 'Distribuição do processo por dependência',                              'tipo' => 'Distribuição', 'orgao' => 'TRT2'],
+                    ['data' => '2024-02-10', 'descricao' => 'Notificação do reclamado para apresentar defesa no prazo de 10 dias',   'tipo' => 'Notificação',  'orgao' => 'TRT2'],
+                    ['data' => '2024-03-01', 'descricao' => 'Apresentação de contestação pelo reclamado',                            'tipo' => 'Petição',      'orgao' => 'TRT2'],
+                    ['data' => '2024-04-15', 'descricao' => 'Audiência de instrução e julgamento designada para 15/04/2024',         'tipo' => 'Pauta',        'orgao' => 'TRT2'],
                 ],
                 'docs' => [
-                    ['tipo' => DocumentoProcesso::TIPO_PECA,                 'nome' => 'Peticao_Inicial_Joao_Ferreira.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_PROCURACAO,           'nome' => 'Procuracao_Joao_Ferreira.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_IDENTIFICACAO,        'nome' => 'RG_CPF_Joao_Ferreira.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_PECA,                   'nome' => 'Peticao_Inicial_Joao_Ferreira.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_PROCURACAO,             'nome' => 'Procuracao_Joao_Ferreira.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_IDENTIFICACAO,          'nome' => 'RG_CPF_Joao_Ferreira.pdf'],
                     ['tipo' => DocumentoProcesso::TIPO_COMPROVANTE_RESIDENCIA, 'nome' => 'Comprovante_Residencia_Joao_Ferreira.pdf'],
                 ],
                 'docFlags' => ['peca' => true, 'procuracao' => true, 'identificacao' => true, 'residencia' => true, 'gratuidade' => false, 'demais' => false],
@@ -552,19 +561,19 @@ class AppFixtures extends Fixture
                 'distribuicao'   => '2023-11-10',
                 'contrato'       => $contratos[2],
                 'partes'         => [
-                    ['tipo' => 'AUTOR',  'nome' => 'Maria Aparecida Silva',   'documento' => '234.567.890-12', 'papel' => 'Requerente'],
-                    ['tipo' => 'REU',    'nome' => 'Carlos Henrique Moreira', 'documento' => '321.654.987-00', 'papel' => 'Requerido'],
+                    ['tipo' => 'AUTOR', 'nome' => 'Maria Aparecida Silva',   'documento' => '234.567.890-12', 'papel' => 'Requerente'],
+                    ['tipo' => 'REU',   'nome' => 'Carlos Henrique Moreira', 'documento' => '321.654.987-00', 'papel' => 'Requerido'],
                 ],
                 'movimentacoes' => [
-                    ['data' => '2023-11-10', 'descricao' => 'Petição inicial protocolada', 'tipo' => 'Distribuição', 'orgao' => 'TJSP'],
-                    ['data' => '2023-12-05', 'descricao' => 'Citação do requerido realizada com sucesso', 'tipo' => 'Citação', 'orgao' => 'TJSP'],
-                    ['data' => '2024-01-15', 'descricao' => 'Audiência de mediação — acordo não obtido', 'tipo' => 'Audiência', 'orgao' => 'TJSP'],
-                    ['data' => '2024-03-20', 'descricao' => 'Juntada de contestação pelo requerido', 'tipo' => 'Petição', 'orgao' => 'TJSP'],
+                    ['data' => '2023-11-10', 'descricao' => 'Petição inicial protocolada',                       'tipo' => 'Distribuição', 'orgao' => 'TJSP'],
+                    ['data' => '2023-12-05', 'descricao' => 'Citação do requerido realizada com sucesso',        'tipo' => 'Citação',      'orgao' => 'TJSP'],
+                    ['data' => '2024-01-15', 'descricao' => 'Audiência de mediação — acordo não obtido',         'tipo' => 'Audiência',    'orgao' => 'TJSP'],
+                    ['data' => '2024-03-20', 'descricao' => 'Juntada de contestação pelo requerido',             'tipo' => 'Petição',      'orgao' => 'TJSP'],
                 ],
                 'docs' => [
-                    ['tipo' => DocumentoProcesso::TIPO_PECA,          'nome' => 'Peticao_Inicial_Divorcio.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_PROCURACAO,     'nome' => 'Procuracao_Maria_Silva.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_IDENTIFICACAO,  'nome' => 'Documentos_Identificacao_Maria.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_PECA,         'nome' => 'Peticao_Inicial_Divorcio.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_PROCURACAO,   'nome' => 'Procuracao_Maria_Silva.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_IDENTIFICACAO,'nome' => 'Documentos_Identificacao_Maria.pdf'],
                 ],
                 'docFlags' => ['peca' => true, 'procuracao' => true, 'identificacao' => true, 'residencia' => false, 'gratuidade' => false, 'demais' => false],
             ],
@@ -579,23 +588,23 @@ class AppFixtures extends Fixture
                 'distribuicao'   => '2022-05-18',
                 'contrato'       => $contratos[3],
                 'partes'         => [
-                    ['tipo' => 'APELANTE', 'nome' => 'Roberto Nascimento Santos', 'documento' => '345.678.901-23', 'papel' => 'Recorrente'],
-                    ['tipo' => 'APELADO',  'nome' => 'Banco Meridional S.A.',     'documento' => '01.023.456/0001-54', 'papel' => 'Recorrido'],
+                    ['tipo' => 'APELANTE', 'nome' => 'Roberto Nascimento Santos', 'documento' => '345.678.901-23',      'papel' => 'Recorrente'],
+                    ['tipo' => 'APELADO',  'nome' => 'Banco Meridional S.A.',     'documento' => '01.023.456/0001-54',  'papel' => 'Recorrido'],
                 ],
                 'movimentacoes' => [
-                    ['data' => '2022-05-18', 'descricao' => 'Ajuizamento da ação na 1ª instância', 'tipo' => 'Distribuição', 'orgao' => 'TJRJ'],
-                    ['data' => '2022-10-30', 'descricao' => 'Sentença de improcedência proferida em 1ª instância', 'tipo' => 'Sentença', 'orgao' => 'TJRJ'],
-                    ['data' => '2022-12-01', 'descricao' => 'Recurso de apelação interposto', 'tipo' => 'Recurso', 'orgao' => 'TJRJ'],
-                    ['data' => '2023-04-10', 'descricao' => 'Processo distribuído na 2ª instância para a 5ª Câmara', 'tipo' => 'Distribuição', 'orgao' => 'TJRJ'],
-                    ['data' => '2024-01-22', 'descricao' => 'Incluído em pauta de julgamento para março/2024', 'tipo' => 'Pauta', 'orgao' => 'TJRJ'],
+                    ['data' => '2022-05-18', 'descricao' => 'Ajuizamento da ação na 1ª instância',                          'tipo' => 'Distribuição', 'orgao' => 'TJRJ'],
+                    ['data' => '2022-10-30', 'descricao' => 'Sentença de improcedência proferida em 1ª instância',           'tipo' => 'Sentença',     'orgao' => 'TJRJ'],
+                    ['data' => '2022-12-01', 'descricao' => 'Recurso de apelação interposto',                                'tipo' => 'Recurso',      'orgao' => 'TJRJ'],
+                    ['data' => '2023-04-10', 'descricao' => 'Processo distribuído na 2ª instância para a 5ª Câmara',        'tipo' => 'Distribuição', 'orgao' => 'TJRJ'],
+                    ['data' => '2024-01-22', 'descricao' => 'Incluído em pauta de julgamento para março/2024',               'tipo' => 'Pauta',        'orgao' => 'TJRJ'],
                 ],
                 'docs' => [
-                    ['tipo' => DocumentoProcesso::TIPO_PECA,                  'nome' => 'Razoes_Apelacao.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_PROCURACAO,            'nome' => 'Procuracao_Roberto_Santos.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_IDENTIFICACAO,         'nome' => 'RG_CPF_Roberto_Santos.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_COMPROVANTE_RESIDENCIA,'nome' => 'Comprovante_Residencia_Roberto.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_GRATUIDADE_JUSTICA,    'nome' => 'Declaracao_Hipossuficiencia.pdf'],
-                    ['tipo' => DocumentoProcesso::TIPO_DEMAIS,                'nome' => 'Extratos_Bancarios_Negativacao.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_PECA,                   'nome' => 'Razoes_Apelacao.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_PROCURACAO,             'nome' => 'Procuracao_Roberto_Santos.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_IDENTIFICACAO,          'nome' => 'RG_CPF_Roberto_Santos.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_COMPROVANTE_RESIDENCIA, 'nome' => 'Comprovante_Residencia_Roberto.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_GRATUIDADE_JUSTICA,     'nome' => 'Declaracao_Hipossuficiencia.pdf'],
+                    ['tipo' => DocumentoProcesso::TIPO_DEMAIS,                 'nome' => 'Extratos_Bancarios_Negativacao.pdf'],
                 ],
                 'docFlags' => ['peca' => true, 'procuracao' => true, 'identificacao' => true, 'residencia' => true, 'gratuidade' => true, 'demais' => true],
             ],
@@ -669,8 +678,6 @@ class AppFixtures extends Fixture
     // -----------------------------------------------
     private function loadTarefas(ObjectManager $manager, array $processos, array $users): void
     {
-        // $users[0] = admin, [1] = advogada Fernanda, [2] = advogado Marcelo, [3] = estagiário, [4] = secretaria
-
         $tarefasDados = [
             [
                 'titulo'    => 'Elaborar petição de réplica - Proc. Trabalhista João Ferreira',
@@ -778,12 +785,10 @@ class AppFixtures extends Fixture
     }
 
     // -----------------------------------------------
-    // CHAMADOS (SERVICE Desk)
+    // CHAMADOS (SERVICE DESK)
     // -----------------------------------------------
     private function loadChamados(ObjectManager $manager, array $users): void
     {
-        // $users[0]=admin, [1]=Fernanda, [2]=Marcelo, [3]=estagiário, [4]=secretaria, [5]=TI
-
         $dados = [
             [
                 'titulo'       => 'Erro ao acessar o sistema de peticionamento eletrônico',
@@ -853,91 +858,91 @@ class AppFixtures extends Fixture
 
     // -----------------------------------------------
     // EVENTOS DE AGENDA
+    // FIX: datas com horário construídas via (new \DateTimeImmutable('+N days'))->setTime(H, M)
+    //      pois o formato '+7 days 09:00' é inválido no PHP e causaria exceção.
     // -----------------------------------------------
     private function loadEventos(ObjectManager $manager, array $users): void
     {
-        // $users[0]=admin, [1]=Fernanda, [2]=Marcelo, [3]=estagiário, [4]=secretaria
-
         $dados = [
             [
-                'titulo'       => 'Audiência Trabalhista - João Ferreira x Empresa XYZ',
-                'descricao'    => 'Audiência de instrução e julgamento. Proc. 0001234-56.2024.5.02.0001. Comparecer com documentos do cliente.',
-                'inicio'       => '+7 days 09:00',
-                'fim'          => '+7 days 11:00',
-                'local'        => '1ª Vara do Trabalho de São Paulo - Fórum Trabalhista de São Paulo',
-                'status'       => Evento::STATUS_AGENDADO,
-                'cor'          => Evento::COR_AZUL,
-                'diaInteiro'   => false,
-                'recorrente'   => false,
-                'criador'      => $users[1],
-                'participantes'=> [$users[3]],
+                'titulo'      => 'Audiência Trabalhista - João Ferreira x Empresa XYZ',
+                'descricao'   => 'Audiência de instrução e julgamento. Proc. 0001234-56.2024.5.02.0001. Comparecer com documentos do cliente.',
+                'inicio'      => (new \DateTimeImmutable('+7 days'))->setTime(9, 0),
+                'fim'         => (new \DateTimeImmutable('+7 days'))->setTime(11, 0),
+                'local'       => '1ª Vara do Trabalho de São Paulo - Fórum Trabalhista de São Paulo',
+                'status'      => Evento::STATUS_AGENDADO,
+                'cor'         => Evento::COR_AZUL,
+                'diaInteiro'  => false,
+                'recorrente'  => false,
+                'criador'     => $users[1],
+                'participantes' => [$users[3]],
             ],
             [
-                'titulo'       => 'Reunião com cliente - Maria Silva (Divórcio)',
-                'descricao'    => 'Reunião para apresentar a minuta do acordo e alinhar estratégia para a audiência de mediação.',
-                'inicio'       => '+3 days 14:00',
-                'fim'          => '+3 days 15:30',
-                'local'        => 'Escritório - Sala de Reuniões 1',
-                'status'       => Evento::STATUS_AGENDADO,
-                'cor'          => Evento::COR_VERDE,
-                'diaInteiro'   => false,
-                'recorrente'   => false,
-                'criador'      => $users[2],
-                'participantes'=> [$users[4]],
+                'titulo'      => 'Reunião com cliente - Maria Silva (Divórcio)',
+                'descricao'   => 'Reunião para apresentar a minuta do acordo e alinhar estratégia para a audiência de mediação.',
+                'inicio'      => (new \DateTimeImmutable('+3 days'))->setTime(14, 0),
+                'fim'         => (new \DateTimeImmutable('+3 days'))->setTime(15, 30),
+                'local'       => 'Escritório - Sala de Reuniões 1',
+                'status'      => Evento::STATUS_AGENDADO,
+                'cor'         => Evento::COR_VERDE,
+                'diaInteiro'  => false,
+                'recorrente'  => false,
+                'criador'     => $users[2],
+                'participantes' => [$users[4]],
             ],
             [
-                'titulo'       => 'Prazo: Contrarrazões de Apelação - Banco Meridional',
-                'descricao'    => 'Último dia para protocolar contrarrazões no TJRJ. Proc. 9876543-21.2022.8.19.0001.',
-                'inicio'       => '+1 days 23:59',
-                'fim'          => '+1 days 23:59',
-                'local'        => null,
-                'status'       => Evento::STATUS_AGENDADO,
-                'cor'          => Evento::COR_VERMELHO,
-                'diaInteiro'   => true,
-                'recorrente'   => false,
-                'criador'      => $users[2],
-                'participantes'=> [],
+                'titulo'      => 'Prazo: Contrarrazões de Apelação - Banco Meridional',
+                'descricao'   => 'Último dia para protocolar contrarrazões no TJRJ. Proc. 9876543-21.2022.8.19.0001.',
+                'inicio'      => (new \DateTimeImmutable('+1 day'))->setTime(23, 59),
+                'fim'         => (new \DateTimeImmutable('+1 day'))->setTime(23, 59),
+                'local'       => null,
+                'status'      => Evento::STATUS_AGENDADO,
+                'cor'         => Evento::COR_VERMELHO,
+                'diaInteiro'  => true,
+                'recorrente'  => false,
+                'criador'     => $users[2],
+                'participantes' => [],
             ],
             [
-                'titulo'       => 'Reunião de alinhamento semanal - Equipe Jurídica',
-                'descricao'    => 'Reunião semanal de alinhamento de casos, distribuição de tarefas e atualização de prazos.',
-                'inicio'       => 'next monday 08:30',
-                'fim'          => 'next monday 09:30',
-                'local'        => 'Escritório - Sala de Reuniões 2',
-                'status'       => Evento::STATUS_AGENDADO,
-                'cor'          => Evento::COR_ROXO,
-                'diaInteiro'   => false,
-                'recorrente'   => true,
+                'titulo'          => 'Reunião de alinhamento semanal - Equipe Jurídica',
+                'descricao'       => 'Reunião semanal de alinhamento de casos, distribuição de tarefas e atualização de prazos.',
+                'inicio'          => (new \DateTimeImmutable('next monday'))->setTime(8, 30),
+                'fim'             => (new \DateTimeImmutable('next monday'))->setTime(9, 30),
+                'local'           => 'Escritório - Sala de Reuniões 2',
+                'status'          => Evento::STATUS_AGENDADO,
+                'cor'             => Evento::COR_ROXO,
+                'diaInteiro'      => false,
+                'recorrente'      => true,
                 'tipoRecorrencia' => 'semanal',
-                'fimRecorrencia'  => '+6 months',
-                'criador'      => $users[0],
-                'participantes'=> [$users[1], $users[2], $users[3], $users[4]],
+                'fimRecorrencia'  => new \DateTimeImmutable('+6 months'),
+                'criador'         => $users[0],
+                'participantes'   => [$users[1], $users[2], $users[3], $users[4]],
             ],
             [
-                'titulo'       => 'Perícia Médica - Proc. Trabalhista (João Ferreira)',
-                'descricao'    => 'Acompanhar cliente na perícia médica judicial. Local: consultório do perito Dr. Rogério Pimentel.',
-                'inicio'       => '+10 days 10:00',
-                'fim'          => '+10 days 12:00',
-                'local'        => 'Rua Consolação, 2400, Sala 54 - São Paulo/SP',
-                'status'       => Evento::STATUS_AGENDADO,
-                'cor'          => Evento::COR_CIANO,
-                'diaInteiro'   => false,
-                'recorrente'   => false,
-                'criador'      => $users[1],
-                'participantes'=> [],
+                'titulo'      => 'Perícia Médica - Proc. Trabalhista (João Ferreira)',
+                'descricao'   => 'Acompanhar cliente na perícia médica judicial. Local: consultório do perito Dr. Rogério Pimentel.',
+                'inicio'      => (new \DateTimeImmutable('+10 days'))->setTime(10, 0),
+                'fim'         => (new \DateTimeImmutable('+10 days'))->setTime(12, 0),
+                'local'       => 'Rua Consolação, 2400, Sala 54 - São Paulo/SP',
+                'status'      => Evento::STATUS_AGENDADO,
+                'cor'         => Evento::COR_CIANO,
+                'diaInteiro'  => false,
+                'recorrente'  => false,
+                'criador'     => $users[1],
+                'participantes' => [],
             ],
             [
-                'titulo'       => 'Consulta - Horizonte Construções (Contrato de Fornecimento)',
-                'descricao'    => 'Análise de contrato de fornecimento de materiais no valor de R$ 2.300.000,00. Verificar cláusulas de responsabilidade e penalidades.',
-                'inicio'       => '-5 days 15:00',
-                'fim'          => '-5 days 17:00',
-                'local'        => 'Escritório - Sala de Reuniões 1',
-                'status'       => Evento::STATUS_CONCLUIDO,
-                'cor'          => Evento::COR_VERDE,
-                'diaInteiro'   => false,
-                'recorrente'   => false,
-                'criador'      => $users[1],
-                'participantes'=> [$users[2]],
+                'titulo'      => 'Consulta - Horizonte Construções (Contrato de Fornecimento)',
+                'descricao'   => 'Análise de contrato de fornecimento de materiais no valor de R$ 2.300.000,00. Verificar cláusulas de responsabilidade e penalidades.',
+                'inicio'      => (new \DateTimeImmutable('-5 days'))->setTime(15, 0),
+                'fim'         => (new \DateTimeImmutable('-5 days'))->setTime(17, 0),
+                'local'       => 'Escritório - Sala de Reuniões 1',
+                'status'      => Evento::STATUS_CONCLUIDO,
+                'cor'         => Evento::COR_VERDE,
+                'diaInteiro'  => false,
+                'recorrente'  => false,
+                'criador'     => $users[1],
+                'participantes' => [$users[2]],
             ],
         ];
 
@@ -945,8 +950,8 @@ class AppFixtures extends Fixture
             $evento = new Evento();
             $evento->setTitulo($dado['titulo']);
             $evento->setDescricao($dado['descricao']);
-            $evento->setDataInicio(new \DateTimeImmutable($dado['inicio']));
-            $evento->setDataFim(new \DateTimeImmutable($dado['fim']));
+            $evento->setDataInicio($dado['inicio']);
+            $evento->setDataFim($dado['fim']);
             $evento->setLocal($dado['local']);
             $evento->setStatus($dado['status']);
             $evento->setCor($dado['cor']);
@@ -956,7 +961,7 @@ class AppFixtures extends Fixture
 
             if (!empty($dado['tipoRecorrencia'])) {
                 $evento->setTipoRecorrencia($dado['tipoRecorrencia']);
-                $evento->setFimRecorrencia(new \DateTimeImmutable($dado['fimRecorrencia']));
+                $evento->setFimRecorrencia($dado['fimRecorrencia']);
             }
 
             foreach ($dado['participantes'] as $participante) {

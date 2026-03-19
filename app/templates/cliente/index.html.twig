@@ -84,7 +84,18 @@
 
         <div class="card">
             <div class="card-body table-responsive p-0">
-                <table class="table table-striped table-hover mb-0" id="tabelaClientes">
+                <table class="table table-striped table-hover mb-0 table-fixed" id="tabelaClientes">
+                    <colgroup>
+                        <col style="width: 7%">
+                        <col style="width: 20%">
+                        <col style="width: 13%">
+                        <col style="width: 9%">
+                        <col style="width: 12%">
+                        <col style="width: 11%">
+                        <col style="width: 10%">
+                        <col style="width: 10%">
+                        <col style="width: 8%">
+                    </colgroup>
                     <thead>
                         <tr>
                             <th class="sortable" data-col="0"><i class="bi bi-hash me-1"></i> NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
@@ -93,9 +104,9 @@
                             <th class="sortable" data-col="3"><i class="bi bi-tag me-1"></i> Tipo <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="sortable" data-col="4"><i class="bi bi-file-earmark-text me-1"></i> Status do Contrato <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="sortable" data-col="5"><i class="bi bi-phone me-1"></i> Celular <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="6" data-type="date"><i class="bi bi-calendar-plus me-1"></i> Criado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="7" data-type="date"><i class="bi bi-calendar-check me-1"></i> Modificado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th><i class="bi bi-gear me-1"></i> Ações</th>
+                            <th class="sortable d-none d-md-table-cell" data-col="6" data-type="date"><i class="bi bi-calendar-plus me-1"></i> Criado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable d-none d-md-table-cell" data-col="7" data-type="date"><i class="bi bi-calendar-check me-1"></i> Modificado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="col-acoes"><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -127,7 +138,7 @@
                                     {% include '_status_contrato_badge.html.twig' with {status: cliente.statusContratoCentralizado} %}
                                 </td>
                                 <td>{{ cliente.telefoneCelular ?: '-' }}</td>
-                                <td>
+                                <td class="d-none d-md-table-cell">
                                     {% if cliente.criadoAt %}
                                         {% set diasCriado = ((date('now')|date('U') - cliente.criadoAt|date('U')) / 86400)|round(0, 'floor') %}
                                         <span title="{{ cliente.criadoAt|date('d/m/Y H:i') }}">
@@ -143,7 +154,7 @@
                                         -
                                     {% endif %}
                                 </td>
-                                <td>
+                                <td class="d-none d-md-table-cell">
                                     {% if cliente.modificadoEm %}
                                         {% set diasModificado = ((date('now')|date('U') - cliente.modificadoEm|date('U')) / 86400)|round(0, 'floor') %}
                                         <span title="{{ cliente.modificadoEm|date('d/m/Y H:i') }}">
@@ -159,13 +170,15 @@
                                         -
                                     {% endif %}
                                 </td>
-                                <td>
-                                    <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-info">Ver</a>
-                                    <a href="{{ path('cliente_edit', {id: cliente.id}) }}" class="btn btn-sm btn-warning">Editar</a>
-                                    <form method="POST" action="{{ path('cliente_delete', {id: cliente.id}) }}" class="d-inline">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')">Deletar</button>
-                                    </form>
+                                <td class="col-acoes">
+                                    <div class="btn-acoes">
+                                        <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-info">Ver</a>
+                                        <a href="{{ path('cliente_edit', {id: cliente.id}) }}" class="btn btn-sm btn-warning">Editar</a>
+                                        <form method="POST" action="{{ path('cliente_delete', {id: cliente.id}) }}" class="d-inline">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
+                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')">Deletar</button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                         {% else %}
@@ -187,6 +200,7 @@
 .sortable {
     cursor: pointer;
     user-select: none;
+    white-space: nowrap;
 }
 .sortable:hover {
     background-color: rgba(0,0,0,0.05);
@@ -194,7 +208,7 @@
 .sort-icon {
     font-size: 0.7em;
     opacity: 0.4;
-    margin-left: 3px;
+    flex-shrink: 0;
 }
 .sortable.asc .sort-icon,
 .sortable.desc .sort-icon {

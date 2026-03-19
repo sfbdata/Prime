@@ -78,7 +78,18 @@
     {% if contratos|length > 0 %}
     <div class="card">
         <div class="card-body table-responsive p-0">
-            <table class="table table-striped table-hover mb-0">
+            <table class="table table-striped table-hover mb-0 table-fixed" id="tabelaContratos">
+                <colgroup>
+                    <col style="width: 17%">
+                    <col style="width: 10%">
+                    <col style="width: 10%">
+                    <col style="width: 12%">
+                    <col style="width: 8%">
+                    <col style="width: 18%">
+                    <col style="width: 7%">
+                    <col style="width: 12%">
+                    <col style="width: 6%">
+                </colgroup>
                 <thead>
                     <tr>
                         <th><i class="bi bi-file-earmark me-1"></i> Título</th>
@@ -88,8 +99,8 @@
                         <th><i class="bi bi-flag me-1"></i> Status</th>
                         <th><i class="bi bi-people me-1"></i> Clientes Associados</th>
                         <th><i class="bi bi-briefcase me-1"></i> Processos</th>
-                        <th><i class="bi bi-calendar-plus me-1"></i> Criado em</th>
-                        <th><i class="bi bi-gear me-1"></i> Ações</th>
+                        <th class="d-none d-md-table-cell"><i class="bi bi-calendar-plus me-1"></i> Criado em</th>
+                        <th class="col-acoes"><i class="bi bi-gear me-1"></i> Ações</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -132,7 +143,7 @@
                                     <span class="text-muted">-</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="d-none d-md-table-cell">
                                 {% if contrato.criadoAt %}
                                     {% set diasCriado = ((date('now')|date('U') - contrato.criadoAt|date('U')) / 86400)|round(0, 'floor') %}
                                     <span title="{{ contrato.criadoAt|date('d/m/Y H:i') }}">
@@ -148,8 +159,10 @@
                                     -
                                 {% endif %}
                             </td>
-                            <td>
-                                <a href="{{ path('contrato_show', {id: contrato.id}) }}" class="btn btn-sm btn-info">Ver</a>
+                            <td class="col-acoes">
+                                <div class="btn-acoes">
+                                    <a href="{{ path('contrato_show', {id: contrato.id}) }}" class="btn btn-sm btn-info">Ver</a>
+                                </div>
                             </td>
                         </tr>
                     {% endfor %}

@@ -240,6 +240,37 @@
     font-weight: 700;
 }
 
+/* ===== Table Fixes ===== */
+.table-fixed {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.table-fixed thead th {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+
+.table-fixed tbody td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+}
+
+.col-acoes {
+    width: 140px !important;
+    text-align: center !important;
+}
+
+.btn-acoes {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    flex-wrap: nowrap;
+}
+
 /* Tarefa Card Styles */
 .tarefa-card {
     border-left: 4px solid #6c757d;
