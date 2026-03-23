@@ -1,284 +1,348 @@
-/* Estilos auxiliares para telas sem shell autenticado */
-.no-sidebar {
-    min-height: 100vh;
+/* ===== Open Sans Font ===== */
+@font-face {
+    font-family: 'Open Sans';
+    src: url('/fonts/opensans-regular.woff') format('woff');
 }
 
-/* Login */
-.login-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 20px;
-    background: #f4f6f9;
+/* ===== Base Body ===== */
+body {
+    font-family: 'Open Sans', Arial, sans-serif;
+    font-size: 14px;
+    color: #454545;
 }
 
-.login-container {
-    background: #fff;
-    border-radius: 0.5rem;
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    padding: 2rem;
-    width: 100%;
-    max-width: 420px;
+/* =============================================================
+   HEADER FIXO — estilo PJe
+   ============================================================= */
+
+:root {
+    --header-bg:        #0078AA;
+    --header-height:    58px;
+    --header-color:     #fff;
+    --header-hover-bg:  rgba(255,255,255,0.12);
+    --header-avatar-bg: #fff;
+    --header-avatar-fg: #0078AA;
+    --sidebar-width:    280px;
+    --subnav-height:    44px;
 }
 
-.login-container h1 {
-    text-align: center;
-    margin-bottom: 1.5rem;
-    font-size: 1.75rem;
-    font-weight: 600;
+.app-header.navtop,
+nav.app-header.navtop {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    z-index: 1050 !important;
+    height: calc(var(--header-height) + var(--subnav-height)) !important;
+    min-height: calc(var(--header-height) + var(--subnav-height)) !important;
+    max-height: calc(var(--header-height) + var(--subnav-height)) !important;
+    background: var(--header-bg) !important;
+    border-bottom: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
+    display: block !important;
+    flex-wrap: unset !important;
 }
 
-.btn-login {
-    width: 100%;
+.navtop-inner {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    height: var(--header-height) !important;
+    width: 100% !important;
+    padding: 0 16px !important;
+    gap: 8px;
+    flex-wrap: nowrap !important;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
 }
 
-.extra-links {
-    text-align: center;
-    margin-top: 1rem;
-    font-size: 0.9rem;
+/* ── Subnav ── */
+.navtop-subnav {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    height: var(--subnav-height) !important;
+    width: 100% !important;
+    padding: 0 16px !important;
+    background: #fff !important;
+    border-bottom: 2px solid #ddd !important;
+    gap: 0;
+    overflow-x: auto;
 }
-
-.extra-links a {
-    text-decoration: none;
-}
-
-.extra-links a:hover {
-    text-decoration: underline;
-}
-
-/* Ajustes finais do AdminLTE */
-.main-header {
-    position: sticky;
-    top: 0;
-    z-index: 1035;
-}
-
-.main-header #sidebarToggleBtn {
+.navtop-subnav-link {
     display: inline-flex;
+    align-items: center;
+    height: 100%;
+    padding: 10px 12px;
+    font-family: 'Open Sans', Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #666 !important;
+    text-decoration: none;
+    text-transform: uppercase;
+    line-height: 24px;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: color 0.2s, border-color 0.2s;
+}
+.navtop-subnav-link:hover  { color: #0078AA !important; border-bottom-color: #0078AA; }
+.navtop-subnav-link.active { color: #0078AA !important; border-bottom-color: #0078AA; font-weight: 700; }
+
+/* ── Lado esquerdo ── */
+.navtop-left {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px;
+    flex-shrink: 0;
+    flex-wrap: nowrap !important;
+}
+
+.sidebar-toggle-btn {
+    display: flex;
     align-items: center;
     justify-content: center;
     width: 34px;
     height: 34px;
-    color: #343a40;
+    background: transparent;
+    border: none;
+    color: var(--header-color);
+    font-size: 1.3rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+}
+.sidebar-toggle-btn:hover { background: var(--header-hover-bg); }
+
+.navtop-brand { display: flex; align-items: center; text-decoration: none; margin-right: 4px; }
+.navtop-brand-text { color: var(--header-color); font-size: 1.15rem; font-weight: 700; letter-spacing: 0.5px; white-space: nowrap; }
+
+.navtop-page-sep   { color: rgba(255,255,255,0.4); font-size: 1.1rem; font-weight: 300; margin: 0 8px; line-height: 1; }
+.navtop-page-title { color: rgba(255,255,255,0.9); font-size: 0.95rem; font-weight: 400; white-space: nowrap; letter-spacing: 0.2px; }
+
+.navtop-links { display: flex; align-items: center; gap: 2px; margin-left: 8px; }
+.navtop-link  { color: var(--header-color) !important; text-decoration: none; font-size: 0.875rem; padding: 6px 10px; border-radius: 4px; transition: background 0.15s; white-space: nowrap; }
+.navtop-link:hover { background: var(--header-hover-bg); color: var(--header-color) !important; }
+
+/* ── Lado direito ── */
+.navtop-right {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 4px;
+    flex-shrink: 0;
+    flex-wrap: nowrap !important;
 }
 
-.main-sidebar .brand-link {
-    font-size: 1rem;
-    font-weight: 600;
+.ultimo-acesso { color: rgba(255,255,255,0.85); font-size: 0.78rem; white-space: nowrap; margin-right: 4px; }
+
+.navtop-action     { position: relative; }
+.navtop-action-btn { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; color: var(--header-color) !important; font-size: 1rem; border-radius: 4px; text-decoration: none; position: relative; transition: background 0.15s; }
+.navtop-action-btn:hover { background: var(--header-hover-bg); color: var(--header-color) !important; }
+
+.navtop-badge { position: absolute; top: 3px; right: 2px; background: #dc3545; color: #fff; font-size: 0.6rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; pointer-events: none; }
+
+.navtop-avatar-btn { display: flex !important; flex-direction: row !important; align-items: center !important; gap: 10px; padding: 4px 8px; border-radius: 4px; text-decoration: none; color: var(--header-color) !important; transition: background 0.15s; }
+.navtop-avatar-btn::after { display: none !important; }
+.navtop-avatar-btn:hover  { background: var(--header-hover-bg); }
+
+.navtop-user-info { display: flex !important; flex-direction: column !important; align-items: flex-end !important; justify-content: center !important; line-height: 1.3; gap: 1px; }
+.navtop-username   { display: block !important; font-size: 0.9rem; font-weight: 700; color: #fff !important; white-space: nowrap; max-width: 200px; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+.navtop-last-access { display: block !important; font-size: 0.7rem; color: rgba(255,255,255,0.8) !important; white-space: nowrap; line-height: 1.2; }
+
+.navtop-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--header-avatar-bg); color: var(--header-avatar-fg); font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.5); position: relative; }
+.navtop-avatar::after { content: ''; position: absolute; bottom: 1px; right: 1px; width: 9px; height: 9px; border-radius: 50%; background: #f0a500; border: 2px solid var(--header-bg); }
+
+/* ── Dropdowns ── */
+.notif-dropdown { min-width: 340px; max-width: 340px; padding: 0; overflow: hidden; }
+.notif-header   { padding: 10px 14px; font-size: 0.85rem; font-weight: 600; color: #444; background: #f8f9fa; }
+.notif-item     { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; white-space: normal; }
+.notif-item.notif-unread { background: #f0f7fb; }
+.notif-item:hover        { background: #e8f4fb; }
+.notif-icon  { font-size: 1rem; color: #0078AA; margin-top: 2px; flex-shrink: 0; }
+.notif-body  { flex: 1; min-width: 0; }
+.notif-title { font-size: 0.82rem; font-weight: 600; color: #333; }
+.notif-msg   { font-size: 0.78rem; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-time  { font-size: 0.72rem; color: #999; margin-top: 2px; }
+.notif-footer { padding: 9px; font-size: 0.82rem; border-top: 1px solid #dee2e6; color: #0078AA; }
+.notif-footer:hover { background: #f0f7fb; }
+
+.usuario-dropdown        { min-width: 260px; padding: 0; overflow: hidden; }
+.usuario-dropdown-header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #f8f9fa; }
+.usuario-avatar-lg { width: 48px; height: 48px; border-radius: 50%; background: var(--header-bg); color: #fff; font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.usuario-info  { min-width: 0; }
+.usuario-name  { font-weight: 600; font-size: 0.9rem; color: #222; }
+.usuario-email { font-size: 0.78rem; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.usuario-dropdown .dropdown-item:hover { background: #f0f7fb; }
+.usuario-dropdown .dropdown-item.text-danger:hover { background: #fff0f0; color: #dc3545 !important; }
+
+/* =============================================================
+   NEUTRALIZA O ADMINLTE 4
+   Zeramos tudo que ele usa para empurrar conteúdo / mostrar
+   sidebar automaticamente em telas grandes (sidebar-expand-lg).
+   ============================================================= */
+
+/* Remove o pseudo-elemento que o AdminLTE usa para detectar breakpoint */
+.sidebar-expand-lg::before { display: none !important; content: '' !important; }
+
+/* Anula margens que o AdminLTE injeta quando sidebar está "aberto" no body */
+body .app-wrapper,
+body .app-main,
+body .content-wrapper {
+    margin-left: 0 !important;
+    padding-left: 0 !important;
 }
 
-.main-sidebar .user-panel .info a {
-    font-size: 0.9rem;
-    font-weight: 600;
+/* Anula qualquer transform do AdminLTE no .app-sidebar */
+body .app-sidebar {
+    transform: none !important;
+    margin-left: 0 !important;
 }
 
-.main-sidebar .user-panel .info small {
-    font-size: 0.75rem;
-}
+/* =============================================================
+   SIDEBAR — overlay fixo, sempre retraído por padrão
+   ============================================================= */
 
-.main-sidebar .nav-sidebar .nav-link {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding-top: 0.6rem;
-    padding-bottom: 0.6rem;
-}
-
-.main-sidebar .nav-sidebar .nav-icon {
-    width: 1rem;
-    min-width: 1rem;
-    text-align: center;
-    margin-right: 0.2rem;
-}
-
-.main-sidebar .nav-sidebar .nav-link p {
-    margin: 0;
-    line-height: 1.2;
-}
-
-.main-sidebar .nav-sidebar .nav-link.active {
-    background-color: rgba(255, 255, 255, 0.16);
-    color: #fff;
-    font-weight: 600;
-}
-
-.main-sidebar .nav-sidebar .nav-link:hover {
-    background-color: rgba(255, 255, 255, 0.08);
-}
-
-.layout-fixed .main-sidebar {
-    top: 0;
-    bottom: 0;
-    height: 100vh;
-}
-
-.layout-fixed .main-sidebar::before {
-    height: 100vh;
-    bottom: 0;
-}
-
-.main-sidebar .sidebar {
-    height: calc(100vh - 57px);
+.app-sidebar.pje-sidebar {
+    position: fixed !important;
+    top: calc(var(--header-height) + var(--subnav-height)) !important;
+    left: 0 !important;
+    height: calc(100vh - var(--header-height) - var(--subnav-height)) !important;
+    width: var(--sidebar-width) !important;
+    z-index: 1040 !important;
+    background: #fff !important;
+    border-right: 1px solid #dde3e8 !important;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-top: 0.25rem;
+    font-family: 'Open Sans', Arial, sans-serif;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+
+    /* FECHADO por padrão */
+    transform: translateX(-100%) !important;
+    transition: transform 0.22s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    will-change: transform;
 }
 
-.main-sidebar .nav-sidebar {
-    margin-top: 0.25rem;
+/* ABERTO — classe adicionada pelo JS do _sidebar.html.twig */
+.app-sidebar.pje-sidebar.sidebar-open {
+    transform: translateX(0) !important;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.18) !important;
 }
 
-.main-sidebar .user-panel {
-    margin-bottom: 0.5rem !important;
+/* Sobrescreve cor do tema dark do AdminLTE */
+.app-sidebar.pje-sidebar,
+.app-sidebar.pje-sidebar * { color: #454545; }
+
+/* ── Busca rápida ── */
+.pje-sidebar-search { position: relative; padding: 10px 12px 8px; border-bottom: 1px solid #e8ecf0; background: #f5f7f9; }
+.pje-search-input-group { display: flex; align-items: center; background: #fff; border: 1px solid #cdd4da; border-radius: 3px; overflow: hidden; height: 34px; }
+.pje-search-icon  { display: flex; align-items: center; justify-content: center; width: 34px; color: #999; font-size: 0.85rem; flex-shrink: 0; }
+.pje-search-input { flex: 1; border: none; outline: none; font-family: 'Open Sans', Arial, sans-serif; font-size: 13px; color: #454545; background: transparent; padding: 0 8px 0 0; }
+.pje-search-input::placeholder { color: #aaa; }
+
+.pje-search-results { position: absolute; top: calc(100% - 8px); left: 12px; right: 12px; background: #fff; border: 1px solid #cdd4da; border-top: none; border-radius: 0 0 3px 3px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 10; max-height: 220px; overflow-y: auto; }
+.pje-search-list { list-style: none; margin: 0; padding: 0; }
+.pje-search-list li a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-bottom: 1px solid #f0f0f0; transition: background 0.15s; }
+.pje-search-list li a:hover { background: #f0f7fb; color: #0078AA; }
+.pje-search-empty { padding: 10px 12px; font-size: 13px; color: #999; }
+
+/* ── Menu ── */
+.pje-menu-wrapper { padding: 4px 0; }
+.pje-menu-list    { list-style: none; margin: 0; padding: 0; }
+
+.pje-menu-separator { padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.6px; border-top: 1px solid #eef0f2; margin-top: 4px; }
+.pje-menu-separator:first-child { border-top: none; margin-top: 0; }
+
+.pje-menu-item { margin: 0; }
+.pje-menu-link { display: flex; align-items: center; gap: 10px; padding: 9px 16px; font-family: 'Open Sans', Arial, sans-serif; font-size: 13px; color: #454545 !important; text-decoration: none !important; border-left: 3px solid transparent; transition: background 0.15s, color 0.15s, border-color 0.15s; line-height: 1.3; }
+.pje-menu-link:hover  { background: #f0f7fb; color: #0078AA !important; border-left-color: #b3d9ee; }
+.pje-menu-link.active { background: #e6f3fa; color: #0078AA !important; border-left-color: #0078AA; font-weight: 600; }
+
+.pje-nav-icon { font-size: 1rem; width: 18px; text-align: center; flex-shrink: 0; color: #6c8fa8; }
+.pje-menu-link.active .pje-nav-icon,
+.pje-menu-link:hover  .pje-nav-icon { color: #0078AA; }
+
+.app-sidebar.pje-sidebar::-webkit-scrollbar       { width: 4px; }
+.app-sidebar.pje-sidebar::-webkit-scrollbar-thumb { background: #cdd4da; border-radius: 2px; }
+.app-sidebar.pje-sidebar::-webkit-scrollbar-track { background: transparent; }
+
+/* =============================================================
+   LAYOUT PRINCIPAL
+   ============================================================= */
+
+.app-wrapper {
+    padding-top: calc(var(--header-height) + var(--subnav-height)) !important;
+    margin-top: 0 !important;
+    margin-left: 0 !important;
 }
 
-.sidebar-mini.sidebar-collapse .main-sidebar,
-.sidebar-mini.sidebar-collapse .main-sidebar::before {
-    width: 4.6rem;
+.app-main,
+.content-wrapper {
+    margin-left: 0 !important;
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    padding-left: 0 !important;
 }
 
-.sidebar-mini.sidebar-collapse .content-wrapper,
-.sidebar-mini.sidebar-collapse .main-header,
-.sidebar-mini.sidebar-collapse .main-footer {
-    margin-left: 4.6rem !important;
-}
+/* Backdrop */
+.sidebar-backdrop { display: none; position: fixed; inset: 0; z-index: 1039; background: rgba(0,0,0,0.35); cursor: pointer; }
+.sidebar-backdrop.active { display: block; }
 
-.sidebar-mini.sidebar-collapse .brand-text,
-.sidebar-mini.sidebar-collapse .user-panel .info {
-    display: none;
-}
+/* =============================================================
+   LOGIN
+   ============================================================= */
+.no-sidebar { min-height: 100vh; }
 
-.sidebar-mini.sidebar-collapse .main-sidebar .user-panel {
-    display: none !important;
-}
+.login-wrapper { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; background: #f4f6f9; }
+.login-container { background: #fff; border-radius: 0.5rem; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); padding: 2rem; width: 100%; max-width: 420px; }
+.login-container h1 { text-align: center; margin-bottom: 1.5rem; font-size: 1.75rem; font-weight: 600; }
+.btn-login   { width: 100%; }
+.extra-links { text-align: center; margin-top: 1rem; font-size: 0.9rem; }
+.extra-links a { text-decoration: none; }
+.extra-links a:hover { text-decoration: underline; }
 
-.sidebar-mini.sidebar-collapse .main-sidebar .sidebar {
-    height: calc(100vh - 57px);
-    padding-top: 0.5rem;
-}
+/* =============================================================
+   TABELAS
+   ============================================================= */
+.table-fixed          { table-layout: fixed; width: 100%; }
+.table-fixed thead th { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.table-fixed tbody td { overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.col-acoes  { width: 140px !important; text-align: center !important; }
+.btn-acoes  { display: flex; gap: 4px; justify-content: center; flex-wrap: nowrap; }
 
-/* Post / Activity Styles */
-.post {
-    border-bottom: 1px solid #dee2e6;
-    margin-bottom: 15px;
-    padding-bottom: 15px;
-}
+/* =============================================================
+   CARDS DE TAREFA
+   ============================================================= */
+.tarefa-card { border-left: 4px solid #6c757d; }
+.tarefa-card:hover { box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); transform: translateY(-2px); border-color: var(--bs-primary); }
 
-.post:last-child {
-    border-bottom: 0;
-    margin-bottom: 0;
-    padding-bottom: 0;
-}
+/* =============================================================
+   INFO BOX
+   ============================================================= */
+.info-box         { min-height: 80px; padding: 1rem; border-radius: 0.5rem; margin-bottom: 1rem; }
+.info-box-content { display: flex; flex-direction: column; justify-content: center; }
+.info-box-text    { font-size: 0.875rem; text-transform: uppercase; }
+.info-box-number  { font-size: 1.5rem; font-weight: 700; }
 
-.user-block {
-    position: relative;
-    padding-left: 50px;
-    min-height: 40px;
-}
+/* =============================================================
+   POST / ACTIVITY
+   ============================================================= */
+.post { border-bottom: 1px solid #dee2e6; margin-bottom: 15px; padding-bottom: 15px; }
+.post:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
 
+.user-block { position: relative; padding-left: 50px; min-height: 40px; }
 .user-block .img-circle,
-.user-block > span:first-child {
-    position: absolute;
-    left: 0;
-    top: 0;
-    border-radius: 50%;
-}
-
-.user-block .img-bordered-sm {
-    border: 2px solid #dee2e6;
-}
-
-.user-block .username {
-    display: block;
-    font-size: 1rem;
-    font-weight: 600;
-    margin-top: -2px;
-}
-
-.user-block .username a {
-    color: var(--bs-body-color);
-    text-decoration: none;
-}
-
-.user-block .username a:hover {
-    color: var(--bs-primary);
-}
-
-.user-block .description {
-    display: block;
-    font-size: 0.85rem;
-    color: #6c757d;
-    margin-top: 2px;
-}
-
-.user-block .comment {
-    margin-left: 50px;
-}
-
-/* Info Box Styles */
-.info-box {
-    min-height: 80px;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin-bottom: 1rem;
-}
-
-.info-box-content {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-.info-box-text {
-    font-size: 0.875rem;
-    text-transform: uppercase;
-}
-
-.info-box-number {
-    font-size: 1.5rem;
-    font-weight: 700;
-}
-
-/* ===== Table Fixes ===== */
-.table-fixed {
-    table-layout: fixed;
-    width: 100%;
-}
-
-.table-fixed thead th {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: middle;
-}
-
-.table-fixed tbody td {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: middle;
-}
-
-.col-acoes {
-    width: 140px !important;
-    text-align: center !important;
-}
-
-.btn-acoes {
-    display: flex;
-    gap: 4px;
-    justify-content: center;
-    flex-wrap: nowrap;
-}
-
-/* Tarefa Card Styles */
-.tarefa-card {
-    border-left: 4px solid #6c757d;
-}
-
-.tarefa-card:hover {
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-    transform: translateY(-2px);
-    border-color: var(--bs-primary);
-}
-
+.user-block > span:first-child { position: absolute; left: 0; top: 0; border-radius: 50%; }
+.user-block .img-bordered-sm   { border: 2px solid #dee2e6; }
+.user-block .username          { display: block; font-size: 1rem; font-weight: 600; margin-top: -2px; }
+.user-block .username a        { color: var(--bs-body-color); text-decoration: none; }
+.user-block .username a:hover  { color: var(--bs-primary); }
+.user-block .description       { display: block; font-size: 0.85rem; color: #6c757d; margin-top: 2px; }
+.user-block .comment           { margin-left: 50px; }
