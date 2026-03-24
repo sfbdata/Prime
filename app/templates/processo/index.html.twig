@@ -75,14 +75,6 @@
                                     <option value="ARQUIVADO" {% if filters.situacao == 'ARQUIVADO' %}selected{% endif %}>Arquivado</option>
                                 </select>
                             </div>
-                            <div class="col-md-2">
-                                <label for="filter_status_docs" class="form-label">Status Docs</label>
-                                <select id="filter_status_docs" name="status_documentos" class="form-control select2-filter">
-                                    <option value="">Todos</option>
-                                    <option value="{{ constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') }}" {% if filters.status_documentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') %}selected{% endif %}>Apto para Protocolar</option>
-                                    <option value="{{ constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_PENDENTE') }}" {% if filters.status_documentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_PENDENTE') %}selected{% endif %}>Pendente de Documentação</option>
-                                </select>
-                            </div>
                         </div>
                         <div class="row mt-3">
                             <div class="col-12 d-flex gap-2">
@@ -108,13 +100,12 @@
         <div class="card-body table-responsive p-0">
             <table class="table table-striped table-hover mb-0 table-fixed" id="tabelaProcessos">
                 <colgroup>
-                    <col style="width: 22%">
-                    <col style="width: 10%">
-                    <col style="width: 14%">
-                    <col style="width: 16%">
-                    <col style="width: 9%">
-                    <col style="width: 13%">
-                    <col style="width: 10%">
+                    <col style="width: 25%">
+                    <col style="width: 11%">
+                    <col style="width: 17%">
+                    <col style="width: 19%">
+                    <col style="width: 11%">
+                    <col style="width: 11%">
                     <col style="width: 6%">
                 </colgroup>
                 <thead>
@@ -124,7 +115,6 @@
                         <th><i class="bi bi-bookmark me-1"></i> Classe</th>
                         <th><i class="bi bi-chat-left-text me-1"></i> Assunto</th>
                         <th><i class="bi bi-flag me-1"></i> Situação</th>
-                        <th><i class="bi bi-check2-square me-1"></i> Status Docs</th>
                         <th><i class="bi bi-file-earmark-text me-1"></i> Contrato</th>
                         <th class="col-acoes"><i class="bi bi-gear me-1"></i> Ações</th>
                     </tr>
@@ -139,11 +129,6 @@
                             <td>
                                 <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}text-bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
                                     {{ processo.situacaoProcesso|replace({'_': ' '}) }}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'text-bg-success' : 'text-bg-warning' }}">
-                                    {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'Apto para Protocolar' : 'Pendente de Documentação' }}
                                 </span>
                             </td>
                             <td>

@@ -232,6 +232,8 @@ abstract class Cliente
         return $this;
     }
 
+    abstract public function getNomeExibicao(): string;
+
     public function getNup(): ?string
     {
         return $this->nup;

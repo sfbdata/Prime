@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Processo\Processo;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -39,6 +40,22 @@ class TarefaRepository extends ServiceEntityRepository
         }
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * @return Tarefa[]
+     */
+    public function findByProcesso(Processo $processo): array
+    {
+        return $this->createQueryBuilder('t')
+            ->join('t.pasta', 'p')
+            ->leftJoin('t.atribuicoes', 'a')
+            ->addSelect('a')
+            ->where('p.processo = :processo')
+            ->setParameter('processo', $processo)
+            ->orderBy('t.dataCriacao', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 
     public function save(Tarefa $entity, bool $flush = false): void

@@ -98,6 +98,8 @@ class PastaController extends AbstractController
     {
         return $this->render('pasta/show.html.twig', [
             'pasta' => $pasta,
+            'documentTypeOptions' => self::DOCUMENT_TYPES,
+            'documentosPorTipo' => $this->groupDocumentsByType($pasta),
         ]);
     }
 
@@ -161,17 +163,48 @@ class PastaController extends AbstractController
     // Documentos
     // -------------------------------------------------------------------------
 
+    /** @var array<string, string> */
+    private const DOCUMENT_TYPES = [
+        PastaDocumento::CATEGORIA_PECA                  => 'Peça',
+        PastaDocumento::CATEGORIA_PROCURACAO            => 'Procuração',
+        PastaDocumento::CATEGORIA_IDENTIFICACAO         => 'Identificação',
+        PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => 'Comprovante de residência',
+        PastaDocumento::CATEGORIA_GRATUIDADE_JUSTICA    => 'Gratuidade de justiça',
+        PastaDocumento::CATEGORIA_DEMAIS                => 'Demais documentos',
+    ];
+
     private const MIME_LIMITS = [
-        'application/pdf' => 10 * 1024 * 1024,
-        'video/mpeg'      => 50 * 1024 * 1024,
-        'video/mp4'       => 50 * 1024 * 1024,
-        'image/jpeg'      => 3 * 1024 * 1024,
-        'image/png'       => 3 * 1024 * 1024,
+        // Imagens
+        'image/png'                          => 3 * 1024 * 1024,
+        'image/jpeg'                         => 3 * 1024 * 1024,
+        // Documentos
+        'application/pdf'                    => 10 * 1024 * 1024,
+        'application/vnd.google-earth.kml+xml' => 5 * 1024 * 1024,
+        // Áudio
+        'audio/x-opus+ogg'                   => 10 * 1024 * 1024,
+        'audio/vorbis'                        => 10 * 1024 * 1024,
+        'audio/opus'                          => 10 * 1024 * 1024,
+        'audio/mpeg'                          => 10 * 1024 * 1024,
+        'audio/ogg'                           => 10 * 1024 * 1024,
+        'audio/mp3'                           => 10 * 1024 * 1024,
+        'audio/wav'                           => 50 * 1024 * 1024,
+        'audio/x-wav'                         => 50 * 1024 * 1024,
+        'audio/mp4'                           => 10 * 1024 * 1024,
+        // Vídeo
+        'video/x-ms-wmv'                      => 50 * 1024 * 1024,
+        'video/mpeg'                          => 50 * 1024 * 1024,
+        'video/ogg'                           => 50 * 1024 * 1024,
+        'video/quicktime'                     => 50 * 1024 * 1024,
+        'video/mp4'                           => 50 * 1024 * 1024,
     ];
 
     #[Route('/{id}/documento/upload', name: 'pasta_documento_upload', methods: ['POST'])]
     public function uploadDocumento(Pasta $pasta, Request $request): Response
     {
+        if (!$this->isCsrfTokenValid('upload_documento_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
         $file = $request->files->get('arquivo');
 
         if ($file === null) {
@@ -209,19 +242,19 @@ class PastaController extends AbstractController
         $file->move($this->uploadsDir, $nomeUnico);
 
         $titulo    = trim((string) $request->request->get('titulo', ''));
-        $categoria = trim((string) $request->request->get('categoria', PastaDocumento::CATEGORIA_OUTROS));
+        $categoria = strtoupper(trim((string) $request->request->get('categoria', PastaDocumento::CATEGORIA_DEMAIS)));
         $descricao = trim((string) $request->request->get('descricao', ''));
+
+        if (!array_key_exists($categoria, self::DOCUMENT_TYPES)) {
+            $this->addFlash('error', 'Categoria de documento inválida.');
+
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+        }
 
         $doc = new PastaDocumento();
         $doc->setPasta($pasta);
         $doc->setTitulo($titulo !== '' ? $titulo : $file->getClientOriginalName());
-        $doc->setCategoria(in_array($categoria, [
-            PastaDocumento::CATEGORIA_PETICAO,
-            PastaDocumento::CATEGORIA_CONTRATO,
-            PastaDocumento::CATEGORIA_PROCURACAO,
-            PastaDocumento::CATEGORIA_SENTENCA,
-            PastaDocumento::CATEGORIA_OUTROS,
-        ], true) ? $categoria : PastaDocumento::CATEGORIA_OUTROS);
+        $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);
         $doc->setCaminhoArquivo($nomeUnico);
         $doc->setNomeOriginal($file->getClientOriginalName());
@@ -229,6 +262,7 @@ class PastaController extends AbstractController
         $doc->setTamanhoBytes($tamanho);
 
         $this->em->persist($doc);
+        $this->markChecklistByCategoria($pasta, $categoria);
         $this->em->flush();
 
         $this->addFlash('success', 'Documento enviado com sucesso.');
@@ -270,12 +304,69 @@ class PastaController extends AbstractController
             unlink($caminho);
         }
 
+        $pasta = $doc->getPasta();
+        $categoria = $doc->getCategoria();
         $this->em->remove($doc);
+
+        if ($pasta !== null) {
+            $this->recalculateChecklistAfterDelete($pasta, $categoria);
+        }
+
         $this->em->flush();
 
         $this->addFlash('success', 'Documento removido com sucesso.');
 
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+    }
+
+    private function markChecklistByCategoria(Pasta $pasta, string $categoria): void
+    {
+        match ($categoria) {
+            PastaDocumento::CATEGORIA_PECA                   => $pasta->setDocPecaOk(true),
+            PastaDocumento::CATEGORIA_PROCURACAO             => $pasta->setDocProcuracaoOk(true),
+            PastaDocumento::CATEGORIA_IDENTIFICACAO          => $pasta->setDocIdentificacaoOk(true),
+            PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => $pasta->setDocComprovanteResidenciaOk(true),
+            PastaDocumento::CATEGORIA_GRATUIDADE_JUSTICA     => $pasta->setDocGratuidadeJusticaOk(true),
+            PastaDocumento::CATEGORIA_DEMAIS                 => $pasta->setDocDemaisOk(true),
+            default => null,
+        };
+    }
+
+    private function recalculateChecklistAfterDelete(Pasta $pasta, string $categoriaRemovida): void
+    {
+        $remaining = $pasta->getDocumentos()->filter(
+            fn(PastaDocumento $d) => $d->getCategoria() === $categoriaRemovida
+        );
+
+        if ($remaining->count() <= 1) {
+            match ($categoriaRemovida) {
+                PastaDocumento::CATEGORIA_PECA                   => $pasta->setDocPecaOk(false),
+                PastaDocumento::CATEGORIA_PROCURACAO             => $pasta->setDocProcuracaoOk(false),
+                PastaDocumento::CATEGORIA_IDENTIFICACAO          => $pasta->setDocIdentificacaoOk(false),
+                PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => $pasta->setDocComprovanteResidenciaOk(false),
+                PastaDocumento::CATEGORIA_GRATUIDADE_JUSTICA     => $pasta->setDocGratuidadeJusticaOk(false),
+                PastaDocumento::CATEGORIA_DEMAIS                 => $pasta->setDocDemaisOk(false),
+                default => null,
+            };
+        }
+    }
+
+    /**
+     * @return array<string, PastaDocumento[]>
+     */
+    private function groupDocumentsByType(Pasta $pasta): array
+    {
+        $grouped = [];
+        foreach (array_keys(self::DOCUMENT_TYPES) as $tipo) {
+            $grouped[$tipo] = [];
+        }
+        foreach ($pasta->getDocumentos() as $doc) {
+            $cat = $doc->getCategoria();
+            if (array_key_exists($cat, $grouped)) {
+                $grouped[$cat][] = $doc;
+            }
+        }
+        return $grouped;
     }
 
     /**

@@ -269,93 +269,6 @@
                         </div>
                     </div>
 
-                    {# Right Column - Sidebar #}
-                    <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
-                        <div class="card card-primary card-outline">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-briefcase-fill me-1"></i> Resumo do Processo</h3>
-                            </div>
-                            <div class="card-body">
-                                <h5 class="text-primary mb-1">{{ processo.numeroProcesso }}</h5>
-                                <p class="text-muted small mb-3">{{ processo.classeProcessual ?: 'Processo judicial' }}</p>
-
-                                <div class="text-muted">
-                                    <p class="text-sm mb-0">Tribunal
-                                        <b class="d-block">{{ processo.siglaTribunal ?: '-' }}</b>
-                                    </p>
-                                </div>
-
-                                <hr>
-
-                                {# Checklist de Documentação #}
-                                <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 class="text-muted mb-0"><i class="bi bi-check2-square me-1"></i> Checklist de Documentação</h6>
-                                    <span class="badge {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'text-bg-success' : 'text-bg-warning' }}">
-                                        {{ processo.statusDocumentos == constant('App\\Entity\\Processo\\Processo::STATUS_DOCUMENTOS_APTO') ? 'Apto para Protocolar' : 'Pendente de Documentação' }}
-                                    </span>
-                                </div>
-                                <ul class="list-unstyled mb-0">
-                                    <li class="mb-2">
-                                        <i class="bi {{ processo.docPecaOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
-                                        Peça
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="bi {{ processo.docProcuracaoOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
-                                        Procuração
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="bi {{ processo.docIdentificacaoOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
-                                        Identificação
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="bi {{ processo.docComprovanteResidenciaOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
-                                        Comprovante de Residência
-                                    </li>
-                                    <li class="mb-2">
-                                        <i class="bi {{ processo.docGratuidadeJusticaOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
-                                        Gratuidade de Justiça
-                                    </li>
-                                    <li class="mb-0">
-                                        <i class="bi {{ processo.docDemaisOk ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
-                                        Demais Documentos
-                                    </li>
-                                </ul>
-
-                                <hr>
-
-                                {# Arquivos do Processo #}
-                                <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> Arquivos do Processo</h6>
-                                <ul class="list-unstyled mb-0">
-                                    {% set hasDocuments = false %}
-                                    {% for tipo, label in documentTypeOptions %}
-                                        {% set docs = documentosPorTipo[tipo] ?? [] %}
-                                        {% for doc in docs %}
-                                            {% set hasDocuments = true %}
-                                            <li class="mb-2">
-                                                <a href="/{{ doc.caminhoArquivo }}" target="_blank" class="btn-link text-secondary text-decoration-none">
-                                                    <i class="bi bi-download me-1"></i>
-                                                    <i class="bi bi-file-earmark me-1"></i>
-                                                    {{ doc.nomeOriginal }}
-                                                </a>
-                                                <small class="text-muted d-block ms-4">{{ label }} - {{ doc.criadoEm|date('d/m/Y') }}</small>
-                                            </li>
-                                        {% endfor %}
-                                    {% endfor %}
-                                    {% if not hasDocuments %}
-                                        <li class="text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado.</li>
-                                    {% endif %}
-                                </ul>
-                            </div>
-                            <div class="card-footer text-center">
-                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentosModal">
-                                    <i class="bi bi-cloud-upload me-1"></i> Upload
-                                </button>
-                                <a href="{{ path('processo_edit', {id: processo.id}) }}" class="btn btn-sm btn-warning">
-                                    <i class="bi bi-pencil me-1"></i> Editar
-                                </a>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div class="card-footer">
@@ -363,76 +276,22 @@
                     <a href="{{ path('processo_index') }}" class="btn btn-secondary">
                         <i class="bi bi-arrow-left me-1"></i> Voltar aos Processos
                     </a>
-                    <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este processo?');">
-                        <input type="hidden" name="_token" value="{{ csrf_token('delete_processo_' ~ processo.id) }}">
-                        <button type="submit" class="btn btn-danger">
-                            <i class="bi bi-trash me-1"></i> Excluir Processo
-                        </button>
-                    </form>
+                    <div class="d-flex gap-2">
+                        <a href="{{ path('processo_edit', {id: processo.id}) }}" class="btn btn-warning">
+                            <i class="bi bi-pencil me-1"></i> Editar
+                        </a>
+                        <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este processo?');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('delete_processo_' ~ processo.id) }}">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash me-1"></i> Excluir Processo
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
-
-{# Modal: Upload de Documentos #}
-<div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="uploadDocumentosModalLabel">
-                    <i class="bi bi-cloud-upload me-1"></i> Upload de Documentos do Processo
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                {% for tipo, label in documentTypeOptions %}
-                    <div class="border border-secondary rounded p-3 mb-3">
-                        <h6 class="mb-2"><i class="bi bi-folder me-1"></i> {{ label }}</h6>
-
-                        {% set docs = documentosPorTipo[tipo] ?? [] %}
-                        {% if docs|length > 0 %}
-                            <ul class="list-group mb-3">
-                                {% for doc in docs %}
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <a href="/{{ doc.caminhoArquivo }}" target="_blank" rel="noopener noreferrer">
-                                                <i class="bi bi-file-earmark me-1"></i> {{ doc.nomeOriginal }}
-                                            </a>
-                                            <small class="text-muted d-block">{{ doc.criadoEm|date('d/m/Y H:i') }}</small>
-                                        </div>
-                                        <form method="post" action="{{ path('processo_documento_delete', {id: processo.id, documentoId: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');" class="ms-3">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_processo_' ~ doc.id) }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p class="text-muted mb-2"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado para este tipo.</p>
-                        {% endif %}
-
-                        <form method="post" enctype="multipart/form-data" action="{{ path('processo_documento_upload', {id: processo.id}) }}" class="row g-2 align-items-end">
-                            <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_processo_' ~ processo.id) }}">
-                            <input type="hidden" name="tipo" value="{{ tipo }}">
-                            <div class="col-md-9">
-                                <label class="form-label">Arquivo</label>
-                                <input type="file" name="documento[]" class="form-control" multiple required>
-                            </div>
-                            <div class="col-md-3">
-                                <button type="submit" class="btn btn-primary w-100">
-                                    <i class="bi bi-upload me-1"></i> Enviar
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-</div>
 
 {# Modal: Visualizar Tarefa #}
 <div class="modal fade" id="modalTarefa" tabindex="-1" aria-labelledby="modalTarefaLabel" aria-hidden="true">

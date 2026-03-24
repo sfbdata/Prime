@@ -11,9 +11,6 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: ProcessoRepository::class)]
 class Processo
 {
-    public const STATUS_DOCUMENTOS_PENDENTE = 'PENDENTE_DE_DOCUMENTACAO';
-    public const STATUS_DOCUMENTOS_APTO = 'APTO_PARA_PROTOCOLAR';
-
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -40,9 +37,6 @@ class Processo
     #[ORM\OneToMany(mappedBy: 'processo', targetEntity: MovimentacaoProcesso::class, orphanRemoval: true, cascade: ['persist'])]
     #[ORM\OrderBy(['dataMovimentacao' => 'DESC', 'id' => 'DESC'])]
     private Collection $movimentacoes;
-
-    #[ORM\OneToMany(mappedBy: 'processo', targetEntity: DocumentoProcesso::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
-    private Collection $documentos;
 
     #[ORM\Column(type: 'date', nullable: true)]
     private ?\DateTimeInterface $dataDistribuicao = null;
@@ -73,34 +67,11 @@ class Processo
     #[ORM\JoinColumn(nullable: true)]
     private ?Contrato $contrato = null;
 
-    #[ORM\Column(options: ['default' => false])]
-    private bool $docPecaOk = false;
-
-    #[ORM\Column(options: ['default' => false])]
-    private bool $docProcuracaoOk = false;
-
-    #[ORM\Column(options: ['default' => false])]
-    private bool $docIdentificacaoOk = false;
-
-    #[ORM\Column(options: ['default' => false])]
-    private bool $docComprovanteResidenciaOk = false;
-
-    #[ORM\Column(options: ['default' => false])]
-    private bool $docGratuidadeJusticaOk = false;
-
-    #[ORM\Column(options: ['default' => false])]
-    private bool $docDemaisOk = false;
-
-    #[ORM\Column(length: 40)]
-    private string $statusDocumentos = self::STATUS_DOCUMENTOS_PENDENTE;
-
     public function __construct()
     {
         $this->partes = new ArrayCollection();
         $this->movimentacoes = new ArrayCollection();
-        $this->documentos = new ArrayCollection();
         $this->processosFilhos = new ArrayCollection();
-        $this->statusDocumentos = self::STATUS_DOCUMENTOS_PENDENTE;
     }
 
     public function getId(): ?int
@@ -215,35 +186,6 @@ class Processo
         if ($this->movimentacoes->removeElement($movimentacao)) {
             if ($movimentacao->getProcesso() === $this) {
                 $movimentacao->setProcesso(null);
-            }
-        }
-
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, DocumentoProcesso>
-     */
-    public function getDocumentos(): Collection
-    {
-        return $this->documentos;
-    }
-
-    public function addDocumento(DocumentoProcesso $documento): self
-    {
-        if (!$this->documentos->contains($documento)) {
-            $this->documentos->add($documento);
-            $documento->setProcesso($this);
-        }
-
-        return $this;
-    }
-
-    public function removeDocumento(DocumentoProcesso $documento): self
-    {
-        if ($this->documentos->removeElement($documento)) {
-            if ($documento->getProcesso() === $this) {
-                $documento->setProcesso(null);
             }
         }
 
@@ -374,107 +316,4 @@ class Processo
         return $this;
     }
 
-    public function isDocPecaOk(): bool
-    {
-        return $this->docPecaOk;
-    }
-
-    public function setDocPecaOk(bool $docPecaOk): self
-    {
-        $this->docPecaOk = $docPecaOk;
-        $this->recalculateStatusDocumentos();
-
-        return $this;
-    }
-
-    public function isDocProcuracaoOk(): bool
-    {
-        return $this->docProcuracaoOk;
-    }
-
-    public function setDocProcuracaoOk(bool $docProcuracaoOk): self
-    {
-        $this->docProcuracaoOk = $docProcuracaoOk;
-        $this->recalculateStatusDocumentos();
-
-        return $this;
-    }
-
-    public function isDocIdentificacaoOk(): bool
-    {
-        return $this->docIdentificacaoOk;
-    }
-
-    public function setDocIdentificacaoOk(bool $docIdentificacaoOk): self
-    {
-        $this->docIdentificacaoOk = $docIdentificacaoOk;
-        $this->recalculateStatusDocumentos();
-
-        return $this;
-    }
-
-    public function isDocComprovanteResidenciaOk(): bool
-    {
-        return $this->docComprovanteResidenciaOk;
-    }
-
-    public function setDocComprovanteResidenciaOk(bool $docComprovanteResidenciaOk): self
-    {
-        $this->docComprovanteResidenciaOk = $docComprovanteResidenciaOk;
-        $this->recalculateStatusDocumentos();
-
-        return $this;
-    }
-
-    public function isDocGratuidadeJusticaOk(): bool
-    {
-        return $this->docGratuidadeJusticaOk;
-    }
-
-    public function setDocGratuidadeJusticaOk(bool $docGratuidadeJusticaOk): self
-    {
-        $this->docGratuidadeJusticaOk = $docGratuidadeJusticaOk;
-        $this->recalculateStatusDocumentos();
-
-        return $this;
-    }
-
-    public function isDocDemaisOk(): bool
-    {
-        return $this->docDemaisOk;
-    }
-
-    public function setDocDemaisOk(bool $docDemaisOk): self
-    {
-        $this->docDemaisOk = $docDemaisOk;
-        $this->recalculateStatusDocumentos();
-
-        return $this;
-    }
-
-    public function getStatusDocumentos(): string
-    {
-        return $this->statusDocumentos;
-    }
-
-    public function setStatusDocumentos(string $statusDocumentos): self
-    {
-        $this->statusDocumentos = $statusDocumentos;
-
-        return $this;
-    }
-
-    private function recalculateStatusDocumentos(): void
-    {
-        $allChecked = $this->docPecaOk
-            && $this->docProcuracaoOk
-            && $this->docIdentificacaoOk
-            && $this->docComprovanteResidenciaOk
-            && $this->docGratuidadeJusticaOk
-            && $this->docDemaisOk;
-
-        $this->statusDocumentos = $allChecked
-            ? self::STATUS_DOCUMENTOS_APTO
-            : self::STATUS_DOCUMENTOS_PENDENTE;
-    }
 }

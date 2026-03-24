@@ -9,11 +9,12 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: PastaDocumentoRepository::class)]
 class PastaDocumento
 {
-    public const CATEGORIA_PETICAO = 'peticao';
-    public const CATEGORIA_CONTRATO = 'contrato';
-    public const CATEGORIA_PROCURACAO = 'procuracao';
-    public const CATEGORIA_SENTENCA = 'sentenca';
-    public const CATEGORIA_OUTROS = 'outros';
+    public const CATEGORIA_PECA = 'PECA';
+    public const CATEGORIA_PROCURACAO = 'PROCURACAO';
+    public const CATEGORIA_IDENTIFICACAO = 'IDENTIFICACAO';
+    public const CATEGORIA_COMPROVANTE_RESIDENCIA = 'COMPROVANTE_RESIDENCIA';
+    public const CATEGORIA_GRATUIDADE_JUSTICA = 'GRATUIDADE_JUSTICA';
+    public const CATEGORIA_DEMAIS = 'DEMAIS';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -25,8 +26,8 @@ class PastaDocumento
     #[ORM\Column(length: 255)]
     private string $titulo;
 
-    #[Assert\Choice(choices: ['peticao', 'contrato', 'procuracao', 'sentenca', 'outros'])]
-    #[ORM\Column(length: 20)]
+    #[Assert\Choice(choices: ['PECA', 'PROCURACAO', 'IDENTIFICACAO', 'COMPROVANTE_RESIDENCIA', 'GRATUIDADE_JUSTICA', 'DEMAIS'])]
+    #[ORM\Column(length: 40)]
     private string $categoria;
 
     #[ORM\Column(type: 'text', nullable: true)]

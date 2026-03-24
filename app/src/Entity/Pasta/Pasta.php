@@ -17,6 +17,9 @@ class Pasta
     public const STATUS_ATIVO = 'ativo';
     public const STATUS_ARQUIVADO = 'arquivado';
 
+    public const STATUS_DOCUMENTOS_PENDENTE = 'PENDENTE_DE_DOCUMENTACAO';
+    public const STATUS_DOCUMENTOS_APTO = 'APTO_PARA_PROTOCOLAR';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
@@ -59,6 +62,27 @@ class Pasta
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: Tarefa::class)]
     private Collection $tarefas;
 
+    #[ORM\Column(options: ['default' => false])]
+    private bool $docPecaOk = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $docProcuracaoOk = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $docIdentificacaoOk = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $docComprovanteResidenciaOk = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $docGratuidadeJusticaOk = false;
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $docDemaisOk = false;
+
+    #[ORM\Column(length: 40)]
+    private string $statusDocumentos = self::STATUS_DOCUMENTOS_PENDENTE;
+
     public function __construct()
     {
         $this->dataAbertura = new \DateTimeImmutable();
@@ -67,6 +91,7 @@ class Pasta
         $this->partesContrarias = new ArrayCollection();
         $this->documentos = new ArrayCollection();
         $this->tarefas = new ArrayCollection();
+        $this->statusDocumentos = self::STATUS_DOCUMENTOS_PENDENTE;
     }
 
     public function getId(): ?int
@@ -216,5 +241,33 @@ class Pasta
             }
         }
         return $this;
+    }
+
+    public function isDocPecaOk(): bool { return $this->docPecaOk; }
+    public function setDocPecaOk(bool $v): self { $this->docPecaOk = $v; $this->recalculateStatusDocumentos(); return $this; }
+
+    public function isDocProcuracaoOk(): bool { return $this->docProcuracaoOk; }
+    public function setDocProcuracaoOk(bool $v): self { $this->docProcuracaoOk = $v; $this->recalculateStatusDocumentos(); return $this; }
+
+    public function isDocIdentificacaoOk(): bool { return $this->docIdentificacaoOk; }
+    public function setDocIdentificacaoOk(bool $v): self { $this->docIdentificacaoOk = $v; $this->recalculateStatusDocumentos(); return $this; }
+
+    public function isDocComprovanteResidenciaOk(): bool { return $this->docComprovanteResidenciaOk; }
+    public function setDocComprovanteResidenciaOk(bool $v): self { $this->docComprovanteResidenciaOk = $v; $this->recalculateStatusDocumentos(); return $this; }
+
+    public function isDocGratuidadeJusticaOk(): bool { return $this->docGratuidadeJusticaOk; }
+    public function setDocGratuidadeJusticaOk(bool $v): self { $this->docGratuidadeJusticaOk = $v; $this->recalculateStatusDocumentos(); return $this; }
+
+    public function isDocDemaisOk(): bool { return $this->docDemaisOk; }
+    public function setDocDemaisOk(bool $v): self { $this->docDemaisOk = $v; $this->recalculateStatusDocumentos(); return $this; }
+
+    public function getStatusDocumentos(): string { return $this->statusDocumentos; }
+
+    private function recalculateStatusDocumentos(): void
+    {
+        $this->statusDocumentos = ($this->docPecaOk && $this->docProcuracaoOk && $this->docIdentificacaoOk
+            && $this->docComprovanteResidenciaOk && $this->docGratuidadeJusticaOk && $this->docDemaisOk)
+            ? self::STATUS_DOCUMENTOS_APTO
+            : self::STATUS_DOCUMENTOS_PENDENTE;
     }
 }

@@ -33,6 +33,11 @@ class ClientePF extends Cliente
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $profissao = null;
 
+    public function getNomeExibicao(): string
+    {
+        return $this->nomeCompleto;
+    }
+
     public function getCpf(): string
     {
         return $this->cpf;

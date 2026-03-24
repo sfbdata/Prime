@@ -41,7 +41,7 @@
                     <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1">
                         {# Info Boxes #}
                         <div class="row">
-                            <div class="col-12 col-sm-4">
+                            <div class="col-12 col-sm-6">
                                 <div class="info-box bg-light">
                                     <div class="info-box-content">
                                         <span class="info-box-text text-center text-muted">Status</span>
@@ -51,19 +51,11 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-12 col-sm-4">
+                            <div class="col-12 col-sm-6">
                                 <div class="info-box bg-light">
                                     <div class="info-box-content">
                                         <span class="info-box-text text-center text-muted">Clientes</span>
                                         <span class="info-box-number text-center text-muted mb-0">{{ pasta.clientes|length }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Documentos</span>
-                                        <span class="info-box-number text-center text-muted mb-0">{{ pasta.documentos|length }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -77,9 +69,11 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#documentos" type="button" role="tab" aria-controls="documentos" aria-selected="false">
-                                    <i class="bi bi-file-earmark-text me-1"></i> Documentos
-                                    <span class="badge text-bg-secondary ms-1">{{ pasta.documentos|length }}</span>
+                                <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
+                                    <i class="bi bi-check2-square me-1"></i> Tarefas
+                                    {% if pasta.tarefas|length > 0 %}
+                                        <span class="badge text-bg-secondary ms-1">{{ pasta.tarefas|length }}</span>
+                                    {% endif %}
                                 </button>
                             </li>
                         </ul>
@@ -119,7 +113,49 @@
                                     </div>
                                 </div>
 
+                                <hr class="section-divider">
+
+                                <h5 class="mb-3"><i class="bi bi-link-45deg me-1"></i> Vínculos</h5>
+                                <div class="row mb-4">
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3"><i class="bi bi-people me-1"></i> Clientes</h6>
+                                        {% if pasta.clientes|length > 0 %}
+                                            {% for cliente in pasta.clientes %}
+                                                <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <i class="bi bi-person-circle text-muted"></i>
+                                                        <span class="fw-semibold text-primary">
+                                                            {% if cliente.cpf is defined and cliente.cpf %}
+                                                                {{ cliente.nomeCompleto }}
+                                                            {% else %}
+                                                                {{ cliente.razaoSocial }}
+                                                            {% endif %}
+                                                        </span>
+                                                    </div>
+                                                </a>
+                                            {% endfor %}
+                                        {% else %}
+                                            <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-muted mb-3"><i class="bi bi-person-x me-1"></i> Partes Contrárias</h6>
+                                        {% if pasta.partesContrarias|length > 0 %}
+                                            {% for parte in pasta.partesContrarias %}
+                                                <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+                                                    <i class="bi bi-person-dash text-muted"></i>
+                                                    <span>{{ parte.nome }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        {% else %}
+                                            <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte contrária registrada.</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+
                                 {% if pasta.descricao %}
+                                <hr class="section-divider">
+
                                 <h5 class="mb-3"><i class="bi bi-card-text me-1"></i> Descrição</h5>
                                 <div class="row mb-4">
                                     <div class="col-12">
@@ -129,191 +165,130 @@
                                 {% endif %}
                             </div>
 
-                            {# Tab: Documentos #}
-                            <div class="tab-pane fade" id="documentos" role="tabpanel" aria-labelledby="documentos-tab">
-                                {% if pasta.documentos|length > 0 %}
-                                <div class="table-responsive mb-4">
-                                    <table class="table table-striped table-hover align-middle">
-                                        <thead>
-                                            <tr>
-                                                <th><i class="bi bi-fonts me-1"></i> Título</th>
-                                                <th><i class="bi bi-tag me-1"></i> Categoria</th>
-                                                <th><i class="bi bi-card-text me-1"></i> Descrição</th>
-                                                <th><i class="bi bi-hdd me-1"></i> Tamanho</th>
-                                                <th><i class="bi bi-calendar-event me-1"></i> Upload</th>
-                                                <th><i class="bi bi-gear me-1"></i> Ações</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for doc in pasta.documentos %}
-                                            <tr>
-                                                <td>
-                                                    <i class="bi bi-file-earmark me-1 text-muted"></i>
-                                                    {{ doc.titulo }}
-                                                    <small class="text-muted d-block">{{ doc.nomeOriginal }}</small>
-                                                </td>
-                                                <td>
-                                                    {% set categoriaLabel = {
-                                                        'peticao': 'Petição',
-                                                        'contrato': 'Contrato',
-                                                        'procuracao': 'Procuração',
-                                                        'sentenca': 'Sentença',
-                                                        'outros': 'Outros'
-                                                    } %}
-                                                    <span class="badge text-bg-light border">
-                                                        {{ categoriaLabel[doc.categoria] ?? doc.categoria }}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    {% if doc.descricao %}
-                                                        <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ doc.descricao }}">
-                                                            {{ doc.descricao }}
-                                                        </span>
-                                                    {% else %}
-                                                        <span class="text-muted">—</span>
-                                                    {% endif %}
-                                                </td>
-                                                <td class="text-nowrap">
-                                                    {% if doc.tamanhoBytes < 1024 %}
-                                                        {{ doc.tamanhoBytes }} B
-                                                    {% elseif doc.tamanhoBytes < 1048576 %}
-                                                        {{ (doc.tamanhoBytes / 1024)|round(1) }} KB
-                                                    {% else %}
-                                                        {{ (doc.tamanhoBytes / 1048576)|round(1) }} MB
-                                                    {% endif %}
-                                                </td>
-                                                <td class="text-nowrap">{{ doc.uploadedAt|date('d/m/Y H:i') }}</td>
-                                                <td>
-                                                    <div class="d-flex gap-1">
-                                                        <a href="{{ path('pasta_documento_download', {id: doc.id}) }}"
-                                                           class="btn btn-sm btn-outline-primary" title="Download">
-                                                            <i class="bi bi-download"></i>
-                                                        </a>
-                                                        <form method="post"
-                                                              action="{{ path('pasta_documento_delete', {id: doc.id}) }}"
-                                                              onsubmit="return confirm('Deseja excluir o documento {{ doc.titulo|e('js') }}?');">
-                                                            <input type="hidden" name="_token"
-                                                                   value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Deletar">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                            {% endfor %}
-                                        </tbody>
-                                    </table>
-                                </div>
+                            {# Tab: Tarefas #}
+                            <div class="tab-pane fade" id="tarefas" role="tabpanel" aria-labelledby="tarefas-tab">
+                                {% if pasta.tarefas|length > 0 %}
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle">
+                                            <thead>
+                                                <tr>
+                                                    <th>Título</th>
+                                                    <th>Status</th>
+                                                    <th>Prazo</th>
+                                                    <th>Criada em</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for tarefa in pasta.tarefas %}
+                                                    {% set prazoInfo = tarefa.prazoInfo %}
+                                                    <tr>
+                                                        <td>{{ tarefa.titulo }}</td>
+                                                        <td>
+                                                            {% if tarefa.status == 'pendente' %}
+                                                                <span class="badge text-bg-warning">Pendente</span>
+                                                            {% elseif tarefa.status == 'em_revisao' %}
+                                                                <span class="badge text-bg-info">Em revisão</span>
+                                                            {% elseif tarefa.status == 'concluida' %}
+                                                                <span class="badge text-bg-success">Concluída</span>
+                                                            {% elseif tarefa.status == 'reaberta' %}
+                                                                <span class="badge text-bg-danger">Reaberta</span>
+                                                            {% else %}
+                                                                <span class="badge text-bg-secondary">{{ tarefa.status }}</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>
+                                                            {% if prazoInfo.texto != '-' %}
+                                                                <span class="badge text-bg-{{ prazoInfo.cor }}">{{ prazoInfo.texto }}</span>
+                                                            {% else %}
+                                                                <span class="text-muted">—</span>
+                                                            {% endif %}
+                                                        </td>
+                                                        <td>{{ tarefa.dataCriacao|date('d/m/Y') }}</td>
+                                                        <td>
+                                                            <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="btn btn-sm btn-outline-primary">
+                                                                <i class="bi bi-eye"></i>
+                                                            </a>
+                                                        </td>
+                                                    </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 {% else %}
-                                <div class="alert alert-light border mb-4">
-                                    <i class="bi bi-info-circle me-1"></i> Nenhum documento enviado ainda.
-                                </div>
+                                    <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Nenhuma tarefa vinculada a esta pasta.</p>
                                 {% endif %}
-
-                                {# Formulário de Upload #}
-                                <div class="card bg-light border">
-                                    <div class="card-header">
-                                        <h5 class="card-title mb-0">
-                                            <i class="bi bi-cloud-upload me-1"></i> Enviar Novo Documento
-                                        </h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <form method="post"
-                                              action="{{ path('pasta_documento_upload', {id: pasta.id}) }}"
-                                              enctype="multipart/form-data">
-                                            <input type="hidden" name="_token"
-                                                   value="{{ csrf_token('upload_documento_' ~ pasta.id) }}">
-                                            <div class="row g-3">
-                                                <div class="col-md-6">
-                                                    <label for="upload_arquivo" class="form-label">
-                                                        Arquivo <span class="text-danger">*</span>
-                                                    </label>
-                                                    <input type="file" id="upload_arquivo" name="arquivo"
-                                                           class="form-control" required
-                                                           accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg">
-                                                    <div class="form-text">PDF (10 MB), Imagem JPG/PNG (3 MB), Vídeo MP4/MPEG (50 MB)</div>
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <label for="upload_titulo" class="form-label">Título</label>
-                                                    <input type="text" id="upload_titulo" name="titulo"
-                                                           class="form-control" placeholder="Deixe em branco para usar o nome do arquivo">
-                                                </div>
-                                                <div class="col-md-4">
-                                                    <label for="upload_categoria" class="form-label">
-                                                        Categoria <span class="text-danger">*</span>
-                                                    </label>
-                                                    <select id="upload_categoria" name="categoria" class="form-select" required>
-                                                        <option value="peticao">Petição</option>
-                                                        <option value="contrato">Contrato</option>
-                                                        <option value="procuracao">Procuração</option>
-                                                        <option value="sentenca">Sentença</option>
-                                                        <option value="outros" selected>Outros</option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-8">
-                                                    <label for="upload_descricao" class="form-label">Descrição</label>
-                                                    <textarea id="upload_descricao" name="descricao"
-                                                              class="form-control" rows="2"
-                                                              placeholder="Descrição opcional do documento"></textarea>
-                                                </div>
-                                                <div class="col-12">
-                                                    <button type="submit" class="btn btn-primary">
-                                                        <i class="bi bi-upload me-1"></i> Enviar Documento
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </form>
-                                    </div>
-                                </div>
                             </div>
+
                         </div>
                     </div>
 
                     {# Right Column - Sidebar #}
                     <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
-                        <div class="card card-primary card-outline">
+                        {# Card: Documentação #}
+                        <div class="card card-primary card-outline mb-3">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> Vínculos</h3>
+                                <h3 class="card-title"><i class="bi bi-check2-square me-1"></i> Documentação</h3>
                             </div>
                             <div class="card-body">
-                                {# Clientes Vinculados #}
-                                <h6 class="text-muted mb-3"><i class="bi bi-people me-1"></i> Clientes</h6>
-                                {% if pasta.clientes|length > 0 %}
-                                    {% for cliente in pasta.clientes %}
-                                        <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <i class="bi bi-person-circle text-muted"></i>
-                                                <span class="fw-semibold text-primary">
-                                                    {% if cliente.cpf is defined and cliente.cpf %}
-                                                        {{ cliente.nomeCompleto }}
-                                                    {% else %}
-                                                        {{ cliente.razaoSocial }}
-                                                    {% endif %}
-                                                </span>
-                                            </div>
-                                        </a>
+                                {# Status #}
+                                {% set totalCategorias = documentTypeOptions|length %}
+                                {% set categoriasComDoc = 0 %}
+                                {% for tipo, label in documentTypeOptions %}
+                                    {% if (documentosPorTipo[tipo] ?? [])|length > 0 %}
+                                        {% set categoriasComDoc = categoriasComDoc + 1 %}
+                                    {% endif %}
+                                {% endfor %}
+
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="text-muted mb-0"><i class="bi bi-check2-square me-1"></i> Checklist de Documentação</h6>
+                                    <span class="badge {{ categoriasComDoc == totalCategorias ? 'text-bg-success' : 'text-bg-warning' }}">
+                                        {{ categoriasComDoc == totalCategorias ? 'Completo' : 'Pendente de Documentação' }}
+                                    </span>
+                                </div>
+
+                                <ul class="list-unstyled mb-0">
+                                    {% for tipo, label in documentTypeOptions %}
+                                        {% set temDoc = (documentosPorTipo[tipo] ?? [])|length > 0 %}
+                                        <li class="mb-2">
+                                            <i class="bi {{ temDoc ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
+                                            {{ label }}
+                                        </li>
                                     {% endfor %}
-                                {% else %}
-                                    <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</p>
-                                {% endif %}
+                                </ul>
 
                                 <hr>
 
-                                {# Partes Contrárias #}
-                                <h6 class="text-muted mb-3"><i class="bi bi-person-x me-1"></i> Partes Contrárias</h6>
-                                {% if pasta.partesContrarias|length > 0 %}
-                                    {% for parte in pasta.partesContrarias %}
-                                        <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
-                                            <i class="bi bi-person-dash text-muted"></i>
-                                            <span>{{ parte.nome }}</span>
-                                        </div>
+                                {# Arquivos por categoria #}
+                                <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> Arquivos da Pasta</h6>
+                                <ul class="list-unstyled mb-0">
+                                    {% set hasDocuments = false %}
+                                    {% for tipo, label in documentTypeOptions %}
+                                        {% set docs = documentosPorTipo[tipo] ?? [] %}
+                                        {% for doc in docs %}
+                                            {% set hasDocuments = true %}
+                                            <li class="mb-2">
+                                                <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" class="btn-link text-secondary text-decoration-none">
+                                                    <i class="bi bi-download me-1"></i>
+                                                    <i class="bi bi-file-earmark me-1"></i>
+                                                    {{ doc.nomeOriginal }}
+                                                </a>
+                                                <small class="text-muted d-block ms-4">{{ label }} - {{ doc.uploadedAt|date('d/m/Y') }} · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}</small>
+                                            </li>
+                                        {% endfor %}
                                     {% endfor %}
-                                {% else %}
-                                    <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte contrária registrada.</p>
-                                {% endif %}
+                                    {% if not hasDocuments %}
+                                        <li class="text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado.</li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                            <div class="card-footer text-center">
+                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentosModal">
+                                    <i class="bi bi-cloud-upload me-1"></i> Upload
+                                </button>
                             </div>
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -340,7 +315,82 @@
     </div>
 </section>
 
+{# Modal: Upload de Documentos #}
+<div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadDocumentosModalLabel">
+                    <i class="bi bi-cloud-upload me-1"></i> Upload de Documentos da Pasta
+                    <i class="bi bi-info-circle text-muted ms-2"
+                       data-bs-toggle="tooltip"
+                       data-bs-html="true"
+                       data-bs-placement="right"
+                       title="<strong>Arquivos permitidos e limites:</strong><br>
+🖼 PNG, JPEG: 3 MB<br>
+📄 PDF: 10 MB<br>
+🗺 KML: 5 MB<br>
+🎵 MP3, OGG, Opus, MP4 (áudio): 10 MB<br>
+🎵 WAV: 50 MB<br>
+🎬 MP4, MPEG, OGG, MOV, WMV (vídeo): 50 MB"
+                       style="cursor: help; font-size: 0.85em;"></i>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {% for tipo, label in documentTypeOptions %}
+                    <div class="border border-secondary rounded p-3 mb-3">
+                        <h6 class="mb-2"><i class="bi bi-folder me-1"></i> {{ label }}</h6>
+
+                        {% set docs = documentosPorTipo[tipo] ?? [] %}
+                        {% if docs|length > 0 %}
+                            <ul class="list-group mb-3">
+                                {% for doc in docs %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer">
+                                                <i class="bi bi-file-earmark me-1"></i> {{ doc.nomeOriginal }}
+                                            </a>
+                                            <small class="text-muted d-block">{{ doc.uploadedAt|date('d/m/Y H:i') }}</small>
+                                        </div>
+                                        <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');" class="ms-3">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="text-muted mb-2"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado para este tipo.</p>
+                        {% endif %}
+
+                        <form method="post" enctype="multipart/form-data" action="{{ path('pasta_documento_upload', {id: pasta.id}) }}" class="row g-2 align-items-end">
+                            <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
+                            <input type="hidden" name="categoria" value="{{ tipo }}">
+                            <div class="col-md-9">
+                                <label class="form-label">Arquivo</label>
+                                <input type="file" name="arquivo" class="form-control" required accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*">
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-upload me-1"></i> Enviar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
+.section-divider {
+    border-color: rgba(0,0,0,0.07);
+    margin: 0 0 1.25rem 0;
+}
 .copy-btn {
     cursor: pointer;
     opacity: 0.6;
@@ -367,6 +417,12 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Inicializar tooltips do Bootstrap
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
     document.querySelectorAll('.copy-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const text = this.getAttribute('data-copy');

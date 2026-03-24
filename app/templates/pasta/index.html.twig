@@ -28,11 +28,12 @@
                     <thead>
                         <tr>
                             <th><i class="bi bi-upc me-1"></i> NUP</th>
+                            <th><i class="bi bi-person me-1"></i> Cliente</th>
+                            <th><i class="bi bi-people me-1"></i> Partes</th>
+                            <th><i class="bi bi-briefcase me-1"></i> Nome da Ação</th>
                             <th><i class="bi bi-flag me-1"></i> Status</th>
-                            <th><i class="bi bi-calendar me-1"></i> Data de Abertura</th>
-                            <th><i class="bi bi-briefcase me-1"></i> Processo</th>
-                            <th class="text-center"><i class="bi bi-people me-1"></i> Clientes</th>
-                            <th class="text-center"><i class="bi bi-file-earmark me-1"></i> Documentos</th>
+                            <th><i class="bi bi-file-earmark-check me-1"></i> Status da Documentação</th>
+                            <th><i class="bi bi-clock-history me-1"></i> Última Modificação</th>
                             <th><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
                     </thead>
@@ -41,26 +42,47 @@
                         <tr>
                             <td class="fw-semibold">{{ pasta.nup }}</td>
                             <td>
-                                <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
-                                    {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
-                                </span>
-                            </td>
-                            <td>{{ pasta.dataAbertura|date('d/m/Y') }}</td>
-                            <td>
-                                {% if pasta.processo %}
-                                    <a href="{{ path('processo_show', {id: pasta.processo.id}) }}">
-                                        {{ pasta.processo.numeroProcesso }}
-                                    </a>
+                                {% if pasta.clientes|length > 0 %}
+                                    {% for cliente in pasta.clientes %}
+                                        <div>{{ cliente.nomeExibicao }}</div>
+                                    {% endfor %}
                                 {% else %}
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
-                            <td class="text-center">
-                                <span class="badge text-bg-info">{{ pasta.clientes|length }}</span>
+                            <td>
+                                {% if pasta.partesContrarias|length > 0 %}
+                                    {% for parte in pasta.partesContrarias %}
+                                        <div>{{ parte.nome }}</div>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
                             </td>
-                            <td class="text-center">
-                                <span class="badge text-bg-secondary">{{ pasta.documentos|length }}</span>
+                            <td>
+                                {% if pasta.processo %}
+                                    {{ pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
                             </td>
+                            <td>
+                                <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                    {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if pasta.statusDocumentos == 'APTO_PARA_PROTOCOLAR' %}
+                                    <span class="badge text-bg-success">
+                                        <i class="bi bi-check-circle me-1"></i>Apto para Protocolar
+                                    </span>
+                                {% else %}
+                                    <span class="badge text-bg-warning text-dark">
+                                        <i class="bi bi-exclamation-circle me-1"></i>Pendente de Documentação
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>{{ pasta.dataAbertura|date('d/m/Y') }}</td>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
                                     <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-info">

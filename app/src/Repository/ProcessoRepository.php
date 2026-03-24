@@ -72,11 +72,6 @@ class ProcessoRepository extends ServiceEntityRepository
                ->setParameter('situacao', $filters['situacao']);
         }
 
-        if (!empty($filters['status_documentos'])) {
-            $qb->andWhere('p.statusDocumentos = :statusDocs')
-               ->setParameter('statusDocs', $filters['status_documentos']);
-        }
-
         return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
     }
 

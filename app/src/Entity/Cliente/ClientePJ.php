@@ -39,6 +39,11 @@ class ClientePJ extends Cliente
     #[ORM\Column(length: 100)]
     private string $representanteCargo;
 
+    public function getNomeExibicao(): string
+    {
+        return $this->razaoSocial;
+    }
+
     public function getCnpj(): string
     {
         return $this->cnpj;
