@@ -3,7 +3,6 @@
 namespace App\Entity\Processo;
 
 use App\Entity\Contrato\Contrato;
-use App\Entity\Tarefa\Tarefa;
 use App\Repository\ProcessoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -74,9 +73,6 @@ class Processo
     #[ORM\JoinColumn(nullable: true)]
     private ?Contrato $contrato = null;
 
-    #[ORM\OneToMany(mappedBy: 'processo', targetEntity: Tarefa::class)]
-    private Collection $tarefas;
-
     #[ORM\Column(options: ['default' => false])]
     private bool $docPecaOk = false;
 
@@ -104,7 +100,6 @@ class Processo
         $this->movimentacoes = new ArrayCollection();
         $this->documentos = new ArrayCollection();
         $this->processosFilhos = new ArrayCollection();
-        $this->tarefas = new ArrayCollection();
         $this->statusDocumentos = self::STATUS_DOCUMENTOS_PENDENTE;
     }
 
@@ -377,14 +372,6 @@ class Processo
     {
         $this->contrato = $contrato;
         return $this;
-    }
-
-    /**
-     * @return Collection<int, Tarefa>
-     */
-    public function getTarefas(): Collection
-    {
-        return $this->tarefas;
     }
 
     public function isDocPecaOk(): bool

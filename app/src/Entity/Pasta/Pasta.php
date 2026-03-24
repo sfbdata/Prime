@@ -4,6 +4,7 @@ namespace App\Entity\Pasta;
 
 use App\Entity\Cliente\Cliente;
 use App\Entity\Processo\Processo;
+use App\Entity\Tarefa\Tarefa;
 use App\Repository\PastaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -55,6 +56,9 @@ class Pasta
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaDocumento::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $documentos;
 
+    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: Tarefa::class)]
+    private Collection $tarefas;
+
     public function __construct()
     {
         $this->dataAbertura = new \DateTimeImmutable();
@@ -62,6 +66,7 @@ class Pasta
         $this->clientes = new ArrayCollection();
         $this->partesContrarias = new ArrayCollection();
         $this->documentos = new ArrayCollection();
+        $this->tarefas = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -184,6 +189,14 @@ class Pasta
     public function getDocumentos(): Collection
     {
         return $this->documentos;
+    }
+
+    /**
+     * @return Collection<int, Tarefa>
+     */
+    public function getTarefas(): Collection
+    {
+        return $this->tarefas;
     }
 
     public function addDocumento(PastaDocumento $documento): self

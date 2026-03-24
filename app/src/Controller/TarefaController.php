@@ -3,12 +3,12 @@
 namespace App\Controller;
 
 use App\Entity\Auth\User;
-use App\Entity\Processo\Processo;
+use App\Entity\Pasta\Pasta;
 use App\Entity\Tarefa\AtribuicaoTarefa;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Repository\AtribuicaoTarefaRepository;
-use App\Repository\ProcessoRepository;
+use App\Repository\PastaRepository;
 use App\Repository\TarefaRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
@@ -89,7 +89,7 @@ class TarefaController extends AbstractController
     public function new(
         Request $request,
         UserRepository $userRepository,
-        ProcessoRepository $processoRepository,
+        PastaRepository $pastaRepository,
         EntityManagerInterface $entityManager
     ): Response {
         $this->denyAccessUnlessGranted('ROLE_ADMIN');
@@ -104,7 +104,7 @@ class TarefaController extends AbstractController
             ->getQuery()
             ->getResult();
 
-        $processos = $processoRepository->findBy([], ['numeroProcesso' => 'DESC']);
+        $pastas = $pastaRepository->findBy([], ['nup' => 'ASC']);
 
         if ($request->isMethod('POST')) {
             $tarefa = new Tarefa();
@@ -117,24 +117,24 @@ class TarefaController extends AbstractController
                 $tarefa->setPrazo(new \DateTimeImmutable($prazo));
             }
 
-            $processoInput = $request->request->get('processo_id');
-            $processoId = null;
+            $pastaInput = $request->request->get('pasta_id');
+            $pastaId = null;
 
-            if (is_string($processoInput) && trim($processoInput) !== '') {
-                $processoId = filter_var($processoInput, FILTER_VALIDATE_INT, [
+            if (is_string($pastaInput) && trim($pastaInput) !== '') {
+                $pastaId = filter_var($pastaInput, FILTER_VALIDATE_INT, [
                     'options' => ['min_range' => 1],
                 ]);
 
-                if ($processoId === false) {
-                    $this->addFlash('error', 'Processo selecionado é inválido. Escolha um processo válido.');
-                    $processoId = null;
+                if ($pastaId === false) {
+                    $this->addFlash('error', 'Pasta selecionada é inválida. Escolha uma pasta válida.');
+                    $pastaId = null;
                 }
             }
 
-            if (is_int($processoId)) {
-                $processo = $processoRepository->find($processoId);
-                if ($processo instanceof Processo) {
-                    $tarefa->setProcesso($processo);
+            if (is_int($pastaId)) {
+                $pasta = $pastaRepository->find($pastaId);
+                if ($pasta instanceof Pasta) {
+                    $tarefa->setPasta($pasta);
                 }
             }
 
@@ -176,7 +176,7 @@ class TarefaController extends AbstractController
 
         return $this->render('tarefa/new.html.twig', [
             'usuarios' => $usuarios,
-            'processos' => $processos,
+            'pastas' => $pastas,
         ]);
     }
 

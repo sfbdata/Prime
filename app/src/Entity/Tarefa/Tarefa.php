@@ -2,7 +2,7 @@
 
 namespace App\Entity\Tarefa;
 
-use App\Entity\Processo\Processo;
+use App\Entity\Pasta\Pasta;
 use App\Repository\TarefaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -42,9 +42,9 @@ class Tarefa
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $arquivosAdmin = [];
 
-    #[ORM\ManyToOne(targetEntity: Processo::class, inversedBy: 'tarefas')]
+    #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'tarefas')]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    private ?Processo $processo = null;
+    private ?Pasta $pasta = null;
 
     #[ORM\OneToMany(mappedBy: 'tarefa', targetEntity: AtribuicaoTarefa::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
     private Collection $atribuicoes;
@@ -151,14 +151,14 @@ class Tarefa
         return $this;
     }
 
-    public function getProcesso(): ?Processo
+    public function getPasta(): ?Pasta
     {
-        return $this->processo;
+        return $this->pasta;
     }
 
-    public function setProcesso(?Processo $processo): self
+    public function setPasta(?Pasta $pasta): self
     {
-        $this->processo = $processo;
+        $this->pasta = $pasta;
         return $this;
     }
 

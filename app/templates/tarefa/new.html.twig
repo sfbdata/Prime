@@ -30,11 +30,11 @@
                         <input type="datetime-local" name="prazo" class="form-control">
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">Processo vinculado (opcional)</label>
-                        <select name="processo_id" class="form-control">
-                            <option value="">Nenhum</option>
-                            {% for processo in processos %}
-                                <option value="{{ processo.id }}">{{ processo.numeroProcesso }}</option>
+                        <label class="form-label">Pasta vinculada (opcional)</label>
+                        <select name="pasta_id" class="form-control">
+                            <option value="">Nenhuma</option>
+                            {% for pasta in pastas %}
+                                <option value="{{ pasta.id }}">{{ pasta.nup }}</option>
                             {% endfor %}
                         </select>
                     </div>
