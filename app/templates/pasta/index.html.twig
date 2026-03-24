@@ -1,0 +1,96 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Pastas{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-folder2-open me-2"></i>Pastas</h1>
+        <a href="{{ path('pasta_new') }}" class="btn btn-success">
+            <i class="bi bi-plus-lg me-1"></i> Nova Pasta
+        </a>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {% if pastas|length > 0 %}
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted">
+                <i class="bi bi-list-ul me-1"></i> {{ pastas|length }} pasta(s) encontrada(s)
+            </span>
+        </div>
+
+        <div class="card">
+            <div class="card-body table-responsive p-0">
+                <table class="table table-striped table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th><i class="bi bi-upc me-1"></i> NUP</th>
+                            <th><i class="bi bi-flag me-1"></i> Status</th>
+                            <th><i class="bi bi-calendar me-1"></i> Data de Abertura</th>
+                            <th><i class="bi bi-briefcase me-1"></i> Processo</th>
+                            <th class="text-center"><i class="bi bi-people me-1"></i> Clientes</th>
+                            <th class="text-center"><i class="bi bi-file-earmark me-1"></i> Documentos</th>
+                            <th><i class="bi bi-gear me-1"></i> Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pasta in pastas %}
+                        <tr>
+                            <td class="fw-semibold">{{ pasta.nup }}</td>
+                            <td>
+                                <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                    {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
+                                </span>
+                            </td>
+                            <td>{{ pasta.dataAbertura|date('d/m/Y') }}</td>
+                            <td>
+                                {% if pasta.processo %}
+                                    <a href="{{ path('processo_show', {id: pasta.processo.id}) }}">
+                                        {{ pasta.processo.numeroProcesso }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <span class="badge text-bg-info">{{ pasta.clientes|length }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge text-bg-secondary">{{ pasta.documentos|length }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex gap-1 flex-wrap">
+                                    <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-info">
+                                        <i class="bi bi-eye me-1"></i>Ver
+                                    </a>
+                                    <a href="{{ path('pasta_edit', {id: pasta.id}) }}" class="btn btn-sm btn-warning">
+                                        <i class="bi bi-pencil me-1"></i>Editar
+                                    </a>
+                                    <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
+                                          onsubmit="return confirm('Tem certeza que deseja excluir a pasta {{ pasta.nup|e('js') }}?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash me-1"></i>Deletar
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            Nenhuma pasta cadastrada. <a href="{{ path('pasta_new') }}">Criar nova pasta</a>
+        </div>
+        {% endif %}
+
+    </div>
+</section>
+{% endblock %}

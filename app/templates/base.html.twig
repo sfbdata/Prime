@@ -205,21 +205,13 @@
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'cliente_' ? 'active' : '' }}">
                             Clientes
                         </a>
-                        <a href="{{ path('contrato_index') }}"
-                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'contrato_' ? 'active' : '' }}">
-                            Contratos
-                        </a>
                         <a href="{{ path('processo_index') }}"
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'processo_' ? 'active' : '' }}">
                             Processos
                         </a>
-                        <a href="{{ path('tarefa_minhas') }}"
-                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'tarefa_' ? 'active' : '' }}">
-                            Tarefas
-                        </a>
-                        <a href="{{ path('agenda_index') }}"
-                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'agenda_' ? 'active' : '' }}">
-                            Agenda
+                        <a href="{{ path('pasta_index') }}"
+                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'contrato_' ? 'active' : '' }}">
+                            Pastas
                         </a>
                     </div>
 

@@ -1,0 +1,251 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ isEdit ? 'Editar Pasta' : 'Nova Pasta' }}{% endblock %}
+
+{% block body %}
+{# Content Header #}
+<div class="content-header">
+    <div class="container-fluid">
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h1 class="m-0">
+                    <i class="bi bi-folder{{ isEdit ? '-symlink' : '-plus' }} me-2"></i>
+                    {{ isEdit ? 'Editar Pasta' : 'Nova Pasta' }}
+                </h1>
+            </div>
+            <div class="col-sm-6">
+                <ol class="breadcrumb float-sm-end">
+                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('pasta_index') }}">Pastas</a></li>
+                    {% if isEdit %}
+                        <li class="breadcrumb-item">
+                            <a href="{{ path('pasta_show', {id: pasta.id}) }}">{{ pasta.nup }}</a>
+                        </li>
+                    {% endif %}
+                    <li class="breadcrumb-item active">{{ isEdit ? 'Editar' : 'Nova' }}</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="content">
+    <div class="container-fluid">
+        <form method="post"
+              action="{{ isEdit ? path('pasta_edit', {id: pasta.id}) : path('pasta_new') }}">
+
+            {# Dados Básicos #}
+            <div class="card card-primary card-outline mb-4">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> Dados da Pasta</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="nup" class="form-label">
+                                NUP <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" id="nup" name="nup" class="form-control"
+                                   value="{{ pasta.getNup() ?? '' }}"
+                                   placeholder="Ex.: 001" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="status" class="form-label">
+                                Status <span class="text-danger">*</span>
+                            </label>
+                            <select id="status" name="status" class="form-select" required>
+                                <option value="ativo" {{ (pasta.status ?? 'ativo') == 'ativo' ? 'selected' : '' }}>
+                                    Ativo
+                                </option>
+                                <option value="arquivado" {{ (pasta.status ?? '') == 'arquivado' ? 'selected' : '' }}>
+                                    Arquivado
+                                </option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="dataAbertura" class="form-label">
+                                Data de Abertura <span class="text-danger">*</span>
+                            </label>
+                            <input type="date" id="dataAbertura" name="dataAbertura" class="form-control"
+                                   value="{{ pasta.dataAbertura is not null ? pasta.dataAbertura|date('Y-m-d') : '' }}"
+                                   required>
+                        </div>
+                        <div class="col-md-12">
+                            <label for="descricao" class="form-label">Descrição</label>
+                            <textarea id="descricao" name="descricao" class="form-control" rows="3"
+                                      placeholder="Observações sobre a pasta (opcional)">{{ pasta.descricao ?? '' }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# Processo #}
+            <div class="card card-outline card-info mb-4">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="bi bi-briefcase me-1"></i> Processo Vinculado</h3>
+                </div>
+                <div class="card-body">
+                    <div class="col-md-8">
+                        <label for="processo_id" class="form-label">
+                            Processo <span class="text-danger"></span>
+                        </label>
+                        <select id="processo_id" name="processo_id" class="form-select select2-basic">
+                            <option value="">— Selecione um processo —</option>
+                            {% for processo in processos %}
+                                <option value="{{ processo.id }}"
+                                    {{ (pasta.processo is not null and pasta.processo.id == processo.id) ? 'selected' : '' }}>
+                                    {{ processo.numeroProcesso }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {# Clientes #}
+            <div class="card card-outline card-success mb-4">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="bi bi-people me-1"></i> Clientes</h3>
+                </div>
+                <div class="card-body">
+                    <label for="clientes" class="form-label">Clientes vinculados</label>
+                    <select id="clientes" name="clientes[]" class="form-select select2-basic" multiple>
+                        {% for cliente in clientes %}
+                            {% set clienteNome %}
+                                {% if cliente.cpf is defined and cliente.cpf %}
+                                    {{ cliente.nomeCompleto }}
+                                {% else %}
+                                    {{ cliente.razaoSocial }}
+                                {% endif %}
+                            {% endset %}
+                            <option value="{{ cliente.id }}"
+                                {% if pasta.clientes is defined and pasta.clientes|length > 0 %}
+                                    {% for c in pasta.clientes %}
+                                        {% if c.id == cliente.id %}selected{% endif %}
+                                    {% endfor %}
+                                {% endif %}>
+                                {{ clienteNome|trim }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Segure Ctrl (ou Cmd no Mac) para selecionar múltiplos clientes.</div>
+                </div>
+            </div>
+
+            {# Partes Contrárias #}
+            <div class="card card-outline card-warning mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="card-title mb-0">
+                        <i class="bi bi-person-x me-1"></i> Partes Contrárias
+                    </h3>
+                    <button type="button" id="btn-add-parte" class="btn btn-sm btn-warning">
+                        <i class="bi bi-plus-lg me-1"></i> Adicionar Parte Contrária
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="partes-contrarias-container"
+                         data-prototype='<div class="parte-contraria-row input-group mb-2">
+                             <input type="hidden" name="partes_contrarias[__name__][id]" value="">
+                             <input type="text" name="partes_contrarias[__name__][nome]" class="form-control"
+                                    placeholder="Nome da parte contrária" required>
+                             <button type="button" class="btn btn-outline-danger btn-remove-parte">
+                                 <i class="bi bi-trash"></i>
+                             </button>
+                         </div>'>
+
+                        {# Partes já existentes #}
+                        {% for index, parte in pasta.partesContrarias %}
+                        <div class="parte-contraria-row input-group mb-2">
+                            <input type="hidden" name="partes_contrarias[{{ index }}][id]" value="{{ parte.id ?? '' }}">
+                            <input type="text" name="partes_contrarias[{{ index }}][nome]" class="form-control"
+                                   placeholder="Nome da parte contrária" value="{{ parte.nome }}" required>
+                            <button type="button" class="btn btn-outline-danger btn-remove-parte">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                        {% else %}
+                        <p class="text-muted mb-0" id="partes-empty-msg">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Nenhuma parte contrária adicionada. Clique em "Adicionar Parte Contrária" para incluir.
+                        </p>
+                        {% endfor %}
+
+                    </div>
+                </div>
+            </div>
+
+            {# Botões de ação #}
+            <div class="d-flex justify-content-between mb-4">
+                <a href="{{ isEdit ? path('pasta_show', {id: pasta.id}) : path('pasta_index') }}"
+                   class="btn btn-secondary">
+                    <i class="bi bi-x-lg me-1"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>
+                    {{ isEdit ? 'Salvar Alterações' : 'Criar Pasta' }}
+                </button>
+            </div>
+
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+$(document).ready(function () {
+
+    // Select2 para processo e clientes
+    $('.select2-basic').select2({
+        placeholder: 'Selecione...',
+        allowClear: true,
+        width: '100%'
+    });
+
+    // Partes Contrárias — CollectionType manual
+    const container  = document.getElementById('partes-contrarias-container');
+    const btnAdd     = document.getElementById('btn-add-parte');
+    const emptyMsg   = document.getElementById('partes-empty-msg');
+    const prototype  = container.dataset.prototype;
+
+    // Índice começa após as partes existentes já renderizadas
+    let index = container.querySelectorAll('.parte-contraria-row').length;
+
+    function hideEmptyMsg() {
+        if (emptyMsg) emptyMsg.style.display = 'none';
+    }
+
+    function showEmptyMsgIfNeeded() {
+        if (emptyMsg && container.querySelectorAll('.parte-contraria-row').length === 0) {
+            emptyMsg.style.display = '';
+        }
+    }
+
+    // Adicionar nova linha
+    btnAdd.addEventListener('click', function () {
+        hideEmptyMsg();
+        const html = prototype.replace(/__name__/g, index);
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html.trim();
+        const row = wrapper.firstElementChild;
+        container.appendChild(row);
+        row.querySelector('input[type="text"]').focus();
+        bindRemove(row.querySelector('.btn-remove-parte'));
+        index++;
+    });
+
+    // Remover linha
+    function bindRemove(btn) {
+        btn.addEventListener('click', function () {
+            btn.closest('.parte-contraria-row').remove();
+            showEmptyMsgIfNeeded();
+        });
+    }
+
+    // Bind botões de remoção das partes já existentes
+    container.querySelectorAll('.btn-remove-parte').forEach(bindRemove);
+
+});
+</script>
+{% endblock %}
