@@ -97,18 +97,27 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="d-flex gap-1 flex-wrap">
-                                    <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-info">
-                                        <i class="bi bi-eye me-1"></i>Ver
+                                <div class="acoes-grupo">
+                                    <a href="{{ path('pasta_show', {id: pasta.id}) }}"
+                                       class="btn-action btn-action-view"
+                                       title="Visualizar pasta"
+                                       aria-label="Visualizar pasta">
+                                        <i class="bi bi-eye"></i>
                                     </a>
-                                    <a href="{{ path('pasta_edit', {id: pasta.id}) }}" class="btn btn-sm btn-warning">
-                                        <i class="bi bi-pencil me-1"></i>Editar
+                                    <a href="{{ path('pasta_edit', {id: pasta.id}) }}"
+                                       class="btn-action btn-action-edit"
+                                       title="Editar pasta"
+                                       aria-label="Editar pasta">
+                                        <i class="bi bi-pencil"></i>
                                     </a>
                                     <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
-                                          onsubmit="return confirm('Tem certeza que deseja excluir a pasta {{ pasta.nup|e('js') }}?');">
+                                          onsubmit="return confirm('Tem certeza que deseja excluir a pasta {{ pasta.nup|e('js') }}?');" class="d-inline">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-danger">
-                                            <i class="bi bi-trash me-1"></i>Deletar
+                                        <button type="submit"
+                                                class="btn-action btn-action-delete"
+                                                title="Excluir pasta"
+                                                aria-label="Excluir pasta">
+                                            <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
                                 </div>

@@ -261,7 +261,25 @@
                             <div class="card-body">
                                 {# Processos #}
                                 <h6 class="text-muted mb-3"><i class="bi bi-briefcase me-1"></i> Processos</h6>
-                                <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum processo cadastrado.</p>
+                                <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i> Nenhum processo cadastrado.</p>
+
+                                {# Pastas #}
+                                <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> Pastas</h6>
+                                {% if pastas is empty %}
+                                    <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma pasta vinculada.</p>
+                                {% else %}
+                                    {% for pasta in pastas %}
+                                        <div class="vinculo-link mb-1">
+                                            <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="text-decoration-none">
+                                                <i class="bi bi-folder2-open me-1 text-warning"></i>
+                                                <span class="fw-semibold">{{ pasta.nup }}</span>
+                                            </a>
+                                            <span class="badge ms-1 {% if pasta.status == 'ativo' %}text-bg-success{% else %}text-bg-secondary{% endif %} small">
+                                                {{ pasta.status|capitalize }}
+                                            </span>
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -273,12 +291,18 @@
                         <i class="bi bi-arrow-left me-1"></i> Voltar aos Clientes
                     </a>
                     <div class="d-flex gap-2">
-                        <a href="{{ path('cliente_edit', {id: cliente.id}) }}" class="btn btn-warning">
+                        <a href="{{ path('cliente_edit', {id: cliente.id}) }}"
+                           class="btn btn-outline-primary btn-sm"
+                           title="Editar cliente"
+                           aria-label="Editar cliente">
                             <i class="bi bi-pencil me-1"></i> Editar
                         </a>
                         <form method="post" action="{{ path('cliente_delete', {id: cliente.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este cliente?');">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
-                            <button type="submit" class="btn btn-danger">
+                            <button type="submit"
+                                    class="btn btn-outline-danger btn-sm"
+                                    title="Excluir cliente"
+                                    aria-label="Excluir cliente">
                                 <i class="bi bi-trash me-1"></i> Excluir Cliente
                             </button>
                         </form>

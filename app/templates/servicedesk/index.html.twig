@@ -179,7 +179,10 @@
                                 <small>{{ chamado.criadoEm|date('d/m/Y H:i') }}</small>
                             </td>
                             <td>
-                                <a href="{{ path('servicedesk_show', {id: chamado.id}) }}" class="btn btn-sm btn-info">
+                                <a href="{{ path('servicedesk_show', {id: chamado.id}) }}"
+                                   class="btn-action btn-action-view"
+                                   title="Visualizar chamado"
+                                   aria-label="Visualizar chamado">
                                     <i class="bi bi-eye"></i>
                                 </a>
                             </td>

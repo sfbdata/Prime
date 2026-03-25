@@ -11,6 +11,7 @@ use App\Form\ClientePJType;
 use App\Repository\ClienteRepository;
 use App\Repository\ClientePFRepository;
 use App\Repository\ClientePJRepository;
+use App\Repository\PastaRepository;
 use App\Repository\PreCadastroRepository;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -151,7 +152,7 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
-    public function show(ClienteRepository $repo, int $id): Response
+    public function show(ClienteRepository $repo, PastaRepository $pastaRepo, int $id): Response
     {
         $cliente = $repo->find($id);
 
@@ -161,6 +162,7 @@ class ClienteController extends AbstractController
 
         return $this->render('cliente/show.html.twig', [
             'cliente' => $cliente,
+            'pastas' => $pastaRepo->findByCliente($cliente),
         ]);
     }
 

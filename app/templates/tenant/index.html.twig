@@ -38,13 +38,29 @@
                             <td>{{ tenant.isActive ? 'Ativo' : 'Inativo' }}</td>
                             <td>
                                 {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-                                    <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-sm btn-primary">Editar</a>
-                                    <form method="post" action="{{ path('app_tenant_delete', {'id': tenant.id}) }}" class="d-inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este Tenant?');">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ tenant.id) }}">
-                                        <button class="btn btn-sm btn-danger">Excluir</button>
-                                    </form>
+                                    <div class="acoes-grupo">
+                                        <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}"
+                                           class="btn-action btn-action-edit"
+                                           title="Editar tenant"
+                                           aria-label="Editar tenant">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <form method="post" action="{{ path('app_tenant_delete', {'id': tenant.id}) }}" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir este Tenant?');">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ tenant.id) }}">
+                                            <button class="btn-action btn-action-delete"
+                                                    title="Excluir tenant"
+                                                    aria-label="Excluir tenant">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 {% elseif 'ROLE_ADMIN' in app.user.roles and app.user.tenant.id == tenant.id %}
-                                    <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-sm btn-primary">Editar</a>
+                                    <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}"
+                                       class="btn-action btn-action-edit"
+                                       title="Editar tenant"
+                                       aria-label="Editar tenant">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
                                 {% else %}
                                     <span class="text-muted">Sem permissões</span>
                                 {% endif %}

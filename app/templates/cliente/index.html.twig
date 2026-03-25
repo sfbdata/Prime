@@ -84,18 +84,7 @@
 
         <div class="card">
             <div class="card-body table-responsive p-0">
-                <table class="table table-striped table-hover mb-0 table-fixed" id="tabelaClientes">
-                    <colgroup>
-                        <col style="width: 7%">
-                        <col style="width: 20%">
-                        <col style="width: 13%">
-                        <col style="width: 9%">
-                        <col style="width: 12%">
-                        <col style="width: 11%">
-                        <col style="width: 10%">
-                        <col style="width: 10%">
-                        <col style="width: 8%">
-                    </colgroup>
+                <table class="table table-striped table-hover mb-0" id="tabelaClientes">
                     <thead>
                         <tr>
                             <th class="sortable" data-col="0"><i class="bi bi-hash me-1"></i> NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
@@ -167,12 +156,28 @@
                                     {% endif %}
                                 </td>
                                 <td class="col-acoes">
-                                    <div class="btn-acoes">
-                                        <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-info">Ver</a>
-                                        <a href="{{ path('cliente_edit', {id: cliente.id}) }}" class="btn btn-sm btn-warning">Editar</a>
+                                    <div class="acoes-grupo">
+                                        <a href="{{ path('cliente_show', {id: cliente.id}) }}"
+                                           class="btn-action btn-action-view"
+                                           title="Visualizar cliente"
+                                           aria-label="Visualizar cliente">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a href="{{ path('cliente_edit', {id: cliente.id}) }}"
+                                           class="btn-action btn-action-edit"
+                                           title="Editar cliente"
+                                           aria-label="Editar cliente">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
                                         <form method="POST" action="{{ path('cliente_delete', {id: cliente.id}) }}" class="d-inline">
                                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ cliente.id) }}">
-                                            <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Tem certeza?')">Deletar</button>
+                                            <button type="submit"
+                                                    class="btn-action btn-action-delete"
+                                                    title="Excluir cliente"
+                                                    aria-label="Excluir cliente"
+                                                    onclick="return confirm('Tem certeza que deseja excluir este cliente?')">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>

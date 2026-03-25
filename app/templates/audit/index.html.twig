@@ -168,13 +168,15 @@
                                 </td>
                                 <td>
                                     <button
-                                        class="btn btn-sm btn-info"
+                                        class="btn-action btn-action-view"
                                         type="button"
                                         data-bs-toggle="collapse"
                                         data-bs-target="#{{ detailId }}"
                                         aria-expanded="false"
                                         aria-controls="{{ detailId }}"
-                                    >Ver</button>
+                                        title="Ver detalhes"
+                                        aria-label="Ver detalhes do log"
+                                    ><i class="bi bi-eye"></i></button>
                                 </td>
                             </tr>
                             <tr class="collapse" id="{{ detailId }}">

@@ -97,16 +97,7 @@
     {% if processos|length > 0 %}
     <div class="card">
         <div class="card-body table-responsive p-0">
-            <table class="table table-striped table-hover mb-0 table-fixed" id="tabelaProcessos">
-                <colgroup>
-                    <col style="width: 25%">
-                    <col style="width: 11%">
-                    <col style="width: 17%">
-                    <col style="width: 19%">
-                    <col style="width: 11%">
-                    <col style="width: 11%">
-                    <col style="width: 6%">
-                </colgroup>
+            <table class="table table-striped table-hover mb-0" id="tabelaProcessos">
                 <thead>
                     <tr>
                         <th><i class="bi bi-hash me-1"></i> Número do Processo</th>
@@ -130,9 +121,19 @@
                                 </span>
                             </td>
                             <td class="col-acoes">
-                                <div class="btn-acoes">
-                                    <a href="{{ path('processo_show', {id: processo.id}) }}" class="btn btn-sm btn-info">Ver</a>
-                                    <a href="{{ path('processo_edit', {id: processo.id}) }}" class="btn btn-sm btn-warning">Editar</a>
+                                <div class="acoes-grupo">
+                                    <a href="{{ path('processo_show', {id: processo.id}) }}"
+                                       class="btn-action btn-action-view"
+                                       title="Visualizar processo"
+                                       aria-label="Visualizar processo">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{{ path('processo_edit', {id: processo.id}) }}"
+                                       class="btn-action btn-action-edit"
+                                       title="Editar processo"
+                                       aria-label="Editar processo">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
                                 </div>
                             </td>
                         </tr>

@@ -206,7 +206,10 @@
                                                         </td>
                                                         <td>{{ tarefa.dataCriacao|date('d/m/Y') }}</td>
                                                         <td>
-                                                            <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="btn btn-sm btn-outline-primary">
+                                                            <a href="{{ path('tarefa_show', {id: tarefa.id}) }}"
+                                                               class="btn-action btn-action-view"
+                                                               title="Visualizar tarefa"
+                                                               aria-label="Visualizar tarefa">
                                                                 <i class="bi bi-eye"></i>
                                                             </a>
                                                         </td>
@@ -298,13 +301,19 @@
                         <i class="bi bi-arrow-left me-1"></i> Voltar às Pastas
                     </a>
                     <div class="d-flex gap-2">
-                        <a href="{{ path('pasta_edit', {id: pasta.id}) }}" class="btn btn-warning">
+                        <a href="{{ path('pasta_edit', {id: pasta.id}) }}"
+                           class="btn btn-outline-primary btn-sm"
+                           title="Editar pasta"
+                           aria-label="Editar pasta">
                             <i class="bi bi-pencil me-1"></i> Editar
                         </a>
                         <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
                               onsubmit="return confirm('Tem certeza que deseja excluir esta pasta? Esta ação não pode ser desfeita.');">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
-                            <button type="submit" class="btn btn-danger">
+                            <button type="submit"
+                                    class="btn btn-outline-danger btn-sm"
+                                    title="Excluir pasta"
+                                    aria-label="Excluir pasta">
                                 <i class="bi bi-trash me-1"></i> Excluir Pasta
                             </button>
                         </form>

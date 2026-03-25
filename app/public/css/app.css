@@ -1,3 +1,71 @@
+/* =============================================================
+   BOTÕES DE AÇÃO — Visualizar / Editar / Excluir
+   Padrão corporativo: discreto, minimalista, acessível
+   ============================================================= */
+
+.btn-action {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 6px;
+    background: transparent !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+    text-decoration: none !important;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+/* Visualizar — cinza neutro */
+.btn-action.btn-action-view {
+    color: #7a8fa0 !important;
+}
+.btn-action.btn-action-view:hover,
+.btn-action.btn-action-view:focus {
+    color: #4a6275 !important;
+    background-color: rgba(122, 143, 160, 0.12) !important;
+    outline: none;
+}
+
+/* Editar — azul */
+.btn-action.btn-action-edit {
+    color: #2e7bc4 !important;
+}
+.btn-action.btn-action-edit:hover,
+.btn-action.btn-action-edit:focus {
+    color: #1a5a9a !important;
+    background-color: rgba(46, 123, 196, 0.12) !important;
+    outline: none;
+}
+
+/* Excluir — vermelho suave */
+.btn-action.btn-action-delete {
+    color: #c0524a !important;
+}
+.btn-action.btn-action-delete:hover,
+.btn-action.btn-action-delete:focus {
+    color: #922e28 !important;
+    background-color: rgba(192, 82, 74, 0.11) !important;
+    outline: none;
+}
+
+/* Grupo de ações — espaçamento confortável entre ícones */
+.acoes-grupo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* =============================================================
+   BOTÕES LEGADOS — manter compatibilidade
+   ============================================================= */
+
 /* ===== Open Sans Font ===== */
 @font-face {
     font-family: 'Open Sans';

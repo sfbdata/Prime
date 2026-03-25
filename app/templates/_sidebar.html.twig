@@ -35,6 +35,14 @@
                 </li>
 
                 <li class="pje-menu-item">
+                    <a href="{{ path('pasta_index') }}"
+                       class="pje-menu-link {{ currentRoute starts with 'pasta_' ? 'active' : '' }}">
+                        <i class="bi bi-folder pje-nav-icon"></i>
+                        <span>Pastas</span>
+                    </a>
+                </li>
+
+                <li class="pje-menu-item">
                     <a href="{{ path('cliente_index') }}"
                        class="pje-menu-link {{ currentRoute starts with 'cliente_' ? 'active' : '' }}">
                         <i class="bi bi-people pje-nav-icon"></i>

@@ -94,20 +94,32 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{{ path('agenda_show', {id: evento.id}) }}" class="btn btn-sm btn-info" title="Ver">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <a href="{{ path('agenda_editar', {id: evento.id}) }}" class="btn btn-sm btn-warning" title="Editar">
-                                    <i class="bi bi-pencil"></i>
-                                </a>
-                                {% if evento.status != 'cancelado' %}
-                                <form method="POST" action="{{ path('agenda_cancelar', {id: evento.id}) }}" class="d-inline">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('cancelar' ~ evento.id) }}">
-                                    <button type="submit" class="btn btn-sm btn-danger" title="Cancelar" onclick="return confirm('Cancelar este evento?')">
-                                        <i class="bi bi-x-circle"></i>
-                                    </button>
-                                </form>
-                                {% endif %}
+                                <div class="acoes-grupo">
+                                    <a href="{{ path('agenda_show', {id: evento.id}) }}"
+                                       class="btn-action btn-action-view"
+                                       title="Visualizar evento"
+                                       aria-label="Visualizar evento">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{{ path('agenda_editar', {id: evento.id}) }}"
+                                       class="btn-action btn-action-edit"
+                                       title="Editar evento"
+                                       aria-label="Editar evento">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    {% if evento.status != 'cancelado' %}
+                                    <form method="POST" action="{{ path('agenda_cancelar', {id: evento.id}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('cancelar' ~ evento.id) }}">
+                                        <button type="submit"
+                                                class="btn-action btn-action-delete"
+                                                title="Cancelar evento"
+                                                aria-label="Cancelar evento"
+                                                onclick="return confirm('Cancelar este evento?')">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                     {% endfor %}

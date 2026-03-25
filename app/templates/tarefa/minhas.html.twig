@@ -53,7 +53,12 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <a href="{{ path('tarefa_show', {id: tarefa.id}) }}" class="btn btn-sm btn-info">Ver</a>
+                                <a href="{{ path('tarefa_show', {id: tarefa.id}) }}"
+                                   class="btn-action btn-action-view"
+                                   title="Visualizar tarefa"
+                                   aria-label="Visualizar tarefa">
+                                    <i class="bi bi-eye"></i>
+                                </a>
                             </td>
                         </tr>
                     {% endfor %}

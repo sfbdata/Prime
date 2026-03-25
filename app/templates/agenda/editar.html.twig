@@ -99,7 +99,9 @@
                         </div>
                     </div>
                     <div class="card-footer">
-                        <button type="submit" class="btn btn-warning">
+                        <button type="submit"
+                                class="btn btn-outline-primary btn-sm"
+                                aria-label="Salvar alterações">
                             <i class="bi bi-check-lg me-1"></i> Salvar Alterações
                         </button>
                         <a href="{{ path('agenda_show', {id: evento.id}) }}" class="btn btn-secondary">
@@ -139,7 +141,10 @@
                         {% endif %}
                         <form method="POST" action="{{ path('agenda_excluir', {id: evento.id}) }}">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ evento.id) }}">
-                            <button type="submit" class="btn btn-danger w-100" onclick="return confirm('Tem certeza que deseja EXCLUIR permanentemente este evento?')">
+                            <button type="submit"
+                                    class="btn btn-outline-danger w-100"
+                                    aria-label="Excluir evento permanentemente"
+                                    onclick="return confirm('Tem certeza que deseja EXCLUIR permanentemente este evento?')">
                                 <i class="bi bi-trash me-1"></i> Excluir Evento
                             </button>
                         </form>

@@ -65,8 +65,20 @@
                         {% endif %}
                     </td>
                     <td>
-                        <a href="{{ path('pre_cadastro_show', {id: preCadastro.id}) }}" class="btn btn-sm btn-info">Ver detalhes</a>
-                        <a href="{{ path('cliente_from_pre_cadastro', {id: preCadastro.id}) }}" class="btn btn-sm btn-warning">Cadastrar Cliente</a>
+                        <div class="acoes-grupo">
+                            <a href="{{ path('pre_cadastro_show', {id: preCadastro.id}) }}"
+                               class="btn-action btn-action-view"
+                               title="Ver detalhes"
+                               aria-label="Ver detalhes do pré-cadastro">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="{{ path('cliente_from_pre_cadastro', {id: preCadastro.id}) }}"
+                               class="btn-action btn-action-edit"
+                               title="Cadastrar Cliente"
+                               aria-label="Cadastrar cliente a partir do pré-cadastro">
+                                <i class="bi bi-person-plus"></i>
+                            </a>
+                        </div>
                     </td>
                 </tr>
             {% else %}
