@@ -44,26 +44,6 @@
                             <div class="col-12 col-sm-4">
                                 <div class="info-box bg-light">
                                     <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Contratos</span>
-                                        <span class="info-box-number text-center text-muted mb-0">{{ cliente.contratos|length }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Processos</span>
-                                        {% set totalProcessos = 0 %}
-                                        {% for contrato in cliente.contratos %}
-                                            {% set totalProcessos = totalProcessos + contrato.processos|length %}
-                                        {% endfor %}
-                                        <span class="info-box-number text-center text-muted mb-0">{{ totalProcessos }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
-                                    <div class="info-box-content">
                                         <span class="info-box-text text-center text-muted">Tipo</span>
                                         <span class="info-box-number text-center text-muted mb-0">{{ cliente.cpf is defined ? 'PF' : 'PJ' }}</span>
                                     </div>
@@ -279,62 +259,9 @@
                                 <h3 class="card-title"><i class="bi bi-link-45deg me-1"></i> Vínculos</h3>
                             </div>
                             <div class="card-body">
-                                {# Contratos #}
-                                <h6 class="text-muted mb-3"><i class="bi bi-file-earmark-text me-1"></i> Contratos</h6>
-                                {% if cliente.contratos|length > 0 %}
-                                    {% for contrato in cliente.contratos %}
-                                        <a href="{{ path('contrato_show', {id: contrato.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
-                                            <div class="d-flex justify-content-between align-items-start">
-                                                <div>
-                                                    <span class="fw-semibold text-primary">
-                                                        <i class="bi bi-file-earmark me-1"></i>{{ contrato.titulo }}
-                                                    </span>
-                                                    <small class="text-muted d-block">
-                                                        {% if contrato.dataInicio %}Início: {{ contrato.dataInicio|date('d/m/Y') }}{% endif %}
-                                                        {% if contrato.valorTotal %} | R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}{% endif %}
-                                                    </small>
-                                                </div>
-                                                <span class="badge {{ contrato.status == 'ATIVO' ? 'text-bg-success' : 'text-bg-secondary' }}">
-                                                    {{ contrato.status }}
-                                                </span>
-                                            </div>
-                                        </a>
-                                    {% endfor %}
-                                {% else %}
-                                    <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i> Nenhum contrato cadastrado.</p>
-                                {% endif %}
-                                <a href="{{ path('cliente_contrato_new', {id: cliente.id}) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-plus-lg me-1"></i> Novo Contrato
-                                </a>
-
-                                <hr>
-
                                 {# Processos #}
                                 <h6 class="text-muted mb-3"><i class="bi bi-briefcase me-1"></i> Processos</h6>
-                                {% set hasProcessos = false %}
-                                {% for contrato in cliente.contratos %}
-                                    {% for processo in contrato.processos %}
-                                        {% set hasProcessos = true %}
-                                        <a href="{{ path('processo_show', {id: processo.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
-                                            <div class="d-flex justify-content-between align-items-start">
-                                                <div>
-                                                    <span class="fw-semibold text-primary">
-                                                        <i class="bi bi-briefcase me-1"></i>{{ processo.numeroProcesso }}
-                                                    </span>
-                                                    <small class="text-muted d-block">
-                                                        {{ processo.siglaTribunal ?: '-' }} | {{ processo.classeProcessual ?: '-' }}
-                                                    </small>
-                                                </div>
-                                                <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}text-bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
-                                                    {{ processo.situacaoProcesso|replace({'_': ' '}) }}
-                                                </span>
-                                            </div>
-                                        </a>
-                                    {% endfor %}
-                                {% endfor %}
-                                {% if not hasProcessos %}
-                                    <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum processo cadastrado.</p>
-                                {% endif %}
+                                <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum processo cadastrado.</p>
                             </div>
                         </div>
                     </div>

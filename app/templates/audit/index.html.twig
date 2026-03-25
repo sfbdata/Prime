@@ -194,15 +194,7 @@
                                                             {% set relatedClass = event.related.class ?? '' %}
                                                             {% set relatedId = event.related.id ?? null %}
 
-                                                            {% if event.field == 'contratos' and 'Cliente' in ownerClass and 'Contrato' in relatedClass %}
-                                                                {% if event.operation == 'remove' %}
-                                                                    Cliente {{ auditHelper.entityRef(event.owner ?? null) }} foi removido do contrato de ID {{ relatedId ?? '-' }}.
-                                                                {% elseif event.operation == 'add' %}
-                                                                    Cliente {{ auditHelper.entityRef(event.owner ?? null) }} foi associado ao contrato de ID {{ relatedId ?? '-' }}.
-                                                                {% else %}
-                                                                    Associação de cliente e contrato foi alterada.
-                                                                {% endif %}
-                                                            {% elseif event.operation == 'remove' %}
+                                                            {% if event.operation == 'remove' %}
                                                                 {{ auditHelper.entityRef(event.owner ?? null) }} foi removido de {{ event.field ?? 'associação' }} de {{ auditHelper.entityRef(event.related ?? null) }}.
                                                             {% elseif event.operation == 'add' %}
                                                                 {{ auditHelper.entityRef(event.owner ?? null) }} foi associado em {{ event.field ?? 'associação' }} com {{ auditHelper.entityRef(event.related ?? null) }}.

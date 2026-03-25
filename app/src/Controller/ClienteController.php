@@ -5,11 +5,9 @@ namespace App\Controller;
 use App\Entity\Cliente\Cliente;
 use App\Entity\Cliente\ClientePF;
 use App\Entity\Cliente\ClientePJ;
-use App\Entity\Contrato\Contrato;
 use App\Entity\Comercial\PreCadastro;
 use App\Form\ClientePFType;
 use App\Form\ClientePJType;
-use App\Form\ContratoType;
 use App\Repository\ClienteRepository;
 use App\Repository\ClientePFRepository;
 use App\Repository\ClientePJRepository;
@@ -36,8 +34,6 @@ use Symfony\Component\Routing\Attribute\Route;
  * - POST /clientes/{id}/editar               → Atualiza cliente
  * - POST /clientes/{id}/deletar              → Remove cliente
  *
- * Rotas aninhadas por contexto (opcional):
- * - GET  /clientes/{clienteId}/contratos     → Lista contratos do cliente
  */
 #[Route('/clientes')]
 class ClienteController extends AbstractController
@@ -236,60 +232,4 @@ class ClienteController extends AbstractController
         return $this->redirectToRoute('cliente_index');
     }
 
-    #[Route('/{clienteId}/contrato/{contratoId}/desvincular', name: 'cliente_contrato_unlink', methods: ['POST'])]
-    public function unlinkContrato(Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em, int $clienteId, int $contratoId): Response
-    {
-        $cliente = $clienteRepo->find($clienteId);
-
-        if (!$cliente) {
-            throw $this->createNotFoundException('Cliente não encontrado');
-        }
-
-        $contratoToRemove = null;
-        foreach ($cliente->getContratos() as $contrato) {
-            if ($contrato->getId() === $contratoId) {
-                $contratoToRemove = $contrato;
-                break;
-            }
-        }
-
-        if (!$contratoToRemove) {
-            throw $this->createNotFoundException('Contrato não encontrado');
-        }
-
-        if ($this->isCsrfTokenValid('unlink_contrato' . $contratoId, $request->request->get('_token'))) {
-            $cliente->removeContrato($contratoToRemove);
-            $em->flush();
-            $this->addFlash('success', 'Vínculo com contrato removido com sucesso.');
-        }
-
-        return $this->redirectToRoute('cliente_edit', ['id' => $clienteId]);
-    }
-
-    #[Route('/{id}/contrato/novo', name: 'cliente_contrato_new', methods: ['GET', 'POST'])]
-    public function newContrato(Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em, int $id): Response
-    {
-        $cliente = $clienteRepo->find($id);
-
-        if (!$cliente) {
-            throw $this->createNotFoundException('Cliente não encontrado');
-        }
-
-        $contrato = new Contrato();
-        $form = $this->createForm(ContratoType::class, $contrato);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            $cliente->addContrato($contrato);
-            $em->persist($contrato);
-            $em->flush();
-            $this->addFlash('success', 'Contrato criado com sucesso.');
-            return $this->redirectToRoute('cliente_show', ['id' => $id]);
-        }
-
-        return $this->render('cliente/contrato_new.html.twig', [
-            'form' => $form,
-            'cliente' => $cliente,
-        ]);
-    }
 }

@@ -31,8 +31,8 @@
                             <th><i class="bi bi-person me-1"></i> Cliente</th>
                             <th><i class="bi bi-people me-1"></i> Partes</th>
                             <th><i class="bi bi-briefcase me-1"></i> Nome da Ação</th>
-                            <th><i class="bi bi-flag me-1"></i> Status</th>
                             <th><i class="bi bi-file-earmark-check me-1"></i> Status da Documentação</th>
+                            <th><i class="bi bi-flag me-1"></i> Status</th>
                             <th><i class="bi bi-clock-history me-1"></i> Última Modificação</th>
                             <th><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
@@ -67,11 +67,6 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
-                                    {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
-                                </span>
-                            </td>
-                            <td>
                                 {% if pasta.statusDocumentos == 'APTO_PARA_PROTOCOLAR' %}
                                     <span class="badge text-bg-success">
                                         <i class="bi bi-check-circle me-1"></i>Apto para Protocolar
@@ -82,7 +77,25 @@
                                     </span>
                                 {% endif %}
                             </td>
-                            <td>{{ pasta.dataAbertura|date('d/m/Y') }}</td>
+
+                            
+                            <td>
+                                <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
+                                    {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
+                                </span>
+                            </td>
+
+
+                            <td>
+                                {% set dias = date().diff(pasta.dataAbertura).days %}
+                                {% if dias == 0 %}
+                                    Hoje
+                                {% elseif dias == 1 %}
+                                    1 dia atrás
+                                {% else %}
+                                    {{ dias }} dias atrás
+                                {% endif %}
+                            </td>
                             <td>
                                 <div class="d-flex gap-1 flex-wrap">
                                     <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-info">

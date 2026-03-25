@@ -21,7 +21,7 @@
                     <select id="cliente_id" name="cliente_id" class="form-control select2-search">
                         <option value="">SELECIONE UM CLIENTE (opcional)</option>
                         {% for cliente in clientes %}
-                            <option value="{{ cliente.id }}" data-contratos="{{ cliente.contratos|map(c => c.id)|join(',') }}" data-nome="{% if cliente.cpf is defined %}{{ cliente.nomeCompleto }}{% else %}{{ cliente.razaoSocial }}{% endif %}" data-documento="{% if cliente.cpf is defined %}{{ cliente.cpf }}{% else %}{{ cliente.cnpj }}{% endif %}">
+                            <option value="{{ cliente.id }}" data-nome="{% if cliente.cpf is defined %}{{ cliente.nomeCompleto }}{% else %}{{ cliente.razaoSocial }}{% endif %}" data-documento="{% if cliente.cpf is defined %}{{ cliente.cpf }}{% else %}{{ cliente.cnpj }}{% endif %}">
                                 {% if cliente.cpf is defined %}
                                     {{ cliente.nomeCompleto }} ({{ cliente.cpf }})
                                 {% else %}
@@ -30,18 +30,6 @@
                             </option>
                         {% endfor %}
                     </select>
-                </div>
-
-                <!-- Seleção de Contrato -->
-                <div class="mb-3">
-                    <label for="contrato_id" class="form-label">Contrato Associado (opcional)</label>
-                    <select id="contrato_id" name="contrato_id" class="form-control">
-                        <option value="">SELECIONE UM CONTRATO (opcional)</option>
-                        {% for contrato in contratos %}
-                            <option value="{{ contrato.id }}" data-cliente-ids="{{ contrato.clientes|map(c => c.id)|join(',') }}" {% if processo is defined and processo.contrato and processo.contrato.id == contrato.id %}selected{% endif %}>{{ contrato.titulo }}</option>
-                        {% endfor %}
-                    </select>
-                    <small id="contrato-sem-vinculo-msg" class="form-text text-warning d-none">Este cliente não possui contratos vinculados.</small>
                 </div>
 
                 <hr>
@@ -411,102 +399,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (initialTribunal) {
         $('#siglaTribunal').val(initialTribunal).trigger('change');
     }
-
-    // Filtrar contratos por cliente
-    const clienteSelect = document.getElementById('cliente_id');
-    const contratoSelect = document.getElementById('contrato_id');
-    const contratoSemVinculoMsg = document.getElementById('contrato-sem-vinculo-msg');
-
-    // Guardar as opções originais (incluindo a opção padrão)
-    const originalContratoOptions = Array.from(contratoSelect.querySelectorAll('option'));
-    const placeholderContratoOption = originalContratoOptions[0]?.cloneNode(true);
-
-    function preencherContratosPermitidos(allowedContratoIds, clienteSelecionado) {
-        const valorAtual = contratoSelect.value;
-        contratoSelect.innerHTML = '';
-
-        if (placeholderContratoOption) {
-            contratoSelect.appendChild(placeholderContratoOption.cloneNode(true));
-        }
-
-        const mostrarTodos = !Array.isArray(allowedContratoIds);
-        const allowedSet = new Set((allowedContratoIds || []).map(id => String(id).trim()).filter(id => id !== ''));
-
-        originalContratoOptions.slice(1).forEach(option => {
-            const contratoId = String(option.value).trim();
-            if (mostrarTodos || allowedSet.has(contratoId)) {
-                contratoSelect.appendChild(option.cloneNode(true));
-            }
-        });
-
-        const quantidadeContratos = Math.max(0, contratoSelect.options.length - 1);
-        if (clienteSelecionado && quantidadeContratos === 0) {
-            contratoSelect.disabled = true;
-            contratoSemVinculoMsg?.classList.remove('d-none');
-        } else {
-            contratoSelect.disabled = false;
-            contratoSemVinculoMsg?.classList.add('d-none');
-        }
-
-        if (valorAtual && contratoSelect.querySelector(`option[value="${valorAtual}"]`)) {
-            contratoSelect.value = valorAtual;
-            return;
-        }
-
-        contratoSelect.value = '';
-    }
-
-    function obterContratosDoClienteSelecionado(selectedClienteId) {
-        if (!selectedClienteId) {
-            return null;
-        }
-
-        const selectedOption = clienteSelect.options[clienteSelect.selectedIndex];
-        const contratosViaCliente = (selectedOption?.dataset.contratos || '')
-            .split(',')
-            .map(id => id.trim())
-            .filter(id => id !== '');
-
-        if (contratosViaCliente.length > 0) {
-            return contratosViaCliente;
-        }
-
-        return originalContratoOptions
-            .slice(1)
-            .filter(option => {
-                const clienteIds = (option.dataset.clienteIds || '')
-                    .split(',')
-                    .map(id => id.trim())
-                    .filter(id => id !== '');
-
-                return clienteIds.includes(String(selectedClienteId));
-            })
-            .map(option => String(option.value).trim())
-            .filter(id => id !== '');
-    }
-
-    function aplicarFiltroContratos() {
-        const selectedClienteId = clienteSelect.value;
-
-        if (!selectedClienteId) {
-            preencherContratosPermitidos(null, false);
-            return;
-        }
-
-        const contratosDoCliente = obterContratosDoClienteSelecionado(selectedClienteId);
-        preencherContratosPermitidos(contratosDoCliente, true);
-    }
-
-    clienteSelect.addEventListener('change', function() {
-        aplicarFiltroContratos();
-    });
-
-    $('#cliente_id').on('select2:select select2:clear', function() {
-        aplicarFiltroContratos();
-    });
-
-    // Aplicar filtro inicial da tela (edição ou cliente pré-selecionado)
-    aplicarFiltroContratos();
 
     // Adicionar parte
     document.getElementById('btn-add-parte').addEventListener('click', function() {

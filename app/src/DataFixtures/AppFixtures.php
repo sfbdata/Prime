@@ -6,7 +6,6 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Comercial\PreCadastro;
-use App\Entity\Contrato\Contrato;
 use App\Entity\Cliente\ClientePF;
 use App\Entity\Cliente\ClientePJ;
 use App\Entity\Processo\Processo;
@@ -50,16 +49,9 @@ class AppFixtures extends Fixture
         $this->loadPreCadastros($manager, $clientesPF, $clientesPJ);
 
         // =============================================
-        // 5. CONTRATOS
-        // FIX: addContrato() chamado pelo lado owner (Cliente),
-        //      garantindo que a tabela cliente_contrato seja populada.
+        // 5. PROCESSOS
         // =============================================
-        $contratos = $this->loadContratos($manager, $clientesPF, $clientesPJ, $users);
-
-        // =============================================
-        // 6. PROCESSOS
-        // =============================================
-        $processos = $this->loadProcessos($manager, $contratos);
+        $processos = $this->loadProcessos($manager);
 
         // =============================================
         // 7. TAREFAS
@@ -437,89 +429,9 @@ class AppFixtures extends Fixture
     }
 
     // -----------------------------------------------
-    // CONTRATOS
-    // FIX: vínculo cliente↔contrato feito pelo lado owner (Cliente::addContrato),
-    //      garantindo que a tabela cliente_contrato seja populada corretamente.
-    // -----------------------------------------------
-    private function loadContratos(ObjectManager $manager, array $pfs, array $pjs, array $users): array
-    {
-        $dados = [
-            [
-                'titulo'      => 'Contrato de Assessoria Trabalhista - João Ferreira',
-                'descricao'   => 'Prestação de serviços jurídicos na área trabalhista, incluindo defesa em ação de rescisão indireta e verbas rescisórias.',
-                'status'      => Contrato::STATUS_ATIVO,
-                'dataInicio'  => '2024-01-10',
-                'valorTotal'  => '7200.00',
-                'clientes'    => [$pfs[0]],
-                'responsavel' => $users[1], // Dra. Fernanda
-            ],
-            [
-                'titulo'      => 'Contrato de Assessoria Empresarial - Horizonte Construções',
-                'descricao'   => 'Assessoria jurídica empresarial mensal com cobertura de contratos, compliance, trabalhista e tributário.',
-                'status'      => Contrato::STATUS_ATIVO,
-                'dataInicio'  => '2023-06-01',
-                'valorTotal'  => '180000.00',
-                'clientes'    => [$pjs[0]],
-                'responsavel' => $users[1], // Dra. Fernanda
-            ],
-            [
-                'titulo'      => 'Contrato de Representação Judicial - Maria Silva',
-                'descricao'   => 'Representação em ação de divórcio litigioso com guarda e partilha de bens.',
-                'status'      => Contrato::STATUS_ATIVO,
-                'dataInicio'  => '2024-02-20',
-                'valorTotal'  => '12000.00',
-                'clientes'    => [$pfs[1]],
-                'responsavel' => $users[2], // Dr. Marcelo
-            ],
-            [
-                'titulo'      => 'Contrato de Indenização por Dano Moral - Roberto Santos',
-                'descricao'   => 'Patrocínio de ação de indenização por danos morais em razão de inscrição indevida em cadastros de inadimplentes.',
-                'status'      => Contrato::STATUS_ATIVO,
-                'dataInicio'  => '2023-09-15',
-                'valorTotal'  => '4200.00',
-                'clientes'    => [$pfs[2]],
-                'responsavel' => $users[2], // Dr. Marcelo
-            ],
-            [
-                'titulo'      => 'Contrato de Consultoria - Supermercados Família S.A.',
-                'descricao'   => 'Consultoria jurídica em direito do consumidor, relações trabalhistas e revisão de contratos de fornecimento.',
-                'status'      => Contrato::STATUS_ENCERRADO,
-                'dataInicio'  => '2022-03-01',
-                'valorTotal'  => '36000.00',
-                'clientes'    => [$pjs[1]],
-                'responsavel' => $users[1], // Dra. Fernanda
-            ],
-        ];
-
-        $contratos = [];
-        foreach ($dados as $dado) {
-            $contrato = new Contrato();
-            $contrato->setTitulo($dado['titulo']);
-            $contrato->setDescricao($dado['descricao']);
-            $contrato->setStatus($dado['status']);
-            if ($dado['dataInicio']) {
-                $contrato->setDataInicio(new \DateTimeImmutable($dado['dataInicio']));
-            }
-            $contrato->setValorTotal($dado['valorTotal']);
-            $contrato->setResponsavel($dado['responsavel']);
-
-            // FIX: chama pelo lado owner (Cliente), que faz addContrato internamente
-            // e garante a inserção na tabela de junção cliente_contrato.
-            foreach ($dado['clientes'] as $cliente) {
-                $cliente->addContrato($contrato);
-            }
-
-            $manager->persist($contrato);
-            $contratos[] = $contrato;
-        }
-
-        return $contratos;
-    }
-
-    // -----------------------------------------------
     // PROCESSOS
     // -----------------------------------------------
-    private function loadProcessos(ObjectManager $manager, array $contratos): array
+    private function loadProcessos(ObjectManager $manager): array
     {
         $dados = [
             [
@@ -531,7 +443,6 @@ class AppFixtures extends Fixture
                 'situacao'       => 'Em Andamento',
                 'instancia'      => '1ª Instância',
                 'distribuicao'   => '2024-01-25',
-                'contrato'       => $contratos[0],
                 'partes'         => [
                     ['tipo' => 'RECLAMANTE', 'nome' => 'João Carlos Ferreira',       'documento' => '123.456.789-01',      'papel' => 'Autor'],
                     ['tipo' => 'RECLAMADO',  'nome' => 'Empresa XYZ Comércio Ltda.', 'documento' => '98.765.432/0001-10',  'papel' => 'Réu'],
@@ -559,7 +470,6 @@ class AppFixtures extends Fixture
                 'situacao'       => 'Em Andamento',
                 'instancia'      => '1ª Instância',
                 'distribuicao'   => '2023-11-10',
-                'contrato'       => $contratos[2],
                 'partes'         => [
                     ['tipo' => 'AUTOR', 'nome' => 'Maria Aparecida Silva',   'documento' => '234.567.890-12', 'papel' => 'Requerente'],
                     ['tipo' => 'REU',   'nome' => 'Carlos Henrique Moreira', 'documento' => '321.654.987-00', 'papel' => 'Requerido'],
@@ -586,7 +496,6 @@ class AppFixtures extends Fixture
                 'situacao'       => 'Aguardando Julgamento',
                 'instancia'      => '2ª Instância',
                 'distribuicao'   => '2022-05-18',
-                'contrato'       => $contratos[3],
                 'partes'         => [
                     ['tipo' => 'APELANTE', 'nome' => 'Roberto Nascimento Santos', 'documento' => '345.678.901-23',      'papel' => 'Recorrente'],
                     ['tipo' => 'APELADO',  'nome' => 'Banco Meridional S.A.',     'documento' => '01.023.456/0001-54',  'papel' => 'Recorrido'],
@@ -621,7 +530,6 @@ class AppFixtures extends Fixture
             $p->setSituacaoProcesso($dado['situacao']);
             $p->setInstancia($dado['instancia']);
             $p->setDataDistribuicao(new \DateTime($dado['distribuicao']));
-            $p->setContrato($dado['contrato']);
             $p->setDataAtualizacao(new \DateTimeImmutable());
 
             // Doc flags

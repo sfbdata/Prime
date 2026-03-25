@@ -66,8 +66,6 @@
                             {% set currentRoute = app.request.attributes.get('_route')|default('') %}
                             {% if currentRoute starts with 'cliente_' %}
                                 {% set pageTitle = 'Clientes' %}
-                            {% elseif currentRoute starts with 'contrato_' %}
-                                {% set pageTitle = 'Contratos' %}
                             {% elseif currentRoute starts with 'processo_' %}
                                 {% set pageTitle = 'Processos' %}
                             {% elseif currentRoute starts with 'tarefa_' %}
@@ -210,7 +208,7 @@
                             Processos
                         </a>
                         <a href="{{ path('pasta_index') }}"
-                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'contrato_' ? 'active' : '' }}">
+                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'pasta_' ? 'active' : '' }}">
                             Pastas
                         </a>
                     </div>

@@ -121,39 +121,6 @@
                                     </div>
                                 </div>
 
-                                {% if processo.contrato %}
-                                <div class="mt-3 p-3 bg-light rounded">
-                                    <strong><i class="bi bi-file-earmark-text me-1"></i> Contrato Associado:</strong>
-                                    <span class="me-2">{{ processo.contrato.titulo }}</span>
-                                    <a href="{{ path('contrato_show', {id: processo.contrato.id}) }}" class="btn btn-sm btn-outline-primary">
-                                        <i class="bi bi-eye me-1"></i> Ver Contrato
-                                    </a>
-                                </div>
-                                {% endif %}
-
-                                {# Clientes Vinculados #}
-                                {% set clientesVinculados = processo.contrato ? processo.contrato.clientes : [] %}
-                                {% if clientesVinculados|length > 0 %}
-                                <div class="mt-3 p-3 bg-light rounded">
-                                    <strong><i class="bi bi-people me-1"></i> Clientes Vinculados:</strong>
-                                    <div class="mt-2">
-                                        {% for cliente in clientesVinculados %}
-                                            <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="btn btn-sm btn-outline-secondary me-2 mb-1">
-                                                <i class="bi bi-person me-1"></i>
-                                                {% if cliente.cpf is defined and cliente.cpf %}
-                                                    {{ cliente.nomeCompleto }}
-                                                {% else %}
-                                                    {{ cliente.razaoSocial }}
-                                                {% endif %}
-                                            </a>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                {% else %}
-                                <div class="mt-3 p-3 bg-light rounded">
-                                    <span class="text-muted"><i class="bi bi-people me-1"></i> Nenhum cliente vinculado a este processo.</span>
-                                </div>
-                                {% endif %}
                             </div>
 
                             {# Tab: Partes do Processo #}

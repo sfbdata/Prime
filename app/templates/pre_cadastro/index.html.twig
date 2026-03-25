@@ -42,7 +42,20 @@
                         {% endif %}
                     </td>
                     <td>
-                        {% include '_status_contrato_badge.html.twig' with {status: preCadastro.statusContratoCentralizado} %}
+                        {% set sc = preCadastro.statusContratoCentralizado %}
+                        {% if sc == 'ATIVO' %}
+                            <span class="badge text-bg-success">Ativo</span>
+                        {% elseif sc == 'PENDENTE' %}
+                            <span class="badge text-bg-warning">Pendente</span>
+                        {% elseif sc == 'EM_ANDAMENTO' %}
+                            <span class="badge text-bg-info">Em Andamento</span>
+                        {% elseif sc == 'FINALIZADO' or sc == 'ENCERRADO' %}
+                            <span class="badge text-bg-secondary">Encerrado</span>
+                        {% elseif sc == 'CANCELADO' %}
+                            <span class="badge text-bg-danger">Cancelado</span>
+                        {% else %}
+                            <span class="badge text-bg-light text-dark">Sem Contrato</span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if preCadastro.criadoAt %}

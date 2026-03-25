@@ -2,7 +2,6 @@
 
 namespace App\Entity\Processo;
 
-use App\Entity\Contrato\Contrato;
 use App\Repository\ProcessoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -62,10 +61,6 @@ class Processo
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $dataAtualizacao = null;
-
-    #[ORM\ManyToOne(targetEntity: Contrato::class, inversedBy: 'processos')]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?Contrato $contrato = null;
 
     public function __construct()
     {
@@ -302,17 +297,6 @@ class Processo
     public function setDataAtualizacao(?\DateTimeImmutable $dataAtualizacao): self
     {
         $this->dataAtualizacao = $dataAtualizacao;
-        return $this;
-    }
-
-    public function getContrato(): ?Contrato
-    {
-        return $this->contrato;
-    }
-
-    public function setContrato(?Contrato $contrato): self
-    {
-        $this->contrato = $contrato;
         return $this;
     }
 

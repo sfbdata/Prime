@@ -147,44 +147,6 @@
         </div>
     </div>
 
-    <!-- Contratos Vinculados -->
-    <div class="card mb-4">
-        <div class="card-header bg-dark text-white"><h5>Contratos Vinculados</h5></div>
-        <div class="card-body">
-            {% if cliente.contratos|length > 0 %}
-                <ul class="list-group">
-                    {% for contrato in cliente.contratos %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <a href="{{ path('contrato_show', {id: contrato.id}) }}">{{ contrato.titulo }}</a>
-                                <div class="text-muted small">
-                                    {% if contrato.dataInicio %}Início: {{ contrato.dataInicio|date('d/m/Y') }}{% else %}Início: -{% endif %}
-                                    | Valor: {% if contrato.valorTotal %}R$ {{ contrato.valorTotal|number_format(2, ',', '.') }}{% else %}-{% endif %}
-                                </div>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                                <span class="badge {{ contrato.status == 'ATIVO' ? 'bg-success' : 'bg-secondary' }}">{{ contrato.status }}</span>
-                                <a href="#" class="btn btn-sm btn-outline-danger btn-unlink-contrato" 
-                                   data-action="{{ path('cliente_contrato_unlink', {clienteId: cliente.id, contratoId: contrato.id}) }}"
-                                   data-token="{{ csrf_token('unlink_contrato' ~ contrato.id) }}"
-                                   title="Remover vínculo">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </div>
-                        </li>
-                    {% endfor %}
-                </ul>
-            {% else %}
-                <span class="text-muted">Nenhum contrato vinculado</span>
-            {% endif %}
-            <div class="mt-3">
-                <a href="{{ path('cliente_show', {id: cliente.id}) }}#vinculos" class="btn btn-outline-primary btn-sm">
-                    <i class="bi bi-plus-lg me-1"></i> Gerenciar Contratos
-                </a>
-            </div>
-        </div>
-    </div>
-
     <button type="submit" class="btn btn-success mt-3">Salvar Alterações</button>
     {{ form_end(form) }}
 
@@ -194,25 +156,4 @@
 </section>
 {% endblock %}
 
-{% block javascripts %}
-{{ parent() }}
-<script>
-document.querySelectorAll('.btn-unlink-contrato').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        if (confirm('Tem certeza que deseja remover o vínculo com este contrato?')) {
-            var form = document.createElement('form');
-            form.method = 'POST';
-            form.action = this.dataset.action;
-            var token = document.createElement('input');
-            token.type = 'hidden';
-            token.name = '_token';
-            token.value = this.dataset.token;
-            form.appendChild(token);
-            document.body.appendChild(form);
-            form.submit();
-        }
-    });
-});
-</script>
 {% endblock %}

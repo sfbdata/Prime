@@ -219,10 +219,6 @@ class PreCadastro
 
     public function getStatusContratoCentralizado(): string
     {
-        if ($this->cliente instanceof Cliente) {
-            return $this->cliente->getStatusContratoCentralizado();
-        }
-
         if ($this->statusContrato !== null && $this->statusContrato !== '') {
             return $this->statusContrato;
         }

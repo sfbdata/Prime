@@ -2,10 +2,7 @@
 
 namespace App\Entity\Cliente;
 
-use App\Entity\Contrato\Contrato;
 use App\Repository\ClienteRepository;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ClienteRepository::class)]
@@ -53,15 +50,10 @@ abstract class Cliente
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $modificadoEm = null;
 
-    #[ORM\ManyToMany(targetEntity: Contrato::class, inversedBy: 'clientes', cascade: ['persist'])]
-    #[ORM\JoinTable(name: 'cliente_contrato')]
-    private Collection $contratos;
-
     public function __construct()
     {
         $this->criadoAt = new \DateTimeImmutable();
         $this->modificadoEm = new \DateTimeImmutable();
-        $this->contratos = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -182,53 +174,6 @@ abstract class Cliente
     public function setModificadoEm(?\DateTimeImmutable $modificadoEm): self
     {
         $this->modificadoEm = $modificadoEm;
-        return $this;
-    }
-
-    public function isContratoEnviado(): bool
-    {
-        return !$this->contratos->isEmpty();
-    }
-
-    public function getStatusContratoCentralizado(): string
-    {
-        if ($this->contratos->isEmpty()) {
-            return 'SEM_CONTRATO';
-        }
-
-        foreach ($this->contratos as $contrato) {
-            if ($contrato->getStatus() === Contrato::STATUS_ATIVO) {
-                return Contrato::STATUS_ATIVO;
-            }
-        }
-
-        return 'INATIVO';
-    }
-
-    /**
-     * @return Collection<int, Contrato>
-     */
-    public function getContratos(): Collection
-    {
-        return $this->contratos;
-    }
-
-    public function addContrato(Contrato $contrato): self
-    {
-        if (!$this->contratos->contains($contrato)) {
-            $this->contratos->add($contrato);
-            $contrato->addCliente($this);
-        }
-
-        return $this;
-    }
-
-    public function removeContrato(Contrato $contrato): self
-    {
-        if ($this->contratos->removeElement($contrato)) {
-            $contrato->removeCliente($this);
-        }
-
         return $this;
     }
 

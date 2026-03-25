@@ -3,7 +3,6 @@
 namespace App\Command;
 
 use App\Entity\Processo\Processo;
-use App\Repository\ContratoRepository;
 use App\Repository\ProcessoRepository;
 use App\Service\DatajudClient;
 use App\Service\DatajudProcessoMapper;
@@ -22,21 +21,18 @@ class AtualizarProcessoDatajudCommand extends Command
 {
     private DatajudClient $client;
     private DatajudProcessoMapper $mapper;
-    private ContratoRepository $contratoRepository;
     private ProcessoRepository $processoRepository;
     private EntityManagerInterface $entityManager;
 
     public function __construct(
         DatajudClient $client,
         DatajudProcessoMapper $mapper,
-        ContratoRepository $contratoRepository,
         ProcessoRepository $processoRepository,
         EntityManagerInterface $entityManager
     ) {
         parent::__construct();
         $this->client = $client;
         $this->mapper = $mapper;
-        $this->contratoRepository = $contratoRepository;
         $this->processoRepository = $processoRepository;
         $this->entityManager = $entityManager;
     }
@@ -44,20 +40,20 @@ class AtualizarProcessoDatajudCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('contratoId', InputArgument::REQUIRED, 'ID do contrato')
+            ->addArgument('processoId', InputArgument::REQUIRED, 'ID do processo')
             ->addArgument('tribunalAlias', InputArgument::REQUIRED, 'Alias do tribunal (ex: api_publica_tjsp)')
             ->addArgument('numeroProcesso', InputArgument::REQUIRED, 'Numero do processo (CNJ)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $contratoId = (int) $input->getArgument('contratoId');
+        $processoId = (int) $input->getArgument('processoId');
         $tribunalAlias = (string) $input->getArgument('tribunalAlias');
         $numeroProcesso = (string) $input->getArgument('numeroProcesso');
 
-        $contrato = $this->contratoRepository->find($contratoId);
-        if (!$contrato) {
-            $output->writeln('<error>Contrato nao encontrado.</error>');
+        $processoBase = $this->processoRepository->find($processoId);
+        if (!$processoBase) {
+            $output->writeln('<error>Processo nao encontrado.</error>');
             return Command::FAILURE;
         }
 
@@ -87,7 +83,6 @@ class AtualizarProcessoDatajudCommand extends Command
 
             $processosPorNumero[$numero] = $processo;
 
-            $processo->setContrato($contrato);
             $this->mapper->mapFromSource($processo, $source);
             $this->resolveProcessoPaiFromBatch($processo, $processosPorNumero);
 

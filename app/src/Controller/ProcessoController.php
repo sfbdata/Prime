@@ -2,12 +2,10 @@
 
 namespace App\Controller;
 
-use App\Entity\Contrato\Contrato;
 use App\Entity\Processo\Processo;
 use App\Entity\Processo\ParteProcesso;
 use App\Entity\Processo\MovimentacaoProcesso;
 use App\Repository\ProcessoRepository;
-use App\Repository\ContratoRepository;
 use App\Repository\ClienteRepository;
 use App\Repository\TarefaRepository;
 use App\Service\DatajudClient;
@@ -65,15 +63,14 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/novo', name: 'processo_new', methods: ['GET', 'POST'])]
-    public function new(Request $request, ContratoRepository $contratoRepo, ClienteRepository $clienteRepo, ProcessoRepository $processoRepo, EntityManagerInterface $em): Response
+    public function new(Request $request, ClienteRepository $clienteRepo, ProcessoRepository $processoRepo, EntityManagerInterface $em): Response
     {
-        $contratos = $contratoRepo->findAll();
         $clientes = $clienteRepo->findAll();
         $processo = new Processo();
 
         if ($request->isMethod('POST')) {
             $data = $request->request->all();
-            
+
             // Verificar se o número do processo já está cadastrado
             $numeroProcessoNormalizado = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
             if (!empty($numeroProcessoNormalizado)) {
@@ -81,15 +78,14 @@ class ProcessoController extends AbstractController
                 if ($processoExistente !== null) {
                     $this->addFlash('warning', 'Este número de processo já está cadastrado no sistema. Por favor, verifique o número informado ou acesse o processo existente.');
                     return $this->render('processo/new.html.twig', [
-                        'contratos' => $contratos,
                         'clientes' => $clientes,
                         'processo' => $processo,
                         'isEdit' => false,
                     ]);
                 }
             }
-            
-            $this->fillProcessoFromRequest($processo, $data, $contratoRepo);
+
+            $this->fillProcessoFromRequest($processo, $data);
 
             $em->persist($processo);
             $em->flush();
@@ -98,7 +94,6 @@ class ProcessoController extends AbstractController
         }
 
         return $this->render('processo/new.html.twig', [
-            'contratos' => $contratos,
             'clientes' => $clientes,
             'processo' => $processo,
             'isEdit' => false,
@@ -106,21 +101,19 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}/editar', name: 'processo_edit', methods: ['GET', 'POST'])]
-    public function edit(Processo $processo, Request $request, ContratoRepository $contratoRepo, ClienteRepository $clienteRepo, EntityManagerInterface $em): Response
+    public function edit(Processo $processo, Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em): Response
     {
-        $contratos = $contratoRepo->findAll();
         $clientes = $clienteRepo->findAll();
 
         if ($request->isMethod('POST')) {
             $data = $request->request->all();
-            $this->fillProcessoFromRequest($processo, $data, $contratoRepo);
+            $this->fillProcessoFromRequest($processo, $data);
             $em->flush();
 
             return $this->redirectToRoute('processo_show', ['id' => $processo->getId()]);
         }
 
         return $this->render('processo/new.html.twig', [
-            'contratos' => $contratos,
             'clientes' => $clientes,
             'processo' => $processo,
             'isEdit' => true,
@@ -271,7 +264,7 @@ class ProcessoController extends AbstractController
         }
     }
 
-    private function fillProcessoFromRequest(Processo $processo, array $data, ContratoRepository $contratoRepo): void
+    private function fillProcessoFromRequest(Processo $processo, array $data): void
     {
         $numeroProcessoNormalizado = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
 
@@ -318,13 +311,6 @@ class ProcessoController extends AbstractController
         $dataBaixa = $this->parseDateOrNull($data['dataBaixa'] ?? null);
         if (!$this->isSameDate($processo->getDataBaixa(), $dataBaixa)) {
             $processo->setDataBaixa($dataBaixa);
-        }
-
-        $novoContrato = !empty($data['contrato_id']) ? $contratoRepo->find($data['contrato_id']) : null;
-        $contratoAtualId = $processo->getContrato()?->getId();
-        $novoContratoId = $novoContrato?->getId();
-        if ($contratoAtualId !== $novoContratoId) {
-            $processo->setContrato($novoContrato);
         }
 
         $this->syncPartesFromRequest($processo, is_array($data['partes'] ?? null) ? $data['partes'] : []);
