@@ -129,7 +129,6 @@ class AppFixtures extends Fixture
                 'endereco'        => 'Av. Paulista, 1000, Apto 52',
                 'cidade'          => 'São Paulo',
                 'estado'          => 'SP',
-                'nup'             => 'NUP-2024-001',
             ],
             [
                 'nomeCompleto'    => 'Maria Aparecida Silva',
@@ -146,7 +145,6 @@ class AppFixtures extends Fixture
                 'endereco'        => 'Rua da Bahia, 500, Sala 301',
                 'cidade'          => 'Belo Horizonte',
                 'estado'          => 'MG',
-                'nup'             => 'NUP-2024-002',
             ],
             [
                 'nomeCompleto'    => 'Roberto Nascimento Santos',
@@ -163,7 +161,6 @@ class AppFixtures extends Fixture
                 'endereco'        => 'Av. Rio Branco, 200, Bloco B',
                 'cidade'          => 'Rio de Janeiro',
                 'estado'          => 'RJ',
-                'nup'             => 'NUP-2024-003',
             ],
             [
                 'nomeCompleto'    => 'Patrícia Oliveira Mendes',
@@ -180,7 +177,6 @@ class AppFixtures extends Fixture
                 'endereco'        => 'Rua dos Andradas, 1200, Conj. 84',
                 'cidade'          => 'Porto Alegre',
                 'estado'          => 'RS',
-                'nup'             => null,
             ],
             [
                 'nomeCompleto'    => 'Antônio Carlos Gomes',
@@ -197,7 +193,6 @@ class AppFixtures extends Fixture
                 'endereco'        => 'Av. Sete de Setembro, 300',
                 'cidade'          => 'Salvador',
                 'estado'          => 'BA',
-                'nup'             => 'NUP-2024-005',
             ],
         ];
 
@@ -218,7 +213,6 @@ class AppFixtures extends Fixture
             $c->setEndereco($dado['endereco']);
             $c->setCidade($dado['cidade']);
             $c->setEstado($dado['estado']);
-            $c->setNup($dado['nup']);
             $manager->persist($c);
             $clientes[] = $c;
         }
@@ -249,7 +243,6 @@ class AppFixtures extends Fixture
                 'endereco'           => 'Av. das Nações Unidas, 14401',
                 'cidade'             => 'São Paulo',
                 'estado'             => 'SP',
-                'nup'                => 'NUP-2024-PJ-001',
             ],
             [
                 'razaoSocial'        => 'Supermercados Família S.A.',
@@ -268,7 +261,6 @@ class AppFixtures extends Fixture
                 'endereco'           => 'Rua Marechal Deodoro, 630',
                 'cidade'             => 'Curitiba',
                 'estado'             => 'PR',
-                'nup'                => 'NUP-2024-PJ-002',
             ],
             [
                 'razaoSocial'        => 'TechSoft Sistemas de Informação Ltda.',
@@ -287,7 +279,6 @@ class AppFixtures extends Fixture
                 'endereco'           => 'Parque Tecnológico Alfa, Bloco C',
                 'cidade'             => 'Florianópolis',
                 'estado'             => 'SC',
-                'nup'                => null,
             ],
         ];
 
@@ -310,7 +301,6 @@ class AppFixtures extends Fixture
             $c->setEndereco($dado['endereco']);
             $c->setCidade($dado['cidade']);
             $c->setEstado($dado['estado']);
-            $c->setNup($dado['nup']);
             $manager->persist($c);
             $clientes[] = $c;
         }

@@ -15,11 +15,6 @@ class ClientePJType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            // NUP
-            ->add('nup', TextType::class, [
-                'label' => 'NUP',
-                'required' => false,
-            ])
             // Dados da empresa
             ->add('razaoSocial', TextType::class, [
                 'label' => 'Razão Social',

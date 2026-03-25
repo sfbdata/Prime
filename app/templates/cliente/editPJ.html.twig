@@ -17,20 +17,6 @@
 
     {{ form_start(form, {'attr': {'enctype': 'multipart/form-data'}}) }}
 
-    <!-- NUP -->
-    <div class="card mb-4">
-        <div class="card-header bg-secondary text-white"><h5>Identificação</h5></div>
-        <div class="card-body">
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    {{ form_label(form.nup, null, {'label_attr': {'class': 'form-label'}}) }}
-                    {{ form_widget(form.nup, {'attr': {'class': 'form-control', 'placeholder': 'Número Único de Protocolo'}}) }}
-                    {{ form_errors(form.nup) }}
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Dados da Empresa -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white"><h5>Dados da Empresa</h5></div>

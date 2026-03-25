@@ -17,11 +17,6 @@ class ClientePFType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            // NUP
-            ->add('nup', TextType::class, [
-                'label' => 'NUP',
-                'required' => false,
-            ])
             // Dados pessoais
             ->add('nomeCompleto', TextType::class, [
                 'label' => 'Nome Completo',

@@ -20,7 +20,7 @@
                             <th><i class="bi bi-card-heading me-1"></i> Título</th>
                             <th><i class="bi bi-flag me-1"></i> Status</th>
                             <th><i class="bi bi-calendar-event me-1"></i> Prazo</th>
-                            <th><i class="bi bi-briefcase me-1"></i> Processo</th>
+                            <th><i class="bi bi-folder me-1"></i> Pasta</th>
                             <th><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
                     </thead>
@@ -46,8 +46,8 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if tarefa.processo %}
-                                    <a href="{{ path('processo_show', {id: tarefa.processo.id}) }}">{{ tarefa.processo.numeroProcesso }}</a>
+                                {% if tarefa.pasta %}
+                                    <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}">{{ tarefa.pasta.nup ?? 'Pasta #' ~ tarefa.pasta.id }}</a>
                                 {% else %}
                                     <span class="text-muted">-</span>
                                 {% endif %}

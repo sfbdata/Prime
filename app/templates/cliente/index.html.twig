@@ -87,20 +87,18 @@
                 <table class="table table-striped table-hover mb-0" id="tabelaClientes">
                     <thead>
                         <tr>
-                            <th class="sortable" data-col="0"><i class="bi bi-hash me-1"></i> NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i> Nome/Razão Social <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="2"><i class="bi bi-card-text me-1"></i> CPF/CNPJ <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="3"><i class="bi bi-tag me-1"></i> Tipo <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="4"><i class="bi bi-phone me-1"></i> Celular <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable d-none d-md-table-cell" data-col="5" data-type="date"><i class="bi bi-calendar-plus me-1"></i> Criado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable d-none d-md-table-cell" data-col="6" data-type="date"><i class="bi bi-calendar-check me-1"></i> Modificado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="0"><i class="bi bi-person me-1"></i> Nome/Razão Social <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="1"><i class="bi bi-card-text me-1"></i> CPF/CNPJ <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="2"><i class="bi bi-tag me-1"></i> Tipo <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="3"><i class="bi bi-phone me-1"></i> Celular <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable d-none d-md-table-cell" data-col="4" data-type="date"><i class="bi bi-calendar-plus me-1"></i> Criado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable d-none d-md-table-cell" data-col="5" data-type="date"><i class="bi bi-calendar-check me-1"></i> Modificado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="col-acoes"><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for cliente in clientes %}
                             <tr>
-                                <td>{{ cliente.nup ?: '-' }}</td>
                                 <td>
                                     {% if cliente.cpf is defined %}
                                         {{ cliente.nomeCompleto }}
