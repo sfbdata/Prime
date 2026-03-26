@@ -112,7 +112,7 @@
                     {% for processo in processos %}
                         <tr>
                             <td>{{ processo.numeroProcesso }}</td>
-                            <td>{{ processo.siglaTribunal }}</td>
+                            <td>{{ processo.siglaTribunal|upper }}</td>
                             <td>{{ processo.classeProcessual }}</td>
                             <td>{{ processo.assuntoProcessual }}</td>
                             <td>

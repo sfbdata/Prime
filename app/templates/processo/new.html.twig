@@ -396,9 +396,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     const initialTribunal = '{{ processo.siglaTribunal ?? '' }}';
-    if (initialTribunal) {
-        $('#siglaTribunal').val(initialTribunal).trigger('change');
-    }
+    $('#siglaTribunal').val(initialTribunal || 'tjdft').trigger('change');
 
     // Adicionar parte
     document.getElementById('btn-add-parte').addEventListener('click', function() {
