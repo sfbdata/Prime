@@ -100,11 +100,11 @@
             <table class="table table-striped table-hover mb-0" id="tabelaProcessos">
                 <thead>
                     <tr>
-                        <th><i class="bi bi-hash me-1"></i> Número do Processo</th>
-                        <th><i class="bi bi-building me-1"></i> Tribunal</th>
-                        <th><i class="bi bi-bookmark me-1"></i> Classe</th>
-                        <th><i class="bi bi-chat-left-text me-1"></i> Assunto</th>
-                        <th><i class="bi bi-flag me-1"></i> Situação</th>
+                        <th class="sortable" data-col="0"><i class="bi bi-hash me-1"></i> Número do Processo <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable" data-col="1"><i class="bi bi-building me-1"></i> Tribunal <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable" data-col="2"><i class="bi bi-bookmark me-1"></i> Classe <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable" data-col="3"><i class="bi bi-chat-left-text me-1"></i> Assunto <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable" data-col="4"><i class="bi bi-flag me-1"></i> Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
                         <th class="col-acoes"><i class="bi bi-gear me-1"></i> Ações</th>
                     </tr>
                 </thead>
@@ -153,12 +153,73 @@
 
 {% block javascripts %}
 {{ parent() }}
+<style>
+.sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+.sortable:hover {
+    background-color: rgba(0,0,0,0.05);
+}
+.sort-icon {
+    font-size: 0.7em;
+    opacity: 0.4;
+    flex-shrink: 0;
+}
+.sortable.asc .sort-icon,
+.sortable.desc .sort-icon {
+    opacity: 1;
+}
+.sortable.asc .sort-icon::before {
+    content: "\F148";
+}
+.sortable.desc .sort-icon::before {
+    content: "\F128";
+}
+</style>
 <script>
 $(document).ready(function() {
     $('.select2-filter').select2({
         placeholder: 'Selecione...',
         allowClear: true,
         width: '100%'
+    });
+
+    // Ordenação da tabela
+    const table = document.getElementById('tabelaProcessos');
+    const headers = table.querySelectorAll('th.sortable');
+    const tbody = table.querySelector('tbody');
+
+    headers.forEach(header => {
+        header.addEventListener('click', function() {
+            const col = parseInt(this.dataset.col);
+            const isAsc = this.classList.contains('asc');
+
+            headers.forEach(h => {
+                h.classList.remove('asc', 'desc');
+            });
+
+            this.classList.add(isAsc ? 'desc' : 'asc');
+
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                let aVal = a.cells[col]?.textContent.trim() || '';
+                let bVal = b.cells[col]?.textContent.trim() || '';
+
+                aVal = aVal.toLowerCase();
+                bVal = bVal.toLowerCase();
+
+                if (isAsc) {
+                    return bVal.localeCompare(aVal, 'pt-BR');
+                } else {
+                    return aVal.localeCompare(bVal, 'pt-BR');
+                }
+            });
+
+            rows.forEach(row => tbody.appendChild(row));
+        });
     });
 });
 </script>
