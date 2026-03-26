@@ -2,6 +2,8 @@
 
 namespace App\Security;
 
+use App\Entity\Auth\User;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\RouterInterface;
@@ -16,10 +18,12 @@ use Symfony\Component\HttpFoundation\Response;
 class UserAuthenticator extends AbstractLoginFormAuthenticator
 {
     private RouterInterface $router;
+    private EntityManagerInterface $em;
 
-    public function __construct(RouterInterface $router)
+    public function __construct(RouterInterface $router, EntityManagerInterface $em)
     {
         $this->router = $router;
+        $this->em = $em;
     }
 
     public function authenticate(Request $request): Passport
@@ -39,7 +43,12 @@ class UserAuthenticator extends AbstractLoginFormAuthenticator
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        // Redireciona para homepage após login bem-sucedido
+        $user = $token->getUser();
+        if ($user instanceof User) {
+            $user->setLastLogin(new \DateTimeImmutable());
+            $this->em->flush();
+        }
+
         return new RedirectResponse($this->router->generate('homepage'));
     }
 

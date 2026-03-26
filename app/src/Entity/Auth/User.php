@@ -42,6 +42,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\JoinColumn(nullable: true)]
     private ?Tenant $tenant = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $lastLogin = null;
+
     // -------------------------
     // Construtor
     // -------------------------
@@ -158,6 +161,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setTenant(?Tenant $tenant): static
     {
         $this->tenant = $tenant;
+        return $this;
+    }
+
+    public function getLastLogin(): ?\DateTimeImmutable
+    {
+        return $this->lastLogin;
+    }
+
+    public function setLastLogin(?\DateTimeImmutable $lastLogin): static
+    {
+        $this->lastLogin = $lastLogin;
         return $this;
     }
 }
