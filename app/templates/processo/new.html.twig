@@ -213,7 +213,7 @@
                 <div id="partesContainer" class="mb-3">
                     {% if isEdit and processo.partes|length > 0 %}
                         {% for parte in processo.partes %}
-                            <div class="parte-row card mb-2 p-3">
+                            <div class="parte-row card mb-2 p-3" style="position: relative;">
                                 <input type="hidden" name="partes[{{ loop.index0 }}][id]" value="{{ parte.id }}">
                                 <div class="row mb-2">
                                     <div class="col-md-3">
@@ -238,11 +238,11 @@
                                         <input type="text" name="partes[{{ loop.index0 }}][papel]" class="form-control" placeholder="Polo ativo/passivo" value="{{ parte.papel ?: '' }}">
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: {{ processo.partes|length > 1 ? 'block' : 'none' }};">Remover</button>
+                                <button type="button" class="btn btn-link text-danger p-0 remove-parte" style="display: {{ processo.partes|length > 1 ? 'block' : 'none' }}; position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
                             </div>
                         {% endfor %}
                     {% else %}
-                        <div class="parte-row card mb-2 p-3">
+                        <div class="parte-row card mb-2 p-3" style="position: relative;">
                             <div class="row mb-2">
                                 <div class="col-md-3">
                                     <label class="form-label">Tipo</label>
@@ -266,7 +266,7 @@
                                     <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: none;">Remover</button>
+                            <button type="button" class="btn btn-link text-danger p-0 remove-parte" style="display: none; position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
                         </div>
                     {% endif %}
                 </div>
@@ -280,7 +280,7 @@
                     {% if isEdit and processo.movimentacoes|length > 0 %}
                         {% set movimentacoesOrdenadas = processo.movimentacoes|sort((a, b) => b.dataMovimentacao <=> a.dataMovimentacao) %}
                         {% for mov in movimentacoesOrdenadas %}
-                            <div class="movimentacao-row card mb-2 p-3">
+                            <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                                 <input type="hidden" name="movimentacoes[{{ loop.index0 }}][id]" value="{{ mov.id }}">
                                 <div class="row mb-2">
                                     <div class="col-md-3">
@@ -300,11 +300,11 @@
                                         <input type="text" name="movimentacoes[{{ loop.index0 }}][orgao]" class="form-control" placeholder="Órgão" value="{{ mov.orgao ?: '' }}">
                                     </div>
                                 </div>
-                                <button type="button" class="btn btn-sm btn-outline-danger remove-movimentacao px-2 py-1" style="display: {{ processo.movimentacoes|length > 1 ? 'inline-block' : 'none' }}; font-size: 0.75rem; width: auto;"><i class="bi bi-trash"></i> Remover</button>
+                                <button type="button" class="btn btn-link text-danger p-0 remove-movimentacao" style="display: {{ processo.movimentacoes|length > 1 ? 'block' : 'none' }}; position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
                             </div>
                         {% endfor %}
                     {% else %}
-                        <div class="movimentacao-row card mb-2 p-3">
+                        <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                             <div class="row mb-2">
                                 <div class="col-md-3">
                                     <label class="form-label">Data</label>
@@ -323,7 +323,7 @@
                                     <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-outline-danger remove-movimentacao px-2 py-1" style="display: none; font-size: 0.75rem; width: auto;"><i class="bi bi-trash"></i> Remover</button>
+                            <button type="button" class="btn btn-link text-danger p-0 remove-movimentacao" style="display: none; position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
                         </div>
                     {% endif %}
                 </div>
@@ -403,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById('partesContainer');
         const index = container.querySelectorAll('.parte-row').length;
         const html = `
-            <div class="parte-row card mb-2 p-3">
+            <div class="parte-row card mb-2 p-3" style="position: relative;">
                 <div class="row mb-2">
                     <div class="col-md-3">
                         <label class="form-label">Tipo</label>
@@ -427,7 +427,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <input type="text" name="partes[${index}][papel]" class="form-control" placeholder="Polo ativo/passivo">
                     </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-danger remove-parte">Remover</button>
+                <button type="button" class="btn btn-link text-danger p-0 remove-parte" style="position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
             </div>
         `;
         container.insertAdjacentHTML('beforeend', html);
@@ -454,7 +454,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById('movimentacoesContainer');
         const index = container.querySelectorAll('.movimentacao-row').length;
         const html = `
-            <div class="movimentacao-row card mb-2 p-3">
+            <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                 <div class="row mb-2">
                     <div class="col-md-3">
                         <label class="form-label">Data</label>
@@ -473,7 +473,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <input type="text" name="movimentacoes[${index}][orgao]" class="form-control" placeholder="Órgão">
                     </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-outline-danger remove-movimentacao px-2 py-1" style="font-size: 0.75rem; width: auto;"><i class="bi bi-trash"></i> Remover</button>
+                <button type="button" class="btn btn-link text-danger p-0 remove-movimentacao" style="position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
             </div>
         `;
         container.insertAdjacentHTML('beforeend', html);
@@ -505,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const movs = document.querySelectorAll('.movimentacao-row').length;
         document.querySelectorAll('.remove-movimentacao').forEach((btn, idx) => {
-            btn.style.display = movs > 1 ? 'inline-block' : 'none';
+            btn.style.display = movs > 1 ? 'block' : 'none';
         });
     }
 
@@ -629,7 +629,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (processData.partes && processData.partes.length > 0) {
                 processData.partes.forEach((parte, idx) => {
                     const html = `
-                        <div class="parte-row card mb-2 p-3">
+                        <div class="parte-row card mb-2 p-3" style="position: relative;">
                             <div class="row mb-2">
                                 <div class="col-md-3">
                                     <label class="form-label">Tipo</label>
@@ -653,14 +653,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <input type="text" name="partes[${idx}][papel]" class="form-control" value="${parte.papel || ''}" placeholder="Polo ativo/passivo">
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: ${processData.partes.length > 1 ? 'block' : 'none'};">Remover</button>
+                            <button type="button" class="btn btn-link text-danger p-0 remove-parte" style="display: ${processData.partes.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
                         </div>
                     `;
                     partesContainer.insertAdjacentHTML('beforeend', html);
                 });
             } else {
                 partesContainer.innerHTML = `
-                    <div class="parte-row card mb-2 p-3">
+                    <div class="parte-row card mb-2 p-3" style="position: relative;">
                         <div class="row mb-2">
                             <div class="col-md-3">
                                 <label class="form-label">Tipo</label>
@@ -684,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-danger remove-parte" style="display: none;">Remover</button>
+                        <button type="button" class="btn btn-link text-danger p-0 remove-parte" style="display: none; position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
                     </div>
                 `;
             }
@@ -696,7 +696,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (processData.movimentacoes && processData.movimentacoes.length > 0) {
                 processData.movimentacoes.forEach((mov, idx) => {
                     const html = `
-                        <div class="movimentacao-row card mb-2 p-3">
+                        <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                             <div class="row mb-2">
                                 <div class="col-md-3">
                                     <label class="form-label">Data</label>
@@ -715,14 +715,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                     <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mov.orgao || ''}" placeholder="Órgão">
                                 </div>
                             </div>
-                            <button type="button" class="btn btn-sm btn-danger remove-movimentacao" style="display: ${processData.movimentacoes.length > 1 ? 'block' : 'none'};">Remover</button>
+                            <button type="button" class="btn btn-link text-danger p-0 remove-movimentacao" style="display: ${processData.movimentacoes.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
                         </div>
                     `;
                     movimentacoesContainer.insertAdjacentHTML('beforeend', html);
                 });
             } else {
                 movimentacoesContainer.innerHTML = `
-                    <div class="movimentacao-row card mb-2 p-3">
+                    <div class="movimentacao-row card mb-2 p-3" style="position: relative;">
                         <div class="row mb-2">
                             <div class="col-md-3">
                                 <label class="form-label">Data</label>
@@ -741,7 +741,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
                             </div>
                         </div>
-                        <button type="button" class="btn btn-sm btn-danger remove-movimentacao" style="display: none;">Remover</button>
+                        <button type="button" class="btn btn-link text-danger p-0 remove-movimentacao" style="display: none; position: absolute; top: 8px; right: 12px; font-size: 1rem;" title="Remover"><i class="bi bi-trash"></i></button>
                     </div>
                 `;
             }
