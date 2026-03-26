@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Entity\Auth\User;
 use App\Entity\Cliente\Cliente;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\ParteContraria;
@@ -11,6 +12,7 @@ use App\Repository\ClienteRepository;
 use App\Repository\PastaDocumentoRepository;
 use App\Repository\PastaRepository;
 use App\Repository\ProcessoRepository;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -44,6 +46,7 @@ class PastaController extends AbstractController
         private readonly PastaDocumentoRepository $pastaDocumentoRepository,
         private readonly ProcessoRepository $processoRepository,
         private readonly ClienteRepository $clienteRepository,
+        private readonly UserRepository $userRepository,
         private readonly ValidatorInterface $validator,
         private readonly string $uploadsDir,
     ) {}
@@ -90,6 +93,7 @@ class PastaController extends AbstractController
             'pasta' => $pasta,
             'processos' => $this->processoRepository->findAll(),
             'clientes' => $this->clienteRepository->findAll(),
+            'usuarios' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
             'isEdit' => false,
         ]);
     }
@@ -134,6 +138,7 @@ class PastaController extends AbstractController
             'pasta' => $pasta,
             'processos' => $this->processoRepository->findAll(),
             'clientes' => $this->clienteRepository->findAll(),
+            'usuarios' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
             'isEdit' => true,
         ]);
     }
@@ -425,6 +430,14 @@ class PastaController extends AbstractController
             $pasta->setProcesso(null);
         }
 
+
+        $responsavelId = (int) ($data['responsavel_id'] ?? 0);
+        if ($responsavelId > 0) {
+            $responsavel = $this->userRepository->find($responsavelId);
+            $pasta->setResponsavel($responsavel instanceof User ? $responsavel : null);
+        } else {
+            $pasta->setResponsavel(null);
+        }
 
         $this->syncClientes($pasta, is_array($data['clientes'] ?? null) ? $data['clientes'] : []);
         $this->syncPartesContrarias($pasta, is_array($data['partes_contrarias'] ?? null) ? $data['partes_contrarias'] : []);

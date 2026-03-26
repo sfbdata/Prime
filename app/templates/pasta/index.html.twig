@@ -33,6 +33,7 @@
                             <th><i class="bi bi-briefcase me-1"></i> Nome da Ação</th>
                             <th><i class="bi bi-file-earmark-check me-1"></i> Status da Documentação</th>
                             <th><i class="bi bi-flag me-1"></i> Status</th>
+                            <th><i class="bi bi-person-badge me-1"></i> Responsável</th>
                             <th><i class="bi bi-clock-history me-1"></i> Última Modificação</th>
                             <th><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
@@ -86,6 +87,9 @@
                             </td>
 
 
+                            <td>
+                                {{ pasta.responsavel ? pasta.responsavel.fullName : '—' }}
+                            </td>
                             <td>
                                 {% set dias = date().diff(pasta.dataAbertura).days %}
                                 {% if dias == 0 %}

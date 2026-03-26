@@ -111,6 +111,9 @@
                                                     {% endif %}
                                                 </b>
                                             </p>
+                                            <p class="text-sm mb-2">Responsável
+                                                <b class="d-block">{{ pasta.responsavel ? pasta.responsavel.fullName : '—' }}</b>
+                                            </p>
                                             <p class="text-sm mb-2">Criada em
                                                 <b class="d-block">{{ pasta.createdAt|date('d/m/Y H:i') }}</b>
                                             </p>
@@ -249,6 +252,9 @@
                                         <div class="text-muted">
                                             <p class="text-sm mb-2"><i class="bi bi-person-check me-2"></i> Criado por
                                                 <b class="d-block">{% if pasta.criadoPor %}{{ pasta.criadoPor.fullName }}{% else %}-{% endif %}</b>
+                                            </p>
+                                            <p class="text-sm mb-2"><i class="bi bi-person-badge me-2"></i> Responsável
+                                                <b class="d-block">{{ pasta.responsavel ? pasta.responsavel.fullName : '—' }}</b>
                                             </p>
                                         </div>
                                     </div>

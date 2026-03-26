@@ -79,6 +79,27 @@
                 </div>
             </div>
 
+            {# Responsável #}
+            <div class="card card-outline card-secondary mb-4">
+                <div class="card-header">
+                    <h3 class="card-title"><i class="bi bi-person-check me-1"></i> Responsável</h3>
+                </div>
+                <div class="card-body">
+                    <div class="col-md-6">
+                        <label for="responsavel_id" class="form-label">Responsável pela Pasta</label>
+                        <select id="responsavel_id" name="responsavel_id" class="form-select select2-basic">
+                            <option value="">— Nenhum responsável —</option>
+                            {% for usuario in usuarios %}
+                                <option value="{{ usuario.id }}"
+                                    {{ (pasta.responsavel is not null and pasta.responsavel.id == usuario.id) ? 'selected' : '' }}>
+                                    {{ usuario.fullName }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             {# Processo #}
             <div class="card card-outline card-info mb-4">
                 <div class="card-header">

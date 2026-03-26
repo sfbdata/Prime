@@ -53,6 +53,10 @@ class Pasta
     #[ORM\JoinColumn(nullable: true)]
     private ?User $criadoPor = null;
 
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $responsavel = null;
+
     #[ORM\ManyToOne(targetEntity: Processo::class)]
     #[ORM\JoinColumn(nullable: true)]
     private ?Processo $processo = null;
@@ -177,6 +181,17 @@ class Pasta
     public function setCriadoPor(?User $criadoPor): self
     {
         $this->criadoPor = $criadoPor;
+        return $this;
+    }
+
+    public function getResponsavel(): ?User
+    {
+        return $this->responsavel;
+    }
+
+    public function setResponsavel(?User $responsavel): self
+    {
+        $this->responsavel = $responsavel;
         return $this;
     }
 
