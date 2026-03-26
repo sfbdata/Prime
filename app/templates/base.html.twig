@@ -68,6 +68,8 @@
                                 {% set pageTitle = 'Clientes' %}
                             {% elseif currentRoute starts with 'processo_' %}
                                 {% set pageTitle = 'Processos' %}
+                            {% elseif currentRoute starts with 'pasta_' %}
+                                {% set pageTitle = 'Pastas' %}
                             {% elseif currentRoute starts with 'tarefa_' %}
                                 {% set pageTitle = 'Tarefas' %}
                             {% elseif currentRoute starts with 'agenda_' %}

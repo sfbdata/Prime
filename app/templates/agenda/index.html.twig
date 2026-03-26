@@ -201,14 +201,25 @@
                     </div>
 
                     <hr>
-                    <h6><i class="bi bi-people me-1"></i> Participantes</h6>
-                    <div class="mb-3">
-                        <select class="form-select" id="novo_participantes" name="participantes[]" multiple>
-                            {% for user in usuarios %}
-                                <option value="{{ user.id }}">{{ user.fullName }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="text-muted">Segure Ctrl para selecionar múltiplos</small>
+                    <h6><i class="bi bi-eye me-1"></i> Visibilidade</h6>
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <select class="form-select" id="novo_visibilidade" name="visibilidade">
+                                <option value="todos" selected>Para Todos</option>
+                                <option value="somente_eu">Somente para mim</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="novo-participantes-section">
+                        <h6><i class="bi bi-people me-1"></i> Participantes</h6>
+                        <div class="mb-3">
+                            <select class="form-select" id="novo_participantes" name="participantes[]" multiple>
+                                {% for user in usuarios %}
+                                    <option value="{{ user.id }}">{{ user.fullName }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Segure Ctrl para selecionar múltiplos</small>
+                        </div>
                     </div>
 
                     <hr>
@@ -435,6 +446,14 @@ document.addEventListener('DOMContentLoaded', function() {
         corPreview.style.backgroundColor = this.value;
     });
     
+    // Toggle visibilidade - ocultar participantes quando "Somente para mim"
+    var visibilidadeSelect = document.getElementById('novo_visibilidade');
+    var participantesSection = document.getElementById('novo-participantes-section');
+    function toggleParticipantesModal() {
+        participantesSection.style.display = visibilidadeSelect.value === 'somente_eu' ? 'none' : 'block';
+    }
+    visibilidadeSelect.addEventListener('change', toggleParticipantesModal);
+
     // Mostrar/ocultar campos de recorrência
     var recorrenteCheck = document.getElementById('novo_recorrente');
     var recorrenciaFields = document.getElementById('novo-recorrencia-fields');
@@ -471,6 +490,7 @@ document.addEventListener('DOMContentLoaded', function() {
             cor: formData.get('cor'),
             status: formData.get('status'),
             diaInteiro: document.getElementById('novo_diaInteiro').checked,
+            visibilidade: formData.get('visibilidade') || 'todos',
             participantes: participantes,
             recorrente: document.getElementById('novo_recorrente').checked,
             tipoRecorrencia: formData.get('tipoRecorrencia'),
@@ -493,6 +513,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 formNovoEvento.reset();
                 corPreview.style.backgroundColor = '#0073b7';
                 recorrenciaFields.style.display = 'none';
+                participantesSection.style.display = 'block';
                 // Recarregar eventos do calendário
                 calendar.refetchEvents();
             } else {

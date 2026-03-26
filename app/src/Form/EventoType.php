@@ -93,6 +93,13 @@ class EventoType extends AbstractType
                     'Cancelado' => Evento::STATUS_CANCELADO,
                 ],
             ])
+            ->add('visibilidade', ChoiceType::class, [
+                'label' => 'Visibilidade',
+                'choices' => [
+                    'Para Todos' => Evento::VISIBILIDADE_TODOS,
+                    'Somente para mim' => Evento::VISIBILIDADE_SOMENTE_EU,
+                ],
+            ])
             ->add('participantes', EntityType::class, [
                 'class' => User::class,
                 'choice_label' => 'fullName',

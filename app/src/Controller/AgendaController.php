@@ -81,15 +81,18 @@ class AgendaController extends AbstractController
     #[Route('/eventos', name: 'agenda_eventos', methods: ['GET'])]
     public function eventos(EventoRepository $eventoRepository, Request $request): JsonResponse
     {
+        /** @var User $user */
+        $user = $this->getUser();
+
         $start = $request->query->get('start');
         $end = $request->query->get('end');
 
         if ($start && $end) {
             $startDate = new \DateTimeImmutable($start);
             $endDate = new \DateTimeImmutable($end);
-            $eventos = $eventoRepository->findByDateRange($startDate, $endDate);
+            $eventos = $eventoRepository->findByDateRange($startDate, $endDate, $user);
         } else {
-            $eventos = $eventoRepository->findForCalendar();
+            $eventos = $eventoRepository->findForCalendar(null, null, $user);
         }
 
         // Processar eventos (podem ser entidades Evento ou arrays de ocorrências recorrentes)
@@ -128,6 +131,7 @@ class AgendaController extends AbstractController
             $evento->setCor($data['cor'] ?? Evento::COR_AZUL);
             $evento->setStatus($data['status'] ?? Evento::STATUS_AGENDADO);
             $evento->setDiaInteiro($data['diaInteiro'] ?? false);
+            $evento->setVisibilidade($data['visibilidade'] ?? Evento::VISIBILIDADE_TODOS);
 
             $dataInicio = new \DateTimeImmutable($data['dataInicio']);
             $evento->setDataInicio($dataInicio);

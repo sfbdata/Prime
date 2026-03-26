@@ -16,6 +16,9 @@ class Evento
     public const STATUS_CONCLUIDO = 'concluido';
     public const STATUS_CANCELADO = 'cancelado';
 
+    public const VISIBILIDADE_TODOS = 'todos';
+    public const VISIBILIDADE_SOMENTE_EU = 'somente_eu';
+
     public const COR_AZUL = '#0073b7';
     public const COR_VERDE = '#00a65a';
     public const COR_AMARELO = '#f39c12';
@@ -60,6 +63,9 @@ class Evento
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $fimRecorrencia = null;
+
+    #[ORM\Column(length: 20)]
+    private string $visibilidade = self::VISIBILIDADE_TODOS;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -155,6 +161,17 @@ class Evento
     public function setStatus(string $status): self
     {
         $this->status = $status;
+        return $this;
+    }
+
+    public function getVisibilidade(): string
+    {
+        return $this->visibilidade;
+    }
+
+    public function setVisibilidade(string $visibilidade): self
+    {
+        $this->visibilidade = $visibilidade;
         return $this;
     }
 

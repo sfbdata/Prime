@@ -31,8 +31,18 @@ class EventoRepository extends ServiceEntityRepository
             ->orderBy('e.dataInicio', 'ASC');
 
         if ($user !== null) {
-            $qb->andWhere('e.criador = :user OR :user MEMBER OF e.participantes')
+            $qb->andWhere(
+                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
+                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
+            )
+               ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
+               ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
                ->setParameter('user', $user);
+        } else {
+            $qb->andWhere('e.visibilidade = :todos AND SIZE(e.participantes) = 0')
+               ->setParameter('todos', Evento::VISIBILIDADE_TODOS);
         }
 
         $eventosNormal = $qb->getQuery()->getResult();
@@ -46,8 +56,18 @@ class EventoRepository extends ServiceEntityRepository
             ->setParameter('end', $end);
 
         if ($user !== null) {
-            $qbRecorrentes->andWhere('e.criador = :user OR :user MEMBER OF e.participantes')
+            $qbRecorrentes->andWhere(
+                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
+                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
+            )
+                          ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
+                          ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
                           ->setParameter('user', $user);
+        } else {
+            $qbRecorrentes->andWhere('e.visibilidade = :todos AND SIZE(e.participantes) = 0')
+                          ->setParameter('todos', Evento::VISIBILIDADE_TODOS);
         }
 
         $eventosRecorrentes = $qbRecorrentes->getQuery()->getResult();
@@ -141,13 +161,19 @@ class EventoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Busca eventos do usuário (criador ou participante)
+     * Busca eventos do usuário (criador ou participante, respeitando visibilidade)
      */
     public function findByUser(User $user): array
     {
         return $this->createQueryBuilder('e')
-            ->where('e.criador = :user')
-            ->orWhere(':user MEMBER OF e.participantes')
+            ->where(
+                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
+                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
+            )
+            ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
+            ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
             ->setParameter('user', $user)
             ->orderBy('e.dataInicio', 'DESC')
             ->getQuery()
@@ -155,15 +181,22 @@ class EventoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Busca próximos eventos do usuário
+     * Busca próximos eventos do usuário (respeitando visibilidade)
      */
     public function findUpcomingByUser(User $user, int $limit = 5): array
     {
         return $this->createQueryBuilder('e')
             ->where('e.dataInicio >= :now')
-            ->andWhere('e.criador = :user OR :user MEMBER OF e.participantes')
+            ->andWhere(
+                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
+                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
+            )
             ->andWhere('e.status = :status')
             ->setParameter('now', new \DateTimeImmutable())
+            ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
+            ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
             ->setParameter('user', $user)
             ->setParameter('status', Evento::STATUS_AGENDADO)
             ->orderBy('e.dataInicio', 'ASC')
@@ -189,8 +222,18 @@ class EventoRepository extends ServiceEntityRepository
             ->orderBy('e.dataInicio', 'ASC');
 
         if ($user !== null) {
-            $qb->andWhere('e.criador = :user OR :user MEMBER OF e.participantes')
+            $qb->andWhere(
+                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
+                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
+            )
+               ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
+               ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
                ->setParameter('user', $user);
+        } else {
+            $qb->andWhere('e.visibilidade = :todos AND SIZE(e.participantes) = 0')
+               ->setParameter('todos', Evento::VISIBILIDADE_TODOS);
         }
 
         return $qb->getQuery()->getResult();
@@ -214,9 +257,9 @@ class EventoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Busca todos os eventos para o calendário (com filtros opcionais)
+     * Busca todos os eventos para o calendário (com filtros opcionais, respeitando visibilidade)
      */
-    public function findForCalendar(?string $status = null, ?User $criador = null): array
+    public function findForCalendar(?string $status = null, ?User $criador = null, ?User $user = null): array
     {
         $qb = $this->createQueryBuilder('e')
             ->orderBy('e.dataInicio', 'ASC');
@@ -229,6 +272,21 @@ class EventoRepository extends ServiceEntityRepository
         if ($criador !== null) {
             $qb->andWhere('e.criador = :criador')
                ->setParameter('criador', $criador);
+        }
+
+        if ($user !== null) {
+            $qb->andWhere(
+                '(e.visibilidade = :somente_eu AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND e.criador = :user) OR ' .
+                '(e.visibilidade = :todos AND :user MEMBER OF e.participantes) OR ' .
+                '(e.visibilidade = :todos AND SIZE(e.participantes) = 0)'
+            )
+               ->setParameter('todos', Evento::VISIBILIDADE_TODOS)
+               ->setParameter('somente_eu', Evento::VISIBILIDADE_SOMENTE_EU)
+               ->setParameter('user', $user);
+        } else {
+            $qb->andWhere('e.visibilidade = :todos AND SIZE(e.participantes) = 0')
+               ->setParameter('todos', Evento::VISIBILIDADE_TODOS);
         }
 
         return $qb->getQuery()->getResult();
