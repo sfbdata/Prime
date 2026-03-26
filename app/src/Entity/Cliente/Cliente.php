@@ -2,6 +2,7 @@
 
 namespace App\Entity\Cliente;
 
+use App\Entity\Auth\User;
 use App\Repository\ClienteRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -46,6 +47,10 @@ abstract class Cliente
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $modificadoEm = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $criadoPor = null;
 
     public function __construct()
     {
@@ -171,6 +176,17 @@ abstract class Cliente
     public function setModificadoEm(?\DateTimeImmutable $modificadoEm): self
     {
         $this->modificadoEm = $modificadoEm;
+        return $this;
+    }
+
+    public function getCriadoPor(): ?User
+    {
+        return $this->criadoPor;
+    }
+
+    public function setCriadoPor(?User $criadoPor): self
+    {
+        $this->criadoPor = $criadoPor;
         return $this;
     }
 

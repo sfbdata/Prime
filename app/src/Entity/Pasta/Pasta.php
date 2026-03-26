@@ -2,6 +2,7 @@
 
 namespace App\Entity\Pasta;
 
+use App\Entity\Auth\User;
 use App\Entity\Cliente\Cliente;
 use App\Entity\Processo\Processo;
 use App\Entity\Tarefa\Tarefa;
@@ -12,6 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Pasta
 {
     public const STATUS_ATIVO = 'ativo';
@@ -43,6 +45,13 @@ class Pasta
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $modificadoEm = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $criadoPor = null;
 
     #[ORM\ManyToOne(targetEntity: Processo::class)]
     #[ORM\JoinColumn(nullable: true)]
@@ -87,6 +96,7 @@ class Pasta
     {
         $this->dataAbertura = new \DateTimeImmutable();
         $this->createdAt = new \DateTimeImmutable();
+        $this->modificadoEm = new \DateTimeImmutable();
         $this->clientes = new ArrayCollection();
         $this->partesContrarias = new ArrayCollection();
         $this->documentos = new ArrayCollection();
@@ -146,6 +156,28 @@ class Pasta
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    #[ORM\PreUpdate]
+    public function setModificadoEmValue(): void
+    {
+        $this->modificadoEm = new \DateTimeImmutable();
+    }
+
+    public function getModificadoEm(): ?\DateTimeImmutable
+    {
+        return $this->modificadoEm;
+    }
+
+    public function getCriadoPor(): ?User
+    {
+        return $this->criadoPor;
+    }
+
+    public function setCriadoPor(?User $criadoPor): self
+    {
+        $this->criadoPor = $criadoPor;
+        return $this;
     }
 
     public function getProcesso(): ?Processo

@@ -72,6 +72,7 @@ class PastaController extends AbstractController
                         $this->addFlash('error', $violation->getMessage());
                     }
                 } else {
+                    $pasta->setCriadoPor($this->getUser());
                     $this->em->persist($pasta);
                     $this->em->flush();
                     $this->addFlash('success', 'Pasta criada com sucesso.');

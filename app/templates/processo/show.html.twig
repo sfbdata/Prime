@@ -90,10 +90,15 @@
                                     {% if historicoTarefas|length > 0 %}<span class="badge text-bg-secondary ms-1">{{ historicoTarefas|length }}</span>{% endif %}
                                 </button>
                             </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="sistema-tab" data-bs-toggle="tab" data-bs-target="#sistema" type="button" role="tab" aria-controls="sistema" aria-selected="false">
+                                    <i class="bi bi-info-circle me-1"></i> Detalhes
+                                </button>
+                            </li>
                         </ul>
 
                         <div class="tab-content mt-3" id="processoTabsContent">
-                            {# Tab: Informações do Processo #}
+                            {# Tab: Detalhes do Processo #}
                             <div class="tab-pane fade show active" id="info" role="tabpanel" aria-labelledby="info-tab">
                                 <div class="row">
                                     <div class="col-md-6">
@@ -182,6 +187,33 @@
                                 {% else %}
                                     <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma movimentação cadastrada.</div>
                                 {% endif %}
+                            </div>
+
+                            {# Tab: Detalhes do Sistema #}
+                            <div class="tab-pane fade" id="sistema" role="tabpanel" aria-labelledby="sistema-tab">
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-calendar-plus me-2"></i> Criado em
+                                                <b class="d-block">{% if processo.criadoAt %}{{ processo.criadoAt|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-calendar-check me-2"></i> Modificado em
+                                                <b class="d-block">{% if processo.modificadoEm %}{{ processo.modificadoEm|date('d/m/Y H:i') }}{% else %}-{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-person-check me-2"></i> Criado por
+                                                <b class="d-block">{% if processo.criadoPor %}{{ processo.criadoPor.fullName }}{% else %}-{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             {# Tab: Tarefas #}

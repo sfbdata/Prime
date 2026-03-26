@@ -2,12 +2,14 @@
 
 namespace App\Entity\Processo;
 
+use App\Entity\Auth\User;
 use App\Repository\ProcessoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ProcessoRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Processo
 {
     #[ORM\Id]
@@ -62,11 +64,23 @@ class Processo
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $dataAtualizacao = null;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $criadoAt = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $modificadoEm = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $criadoPor = null;
+
     public function __construct()
     {
         $this->partes = new ArrayCollection();
         $this->movimentacoes = new ArrayCollection();
         $this->processosFilhos = new ArrayCollection();
+        $this->criadoAt = new \DateTimeImmutable();
+        $this->modificadoEm = new \DateTimeImmutable();
     }
 
     public function getId(): ?int
@@ -297,6 +311,45 @@ class Processo
     public function setDataAtualizacao(?\DateTimeImmutable $dataAtualizacao): self
     {
         $this->dataAtualizacao = $dataAtualizacao;
+        return $this;
+    }
+
+    #[ORM\PreUpdate]
+    public function setModificadoEmValue(): void
+    {
+        $this->modificadoEm = new \DateTimeImmutable();
+    }
+
+    public function getCriadoAt(): ?\DateTimeImmutable
+    {
+        return $this->criadoAt;
+    }
+
+    public function setCriadoAt(?\DateTimeImmutable $criadoAt): self
+    {
+        $this->criadoAt = $criadoAt;
+        return $this;
+    }
+
+    public function getModificadoEm(): ?\DateTimeImmutable
+    {
+        return $this->modificadoEm;
+    }
+
+    public function setModificadoEm(?\DateTimeImmutable $modificadoEm): self
+    {
+        $this->modificadoEm = $modificadoEm;
+        return $this;
+    }
+
+    public function getCriadoPor(): ?User
+    {
+        return $this->criadoPor;
+    }
+
+    public function setCriadoPor(?User $criadoPor): self
+    {
+        $this->criadoPor = $criadoPor;
         return $this;
     }
 

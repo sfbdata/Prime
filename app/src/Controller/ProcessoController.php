@@ -86,6 +86,7 @@ class ProcessoController extends AbstractController
             }
 
             $this->fillProcessoFromRequest($processo, $data);
+            $processo->setCriadoPor($this->getUser());
 
             $em->persist($processo);
             $em->flush();

@@ -68,6 +68,7 @@ class ClienteController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $cliente->setCriadoPor($this->getUser());
             $repo->save($cliente, true);
             return $this->redirectToRoute('cliente_index');
         }
@@ -85,6 +86,7 @@ class ClienteController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            $cliente->setCriadoPor($this->getUser());
             $repo->save($cliente, true);
             return $this->redirectToRoute('cliente_index');
         }
@@ -116,6 +118,7 @@ class ClienteController extends AbstractController
             $form->handleRequest($request);
 
             if ($form->isSubmitted() && $form->isValid()) {
+                $cliente->setCriadoPor($this->getUser());
                 $clientePFRepo->save($cliente, true);
                 $preCadastro->setCliente($cliente);
                 $em->persist($preCadastro);
@@ -137,6 +140,7 @@ class ClienteController extends AbstractController
             $form->handleRequest($request);
 
             if ($form->isSubmitted() && $form->isValid()) {
+                $cliente->setCriadoPor($this->getUser());
                 $clientePJRepo->save($cliente, true);
                 $preCadastro->setCliente($cliente);
                 $em->persist($preCadastro);
