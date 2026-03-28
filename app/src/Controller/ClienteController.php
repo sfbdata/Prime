@@ -12,7 +12,10 @@ use App\Repository\ClienteRepository;
 use App\Repository\ClientePFRepository;
 use App\Repository\ClientePJRepository;
 use App\Repository\PastaRepository;
+use App\Entity\Permission\AccessRequest;
+use App\Repository\AccessRequestRepository;
 use App\Repository\PreCadastroRepository;
+use App\Service\PermissionChecker;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -156,12 +159,29 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
-    public function show(ClienteRepository $repo, PastaRepository $pastaRepo, int $id): Response
+    public function show(ClienteRepository $repo, PastaRepository $pastaRepo, int $id, PermissionChecker $permissionChecker, AccessRequestRepository $accessRequestRepo): Response
     {
         $cliente = $repo->find($id);
 
         if (!$cliente) {
             throw $this->createNotFoundException('Cliente não encontrado');
+        }
+
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        if (!$permissionChecker->canAccessResource($currentUser, 'cliente', $id, 'view')) {
+            $existing = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW);
+            if ($existing === null) {
+                $request = (new AccessRequest())
+                    ->setUser($currentUser)
+                    ->setResourceType(AccessRequest::RESOURCE_CLIENTE)
+                    ->setResourceId($id)
+                    ->setAction(AccessRequest::ACTION_VIEW);
+                $accessRequestRepo->save($request, true);
+            }
+            $this->addFlash('warning', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
+            return $this->redirectToRoute('cliente_index');
         }
 
         return $this->render('cliente/show.html.twig', [
@@ -171,12 +191,19 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/{id}/editar', name: 'cliente_edit', methods: ['GET', 'POST'])]
-    public function edit(Request $request, ClienteRepository $repo, EntityManagerInterface $em, int $id): Response
+    public function edit(Request $request, ClienteRepository $repo, EntityManagerInterface $em, int $id, PermissionChecker $permissionChecker): Response
     {
         $cliente = $repo->find($id);
 
         if (!$cliente) {
             throw $this->createNotFoundException('Cliente não encontrado');
+        }
+
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        if (!$permissionChecker->canAccessResource($currentUser, 'cliente', $id, 'edit')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para editar este cliente.');
         }
 
         if ($cliente instanceof ClientePF) {
@@ -207,22 +234,19 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/{id}/deletar', name: 'cliente_delete', methods: ['POST'])]
-    public function delete(Request $request, ClienteRepository $repo, EntityManagerInterface $em, int $id): Response
+    public function delete(Request $request, ClienteRepository $repo, EntityManagerInterface $em, int $id, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-
-        if (!$currentUser) {
-            throw $this->createAccessDeniedException('Você precisa estar logado.');
-        }
-
-        if (!(in_array('ROLE_ADMIN', $currentUser->getRoles(), true) || in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true))) {
-            throw $this->createAccessDeniedException('Apenas usuários com perfil ADMIN podem excluir clientes.');
-        }
 
         $cliente = $repo->find($id);
 
         if (!$cliente) {
             throw $this->createNotFoundException('Cliente não encontrado');
+        }
+
+        if (!$permissionChecker->canAccessResource($currentUser, 'cliente', $id, 'delete')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para excluir este cliente.');
         }
 
         if ($this->isCsrfTokenValid('delete' . $id, $request->request->get('_token'))) {

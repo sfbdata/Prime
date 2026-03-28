@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Repository\UserRepository;
 use App\Repository\AuditLogRepository;
+use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,22 +21,18 @@ class AuditLogController extends AbstractController
         Request $request,
         AuditLogRepository $auditLogRepository,
         UserRepository $userRepository,
-        EntityManagerInterface $entityManager
+        EntityManagerInterface $entityManager,
+        PermissionChecker $permissionChecker
     ): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
-        if (!$currentUser || !method_exists($currentUser, 'getRoles')) {
-            throw $this->createAccessDeniedException('Você precisa estar autenticado.');
+        if (!$permissionChecker->canAdminister($currentUser, 'admin.audit.view')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para acessar a trilha de auditoria.');
         }
 
-        $roles = $currentUser->getRoles();
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $roles, true);
-        $isAdmin = in_array('ROLE_ADMIN', $roles, true);
-
-        if (!$isSuperAdmin && !$isAdmin) {
-            throw $this->createAccessDeniedException('Apenas administradores podem visualizar a trilha de auditoria.');
-        }
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
 
         $entityFilter = trim((string) $request->query->get('entity', ''));
         $userFilter = trim((string) $request->query->get('user', ''));

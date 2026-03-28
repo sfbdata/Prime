@@ -31,9 +31,16 @@ class Tenant
     #[ORM\OneToMany(targetEntity: User::class, mappedBy: 'tenant')]
     private Collection $users;
 
+    /**
+     * @var Collection<int, TenantRole>
+     */
+    #[ORM\OneToMany(targetEntity: TenantRole::class, mappedBy: 'tenant', cascade: ['persist', 'remove'])]
+    private Collection $roles;
+
     public function __construct()
     {
         $this->users = new ArrayCollection();
+        $this->roles = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable(); // sempre preenchido automaticamente
         $this->isActive = true; // sempre ativo ao criar
     }
@@ -97,5 +104,13 @@ class Tenant
         }
 
         return $this;
+    }
+
+    /**
+     * @return Collection<int, TenantRole>
+     */
+    public function getRoles(): Collection
+    {
+        return $this->roles;
     }
 }

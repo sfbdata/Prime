@@ -3,6 +3,7 @@
 namespace App\Entity\Auth;
 
 use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
@@ -41,6 +42,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\ManyToOne(inversedBy: 'users')]
     #[ORM\JoinColumn(nullable: true)]
     private ?Tenant $tenant = null;
+
+    #[ORM\ManyToOne(inversedBy: 'users')]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?TenantRole $tenantRole = null;
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastLogin = null;
@@ -172,6 +177,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setLastLogin(?\DateTimeImmutable $lastLogin): static
     {
         $this->lastLogin = $lastLogin;
+        return $this;
+    }
+
+    public function getTenantRole(): ?TenantRole
+    {
+        return $this->tenantRole;
+    }
+
+    public function setTenantRole(?TenantRole $tenantRole): static
+    {
+        $this->tenantRole = $tenantRole;
         return $this;
     }
 }

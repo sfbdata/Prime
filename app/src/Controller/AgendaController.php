@@ -10,6 +10,7 @@ use App\Repository\EventoRepository;
 use App\Repository\LegendaCorRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -253,13 +254,13 @@ class AgendaController extends AbstractController
      * Formulário de edição
      */
     #[Route('/{id}/editar', name: 'agenda_editar', methods: ['GET', 'POST'], requirements: ['id' => '\d+'])]
-    public function editar(Evento $evento, Request $request, EntityManagerInterface $em): Response
+    public function editar(Evento $evento, Request $request, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
         /** @var User $user */
         $user = $this->getUser();
 
         // Apenas admin ou criador pode editar
-        if (!$this->isGranted('ROLE_ADMIN') && $evento->getCriador() !== $user) {
+        if (!$permissionChecker->canAdminister($user, 'admin.users.manage') && $evento->getCriador() !== $user) {
             $this->addFlash('danger', 'Você não tem permissão para editar este evento.');
             return $this->redirectToRoute('agenda_index');
         }
@@ -298,13 +299,13 @@ class AgendaController extends AbstractController
      * Exclui evento
      */
     #[Route('/{id}/excluir', name: 'agenda_excluir', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function excluir(Evento $evento, Request $request, EntityManagerInterface $em): Response
+    public function excluir(Evento $evento, Request $request, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
         /** @var User $user */
         $user = $this->getUser();
 
         // Apenas admin ou criador pode excluir
-        if (!$this->isGranted('ROLE_ADMIN') && $evento->getCriador() !== $user) {
+        if (!$permissionChecker->canAdminister($user, 'admin.users.manage') && $evento->getCriador() !== $user) {
             $this->addFlash('danger', 'Você não tem permissão para excluir este evento.');
             return $this->redirectToRoute('agenda_index');
         }
@@ -322,13 +323,13 @@ class AgendaController extends AbstractController
      * Cancela evento
      */
     #[Route('/{id}/cancelar', name: 'agenda_cancelar', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function cancelar(Evento $evento, Request $request, EntityManagerInterface $em): Response
+    public function cancelar(Evento $evento, Request $request, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
         /** @var User $user */
         $user = $this->getUser();
 
         // Apenas admin ou criador pode cancelar
-        if (!$this->isGranted('ROLE_ADMIN') && $evento->getCriador() !== $user) {
+        if (!$permissionChecker->canAdminister($user, 'admin.users.manage') && $evento->getCriador() !== $user) {
             $this->addFlash('danger', 'Você não tem permissão para cancelar este evento.');
             return $this->redirectToRoute('agenda_index');
         }
@@ -357,13 +358,13 @@ class AgendaController extends AbstractController
      * API para atualizar evento via drag & drop no calendário
      */
     #[Route('/{id}/atualizar-datas', name: 'agenda_atualizar_datas', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function atualizarDatas(Evento $evento, Request $request, EntityManagerInterface $em): JsonResponse
+    public function atualizarDatas(Evento $evento, Request $request, EntityManagerInterface $em, PermissionChecker $permissionChecker): JsonResponse
     {
         /** @var User $user */
         $user = $this->getUser();
 
         // Apenas admin ou criador pode atualizar
-        if (!$this->isGranted('ROLE_ADMIN') && $evento->getCriador() !== $user) {
+        if (!$permissionChecker->canAdminister($user, 'admin.users.manage') && $evento->getCriador() !== $user) {
             return $this->json(['success' => false, 'message' => 'Sem permissão'], 403);
         }
 

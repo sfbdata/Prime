@@ -6,22 +6,16 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\TenantRole;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\EmailType;
-use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\Extension\Core\Type\PasswordType;
+use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
-class InvitationType extends AbstractType
+class EditUserTenantRoleType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $builder
-            ->add('fullName', TextType::class, [
-                'label' => 'Nome completo',
-            ])
-            ->add('email', EmailType::class, [
-                'label' => 'Email',
-            ])
             ->add('tenantRole', EntityType::class, [
                 'class'        => TenantRole::class,
                 'label'        => 'Perfil',
@@ -30,6 +24,14 @@ class InvitationType extends AbstractType
                 'placeholder'  => 'Selecione um perfil',
                 'required'     => true,
                 'attr'         => ['class' => 'form-select'],
+            ])
+            ->add('newPassword', RepeatedType::class, [
+                'type'             => PasswordType::class,
+                'mapped'           => false,
+                'required'         => false,
+                'invalid_message'  => 'As senhas não coincidem.',
+                'first_options'    => ['label' => 'Nova senha'],
+                'second_options'   => ['label' => 'Confirmar nova senha'],
             ]);
     }
 

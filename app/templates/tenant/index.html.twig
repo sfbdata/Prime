@@ -54,7 +54,7 @@
                                             </button>
                                         </form>
                                     </div>
-                                {% elseif 'ROLE_ADMIN' in app.user.roles and app.user.tenant.id == tenant.id %}
+                                {% elseif can_administer('admin.tenant.settings.manage') and app.user.tenant.id == tenant.id %}
                                     <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}"
                                        class="btn-action btn-action-edit"
                                        title="Editar tenant"

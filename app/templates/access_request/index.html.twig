@@ -1,0 +1,143 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Solicitações de Acesso{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-key me-2"></i>Solicitações de Acesso Pendentes</h1>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="alert alert-{{ label == 'success' ? 'success' : (label == 'error' ? 'danger' : 'warning') }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endfor %}
+
+        {% if requests is empty %}
+            <div class="alert alert-info">
+                <i class="bi bi-check-circle me-2"></i>Nenhuma solicitação pendente no momento.
+            </div>
+        {% else %}
+            <div class="card">
+                <div class="card-body table-responsive p-0">
+                    <table class="table table-striped table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th><i class="bi bi-person me-1"></i> Solicitante</th>
+                                <th><i class="bi bi-box me-1"></i> Recurso</th>
+                                <th><i class="bi bi-hash me-1"></i> ID</th>
+                                <th><i class="bi bi-lightning me-1"></i> Ação Solicitada</th>
+                                <th><i class="bi bi-clock me-1"></i> Solicitado em</th>
+                                <th><i class="bi bi-gear me-1"></i> Decisão</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for req in requests %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ req.user.fullName }}</strong>
+                                        <div class="text-muted small">{{ req.user.email }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge text-bg-secondary">{{ req.resourceType }}</span>
+                                    </td>
+                                    <td class="text-muted">#{{ req.resourceId }}</td>
+                                    <td>
+                                        <span class="badge
+                                            {{ req.action == 'view'   ? 'text-bg-info' :
+                                               (req.action == 'edit'   ? 'text-bg-warning' :
+                                               (req.action == 'delete' ? 'text-bg-danger' : 'text-bg-secondary')) }}">
+                                            {{ req.action }}
+                                        </span>
+                                    </td>
+                                    <td class="text-muted small">{{ req.requestedAt|date('d/m/Y H:i') }}</td>
+                                    <td>
+                                        {# ── Formulário de aprovação ── #}
+                                        <button type="button"
+                                                class="btn btn-sm btn-success me-1"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalApprove{{ req.id }}">
+                                            <i class="bi bi-check-lg me-1"></i>Aprovar
+                                        </button>
+
+                                        {# ── Formulário de negação ── #}
+                                        <form method="post"
+                                              action="{{ path('app_access_request_deny', {id: req.id}) }}"
+                                              class="d-inline"
+                                              onsubmit="return confirm('Negar o acesso de {{ req.user.fullName }} ao {{ req.resourceType }} #{{ req.resourceId }}?');">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('deny_request_' ~ req.id) }}">
+                                            <button class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-x-lg me-1"></i>Negar
+                                            </button>
+                                        </form>
+
+                                        {# ── Modal de aprovação com seleção de ações ── #}
+                                        <div class="modal fade" id="modalApprove{{ req.id }}" tabindex="-1" aria-labelledby="modalApproveLabel{{ req.id }}" aria-hidden="true">
+                                            <div class="modal-dialog">
+                                                <div class="modal-content">
+                                                    <form method="post" action="{{ path('app_access_request_approve', {id: req.id}) }}">
+                                                        <input type="hidden" name="_token" value="{{ csrf_token('approve_request_' ~ req.id) }}">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="modalApproveLabel{{ req.id }}">
+                                                                <i class="bi bi-key me-2"></i>Aprovar Acesso
+                                                            </h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <p class="mb-2">
+                                                                Solicitante: <strong>{{ req.user.fullName }}</strong><br>
+                                                                Recurso: <strong>{{ req.resourceType }} #{{ req.resourceId }}</strong>
+                                                            </p>
+                                                            <p class="text-muted small mb-3">
+                                                                Selecione as ações que serão concedidas. Pelo menos uma deve ser marcada.
+                                                            </p>
+                                                            <div class="form-check mb-2">
+                                                                <input class="form-check-input" type="checkbox" name="canView" value="1" id="canView{{ req.id }}" checked>
+                                                                <label class="form-check-label" for="canView{{ req.id }}">
+                                                                    <span class="badge text-bg-info me-1">view</span> Visualizar
+                                                                </label>
+                                                            </div>
+                                                            <div class="form-check mb-2">
+                                                                <input class="form-check-input" type="checkbox" name="canEdit" value="1" id="canEdit{{ req.id }}">
+                                                                <label class="form-check-label" for="canEdit{{ req.id }}">
+                                                                    <span class="badge text-bg-warning me-1">edit</span> Editar
+                                                                </label>
+                                                            </div>
+                                                            <div class="form-check">
+                                                                <input class="form-check-input" type="checkbox" name="canDelete" value="1" id="canDelete{{ req.id }}">
+                                                                <label class="form-check-label" for="canDelete{{ req.id }}">
+                                                                    <span class="badge text-bg-danger me-1">delete</span> Excluir
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                            <button type="submit" class="btn btn-success">
+                                                                <i class="bi bi-check-lg me-1"></i>Confirmar Aprovação
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+
+    </div>
+</section>
+{% endblock %}

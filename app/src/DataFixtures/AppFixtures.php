@@ -16,15 +16,23 @@ use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\AtribuicaoTarefa;
 use App\Entity\Tarefa\TarefaMensagem;
+use App\Service\TenantBootstrapService;
 use Doctrine\Bundle\FixturesBundle\Fixture;
+use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
-class AppFixtures extends Fixture
+class AppFixtures extends Fixture implements DependentFixtureInterface
 {
     public function __construct(
-        private readonly UserPasswordHasherInterface $passwordHasher
+        private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly TenantBootstrapService $tenantBootstrap,
     ) {}
+
+    public function getDependencies(): array
+    {
+        return [PermissionFixture::class];
+    }
 
     public function load(ObjectManager $manager): void
     {
@@ -84,15 +92,16 @@ class AppFixtures extends Fixture
         $manager->persist($tenant);
 
         $dados = [
-            ['email' => 'admin@escritorio.com.br',      'nome' => 'Dr. Ricardo Almeida',    'roles' => ['ROLE_ADMIN'],      'senha' => 'admin123', 'ativo' => true],
-            ['email' => 'advogado1@escritorio.com.br',  'nome' => 'Dra. Fernanda Costa',    'roles' => ['ROLE_ADVOGADO'],   'senha' => 'senha123', 'ativo' => true],
-            ['email' => 'advogado2@escritorio.com.br',  'nome' => 'Dr. Marcelo Souza',      'roles' => ['ROLE_ADVOGADO'],   'senha' => 'senha123', 'ativo' => true],
-            ['email' => 'estagiario@escritorio.com.br', 'nome' => 'Lucas Pereira',          'roles' => ['ROLE_ESTAGIARIO'], 'senha' => 'senha123', 'ativo' => true],
-            ['email' => 'secretaria@escritorio.com.br', 'nome' => 'Ana Paula Rodrigues',    'roles' => ['ROLE_SECRETARIA'], 'senha' => 'senha123', 'ativo' => true],
-            ['email' => 'ti@escritorio.com.br',         'nome' => 'Carlos Eduardo Lima',    'roles' => ['ROLE_TI'],         'senha' => 'senha123', 'ativo' => true],
+            ['email' => 'admin@escritorio.com.br',      'nome' => 'Dr. Ricardo Almeida',    'roles' => ['ROLE_USER'],       'senha' => 'admin123', 'ativo' => true,  'isAdmin' => true],
+            ['email' => 'advogado1@escritorio.com.br',  'nome' => 'Dra. Fernanda Costa',    'roles' => ['ROLE_ADVOGADO'],   'senha' => 'senha123', 'ativo' => true,  'isAdmin' => false],
+            ['email' => 'advogado2@escritorio.com.br',  'nome' => 'Dr. Marcelo Souza',      'roles' => ['ROLE_ADVOGADO'],   'senha' => 'senha123', 'ativo' => true,  'isAdmin' => false],
+            ['email' => 'estagiario@escritorio.com.br', 'nome' => 'Lucas Pereira',          'roles' => ['ROLE_ESTAGIARIO'], 'senha' => 'senha123', 'ativo' => true,  'isAdmin' => false],
+            ['email' => 'secretaria@escritorio.com.br', 'nome' => 'Ana Paula Rodrigues',    'roles' => ['ROLE_SECRETARIA'], 'senha' => 'senha123', 'ativo' => true,  'isAdmin' => false],
+            ['email' => 'ti@escritorio.com.br',         'nome' => 'Carlos Eduardo Lima',    'roles' => ['ROLE_TI'],         'senha' => 'senha123', 'ativo' => true,  'isAdmin' => false],
         ];
 
         $users = [];
+        $adminUser = null;
         foreach ($dados as $dado) {
             $user = new User();
             $user->setEmail($dado['email']);
@@ -103,7 +112,16 @@ class AppFixtures extends Fixture
             $user->setPassword($this->passwordHasher->hashPassword($user, $dado['senha']));
             $manager->persist($user);
             $users[] = $user;
+
+            if ($dado['isAdmin']) {
+                $adminUser = $user;
+            }
         }
+
+        // Bootstrap: cria perfil "Administrador do Escritório" e vincula o admin do tenant demo.
+        // Requer que PermissionFixture tenha rodado antes (getDependencies).
+        $manager->flush(); // persiste tenant + usuários antes do bootstrap
+        $this->tenantBootstrap->bootstrap($tenant, $adminUser);
 
         return $users;
     }
@@ -522,14 +540,6 @@ class AppFixtures extends Fixture
             $p->setDataDistribuicao(new \DateTime($dado['distribuicao']));
             $p->setDataAtualizacao(new \DateTimeImmutable());
 
-            // Doc flags
-            $p->setDocPecaOk($dado['docFlags']['peca']);
-            $p->setDocProcuracaoOk($dado['docFlags']['procuracao']);
-            $p->setDocIdentificacaoOk($dado['docFlags']['identificacao']);
-            $p->setDocComprovanteResidenciaOk($dado['docFlags']['residencia']);
-            $p->setDocGratuidadeJusticaOk($dado['docFlags']['gratuidade']);
-            $p->setDocDemaisOk($dado['docFlags']['demais']);
-
             // Partes
             foreach ($dado['partes'] as $parteData) {
                 $parte = new ParteProcesso();
@@ -550,18 +560,6 @@ class AppFixtures extends Fixture
                 $mov->setOrgao($movData['orgao']);
                 $p->addMovimentacao($mov);
                 $manager->persist($mov);
-            }
-
-            // Documentos
-            foreach ($dado['docs'] as $docData) {
-                $doc = new DocumentoProcesso();
-                $doc->setTipo($docData['tipo']);
-                $doc->setNomeOriginal($docData['nome']);
-                $doc->setCaminhoArquivo('processos/' . $p->getNumeroProcesso() . '/' . $docData['nome']);
-                $doc->setMimeType('application/pdf');
-                $doc->setTamanho(rand(80000, 500000));
-                $p->addDocumento($doc);
-                $manager->persist($doc);
             }
 
             $manager->persist($p);
@@ -653,7 +651,6 @@ class AppFixtures extends Fixture
                 $dado['prazo'] ? new \DateTimeImmutable($dado['prazo']) : null
             );
             $tarefa->setStatus($dado['status']);
-            $tarefa->setProcesso($dado['processo']);
 
             if ($dado['status'] === Tarefa::STATUS_CONCLUIDA) {
                 $tarefa->setDataConclusao(new \DateTimeImmutable('-1 day'));

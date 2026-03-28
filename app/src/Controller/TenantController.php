@@ -4,11 +4,15 @@ namespace App\Controller;
 
 use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
+use App\Form\EditUserTenantRoleType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
 use App\Repository\TenantRepository;
+use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
+use App\Service\PermissionChecker;
+use App\Service\TenantBootstrapService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -21,7 +25,7 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 final class TenantController extends AbstractController
 {
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
-    public function index(TenantRepository $tenantRepository): Response
+    public function index(TenantRepository $tenantRepository, PermissionChecker $permissionChecker): Response
     {
         $user = $this->getUser();
 
@@ -31,7 +35,7 @@ final class TenantController extends AbstractController
 
         if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
             $tenants = $tenantRepository->findAll();
-        } elseif (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
+        } elseif ($permissionChecker->canAdminister($user, 'admin.tenant.settings.manage')) {
             $tenants = [$user->getTenant()];
         } else {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar Tenants.');
@@ -46,7 +50,8 @@ final class TenantController extends AbstractController
     public function new(
         Request $request,
         EntityManagerInterface $entityManager,
-        InvitationService $invitationService
+        InvitationService $invitationService,
+        TenantBootstrapService $tenantBootstrap
     ): Response {
         $tenant = new Tenant();
         $form = $this->createForm(TenantType::class, $tenant);
@@ -70,9 +75,12 @@ final class TenantController extends AbstractController
 
             $adminUser = new User();
             $adminUser->setEmail($adminEmail);
-            $adminUser->setRoles(['ROLE_ADMIN']);
+            $adminUser->setRoles(['ROLE_USER']);
             $adminUser->setTenant($tenant);
             $adminUser->setFullName('Administrador do Tenant');
+
+            // Bootstrap: cria perfil "Administrador do Escritório" e vincula o criador
+            $tenantBootstrap->bootstrap($tenant, $adminUser);
 
             $result = $invitationService->sendInvitation($adminUser, 'Confirme seu acesso ao Tenant');
 
@@ -110,7 +118,7 @@ final class TenantController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_tenant_show', methods: ['GET'])]
-    public function show(Tenant $tenant): Response
+    public function show(Tenant $tenant, PermissionChecker $permissionChecker): Response
     {
         $user = $this->getUser();
 
@@ -122,14 +130,15 @@ final class TenantController extends AbstractController
             return $this->render('tenant/show.html.twig', ['tenant' => $tenant]);
         }
 
-        if (in_array('ROLE_ADMIN', $user->getRoles(), true)) {
-            if ($user->getTenant()->getId() !== $tenant->getId()) {
-                throw $this->createAccessDeniedException('Você não tem permissão para acessar este Tenant.');
-            }
-            return $this->render('tenant/show.html.twig', ['tenant' => $tenant]);
+        if (!$permissionChecker->canAdminister($user, 'admin.tenant.settings.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para ver este Tenant.');
         }
 
-        throw $this->createAccessDeniedException('Você não tem permissão para ver este Tenant.');
+        if ($user->getTenant()?->getId() !== $tenant->getId()) {
+            throw $this->createAccessDeniedException('Você não tem permissão para acessar este Tenant.');
+        }
+
+        return $this->render('tenant/show.html.twig', ['tenant' => $tenant]);
     }
 
     #[Route('/{id}/edit', name: 'app_tenant_edit', methods: ['GET', 'POST'])]
@@ -137,7 +146,9 @@ final class TenantController extends AbstractController
         Request $request,
         Tenant $tenant,
         EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher
+        UserPasswordHasherInterface $passwordHasher,
+        PermissionChecker $permissionChecker,
+        TenantRoleRepository $tenantRoleRepository
     ): Response {
         $user = $this->getUser();
 
@@ -145,8 +156,10 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if (!(in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true) ||
-            (in_array('ROLE_ADMIN', $user->getRoles(), true) && $user->getTenant() === $tenant))) {
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+        $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
+
+        if (!($isSuperAdmin || ($isOwnTenant && $permissionChecker->canAdminister($user, 'admin.tenant.settings.manage')))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar este Tenant.');
         }
 
@@ -169,8 +182,18 @@ final class TenantController extends AbstractController
             if ($newPassword !== $confirmPassword) {
                 $this->addFlash('error', 'As senhas não coincidem.');
             } else {
-                $adminUser = $entityManager->getRepository(User::class)
-                    ->findOneBy(['tenant' => $tenant, 'roles' => ['ROLE_ADMIN']]);
+                // Busca o usuário com perfil de sistema (Administrador do Escritório) no tenant
+                $adminRole = null;
+                foreach ($tenantRoleRepository->findByTenantId($tenant->getId()) as $role) {
+                    if ($role->isSystem()) {
+                        $adminRole = $role;
+                        break;
+                    }
+                }
+
+                $adminUser = $adminRole
+                    ? $entityManager->getRepository(User::class)->findOneBy(['tenantRole' => $adminRole])
+                    : null;
 
                 if ($adminUser) {
                     $adminUser->setPassword($passwordHasher->hashPassword($adminUser, $newPassword));
@@ -210,7 +233,7 @@ final class TenantController extends AbstractController
     }
 
     #[Route('/{id}/users', name: 'app_tenant_users', methods: ['GET'])]
-    public function listUsers(Tenant $tenant): Response
+    public function listUsers(Tenant $tenant, PermissionChecker $permissionChecker): Response
     {
         $user = $this->getUser();
 
@@ -218,9 +241,10 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        // Apenas SUPER_ADMIN ou ADMIN do Tenant podem ver
-        if (!(in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true) ||
-            (in_array('ROLE_ADMIN', $user->getRoles(), true) && $user->getTenant() === $tenant))) {
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+        $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para ver os usuários deste Tenant.');
         }
 
@@ -228,7 +252,6 @@ final class TenantController extends AbstractController
             'tenant' => $tenant,
             'users' => $tenant->getUsers(),
         ]);
-        
     }
 
         #[Route('/{tenantId}/user/{id}/edit-role', name: 'app_tenant_user_edit_role', methods: ['GET','POST'])]
@@ -237,7 +260,9 @@ final class TenantController extends AbstractController
         User $user,
         Request $request,
         EntityManagerInterface $entityManager,
-        UserPasswordHasherInterface $passwordHasher
+        UserPasswordHasherInterface $passwordHasher,
+        TenantRoleRepository $tenantRoleRepository,
+        PermissionChecker $permissionChecker
     ): Response {
         $currentUser = $this->getUser();
 
@@ -245,12 +270,21 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if (!(in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true) ||
-            (in_array('ROLE_ADMIN', $currentUser->getRoles(), true) && $currentUser->getTenant()->getId() === $tenantId))) {
-            throw $this->createAccessDeniedException('Você não tem permissão para editar roles.');
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Você não tem permissão para editar perfis de usuário.');
         }
 
-        $form = $this->createForm(\App\Form\UserRolesType::class, $user);
+        // Para SUPER_ADMIN editando outro tenant, buscar roles do tenant do usuário alvo.
+        // Para admin normal, buscar roles do próprio tenant.
+        $targetTenantId = $isSuperAdmin ? ($user->getTenant()?->getId() ?? $tenantId) : $tenantId;
+        $tenantRoles    = $tenantRoleRepository->findByTenantId($targetTenantId);
+
+        $form = $this->createForm(EditUserTenantRoleType::class, $user, [
+            'tenant_roles' => $tenantRoles,
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {

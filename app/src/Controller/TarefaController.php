@@ -12,6 +12,7 @@ use App\Repository\PastaRepository;
 use App\Repository\TarefaRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -73,12 +74,13 @@ class TarefaController extends AbstractController
     }
 
     #[Route('/admin', name: 'tarefa_admin_index', methods: ['GET'])]
-    public function adminIndex(TarefaRepository $tarefaRepository): Response
+    public function adminIndex(TarefaRepository $tarefaRepository, PermissionChecker $permissionChecker): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
-
         /** @var User $usuario */
         $usuario = $this->getUser();
+        if (!$permissionChecker->canAdminister($usuario, 'admin.tarefas.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para acessar a gestão de tarefas.');
+        }
 
         return $this->render('tarefa/admin_index.html.twig', [
             'tarefas' => $tarefaRepository->findByTenantForAdmin($usuario->getTenant()),
@@ -90,12 +92,14 @@ class TarefaController extends AbstractController
         Request $request,
         UserRepository $userRepository,
         PastaRepository $pastaRepository,
-        EntityManagerInterface $entityManager
+        EntityManagerInterface $entityManager,
+        PermissionChecker $permissionChecker
     ): Response {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
-
         /** @var User $admin */
         $admin = $this->getUser();
+        if (!$permissionChecker->canAdminister($admin, 'admin.tarefas.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para criar tarefas.');
+        }
 
         $usuarios = $userRepository->createQueryBuilder('u')
             ->where('u.tenant = :tenant')
@@ -192,11 +196,11 @@ class TarefaController extends AbstractController
     }
 
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa): Response
+    public function show(Tarefa $tarefa, PermissionChecker $permissionChecker): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $isAdmin = in_array('ROLE_ADMIN', $usuario->getRoles(), true);
+        $isAdmin = $permissionChecker->canAdminister($usuario, 'admin.tarefas.manage');
 
         if (!$isAdmin && !$this->usuarioTemAtribuicaoNaTarefa($usuario, $tarefa)) {
             throw $this->createAccessDeniedException('Você não tem acesso a esta tarefa.');
@@ -291,12 +295,16 @@ class TarefaController extends AbstractController
      * Admin devolve tarefa como pendência para o funcionário.
      * 
      * Transição: EM_REVISAO → PENDENTE
-     * Permissão: ROLE_ADMIN
+     * Permissão: admin.tarefas.manage
      */
     #[Route('/{id}/enviar-pendencia', name: 'tarefa_enviar_pendencia', methods: ['POST'])]
-    public function enviarPendencia(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager): Response
+    public function enviarPendencia(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, PermissionChecker $permissionChecker): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        /** @var User $admin */
+        $admin = $this->getUser();
+        if (!$permissionChecker->canAdminister($admin, 'admin.tarefas.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para devolver tarefas como pendência.');
+        }
 
         if (!$this->isCsrfTokenValid('enviar_pendencia_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -307,9 +315,6 @@ class TarefaController extends AbstractController
             $this->addFlash('error', 'Esta tarefa não está em revisão.');
             return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
         }
-
-        /** @var User $admin */
-        $admin = $this->getUser();
 
         // Adiciona instruções como mensagem no histórico
         $instrucoes = trim((string) $request->request->get('instrucoes', ''));
@@ -355,12 +360,16 @@ class TarefaController extends AbstractController
      * Admin encerra/conclui a tarefa.
      * 
      * Transição: EM_REVISAO → CONCLUIDA
-     * Permissão: ROLE_ADMIN
+     * Permissão: admin.tarefas.manage
      */
     #[Route('/{id}/encerrar', name: 'tarefa_encerrar', methods: ['POST'])]
-    public function encerrar(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager): Response
+    public function encerrar(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, PermissionChecker $permissionChecker): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        if (!$permissionChecker->canAdminister($usuario, 'admin.tarefas.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para encerrar tarefas.');
+        }
 
         if (!$this->isCsrfTokenValid('encerrar_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -397,11 +406,11 @@ class TarefaController extends AbstractController
      * Restrição: Não permite enviar mensagens em tarefas concluídas
      */
     #[Route('/{id}/mensagem', name: 'tarefa_mensagem', methods: ['POST'])]
-    public function mensagem(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager): Response
+    public function mensagem(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, PermissionChecker $permissionChecker): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $isAdmin = in_array('ROLE_ADMIN', $usuario->getRoles(), true);
+        $isAdmin = $permissionChecker->canAdminister($usuario, 'admin.tarefas.manage');
 
         if (!$isAdmin && !$this->usuarioTemAtribuicaoNaTarefa($usuario, $tarefa)) {
             throw $this->createAccessDeniedException('Você não tem acesso a esta tarefa.');
@@ -443,12 +452,16 @@ class TarefaController extends AbstractController
      * Admin reabre uma tarefa já concluída.
      * 
      * Transição: CONCLUIDA → PENDENTE
-     * Permissão: ROLE_ADMIN
+     * Permissão: admin.tarefas.manage
      */
     #[Route('/{id}/reabrir', name: 'tarefa_reabrir', methods: ['POST'])]
-    public function reabrir(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager): Response
+    public function reabrir(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, PermissionChecker $permissionChecker): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        if (!$permissionChecker->canAdminister($usuario, 'admin.tarefas.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para reabrir tarefas.');
+        }
 
         if (!$this->isCsrfTokenValid('reabrir_tarefa_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');

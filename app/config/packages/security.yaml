@@ -22,23 +22,17 @@ security:
                 path: app_logout
 
     access_control:
-        # Público: criação de Tenant
+        # Público: criação de Tenant, login e confirmação de convite
         - { path: ^/tenant/new, roles: PUBLIC_ACCESS }
-
-        # SUPER_ADMIN acessa a rota pura /tenant
-        - { path: ^/tenant$, roles: ROLE_SUPER_ADMIN }
-
-        # ADMIN acessa apenas /tenant/{id}
-        - { path: ^/tenant/[0-9]+$, roles: ROLE_ADMIN }
-
-        # Convite de usuários apenas para ADMIN
-        - { path: ^/invite, roles: ROLE_ADMIN }
-
-        # Público: login e confirmação
         - { path: ^/register/confirm, roles: PUBLIC_ACCESS }
         - { path: ^/login, roles: PUBLIC_ACCESS }
 
-        # Qualquer usuário autenticado
+        # SUPER_ADMIN acessa a listagem global de tenants
+        - { path: ^/tenant$, roles: ROLE_SUPER_ADMIN }
+
+        # A partir daqui: apenas usuário autenticado.
+        # Autorização fina (o que pode fazer) é responsabilidade dos controllers
+        # via PermissionChecker — não do security.yaml.
         - { path: ^/, roles: ROLE_USER }
 
 when@test:

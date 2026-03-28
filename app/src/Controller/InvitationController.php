@@ -4,7 +4,9 @@ namespace App\Controller;
 
 use App\Entity\Auth\User;
 use App\Form\InvitationType;
+use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
+use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -18,10 +20,23 @@ class InvitationController extends AbstractController
     public function invite(
         Request $request,
         EntityManagerInterface $entityManager,
-        InvitationService $invitationService
+        InvitationService $invitationService,
+        PermissionChecker $permissionChecker,
+        TenantRoleRepository $tenantRoleRepository
     ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$permissionChecker->canAdminister($currentUser, 'admin.users.invite')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para convidar usuários.');
+        }
+
+        $currentTenant = $currentUser->getTenant();
+        $tenantRoles   = $tenantRoleRepository->findByTenantId($currentTenant->getId());
+
         $user = new User();
-        $form = $this->createForm(InvitationType::class, $user);
+        $form = $this->createForm(InvitationType::class, $user, [
+            'tenant_roles' => $tenantRoles,
+        ]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -37,11 +52,7 @@ class InvitationController extends AbstractController
                 ]);
             }
 
-            if (empty($user->getRoles())) {
-                $user->setRoles(['ROLE_USER']);
-            }
-
-            $currentTenant = $this->getUser()->getTenant();
+            $user->setRoles(['ROLE_USER']);
             $user->setTenant($currentTenant);
 
             $result = $invitationService->sendInvitation($user);

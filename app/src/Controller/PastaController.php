@@ -12,7 +12,10 @@ use App\Repository\ClienteRepository;
 use App\Repository\PastaDocumentoRepository;
 use App\Repository\PastaRepository;
 use App\Repository\ProcessoRepository;
+use App\Entity\Permission\AccessRequest;
+use App\Repository\AccessRequestRepository;
 use App\Repository\UserRepository;
+use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -49,6 +52,8 @@ class PastaController extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly ValidatorInterface $validator,
         private readonly string $uploadsDir,
+        private readonly PermissionChecker $permissionChecker,
+        private readonly AccessRequestRepository $accessRequestRepository,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -101,6 +106,24 @@ class PastaController extends AbstractController
     #[Route('/{id}', name: 'pasta_show', methods: ['GET'])]
     public function show(Pasta $pasta): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+            $existing = $this->accessRequestRepository->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW);
+            if ($existing === null) {
+                $request = (new AccessRequest())
+                    ->setUser($currentUser)
+                    ->setResourceType(AccessRequest::RESOURCE_PASTA)
+                    ->setResourceId($pastaId)
+                    ->setAction(AccessRequest::ACTION_VIEW);
+                $this->accessRequestRepository->save($request, true);
+            }
+            $this->addFlash('warning', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
+            return $this->redirectToRoute('pasta_index');
+        }
+
         return $this->render('pasta/show.html.twig', [
             'pasta' => $pasta,
             'documentTypeOptions' => self::DOCUMENT_TYPES,
@@ -111,6 +134,13 @@ class PastaController extends AbstractController
     #[Route('/{id}/editar', name: 'pasta_edit', methods: ['GET', 'POST'])]
     public function edit(Pasta $pasta, Request $request): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'edit')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para editar esta pasta.');
+        }
+
         if ($request->isMethod('POST')) {
             $errors = $this->fillPastaFromRequest($pasta, $request->request->all());
 
@@ -146,6 +176,13 @@ class PastaController extends AbstractController
     #[Route('/{id}/deletar', name: 'pasta_delete', methods: ['POST'])]
     public function delete(Pasta $pasta, Request $request): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'delete')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para excluir esta pasta.');
+        }
+
         if (!$this->isCsrfTokenValid('delete_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }

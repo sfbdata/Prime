@@ -6,10 +6,13 @@ use App\Entity\Processo\Processo;
 use App\Entity\Processo\ParteProcesso;
 use App\Entity\Processo\MovimentacaoProcesso;
 use App\Repository\ProcessoRepository;
+use App\Entity\Permission\AccessRequest;
+use App\Repository\AccessRequestRepository;
 use App\Repository\ClienteRepository;
 use App\Repository\TarefaRepository;
 use App\Service\DatajudClient;
 use App\Service\DatajudProcessoMapper;
+use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -102,8 +105,15 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}/editar', name: 'processo_edit', methods: ['GET', 'POST'])]
-    public function edit(Processo $processo, Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em): Response
+    public function edit(Processo $processo, Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        if (!$permissionChecker->canAccessResource($currentUser, 'processo', (int) $processo->getId(), 'edit')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para editar este processo.');
+        }
+
         $clientes = $clienteRepo->findAll();
 
         if ($request->isMethod('POST')) {
@@ -122,8 +132,26 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}', name: 'processo_show', methods: ['GET'])]
-    public function show(Processo $processo, TarefaRepository $tarefaRepository): Response
+    public function show(Processo $processo, TarefaRepository $tarefaRepository, PermissionChecker $permissionChecker, AccessRequestRepository $accessRequestRepo): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $processoId = (int) $processo->getId();
+        if (!$permissionChecker->canAccessResource($currentUser, 'processo', $processoId, 'view')) {
+            $existing = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW);
+            if ($existing === null) {
+                $request = (new AccessRequest())
+                    ->setUser($currentUser)
+                    ->setResourceType(AccessRequest::RESOURCE_PROCESSO)
+                    ->setResourceId($processoId)
+                    ->setAction(AccessRequest::ACTION_VIEW);
+                $accessRequestRepo->save($request, true);
+            }
+            $this->addFlash('warning', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
+            return $this->redirectToRoute('processo_index');
+        }
+
         $historicoTarefas = [];
 
         foreach ($tarefaRepository->findByProcesso($processo) as $tarefa) {
@@ -170,8 +198,15 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}/deletar', name: 'processo_delete', methods: ['POST'])]
-    public function delete(Request $request, Processo $processo, EntityManagerInterface $em): Response
+    public function delete(Request $request, Processo $processo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        if (!$permissionChecker->canAccessResource($currentUser, 'processo', (int) $processo->getId(), 'delete')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para excluir este processo.');
+        }
+
         if (!$this->isCsrfTokenValid('delete_processo_'.$processo->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }

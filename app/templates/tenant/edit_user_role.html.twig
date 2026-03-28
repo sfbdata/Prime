@@ -19,14 +19,10 @@
                     </div>
                     <div class="card-body">
                         {{ form_start(form) }}
-                            <h6 class="mb-3"><i class="bi bi-shield-check me-1"></i>Perfis de Acesso</h6>
-                            <div class="roles-list mb-4">
-                                {% for child in form.roles %}
-                                    <div class="form-check mb-2">
-                                        {{ form_widget(child, {'attr': {'class': 'form-check-input'}}) }}
-                                        {{ form_label(child, null, {'label_attr': {'class': 'form-check-label'}}) }}
-                                    </div>
-                                {% endfor %}
+                            <div class="mb-4">
+                                {{ form_label(form.tenantRole, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                                {{ form_widget(form.tenantRole) }}
+                                {{ form_errors(form.tenantRole) }}
                             </div>
 
                             <hr class="my-4">

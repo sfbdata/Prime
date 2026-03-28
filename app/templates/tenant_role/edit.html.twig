@@ -1,0 +1,53 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Perfil — {{ role.name }}{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">
+            <i class="bi bi-shield-lock me-2"></i>
+            Editar Perfil: <em>{{ role.name }}</em>
+            {% if role.isSystem %}
+                <span class="badge text-bg-info ms-2">Sistema</span>
+            {% endif %}
+        </h1>
+        <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {% if role.isSystem %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-1"></i>
+                Este é um perfil de sistema. O nome não pode ser alterado, mas as permissões podem ser ajustadas.
+            </div>
+        {% endif %}
+
+        <div class="card">
+            <div class="card-body">
+                {% include 'tenant_role/_form.html.twig' with {
+                    form: form,
+                    allPermissions: allPermissions,
+                    currentCodes: currentCodes,
+                    role: role
+                } %}
+            </div>
+            <div class="card-footer d-flex justify-content-end gap-2">
+                <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+                <button type="submit" form="{{ form.vars.id }}" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> Salvar Alterações
+                </button>
+            </div>
+        </div>
+
+    </div>
+</section>
+{% endblock %}
+

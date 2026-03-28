@@ -11,6 +11,7 @@ use App\Form\ChamadoType;
 use App\Repository\ChamadoRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
+use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
@@ -64,9 +65,13 @@ class ServiceDeskController extends AbstractController
      * Dashboard do Service Desk (apenas para equipe de TI)
      */
     #[Route('', name: 'servicedesk_index', methods: ['GET'])]
-    public function index(Request $request, ChamadoRepository $chamadoRepository, UserRepository $userRepository): Response
+    public function index(Request $request, ChamadoRepository $chamadoRepository, UserRepository $userRepository, PermissionChecker $permissionChecker): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+        /** @var \App\Entity\Auth\User $usuario */
+        $usuario = $this->getUser();
+        if (!$permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para acessar o painel do Service Desk.');
+        }
 
         // Filtros
         $responsavelId = $request->query->get('responsavel');
@@ -184,11 +189,11 @@ class ServiceDeskController extends AbstractController
      * Visualiza um chamado
      */
     #[Route('/{id}', name: 'servicedesk_show', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function show(Chamado $chamado, UserRepository $userRepository): Response
+    public function show(Chamado $chamado, UserRepository $userRepository, PermissionChecker $permissionChecker): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $isAdmin = $this->isGranted('ROLE_ADMIN');
+        $isAdmin = $permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage');
 
         // Verificar permissão
         if (!$isAdmin && $chamado->getSolicitante() !== $usuario) {
@@ -220,11 +225,11 @@ class ServiceDeskController extends AbstractController
      * Adiciona interação ao chamado
      */
     #[Route('/{id}/interacao', name: 'servicedesk_interacao', methods: ['POST'])]
-    public function interacao(Chamado $chamado, Request $request, EntityManagerInterface $em): Response
+    public function interacao(Chamado $chamado, Request $request, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $isAdmin = $this->isGranted('ROLE_ADMIN');
+        $isAdmin = $permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage');
 
         // Verificar permissão
         if (!$isAdmin && $chamado->getSolicitante() !== $usuario) {
@@ -259,12 +264,13 @@ class ServiceDeskController extends AbstractController
      * Atribui ou reatribui responsável ao chamado
      */
     #[Route('/{id}/atribuir', name: 'servicedesk_atribuir', methods: ['POST'])]
-    public function atribuir(Chamado $chamado, Request $request, EntityManagerInterface $em, UserRepository $userRepository): Response
+    public function atribuir(Chamado $chamado, Request $request, EntityManagerInterface $em, UserRepository $userRepository, PermissionChecker $permissionChecker): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
-
         /** @var User $usuario */
         $usuario = $this->getUser();
+        if (!$permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para atribuir chamados.');
+        }
 
         $responsavelId = $request->request->get('responsavel_id');
         $responsavel = $responsavelId ? $userRepository->find($responsavelId) : null;
@@ -304,12 +310,13 @@ class ServiceDeskController extends AbstractController
      * Altera status do chamado
      */
     #[Route('/{id}/status', name: 'servicedesk_status', methods: ['POST'])]
-    public function status(Chamado $chamado, Request $request, EntityManagerInterface $em): Response
+    public function status(Chamado $chamado, Request $request, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
-
         /** @var User $usuario */
         $usuario = $this->getUser();
+        if (!$permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para alterar o status de chamados.');
+        }
 
         $novoStatus = $request->request->get('status');
         $statusAntigo = $chamado->getStatus();

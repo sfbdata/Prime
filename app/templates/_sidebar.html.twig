@@ -34,55 +34,67 @@
                     </a>
                 </li>
 
-                <li class="pje-menu-item">
-                    <a href="{{ path('pasta_index') }}"
-                       class="pje-menu-link {{ currentRoute starts with 'pasta_' ? 'active' : '' }}">
-                        <i class="bi bi-folder pje-nav-icon"></i>
-                        <span>Pastas</span>
-                    </a>
-                </li>
+                {% if can_access_module('pastas') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('pasta_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'pasta_' ? 'active' : '' }}">
+                            <i class="bi bi-folder pje-nav-icon"></i>
+                            <span>Pastas</span>
+                        </a>
+                    </li>
+                {% endif %}
 
-                <li class="pje-menu-item">
-                    <a href="{{ path('cliente_index') }}"
-                       class="pje-menu-link {{ currentRoute starts with 'cliente_' ? 'active' : '' }}">
-                        <i class="bi bi-people pje-nav-icon"></i>
-                        <span>Clientes</span>
-                    </a>
-                </li>
+                {% if can_access_module('clientes') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('cliente_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'cliente_' ? 'active' : '' }}">
+                            <i class="bi bi-people pje-nav-icon"></i>
+                            <span>Clientes</span>
+                        </a>
+                    </li>
+                {% endif %}
 
-                <li class="pje-menu-item">
-                    <a href="{{ path('processo_index') }}"
-                       class="pje-menu-link {{ currentRoute starts with 'processo_' ? 'active' : '' }}">
-                        <i class="bi bi-briefcase pje-nav-icon"></i>
-                        <span>Processos</span>
-                    </a>
-                </li>
+                {% if can_access_module('processos') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('processo_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'processo_' ? 'active' : '' }}">
+                            <i class="bi bi-briefcase pje-nav-icon"></i>
+                            <span>Processos</span>
+                        </a>
+                    </li>
+                {% endif %}
 
-                <li class="pje-menu-item">
-                    <a href="{{ path('tarefa_minhas') }}"
-                       class="pje-menu-link {{ currentRoute starts with 'tarefa_' ? 'active' : '' }}">
-                        <i class="bi bi-list-check pje-nav-icon"></i>
-                        <span>Minhas Tarefas</span>
-                    </a>
-                </li>
+                {% if can_access_module('tarefas') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('tarefa_minhas') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'tarefa_' ? 'active' : '' }}">
+                            <i class="bi bi-list-check pje-nav-icon"></i>
+                            <span>Minhas Tarefas</span>
+                        </a>
+                    </li>
+                {% endif %}
 
-                <li class="pje-menu-item">
-                    <a href="{{ path('agenda_index') }}"
-                       class="pje-menu-link {{ currentRoute starts with 'agenda_' ? 'active' : '' }}">
-                        <i class="bi bi-calendar3 pje-nav-icon"></i>
-                        <span>Agenda</span>
-                    </a>
-                </li>
+                {% if can_access_module('agenda') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('agenda_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'agenda_' ? 'active' : '' }}">
+                            <i class="bi bi-calendar3 pje-nav-icon"></i>
+                            <span>Agenda</span>
+                        </a>
+                    </li>
+                {% endif %}
 
-                <li class="pje-menu-item">
-                    <a href="{{ path('servicedesk_meus_chamados') }}"
-                       class="pje-menu-link {{ currentRoute == 'servicedesk_meus_chamados' or currentRoute == 'servicedesk_novo' ? 'active' : '' }}">
-                        <i class="bi bi-headset pje-nav-icon"></i>
-                        <span>Service Desk</span>
-                    </a>
-                </li>
+                {% if can_access_module('servicedesk') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('servicedesk_meus_chamados') }}"
+                           class="pje-menu-link {{ currentRoute == 'servicedesk_meus_chamados' or currentRoute == 'servicedesk_novo' ? 'active' : '' }}">
+                            <i class="bi bi-headset pje-nav-icon"></i>
+                            <span>Service Desk</span>
+                        </a>
+                    </li>
+                {% endif %}
 
-                {% if 'ROLE_COMERCIAL' in app.user.roles %}
+                {% if can_access_module('precadastros') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('pre_cadastro_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'pre_cadastro_' ? 'active' : '' }}">
@@ -110,50 +122,99 @@
                     </li>
                 {% endif %}
 
-                {% if 'ROLE_ADMIN' in app.user.roles %}
+                {# Seção ADMIN — visível se o usuário tiver qualquer permissão admin.* #}
+                {% set hasAnyAdminPerm =
+                    can_administer('admin.users.invite') or
+                    can_administer('admin.users.manage') or
+                    can_administer('admin.tenant.settings.manage') or
+                    can_administer('admin.roles.manage') or
+                    can_administer('admin.access_requests.approve') or
+                    can_administer('admin.tarefas.manage') or
+                    can_administer('admin.servicedesk.manage') or
+                    can_administer('admin.audit.view')
+                %}
+                {% if hasAnyAdminPerm %}
                     <li class="pje-menu-separator">ADMIN</li>
-                    <li class="pje-menu-item">
-                        <a href="{{ path('invite_user') }}"
-                           class="pje-menu-link {{ currentRoute == 'invite_user' ? 'active' : '' }}">
-                            <i class="bi bi-envelope pje-nav-icon"></i>
-                            <span>Convidar Usuários</span>
-                        </a>
-                    </li>
-                    <li class="pje-menu-item">
-                        <a href="{{ path('app_tenant_users', {'id': app.user.tenant.id}) }}"
-                           class="pje-menu-link {{ currentRoute == 'app_tenant_users' ? 'active' : '' }}">
-                            <i class="bi bi-people-fill pje-nav-icon"></i>
-                            <span>Funcionários</span>
-                        </a>
-                    </li>
-                    <li class="pje-menu-item">
-                        <a href="{{ path('app_tenant_show', {'id': app.user.tenant.id}) }}"
-                           class="pje-menu-link {{ currentRoute == 'app_tenant_show' ? 'active' : '' }}">
-                            <i class="bi bi-building-gear pje-nav-icon"></i>
-                            <span>Meu Escritório</span>
-                        </a>
-                    </li>
-                    <li class="pje-menu-item">
-                        <a href="{{ path('tarefa_admin_index') }}"
-                           class="pje-menu-link {{ currentRoute starts with 'tarefa_admin_' ? 'active' : '' }}">
-                            <i class="bi bi-kanban pje-nav-icon"></i>
-                            <span>Gestão de Tarefas</span>
-                        </a>
-                    </li>
-                    <li class="pje-menu-item">
-                        <a href="{{ path('servicedesk_index') }}"
-                           class="pje-menu-link {{ currentRoute == 'servicedesk_index' ? 'active' : '' }}">
-                            <i class="bi bi-headset pje-nav-icon"></i>
-                            <span>Service Desk (TI)</span>
-                        </a>
-                    </li>
-                    <li class="pje-menu-item">
-                        <a href="{{ path('audit_log_index') }}"
-                           class="pje-menu-link {{ currentRoute starts with 'audit_log_' ? 'active' : '' }}">
-                            <i class="bi bi-shield-check pje-nav-icon"></i>
-                            <span>Trilha de Auditoria</span>
-                        </a>
-                    </li>
+
+                    {% if can_administer('admin.users.invite') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('invite_user') }}"
+                               class="pje-menu-link {{ currentRoute == 'invite_user' ? 'active' : '' }}">
+                                <i class="bi bi-envelope pje-nav-icon"></i>
+                                <span>Convidar Usuários</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if can_administer('admin.users.manage') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('app_tenant_users', {'id': app.user.tenant.id}) }}"
+                               class="pje-menu-link {{ currentRoute == 'app_tenant_users' ? 'active' : '' }}">
+                                <i class="bi bi-people-fill pje-nav-icon"></i>
+                                <span>Funcionários</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if can_administer('admin.tenant.settings.manage') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('app_tenant_show', {'id': app.user.tenant.id}) }}"
+                               class="pje-menu-link {{ currentRoute == 'app_tenant_show' ? 'active' : '' }}">
+                                <i class="bi bi-building-gear pje-nav-icon"></i>
+                                <span>Meu Escritório</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if can_administer('admin.roles.manage') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('app_tenant_role_index', {'tenantId': app.user.tenant.id}) }}"
+                               class="pje-menu-link {{ currentRoute starts with 'app_tenant_role_' ? 'active' : '' }}">
+                                <i class="bi bi-shield-lock pje-nav-icon"></i>
+                                <span>Perfis</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if can_administer('admin.access_requests.approve') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('app_access_request_index') }}"
+                               class="pje-menu-link {{ currentRoute starts with 'app_access_request_' ? 'active' : '' }}">
+                                <i class="bi bi-key pje-nav-icon"></i>
+                                <span>Solicitações de Acesso</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if can_administer('admin.tarefas.manage') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('tarefa_admin_index') }}"
+                               class="pje-menu-link {{ currentRoute starts with 'tarefa_admin_' ? 'active' : '' }}">
+                                <i class="bi bi-kanban pje-nav-icon"></i>
+                                <span>Gestão de Tarefas</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if can_administer('admin.servicedesk.manage') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('servicedesk_index') }}"
+                               class="pje-menu-link {{ currentRoute == 'servicedesk_index' ? 'active' : '' }}">
+                                <i class="bi bi-headset pje-nav-icon"></i>
+                                <span>Service Desk (TI)</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if can_administer('admin.audit.view') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('audit_log_index') }}"
+                               class="pje-menu-link {{ currentRoute starts with 'audit_log_' ? 'active' : '' }}">
+                                <i class="bi bi-shield-check pje-nav-icon"></i>
+                                <span>Trilha de Auditoria</span>
+                            </a>
+                        </li>
+                    {% endif %}
                 {% endif %}
 
             </ul>

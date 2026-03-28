@@ -1,0 +1,96 @@
+{#
+  Partial reutilizável para formulário de TenantRole.
+  Variáveis esperadas:
+    - form: FormView
+    - allPermissions: array<group, Permission[]>
+    - currentCodes: string[] (apenas no edit)
+    - role: TenantRole (apenas no edit)
+#}
+
+{{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="mb-3">
+            {{ form_label(form.name, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.name, {attr: {class: 'form-control' ~ (form.name.vars.errors|length ? ' is-invalid' : '')}}) }}
+            {% if form.name.vars.errors|length %}
+                <div class="invalid-feedback">
+                    {% for error in form.name.vars.errors %}{{ error.message }}{% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        <div class="mb-3">
+            {{ form_label(form.description, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.description, {attr: {class: 'form-control'}}) }}
+        </div>
+    </div>
+</div>
+
+<hr>
+<h5 class="mb-3"><i class="bi bi-key me-2"></i>Permissões</h5>
+
+{% set groupIcons = {
+    'modules':   'bi-layout-sidebar',
+    'resources': 'bi-folder2-open',
+    'admin':     'bi-shield-lock'
+} %}
+{% set groupLabels = {
+    'modules':   'Módulos',
+    'resources': 'Recursos',
+    'admin':     'Administração'
+} %}
+
+<div class="row g-3">
+    {% for group, permissions in allPermissions %}
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-header py-2">
+                    <strong>
+                        <i class="bi {{ groupIcons[group] ?? 'bi-list' }} me-1"></i>
+                        {{ groupLabels[group] ?? group|capitalize }}
+                    </strong>
+                    <button type="button" class="btn btn-link btn-sm py-0 float-end check-all-btn"
+                            data-group="{{ group }}">
+                        Marcar todos
+                    </button>
+                </div>
+                <div class="card-body p-2">
+                    {% for child in form.permissions %}
+                        {% set code = child.vars.value %}
+                        {# Verifica se este checkbox pertence ao grupo atual #}
+                        {% set belongs = false %}
+                        {% for perm in permissions %}
+                            {% if perm.code == code %}
+                                {% set belongs = true %}
+                            {% endif %}
+                        {% endfor %}
+                        {% if belongs %}
+                            <div class="form-check perm-check perm-group-{{ group }}">
+                                {{ form_widget(child, {attr: {class: 'form-check-input'}}) }}
+                                <label class="form-check-label small" for="{{ child.vars.id }}">
+                                    {{ child.vars.label }}
+                                    <br><code class="text-muted" style="font-size:.7rem">{{ code }}</code>
+                                </label>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+
+{{ form_end(form) }}
+
+<script>
+document.querySelectorAll('.check-all-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        var group = btn.dataset.group;
+        var checks = document.querySelectorAll('.perm-group-' + group + ' input[type=checkbox]');
+        var allChecked = Array.from(checks).every(function(c) { return c.checked; });
+        checks.forEach(function(c) { c.checked = !allChecked; });
+        btn.textContent = allChecked ? 'Marcar todos' : 'Desmarcar todos';
+    });
+});
+</script>

@@ -7,6 +7,7 @@ use App\Entity\Notificacao;
 use App\Entity\Tarefa\Tarefa;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
+use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -23,7 +24,8 @@ class NotificacaoService
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly NotificacaoRepository $notificacaoRepository,
-        private readonly UserRepository $userRepository
+        private readonly UserRepository $userRepository,
+        private readonly PermissionChecker $permissionChecker
     ) {
     }
 
@@ -107,8 +109,7 @@ class NotificacaoService
             ->getResult();
 
         $admins = array_filter($usuarios, function(User $user) {
-            $roles = $user->getRoles();
-            return in_array('ROLE_ADMIN', $roles, true) || in_array('ROLE_SUPER_ADMIN', $roles, true);
+            return $this->permissionChecker->canAdminister($user, 'admin.tarefas.manage');
         });
 
         foreach ($admins as $admin) {
