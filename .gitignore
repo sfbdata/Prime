@@ -42,3 +42,7 @@
 # AdminLTE assets (baixar separadamente)
 AdminLTE-4.0.0-rc4/
 app/public/adminlte4/
+
+# Artefatos de processo / relatórios de sessão
+DAY*_COMPLETION_REPORT.md
+HANDOFF_FINAL.md
