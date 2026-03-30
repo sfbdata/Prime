@@ -33,7 +33,6 @@
                             <tr>
                                 <th><i class="bi bi-person me-1"></i> Solicitante</th>
                                 <th><i class="bi bi-box me-1"></i> Recurso</th>
-                                <th><i class="bi bi-hash me-1"></i> ID</th>
                                 <th><i class="bi bi-lightning me-1"></i> Ação Solicitada</th>
                                 <th><i class="bi bi-clock me-1"></i> Solicitado em</th>
                                 <th><i class="bi bi-gear me-1"></i> Decisão</th>
@@ -49,7 +48,6 @@
                                     <td>
                                         <span class="badge text-bg-secondary">{{ req.resourceType }}</span>
                                     </td>
-                                    <td class="text-muted">#{{ req.resourceId }}</td>
                                     <td>
                                         <span class="badge
                                             {{ req.action == 'view'   ? 'text-bg-info' :

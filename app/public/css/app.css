@@ -337,6 +337,8 @@ body .app-sidebar {
 .pje-menu-link.active .pje-nav-icon,
 .pje-menu-link:hover  .pje-nav-icon { color: #0078AA; }
 
+.pje-menu-badge { margin-left: auto; background: #dc3545; color: #fff; font-size: 0.6rem; font-weight: 700; min-width: 16px; height: 16px; border-radius: 8px; display: flex; align-items: center; justify-content: center; padding: 0 4px; line-height: 1; flex-shrink: 0; }
+
 .app-sidebar.pje-sidebar::-webkit-scrollbar       { width: 4px; }
 .app-sidebar.pje-sidebar::-webkit-scrollbar-thumb { background: #cdd4da; border-radius: 2px; }
 .app-sidebar.pje-sidebar::-webkit-scrollbar-track { background: transparent; }

@@ -182,6 +182,9 @@
                                class="pje-menu-link {{ currentRoute starts with 'app_access_request_' ? 'active' : '' }}">
                                 <i class="bi bi-key pje-nav-icon"></i>
                                 <span>Solicitações de Acesso</span>
+                                {% if accessRequestsPendingCount > 0 %}
+                                    <span class="pje-menu-badge">{{ accessRequestsPendingCount > 99 ? '99+' : accessRequestsPendingCount }}</span>
+                                {% endif %}
                             </a>
                         </li>
                     {% endif %}

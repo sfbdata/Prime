@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Permission\AccessRequest;
 use App\Entity\Tarefa\Tarefa;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
@@ -172,6 +173,55 @@ class NotificacaoService
                 "A tarefa \"{$tarefa->getTitulo()}\" foi concluída com sucesso!",
                 $tarefa
             );
+        }
+
+        $this->entityManager->flush();
+    }
+
+    /**
+     * Notifica admins do tenant que uma nova solicitação de acesso foi enviada.
+     * Chamado quando usuário submete uma solicitação via /access-requests/submit.
+     */
+    public function notificarSolicitacaoAcesso(AccessRequest $accessRequest): void
+    {
+        $solicitante = $accessRequest->getUser();
+        $tenant = $solicitante?->getTenant();
+
+        if ($tenant === null) {
+            return;
+        }
+
+        $usuarios = $this->userRepository->createQueryBuilder('u')
+            ->where('u.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getResult();
+
+        $admins = array_filter($usuarios, function (User $user) {
+            return $this->permissionChecker->canAdminister($user, 'admin.access_requests.approve');
+        });
+
+        $tipoLabel = match ($accessRequest->getResourceType()) {
+            AccessRequest::RESOURCE_CLIENTE  => 'cliente',
+            AccessRequest::RESOURCE_PASTA    => 'pasta',
+            AccessRequest::RESOURCE_PROCESSO => 'processo',
+            default => $accessRequest->getResourceType(),
+        };
+
+        foreach ($admins as $admin) {
+            $notificacao = new Notificacao();
+            $notificacao->setUsuario($admin);
+            $notificacao->setTipo(Notificacao::TIPO_SOLICITACAO_ACESSO);
+            $notificacao->setTitulo('Nova solicitação de acesso');
+            $notificacao->setMensagem(sprintf(
+                '%s solicitou acesso ao %s #%d.',
+                $solicitante->getFullName(),
+                $tipoLabel,
+                $accessRequest->getResourceId()
+            ));
+            $notificacao->setUrl('/access-requests');
+
+            $this->entityManager->persist($notificacao);
         }
 
         $this->entityManager->flush();

@@ -7,6 +7,7 @@ use App\Entity\Permission\ResourceAccess;
 use App\Repository\AccessRequestRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\UserRepository;
+use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -100,6 +101,7 @@ final class AccessRequestController extends AbstractController
     public function submit(
         Request $httpRequest,
         AccessRequestRepository $accessRequestRepository,
+        NotificacaoService $notificacaoService,
     ): Response {
         $user = $this->getUser();
         if (!$user) {
@@ -133,6 +135,7 @@ final class AccessRequestController extends AbstractController
                 ->setDescription($description ?: null);
 
             $accessRequestRepository->save($accessRequest, true);
+            $notificacaoService->notificarSolicitacaoAcesso($accessRequest);
         }
 
         $this->addFlash('success', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
