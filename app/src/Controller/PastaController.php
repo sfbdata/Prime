@@ -111,17 +111,17 @@ class PastaController extends AbstractController
 
         $pastaId = (int) $pasta->getId();
         if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
-            $existing = $this->accessRequestRepository->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW);
-            if ($existing === null) {
-                $request = (new AccessRequest())
-                    ->setUser($currentUser)
-                    ->setResourceType(AccessRequest::RESOURCE_PASTA)
-                    ->setResourceId($pastaId)
-                    ->setAction(AccessRequest::ACTION_VIEW);
-                $this->accessRequestRepository->save($request, true);
-            }
-            $this->addFlash('warning', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
-            return $this->redirectToRoute('pasta_index');
+            $hasPending = $this->accessRequestRepository->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW) !== null;
+
+            return $this->render('access_request/denied.html.twig', [
+                'resourceType' => AccessRequest::RESOURCE_PASTA,
+                'resourceId'   => $pastaId,
+                'action'       => AccessRequest::ACTION_VIEW,
+                'label'        => 'Pasta',
+                'identifier'   => $pasta->getNup(),
+                'hasPending'   => $hasPending,
+                'backRoute'    => 'pasta_index',
+            ]);
         }
 
         return $this->render('pasta/show.html.twig', [
@@ -137,8 +137,19 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para editar esta pasta.');
+        $pastaEditId = (int) $pasta->getId();
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaEditId, 'edit')) {
+            $hasPending = $this->accessRequestRepository->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PASTA, $pastaEditId, AccessRequest::ACTION_EDIT) !== null;
+
+            return $this->render('access_request/denied.html.twig', [
+                'resourceType' => AccessRequest::RESOURCE_PASTA,
+                'resourceId'   => $pastaEditId,
+                'action'       => AccessRequest::ACTION_EDIT,
+                'label'        => 'Pasta',
+                'identifier'   => $pasta->getNup(),
+                'hasPending'   => $hasPending,
+                'backRoute'    => 'pasta_index',
+            ]);
         }
 
         if ($request->isMethod('POST')) {

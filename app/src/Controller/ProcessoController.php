@@ -105,13 +105,24 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}/editar', name: 'processo_edit', methods: ['GET', 'POST'])]
-    public function edit(Processo $processo, Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
+    public function edit(Processo $processo, Request $request, ClienteRepository $clienteRepo, EntityManagerInterface $em, PermissionChecker $permissionChecker, AccessRequestRepository $accessRequestRepo): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
-        if (!$permissionChecker->canAccessResource($currentUser, 'processo', (int) $processo->getId(), 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para editar este processo.');
+        $processoEditId = (int) $processo->getId();
+        if (!$permissionChecker->canAccessResource($currentUser, 'processo', $processoEditId, 'edit')) {
+            $hasPending = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PROCESSO, $processoEditId, AccessRequest::ACTION_EDIT) !== null;
+
+            return $this->render('access_request/denied.html.twig', [
+                'resourceType' => AccessRequest::RESOURCE_PROCESSO,
+                'resourceId'   => $processoEditId,
+                'action'       => AccessRequest::ACTION_EDIT,
+                'label'        => 'Processo',
+                'identifier'   => $processo->getNumeroProcesso(),
+                'hasPending'   => $hasPending,
+                'backRoute'    => 'processo_index',
+            ]);
         }
 
         $clientes = $clienteRepo->findAll();
@@ -139,17 +150,17 @@ class ProcessoController extends AbstractController
 
         $processoId = (int) $processo->getId();
         if (!$permissionChecker->canAccessResource($currentUser, 'processo', $processoId, 'view')) {
-            $existing = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW);
-            if ($existing === null) {
-                $request = (new AccessRequest())
-                    ->setUser($currentUser)
-                    ->setResourceType(AccessRequest::RESOURCE_PROCESSO)
-                    ->setResourceId($processoId)
-                    ->setAction(AccessRequest::ACTION_VIEW);
-                $accessRequestRepo->save($request, true);
-            }
-            $this->addFlash('warning', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
-            return $this->redirectToRoute('processo_index');
+            $hasPending = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW) !== null;
+
+            return $this->render('access_request/denied.html.twig', [
+                'resourceType' => AccessRequest::RESOURCE_PROCESSO,
+                'resourceId'   => $processoId,
+                'action'       => AccessRequest::ACTION_VIEW,
+                'label'        => 'Processo',
+                'identifier'   => $processo->getNumeroProcesso(),
+                'hasPending'   => $hasPending,
+                'backRoute'    => 'processo_index',
+            ]);
         }
 
         $historicoTarefas = [];

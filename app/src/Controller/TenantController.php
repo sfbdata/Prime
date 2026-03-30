@@ -8,6 +8,7 @@ use App\Form\EditUserTenantRoleType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
+use App\Repository\ResourceAccessRepository;
 use App\Repository\TenantRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
@@ -262,7 +263,8 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         TenantRoleRepository $tenantRoleRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        ResourceAccessRepository $resourceAccessRepository
     ): Response {
         $currentUser = $this->getUser();
 
@@ -300,8 +302,10 @@ final class TenantController extends AbstractController
         }
 
         return $this->render('tenant/edit_user_role.html.twig', [
-            'form' => $form->createView(),
-            'user' => $user,
+            'form'            => $form->createView(),
+            'user'            => $user,
+            'tenantId'        => $tenantId,
+            'resourceAccesses' => $resourceAccessRepository->findByUser($user),
         ]);
     }
 

@@ -96,6 +96,12 @@
                                                                 Solicitante: <strong>{{ req.user.fullName }}</strong><br>
                                                                 Recurso: <strong>{{ req.resourceType }} #{{ req.resourceId }}</strong>
                                                             </p>
+                                                            {% if req.description %}
+                                                                <div class="alert alert-light border mb-3 py-2">
+                                                                    <small class="text-muted d-block mb-1"><i class="bi bi-chat-left-text me-1"></i>Justificativa do solicitante:</small>
+                                                                    {{ req.description }}
+                                                                </div>
+                                                            {% endif %}
                                                             <p class="text-muted small mb-3">
                                                                 Selecione as ações que serão concedidas. Pelo menos uma deve ser marcada.
                                                             </p>

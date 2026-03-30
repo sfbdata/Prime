@@ -1,0 +1,81 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Acesso Restrito — {{ label }} {{ identifier }}{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-lock me-2"></i>Acesso Restrito</h1>
+        <a href="{{ path(backRoute) }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-shield-lock text-secondary" style="font-size: 4rem;"></i>
+                <h4 class="mt-3">Você não tem permissão para acessar este item</h4>
+                <p class="text-muted mb-4">
+                    {{ label }} <strong>{{ identifier }}</strong>
+                </p>
+
+                {% if hasPending %}
+                    <div class="alert alert-info d-inline-block px-4">
+                        <i class="bi bi-hourglass-split me-1"></i>
+                        Você já possui uma solicitação de acesso pendente para este item. Aguarde a aprovação do administrador.
+                    </div>
+                {% else %}
+                    <button type="button" class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#modalSolicitarAcesso">
+                        <i class="bi bi-key me-1"></i> Solicitar Acesso
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if not hasPending %}
+{# Modal de solicitação de acesso #}
+<div class="modal fade" id="modalSolicitarAcesso" tabindex="-1" aria-labelledby="modalSolicitarAcessoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalSolicitarAcessoLabel">
+                    <i class="bi bi-key me-1"></i> Solicitar Acesso
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="POST" action="{{ path('app_access_request_submit') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('access_request_submit') }}">
+                <input type="hidden" name="resourceType" value="{{ resourceType }}">
+                <input type="hidden" name="resourceId" value="{{ resourceId }}">
+                <input type="hidden" name="action" value="{{ action }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="accessRequestDescription" class="form-label fw-semibold">Descrição da solicitação</label>
+                        <textarea
+                            id="accessRequestDescription"
+                            name="description"
+                            class="form-control"
+                            rows="4"
+                            required
+                        >Solicito acesso ao {{ label }} {{ identifier }}</textarea>
+                        <div class="form-text">Descreva o motivo pelo qual você precisa acessar este item.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-send me-1"></i> Solicitar Acesso
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

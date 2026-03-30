@@ -20,6 +20,7 @@ security:
             custom_authenticator: App\Security\UserAuthenticator
             logout:
                 path: app_logout
+            access_denied_handler: App\Security\AccessDeniedHandler
 
     access_control:
         # Público: criação de Tenant, login e confirmação de convite

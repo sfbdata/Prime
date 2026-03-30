@@ -171,17 +171,18 @@ class ClienteController extends AbstractController
         $currentUser = $this->getUser();
 
         if (!$permissionChecker->canAccessResource($currentUser, 'cliente', $id, 'view')) {
-            $existing = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW);
-            if ($existing === null) {
-                $request = (new AccessRequest())
-                    ->setUser($currentUser)
-                    ->setResourceType(AccessRequest::RESOURCE_CLIENTE)
-                    ->setResourceId($id)
-                    ->setAction(AccessRequest::ACTION_VIEW);
-                $accessRequestRepo->save($request, true);
-            }
-            $this->addFlash('warning', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
-            return $this->redirectToRoute('cliente_index');
+            $hasPending = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW) !== null;
+            $identifier = $cliente instanceof ClientePF ? $cliente->getNomeCompleto() : $cliente->getRazaoSocial();
+
+            return $this->render('access_request/denied.html.twig', [
+                'resourceType' => AccessRequest::RESOURCE_CLIENTE,
+                'resourceId'   => $id,
+                'action'       => AccessRequest::ACTION_VIEW,
+                'label'        => 'Cliente',
+                'identifier'   => $identifier,
+                'hasPending'   => $hasPending,
+                'backRoute'    => 'cliente_index',
+            ]);
         }
 
         return $this->render('cliente/show.html.twig', [
@@ -191,7 +192,7 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/{id}/editar', name: 'cliente_edit', methods: ['GET', 'POST'])]
-    public function edit(Request $request, ClienteRepository $repo, EntityManagerInterface $em, int $id, PermissionChecker $permissionChecker): Response
+    public function edit(Request $request, ClienteRepository $repo, EntityManagerInterface $em, int $id, PermissionChecker $permissionChecker, AccessRequestRepository $accessRequestRepo): Response
     {
         $cliente = $repo->find($id);
 
@@ -203,7 +204,18 @@ class ClienteController extends AbstractController
         $currentUser = $this->getUser();
 
         if (!$permissionChecker->canAccessResource($currentUser, 'cliente', $id, 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para editar este cliente.');
+            $hasPending = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT) !== null;
+            $identifier = $cliente instanceof ClientePF ? $cliente->getNomeCompleto() : $cliente->getRazaoSocial();
+
+            return $this->render('access_request/denied.html.twig', [
+                'resourceType' => AccessRequest::RESOURCE_CLIENTE,
+                'resourceId'   => $id,
+                'action'       => AccessRequest::ACTION_EDIT,
+                'label'        => 'Cliente',
+                'identifier'   => $identifier,
+                'hasPending'   => $hasPending,
+                'backRoute'    => 'cliente_index',
+            ]);
         }
 
         if ($cliente instanceof ClientePF) {
