@@ -26,10 +26,11 @@
                 <a href="{{ path('app_tenant_role_index', {tenantId: tenantId}) }}" class="btn btn-secondary">
                     Cancelar
                 </a>
-                <button type="submit" form="{{ form.vars.id }}" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check-lg me-1"></i> Salvar Perfil
                 </button>
             </div>
+            {{ form_end(form) }}
         </div>
     </div>
 </section>

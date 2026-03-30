@@ -21,7 +21,7 @@
                         <tr>
                             <th><i class="bi bi-person me-1"></i> Nome</th>
                             <th><i class="bi bi-envelope me-1"></i> Email</th>
-                            <th><i class="bi bi-shield-check me-1"></i> Roles</th>
+                            <th><i class="bi bi-shield-check me-1"></i> Perfil</th>
                             <th><i class="bi bi-calendar-plus me-1"></i> Criado em</th>
                             <th><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
@@ -32,9 +32,11 @@
                                 <td>{{ user.fullName }}</td>
                                 <td>{{ user.email }}</td>
                                 <td>
-                                    {% for role in user.roles %}
-                                        <span class="badge text-bg-secondary">{{ role }}</span>
-                                    {% endfor %}
+                                    {% if user.tenantRole %}
+                                        <span class="badge text-bg-secondary">{{ user.tenantRole.name }}</span>
+                                    {% else %}
+                                        <span class="text-muted">—</span>
+                                    {% endif %}
                                 </td>
                                 <td>{{ user.createdAt|date('d/m/Y H:i') }}</td>
                                 <td>
