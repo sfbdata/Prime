@@ -7,6 +7,10 @@ use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -29,10 +33,20 @@ final class PontoController extends AbstractController
             throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
         }
 
-        $batidas = $repository->findBy(['user' => $user], ['dataHora' => 'DESC'], 20);
+        $mes = (int) (new \DateTimeImmutable())->format('m');
+        $ano = (int) (new \DateTimeImmutable())->format('Y');
+
+        $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
+        $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
+
+        /** @var RegistroPonto[] $batidas */
+        $batidas = $repository->findByUserAndCompetencia($user, $ano, $mes);
+        $folhaRows = $this->buildFolhaRows($inicioMes, $fimMes, $batidas, false, true);
 
         return $this->render('ponto/index.html.twig', [
-            'batidas' => $batidas,
+            'folhaRows' => $folhaRows,
+            'mesAtual' => $mes,
+            'anoAtual' => $ano,
         ]);
     }
 
@@ -76,14 +90,14 @@ final class PontoController extends AbstractController
         if ($tipo === null || $tipo === '') {
             return $this->json([
                 'success' => false,
-                'message' => 'Tipo de registro e obrigatorio (Entrada ou Saida).',
+                'message' => 'Tipo de registro e obrigatorio (Entrada, Repouso, Retorno ou Saida).',
             ], 422);
         }
 
         if (!in_array($tipo, RegistroPonto::TIPOS_VALIDOS, true)) {
             return $this->json([
                 'success' => false,
-                'message' => 'Tipo de registro invalido. Selecione Entrada ou Saida.',
+                'message' => 'Tipo de registro invalido. Selecione Entrada, Repouso, Retorno ou Saida.',
             ], 422);
         }
 
@@ -94,8 +108,38 @@ final class PontoController extends AbstractController
             ], 422);
         }
 
+        if (!is_numeric($latitude) || !is_numeric($longitude)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Coordenadas inválidas para registro do ponto.',
+            ], 422);
+        }
+
         $latitudeFloat = (float) $latitude;
         $longitudeFloat = (float) $longitude;
+
+        if (!is_finite($latitudeFloat) || !is_finite($longitudeFloat) || $latitudeFloat < -90 || $latitudeFloat > 90 || $longitudeFloat < -180 || $longitudeFloat > 180) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Coordenadas fora da faixa válida.',
+            ], 422);
+        }
+
+        if (!is_numeric($precisaoGps)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Precisão do GPS inválida.',
+            ], 422);
+        }
+
+        $precisaoGpsFloat = (float) $precisaoGps;
+
+        if (!is_finite($precisaoGpsFloat) || $precisaoGpsFloat <= 0) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Precisão do GPS inválida.',
+            ], 422);
+        }
 
         $sedes = $sedeRepository->findBy(['tenant' => $user->getTenant()]);
         if (empty($sedes)) {
@@ -120,10 +164,14 @@ final class PontoController extends AbstractController
                 (float) $sede->getLongitude()
             );
 
-            if ($distancia <= (float) $sede->getRaioPermitido()) {
+            $raioPermitido = (float) $sede->getRaioPermitido();
+            if ($raioPermitido <= 0) {
+                continue;
+            }
+
+            if ($distancia <= $raioPermitido && ($distanciaSedeEncontrada === null || $distancia < $distanciaSedeEncontrada)) {
                 $sedeEncontrada = $sede;
                 $distanciaSedeEncontrada = $distancia;
-                break;
             }
         }
 
@@ -138,12 +186,13 @@ final class PontoController extends AbstractController
         $registro = new RegistroPonto();
         $registro->setUser($user);
         $registro->setSede($sedeEncontrada);
+        $registro->setSedeNomeSnapshot($sedeEncontrada->getNome());
         $registro->setTipo($tipo);
         $registro->setDataHora(new \DateTime());
 
         $registro->setLatitude((string) $latitudeFloat);
         $registro->setLongitude((string) $longitudeFloat);
-        $registro->setPrecisaoGps($precisaoGps !== null ? (string) $precisaoGps : '0');
+        $registro->setPrecisaoGps((string) $precisaoGpsFloat);
 
         $entityManager->persist($registro);
         $entityManager->flush();
@@ -176,8 +225,89 @@ final class PontoController extends AbstractController
         return $raioTerra * $c;
     }
 
-    #[Route('/exportar-csv', name: 'ponto_exportar_csv')]
-    public function exportarCsv(
+    /**
+     * @param RegistroPonto[] $batidas
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool}>
+     */
+    private function buildFolhaRows(
+        \DateTimeImmutable $inicioMes,
+        \DateTimeImmutable $fimMes,
+        array $batidas,
+        bool $includeEmptyDays = true,
+        bool $orderDesc = false
+    ): array
+    {
+        $registrosPorDia = [];
+        foreach ($batidas as $batida) {
+            $chaveDia = $batida->getDataHora()->format('Y-m-d');
+            $tipo = $batida->getTipo();
+
+            if (!isset($registrosPorDia[$chaveDia])) {
+                $registrosPorDia[$chaveDia] = [];
+            }
+
+            if (!isset($registrosPorDia[$chaveDia][$tipo])) {
+                $registrosPorDia[$chaveDia][$tipo] = $batida;
+                continue;
+            }
+
+            $registroAtual = $registrosPorDia[$chaveDia][$tipo];
+            if (
+                $tipo === RegistroPonto::TIPO_SAIDA
+                && $batida->getDataHora() > $registroAtual->getDataHora()
+            ) {
+                $registrosPorDia[$chaveDia][$tipo] = $batida;
+            }
+        }
+
+        $diasSemana = [
+            1 => 'Segunda',
+            2 => 'Terça',
+            3 => 'Quarta',
+            4 => 'Quinta',
+            5 => 'Sexta',
+            6 => 'Sábado',
+            7 => 'Domingo',
+        ];
+
+        $rows = [];
+        for ($dia = $inicioMes; $dia <= $fimMes; $dia = $dia->modify('+1 day')) {
+            $chaveDia = $dia->format('Y-m-d');
+            $indiceDiaSemana = (int) $dia->format('N');
+
+            $row = [
+                'diaMes' => $dia->format('d'),
+                'diaSemana' => $diasSemana[$indiceDiaSemana],
+                'entrada' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]->getDataHora()->format('H:i:s') : '',
+                'repouso' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getDataHora()->format('H:i:s') : '',
+                'retorno' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getDataHora()->format('H:i:s') : '',
+                'saida' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getDataHora()->format('H:i:s') : '',
+                'fimSemana' => $indiceDiaSemana >= 6,
+            ];
+
+            if (
+                !$includeEmptyDays
+                && $row['entrada'] === ''
+                && $row['repouso'] === ''
+                && $row['retorno'] === ''
+                && $row['saida'] === ''
+            ) {
+                continue;
+            }
+
+            $rows[] = $row;
+        }
+
+        if ($orderDesc) {
+            $rows = array_reverse($rows);
+        }
+
+        return $rows;
+    }
+
+    #[Route('/exportar-folha-xlsx', name: 'ponto_exportar_xlsx')]
+    public function exportarFolhaXlsx(
+        Request $request,
         RegistroPontoRepository $repository,
         PermissionChecker $permissionChecker
     ): StreamedResponse {
@@ -188,30 +318,57 @@ final class PontoController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $batidas = $repository->findBy(['user' => $user], ['dataHora' => 'DESC']);
+        $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
+        $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
 
-        $response = new StreamedResponse(function () use ($batidas) {
-            $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Data', 'Hora', 'Tipo', 'Sede', 'Latitude', 'Longitude', 'Precisão GPS', 'Observação']);
+        /** @var RegistroPonto[] $batidas */
+        $batidas = $repository->findByUserAndCompetencia($user, $ano, $mes);
 
-            foreach ($batidas as $batida) {
-                fputcsv($handle, [
-                    $batida->getDataHora()->format('d/m/Y'),
-                    $batida->getDataHora()->format('H:i:s'),
-                    $batida->getTipo(),
-                    $batida->getSede() ? $batida->getSede()->getNome() : 'N/A',
-                    $batida->getLatitude(),
-                    $batida->getLongitude(),
-                    $batida->getPrecisaoGps() . 'm',
-                    $batida->getObservacao(),
-                ]);
+        $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
+        $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
+        $folhaRows = $this->buildFolhaRows($inicioMes, $fimMes, $batidas);
+
+        $response = new StreamedResponse(function () use ($folhaRows, $mes, $ano) {
+            $spreadsheet = new Spreadsheet();
+            $sheet = $spreadsheet->getActiveSheet();
+            $sheet->setTitle('Folha Ponto');
+
+            $sheet->fromArray(['Dia do Mês', 'Dia da Semana', 'Entrada', 'Repouso', 'Retorno', 'Saída'], null, 'A1');
+            $sheet->getStyle('A1:F1')->getFont()->setBold(true);
+
+            $linha = 2;
+            foreach ($folhaRows as $row) {
+                $sheet->setCellValueExplicit("A{$linha}", $row['diaMes'], DataType::TYPE_STRING);
+                $sheet->setCellValue("B{$linha}", $row['diaSemana']);
+                $sheet->setCellValue("C{$linha}", $row['entrada']);
+                $sheet->setCellValue("D{$linha}", $row['repouso']);
+                $sheet->setCellValue("E{$linha}", $row['retorno']);
+                $sheet->setCellValue("F{$linha}", $row['saida']);
+
+                if ($row['fimSemana']) {
+                    $sheet->getStyle("A{$linha}:F{$linha}")
+                        ->getFill()
+                        ->setFillType(Fill::FILL_SOLID)
+                        ->getStartColor()
+                        ->setARGB('FFEAEAEA');
+                }
+
+                $linha++;
             }
 
-            fclose($handle);
+            foreach (range('A', 'F') as $coluna) {
+                $sheet->getColumnDimension($coluna)->setAutoSize(true);
+            }
+
+            $sheet->freezePane('A2');
+
+            $writer = new Xlsx($spreadsheet);
+            $writer->save('php://output');
+            $spreadsheet->disconnectWorksheets();
         });
 
-        $response->headers->set('Content-Type', 'text/csv; charset=utf-8');
-        $response->headers->set('Content-Disposition', 'attachment; filename="ponto_exportacao.csv"');
+        $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="folha_ponto_%04d_%02d.xlsx"', $ano, $mes));
 
         return $response;
     }

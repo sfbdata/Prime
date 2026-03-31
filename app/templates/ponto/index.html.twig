@@ -28,7 +28,9 @@
                         <select id="tipo-registro" class="form-select" required>
                             <option value="">Selecione...</option>
                             <option value="entrada">Entrada</option>
-                            <option value="saida">Saida</option>
+                            <option value="repouso">Repouso</option>
+                            <option value="retorno">Retorno</option>
+                            <option value="saida">Saída</option>
                         </select>
                     </div>
 
@@ -42,10 +44,10 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Últimas Batidas</h3>
+                    <h3 class="card-title">Folha de Ponto - {{ '%02d'|format(mesAtual) }}/{{ anoAtual }}</h3>
                     <div class="card-tools">
-                        <a href="{{ path('ponto_exportar_csv') }}" class="btn btn-sm btn-success">
-                            <i class="bi bi-file-earmark-spreadsheet"></i> Exportar CSV
+                        <a href="{{ path('ponto_exportar_xlsx') }}" class="btn btn-sm btn-success">
+                            <i class="bi bi-file-earmark-spreadsheet"></i> Exportar Folha XLSX
                         </a>
                     </div>
                 </div>
@@ -53,29 +55,28 @@
                     <table class="table table-striped mb-0">
                         <thead>
                             <tr>
-                                <th>Data/Hora</th>
-                                <th>Tipo</th>
-                                <th>Sede</th>
-                                <th>Precisão</th>
+                                <th>Dia do Mês</th>
+                                <th>Dia da Semana</th>
+                                <th>Entrada</th>
+                                <th>Repouso</th>
+                                <th>Retorno</th>
+                                <th>Saída</th>
                             </tr>
                         </thead>
                         <tbody id="ponto-history">
-                            {% if batidas is empty %}
+                            {% if folhaRows is empty %}
                                 <tr>
-                                    <td colspan="4" class="text-center text-muted py-3">Nenhum registro encontrado.</td>
+                                    <td colspan="6" class="text-center text-muted py-3">Nenhuma batida registrada no mês atual.</td>
                                 </tr>
                             {% else %}
-                                {% for batida in batidas %}
-                                    <tr>
-                                        <td>{{ batida.dataHora|date('d/m/Y H:i:s') }}</td>
-                                        <td>
-                                            {% set tipoLabels = {'entrada': 'Entrada', 'saida': 'Saída', 'entrada_intervalo': 'Início Intervalo', 'saida_intervalo': 'Fim Intervalo'} %}
-                                            <span class="badge bg-{{ batida.tipo starts with 'entrada' ? 'success' : 'warning' }}">
-                                                {{ tipoLabels[batida.tipo] ?? batida.tipo }}
-                                            </span>
-                                        </td>
-                                        <td>{{ batida.sede ? batida.sede.nome : 'N/A' }}</td>
-                                        <td>{{ batida.precisaoGps }}m</td>
+                                {% for linha in folhaRows %}
+                                    <tr class="{{ linha.fimSemana ? 'table-secondary' : '' }}">
+                                        <td>{{ linha.diaMes }}</td>
+                                        <td>{{ linha.diaSemana }}</td>
+                                        <td>{{ linha.entrada }}</td>
+                                        <td>{{ linha.repouso }}</td>
+                                        <td>{{ linha.retorno }}</td>
+                                        <td>{{ linha.saida }}</td>
                                     </tr>
                                 {% endfor %}
                             {% endif %}
@@ -88,6 +89,8 @@
 </div>
 
 <script>
+    const GPS_PRECISAO_ACEITAVEL_METROS = 90;
+
     // Relógio em tempo real
     function updateClock() {
         const now = new Date();
@@ -119,9 +122,10 @@
                 };
 
                 gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS: ${accuracy.toFixed(1)}m de precisão`;
-                if (accuracy <= 50) {
+                if (accuracy <= GPS_PRECISAO_ACEITAVEL_METROS) {
                     gpsStatus.className = 'alert alert-success small mb-3';
                 } else {
+                    gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> GPS impreciso (${accuracy.toFixed(1)}m). O sistema ainda validará se você está dentro do raio de alguma sede.`;
                     gpsStatus.className = 'alert alert-warning small mb-3';
                 }
 
@@ -143,7 +147,7 @@
     // Botão de Bater Ponto
     btnPonto.addEventListener('click', async function() {
         if (!tipoRegistro.value) {
-            alert('Selecione o tipo de registro (Entrada ou Saida).');
+            alert('Selecione o tipo de registro (Entrada, Repouso, Retorno ou Saída).');
             return;
         }
 
