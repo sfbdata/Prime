@@ -33,6 +33,7 @@
                             <tr>
                                 <th><i class="bi bi-person me-1"></i> Solicitante</th>
                                 <th><i class="bi bi-box me-1"></i> Recurso</th>
+                                <th><i class="bi bi-hash me-1"></i> ID</th>
                                 <th><i class="bi bi-lightning me-1"></i> Ação Solicitada</th>
                                 <th><i class="bi bi-clock me-1"></i> Solicitado em</th>
                                 <th><i class="bi bi-gear me-1"></i> Decisão</th>
@@ -48,6 +49,7 @@
                                     <td>
                                         <span class="badge text-bg-secondary">{{ req.resourceType }}</span>
                                     </td>
+                                    <td class="text-muted">#{{ req.resourceId }}</td>
                                     <td>
                                         <span class="badge
                                             {{ req.action == 'view'   ? 'text-bg-info' :
@@ -94,12 +96,6 @@
                                                                 Solicitante: <strong>{{ req.user.fullName }}</strong><br>
                                                                 Recurso: <strong>{{ req.resourceType }} #{{ req.resourceId }}</strong>
                                                             </p>
-                                                            {% if req.description %}
-                                                                <div class="alert alert-light border mb-3 py-2">
-                                                                    <small class="text-muted d-block mb-1"><i class="bi bi-chat-left-text me-1"></i>Justificativa do solicitante:</small>
-                                                                    {{ req.description }}
-                                                                </div>
-                                                            {% endif %}
                                                             <p class="text-muted small mb-3">
                                                                 Selecione as ações que serão concedidas. Pelo menos uma deve ser marcada.
                                                             </p>

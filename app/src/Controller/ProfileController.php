@@ -2,7 +2,6 @@
 
 namespace App\Controller;
 
-use App\Repository\ResourceAccessRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -10,7 +9,7 @@ use Symfony\Component\Routing\Annotation\Route;
 class ProfileController extends AbstractController
 {
     #[Route('/perfil', name: 'app_profile')]
-    public function index(ResourceAccessRepository $resourceAccessRepository): Response
+    public function index(): Response
     {
         $user = $this->getUser();
 
@@ -19,8 +18,7 @@ class ProfileController extends AbstractController
         }
 
         return $this->render('profile/index.html.twig', [
-            'user'             => $user,
-            'resourceAccesses' => $resourceAccessRepository->findByUser($user),
+            'user' => $user,
         ]);
     }
 }

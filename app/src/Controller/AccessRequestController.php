@@ -6,8 +6,6 @@ use App\Entity\Permission\AccessRequest;
 use App\Entity\Permission\ResourceAccess;
 use App\Repository\AccessRequestRepository;
 use App\Repository\ResourceAccessRepository;
-use App\Repository\UserRepository;
-use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -79,64 +77,6 @@ final class AccessRequestController extends AbstractController
         return $this->render('access_request/index.html.twig', [
             'requests' => $requests,
         ]);
-    }
-
-    /**
-     * Recebe o formulário do modal de solicitação de acesso preenchido pelo usuário.
-     *
-     * POST /access-requests/submit
-     * Body: resourceType, resourceId, action, description, _token
-     */
-    #[Route('/submit', name: 'app_access_request_submit', methods: ['POST'])]
-    public function submit(
-        Request $httpRequest,
-        AccessRequestRepository $accessRequestRepository,
-        NotificacaoService $notificacaoService,
-    ): Response {
-        $user = $this->getUser();
-        if (!$user) {
-            throw $this->createAccessDeniedException();
-        }
-
-        if (!$this->isCsrfTokenValid('access_request_submit', $httpRequest->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-
-        $resourceType = $httpRequest->request->get('resourceType');
-        $resourceId   = (int) $httpRequest->request->get('resourceId');
-        $action       = $httpRequest->request->get('action', AccessRequest::ACTION_VIEW);
-        $description  = trim((string) $httpRequest->request->get('description', ''));
-
-        $validTypes   = [AccessRequest::RESOURCE_CLIENTE, AccessRequest::RESOURCE_PASTA, AccessRequest::RESOURCE_PROCESSO];
-        $validActions = [AccessRequest::ACTION_VIEW, AccessRequest::ACTION_EDIT, AccessRequest::ACTION_DELETE];
-
-        if (!in_array($resourceType, $validTypes, true) || !in_array($action, $validActions, true) || $resourceId <= 0) {
-            throw $this->createNotFoundException('Parâmetros inválidos.');
-        }
-
-        $existing = $accessRequestRepository->findPendingForUserAndResource($user, $resourceType, $resourceId, $action);
-
-        if ($existing === null) {
-            $accessRequest = (new AccessRequest())
-                ->setUser($user)
-                ->setResourceType($resourceType)
-                ->setResourceId($resourceId)
-                ->setAction($action)
-                ->setDescription($description ?: null);
-
-            $accessRequestRepository->save($accessRequest, true);
-            $notificacaoService->notificarSolicitacaoAcesso($accessRequest);
-        }
-
-        $this->addFlash('success', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
-
-        $redirectRoutes = [
-            AccessRequest::RESOURCE_CLIENTE  => 'cliente_index',
-            AccessRequest::RESOURCE_PASTA    => 'pasta_index',
-            AccessRequest::RESOURCE_PROCESSO => 'processo_index',
-        ];
-
-        return $this->redirectToRoute($redirectRoutes[$resourceType]);
     }
 
     /**
@@ -271,60 +211,5 @@ final class AccessRequestController extends AbstractController
         ));
 
         return $this->redirectToRoute('app_access_request_index');
-    }
-
-    /**
-     * Remove um ResourceAccess específico (acesso por item) de um usuário.
-     * Chamado pelo admin na tela "Editar Permissões" do funcionário.
-     *
-     * POST /access-requests/resource-access/{id}/remove
-     */
-    #[Route('/resource-access/{id}/remove', name: 'app_resource_access_remove', methods: ['POST'])]
-    public function removeResourceAccess(
-        int $id,
-        Request $httpRequest,
-        ResourceAccessRepository $resourceAccessRepository,
-        EntityManagerInterface $em,
-        PermissionChecker $checker,
-    ): Response {
-        $this->assertAccess($checker);
-
-        $resourceAccess = $resourceAccessRepository->find($id);
-
-        if (!$resourceAccess) {
-            throw $this->createNotFoundException('Acesso não encontrado.');
-        }
-
-        // Isolamento de tenant: valida que o usuário alvo pertence ao tenant do admin
-        $admin = $this->getUser();
-        if (!in_array('ROLE_SUPER_ADMIN', $admin->getRoles(), true)) {
-            $adminTenantId  = $admin->getTenant()?->getId();
-            $targetTenantId = $resourceAccess->getUser()?->getTenant()?->getId();
-            if ($adminTenantId !== $targetTenantId) {
-                throw $this->createAccessDeniedException('Este acesso não pertence ao seu escritório.');
-            }
-        }
-
-        if (!$this->isCsrfTokenValid('remove_resource_access_' . $id, $httpRequest->request->get('_token'))) {
-            throw $this->createAccessDeniedException('Token CSRF inválido.');
-        }
-
-        $targetUser = $resourceAccess->getUser();
-        $tenantId   = $targetUser?->getTenant()?->getId();
-
-        $em->remove($resourceAccess);
-        $em->flush();
-
-        $this->addFlash('success', sprintf(
-            'Acesso de %s ao %s #%d removido.',
-            $targetUser?->getFullName(),
-            $resourceAccess->getResourceType(),
-            $resourceAccess->getResourceId(),
-        ));
-
-        return $this->redirectToRoute('app_tenant_user_edit_role', [
-            'tenantId' => $tenantId,
-            'id'       => $targetUser?->getId(),
-        ]);
     }
 }

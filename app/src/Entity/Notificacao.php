@@ -17,7 +17,6 @@ class Notificacao
     public const TIPO_TAREFA_CONCLUIDA = 'tarefa_concluida';
     public const TIPO_EVENTO_CRIADO = 'evento_criado';
     public const TIPO_EVENTO_CANCELADO = 'evento_cancelado';
-    public const TIPO_SOLICITACAO_ACESSO = 'solicitacao_acesso';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -162,7 +161,6 @@ class Notificacao
             self::TIPO_TAREFA_CONCLUIDA => 'bi-check-circle text-success',
             self::TIPO_EVENTO_CRIADO => 'bi-calendar-plus text-primary',
             self::TIPO_EVENTO_CANCELADO => 'bi-calendar-x text-danger',
-            self::TIPO_SOLICITACAO_ACESSO => 'bi-key text-warning',
             default => 'bi-bell text-secondary',
         };
     }

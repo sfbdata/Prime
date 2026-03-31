@@ -60,10 +60,6 @@ class AccessRequest
     #[ORM\Column]
     private \DateTimeImmutable $requestedAt;
 
-    /** Mensagem de justificativa preenchida pelo usuário ao solicitar. */
-    #[ORM\Column(type: 'text', nullable: true)]
-    private ?string $description = null;
-
     /** Preenchido quando o admin toma uma decisão (Dia 13). */
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $decidedAt = null;
@@ -162,17 +158,6 @@ class AccessRequest
     public function setDecidedBy(?User $decidedBy): static
     {
         $this->decidedBy = $decidedBy;
-        return $this;
-    }
-
-    public function getDescription(): ?string
-    {
-        return $this->description;
-    }
-
-    public function setDescription(?string $description): static
-    {
-        $this->description = $description;
         return $this;
     }
 

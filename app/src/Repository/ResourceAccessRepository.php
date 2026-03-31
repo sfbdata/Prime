@@ -29,16 +29,6 @@ class ResourceAccessRepository extends ServiceEntityRepository
         ]);
     }
 
-    /**
-     * Retorna todos os acessos específicos por item concedidos a um usuário.
-     *
-     * @return ResourceAccess[]
-     */
-    public function findByUser(User $user): array
-    {
-        return $this->findBy(['user' => $user], ['resourceType' => 'ASC', 'resourceId' => 'ASC']);
-    }
-
     public function save(ResourceAccess $entity, bool $flush = false): void
     {
         $this->getEntityManager()->persist($entity);

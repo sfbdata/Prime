@@ -13,8 +13,6 @@
     <div class="container-fluid">
         <div class="row justify-content-center">
             <div class="col-lg-6 col-md-8">
-
-                {# ── Card: Perfil e Senha ── #}
                 <div class="card card-outline card-primary mb-3">
                     <div class="card-header">
                         <h3 class="card-title"><i class="bi bi-person me-2"></i>{{ user.fullName }}</h3>
@@ -58,69 +56,6 @@
                     </div>
                         {{ form_end(form) }}
                 </div>
-
-                {# ── Card: Permissões específicas por item ── #}
-                <div class="card card-outline card-warning mb-4">
-                    <div class="card-header">
-                        <h3 class="card-title">
-                            <i class="bi bi-unlock me-2"></i>Acessos Específicos por Item
-                        </h3>
-                    </div>
-                    <div class="card-body p-0">
-                        {% if resourceAccesses is empty %}
-                            <div class="p-4 text-center text-muted">
-                                <i class="bi bi-check-circle me-1"></i>
-                                Nenhum acesso específico concedido a este usuário.
-                            </div>
-                        {% else %}
-                            <table class="table table-striped table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th><i class="bi bi-box me-1"></i> Módulo</th>
-                                        <th><i class="bi bi-hash me-1"></i> ID</th>
-                                        <th><i class="bi bi-shield-check me-1"></i> Ações permitidas</th>
-                                        <th><i class="bi bi-calendar me-1"></i> Concedido em</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for ra in resourceAccesses %}
-                                        <tr>
-                                            <td>
-                                                <span class="badge text-bg-secondary text-capitalize">{{ ra.resourceType }}</span>
-                                            </td>
-                                            <td class="text-muted">#{{ ra.resourceId }}</td>
-                                            <td>
-                                                {% if ra.canView %}
-                                                    <span class="badge text-bg-info me-1">Visualizar</span>
-                                                {% endif %}
-                                                {% if ra.canEdit %}
-                                                    <span class="badge text-bg-warning me-1">Editar</span>
-                                                {% endif %}
-                                                {% if ra.canDelete %}
-                                                    <span class="badge text-bg-danger me-1">Excluir</span>
-                                                {% endif %}
-                                            </td>
-                                            <td class="text-muted small">{{ ra.grantedAt|date('d/m/Y H:i') }}</td>
-                                            <td>
-                                                <form method="post"
-                                                      action="{{ path('app_resource_access_remove', {id: ra.id}) }}"
-                                                      class="d-inline"
-                                                      onsubmit="return confirm('Remover acesso de {{ user.fullName }} ao {{ ra.resourceType }} #{{ ra.resourceId }}?');">
-                                                    <input type="hidden" name="_token" value="{{ csrf_token('remove_resource_access_' ~ ra.id) }}">
-                                                    <button class="btn btn-sm btn-outline-danger">
-                                                        <i class="bi bi-trash me-1"></i>Remover
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        {% endif %}
-                    </div>
-                </div>
-
             </div>
         </div>
     </div>
