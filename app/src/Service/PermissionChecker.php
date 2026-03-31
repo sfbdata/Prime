@@ -9,9 +9,8 @@ use App\Repository\ResourceAccessRepository;
  * Camada central de autorização semântica do JusPrime.
  *
  * Hierarquia de verificação:
- *  1. ROLE_SUPER_ADMIN → acesso total (fora do escopo de tenant).
- *  2. TenantRole com permissões do catálogo → modelo novo.
- *  3. ResourceAccess por item → controle granular.
+ *  1. TenantRole com permissões do catálogo.
+ *  2. ResourceAccess por item → controle granular.
  *
  * Controllers e serviços devem consumir este checker em vez de verificar
  * roles diretamente.
@@ -83,9 +82,8 @@ class PermissionChecker
      * Verifica se o usuário pode executar uma ação sobre um item específico de domínio.
      *
      * Hierarquia de verificação por item:
-     *  1. ROLE_SUPER_ADMIN → acesso total.
-     *  2. ResourceAccess por item → verifica registro específico (user + resourceType + resourceId).
-     *  3. Permissão de tipo resources.<type>.<action> no TenantRole → fallback de perfil.
+     *  1. ResourceAccess por item → verifica registro específico (user + resourceType + resourceId).
+     *  2. Permissão de tipo resources.<type>.<action> no TenantRole → fallback de perfil.
      *
      * @param User   $user         Usuário autenticado.
      * @param string $resourceType Tipo do recurso: "cliente", "pasta" ou "processo".
@@ -139,7 +137,12 @@ class PermissionChecker
 
     private function isSuperAdmin(User $user): bool
     {
-        return in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+        if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            return true;
+        }
+
+        // Perfis de sistema (isSystem=true) têm acesso total ao tenant
+        return $user->getTenantRole()?->isSystem() === true;
     }
 
     private function canActOnResourceByTypeOnly(User $user, string $resourceType, string $action): bool

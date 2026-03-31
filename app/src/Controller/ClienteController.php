@@ -43,8 +43,15 @@ use Symfony\Component\Routing\Attribute\Route;
 class ClienteController extends AbstractController
 {
     #[Route('/', name: 'cliente_index', methods: ['GET'])]
-    public function index(Request $request, ClienteRepository $repo): Response
+    public function index(Request $request, ClienteRepository $repo, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$permissionChecker->canAccessModule($currentUser, 'clientes')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
+            return $this->redirectToRoute('homepage');
+        }
+
         $filters = [
             'nome' => $request->query->get('nome', ''),
             'documento' => $request->query->get('documento', ''),
@@ -64,8 +71,15 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/novo-pf', name: 'cliente_new_pf', methods: ['GET', 'POST'])]
-    public function newPF(Request $request, ClientePFRepository $repo, EntityManagerInterface $em): Response
+    public function newPF(Request $request, ClientePFRepository $repo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$permissionChecker->canAccessModule($currentUser, 'clientes')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
+            return $this->redirectToRoute('homepage');
+        }
+
         $cliente = new ClientePF();
         $form = $this->createForm(ClientePFType::class, $cliente);
         $form->handleRequest($request);
@@ -82,8 +96,15 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/novo-pj', name: 'cliente_new_pj', methods: ['GET', 'POST'])]
-    public function newPJ(Request $request, ClientePJRepository $repo, EntityManagerInterface $em): Response
+    public function newPJ(Request $request, ClientePJRepository $repo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$permissionChecker->canAccessModule($currentUser, 'clientes')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
+            return $this->redirectToRoute('homepage');
+        }
+
         $cliente = new ClientePJ();
         $form = $this->createForm(ClientePJType::class, $cliente);
         $form->handleRequest($request);
@@ -100,8 +121,15 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/from-pre-cadastro/{id}', name: 'cliente_from_pre_cadastro', methods: ['GET', 'POST'])]
-    public function fromPreCadastro(Request $request, PreCadastroRepository $preCadastroRepo, ClientePFRepository $clientePFRepo, ClientePJRepository $clientePJRepo, EntityManagerInterface $em, int $id): Response
+    public function fromPreCadastro(Request $request, PreCadastroRepository $preCadastroRepo, ClientePFRepository $clientePFRepo, ClientePJRepository $clientePJRepo, EntityManagerInterface $em, int $id, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$permissionChecker->canAccessModule($currentUser, 'clientes')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
+            return $this->redirectToRoute('homepage');
+        }
+
         $preCadastro = $preCadastroRepo->find($id);
 
         if (!$preCadastro) {

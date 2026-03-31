@@ -5,13 +5,7 @@
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0">
-            {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-                Todos os Escritórios
-            {% else %}
-                Meu Escritório
-            {% endif %}
-        </h1>
+        <h1 class="m-0">Meu Escritório</h1>
     </div>
 </section>
 
@@ -37,28 +31,11 @@
                             <td>{{ tenant.createdAt|date('d/m/Y H:i') }}</td>
                             <td>{{ tenant.isActive ? 'Ativo' : 'Inativo' }}</td>
                             <td>
-                                {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-                                    <div class="acoes-grupo">
-                                        <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}"
-                                           class="btn-action btn-action-edit"
-                                           title="Editar tenant"
-                                           aria-label="Editar tenant">
-                                            <i class="bi bi-pencil"></i>
-                                        </a>
-                                        <form method="post" action="{{ path('app_tenant_delete', {'id': tenant.id}) }}" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir este Tenant?');">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ tenant.id) }}">
-                                            <button class="btn-action btn-action-delete"
-                                                    title="Excluir tenant"
-                                                    aria-label="Excluir tenant">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                {% elseif can_administer('admin.tenant.settings.manage') and app.user.tenant.id == tenant.id %}
+                                {% if can_administer('admin.tenant.settings.manage') and app.user.tenant.id == tenant.id %}
                                     <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}"
                                        class="btn-action btn-action-edit"
-                                       title="Editar tenant"
-                                       aria-label="Editar tenant">
+                                       title="Editar escritório"
+                                       aria-label="Editar escritório">
                                         <i class="bi bi-pencil"></i>
                                     </a>
                                 {% else %}

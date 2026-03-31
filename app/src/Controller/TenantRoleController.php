@@ -19,7 +19,7 @@ final class TenantRoleController extends AbstractController
 {
     /**
      * Garante que o usuário autenticado tem admin.roles.manage
-     * e que o tenantId bate com o tenant do usuário (ou é SUPER_ADMIN).
+     * e que o tenantId bate com o tenant do usuário.
      */
     private function assertAccess(int $tenantId, PermissionChecker $checker): void
     {
@@ -27,12 +27,6 @@ final class TenantRoleController extends AbstractController
 
         if (!$user) {
             throw $this->createAccessDeniedException();
-        }
-
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-
-        if ($isSuperAdmin) {
-            return;
         }
 
         if ($user->getTenant()?->getId() !== $tenantId) {
@@ -72,11 +66,6 @@ final class TenantRoleController extends AbstractController
 
         $user = $this->getUser();
         $tenant = $user->getTenant();
-
-        // SUPER_ADMIN pode criar perfis para qualquer tenant — busca o tenant pelo ID
-        if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
-            $tenant = $em->getReference(\App\Entity\Tenant\Tenant::class, $tenantId);
-        }
 
         $role = new TenantRole();
         $role->setTenant($tenant);

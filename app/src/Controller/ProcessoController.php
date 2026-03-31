@@ -43,8 +43,15 @@ use Symfony\Component\Routing\Attribute\Route;
 class ProcessoController extends AbstractController
 {
     #[Route('/', name: 'processo_index', methods: ['GET'])]
-    public function index(Request $request, ProcessoRepository $repo): Response
+    public function index(Request $request, ProcessoRepository $repo, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$permissionChecker->canAccessModule($currentUser, 'processos')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de processos.');
+            return $this->redirectToRoute('homepage');
+        }
+
         $filters = [
             'numero_processo' => $request->query->get('numero_processo', ''),
             'tribunal' => $request->query->get('tribunal', ''),
@@ -66,8 +73,15 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/novo', name: 'processo_new', methods: ['GET', 'POST'])]
-    public function new(Request $request, ClienteRepository $clienteRepo, ProcessoRepository $processoRepo, EntityManagerInterface $em): Response
+    public function new(Request $request, ClienteRepository $clienteRepo, ProcessoRepository $processoRepo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$permissionChecker->canAccessModule($currentUser, 'processos')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de processos.');
+            return $this->redirectToRoute('homepage');
+        }
+
         $clientes = $clienteRepo->findAll();
         $processo = new Processo();
 

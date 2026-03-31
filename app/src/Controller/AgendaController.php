@@ -39,7 +39,8 @@ class AgendaController extends AbstractController
     public function __construct(
         private readonly NotificacaoService $notificacaoService,
         private readonly UserRepository $userRepository,
-        private readonly LegendaCorRepository $legendaCorRepository
+        private readonly LegendaCorRepository $legendaCorRepository,
+        private readonly PermissionChecker $permissionChecker,
     ) {
     }
 
@@ -49,6 +50,13 @@ class AgendaController extends AbstractController
     #[Route('', name: 'agenda_index', methods: ['GET'])]
     public function index(): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($currentUser, 'agenda')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
+            return $this->redirectToRoute('homepage');
+        }
+
         $usuarios = $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
         $legendas = $this->legendaCorRepository->findAllOrdered();
         
@@ -66,6 +74,10 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($user, 'agenda')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
+            return $this->redirectToRoute('homepage');
+        }
 
         $status = $request->query->get('status');
         $eventos = $eventoRepository->findForCalendar($status);
@@ -84,6 +96,9 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($user, 'agenda')) {
+            return $this->json(['error' => 'Sem permissão'], 403);
+        }
 
         $start = $request->query->get('start');
         $end = $request->query->get('end');
@@ -116,6 +131,9 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($user, 'agenda')) {
+            return $this->json(['success' => false, 'error' => 'Sem permissão'], 403);
+        }
 
         try {
             $data = json_decode($request->getContent(), true);
@@ -191,6 +209,10 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($user, 'agenda')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
+            return $this->redirectToRoute('homepage');
+        }
 
         $evento = new Evento();
         $evento->setCriador($user);
@@ -245,6 +267,13 @@ class AgendaController extends AbstractController
     #[Route('/{id}', name: 'agenda_show', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function show(Evento $evento): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($currentUser, 'agenda')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
+            return $this->redirectToRoute('homepage');
+        }
+
         return $this->render('agenda/show.html.twig', [
             'evento' => $evento,
         ]);
@@ -391,6 +420,12 @@ class AgendaController extends AbstractController
     #[Route('/legendas/salvar', name: 'agenda_legendas_salvar', methods: ['POST'])]
     public function salvarLegendas(Request $request, EntityManagerInterface $em): JsonResponse
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($currentUser, 'agenda')) {
+            return $this->json(['success' => false, 'error' => 'Sem permissão'], 403);
+        }
+
         $data = json_decode($request->getContent(), true);
         
         if (!isset($data['legendas']) || !is_array($data['legendas'])) {

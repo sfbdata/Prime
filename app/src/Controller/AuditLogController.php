@@ -32,8 +32,6 @@ class AuditLogController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar a trilha de auditoria.');
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-
         $entityFilter = trim((string) $request->query->get('entity', ''));
         $userFilter = trim((string) $request->query->get('user', ''));
         $dateFromInput = trim((string) $request->query->get('date_from', ''));
@@ -43,10 +41,7 @@ class AuditLogController extends AbstractController
         $dateTo = $this->parseDate($dateToInput);
         $page = max(1, $request->query->getInt('page', 1));
 
-        $tenantId = null;
-        if (!$isSuperAdmin && method_exists($currentUser, 'getTenant') && $currentUser->getTenant() && method_exists($currentUser->getTenant(), 'getId')) {
-            $tenantId = $currentUser->getTenant()->getId();
-        }
+        $tenantId = $currentUser->getTenant()?->getId();
 
         $entityOptions = $this->getEntityOptions($entityManager);
         $userOptions = $userRepository->findAuditFilterOptions(is_int($tenantId) ? $tenantId : null);

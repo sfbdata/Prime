@@ -35,21 +35,13 @@
                     </div>
                     <div class="card-footer">
                         <div class="d-flex gap-2 justify-content-end">
-                            {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-                                <a href="{{ path('app_tenant_index') }}" class="btn btn-secondary">
-                                    <i class="bi bi-arrow-left me-1"></i>Voltar
-                                </a>
-                            {% endif %}
-                            {% if 'ROLE_SUPER_ADMIN' in app.user.roles or can_administer('admin.tenant.settings.manage') %}
+                            {% if can_administer('admin.tenant.settings.manage') %}
                                 <a href="{{ path('app_tenant_role_index', {'tenantId': tenant.id}) }}" class="btn btn-outline-primary">
                                     <i class="bi bi-shield-lock me-1"></i>Perfis
                                 </a>
                                 <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-primary">
                                     <i class="bi bi-pencil me-1"></i>Editar
                                 </a>
-                            {% endif %}
-                            {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-                                {{ include('tenant/_delete_form.html.twig') }}
                             {% endif %}
                         </div>
                     </div>

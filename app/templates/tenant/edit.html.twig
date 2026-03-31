@@ -50,9 +50,6 @@
                     <a href="{{ path('app_tenant_show', {'id': tenant.id}) }}" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-1"></i>Voltar
                     </a>
-                    {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-                        {{ include('tenant/_delete_form.html.twig') }}
-                    {% endif %}
                 </div>
             </div>
         </div>

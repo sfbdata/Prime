@@ -104,24 +104,6 @@
                     </li>
                 {% endif %}
 
-                {% if 'ROLE_SUPER_ADMIN' in app.user.roles %}
-                    <li class="pje-menu-separator">SUPER-ADMIN</li>
-                    <li class="pje-menu-item">
-                        <a href="{{ path('app_tenant_index') }}"
-                           class="pje-menu-link {{ currentRoute starts with 'app_tenant_' ? 'active' : '' }}">
-                            <i class="bi bi-building pje-nav-icon"></i>
-                            <span>Tenants</span>
-                        </a>
-                    </li>
-                    <li class="pje-menu-item">
-                        <a href="{{ path('audit_log_index') }}"
-                           class="pje-menu-link {{ currentRoute starts with 'audit_log_' ? 'active' : '' }}">
-                            <i class="bi bi-shield-check pje-nav-icon"></i>
-                            <span>Trilha de Auditoria</span>
-                        </a>
-                    </li>
-                {% endif %}
-
                 {# Seção ADMIN — visível se o usuário tiver qualquer permissão admin.* #}
                 {% set hasAnyAdminPerm =
                     can_administer('admin.users.invite') or

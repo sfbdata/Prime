@@ -13,9 +13,8 @@ use Doctrine\ORM\Mapping as ORM;
  * pode executar sobre um item específico (resourceType + resourceId).
  *
  * Hierarquia de verificação no PermissionChecker:
- *  1. ROLE_SUPER_ADMIN → acesso total.
- *  2. ResourceAccess por item → acesso concedido se registro existe.
- *  3. Permissão de tipo resources.<type>.<action> no TenantRole → fallback de perfil.
+ *  1. ResourceAccess por item → acesso concedido se registro existe.
+ *  2. Permissão de tipo resources.<type>.<action> no TenantRole → fallback de perfil.
  */
 #[ORM\Entity(repositoryClass: ResourceAccessRepository::class)]
 #[ORM\Table(name: 'resource_access')]

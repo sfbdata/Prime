@@ -28,9 +28,6 @@ security:
         - { path: ^/register/confirm, roles: PUBLIC_ACCESS }
         - { path: ^/login, roles: PUBLIC_ACCESS }
 
-        # SUPER_ADMIN acessa a listagem global de tenants
-        - { path: ^/tenant$, roles: ROLE_SUPER_ADMIN }
-
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers
         # via PermissionChecker — não do security.yaml.

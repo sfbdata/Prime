@@ -59,6 +59,13 @@ class PastaController extends AbstractController
     #[Route('', name: 'pasta_index', methods: ['GET'])]
     public function index(): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($currentUser, 'pastas')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pastas.');
+            return $this->redirectToRoute('homepage');
+        }
+
         return $this->render('pasta/index.html.twig', [
             'pastas' => $this->pastaRepository->findAll(),
         ]);
@@ -67,6 +74,13 @@ class PastaController extends AbstractController
     #[Route('/nova', name: 'pasta_new', methods: ['GET', 'POST'])]
     public function new(Request $request): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$this->permissionChecker->canAccessModule($currentUser, 'pastas')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pastas.');
+            return $this->redirectToRoute('homepage');
+        }
+
         $pasta = new Pasta();
 
         if ($request->isMethod('POST')) {
@@ -255,6 +269,12 @@ class PastaController extends AbstractController
     #[Route('/{id}/documento/upload', name: 'pasta_documento_upload', methods: ['POST'])]
     public function uploadDocumento(Pasta $pasta, Request $request): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'edit')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para enviar documentos nesta pasta.');
+        }
+
         if (!$this->isCsrfTokenValid('upload_documento_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
@@ -327,6 +347,13 @@ class PastaController extends AbstractController
     #[Route('/documento/{id}/download', name: 'pasta_documento_download', methods: ['GET'])]
     public function downloadDocumento(PastaDocumento $doc): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $doc->getPasta()?->getId();
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
+        }
+
         $caminho = $this->uploadsDir . '/' . $doc->getCaminhoArquivo();
 
         if (!file_exists($caminho)) {
@@ -347,6 +374,13 @@ class PastaController extends AbstractController
     #[Route('/documento/{id}/deletar', name: 'pasta_documento_delete', methods: ['POST'])]
     public function deleteDocumento(PastaDocumento $doc, Request $request): Response
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaForCheck = $doc->getPasta();
+        if ($pastaForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pastaForCheck->getId(), 'edit')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para remover documentos desta pasta.');
+        }
+
         $pastaId = $doc->getPasta()?->getId();
 
         if (!$this->isCsrfTokenValid('delete_documento_'.$doc->getId(), (string) $request->request->get('_token'))) {

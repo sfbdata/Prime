@@ -20,7 +20,8 @@ class PreCadastroController extends AbstractController
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
         if (!$permissionChecker->canAccessModule($usuario, 'precadastros')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para acessar o módulo de Pré-Cadastros.');
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
+            return $this->redirectToRoute('homepage');
         }
 
         return $this->render('pre_cadastro/index.html.twig', [
@@ -34,7 +35,8 @@ class PreCadastroController extends AbstractController
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
         if (!$permissionChecker->canAccessModule($usuario, 'precadastros')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para acessar o módulo de Pré-Cadastros.');
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
+            return $this->redirectToRoute('homepage');
         }
 
         $preCadastro = new PreCadastro();
@@ -57,7 +59,8 @@ class PreCadastroController extends AbstractController
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
         if (!$permissionChecker->canAccessModule($usuario, 'precadastros')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para acessar o módulo de Pré-Cadastros.');
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
+            return $this->redirectToRoute('homepage');
         }
 
         $form = $this->createForm(PreCadastroType::class, $preCadastro);
@@ -80,7 +83,8 @@ class PreCadastroController extends AbstractController
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
         if (!$permissionChecker->canAccessModule($usuario, 'precadastros')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para acessar o módulo de Pré-Cadastros.');
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
+            return $this->redirectToRoute('homepage');
         }
 
         $form = $this->createForm(PreCadastroType::class, $preCadastro);
@@ -104,7 +108,8 @@ class PreCadastroController extends AbstractController
         $currentUser = $this->getUser();
 
         if (!$permissionChecker->canAccessModule($currentUser, 'precadastros')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para acessar o módulo de Pré-Cadastros.');
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
+            return $this->redirectToRoute('homepage');
         }
 
         if (!$permissionChecker->canAdminister($currentUser, 'admin.users.manage')) {

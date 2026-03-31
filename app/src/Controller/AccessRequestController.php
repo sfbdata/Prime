@@ -41,7 +41,7 @@ final class AccessRequestController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para aprovar solicitações de acesso.');
         }
 
-        if ($user->getTenant() === null && !in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+        if ($user->getTenant() === null) {
             throw $this->createAccessDeniedException('Usuário sem tenant associado.');
         }
     }
@@ -54,12 +54,7 @@ final class AccessRequestController extends AbstractController
     {
         $admin = $this->getUser();
 
-        // SUPER_ADMIN pode operar em qualquer tenant
-        if (in_array('ROLE_SUPER_ADMIN', $admin->getRoles(), true)) {
-            return;
-        }
-
-        $adminTenantId  = $admin->getTenant()?->getId();
+        $adminTenantId   = $admin->getTenant()?->getId();
         $requestTenantId = $request->getUser()?->getTenant()?->getId();
 
         if ($adminTenantId !== $requestTenantId) {
@@ -78,11 +73,6 @@ final class AccessRequestController extends AbstractController
         $this->assertAccess($checker);
 
         $admin = $this->getUser();
-
-        // SUPER_ADMIN sem tenant — exibe painel vazio (não gerencia itens de tenant)
-        if ($admin->getTenant() === null) {
-            return $this->render('access_request/index.html.twig', ['requests' => []]);
-        }
 
         $requests = $repository->findPendingByTenant($admin->getTenant());
 

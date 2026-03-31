@@ -7,12 +7,16 @@ use App\Service\PermissionChecker;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpKernel\Event\RequestEvent;
+use Symfony\Component\HttpKernel\Event\ControllerEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Twig\Environment;
 
 /**
  * Intercepta requisições e bloqueia acesso a módulos não autorizados.
+ *
+ * Usa KernelEvents::CONTROLLER (e não REQUEST) para garantir que o Doctrine
+ * já inicializou os proxies lazy do usuário (tenantRole e permissões) antes
+ * das verificações de acesso.
  *
  * Mapeamento rota-prefixo → módulo (slug usado no PermissionChecker):
  *   /pasta*        → pastas
@@ -45,11 +49,11 @@ class ModuleAccessSubscriber implements EventSubscriberInterface
     public static function getSubscribedEvents(): array
     {
         return [
-            KernelEvents::REQUEST => ['onKernelRequest', -10],
+            KernelEvents::CONTROLLER => ['onKernelController', 0],
         ];
     }
 
-    public function onKernelRequest(RequestEvent $event): void
+    public function onKernelController(ControllerEvent $event): void
     {
         if (!$event->isMainRequest()) {
             return;
@@ -58,6 +62,11 @@ class ModuleAccessSubscriber implements EventSubscriberInterface
         $user = $this->security->getUser();
 
         if (!$user instanceof User) {
+            return;
+        }
+
+        // Admins do tenant têm acesso irrestrito a todos os módulos
+        if ($this->isTenantAdmin($user)) {
             return;
         }
 
@@ -72,12 +81,34 @@ class ModuleAccessSubscriber implements EventSubscriberInterface
                 return;
             }
 
-            $html = $this->twig->render('access_request/module_denied.html.twig', [
-                'moduloLabel' => $config['label'],
-            ]);
+            $twig  = $this->twig;
+            $label = $config['label'];
 
-            $event->setResponse(new Response($html, Response::HTTP_FORBIDDEN));
+            $event->setController(static function () use ($twig, $label): Response {
+                $html = $twig->render('access_request/module_denied.html.twig', [
+                    'moduloLabel' => $label,
+                ]);
+
+                return new Response($html, Response::HTTP_FORBIDDEN);
+            });
+
             return;
         }
+    }
+
+    /**
+     * Retorna true se o usuário é admin do tenant (acesso irrestrito a todos os módulos).
+     *
+     * Hierarquia:
+     *  1. ROLE_SUPER_ADMIN → acesso total
+     *  2. TenantRole com isSystem=true → admin padrão do escritório
+     */
+    private function isTenantAdmin(User $user): bool
+    {
+        if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            return true;
+        }
+
+        return $user->getTenantRole()?->isSystem() === true;
     }
 }

@@ -124,10 +124,14 @@ class ServiceDeskController extends AbstractController
      * Lista chamados do usuário logado
      */
     #[Route('/meus-chamados', name: 'servicedesk_meus_chamados', methods: ['GET'])]
-    public function meusChamados(ChamadoRepository $chamadoRepository): Response
+    public function meusChamados(ChamadoRepository $chamadoRepository, PermissionChecker $permissionChecker): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
+        if (!$permissionChecker->canAccessModule($usuario, 'servicedesk')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de service desk.');
+            return $this->redirectToRoute('homepage');
+        }
 
         $chamados = $chamadoRepository->findBySolicitante($usuario);
 
@@ -140,10 +144,14 @@ class ServiceDeskController extends AbstractController
      * Formulário para novo chamado
      */
     #[Route('/novo', name: 'servicedesk_novo', methods: ['GET', 'POST'])]
-    public function novo(Request $request, EntityManagerInterface $em): Response
+    public function novo(Request $request, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
+        if (!$permissionChecker->canAccessModule($usuario, 'servicedesk')) {
+            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de service desk.');
+            return $this->redirectToRoute('homepage');
+        }
 
         $chamado = new Chamado();
         $chamado->setSolicitante($usuario);
