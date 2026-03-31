@@ -367,8 +367,20 @@ final class PontoController extends AbstractController
             $spreadsheet->disconnectWorksheets();
         });
 
+        $nomeUsuario = trim((string) $user->getFullName());
+        if ($nomeUsuario === '') {
+            $nomeUsuario = (string) $user->getUserIdentifier();
+        }
+
+        $nomeUsuario = preg_replace('/[^A-Za-z0-9]+/', '', $nomeUsuario) ?? 'Usuario';
+        if ($nomeUsuario === '') {
+            $nomeUsuario = 'Usuario';
+        }
+
+        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.xlsx', $nomeUsuario, $mes, $ano);
+
         $response->headers->set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        $response->headers->set('Content-Disposition', sprintf('attachment; filename="folha_ponto_%04d_%02d.xlsx"', $ano, $mes));
+        $response->headers->set('Content-Disposition', sprintf('attachment; filename="%s"', $nomeArquivo));
 
         return $response;
     }
