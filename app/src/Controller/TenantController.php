@@ -8,6 +8,10 @@ use App\Form\EditUserTenantRoleType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
+use App\Repository\ClienteRepository;
+use App\Repository\PastaRepository;
+use App\Repository\ProcessoRepository;
+use App\Repository\ResourceAccessRepository;
 use App\Repository\TenantRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
@@ -233,8 +237,14 @@ final class TenantController extends AbstractController
     }
 
     #[Route('/{id}/users', name: 'app_tenant_users', methods: ['GET'])]
-    public function listUsers(Tenant $tenant, PermissionChecker $permissionChecker): Response
-    {
+    public function listUsers(
+        Tenant $tenant,
+        PermissionChecker $permissionChecker,
+        ResourceAccessRepository $resourceAccessRepository,
+        ClienteRepository $clienteRepository,
+        PastaRepository $pastaRepository,
+        ProcessoRepository $processoRepository,
+    ): Response {
         $user = $this->getUser();
 
         if (!$user) {
@@ -248,10 +258,65 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para ver os usuários deste Tenant.');
         }
 
+        $users = $tenant->getUsers()->toArray();
+
+        // Busca todos os ResourceAccess dos usuários do tenant em uma query só
+        $accessByUser = $resourceAccessRepository->findByUsers($users);
+
+        // Resolve labels dos recursos referenciados (sem N+1)
+        $resourceLabels = $this->resolveResourceLabels($accessByUser, $clienteRepository, $pastaRepository, $processoRepository);
+
         return $this->render('tenant/users.html.twig', [
-            'tenant' => $tenant,
-            'users' => $tenant->getUsers(),
+            'tenant'         => $tenant,
+            'users'          => $users,
+            'accessByUser'   => $accessByUser,
+            'resourceLabels' => $resourceLabels,
         ]);
+    }
+
+    /**
+     * Resolve os labels exibíveis de cada recurso referenciado nos acessos.
+     * Faz no máximo 3 queries (uma por tipo: cliente, pasta, processo).
+     *
+     * @param  array<int, \App\Entity\Permission\ResourceAccess[]> $accessByUser
+     * @return array<string, array<int, string>>  ['cliente' => [id => label], ...]
+     */
+    private function resolveResourceLabels(
+        array $accessByUser,
+        ClienteRepository $clienteRepository,
+        PastaRepository $pastaRepository,
+        ProcessoRepository $processoRepository,
+    ): array {
+        $idsByType = ['cliente' => [], 'pasta' => [], 'processo' => []];
+
+        foreach ($accessByUser as $rows) {
+            foreach ($rows as $ra) {
+                $type = $ra->getResourceType();
+                $id   = $ra->getResourceId();
+                if (isset($idsByType[$type]) && $id !== null) {
+                    $idsByType[$type][$id] = true;
+                }
+            }
+        }
+
+        $labels = ['cliente' => [], 'pasta' => [], 'processo' => []];
+
+        foreach (array_keys($idsByType['cliente']) as $id) {
+            $entity = $clienteRepository->find($id);
+            $labels['cliente'][$id] = $entity?->getNomeExibicao() ?? "Cliente #$id";
+        }
+
+        foreach (array_keys($idsByType['pasta']) as $id) {
+            $entity = $pastaRepository->find($id);
+            $labels['pasta'][$id] = $entity?->getNup() ?? "Pasta #$id";
+        }
+
+        foreach (array_keys($idsByType['processo']) as $id) {
+            $entity = $processoRepository->find($id);
+            $labels['processo'][$id] = $entity?->getNumeroProcesso() ?? "Processo #$id";
+        }
+
+        return $labels;
     }
 
         #[Route('/{tenantId}/user/{id}/edit-role', name: 'app_tenant_user_edit_role', methods: ['GET','POST'])]
@@ -262,6 +327,10 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         TenantRoleRepository $tenantRoleRepository,
+        ResourceAccessRepository $resourceAccessRepository,
+        ClienteRepository $clienteRepository,
+        PastaRepository $pastaRepository,
+        ProcessoRepository $processoRepository,
         PermissionChecker $permissionChecker
     ): Response {
         $currentUser = $this->getUser();
@@ -299,9 +368,65 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_users', ['id' => $tenantId]);
         }
 
+        $userAccesses   = $resourceAccessRepository->findByUsers([$user])[(int) $user->getId()] ?? [];
+        $resourceLabels = $this->resolveResourceLabels(
+            [(int) $user->getId() => $userAccesses],
+            $clienteRepository,
+            $pastaRepository,
+            $processoRepository,
+        );
+
         return $this->render('tenant/edit_user_role.html.twig', [
-            'form' => $form->createView(),
-            'user' => $user,
+            'form'           => $form->createView(),
+            'user'           => $user,
+            'tenantId'       => $tenantId,
+            'userAccesses'   => $userAccesses,
+            'resourceLabels' => $resourceLabels,
+        ]);
+    }
+
+    #[Route('/{tenantId}/user/{userId}/resource-access/{raId}/remove', name: 'app_tenant_user_resource_access_remove', methods: ['POST'])]
+    public function removeResourceAccess(
+        int $tenantId,
+        int $userId,
+        int $raId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        ResourceAccessRepository $resourceAccessRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Você não tem permissão para remover acessos.');
+        }
+
+        if (!$this->isCsrfTokenValid('remove_resource_access_' . $raId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $resourceAccess = $resourceAccessRepository->find($raId);
+
+        // Garante que o acesso pertence ao usuário correto do tenant
+        if ($resourceAccess === null || (int) $resourceAccess->getUser()?->getId() !== $userId) {
+            throw $this->createNotFoundException('Acesso não encontrado.');
+        }
+
+        $entityManager->remove($resourceAccess);
+        $entityManager->flush();
+
+        $this->addFlash('success', 'Acesso específico removido com sucesso.');
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
+            'tenantId' => $tenantId,
+            'id'       => $userId,
         ]);
     }
 

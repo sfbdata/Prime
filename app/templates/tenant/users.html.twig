@@ -16,30 +16,74 @@
     <div class="container-fluid">
         <div class="card">
             <div class="card-body table-responsive p-0">
-                <table class="table table-striped table-hover mb-0">
+                <table class="table table-hover mb-0">
                     <thead>
                         <tr>
                             <th><i class="bi bi-person me-1"></i> Nome</th>
                             <th><i class="bi bi-envelope me-1"></i> Email</th>
                             <th><i class="bi bi-shield-check me-1"></i> Perfil</th>
+                            <th><i class="bi bi-key me-1"></i> Acessos específicos</th>
                             <th><i class="bi bi-calendar-plus me-1"></i> Criado em</th>
                             <th><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for user in users %}
+                            {% set userAccesses = accessByUser[user.id] ?? [] %}
                             <tr>
-                                <td>{{ user.fullName }}</td>
-                                <td>{{ user.email }}</td>
-                                <td>
+                                <td class="align-middle">{{ user.fullName }}</td>
+                                <td class="align-middle">{{ user.email }}</td>
+                                <td class="align-middle">
                                     {% if user.tenantRole %}
                                         <span class="badge text-bg-secondary">{{ user.tenantRole.name }}</span>
                                     {% else %}
                                         <span class="text-muted">—</span>
                                     {% endif %}
                                 </td>
-                                <td>{{ user.createdAt|date('d/m/Y H:i') }}</td>
-                                <td>
+                                <td class="align-middle">
+                                    {% if userAccesses is empty %}
+                                        <span class="text-muted small">—</span>
+                                    {% else %}
+                                        <button
+                                            class="btn btn-sm btn-outline-secondary"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#accesses-{{ user.id }}"
+                                            aria-expanded="false">
+                                            <i class="bi bi-unlock me-1"></i>
+                                            {{ userAccesses|length }} item{{ userAccesses|length > 1 ? 's' : '' }}
+                                        </button>
+                                        <div class="collapse mt-2" id="accesses-{{ user.id }}">
+                                            <ul class="list-unstyled mb-0 small">
+                                                {% for ra in userAccesses %}
+                                                    {% set label = resourceLabels[ra.resourceType][ra.resourceId] ?? (ra.resourceType ~ ' #' ~ ra.resourceId) %}
+                                                    <li class="mb-1 d-flex align-items-center gap-2 flex-wrap">
+                                                        <span class="badge text-bg-light border text-capitalize">{{ ra.resourceType }}</span>
+                                                        <span>{{ label }}</span>
+                                                        <span class="ms-1">
+                                                            {% if ra.canView %}
+                                                                <span class="badge text-bg-info" title="Visualizar">Ver</span>
+                                                            {% endif %}
+                                                            {% if ra.canEdit %}
+                                                                <span class="badge text-bg-warning text-dark" title="Editar">Editar</span>
+                                                            {% endif %}
+                                                            {% if ra.canDelete %}
+                                                                <span class="badge text-bg-danger" title="Excluir">Excluir</span>
+                                                            {% endif %}
+                                                        </span>
+                                                        {% if ra.grantedBy %}
+                                                            <span class="text-muted" title="Concedido por">
+                                                                <i class="bi bi-person-check"></i> {{ ra.grantedBy.fullName }}
+                                                            </span>
+                                                        {% endif %}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td class="align-middle">{{ user.createdAt|date('d/m/Y H:i') }}</td>
+                                <td class="align-middle">
                                     <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenant.id, id: user.id}) }}"
                                        class="btn btn-sm btn-outline-primary"
                                        title="Editar roles do usuário"
@@ -50,7 +94,7 @@
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="5" class="text-center">Nenhum funcionário encontrado.</td>
+                                <td colspan="6" class="text-center">Nenhum funcionário encontrado.</td>
                             </tr>
                         {% endfor %}
                     </tbody>

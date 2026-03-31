@@ -13,6 +13,8 @@
     <div class="container-fluid">
         <div class="row justify-content-center">
             <div class="col-lg-6 col-md-8">
+
+                {# Perfil e senha #}
                 <div class="card card-outline card-primary mb-3">
                     <div class="card-header">
                         <h3 class="card-title"><i class="bi bi-person me-2"></i>{{ user.fullName }}</h3>
@@ -54,8 +56,72 @@
                             </button>
                         </div>
                     </div>
-                        {{ form_end(form) }}
+                    {{ form_end(form) }}
                 </div>
+
+                {# Acessos específicos por item #}
+                <div class="card card-outline card-secondary mb-3">
+                    <div class="card-header">
+                        <h3 class="card-title"><i class="bi bi-unlock me-2"></i>Acessos específicos por item</h3>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if userAccesses is empty %}
+                            <p class="text-muted small p-3 mb-0">Nenhum acesso específico concedido a este usuário.</p>
+                        {% else %}
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Tipo</th>
+                                        <th>Item</th>
+                                        <th>Permissões</th>
+                                        <th>Concedido por</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for ra in userAccesses %}
+                                        {% set label = resourceLabels[ra.resourceType][ra.resourceId] ?? (ra.resourceType ~ ' #' ~ ra.resourceId) %}
+                                        <tr>
+                                            <td class="align-middle">
+                                                <span class="badge text-bg-light border text-capitalize">{{ ra.resourceType }}</span>
+                                            </td>
+                                            <td class="align-middle">{{ label }}</td>
+                                            <td class="align-middle">
+                                                {% if ra.canView %}
+                                                    <span class="badge text-bg-info me-1">Ver</span>
+                                                {% endif %}
+                                                {% if ra.canEdit %}
+                                                    <span class="badge text-bg-warning text-dark me-1">Editar</span>
+                                                {% endif %}
+                                                {% if ra.canDelete %}
+                                                    <span class="badge text-bg-danger me-1">Excluir</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="align-middle small text-muted">
+                                                {% if ra.grantedBy %}
+                                                    {{ ra.grantedBy.fullName }}
+                                                {% else %}
+                                                    —
+                                                {% endif %}
+                                            </td>
+                                            <td class="align-middle text-end">
+                                                <form method="POST"
+                                                      action="{{ path('app_tenant_user_resource_access_remove', {tenantId: tenantId, userId: user.id, raId: ra.id}) }}"
+                                                      onsubmit="return confirm('Remover este acesso específico?')">
+                                                    <input type="hidden" name="_token" value="{{ csrf_token('remove_resource_access_' ~ ra.id) }}">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover acesso">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
