@@ -10,8 +10,15 @@ use Doctrine\ORM\Mapping as ORM;
 class RegistroPonto
 {
     public const TIPO_ENTRADA = 'entrada';
+    public const TIPO_REPOUSO = 'repouso';
+    public const TIPO_RETORNO = 'retorno';
     public const TIPO_SAIDA = 'saida';
-    public const TIPOS_VALIDOS = [self::TIPO_ENTRADA, self::TIPO_SAIDA];
+    public const TIPOS_VALIDOS = [
+        self::TIPO_ENTRADA,
+        self::TIPO_REPOUSO,
+        self::TIPO_RETORNO,
+        self::TIPO_SAIDA,
+    ];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -35,8 +42,11 @@ class RegistroPonto
     private ?string $precisaoGps = null; // em metros
 
     #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: true)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Sede $sede = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $sedeNomeSnapshot = null;
 
     #[ORM\Column(length: 20)]
     private ?string $tipo = self::TIPO_ENTRADA;
@@ -117,6 +127,17 @@ class RegistroPonto
     public function setSede(?Sede $sede): static
     {
         $this->sede = $sede;
+        return $this;
+    }
+
+    public function getSedeNomeSnapshot(): ?string
+    {
+        return $this->sedeNomeSnapshot;
+    }
+
+    public function setSedeNomeSnapshot(?string $sedeNomeSnapshot): static
+    {
+        $this->sedeNomeSnapshot = $sedeNomeSnapshot;
         return $this;
     }
 

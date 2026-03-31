@@ -122,6 +122,52 @@
                     </div>
                 </div>
 
+                <div class="card card-outline card-info mb-3">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3 class="card-title mb-0"><i class="bi bi-clock-history me-2"></i>Batidas de ponto</h3>
+                        <form method="get" action="{{ path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id}) }}" class="d-flex align-items-center gap-2">
+                            <label for="competencia" class="mb-0 small text-muted">Mês</label>
+                            <select id="competencia" name="competencia" class="form-select form-select-sm" onchange="this.form.submit()" {% if competenciasPonto is empty %}disabled{% endif %}>
+                                {% for competencia in competenciasPonto %}
+                                    <option value="{{ competencia.valor }}" {% if competencia.valor == competenciaSelecionada %}selected{% endif %}>{{ competencia.label }}</option>
+                                {% endfor %}
+                            </select>
+                        </form>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if competenciasPonto is empty %}
+                            <p class="text-muted small p-3 mb-0">Este usuário ainda não possui registros de ponto.</p>
+                        {% elseif batidasPonto is empty %}
+                            <p class="text-muted small p-3 mb-0">Não há batidas para a competência selecionada.</p>
+                        {% else %}
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Data</th>
+                                        <th>Hora</th>
+                                        <th>Tipo</th>
+                                        <th>Sede</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% set tipoLabels = {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'} %}
+                                    {% set badgeClass = {'entrada': 'success', 'repouso': 'secondary', 'retorno': 'info', 'saida': 'warning'} %}
+                                    {% for batida in batidasPonto %}
+                                        <tr>
+                                            <td class="align-middle">{{ batida.dataHora|date('d/m/Y') }}</td>
+                                            <td class="align-middle">{{ batida.dataHora|date('H:i:s') }}</td>
+                                            <td class="align-middle">
+                                                <span class="badge bg-{{ badgeClass[batida.tipo] ?? 'dark' }}">{{ tipoLabels[batida.tipo] ?? batida.tipo }}</span>
+                                            </td>
+                                            <td class="align-middle">{{ batida.sede ? batida.sede.nome : (batida.sedeNomeSnapshot ?: 'N/A') }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

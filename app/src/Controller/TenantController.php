@@ -12,6 +12,7 @@ use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
 use App\Repository\ClienteRepository;
 use App\Repository\PastaRepository;
+use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\SedeRepository;
@@ -334,6 +335,7 @@ final class TenantController extends AbstractController
         ClienteRepository $clienteRepository,
         PastaRepository $pastaRepository,
         ProcessoRepository $processoRepository,
+        RegistroPontoRepository $registroPontoRepository,
         PermissionChecker $permissionChecker
     ): Response {
         $currentUser = $this->getUser();
@@ -379,12 +381,29 @@ final class TenantController extends AbstractController
             $processoRepository,
         );
 
+        $competenciasPonto = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user);
+        $competenciaSelecionada = (string) $request->query->get('competencia', '');
+        $competenciasDisponiveis = array_column($competenciasPonto, 'valor');
+
+        if ($competenciaSelecionada === '' && !empty($competenciasPonto)) {
+            $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
+        }
+
+        $batidasPonto = [];
+        if ($competenciaSelecionada !== '' && in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
+            [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
+            $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
+        }
+
         return $this->render('tenant/edit_user_role.html.twig', [
             'form'           => $form->createView(),
             'user'           => $user,
             'tenantId'       => $tenantId,
             'userAccesses'   => $userAccesses,
             'resourceLabels' => $resourceLabels,
+            'competenciasPonto' => $competenciasPonto,
+            'competenciaSelecionada' => $competenciaSelecionada,
+            'batidasPonto' => $batidasPonto,
         ]);
     }
 
@@ -485,6 +504,7 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
+        RegistroPontoRepository $registroPontoRepository,
         PermissionChecker $permissionChecker
     ): Response {
         /** @var \App\Entity\Auth\User $user */
@@ -508,9 +528,26 @@ final class TenantController extends AbstractController
         $sede = $sedeRepository->find($sedeId);
 
         if ($sede && $sede->getTenant()?->getId() === $tenantId) {
-            $entityManager->remove($sede);
-            $entityManager->flush();
-            $this->addFlash('success', 'Sede removida com sucesso.');
+            $connection = $entityManager->getConnection();
+            try {
+                $connection->beginTransaction();
+                $totalDesvinculados = $registroPontoRepository->desvincularSede($sede);
+                $entityManager->remove($sede);
+                $entityManager->flush();
+                $connection->commit();
+
+                $this->addFlash('success', 'Sede removida com sucesso.');
+
+                if ($totalDesvinculados > 0) {
+                    $this->addFlash('info', sprintf('%d registro(s) de ponto foram desvinculados automaticamente da sede removida.', $totalDesvinculados));
+                }
+            } catch (\Throwable) {
+                if ($connection->isTransactionActive()) {
+                    $connection->rollBack();
+                }
+
+                $this->addFlash('danger', 'Não foi possível remover a sede neste momento. Tente novamente.');
+            }
         }
 
         return $this->redirectToRoute('app_tenant_sedes', ['id' => $tenantId]);
