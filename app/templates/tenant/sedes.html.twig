@@ -2,6 +2,18 @@
 
 {% block title %}Sedes - {{ tenant.name }}{% endblock %}
 
+{% block stylesheets %}
+    {{ parent() }}
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <style>
+        #sede-map {
+            height: 320px;
+            border-radius: .5rem;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+{% endblock %}
+
 {% block body %}
 <div class="container-fluid">
     <div class="row mb-4">
@@ -40,15 +52,17 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Coordenadas (para validação GPS)</label>
+                        <label class="form-label">Ponto exato da sede no mapa</label>
+                        <div id="sede-map" class="mb-2"></div>
+                        <div class="form-text mb-2">Clique no mapa para marcar a localização da sede.</div>
                         <div class="row g-2">
                             <div class="col-6">
                                 {{ form_label(form.latitude, null, {'label_attr': {'class': 'form-label form-label-sm'}}) }}
-                                {{ form_widget(form.latitude, {'attr': {'class': 'form-control form-control-sm', 'placeholder': '-23.550520'}}) }}
+                                {{ form_widget(form.latitude, {'attr': {'class': 'form-control form-control-sm', 'placeholder': '-23.550520', 'readonly': 'readonly'}}) }}
                             </div>
                             <div class="col-6">
                                 {{ form_label(form.longitude, null, {'label_attr': {'class': 'form-label form-label-sm'}}) }}
-                                {{ form_widget(form.longitude, {'attr': {'class': 'form-control form-control-sm', 'placeholder': '-46.633308'}}) }}
+                                {{ form_widget(form.longitude, {'attr': {'class': 'form-control form-control-sm', 'placeholder': '-46.633308', 'readonly': 'readonly'}}) }}
                             </div>
                         </div>
                     </div>
@@ -57,12 +71,6 @@
                         {{ form_label(form.raioPermitido, null, {'label_attr': {'class': 'form-label'}}) }}
                         {{ form_widget(form.raioPermitido, {'attr': {'class': 'form-control'}}) }}
                         <div class="form-text">Distância máxima da sede para validar GPS (metros).</div>
-                    </div>
-
-                    <div class="mb-3">
-                        {{ form_label(form.ssidsAutorizados, null, {'label_attr': {'class': 'form-label'}}) }}
-                        {{ form_widget(form.ssidsAutorizados, {'attr': {'class': 'form-control', 'placeholder': 'WiFi_Empresa, WiFi_Diretoria'}}) }}
-                        <div class="form-text">{{ form.ssidsAutorizados.vars.help }}</div>
                     </div>
 
                     <div class="mb-3">
@@ -89,7 +97,7 @@
                         <thead>
                             <tr>
                                 <th>Nome</th>
-                                <th>SSIDs Autorizados</th>
+                                <th>Coordenadas</th>
                                 <th>Raio</th>
                                 <th>Ações</th>
                             </tr>
@@ -99,12 +107,10 @@
                             <tr>
                                 <td>{{ sede.nome }}</td>
                                 <td>
-                                    {% if sede.ssidsAutorizados %}
-                                        {% for ssid in sede.ssidsAutorizados %}
-                                            <span class="badge bg-info text-dark">{{ ssid }}</span>
-                                        {% endfor %}
+                                    {% if sede.latitude and sede.longitude %}
+                                        <span class="small text-muted">{{ sede.latitude }}, {{ sede.longitude }}</span>
                                     {% else %}
-                                        <span class="text-muted">Nenhum</span>
+                                        <span class="text-muted">Não informado</span>
                                     {% endif %}
                                 </td>
                                 <td>{{ sede.raioPermitido }}m</td>
@@ -132,4 +138,65 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const latInput = document.getElementById('{{ form.latitude.vars.id }}');
+            const lngInput = document.getElementById('{{ form.longitude.vars.id }}');
+
+            if (!latInput || !lngInput || !document.getElementById('sede-map')) {
+                return;
+            }
+
+            const defaultLat = -23.55052;
+            const defaultLng = -46.633308;
+            const hasInitialCoordinates = latInput.value !== '' && lngInput.value !== '';
+
+            const initialLat = parseFloat(latInput.value) || defaultLat;
+            const initialLng = parseFloat(lngInput.value) || defaultLng;
+
+            const map = L.map('sede-map').setView([initialLat, initialLng], 16);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            const marker = L.marker([initialLat, initialLng], { draggable: true }).addTo(map);
+
+            function updateInputs(latlng) {
+                latInput.value = Number(latlng.lat).toFixed(8);
+                lngInput.value = Number(latlng.lng).toFixed(8);
+            }
+
+            if (hasInitialCoordinates) {
+                updateInputs(marker.getLatLng());
+            }
+
+            map.on('click', function (event) {
+                marker.setLatLng(event.latlng);
+                updateInputs(event.latlng);
+            });
+
+            marker.on('dragend', function () {
+                updateInputs(marker.getLatLng());
+            });
+
+            if (navigator.geolocation && !hasInitialCoordinates) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    const current = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+                    map.setView([current.lat, current.lng], 17);
+                    marker.setLatLng(current);
+                    updateInputs(current);
+                });
+            }
+        });
+    </script>
 {% endblock %}

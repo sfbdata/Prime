@@ -462,13 +462,6 @@ final class TenantController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $sede->setTenant($tenant);
 
-            // Converte campo ssidsAutorizados de string para array
-            $ssidsInput = $form->get('ssidsAutorizados')->getData();
-            if (is_string($ssidsInput) && trim($ssidsInput) !== '') {
-                $ssids = array_values(array_filter(array_map('trim', explode(',', $ssidsInput))));
-                $sede->setSsidsAutorizados($ssids);
-            }
-
             $entityManager->persist($sede);
             $entityManager->flush();
 

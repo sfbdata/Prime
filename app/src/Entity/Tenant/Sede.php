@@ -28,9 +28,6 @@ class Sede
     #[ORM\Column(length: 50)]
     private ?string $timezone = 'America/Sao_Paulo';
 
-    #[ORM\Column(type: 'json', nullable: true)]
-    private ?array $ssidsAutorizados = null;
-
     #[ORM\ManyToOne(inversedBy: 'sedes')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
@@ -92,17 +89,6 @@ class Sede
     public function setTimezone(string $timezone): static
     {
         $this->timezone = $timezone;
-        return $this;
-    }
-
-    public function getSsidsAutorizados(): ?array
-    {
-        return $this->ssidsAutorizados;
-    }
-
-    public function setSsidsAutorizados(?array $ssidsAutorizados): static
-    {
-        $this->ssidsAutorizados = $ssidsAutorizados;
         return $this;
     }
 

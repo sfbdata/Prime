@@ -34,9 +34,6 @@ class RegistroPonto
     #[ORM\JoinColumn(nullable: true)]
     private ?Sede $sede = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
-    private ?string $ssid = null; // Nome da rede Wi-Fi usada para batida
-
     #[ORM\Column(length: 20)]
     private ?string $tipo = 'entrada'; // entrada, saida, entrada_intervalo, saida_intervalo
 
@@ -116,17 +113,6 @@ class RegistroPonto
     public function setSede(?Sede $sede): static
     {
         $this->sede = $sede;
-        return $this;
-    }
-
-    public function getSsid(): ?string
-    {
-        return $this->ssid;
-    }
-
-    public function setSsid(?string $ssid): static
-    {
-        $this->ssid = $ssid;
         return $this;
     }
 

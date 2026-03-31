@@ -19,14 +19,8 @@
                 <div class="card-body text-center">
                     <div id="clock" class="h1 mb-4">00:00:00</div>
 
-                    <div class="mb-3">
-                        <label for="ssid-input" class="form-label">Rede Wi-Fi Conectada</label>
-                        <input type="text" id="ssid-input" class="form-control form-control-lg text-center" placeholder="Ex: WiFi_Empresa" autocomplete="off">
-                        <small id="ssid-status" class="form-text text-muted">Digite o nome da rede Wi-Fi que você está conectado.</small>
-                    </div>
-
                     <div id="gps-status" class="alert alert-info small mb-3">
-                        <i class="bi bi-geo-alt"></i> GPS não solicitado
+                        <i class="bi bi-geo-alt"></i> Aguardando geolocalização
                     </div>
 
                     <button id="btn-bater-ponto" class="btn btn-lg btn-primary w-100" disabled>
@@ -93,68 +87,69 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Validação de SSID
-    const ssidInput = document.getElementById('ssid-input');
     const btnPonto = document.getElementById('btn-bater-ponto');
     const gpsStatus = document.getElementById('gps-status');
+    let currentLocation = null;
 
-    ssidInput.addEventListener('input', function() {
-        const ssid = ssidInput.value.trim();
-        if (ssid.length > 0) {
-            btnPonto.disabled = false;
-            gpsStatus.innerHTML = `<i class="bi bi-wifi"></i> Rede detectada: ${ssid}`;
-            gpsStatus.className = 'alert alert-success small mb-3';
-        } else {
-            btnPonto.disabled = true;
-            gpsStatus.innerHTML = `<i class="bi bi-geo-alt"></i> GPS não solicitado`;
-            gpsStatus.className = 'alert alert-info small mb-3';
-        }
-    });
-
-    // Geolocalização (opcional para auditoria)
+    // Geolocalização obrigatória
     if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const accuracy = position.coords.accuracy;
+                currentLocation = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    precisaoGps: accuracy,
+                };
+
                 gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS: ${accuracy.toFixed(1)}m de precisão`;
                 if (accuracy <= 50) {
                     gpsStatus.className = 'alert alert-success small mb-3';
                 } else {
                     gpsStatus.className = 'alert alert-warning small mb-3';
                 }
+
+                btnPonto.disabled = false;
             },
             (error) => {
+                gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Permita o acesso à localização para registrar o ponto.`;
+                gpsStatus.className = 'alert alert-danger small mb-3';
+                btnPonto.disabled = true;
                 console.log('GPS não disponível:', error.message);
             },
             { enableHighAccuracy: true, timeout: 5000 }
         );
+    } else {
+        gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
+        gpsStatus.className = 'alert alert-danger small mb-3';
     }
 
     // Botão de Bater Ponto
     btnPonto.addEventListener('click', async function() {
-        const ssid = ssidInput.value.trim();
-        if (!ssid) {
-            alert('Por favor, informe o nome da rede Wi-Fi.');
+        if (!currentLocation) {
+            alert('A localização é obrigatória para registrar o ponto.');
             return;
         }
 
         btnPonto.disabled = true;
         btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> Registrando...';
 
-        let latitude = null;
-        let longitude = null;
-        let precisaoGps = null;
+        let latitude = currentLocation.latitude;
+        let longitude = currentLocation.longitude;
+        let precisaoGps = currentLocation.precisaoGps;
 
         if ("geolocation" in navigator) {
             try {
                 const position = await new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
                 });
+
                 latitude = position.coords.latitude;
                 longitude = position.coords.longitude;
                 precisaoGps = position.coords.accuracy;
+                currentLocation = { latitude, longitude, precisaoGps };
             } catch (err) {
-                console.log('Não foi possível obter GPS:', err);
+                console.log('Não foi possível atualizar GPS:', err);
             }
         }
 
@@ -166,7 +161,6 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 },
                 body: JSON.stringify({
-                    ssid: ssid,
                     latitude: latitude,
                     longitude: longitude,
                     precisaoGps: precisaoGps,
@@ -179,14 +173,9 @@
             if (response.ok && data.success) {
                 gpsStatus.innerHTML = `<i class="bi bi-check-circle"></i> ${data.message}`;
                 gpsStatus.className = 'alert alert-success small mb-3';
-                ssidInput.value = '';
                 setTimeout(() => window.location.reload(), 1500);
             } else {
-                let msg = data.message || 'Erro ao registrar ponto.';
-                if (data.ssids_permitidos && data.ssids_permitidos.length > 0) {
-                    msg += '\nSSIDs permitidos: ' + data.ssids_permitidos.join(', ');
-                }
-                alert(msg);
+                alert(data.message || 'Erro ao registrar ponto.');
                 btnPonto.disabled = false;
                 btnPonto.innerHTML = '<i class="bi bi-fingerprint"></i> Bater Ponto';
             }

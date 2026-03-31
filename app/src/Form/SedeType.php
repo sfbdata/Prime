@@ -20,12 +20,14 @@ class SedeType extends AbstractType
             ->add('latitude', NumberType::class, [
                 'label' => 'Latitude',
                 'scale' => 8,
-                'required' => false,
+                'required' => true,
+                'attr' => ['step' => '0.00000001'],
             ])
             ->add('longitude', NumberType::class, [
                 'label' => 'Longitude',
                 'scale' => 8,
-                'required' => false,
+                'required' => true,
+                'attr' => ['step' => '0.00000001'],
             ])
             ->add('raioPermitido', NumberType::class, [
                 'label' => 'Raio Permitido (metros)',
@@ -36,12 +38,6 @@ class SedeType extends AbstractType
                 'label' => 'Fuso Horário',
                 'required' => false,
                 'data' => 'America/Sao_Paulo',
-            ])
-            ->add('ssidsAutorizados', TextType::class, [
-                'label' => 'SSIDs Autorizados (separados por vírgula)',
-                'required' => false,
-                'help' => 'Ex: WiFi_Empresa, WiFi_Diretoria',
-                'mapped' => false,
             ]);
     }
 

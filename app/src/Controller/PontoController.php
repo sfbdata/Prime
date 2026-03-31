@@ -61,31 +61,55 @@ final class PontoController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
 
-        $ssid        = $data['ssid'] ?? null;
         $latitude    = $data['latitude'] ?? null;
         $longitude   = $data['longitude'] ?? null;
         $precisaoGps = $data['precisaoGps'] ?? null;
         $tipo        = $data['tipo'] ?? 'entrada';
 
-        // Validação de SSID contra sedes do tenant
+        if ($latitude === null || $longitude === null) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Geolocalização é obrigatória para registrar o ponto.',
+            ], 422);
+        }
+
+        $latitudeFloat = (float) $latitude;
+        $longitudeFloat = (float) $longitude;
+
         $sedes = $sedeRepository->findBy(['tenant' => $user->getTenant()]);
-        $ssidValido    = false;
+        if (empty($sedes)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Nenhuma sede configurada para o tenant.',
+            ], 403);
+        }
+
         $sedeEncontrada = null;
+        $distanciaSedeEncontrada = null;
 
         foreach ($sedes as $sede) {
-            $ssids = $sede->getSsidsAutorizados();
-            if ($ssids && in_array($ssid, $ssids)) {
-                $ssidValido     = true;
+            if ($sede->getLatitude() === null || $sede->getLongitude() === null) {
+                continue;
+            }
+
+            $distancia = $this->calcularDistanciaMetros(
+                $latitudeFloat,
+                $longitudeFloat,
+                (float) $sede->getLatitude(),
+                (float) $sede->getLongitude()
+            );
+
+            if ($distancia <= (float) $sede->getRaioPermitido()) {
                 $sedeEncontrada = $sede;
+                $distanciaSedeEncontrada = $distancia;
                 break;
             }
         }
 
-        if (!$ssidValido) {
+        if ($sedeEncontrada === null) {
             return $this->json([
-                'success'          => false,
-                'message'          => 'Rede Wi-Fi não autorizada. SSID informado: ' . ($ssid ?: 'não informado'),
-                'ssids_permitidos' => !empty($sedes) ? ($sedes[0]->getSsidsAutorizados() ?? []) : [],
+                'success' => false,
+                'message' => 'Você está fora da área permitida das sedes para registrar o ponto.',
             ], 403);
         }
 
@@ -93,19 +117,12 @@ final class PontoController extends AbstractController
         $registro = new RegistroPonto();
         $registro->setUser($user);
         $registro->setSede($sedeEncontrada);
-        $registro->setSsid($ssid);
         $registro->setTipo($tipo);
         $registro->setDataHora(new \DateTime());
 
-        if ($latitude !== null && $longitude !== null) {
-            $registro->setLatitude((string)$latitude);
-            $registro->setLongitude((string)$longitude);
-            $registro->setPrecisaoGps($precisaoGps !== null ? (string)$precisaoGps : '0');
-        } else {
-            $registro->setLatitude('0');
-            $registro->setLongitude('0');
-            $registro->setPrecisaoGps('0');
-        }
+        $registro->setLatitude((string) $latitudeFloat);
+        $registro->setLongitude((string) $longitudeFloat);
+        $registro->setPrecisaoGps($precisaoGps !== null ? (string) $precisaoGps : '0');
 
         $entityManager->persist($registro);
         $entityManager->flush();
@@ -117,8 +134,25 @@ final class PontoController extends AbstractController
                 'hora' => $registro->getDataHora()->format('H:i:s'),
                 'tipo' => $tipo,
                 'sede' => $sedeEncontrada->getNome(),
+                'distancia' => $distanciaSedeEncontrada !== null ? round($distanciaSedeEncontrada, 2) : null,
             ],
         ]);
+    }
+
+    private function calcularDistanciaMetros(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $raioTerra = 6371000;
+
+        $deltaLat = deg2rad($lat2 - $lat1);
+        $deltaLon = deg2rad($lon2 - $lon1);
+
+        $a = sin($deltaLat / 2) * sin($deltaLat / 2)
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2))
+            * sin($deltaLon / 2) * sin($deltaLon / 2);
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $raioTerra * $c;
     }
 
     #[Route('/exportar-csv', name: 'ponto_exportar_csv')]
