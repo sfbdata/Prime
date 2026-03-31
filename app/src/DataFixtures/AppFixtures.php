@@ -40,43 +40,49 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         // 1. USUÁRIOS (e Tenant)
         // =============================================
         $users = $this->loadUsers($manager);
+        $manager->flush();
 
         // =============================================
         // 2. CLIENTES PF
         // =============================================
         $clientesPF = $this->loadClientesPF($manager);
+        $manager->flush();
 
         // =============================================
         // 3. CLIENTES PJ
         // =============================================
         $clientesPJ = $this->loadClientesPJ($manager);
+        $manager->flush();
 
         // =============================================
         // 4. PRÉ-CADASTROS
         // =============================================
         $this->loadPreCadastros($manager, $clientesPF, $clientesPJ);
+        $manager->flush();
 
         // =============================================
         // 5. PROCESSOS
         // =============================================
         $processos = $this->loadProcessos($manager);
+        $manager->flush();
 
         // =============================================
         // 7. TAREFAS
         // =============================================
         $this->loadTarefas($manager, $processos, $users);
+        $manager->flush();
 
         // =============================================
         // 8. CHAMADOS (SERVICE DESK)
         // =============================================
         $this->loadChamados($manager, $users);
+        $manager->flush();
 
         // =============================================
         // 9. EVENTOS DE AGENDA
         // FIX: datas com horário construídas corretamente via setTime().
         // =============================================
         $this->loadEventos($manager, $users);
-
         $manager->flush();
     }
 
@@ -85,12 +91,19 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
     // -----------------------------------------------
     private function loadUsers(ObjectManager $manager): array
     {
-        // Cria o Tenant do escritório de demonstração
-        // FIX: removido setIsActive(true) — o construtor do Tenant já define true automaticamente.
-        $tenant = new Tenant();
-        $tenant->setName('Escritório Almeida & Associados');
-        $manager->persist($tenant);
+        // IDEMPOTENT: Procura tenant existente antes de criar
+        $tenantRepo = $manager->getRepository(Tenant::class);
+        $tenant = $tenantRepo->findOneBy(['name' => 'Escritório Almeida & Associados']);
+        
+        if (!$tenant) {
+            $tenant = new Tenant();
+            $tenant->setName('Escritório Almeida & Associados');
+            $manager->persist($tenant);
+            $manager->flush(); // persiste antes de criar usuários
+        }
 
+        $userRepo = $manager->getRepository(User::class);
+        
         $dados = [
             ['email' => 'admin@escritorio.com.br',      'nome' => 'Dr. Ricardo Almeida',    'roles' => ['ROLE_USER'],       'senha' => 'admin123', 'ativo' => true,  'isAdmin' => true],
             ['email' => 'advogado1@escritorio.com.br',  'nome' => 'Dra. Fernanda Costa',    'roles' => ['ROLE_ADVOGADO'],   'senha' => 'senha123', 'ativo' => true,  'isAdmin' => false],
@@ -103,14 +116,22 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         $users = [];
         $adminUser = null;
         foreach ($dados as $dado) {
-            $user = new User();
-            $user->setEmail($dado['email']);
+            // Procura usuário existente por email
+            $user = $userRepo->findOneBy(['email' => $dado['email']]);
+            
+            if (!$user) {
+                $user = new User();
+                $user->setEmail($dado['email']);
+                $user->setPassword($this->passwordHasher->hashPassword($user, $dado['senha']));
+                $manager->persist($user);
+            }
+            
+            // Sempre atualiza dados (em caso de mudanças)
             $user->setFullName($dado['nome']);
             $user->setRoles($dado['roles']);
             $user->setIsActive($dado['ativo']);
             $user->setTenant($tenant);
-            $user->setPassword($this->passwordHasher->hashPassword($user, $dado['senha']));
-            $manager->persist($user);
+            
             $users[] = $user;
 
             if ($dado['isAdmin']) {
@@ -118,10 +139,13 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             }
         }
 
-        // Bootstrap: cria perfil "Administrador do Escritório" e vincula o admin do tenant demo.
-        // Requer que PermissionFixture tenha rodado antes (getDependencies).
-        $manager->flush(); // persiste tenant + usuários antes do bootstrap
-        $this->tenantBootstrap->bootstrap($tenant, $adminUser);
+        $manager->flush(); // persiste usuários antes do bootstrap
+        
+        // Bootstrap: cria perfil "Administrador do Escritório" e vincula o admin do tenant
+        // (PermissionFixture já foi executado por getDependencies)
+        if ($adminUser) {
+            $this->tenantBootstrap->bootstrap($tenant, $adminUser);
+        }
 
         return $users;
     }
@@ -214,11 +238,21 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             ],
         ];
 
+        $clientePFRepo = $manager->getRepository(ClientePF::class);
         $clientes = [];
+        
         foreach ($dados as $dado) {
-            $c = new ClientePF();
+            // IDEMPOTENT: Procura cliente por CPF antes de criar
+            $c = $clientePFRepo->findOneBy(['cpf' => $dado['cpf']]);
+            
+            if (!$c) {
+                $c = new ClientePF();
+                $c->setCpf($dado['cpf']);
+                $manager->persist($c);
+            }
+            
+            // Sempre atualiza dados (em caso de mudanças)
             $c->setNomeCompleto($dado['nomeCompleto']);
-            $c->setCpf($dado['cpf']);
             $c->setRg($dado['rg']);
             $c->setRgOrgaoExpedidor($dado['rgOrgao']);
             $c->setRgDataEmissao(new \DateTime($dado['rgDataEmissao']));
@@ -231,7 +265,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $c->setEndereco($dado['endereco']);
             $c->setCidade($dado['cidade']);
             $c->setEstado($dado['estado']);
-            $manager->persist($c);
+            
             $clientes[] = $c;
         }
 
@@ -300,12 +334,22 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             ],
         ];
 
+        $clientePJRepo = $manager->getRepository(ClientePJ::class);
         $clientes = [];
+        
         foreach ($dados as $dado) {
-            $c = new ClientePJ();
+            // IDEMPOTENT: Procura cliente por CNPJ antes de criar
+            $c = $clientePJRepo->findOneBy(['cnpj' => $dado['cnpj']]);
+            
+            if (!$c) {
+                $c = new ClientePJ();
+                $c->setCnpj($dado['cnpj']);
+                $manager->persist($c);
+            }
+            
+            // Sempre atualiza dados (em caso de mudanças)
             $c->setRazaoSocial($dado['razaoSocial']);
             $c->setNomeFantasia($dado['nomeFantasia']);
-            $c->setCnpj($dado['cnpj']);
             $c->setInscricaoEstadual($dado['inscricaoEstadual']);
             $c->setInscricaoMunicipal($dado['inscricaoMunicipal']);
             $c->setEnderecSede($dado['enderecSede']);
@@ -319,7 +363,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $c->setEndereco($dado['endereco']);
             $c->setCidade($dado['cidade']);
             $c->setEstado($dado['estado']);
-            $manager->persist($c);
+            
             $clientes[] = $c;
         }
 
@@ -527,10 +571,35 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             ],
         ];
 
+        $processoRepo = $manager->getRepository(Processo::class);
         $processos = [];
+        
         foreach ($dados as $dado) {
-            $p = new Processo();
-            $p->setNumeroProcesso($dado['numero']);
+            // IDEMPOTENT: Procura processo por número antes de criar
+            $p = $processoRepo->findOneBy(['numeroProcesso' => $dado['numero']]);
+            
+            if (!$p) {
+                $p = new Processo();
+                $p->setNumeroProcesso($dado['numero']);
+                $manager->persist($p);
+            } else {
+                // Se processo já existe, limpa relacionamentos para recarregar
+                foreach ($p->getPartes() as $parte) {
+                    $manager->remove($parte);
+                }
+                foreach ($p->getMovimentacoes() as $mov) {
+                    $manager->remove($mov);
+                }
+                foreach ($p->getDocumentos() as $doc) {
+                    $manager->remove($doc);
+                }
+                $manager->flush();
+                $p->getPartes()->clear();
+                $p->getMovimentacoes()->clear();
+                $p->getDocumentos()->clear();
+            }
+            
+            // Sempre atualiza dados (em caso de mudanças)
             $p->setOrgaoJulgador($dado['orgaoJulgador']);
             $p->setSiglaTribunal($dado['sigla']);
             $p->setClasseProcessual($dado['classe']);
@@ -562,7 +631,18 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
                 $manager->persist($mov);
             }
 
-            $manager->persist($p);
+            // Documentos
+            foreach ($dado['docs'] as $docData) {
+                $doc = new DocumentoProcesso();
+                $doc->setTipo($docData['tipo']);
+                $doc->setNomeOriginal($docData['nome']);
+                $doc->setCaminhoArquivo('fixtures/' . $docData['nome']);
+                $doc->setMimeType('application/pdf');
+                $doc->setTamanho(1024);
+                $p->addDocumento($doc);
+                $manager->persist($doc);
+            }
+
             $processos[] = $p;
         }
 
