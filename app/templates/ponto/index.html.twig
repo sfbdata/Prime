@@ -23,6 +23,15 @@
                         <i class="bi bi-geo-alt"></i> Aguardando geolocalização
                     </div>
 
+                    <div class="mb-3 text-start">
+                        <label for="tipo-registro" class="form-label fw-semibold">Tipo de registro <span class="text-danger">*</span></label>
+                        <select id="tipo-registro" class="form-select" required>
+                            <option value="">Selecione...</option>
+                            <option value="entrada">Entrada</option>
+                            <option value="saida">Saida</option>
+                        </select>
+                    </div>
+
                     <button id="btn-bater-ponto" class="btn btn-lg btn-primary w-100" disabled>
                         <i class="bi bi-fingerprint"></i> Bater Ponto
                     </button>
@@ -89,7 +98,14 @@
 
     const btnPonto = document.getElementById('btn-bater-ponto');
     const gpsStatus = document.getElementById('gps-status');
+    const tipoRegistro = document.getElementById('tipo-registro');
     let currentLocation = null;
+
+    function updateButtonState() {
+        btnPonto.disabled = !currentLocation || !tipoRegistro.value;
+    }
+
+    tipoRegistro.addEventListener('change', updateButtonState);
 
     // Geolocalização obrigatória
     if ("geolocation" in navigator) {
@@ -109,7 +125,7 @@
                     gpsStatus.className = 'alert alert-warning small mb-3';
                 }
 
-                btnPonto.disabled = false;
+                updateButtonState();
             },
             (error) => {
                 gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Permita o acesso à localização para registrar o ponto.`;
@@ -126,6 +142,11 @@
 
     // Botão de Bater Ponto
     btnPonto.addEventListener('click', async function() {
+        if (!tipoRegistro.value) {
+            alert('Selecione o tipo de registro (Entrada ou Saida).');
+            return;
+        }
+
         if (!currentLocation) {
             alert('A localização é obrigatória para registrar o ponto.');
             return;
@@ -164,7 +185,7 @@
                     latitude: latitude,
                     longitude: longitude,
                     precisaoGps: precisaoGps,
-                    tipo: 'entrada'
+                    tipo: tipoRegistro.value
                 })
             });
 

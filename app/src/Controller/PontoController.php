@@ -61,10 +61,31 @@ final class PontoController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
 
+        if (!is_array($data)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Payload invalido.',
+            ], 400);
+        }
+
         $latitude    = $data['latitude'] ?? null;
         $longitude   = $data['longitude'] ?? null;
         $precisaoGps = $data['precisaoGps'] ?? null;
-        $tipo        = $data['tipo'] ?? 'entrada';
+        $tipo        = isset($data['tipo']) ? strtolower(trim((string) $data['tipo'])) : null;
+
+        if ($tipo === null || $tipo === '') {
+            return $this->json([
+                'success' => false,
+                'message' => 'Tipo de registro e obrigatorio (Entrada ou Saida).',
+            ], 422);
+        }
+
+        if (!in_array($tipo, RegistroPonto::TIPOS_VALIDOS, true)) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Tipo de registro invalido. Selecione Entrada ou Saida.',
+            ], 422);
+        }
 
         if ($latitude === null || $longitude === null) {
             return $this->json([

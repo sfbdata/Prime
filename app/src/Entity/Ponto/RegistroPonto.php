@@ -9,6 +9,10 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 class RegistroPonto
 {
+    public const TIPO_ENTRADA = 'entrada';
+    public const TIPO_SAIDA = 'saida';
+    public const TIPOS_VALIDOS = [self::TIPO_ENTRADA, self::TIPO_SAIDA];
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -35,7 +39,7 @@ class RegistroPonto
     private ?Sede $sede = null;
 
     #[ORM\Column(length: 20)]
-    private ?string $tipo = 'entrada'; // entrada, saida, entrada_intervalo, saida_intervalo
+    private ?string $tipo = self::TIPO_ENTRADA;
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observacao = null;
@@ -123,6 +127,10 @@ class RegistroPonto
 
     public function setTipo(string $tipo): static
     {
+        if (!in_array($tipo, self::TIPOS_VALIDOS, true)) {
+            throw new \InvalidArgumentException('Tipo de registro de ponto invalido.');
+        }
+
         $this->tipo = $tipo;
         return $this;
     }
