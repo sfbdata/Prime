@@ -32,6 +32,9 @@ class Processo
     #[ORM\Column(length: 255)]
     private string $assuntoProcessual = '';
 
+    #[ORM\OneToMany(mappedBy: 'processo', targetEntity: DocumentoProcesso::class, orphanRemoval: true, cascade: ['persist'])]
+    private Collection $documentos;
+
     #[ORM\OneToMany(mappedBy: 'processo', targetEntity: ParteProcesso::class, orphanRemoval: true, cascade: ['persist'])]
     private Collection $partes;
 
@@ -76,6 +79,7 @@ class Processo
 
     public function __construct()
     {
+        $this->documentos = new ArrayCollection();
         $this->partes = new ArrayCollection();
         $this->movimentacoes = new ArrayCollection();
         $this->processosFilhos = new ArrayCollection();
@@ -86,6 +90,35 @@ class Processo
     public function getId(): ?int
     {
         return $this->id;
+    }
+
+    /**
+     * @return Collection<int, DocumentoProcesso>
+     */
+    public function getDocumentos(): Collection
+    {
+        return $this->documentos;
+    }
+
+    public function addDocumento(DocumentoProcesso $documento): self
+    {
+        if (!$this->documentos->contains($documento)) {
+            $this->documentos->add($documento);
+            $documento->setProcesso($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDocumento(DocumentoProcesso $documento): self
+    {
+        if ($this->documentos->removeElement($documento)) {
+            if ($documento->getProcesso() === $this) {
+                $documento->setProcesso(null);
+            }
+        }
+
+        return $this;
     }
 
     public function getNumeroProcesso(): string

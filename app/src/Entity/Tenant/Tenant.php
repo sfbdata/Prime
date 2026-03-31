@@ -3,6 +3,7 @@
 namespace App\Entity\Tenant;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Sede;
 use App\Repository\TenantRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -37,10 +38,17 @@ class Tenant
     #[ORM\OneToMany(targetEntity: TenantRole::class, mappedBy: 'tenant', cascade: ['persist', 'remove'])]
     private Collection $roles;
 
+    /**
+     * @var Collection<int, Sede>
+     */
+    #[ORM\OneToMany(targetEntity: Sede::class, mappedBy: 'tenant', cascade: ['persist', 'remove'])]
+    private Collection $sedes;
+
     public function __construct()
     {
         $this->users = new ArrayCollection();
         $this->roles = new ArrayCollection();
+        $this->sedes = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable(); // sempre preenchido automaticamente
         $this->isActive = true; // sempre ativo ao criar
     }
@@ -112,5 +120,32 @@ class Tenant
     public function getRoles(): Collection
     {
         return $this->roles;
+    }
+
+    /**
+     * @return Collection<int, Sede>
+     */
+    public function getSedes(): Collection
+    {
+        return $this->sedes;
+    }
+
+    public function addSede(Sede $sede): static
+    {
+        if (!$this->sedes->contains($sede)) {
+            $this->sedes->add($sede);
+            $sede->setTenant($this);
+        }
+        return $this;
+    }
+
+    public function removeSede(Sede $sede): static
+    {
+        if ($this->sedes->removeElement($sede)) {
+            if ($sede->getTenant() === $this) {
+                $sede->setTenant(null);
+            }
+        }
+        return $this;
     }
 }

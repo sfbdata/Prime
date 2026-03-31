@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Tarefa\Tarefa;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
@@ -210,5 +211,25 @@ class NotificacaoService
     public function marcarTodasComoLidas(User $usuario): void
     {
         $this->notificacaoRepository->marcarTodasComoLidas($usuario);
+    }
+
+    public function notificarJustificativaAprovada(JustificativaPonto $justificativa, string $urlPonto): void
+    {
+        $this->criarNotificacao(
+            $justificativa->getUser(),
+            Notificacao::TIPO_PONTO_JUSTIFICATIVA_APROVADA,
+            'Sua justificativa de ponto foi aprovada.',
+            $urlPonto
+        );
+    }
+
+    public function notificarJustificativaRejeitada(JustificativaPonto $justificativa, string $urlPonto): void
+    {
+        $this->criarNotificacao(
+            $justificativa->getUser(),
+            Notificacao::TIPO_PONTO_JUSTIFICATIVA_REJEITADA,
+            'Sua justificativa de ponto foi rejeitada.',
+            $urlPonto
+        );
     }
 }

@@ -104,6 +104,16 @@
                     </li>
                 {% endif %}
 
+                {% if can_access_module('ponto') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('ponto_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'ponto_' ? 'active' : '' }}">
+                            <i class="bi bi-fingerprint pje-nav-icon"></i>
+                            <span>Ponto Eletrônico</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {# Seção ADMIN — visível se o usuário tiver qualquer permissão admin.* #}
                 {% set hasAnyAdminPerm =
                     can_administer('admin.users.invite') or
@@ -113,6 +123,7 @@
                     can_administer('admin.access_requests.approve') or
                     can_administer('admin.tarefas.manage') or
                     can_administer('admin.servicedesk.manage') or
+                    can_administer('admin.ponto.manage') or
                     can_administer('admin.audit.view')
                 %}
                 {% if hasAnyAdminPerm %}
@@ -184,6 +195,16 @@
                                class="pje-menu-link {{ currentRoute == 'servicedesk_index' ? 'active' : '' }}">
                                 <i class="bi bi-headset pje-nav-icon"></i>
                                 <span>Service Desk (TI)</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
+                    {% if can_administer('admin.ponto.manage') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('app_tenant_sedes', {'id': app.user.tenant.id}) }}"
+                               class="pje-menu-link {{ currentRoute == 'app_tenant_sedes' ? 'active' : '' }}">
+                                <i class="bi bi-geo-alt pje-nav-icon"></i>
+                                <span>Sedes (Ponto)</span>
                             </a>
                         </li>
                     {% endif %}

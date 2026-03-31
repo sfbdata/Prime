@@ -2,9 +2,11 @@
 
 namespace App\Controller;
 
+use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
 use App\Form\EditUserTenantRoleType;
+use App\Form\SedeType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
@@ -12,6 +14,7 @@ use App\Repository\ClienteRepository;
 use App\Repository\PastaRepository;
 use App\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
+use App\Repository\SedeRepository;
 use App\Repository\TenantRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
@@ -430,6 +433,94 @@ final class TenantController extends AbstractController
         ]);
     }
 
-    
+    #[Route('/{id}/sedes', name: 'app_tenant_sedes', methods: ['GET', 'POST'])]
+    public function manageSedes(
+        Tenant $tenant,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        SedeRepository $sedeRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+        $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, 'admin.ponto.manage'))) {
+            throw $this->createAccessDeniedException('Você não tem permissão para gerenciar sedes.');
+        }
+
+        $sede = new Sede();
+        $form = $this->createForm(SedeType::class, $sede);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $sede->setTenant($tenant);
+
+            // Converte campo ssidsAutorizados de string para array
+            $ssidsInput = $form->get('ssidsAutorizados')->getData();
+            if (is_string($ssidsInput) && trim($ssidsInput) !== '') {
+                $ssids = array_values(array_filter(array_map('trim', explode(',', $ssidsInput))));
+                $sede->setSsidsAutorizados($ssids);
+            }
+
+            $entityManager->persist($sede);
+            $entityManager->flush();
+
+            $this->addFlash('success', 'Sede cadastrada com sucesso!');
+            return $this->redirectToRoute('app_tenant_sedes', ['id' => $tenant->getId()]);
+        }
+
+        $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
+
+        return $this->render('tenant/sedes.html.twig', [
+            'tenant' => $tenant,
+            'sedes'  => $sedes,
+            'form'   => $form->createView(),
+        ]);
+    }
+
+    #[Route('/{tenantId}/sedes/{sedeId}/delete', name: 'app_tenant_sede_delete', methods: ['POST'])]
+    public function deleteSede(
+        int $tenantId,
+        int $sedeId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        SedeRepository $sedeRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+        $isOwnTenant  = $user->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, 'admin.ponto.manage'))) {
+            throw $this->createAccessDeniedException('Você não tem permissão para excluir sedes.');
+        }
+
+        if (!$this->isCsrfTokenValid('delete_sede_' . $sedeId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $sede = $sedeRepository->find($sedeId);
+
+        if ($sede && $sede->getTenant()?->getId() === $tenantId) {
+            $entityManager->remove($sede);
+            $entityManager->flush();
+            $this->addFlash('success', 'Sede removida com sucesso.');
+        }
+
+        return $this->redirectToRoute('app_tenant_sedes', ['id' => $tenantId]);
+    }
 
 }

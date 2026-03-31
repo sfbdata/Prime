@@ -21,6 +21,7 @@ class PermissionFixture extends Fixture
         ['code' => 'modules.agenda.view',        'description' => 'Acesso ao módulo Agenda',                     'group' => 'modules'],
         ['code' => 'modules.servicedesk.view',   'description' => 'Acesso ao módulo Service Desk (usuário)',     'group' => 'modules'],
         ['code' => 'modules.precadastros.view',  'description' => 'Acesso ao módulo Pré-Cadastros',              'group' => 'modules'],
+        ['code' => 'modules.ponto.view',         'description' => 'Acesso ao módulo Ponto Eletrônico',          'group' => 'modules'],
         ['code' => 'modules.financeiro.view',    'description' => 'Acesso ao módulo Financeiro (futuro)',        'group' => 'modules'],
         ['code' => 'modules.bi.view',            'description' => 'Acesso ao módulo BI (futuro)',                'group' => 'modules'],
 
@@ -43,6 +44,7 @@ class PermissionFixture extends Fixture
         ['code' => 'admin.tenant.settings.manage',     'description' => 'Editar configurações do escritório',               'group' => 'admin'],
         ['code' => 'admin.tarefas.manage',             'description' => 'Gestão completa de tarefas (visão admin)',          'group' => 'admin'],
         ['code' => 'admin.servicedesk.manage',         'description' => 'Gestão de chamados Service Desk (TI)',              'group' => 'admin'],
+        ['code' => 'admin.ponto.manage',               'description' => 'Gestão de Ponto (sedes, escalas, aprovações)',      'group' => 'admin'],
         ['code' => 'admin.audit.view',                 'description' => 'Acessar trilha de auditoria',                      'group' => 'admin'],
     ];
 

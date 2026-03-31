@@ -2,6 +2,7 @@
 
 namespace App\Entity\Auth;
 
+use App\Entity\Ponto\EscalaTrabalho;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\UserRepository;
@@ -49,6 +50,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastLogin = null;
+
+    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private ?EscalaTrabalho $escalaTrabalho = null;
 
     // -------------------------
     // Construtor
@@ -188,6 +192,20 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setTenantRole(?TenantRole $tenantRole): static
     {
         $this->tenantRole = $tenantRole;
+        return $this;
+    }
+
+    public function getEscalaTrabalho(): ?EscalaTrabalho
+    {
+        return $this->escalaTrabalho;
+    }
+
+    public function setEscalaTrabalho(?EscalaTrabalho $escalaTrabalho): static
+    {
+        if ($escalaTrabalho !== null && $escalaTrabalho->getUser() !== $this) {
+            $escalaTrabalho->setUser($this);
+        }
+        $this->escalaTrabalho = $escalaTrabalho;
         return $this;
     }
 }

@@ -1,0 +1,135 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Sedes - {{ tenant.name }}{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-sm-6">
+            <h1 class="m-0">Sedes: {{ tenant.name }}</h1>
+        </div>
+        <div class="col-sm-6 text-end">
+            <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </a>
+        </div>
+    </div>
+
+    {% for type, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ type == 'success' ? 'success' : (type == 'error' ? 'danger' : 'warning') }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Nova Sede</h3>
+                </div>
+                <div class="card-body">
+                    {{ form_start(form) }}
+
+                    <div class="mb-3">
+                        {{ form_label(form.nome, null, {'label_attr': {'class': 'form-label'}}) }}
+                        {{ form_widget(form.nome, {'attr': {'class': 'form-control'}}) }}
+                        {{ form_errors(form.nome) }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Coordenadas (para validação GPS)</label>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                {{ form_label(form.latitude, null, {'label_attr': {'class': 'form-label form-label-sm'}}) }}
+                                {{ form_widget(form.latitude, {'attr': {'class': 'form-control form-control-sm', 'placeholder': '-23.550520'}}) }}
+                            </div>
+                            <div class="col-6">
+                                {{ form_label(form.longitude, null, {'label_attr': {'class': 'form-label form-label-sm'}}) }}
+                                {{ form_widget(form.longitude, {'attr': {'class': 'form-control form-control-sm', 'placeholder': '-46.633308'}}) }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form_label(form.raioPermitido, null, {'label_attr': {'class': 'form-label'}}) }}
+                        {{ form_widget(form.raioPermitido, {'attr': {'class': 'form-control'}}) }}
+                        <div class="form-text">Distância máxima da sede para validar GPS (metros).</div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form_label(form.ssidsAutorizados, null, {'label_attr': {'class': 'form-label'}}) }}
+                        {{ form_widget(form.ssidsAutorizados, {'attr': {'class': 'form-control', 'placeholder': 'WiFi_Empresa, WiFi_Diretoria'}}) }}
+                        <div class="form-text">{{ form.ssidsAutorizados.vars.help }}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form_label(form.timezone, null, {'label_attr': {'class': 'form-label'}}) }}
+                        {{ form_widget(form.timezone, {'attr': {'class': 'form-control'}}) }}
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Salvar Sede
+                    </button>
+
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Sedes Cadastradas</h3>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-striped mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>SSIDs Autorizados</th>
+                                <th>Raio</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for sede in sedes %}
+                            <tr>
+                                <td>{{ sede.nome }}</td>
+                                <td>
+                                    {% if sede.ssidsAutorizados %}
+                                        {% for ssid in sede.ssidsAutorizados %}
+                                            <span class="badge bg-info text-dark">{{ ssid }}</span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">Nenhum</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ sede.raioPermitido }}m</td>
+                                <td>
+                                    <form method="post"
+                                          action="{{ path('app_tenant_sede_delete', {'tenantId': tenant.id, 'sedeId': sede.id}) }}"
+                                          class="d-inline-block"
+                                          onsubmit="return confirm('Excluir a sede \'{{ sede.nome }}\' permanentemente?');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_sede_' ~ sede.id) }}">
+                                        <button type="submit" class="btn btn-sm btn-danger">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted py-3">Nenhuma sede cadastrada.</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
