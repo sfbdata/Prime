@@ -30,56 +30,151 @@
 <hr>
 <h5 class="mb-3"><i class="bi bi-key me-2"></i>Permissões</h5>
 
+{# ── Ícones por código de permissão ───────────────────────────────────── #}
+{% set permIcons = {
+    'admin.roles.manage':              'bi-shield-lock',
+    'admin.users.manage':              'bi-people-fill',
+    'admin.users.invite':              'bi-envelope',
+    'admin.access_requests.approve':   'bi-key',
+    'admin.tenant.settings.manage':    'bi-building-gear',
+    'admin.tarefas.manage':            'bi-kanban',
+    'admin.servicedesk.manage':        'bi-headset',
+    'admin.audit.view':                'bi-shield-check',
+    'modules.pastas.view':             'bi-folder',
+    'modules.clientes.view':           'bi-people',
+    'modules.processos.view':          'bi-briefcase',
+    'modules.tarefas.view':            'bi-list-check',
+    'modules.agenda.view':             'bi-calendar3',
+    'modules.servicedesk.view':        'bi-headset',
+    'modules.precadastros.view':       'bi-person-plus',
+    'modules.financeiro.view':         'bi-cash-coin',
+    'modules.bi.view':                 'bi-bar-chart-line'
+} %}
 {% set groupIcons = {
     'modules':   'bi-layout-sidebar',
-    'resources': 'bi-folder2-open',
     'admin':     'bi-shield-lock'
 } %}
 {% set groupLabels = {
     'modules':   'Módulos',
-    'resources': 'Recursos',
     'admin':     'Administração'
 } %}
 
-<div class="row g-3">
+<div class="row g-3 mb-3">
     {% for group, permissions in allPermissions %}
-        <div class="col-md-4">
+        {% if group != 'resources' %}
+        <div class="col-md-6">
             <div class="card h-100">
-                <div class="card-header py-2">
+                <div class="card-header py-2 d-flex align-items-center justify-content-between">
                     <strong>
                         <i class="bi {{ groupIcons[group] ?? 'bi-list' }} me-1"></i>
                         {{ groupLabels[group] ?? group|capitalize }}
                     </strong>
-                    <button type="button" class="btn btn-link btn-sm py-0 float-end check-all-btn"
+                    <button type="button" class="btn btn-link btn-sm py-0 check-all-btn"
                             data-group="{{ group }}">
                         Marcar todos
                     </button>
                 </div>
-                <div class="card-body p-2">
+                <div class="card-body p-0 pt-1">
+                    <div class="row g-0">
                     {% for child in form.permissions %}
                         {% set code = child.vars.value %}
-                        {# Verifica se este checkbox pertence ao grupo atual #}
                         {% set belongs = false %}
                         {% for perm in permissions %}
-                            {% if perm.code == code %}
-                                {% set belongs = true %}
-                            {% endif %}
+                            {% if perm.code == code %}{% set belongs = true %}{% endif %}
                         {% endfor %}
                         {% if belongs %}
-                            <div class="form-check perm-check perm-group-{{ group }}">
-                                {{ form_widget(child, {attr: {class: 'form-check-input'}}) }}
-                                <label class="form-check-label small" for="{{ child.vars.id }}">
-                                    {{ child.vars.label }}
-                                    <br><code class="text-muted" style="font-size:.7rem">{{ code }}</code>
-                                </label>
+                            <div class="col-12">
+                                <div class="perm-check perm-group-{{ group }} perm-item d-flex align-items-center gap-2 px-3 py-2 rounded">
+                                    {{ form_widget(child, {attr: {class: 'form-check-input flex-shrink-0 mt-0 ms-0'}}) }}
+                                    <label class="small mb-0 d-flex align-items-center gap-1 w-100" for="{{ child.vars.id }}">
+                                        <i class="bi {{ permIcons[code] ?? 'bi-dot' }} text-secondary flex-shrink-0"></i>
+                                        <span>{{ child.vars.label }}</span>
+                                    </label>
+                                </div>
                             </div>
                         {% endif %}
                     {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
+        {% endif %}
     {% endfor %}
 </div>
+
+{# ── Bloco Recursos ───────────────────────────────────────────────────── #}
+{% if allPermissions.resources is defined %}
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <strong>
+            <i class="bi bi-folder2-open me-1"></i>
+            Recursos
+        </strong>
+        <button type="button" class="btn btn-link btn-sm py-0 float-end check-all-btn"
+                data-group="resources">
+            Marcar todos
+        </button>
+    </div>
+    <div class="card-body">
+
+        {# Monta um map code -> child para lookup rápido #}
+        {% set resourceSubgroups = {
+            'cliente': {label: 'Cliente',  icon: 'bi-people'},
+            'pasta':   {label: 'Pasta',    icon: 'bi-folder'},
+            'processo':{label: 'Processo', icon: 'bi-briefcase'}
+        } %}
+        {% set actionLabels = {
+            'view':   'Visualizar',
+            'edit':   'Editar',
+            'delete': 'Excluir'
+        } %}
+        {% set actionIcons = {
+            'view':   'bi-eye',
+            'edit':   'bi-pencil',
+            'delete': 'bi-trash'
+        } %}
+
+        <div class="row g-3">
+            {% for subkey, subinfo in resourceSubgroups %}
+            <div class="col-md-4">
+                <div class="card border-secondary h-100">
+                    <div class="card-header py-2 bg-light">
+                        <strong class="small">
+                            <i class="bi {{ subinfo.icon }} me-1"></i>
+                            {{ subinfo.label }}
+                        </strong>
+                    </div>
+                    <div class="card-body p-2 d-flex flex-column gap-1">
+                        {% for action, actionLabel in actionLabels %}
+                            {% set targetCode = 'resources.' ~ subkey ~ '.' ~ action %}
+                            {% for child in form.permissions %}
+                                {% if child.vars.value == targetCode %}
+                                    <div class="perm-check perm-group-resources d-flex align-items-center gap-2">
+                                        {{ form_widget(child, {attr: {class: 'form-check-input flex-shrink-0 mt-0 ms-0'}}) }}
+                                        <label class="small mb-0" for="{{ child.vars.id }}">
+                                            <i class="bi {{ actionIcons[action] }} me-1 text-muted"></i>
+                                            {{ actionLabel }}
+                                        </label>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</div>
+{% endif %}
+
+<style>
+.perm-item { transition: background .15s; cursor: pointer; }
+.perm-item:hover { background: rgba(0,0,0,.04); }
+.perm-item input[type=checkbox] { cursor: pointer; }
+.perm-item label { cursor: pointer; }
+</style>
 
 <script>
 document.querySelectorAll('.check-all-btn').forEach(function(btn) {
