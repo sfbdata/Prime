@@ -14,10 +14,9 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: AccessRequestRepository::class)]
 #[ORM\Table(name: 'access_request')]
-#[ORM\UniqueConstraint(
-    name: 'uniq_access_request_pending',
-    columns: ['user_id', 'resource_type', 'resource_id', 'action', 'status'],
-)]
+// Unicidade de solicitações pendentes garantida por partial index no banco
+// (WHERE status = 'pending') — ver migration Version20260331120000.
+// Não usar UniqueConstraint do Doctrine aqui pois ele não suporta partial index.
 class AccessRequest
 {
     public const STATUS_PENDING  = 'pending';
@@ -59,6 +58,10 @@ class AccessRequest
 
     #[ORM\Column]
     private \DateTimeImmutable $requestedAt;
+
+    /** Motivo/justificativa informado pelo usuário ao solicitar acesso. */
+    #[ORM\Column(type: 'text', nullable: true)]
+    private ?string $description = null;
 
     /** Preenchido quando o admin toma uma decisão (Dia 13). */
     #[ORM\Column(nullable: true)]
@@ -158,6 +161,17 @@ class AccessRequest
     public function setDecidedBy(?User $decidedBy): static
     {
         $this->decidedBy = $decidedBy;
+        return $this;
+    }
+
+    public function getDescription(): ?string
+    {
+        return $this->description;
+    }
+
+    public function setDescription(?string $description): static
+    {
+        $this->description = $description;
         return $this;
     }
 

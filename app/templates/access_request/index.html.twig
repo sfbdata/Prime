@@ -58,7 +58,15 @@
                                             {{ req.action }}
                                         </span>
                                     </td>
-                                    <td class="text-muted small">{{ req.requestedAt|date('d/m/Y H:i') }}</td>
+                                    <td class="text-muted small">
+                                        {{ req.requestedAt|date('d/m/Y H:i') }}
+                                        {% if req.description %}
+                                            <div class="mt-1 text-dark" title="{{ req.description }}">
+                                                <i class="bi bi-chat-text me-1 text-muted"></i>
+                                                <em>{{ req.description|length > 80 ? req.description|slice(0, 80) ~ '…' : req.description }}</em>
+                                            </div>
+                                        {% endif %}
+                                    </td>
                                     <td>
                                         {# ── Formulário de aprovação ── #}
                                         <button type="button"

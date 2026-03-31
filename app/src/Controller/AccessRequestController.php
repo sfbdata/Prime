@@ -9,6 +9,7 @@ use App\Repository\ResourceAccessRepository;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
@@ -58,6 +59,63 @@ final class AccessRequestController extends AbstractController
         if ($adminTenantId !== $requestTenantId) {
             throw $this->createAccessDeniedException('Esta solicitação não pertence ao seu escritório.');
         }
+    }
+
+    /**
+     * Endpoint AJAX: usuário submete solicitação de acesso com justificativa.
+     *
+     * POST /access-requests/submit
+     * Body JSON: { resourceType, resourceId, action, description }
+     */
+    #[Route('/submit', name: 'app_access_request_submit', methods: ['POST'])]
+    public function submit(
+        Request $httpRequest,
+        AccessRequestRepository $accessRequestRepository,
+        PermissionChecker $checker,
+    ): JsonResponse {
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['error' => 'Não autenticado.'], 401);
+        }
+
+        if (!$this->isCsrfTokenValid('access_request_submit', $httpRequest->request->get('_token'))) {
+            return $this->json(['error' => 'Token CSRF inválido.'], 403);
+        }
+
+        $resourceType = $httpRequest->request->get('resourceType');
+        $resourceId   = (int) $httpRequest->request->get('resourceId');
+        $action       = $httpRequest->request->get('action', AccessRequest::ACTION_VIEW);
+        $description  = trim((string) $httpRequest->request->get('description', ''));
+
+        $validTypes   = [AccessRequest::RESOURCE_CLIENTE, AccessRequest::RESOURCE_PASTA, AccessRequest::RESOURCE_PROCESSO];
+        $validActions = [AccessRequest::ACTION_VIEW, AccessRequest::ACTION_EDIT, AccessRequest::ACTION_DELETE];
+
+        if (!in_array($resourceType, $validTypes, true) || !in_array($action, $validActions, true) || $resourceId <= 0) {
+            return $this->json(['error' => 'Parâmetros inválidos.'], 400);
+        }
+
+        // Verifica se já tem acesso
+        if ($checker->canAccessResource($user, $resourceType, $resourceId, $action)) {
+            return $this->json(['error' => 'Você já tem acesso a este recurso.'], 400);
+        }
+
+        // Evita duplicata de solicitação pendente
+        $existing = $accessRequestRepository->findPendingForUserAndResource($user, $resourceType, $resourceId, $action);
+        if ($existing !== null) {
+            return $this->json(['message' => 'Solicitação já enviada. Aguarde aprovação do administrador.']);
+        }
+
+        $accessRequest = (new AccessRequest())
+            ->setUser($user)
+            ->setResourceType($resourceType)
+            ->setResourceId($resourceId)
+            ->setAction($action)
+            ->setDescription($description !== '' ? $description : null);
+
+        $accessRequestRepository->save($accessRequest, true);
+
+        return $this->json(['message' => 'Solicitação enviada com sucesso. Aguarde aprovação do administrador.']);
     }
 
     /**

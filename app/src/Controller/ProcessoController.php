@@ -2,12 +2,12 @@
 
 namespace App\Controller;
 
+use App\Controller\Trait\ResourceAccessTrait;
 use App\Entity\Processo\Processo;
 use App\Entity\Processo\ParteProcesso;
 use App\Entity\Processo\MovimentacaoProcesso;
 use App\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
-use App\Repository\AccessRequestRepository;
 use App\Repository\ClienteRepository;
 use App\Repository\TarefaRepository;
 use App\Service\DatajudClient;
@@ -42,6 +42,7 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/processos')]
 class ProcessoController extends AbstractController
 {
+    use ResourceAccessTrait;
     #[Route('/', name: 'processo_index', methods: ['GET'])]
     public function index(Request $request, ProcessoRepository $repo, PermissionChecker $permissionChecker): Response
     {
@@ -124,8 +125,9 @@ class ProcessoController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
-        if (!$permissionChecker->canAccessResource($currentUser, 'processo', (int) $processo->getId(), 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para editar este processo.');
+        $processoId = (int) $processo->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_EDIT, 'processo_index', $processo->getNumeroProcesso())) {
+            return $redirect;
         }
 
         $clientes = $clienteRepo->findAll();
@@ -146,24 +148,14 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}', name: 'processo_show', methods: ['GET'])]
-    public function show(Processo $processo, TarefaRepository $tarefaRepository, PermissionChecker $permissionChecker, AccessRequestRepository $accessRequestRepo): Response
+    public function show(Processo $processo, TarefaRepository $tarefaRepository, PermissionChecker $permissionChecker): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $processoId = (int) $processo->getId();
-        if (!$permissionChecker->canAccessResource($currentUser, 'processo', $processoId, 'view')) {
-            $existing = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW);
-            if ($existing === null) {
-                $request = (new AccessRequest())
-                    ->setUser($currentUser)
-                    ->setResourceType(AccessRequest::RESOURCE_PROCESSO)
-                    ->setResourceId($processoId)
-                    ->setAction(AccessRequest::ACTION_VIEW);
-                $accessRequestRepo->save($request, true);
-            }
-            $this->addFlash('warning', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
-            return $this->redirectToRoute('processo_index');
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW, 'processo_index', $processo->getNumeroProcesso())) {
+            return $redirect;
         }
 
         $historicoTarefas = [];
@@ -217,8 +209,9 @@ class ProcessoController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
-        if (!$permissionChecker->canAccessResource($currentUser, 'processo', (int) $processo->getId(), 'delete')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para excluir este processo.');
+        $processoId = (int) $processo->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_DELETE, 'processo_index', $processo->getNumeroProcesso())) {
+            return $redirect;
         }
 
         if (!$this->isCsrfTokenValid('delete_processo_'.$processo->getId(), (string) $request->request->get('_token'))) {

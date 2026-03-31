@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Controller\Trait\ResourceAccessTrait;
 use App\Entity\Cliente\Cliente;
 use App\Entity\Cliente\ClientePF;
 use App\Entity\Cliente\ClientePJ;
@@ -13,7 +14,6 @@ use App\Repository\ClientePFRepository;
 use App\Repository\ClientePJRepository;
 use App\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
-use App\Repository\AccessRequestRepository;
 use App\Repository\PreCadastroRepository;
 use App\Service\PermissionChecker;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
@@ -42,6 +42,7 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/clientes')]
 class ClienteController extends AbstractController
 {
+    use ResourceAccessTrait;
     #[Route('/', name: 'cliente_index', methods: ['GET'])]
     public function index(Request $request, ClienteRepository $repo, PermissionChecker $permissionChecker): Response
     {
@@ -187,7 +188,7 @@ class ClienteController extends AbstractController
     }
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
-    public function show(ClienteRepository $repo, PastaRepository $pastaRepo, int $id, PermissionChecker $permissionChecker, AccessRequestRepository $accessRequestRepo): Response
+    public function show(ClienteRepository $repo, PastaRepository $pastaRepo, int $id, PermissionChecker $permissionChecker): Response
     {
         $cliente = $repo->find($id);
 
@@ -198,18 +199,8 @@ class ClienteController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
-        if (!$permissionChecker->canAccessResource($currentUser, 'cliente', $id, 'view')) {
-            $existing = $accessRequestRepo->findPendingForUserAndResource($currentUser, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW);
-            if ($existing === null) {
-                $request = (new AccessRequest())
-                    ->setUser($currentUser)
-                    ->setResourceType(AccessRequest::RESOURCE_CLIENTE)
-                    ->setResourceId($id)
-                    ->setAction(AccessRequest::ACTION_VIEW);
-                $accessRequestRepo->save($request, true);
-            }
-            $this->addFlash('warning', 'Solicitação de acesso enviada. Aguarde aprovação do administrador.');
-            return $this->redirectToRoute('cliente_index');
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW, 'cliente_index', $cliente->getNomeExibicao())) {
+            return $redirect;
         }
 
         return $this->render('cliente/show.html.twig', [
@@ -230,8 +221,8 @@ class ClienteController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
-        if (!$permissionChecker->canAccessResource($currentUser, 'cliente', $id, 'edit')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para editar este cliente.');
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT, 'cliente_index', $cliente->getNomeExibicao())) {
+            return $redirect;
         }
 
         if ($cliente instanceof ClientePF) {
@@ -273,8 +264,8 @@ class ClienteController extends AbstractController
             throw $this->createNotFoundException('Cliente não encontrado');
         }
 
-        if (!$permissionChecker->canAccessResource($currentUser, 'cliente', $id, 'delete')) {
-            throw $this->createAccessDeniedException('Você não tem permissão para excluir este cliente.');
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_DELETE, 'cliente_index', $cliente->getNomeExibicao())) {
+            return $redirect;
         }
 
         if ($this->isCsrfTokenValid('delete' . $id, $request->request->get('_token'))) {

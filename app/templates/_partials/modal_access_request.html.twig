@@ -1,0 +1,186 @@
+{#
+  Modal de solicitação de acesso.
+  Inclua este partial nas páginas de listagem (index) onde o usuário pode
+  ser redirecionado por falta de permissão.
+
+  O JavaScript ao final detecta os query params ?requestAccess=1&resourceType=X&resourceId=Y
+  e abre o modal automaticamente, preenchendo os campos ocultos antes de exibir.
+#}
+
+<div class="modal fade" id="modalSolicitarAcesso" tabindex="-1" aria-labelledby="modalSolicitarAcessoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalSolicitarAcessoLabel">
+                    <i class="bi bi-lock me-2"></i>Solicitar Acesso
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted mb-3">
+                    Você não tem permissão para acessar este item. Descreva o motivo da sua solicitação para que o administrador possa avaliá-la.
+                </p>
+                <div class="mb-3">
+                    <label for="accessRequestDescription" class="form-label">Motivo da solicitação <span class="text-danger">*</span></label>
+                    <textarea
+                        id="accessRequestDescription"
+                        class="form-control"
+                        rows="4"
+                        placeholder="Descreva por que você precisa acessar este item..."
+                        maxlength="1000"
+                    ></textarea>
+                    <div class="invalid-feedback" id="accessRequestDescriptionError"></div>
+                </div>
+                <input type="hidden" id="accessRequestResourceType" value="">
+                <input type="hidden" id="accessRequestResourceId" value="">
+                <input type="hidden" id="accessRequestAction" value="view">
+                <input type="hidden" id="accessRequestCsrfToken" value="{{ csrf_token('access_request_submit') }}">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnEnviarSolicitacao">
+                    <span id="btnEnviarSolicitacaoText">Enviar Solicitação</span>
+                    <span id="btnEnviarSolicitacaoSpinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const SUBMIT_URL = '{{ path('app_access_request_submit') }}';
+
+    function getQueryParam(name) {
+        return new URLSearchParams(window.location.search).get(name);
+    }
+
+    const ACTION_LABELS = {
+        view:   'visualizar',
+        edit:   'editar',
+        delete: 'excluir',
+    };
+
+    const RESOURCE_LABELS = {
+        cliente:  'cliente',
+        pasta:    'pasta',
+        processo: 'processo',
+    };
+
+    function buildDefaultDescription(resourceType, action, resourceLabel) {
+        const actionLabel   = ACTION_LABELS[action]   || action;
+        const resourceName  = RESOURCE_LABELS[resourceType] || resourceType;
+        const identifier    = resourceLabel ? ' ' + resourceLabel : '';
+        return 'Solicito ' + actionLabel + ' o ' + resourceName + identifier + '.';
+    }
+
+    function showModal(resourceType, resourceId, action, resourceLabel) {
+        document.getElementById('accessRequestResourceType').value = resourceType;
+        document.getElementById('accessRequestResourceId').value   = resourceId;
+        document.getElementById('accessRequestAction').value       = action || 'view';
+        document.getElementById('accessRequestDescription').value  = buildDefaultDescription(resourceType, action || 'view', resourceLabel);
+        document.getElementById('accessRequestDescription').classList.remove('is-invalid');
+
+        const modal = new bootstrap.Modal(document.getElementById('modalSolicitarAcesso'));
+        modal.show();
+
+        // Limpa params da URL para evitar reabrir ao navegar
+        const url = new URL(window.location.href);
+        url.searchParams.delete('requestAccess');
+        url.searchParams.delete('resourceType');
+        url.searchParams.delete('resourceId');
+        url.searchParams.delete('action');
+        url.searchParams.delete('resourceLabel');
+        window.history.replaceState({}, '', url.toString());
+    }
+
+    function setLoading(loading) {
+        const btn     = document.getElementById('btnEnviarSolicitacao');
+        const text    = document.getElementById('btnEnviarSolicitacaoText');
+        const spinner = document.getElementById('btnEnviarSolicitacaoSpinner');
+        btn.disabled = loading;
+        spinner.classList.toggle('d-none', !loading);
+        text.textContent = loading ? 'Enviando...' : 'Enviar Solicitação';
+    }
+
+    document.getElementById('btnEnviarSolicitacao').addEventListener('click', function () {
+        const description = document.getElementById('accessRequestDescription').value.trim();
+        const descField   = document.getElementById('accessRequestDescription');
+        const descError   = document.getElementById('accessRequestDescriptionError');
+
+        if (!description) {
+            descField.classList.add('is-invalid');
+            descError.textContent = 'Por favor, descreva o motivo da solicitação.';
+            return;
+        }
+        descField.classList.remove('is-invalid');
+
+        const resourceType = document.getElementById('accessRequestResourceType').value;
+        const resourceId   = document.getElementById('accessRequestResourceId').value;
+        const action       = document.getElementById('accessRequestAction').value;
+        const csrfToken    = document.getElementById('accessRequestCsrfToken').value;
+
+        setLoading(true);
+
+        const body = new FormData();
+        body.append('resourceType', resourceType);
+        body.append('resourceId',   resourceId);
+        body.append('action',       action);
+        body.append('description',  description);
+        body.append('_token',       csrfToken);
+
+        fetch(SUBMIT_URL, { method: 'POST', body })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                setLoading(false);
+                bootstrap.Modal.getInstance(document.getElementById('modalSolicitarAcesso')).hide();
+
+                const type = data.error ? 'warning' : 'success';
+                const msg  = data.error || data.message || 'Solicitação enviada.';
+                showToast(type, msg);
+            })
+            .catch(function () {
+                setLoading(false);
+                showToast('danger', 'Erro ao enviar solicitação. Tente novamente.');
+            });
+    });
+
+    function showToast(type, message) {
+        const container = document.getElementById('toastContainer') || createToastContainer();
+        const id = 'toast_' + Date.now();
+        const html = `
+            <div id="${id}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Fechar"></button>
+                </div>
+            </div>`;
+        container.insertAdjacentHTML('beforeend', html);
+        const toastEl = document.getElementById(id);
+        new bootstrap.Toast(toastEl, { delay: 5000 }).show();
+        toastEl.addEventListener('hidden.bs.toast', function () { toastEl.remove(); });
+    }
+
+    function createToastContainer() {
+        const div = document.createElement('div');
+        div.id = 'toastContainer';
+        div.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        div.style.zIndex = '1100';
+        document.body.appendChild(div);
+        return div;
+    }
+
+    // Abre o modal automaticamente se os query params estiverem presentes
+    document.addEventListener('DOMContentLoaded', function () {
+        if (getQueryParam('requestAccess') === '1') {
+            const resourceType  = getQueryParam('resourceType');
+            const resourceId    = getQueryParam('resourceId');
+            const action        = getQueryParam('action') || 'view';
+            const resourceLabel = getQueryParam('resourceLabel') || '';
+            if (resourceType && resourceId) {
+                showModal(resourceType, resourceId, action, resourceLabel);
+            }
+        }
+    });
+})();
+</script>
