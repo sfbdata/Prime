@@ -2,9 +2,11 @@
 
 set -e  # Exit on error
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 echo "🔄 Limpando caches e reiniciando Symfony..."
 
-docker exec -it jusprime_php_dev bash -c "
+docker exec jusprime_php_dev bash -c "
 cd /var/www/app && \
 php bin/console cache:clear && \
 php bin/console doctrine:cache:clear-metadata && \
@@ -12,6 +14,9 @@ php bin/console doctrine:cache:clear-query && \
 php bin/console doctrine:cache:clear-result && \
 composer dump-autoload
 "
+
+echo "♻️ Reiniciando PHP e Nginx para recarregar OPcache e templates..."
+docker compose --project-directory "$SCRIPT_DIR" restart php nginx
 
 echo ""
 echo "✅ Caches limpos com sucesso!"
