@@ -1,5 +1,6 @@
 {
     "require": {
-        "symfony/asset": "^7.4"
+        "symfony/asset": "^7.4",
+        "symfony/rate-limiter": "^7.4"
     }
 }
