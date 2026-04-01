@@ -16,7 +16,7 @@ services:
         condition: service_healthy
     volumes:
       - uploads_prod:/var/www/app/public/uploads
-      - static_prod:/var/www/app/public
+      - static_prod:/var/www/static
     networks:
       - saas_net
 

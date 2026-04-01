@@ -19,7 +19,7 @@ echo "🔥 Recriando cache..."
 php bin/console cache:warmup --env=prod --no-debug
 
 echo "📦 Copiando assets estáticos..."
-cp -rf public/. /var/www/app/public/
+cp -rf public/. /var/www/static/
 
 echo "🗄️ Rodando migrations..."
 php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration || true
