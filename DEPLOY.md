@@ -19,10 +19,14 @@ cp .env.prod.example .env.prod
 
 2. Preencha os valores reais em `.env.prod`.
 
-Campos obrigatórios adicionais em produção:
-- `DEFAULT_URI` (URL base pública, ex: `https://app.seudominio.com`)
+Campos obrigatórios:
+- `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`
+- `APP_SECRET`
+- `MAILER_DSN`
+- `DATAJUD_API_KEY`
+- `DEFAULT_URI` (URL base pública, ex: `https://grupojusprime.tech`)
 - `SYMFONY_TRUSTED_PROXIES` (ex: `private_ranges`)
-- `SYMFONY_TRUSTED_HOSTS` (regex do host permitido, ex: `^app\\.seudominio\\.com$`)
+- `SYMFONY_TRUSTED_HOSTS` (regex do host, ex: `^grupojusprime\\.tech$`)
 
 3. Execute o deploy:
 
@@ -31,71 +35,91 @@ chmod +x scripts/deploy-prod.sh
 ./scripts/deploy-prod.sh
 ```
 
-Isso fará:
-- build da imagem `prod` do PHP;
-- subida da stack de produção;
-- espera ativa do PostgreSQL ficar pronto;
-- execução de migrations.
+Esse script:
+- derruba containers anteriores (`down --remove-orphans`);
+- faz build da imagem `prod` e sobe a stack;
+- aguarda o PostgreSQL ficar pronto;
+- executa as migrations.
 
-## Produção com TLS (HTTPS)
+> A stack de produção (`docker-compose.prod.yml`) já expõe as portas `80` e `443` e monta `/etc/letsencrypt` para TLS — não há arquivo de override separado.
 
-1. Coloque os certificados em:
+## Produção com TLS (HTTPS via Let's Encrypt)
 
-- `certs/fullchain.pem`
-- `certs/privkey.pem`
+O script `deploy-prod-tls.sh` realiza o deploy completo com validação de certificados:
 
-2. Execute:
+Pré-requisitos:
+- DNS do domínio (`grupojusprime.tech`) apontando para o servidor;
+- portas `80` e `443` abertas no firewall;
+- `certbot` instalado no host;
+- certificados já emitidos em `/etc/letsencrypt/live/grupojusprime.tech/`.
+
+### Emitir certificado (primeira vez)
+
+```bash
+sudo certbot certonly --standalone \
+  -d grupojusprime.tech \
+  -d www.grupojusprime.tech \
+  --email admin@grupojusprime.tech \
+  --agree-tos \
+  --non-interactive
+```
+
+> **Atenção:** use `--standalone` apenas antes de subir os containers. Com containers em execução, use `--webroot` conforme descrito na seção [Let's Encrypt (renovação)](#lets-encrypt-renovação).
+
+### Executar deploy com TLS
 
 ```bash
 chmod +x scripts/deploy-prod-tls.sh
 ./scripts/deploy-prod-tls.sh
 ```
 
-Esse fluxo aplica hardening de transporte:
-- redirecionamento `80 -> 443`;
-- TLS 1.2/1.3;
-- HSTS e headers de segurança.
+Esse script:
+- valida a presença dos certificados em `/etc/letsencrypt/live/grupojusprime.tech/`;
+- faz `git pull`;
+- derruba e sobe a stack com build;
+- aguarda o banco de dados;
+- executa migrations;
+- verifica a config do Nginx;
+- exibe as portas ativas.
 
 Uploads em produção:
-- uploads em `public/uploads` são persistidos em volume Docker dedicado compartilhado entre PHP e Nginx.
+- arquivos em `public/uploads` são persistidos no volume Docker `uploads_prod`, compartilhado entre PHP e Nginx.
 
-## Let’s Encrypt (produção real, sem downtime)
+## Let's Encrypt (renovação)
 
-Pré-requisitos no host:
-- DNS do domínio apontando para o servidor;
-- portas `80` e `443` abertas;
-- `certbot` instalado no host.
+O script `letsencrypt.sh` usa o método webroot (com containers em execução):
 
-1. Exporte variáveis:
+Pré-requisitos:
+- Stack de produção já em execução;
+- `certbot` instalado no host;
+- variáveis `LETSENCRYPT_DOMAIN` e `LETSENCRYPT_EMAIL` definidas.
 
-```bash
-export LETSENCRYPT_DOMAIN=app.seudominio.com
-export LETSENCRYPT_EMAIL=admin@seudominio.com
-```
-
-2. Suba o stack TLS (se ainda não estiver em execução):
+1. Exporte as variáveis:
 
 ```bash
-./scripts/deploy-prod-tls.sh
+export LETSENCRYPT_DOMAIN=grupojusprime.tech
+export LETSENCRYPT_EMAIL=admin@grupojusprime.tech
 ```
 
-3. Emita o certificado:
+2. Emita o certificado (webroot, com containers rodando):
 
 ```bash
 chmod +x scripts/letsencrypt.sh
 ./scripts/letsencrypt.sh issue
 ```
 
-4. Renove quando necessário:
+3. Renove quando necessário:
 
 ```bash
 ./scripts/letsencrypt.sh renew
 ```
 
+O script copia os certificados para `certs/` e recarrega o Nginx automaticamente.
+
 Sugestão de cron (diário, 03:15):
 
 ```bash
-15 3 * * * cd /caminho/do/projeto && LETSENCRYPT_DOMAIN=app.seudominio.com ./scripts/letsencrypt.sh renew >> /var/log/jusprime-letsencrypt.log 2>&1
+15 3 * * * cd /caminho/do/projeto && LETSENCRYPT_DOMAIN=grupojusprime.tech ./scripts/letsencrypt.sh renew >> /var/log/jusprime-letsencrypt.log 2>&1
 ```
 
 ## Comandos úteis (produção)
@@ -106,36 +130,29 @@ docker-compose -f docker-compose.prod.yml --env-file .env.prod logs -f
 docker-compose -f docker-compose.prod.yml --env-file .env.prod down
 ```
 
-Com TLS:
-
-```bash
-docker-compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod ps
-docker-compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod logs -f
-docker-compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod down
-```
-
 ## Checklist automatizado pós-deploy
 
 Após o deploy, rode um smoke check automatizado:
 
 ```bash
 chmod +x scripts/go-live-check.sh
-./scripts/go-live-check.sh app.seudominio.com
+./scripts/go-live-check.sh grupojusprime.tech
 ```
 
 Também é possível usar variável de ambiente:
 
 ```bash
-LETSENCRYPT_DOMAIN=app.seudominio.com ./scripts/go-live-check.sh
+LETSENCRYPT_DOMAIN=grupojusprime.tech ./scripts/go-live-check.sh
 ```
 
 O script valida:
 - variáveis críticas do `.env.prod`;
 - serviços `php`, `nginx`, `db` em execução;
 - saúde do PostgreSQL;
-- configuração do Nginx e presença/validade básica dos certificados;
+- configuração do Nginx e presença/validade dos certificados em `certs/`;
 - DNS, redirecionamento HTTP -> HTTPS e resposta do endpoint HTTPS;
-- status de migrations.
+- status de migrations;
+- status do firewall (ufw).
 
 ## Checklist de release (pré, durante e pós-deploy)
 
@@ -159,16 +176,18 @@ O script valida:
 	- sem TLS: `./scripts/deploy-prod.sh`
 	- com TLS: `./scripts/deploy-prod-tls.sh`
 - [ ] Confirmar serviços em execução:
-	- sem TLS: `docker-compose -f docker-compose.prod.yml --env-file .env.prod ps`
-	- com TLS: `docker-compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod ps`
+	```bash
+	docker-compose -f docker-compose.prod.yml --env-file .env.prod ps
+	```
 - [ ] Verificar migrations aplicadas sem erro.
 - [ ] Acompanhar logs iniciais:
-	- sem TLS: `docker-compose -f docker-compose.prod.yml --env-file .env.prod logs -f`
-	- com TLS: `docker-compose -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod logs -f`
+	```bash
+	docker-compose -f docker-compose.prod.yml --env-file .env.prod logs -f
+	```
 
 ### Pós-deploy (go-live)
 
-- [ ] Rodar smoke check: `./scripts/go-live-check.sh app.seudominio.com`
+- [ ] Rodar smoke check: `./scripts/go-live-check.sh grupojusprime.tech`
 - [ ] Validar domínio público (HTTP/HTTPS, redirecionamento, rota principal e login).
 - [ ] Testar upload e persistência em `public/uploads`.
 - [ ] Monitorar logs e erros por 15-30 minutos após publicação.
