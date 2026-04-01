@@ -23,6 +23,7 @@
                             <th><i class="bi bi-envelope me-1"></i> Email</th>
                             <th><i class="bi bi-shield-check me-1"></i> Perfil</th>
                             <th><i class="bi bi-key me-1"></i> Acessos específicos</th>
+                            <th><i class="bi bi-toggle-on me-1"></i> Status</th>
                             <th><i class="bi bi-calendar-plus me-1"></i> Criado em</th>
                             <th><i class="bi bi-gear me-1"></i> Ações</th>
                         </tr>
@@ -82,6 +83,13 @@
                                         </div>
                                     {% endif %}
                                 </td>
+                                <td class="align-middle">
+                                    {% if user.isActive %}
+                                        <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ativo</span>
+                                    {% else %}
+                                        <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Desativado</span>
+                                    {% endif %}
+                                </td>
                                 <td class="align-middle">{{ user.createdAt|date('d/m/Y H:i') }}</td>
                                 <td class="align-middle">
                                     <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenant.id, id: user.id}) }}"
@@ -94,7 +102,7 @@
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="6" class="text-center">Nenhum funcionário encontrado.</td>
+                                <td colspan="7" class="text-center">Nenhum funcionário encontrado.</td>
                             </tr>
                         {% endfor %}
                     </tbody>
