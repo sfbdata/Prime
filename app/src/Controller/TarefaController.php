@@ -102,8 +102,9 @@ class TarefaController extends AbstractController
         }
 
         $usuarios = $userRepository->createQueryBuilder('u')
-            ->where('u.tenant = :tenant')
+            ->where('u.tenant = :tenant AND u.isActive = :active')
             ->setParameter('tenant', $admin->getTenant())
+            ->setParameter('active', true)
             ->orderBy('u.fullName', 'ASC')
             ->getQuery()
             ->getResult();

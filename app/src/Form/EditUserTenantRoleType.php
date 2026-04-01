@@ -6,6 +6,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\TenantRole;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
 use Symfony\Component\Form\FormBuilderInterface;
@@ -24,6 +25,10 @@ class EditUserTenantRoleType extends AbstractType
                 'placeholder'  => 'Selecione um perfil',
                 'required'     => true,
                 'attr'         => ['class' => 'form-select'],
+            ])
+            ->add('isActive', CheckboxType::class, [
+                'label'    => 'Conta ativa',
+                'required' => false,
             ])
             ->add('newPassword', RepeatedType::class, [
                 'type'             => PasswordType::class,
