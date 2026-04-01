@@ -42,48 +42,15 @@
         </div>
 
         <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Folha de Ponto - {{ '%02d'|format(mesAtual) }}/{{ anoAtual }}</h3>
-                    <div class="card-tools">
-                        <a href="{{ path('ponto_exportar_xlsx') }}" class="btn btn-sm btn-success">
-                            <i class="bi bi-file-earmark-spreadsheet"></i> Exportar Folha XLSX
-                        </a>
-                    </div>
-                </div>
-                <div class="card-body p-0">
-                    <table class="table table-striped mb-0">
-                        <thead>
-                            <tr>
-                                <th>Dia do Mês</th>
-                                <th>Dia da Semana</th>
-                                <th>Entrada</th>
-                                <th>Repouso</th>
-                                <th>Retorno</th>
-                                <th>Saída</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ponto-history">
-                            {% if folhaRows is empty %}
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted py-3">Nenhuma batida registrada no mês atual.</td>
-                                </tr>
-                            {% else %}
-                                {% for linha in folhaRows %}
-                                    <tr class="{{ linha.fimSemana ? 'table-secondary' : '' }}">
-                                        <td>{{ linha.diaMes }}</td>
-                                        <td>{{ linha.diaSemana }}</td>
-                                        <td>{{ linha.entrada }}</td>
-                                        <td>{{ linha.repouso }}</td>
-                                        <td>{{ linha.retorno }}</td>
-                                        <td>{{ linha.saida }}</td>
-                                    </tr>
-                                {% endfor %}
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            {% include 'ponto/_folha_table.html.twig' with {
+                titulo: 'Folha de Ponto - ' ~ ('%02d'|format(mesAtual)) ~ '/' ~ anoAtual,
+                folhaRows: folhaRows,
+                competenciasPonto: competenciasPonto,
+                competenciaSelecionada: competenciaSelecionada,
+                competenciaFormAction: path('ponto_index'),
+                competenciaFieldId: 'competencia-ponto-index',
+                exportarFolhaHabilitado: true
+            } %}
         </div>
     </div>
 </div>

@@ -5,7 +5,9 @@ namespace App\Controller;
 use App\Entity\Ponto\RegistroPonto;
 use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\SedeRepository;
+use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
+use App\Service\Ponto\FolhaPontoBuilder;
 use Doctrine\ORM\EntityManagerInterface;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -23,8 +25,10 @@ final class PontoController extends AbstractController
 {
     #[Route('/', name: 'ponto_index')]
     public function index(
+        Request $request,
         RegistroPontoRepository $repository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        FolhaPontoBuilder $folhaPontoBuilder
     ): Response {
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
@@ -33,20 +37,44 @@ final class PontoController extends AbstractController
             throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
         }
 
-        $mes = (int) (new \DateTimeImmutable())->format('m');
-        $ano = (int) (new \DateTimeImmutable())->format('Y');
+        $agora = new \DateTimeImmutable();
+        $mes = (int) $agora->format('m');
+        $ano = (int) $agora->format('Y');
+        $competenciaAtual = $agora->format('Y-m');
 
-        $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
+        $competenciasPonto = $repository->findCompetenciasComRegistroPorUsuario($user);
+        $competenciasDisponiveis = array_column($competenciasPonto, 'valor');
+
+        if (!in_array($competenciaAtual, $competenciasDisponiveis, true)) {
+            array_unshift($competenciasPonto, [
+                'valor' => $competenciaAtual,
+                'label' => $agora->format('m/Y'),
+                'ano' => $ano,
+                'mes' => $mes,
+            ]);
+            $competenciasDisponiveis[] = $competenciaAtual;
+        }
+
+        $competenciaSelecionada = (string) $request->query->get('competencia', $competenciaAtual);
+        if (!in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
+            $competenciaSelecionada = $competenciaAtual;
+        }
+
+        [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
+
+        $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
 
         /** @var RegistroPonto[] $batidas */
-        $batidas = $repository->findByUserAndCompetencia($user, $ano, $mes);
-        $folhaRows = $this->buildFolhaRows($inicioMes, $fimMes, $batidas, false, true);
+        $batidas = $repository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, true);
 
         return $this->render('ponto/index.html.twig', [
             'folhaRows' => $folhaRows,
-            'mesAtual' => $mes,
-            'anoAtual' => $ano,
+            'mesAtual' => $mesSelecionado,
+            'anoAtual' => $anoSelecionado,
+            'competenciasPonto' => $competenciasPonto,
+            'competenciaSelecionada' => $competenciaSelecionada,
         ]);
     }
 
@@ -225,91 +253,13 @@ final class PontoController extends AbstractController
         return $raioTerra * $c;
     }
 
-    /**
-     * @param RegistroPonto[] $batidas
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool}>
-     */
-    private function buildFolhaRows(
-        \DateTimeImmutable $inicioMes,
-        \DateTimeImmutable $fimMes,
-        array $batidas,
-        bool $includeEmptyDays = true,
-        bool $orderDesc = false
-    ): array
-    {
-        $registrosPorDia = [];
-        foreach ($batidas as $batida) {
-            $chaveDia = $batida->getDataHora()->format('Y-m-d');
-            $tipo = $batida->getTipo();
-
-            if (!isset($registrosPorDia[$chaveDia])) {
-                $registrosPorDia[$chaveDia] = [];
-            }
-
-            if (!isset($registrosPorDia[$chaveDia][$tipo])) {
-                $registrosPorDia[$chaveDia][$tipo] = $batida;
-                continue;
-            }
-
-            $registroAtual = $registrosPorDia[$chaveDia][$tipo];
-            if (
-                $tipo === RegistroPonto::TIPO_SAIDA
-                && $batida->getDataHora() > $registroAtual->getDataHora()
-            ) {
-                $registrosPorDia[$chaveDia][$tipo] = $batida;
-            }
-        }
-
-        $diasSemana = [
-            1 => 'Segunda',
-            2 => 'Terça',
-            3 => 'Quarta',
-            4 => 'Quinta',
-            5 => 'Sexta',
-            6 => 'Sábado',
-            7 => 'Domingo',
-        ];
-
-        $rows = [];
-        for ($dia = $inicioMes; $dia <= $fimMes; $dia = $dia->modify('+1 day')) {
-            $chaveDia = $dia->format('Y-m-d');
-            $indiceDiaSemana = (int) $dia->format('N');
-
-            $row = [
-                'diaMes' => $dia->format('d'),
-                'diaSemana' => $diasSemana[$indiceDiaSemana],
-                'entrada' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]->getDataHora()->format('H:i:s') : '',
-                'repouso' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getDataHora()->format('H:i:s') : '',
-                'retorno' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getDataHora()->format('H:i:s') : '',
-                'saida' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getDataHora()->format('H:i:s') : '',
-                'fimSemana' => $indiceDiaSemana >= 6,
-            ];
-
-            if (
-                !$includeEmptyDays
-                && $row['entrada'] === ''
-                && $row['repouso'] === ''
-                && $row['retorno'] === ''
-                && $row['saida'] === ''
-            ) {
-                continue;
-            }
-
-            $rows[] = $row;
-        }
-
-        if ($orderDesc) {
-            $rows = array_reverse($rows);
-        }
-
-        return $rows;
-    }
-
     #[Route('/exportar-folha-xlsx', name: 'ponto_exportar_xlsx')]
     public function exportarFolhaXlsx(
         Request $request,
         RegistroPontoRepository $repository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        FolhaPontoBuilder $folhaPontoBuilder,
+        UserRepository $userRepository
     ): StreamedResponse {
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
@@ -318,15 +268,32 @@ final class PontoController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
+        $targetUser = $user;
+        $targetUserId = (int) $request->query->get('userId', 0);
+
+        if ($targetUserId > 0 && $targetUserId !== (int) $user->getId()) {
+            $targetUser = $userRepository->find($targetUserId);
+            if ($targetUser === null) {
+                throw $this->createNotFoundException('Usuário para exportação não encontrado.');
+            }
+
+            $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+            $isSameTenant = $targetUser->getTenant()?->getId() === $user->getTenant()?->getId();
+
+            if (!$isSuperAdmin && !($isSameTenant && $permissionChecker->canAdminister($user, 'admin.users.manage'))) {
+                throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
+            }
+        }
+
         $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
         $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
 
         /** @var RegistroPonto[] $batidas */
-        $batidas = $repository->findByUserAndCompetencia($user, $ano, $mes);
+        $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $this->buildFolhaRows($inicioMes, $fimMes, $batidas);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas);
 
         $response = new StreamedResponse(function () use ($folhaRows, $mes, $ano) {
             $spreadsheet = new Spreadsheet();
@@ -367,9 +334,9 @@ final class PontoController extends AbstractController
             $spreadsheet->disconnectWorksheets();
         });
 
-        $nomeUsuario = trim((string) $user->getFullName());
+        $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
-            $nomeUsuario = (string) $user->getUserIdentifier();
+            $nomeUsuario = (string) $targetUser->getUserIdentifier();
         }
 
         $nomeUsuario = preg_replace('/[^A-Za-z0-9]+/', '', $nomeUsuario) ?? 'Usuario';

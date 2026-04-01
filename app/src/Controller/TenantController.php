@@ -20,6 +20,7 @@ use App\Repository\TenantRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
 use App\Service\PermissionChecker;
+use App\Service\Ponto\FolhaPontoBuilder;
 use App\Service\TenantBootstrapService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -336,7 +337,8 @@ final class TenantController extends AbstractController
         PastaRepository $pastaRepository,
         ProcessoRepository $processoRepository,
         RegistroPontoRepository $registroPontoRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        FolhaPontoBuilder $folhaPontoBuilder
     ): Response {
         $currentUser = $this->getUser();
 
@@ -390,9 +392,18 @@ final class TenantController extends AbstractController
         }
 
         $batidasPonto = [];
+        $folhaRowsPonto = [];
+        $mesCompetenciaPonto = null;
+        $anoCompetenciaPonto = null;
         if ($competenciaSelecionada !== '' && in_array($competenciaSelecionada, $competenciasDisponiveis, true)) {
             [$anoSelecionado, $mesSelecionado] = array_map('intval', explode('-', $competenciaSelecionada));
             $batidasPonto = $registroPontoRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
+
+            $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
+            $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
+            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, false, true);
+            $mesCompetenciaPonto = $mesSelecionado;
+            $anoCompetenciaPonto = $anoSelecionado;
         }
 
         return $this->render('tenant/edit_user_role.html.twig', [
@@ -403,7 +414,9 @@ final class TenantController extends AbstractController
             'resourceLabels' => $resourceLabels,
             'competenciasPonto' => $competenciasPonto,
             'competenciaSelecionada' => $competenciaSelecionada,
-            'batidasPonto' => $batidasPonto,
+            'folhaRowsPonto' => $folhaRowsPonto,
+            'mesCompetenciaPonto' => $mesCompetenciaPonto,
+            'anoCompetenciaPonto' => $anoCompetenciaPonto,
         ]);
     }
 

@@ -1,0 +1,67 @@
+{% set competenciaParts = competenciaSelecionada|default('') ? competenciaSelecionada|split('-') : [] %}
+{% set exportarAnoResolved = exportarAno is defined ? exportarAno : (competenciaParts|length == 2 ? competenciaParts[0] : null) %}
+{% set exportarMesResolved = exportarMes is defined ? exportarMes : (competenciaParts|length == 2 ? competenciaParts[1] : null) %}
+{% set exportarFolhaHabilitado = exportarFolhaHabilitado|default(false) %}
+{% set exportarFolhaRota = exportarFolhaRota|default('ponto_exportar_xlsx') %}
+{% set exportarFolhaParametros = exportarFolhaParametros|default({}) %}
+
+<div class="card card-outline card-info mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+        <h3 class="card-title mb-0">{{ titulo }}</h3>
+
+        {% if competenciasPonto is defined and competenciasPonto is not empty and competenciaFormAction is defined %}
+            <form method="get" action="{{ competenciaFormAction }}" class="d-flex align-items-center gap-2">
+                <label for="{{ competenciaFieldId|default('competencia') }}" class="mb-0 small text-muted">Mês</label>
+                <select
+                    id="{{ competenciaFieldId|default('competencia') }}"
+                    name="competencia"
+                    class="form-select form-select-sm"
+                    onchange="this.form.submit()"
+                >
+                    {% for competencia in competenciasPonto %}
+                        <option value="{{ competencia.valor }}" {% if competencia.valor == competenciaSelecionada %}selected{% endif %}>{{ competencia.label }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+        {% endif %}
+
+        {% if exportarFolhaHabilitado and exportarAnoResolved and exportarMesResolved %}
+            <a href="{{ path(exportarFolhaRota, exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}" class="btn btn-sm btn-success">
+                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar Folha XLSX
+            </a>
+        {% endif %}
+    </div>
+
+    <div class="card-body p-0">
+        {% if competenciasPonto is defined and competenciasPonto is empty %}
+            <p class="text-muted small p-3 mb-0">Nenhum registro de ponto encontrado.</p>
+        {% elseif folhaRows is empty %}
+            <p class="text-muted small p-3 mb-0">Não há batidas para a competência selecionada.</p>
+        {% else %}
+            <table class="table table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th>Dia do Mês</th>
+                        <th>Dia da Semana</th>
+                        <th>Entrada</th>
+                        <th>Repouso</th>
+                        <th>Retorno</th>
+                        <th>Saída</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for linha in folhaRows %}
+                        <tr class="{{ linha.fimSemana ? 'table-secondary' : '' }}">
+                            <td>{{ linha.diaMes }}</td>
+                            <td>{{ linha.diaSemana }}</td>
+                            <td>{{ linha.entrada }}</td>
+                            <td>{{ linha.repouso }}</td>
+                            <td>{{ linha.retorno }}</td>
+                            <td>{{ linha.saida }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+</div>
