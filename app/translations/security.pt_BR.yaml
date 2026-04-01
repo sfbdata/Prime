@@ -1,11 +1,11 @@
-# Traduções de mensagens de erro de login
-# Ajuste para mostrar mensagens claras e sem duplicidade
+# Traduções das mensagens de segurança do Symfony para PT-BR
+# As chaves devem ser idênticas às strings originais do Symfony (incluindo ponto final)
 
-# Chaves padrão do Symfony para autenticação
-"Invalid credentials": "Senha incorreta"
-"Bad credentials": "Senha incorreta"
-"User not found": "Usuário não existe"
-"Account is disabled": "Conta desativada"
-"Account is locked": "Conta bloqueada"
-"Account is expired": "Conta expirada"
-"Credentials have expired": "Senha expirada"
+"Bad credentials.": "Credenciais inválidas. Verifique e-mail e senha."
+"Invalid credentials.": "Credenciais inválidas. Verifique e-mail e senha."
+"Account is disabled.": "Conta desativada. Entre em contato com o administrador."
+"Account is locked.": "Conta bloqueada. Tente novamente mais tarde."
+"Account has expired.": "Conta expirada."
+"Credentials have expired.": "Senha expirada. Por favor, redefina sua senha."
+"Too many failed login attempts, please try again in %minutes% minute.": "Muitas tentativas de login. Tente novamente em %minutes% minuto."
+"Too many failed login attempts, please try again in %minutes% minutes.": "Muitas tentativas de login. Tente novamente em %minutes% minutos."
