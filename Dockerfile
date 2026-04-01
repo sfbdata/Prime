@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     zip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j1 dom \
     && docker-php-ext-install -j1 \
         pdo \
         pdo_pgsql \
@@ -20,7 +21,6 @@ RUN apt-get update && apt-get install -y \
         intl \
         mbstring \
         gd \
-        dom \
         simplexml \
         xml \
         xmlreader \
