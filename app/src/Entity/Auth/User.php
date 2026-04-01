@@ -35,7 +35,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\Column(type: 'boolean')]
-    private bool $isActive = false;
+    private bool $isActive = true;
 
     #[ORM\Column(type: 'string', length: 64, nullable: true)]
     private ?string $invitationToken = null;
