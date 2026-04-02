@@ -69,6 +69,15 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="partes-tab" data-bs-toggle="tab" data-bs-target="#partes" type="button" role="tab" aria-controls="partes" aria-selected="false">
+                                    <i class="bi bi-people me-1"></i> Partes
+                                    {% set totalPartes = pasta.clientes|length + pasta.partesContrarias|length %}
+                                    {% if totalPartes > 0 %}
+                                        <span class="badge text-bg-secondary ms-1">{{ totalPartes }}</span>
+                                    {% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
                                     <i class="bi bi-check2-square me-1"></i> Tarefas
                                     {% if pasta.tarefas|length > 0 %}
@@ -118,12 +127,23 @@
                                     </div>
                                 </div>
 
+                                {% if pasta.descricao %}
                                 <hr class="section-divider">
 
-                                <h5 class="mb-3"><i class="bi bi-link-45deg me-1"></i> Vínculos</h5>
+                                <h5 class="mb-3"><i class="bi bi-card-text me-1"></i> Descrição</h5>
                                 <div class="row mb-4">
+                                    <div class="col-12">
+                                        <div class="p-3 bg-light rounded" style="white-space: pre-wrap;">{{ pasta.descricao }}</div>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            </div>
+
+                            {# Tab: Partes #}
+                            <div class="tab-pane fade" id="partes" role="tabpanel" aria-labelledby="partes-tab">
+                                <div class="row">
                                     <div class="col-md-6">
-                                        <h6 class="text-muted mb-3"><i class="bi bi-people me-1"></i> Clientes</h6>
+                                        <h5 class="mb-3"><i class="bi bi-people me-1"></i> Clientes</h5>
                                         {% if pasta.clientes|length > 0 %}
                                             {% for cliente in pasta.clientes %}
                                                 <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
@@ -144,7 +164,7 @@
                                         {% endif %}
                                     </div>
                                     <div class="col-md-6">
-                                        <h6 class="text-muted mb-3"><i class="bi bi-person-x me-1"></i> Partes Contrárias</h6>
+                                        <h5 class="mb-3"><i class="bi bi-person-x me-1"></i> Partes Contrárias</h5>
                                         {% if pasta.partesContrarias|length > 0 %}
                                             {% for parte in pasta.partesContrarias %}
                                                 <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
@@ -157,17 +177,6 @@
                                         {% endif %}
                                     </div>
                                 </div>
-
-                                {% if pasta.descricao %}
-                                <hr class="section-divider">
-
-                                <h5 class="mb-3"><i class="bi bi-card-text me-1"></i> Descrição</h5>
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <div class="p-3 bg-light rounded" style="white-space: pre-wrap;">{{ pasta.descricao }}</div>
-                                    </div>
-                                </div>
-                                {% endif %}
                             </div>
 
                             {# Tab: Tarefas #}
