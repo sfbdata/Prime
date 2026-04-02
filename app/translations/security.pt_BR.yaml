@@ -1,11 +1,11 @@
 # Traduções das mensagens de segurança do Symfony para PT-BR
 # As chaves devem ser idênticas às strings originais do Symfony (incluindo ponto final)
 
-"Bad credentials.": "Credenciais inválidas. Verifique e-mail e senha."
-"Invalid credentials.": "Credenciais inválidas. Verifique e-mail e senha."
-"Account is disabled.": "Conta desativada. Entre em contato com o administrador."
-"Account is locked.": "Conta bloqueada. Tente novamente mais tarde."
-"Account has expired.": "Conta expirada."
+"Bad credentials.": "E-mail ou senha incorretos. Verifique seus dados e tente novamente."
+"Invalid credentials.": "E-mail ou senha incorretos. Verifique seus dados e tente novamente."
+"Account is disabled.": "Sua conta está inativa. Entre em contato com o suporte para reativação."
+"Account is locked.": "Sua conta foi temporariamente bloqueada por segurança. Tente novamente em alguns minutos."
+"Account has expired.": "Sua conta expirou. Entre em contato com o administrador."
 "Credentials have expired.": "Senha expirada. Por favor, redefina sua senha."
-"Too many failed login attempts, please try again in %minutes% minute.": "Muitas tentativas de login. Tente novamente em %minutes% minuto."
-"Too many failed login attempts, please try again in %minutes% minutes.": "Muitas tentativas de login. Tente novamente em %minutes% minutos."
+"Too many failed login attempts, please try again in %minutes% minute.": "Muitas tentativas de login. Aguarde %minutes% minuto antes de tentar novamente."
+"Too many failed login attempts, please try again in %minutes% minutes.": "Muitas tentativas de login. Aguarde %minutes% minutos antes de tentar novamente."
