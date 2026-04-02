@@ -122,6 +122,69 @@ Sugestão de cron (diário, 03:15):
 15 3 * * * cd /caminho/do/projeto && LETSENCRYPT_DOMAIN=grupojusprime.tech ./scripts/letsencrypt.sh renew >> /var/log/jusprime-letsencrypt.log 2>&1
 ```
 
+## Backup e Restauração
+
+### Configuração inicial (na VPS, apenas uma vez)
+
+```bash
+# Cria o diretório de backups
+sudo mkdir -p /var/backups/jusprime
+sudo chown $USER:$USER /var/backups/jusprime
+
+# Garante que o script é executável
+chmod +x scripts/backup.sh scripts/restore.sh
+```
+
+### Executar backup manual
+
+```bash
+./scripts/backup.sh
+```
+
+O script:
+- Faz dump comprimido do PostgreSQL via container Docker
+- Copia os arquivos do volume `uploads_prod`
+- Gera um `.tar.gz` em `/var/backups/jusprime/`
+- Aplica rotação automática (padrão: 7 backups)
+
+### Agendamento automático (crontab na VPS)
+
+```bash
+crontab -e
+```
+
+Adicione a linha (executa todo dia às 02:00):
+
+```
+0 2 * * * /caminho/para/jusprime/scripts/backup.sh >> /var/log/jusprime-backup.log 2>&1
+```
+
+> Substitua `/caminho/para/jusprime` pelo caminho real do projeto na VPS.
+
+### Personalizar configuração
+
+Variáveis de ambiente que sobrescrevem os padrões do script:
+
+| Variável        | Padrão                   | Descrição                         |
+|-----------------|--------------------------|-----------------------------------|
+| `BACKUP_DIR`    | `/var/backups/jusprime`  | Onde salvar os backups            |
+| `KEEP_BACKUPS`  | `7`                      | Quantos backups manter            |
+
+Exemplo:
+```bash
+BACKUP_DIR=/mnt/backup-externo KEEP_BACKUPS=14 ./scripts/backup.sh
+```
+
+### Restaurar um backup
+
+```bash
+./scripts/restore.sh /var/backups/jusprime/jusprime_20240101_020000.tar.gz
+```
+
+> **Atenção:** a restauração é destrutiva. O script pede confirmação explícita antes de prosseguir.
+
+---
+
 ## Comandos úteis (produção)
 
 ```bash
