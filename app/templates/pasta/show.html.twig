@@ -368,73 +368,182 @@
     </div>
 </section>
 
-{# Modal: Upload de Documentos #}
-<div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+{# Modal: Preview de Documento (único reutilizável) #}
+<div class="modal fade" id="previewDocModal" tabindex="-1" aria-labelledby="previewDocModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="uploadDocumentosModalLabel">
-                    <i class="bi bi-cloud-upload me-1"></i> Upload de Documentos da Pasta
-                    <i class="bi bi-info-circle text-muted ms-2"
-                       data-bs-toggle="tooltip"
-                       data-bs-html="true"
-                       data-bs-placement="right"
-                       title="<strong>Arquivos permitidos e limites:</strong><br>
-🖼 PNG, JPEG: 3 MB<br>
-📄 PDF: 10 MB<br>
-🗺 KML: 5 MB<br>
-🎵 MP3, OGG, Opus, MP4 (áudio): 10 MB<br>
-🎵 WAV: 50 MB<br>
-🎬 MP4, MPEG, OGG, MOV, WMV (vídeo): 50 MB"
-                       style="cursor: help; font-size: 0.85em;"></i>
+                <h5 class="modal-title" id="previewDocModalLabel">
+                    <i class="bi bi-eye me-1"></i> <span id="previewDocNome"></span>
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <div class="modal-body">
-                {% for tipo, label in documentTypeOptions %}
-                    <div class="border border-secondary rounded p-3 mb-3">
-                        <h6 class="mb-2"><i class="bi bi-folder me-1"></i> {{ label }}</h6>
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center" style="min-height: 70vh;">
+                <div id="previewDocConteudo" class="w-100 h-100"></div>
+            </div>
+            <div class="modal-footer">
+                <a id="previewDocDownload" href="#" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-download me-1"></i> Baixar
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
-                        {% set docs = documentosPorTipo[tipo] ?? [] %}
+{# Modais: Editar Documento #}
+{% for tipo, docs in documentosPorTipo %}
+    {% for doc in docs %}
+        {% set label = documentTypeOptions[tipo] ?? tipo %}
+        <div class="modal fade" id="editDocModal{{ doc.id }}" tabindex="-1" aria-labelledby="editDocModalLabel{{ doc.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form method="post" action="{{ path('pasta_documento_edit', {id: doc.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('edit_documento_' ~ doc.id) }}">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="editDocModalLabel{{ doc.id }}">
+                                <i class="bi bi-pencil me-1"></i> Editar documento
+                            </h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-3"><i class="bi bi-file-earmark me-1"></i>{{ doc.nomeOriginal }}</p>
+                            <div class="mb-3">
+                                <label class="form-label">Tipo de documento</label>
+                                <select name="categoria" class="form-select" required>
+                                    {% for valor, texto in documentTypeOptions %}
+                                        <option value="{{ valor }}" {{ doc.categoria == valor ? 'selected' : '' }}>{{ texto }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Descrição</label>
+                                <input type="text" name="descricao" class="form-control"
+                                       value="{{ doc.descricao ?? '' }}" maxlength="500" placeholder="Descrição (opcional)">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Número (opcional)</label>
+                                <input type="text" name="numero" class="form-control"
+                                       value="{{ doc.numero ?? '' }}" maxlength="255" placeholder="Número">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i> Salvar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endfor %}
+{% endfor %}
+
+{# Modal: Upload de Documentos (Anexos) #}
+<div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadDocumentosModalLabel">
+                    <i class="bi bi-paperclip me-1"></i> Anexos
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+
+            <div class="modal-body">
+
+                {# ── Documentos já enviados ── #}
+                {% set hasDocuments = false %}
+                {% for tipo, docs in documentosPorTipo %}
+                    {% if docs|length > 0 %}{% set hasDocuments = true %}{% endif %}
+                {% endfor %}
+
+                {% if hasDocuments %}
+                <div class="mb-4">
+                    <h6 class="text-muted mb-2"><i class="bi bi-archive me-1"></i> Documentos enviados</h6>
+                    {% for tipo, docs in documentosPorTipo %}
                         {% if docs|length > 0 %}
-                            <ul class="list-group mb-3">
-                                {% for doc in docs %}
-                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                        <div>
-                                            <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer">
-                                                <i class="bi bi-file-earmark me-1"></i> {{ doc.nomeOriginal }}
-                                            </a>
-                                            <small class="text-muted d-block">{{ doc.uploadedAt|date('d/m/Y H:i') }}</small>
-                                        </div>
-                                        <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');" class="ms-3">
+                            {% set label = documentTypeOptions[tipo] ?? tipo %}
+                            {% for doc in docs %}
+                                <div class="d-flex align-items-center border rounded px-3 py-2 mb-2 gap-3">
+                                    <i class="bi bi-file-earmark-text fs-5 text-primary flex-shrink-0"></i>
+                                    <div class="flex-grow-1 overflow-hidden">
+                                        <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="text-truncate d-block fw-semibold">
+                                            {{ doc.nomeOriginal }}
+                                        </a>
+                                        <small class="text-muted">
+                                            {{ label }}
+                                            {% if doc.descricao %} · {{ doc.descricao }}{% endif %}
+                                            {% if doc.numero %} · Nº {{ doc.numero }}{% endif %}
+                                            · {{ doc.uploadedAt|date('d/m/Y') }}
+                                            · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}
+                                        </small>
+                                    </div>
+                                    <div class="d-flex gap-1 flex-shrink-0">
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                title="Visualizar"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#previewDocModal"
+                                                data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
+                                                data-nome="{{ doc.nomeOriginal }}"
+                                                data-mime="{{ doc.mimeType }}">
+                                            <i class="bi bi-eye"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                title="Editar"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#editDocModal{{ doc.id }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');">
                                             <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
                                                 <i class="bi bi-trash"></i>
                                             </button>
                                         </form>
-                                    </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p class="text-muted mb-2"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado para este tipo.</p>
+                                    </div>
+                                </div>
+                            {% endfor %}
                         {% endif %}
+                    {% endfor %}
+                </div>
+                <hr>
+                {% endif %}
 
-                        <form method="post" enctype="multipart/form-data" action="{{ path('pasta_documento_upload', {id: pasta.id}) }}" class="row g-2 align-items-end">
-                            <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
-                            <input type="hidden" name="categoria" value="{{ tipo }}">
-                            <div class="col-md-9">
-                                <label class="form-label">Arquivo</label>
-                                <input type="file" name="arquivo" class="form-control" required accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*">
-                            </div>
-                            <div class="col-md-3">
-                                <button type="submit" class="btn btn-primary w-100">
-                                    <i class="bi bi-upload me-1"></i> Enviar
-                                </button>
-                            </div>
-                        </form>
+                {# ── Formulário de novos anexos ── #}
+                <form id="formAnexos" method="post" enctype="multipart/form-data"
+                      action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
+
+                    {# Toolbar superior #}
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <button type="button" id="btnAdicionarAnexo" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i> Adicionar
+                        </button>
+                        <button type="button" id="btnLimparAnexos" class="btn btn-outline-secondary d-none">
+                            <i class="bi bi-x-circle me-1"></i> Limpar
+                        </button>
+                        {# Input oculto — aceita múltiplos arquivos #}
+                        <input type="file" id="inputAnexoOculto" multiple
+                               accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
+                               class="d-none">
                     </div>
-                {% endfor %}
-            </div>
+
+                    {# Lista de arquivos selecionados #}
+                    <div id="listaAnexos">
+                        {# Itens injetados pelo JS #}
+                    </div>
+
+                    {# Botão enviar — aparece só quando há itens #}
+                    <div id="areaEnviar" class="d-none mt-3 text-end">
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                        </button>
+                    </div>
+                </form>
+
+            </div>{# /modal-body #}
         </div>
     </div>
 </div>
@@ -466,28 +575,228 @@
 .vinculo-link:hover {
     background-color: rgba(0,0,0,0.03);
 }
+
+/* Anexos */
+.anexo-item {
+    background: #fafafa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+}
+.anexo-item .anexo-nome {
+    font-weight: 600;
+    font-size: .92rem;
+    word-break: break-all;
+}
+.anexo-item .anexo-tamanho {
+    font-size: .8rem;
+    color: #6c757d;
+}
 </style>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar tooltips do Bootstrap
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
+document.addEventListener('DOMContentLoaded', function () {
+
+    /* ── Preview de documento ── */
+    const previewModal     = document.getElementById('previewDocModal');
+    const previewConteudo  = document.getElementById('previewDocConteudo');
+    const previewNome      = document.getElementById('previewDocNome');
+    const previewDownload  = document.getElementById('previewDocDownload');
+
+    previewModal.addEventListener('show.bs.modal', function (e) {
+        const btn  = e.relatedTarget;
+        const url  = btn.dataset.url;
+        const nome = btn.dataset.nome;
+        const mime = btn.dataset.mime;
+
+        previewNome.textContent = nome;
+        previewDownload.href = url.replace('/visualizar', '/download');
+        previewConteudo.innerHTML = '';
+
+        if (mime === 'application/pdf') {
+            previewConteudo.innerHTML =
+                `<iframe src="${url}" class="w-100 border-0" style="height:75vh;" title="${nome}"></iframe>`;
+        } else if (mime.startsWith('image/')) {
+            previewConteudo.innerHTML =
+                `<img src="${url}" class="img-fluid d-block mx-auto p-3" style="max-height:75vh;object-fit:contain;" alt="${nome}">`;
+        } else if (mime.startsWith('audio/')) {
+            previewConteudo.innerHTML =
+                `<div class="p-4 text-center w-100">
+                    <i class="bi bi-file-earmark-music display-1 text-muted d-block mb-3"></i>
+                    <p class="text-muted mb-3">${nome}</p>
+                    <audio controls class="w-100" style="max-width:500px;">
+                        <source src="${url}" type="${mime}">
+                        Seu navegador não suporta reprodução de áudio.
+                    </audio>
+                 </div>`;
+        } else if (mime.startsWith('video/')) {
+            previewConteudo.innerHTML =
+                `<video controls class="w-100 d-block" style="max-height:75vh;">
+                    <source src="${url}" type="${mime}">
+                    Seu navegador não suporta reprodução de vídeo.
+                 </video>`;
+        } else {
+            previewConteudo.innerHTML =
+                `<div class="p-5 text-center text-muted w-100">
+                    <i class="bi bi-file-earmark display-1 d-block mb-3"></i>
+                    <p>Pré-visualização não disponível para este tipo de arquivo.</p>
+                    <a href="${url.replace('/visualizar', '/download')}" class="btn btn-primary">
+                        <i class="bi bi-download me-1"></i> Baixar arquivo
+                    </a>
+                 </div>`;
+        }
     });
 
-    document.querySelectorAll('.copy-btn').forEach(function(btn) {
-        btn.addEventListener('click', function() {
+    previewModal.addEventListener('hide.bs.modal', function () {
+        previewConteudo.innerHTML = '';
+    });
+
+    /* ── Tooltips ── */
+    var tooltipEls = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipEls.forEach(function (el) { new bootstrap.Tooltip(el); });
+
+    /* ── Copy buttons ── */
+    document.querySelectorAll('.copy-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
             const text = this.getAttribute('data-copy');
             navigator.clipboard.writeText(text).then(() => {
-                this.classList.remove('bi-copy');
-                this.classList.add('bi-check-lg', 'copied');
+                this.classList.replace('bi-copy', 'bi-check-lg');
+                this.classList.add('copied');
                 setTimeout(() => {
-                    this.classList.remove('bi-check-lg', 'copied');
-                    this.classList.add('bi-copy');
+                    this.classList.replace('bi-check-lg', 'bi-copy');
+                    this.classList.remove('copied');
                 }, 1500);
             });
         });
+    });
+
+    /* ── Anexos ── */
+    const documentTypeOptions = {{ documentTypeOptions|json_encode|raw }};
+
+    const btnAdicionar   = document.getElementById('btnAdicionarAnexo');
+    const inputOculto    = document.getElementById('inputAnexoOculto');
+    const listaAnexos    = document.getElementById('listaAnexos');
+    const areaEnviar     = document.getElementById('areaEnviar');
+
+    // Contador global para índices únicos
+    let indiceGlobal = 0;
+
+    function formatarTamanho(bytes) {
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+    }
+
+    function buildSelectOpcoes() {
+        let html = '<option value="">Selecione o tipo</option>';
+        for (const [valor, texto] of Object.entries(documentTypeOptions)) {
+            html += `<option value="${valor}">${texto}</option>`;
+        }
+        return html;
+    }
+
+    function adicionarItem(file) {
+        const idx = indiceGlobal++;
+        const div = document.createElement('div');
+        div.className = 'anexo-item';
+        div.dataset.idx = idx;
+        div._file = file; // arquivo associado diretamente ao elemento
+
+        div.innerHTML = `
+            <div class="d-flex align-items-start gap-3">
+                <i class="bi bi-file-earmark-text fs-4 text-primary flex-shrink-0 mt-1"></i>
+
+                <div class="flex-grow-1">
+                    <div class="anexo-nome">${file.name}</div>
+                    <div class="anexo-tamanho mb-2">${formatarTamanho(file.size)}</div>
+
+                    <div class="row g-2">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label form-label-sm mb-1">Tipo de documento</label>
+                            <select name="categorias[${idx}]" class="form-select form-select-sm" required>
+                                ${buildSelectOpcoes()}
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-5">
+                            <label class="form-label form-label-sm mb-1">Descrição</label>
+                            <input type="text" name="descricoes[${idx}]" class="form-control form-control-sm"
+                                   placeholder="Descrição (opcional)" maxlength="500">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label form-label-sm mb-1">Número (opcional)</label>
+                            <input type="text" name="numeros[${idx}]" class="form-control form-control-sm"
+                                   placeholder="Número" maxlength="255">
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 mt-1 btn-remover-anexo"
+                        title="Remover">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+
+        div.querySelector('.btn-remover-anexo').addEventListener('click', function () {
+            div.remove();
+            atualizarVisibilidade();
+        });
+
+        listaAnexos.appendChild(div);
+    }
+
+    const btnLimpar = document.getElementById('btnLimparAnexos');
+
+    function atualizarVisibilidade() {
+        const temItens = listaAnexos.children.length > 0;
+        areaEnviar.classList.toggle('d-none', !temItens);
+        btnLimpar.classList.toggle('d-none', !temItens);
+    }
+
+    btnLimpar.addEventListener('click', function () {
+        listaAnexos.innerHTML = '';
+        inputOculto.value = '';
+        atualizarVisibilidade();
+    });
+
+    btnAdicionar.addEventListener('click', function () {
+        inputOculto.value = '';
+        inputOculto.click();
+    });
+
+    inputOculto.addEventListener('change', function () {
+        Array.from(this.files).forEach(function (file) {
+            adicionarItem(file);
+        });
+        atualizarVisibilidade();
+    });
+
+    // No submit: reindexar campos e reconstruir FileList a partir dos elementos
+    document.getElementById('formAnexos').addEventListener('submit', function (e) {
+        const itens = Array.from(listaAnexos.querySelectorAll('.anexo-item'));
+
+        if (itens.length === 0) {
+            e.preventDefault();
+            return;
+        }
+
+        // Reindexar campos de metadados para 0,1,2... na ordem atual da lista
+        itens.forEach(function (item, novoIdx) {
+            const oldIdx = parseInt(item.dataset.idx, 10);
+            ['categorias', 'descricoes', 'numeros'].forEach(function (campo) {
+                const el = item.querySelector(`[name^="${campo}["]`);
+                if (el) el.name = `${campo}[${novoIdx}]`;
+            });
+        });
+
+        // Reconstruir FileList com os arquivos na mesma ordem
+        const dt = new DataTransfer();
+        itens.forEach(function (item) {
+            if (item._file) dt.items.add(item._file);
+        });
+
+        inputOculto.name = 'arquivos[]';
+        inputOculto.files = dt.files;
     });
 });
 </script>

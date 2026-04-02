@@ -260,69 +260,117 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $file = $request->files->get('arquivo');
+        /** @var \Symfony\Component\HttpFoundation\File\UploadedFile[] $arquivos */
+        $arquivos = $request->files->get('arquivos', []);
 
-        if ($file === null) {
+        if (empty($arquivos)) {
             $this->addFlash('error', 'Nenhum arquivo enviado.');
 
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }
 
-        $mimeType = $file->getMimeType() ?? '';
-
-        if (!array_key_exists($mimeType, self::MIME_LIMITS)) {
-            $this->addFlash('error', sprintf('Tipo de arquivo não permitido: %s.', $mimeType));
-
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-        }
-
-        $tamanho = $file->getSize();
-        $limite  = self::MIME_LIMITS[$mimeType];
-
-        if ($tamanho > $limite) {
-            $this->addFlash('error', sprintf(
-                'Arquivo excede o tamanho máximo permitido de %d MB.',
-                intdiv($limite, 1024 * 1024)
-            ));
-
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-        }
-
-        $nomeUnico = bin2hex(random_bytes(16)) . '.' . $file->guessExtension();
-
         if (!is_dir($this->uploadsDir)) {
             mkdir($this->uploadsDir, 0755, true);
         }
 
-        $file->move($this->uploadsDir, $nomeUnico);
+        $categorias  = $request->request->all('categorias');
+        $descricoes  = $request->request->all('descricoes');
+        $numeros     = $request->request->all('numeros');
 
-        $titulo    = trim((string) $request->request->get('titulo', ''));
-        $categoria = strtoupper(trim((string) $request->request->get('categoria', PastaDocumento::CATEGORIA_DEMAIS)));
-        $descricao = trim((string) $request->request->get('descricao', ''));
+        $erros    = [];
+        $salvos   = 0;
 
-        if (!array_key_exists($categoria, self::DOCUMENT_TYPES)) {
-            $this->addFlash('error', 'Categoria de documento inválida.');
+        foreach ($arquivos as $i => $file) {
+            if ($file === null) {
+                continue;
+            }
 
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+            $mimeType = $file->getMimeType() ?? '';
+
+            if (!array_key_exists($mimeType, self::MIME_LIMITS)) {
+                $erros[] = sprintf('"%s": tipo não permitido (%s).', $file->getClientOriginalName(), $mimeType);
+                continue;
+            }
+
+            $tamanho = $file->getSize();
+            $limite  = self::MIME_LIMITS[$mimeType];
+
+            if ($tamanho > $limite) {
+                $erros[] = sprintf(
+                    '"%s": excede o limite de %d MB.',
+                    $file->getClientOriginalName(),
+                    intdiv($limite, 1024 * 1024)
+                );
+                continue;
+            }
+
+            $categoriaRaw = isset($categorias[$i]) ? strtoupper(trim((string) $categorias[$i])) : PastaDocumento::CATEGORIA_DEMAIS;
+            $categoria    = array_key_exists($categoriaRaw, self::DOCUMENT_TYPES) ? $categoriaRaw : PastaDocumento::CATEGORIA_DEMAIS;
+            $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
+            $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
+
+            $nomeUnico = bin2hex(random_bytes(16)) . '.' . $file->guessExtension();
+            $file->move($this->uploadsDir, $nomeUnico);
+
+            $doc = new PastaDocumento();
+            $doc->setPasta($pasta);
+            $doc->setTitulo($file->getClientOriginalName());
+            $doc->setCategoria($categoria);
+            $doc->setDescricao($descricao !== '' ? $descricao : null);
+            $doc->setNumero($numero !== '' ? $numero : null);
+            $doc->setCaminhoArquivo($nomeUnico);
+            $doc->setNomeOriginal($file->getClientOriginalName());
+            $doc->setMimeType($mimeType);
+            $doc->setTamanhoBytes($tamanho);
+
+            $this->em->persist($doc);
+            $this->markChecklistByCategoria($pasta, $categoria);
+            ++$salvos;
         }
 
-        $doc = new PastaDocumento();
-        $doc->setPasta($pasta);
-        $doc->setTitulo($titulo !== '' ? $titulo : $file->getClientOriginalName());
-        $doc->setCategoria($categoria);
-        $doc->setDescricao($descricao !== '' ? $descricao : null);
-        $doc->setCaminhoArquivo($nomeUnico);
-        $doc->setNomeOriginal($file->getClientOriginalName());
-        $doc->setMimeType($mimeType);
-        $doc->setTamanhoBytes($tamanho);
-
-        $this->em->persist($doc);
-        $this->markChecklistByCategoria($pasta, $categoria);
         $this->em->flush();
 
-        $this->addFlash('success', 'Documento enviado com sucesso.');
+        if ($erros) {
+            foreach ($erros as $erro) {
+                $this->addFlash('error', $erro);
+            }
+        }
+
+        if ($salvos > 0) {
+            $this->addFlash('success', sprintf(
+                '%d documento%s enviado%s com sucesso.',
+                $salvos,
+                $salvos > 1 ? 's' : '',
+                $salvos > 1 ? 's' : ''
+            ));
+        }
 
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+    }
+
+    #[Route('/documento/{id}/visualizar', name: 'pasta_documento_view', methods: ['GET'])]
+    public function viewDocumento(PastaDocumento $doc): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $doc->getPasta()?->getId();
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
+        }
+
+        $caminho = $this->uploadsDir . '/' . $doc->getCaminhoArquivo();
+
+        if (!file_exists($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
+        }
+
+        $response = new BinaryFileResponse($caminho);
+        $response->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_INLINE,
+            $doc->getNomeOriginal()
+        );
+
+        return $response;
     }
 
     #[Route('/documento/{id}/download', name: 'pasta_documento_download', methods: ['GET'])]
@@ -350,6 +398,44 @@ class PastaController extends AbstractController
         );
 
         return $response;
+    }
+
+    #[Route('/documento/{id}/editar', name: 'pasta_documento_edit', methods: ['POST'])]
+    public function editDocumento(PastaDocumento $doc, Request $request): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaForCheck = $doc->getPasta();
+        if ($pastaForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pastaForCheck->getId(), 'edit')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para editar documentos desta pasta.');
+        }
+
+        if (!$this->isCsrfTokenValid('edit_documento_'.$doc->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $categoriaRaw = strtoupper(trim((string) $request->request->get('categoria', '')));
+        $categoria    = array_key_exists($categoriaRaw, self::DOCUMENT_TYPES) ? $categoriaRaw : $doc->getCategoria();
+
+        $descricao = trim((string) $request->request->get('descricao', ''));
+        $numero    = trim((string) $request->request->get('numero', ''));
+
+        $categoriaAnterior = $doc->getCategoria();
+        $doc->setCategoria($categoria);
+        $doc->setDescricao($descricao !== '' ? $descricao : null);
+        $doc->setNumero($numero !== '' ? $numero : null);
+
+        $pasta = $doc->getPasta();
+        if ($pasta !== null && $categoriaAnterior !== $categoria) {
+            $this->recalculateChecklistAfterDelete($pasta, $categoriaAnterior);
+            $this->markChecklistByCategoria($pasta, $categoria);
+        }
+
+        $this->em->flush();
+
+        $this->addFlash('success', 'Documento atualizado com sucesso.');
+
+        return $this->redirectToRoute('pasta_show', ['id' => $doc->getPasta()?->getId()]);
     }
 
     #[Route('/documento/{id}/deletar', name: 'pasta_documento_delete', methods: ['POST'])]

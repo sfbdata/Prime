@@ -48,6 +48,9 @@ class PastaDocumento
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $uploadedAt;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $numero = null;
+
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Pasta $pasta = null;
@@ -149,6 +152,18 @@ class PastaDocumento
     public function getUploadedAt(): \DateTimeImmutable
     {
         return $this->uploadedAt;
+    }
+
+    public function getNumero(): ?string
+    {
+        return $this->numero;
+    }
+
+    public function setNumero(?string $numero): self
+    {
+        $this->numero = $numero;
+
+        return $this;
     }
 
     public function getPasta(): ?Pasta
