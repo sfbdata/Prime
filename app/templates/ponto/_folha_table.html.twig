@@ -26,9 +26,15 @@
         {% endif %}
 
         {% if exportarFolhaHabilitado and exportarAnoResolved and exportarMesResolved %}
-            <a href="{{ path(exportarFolhaRota, exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}" class="btn btn-sm btn-success">
-                <i class="bi bi-file-earmark-spreadsheet"></i> Exportar Folha XLSX
-            </a>
+            {% if exportarFolhaRota == 'ponto_exportar_pdf' %}
+                <a href="{{ path(exportarFolhaRota, exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}" class="btn btn-sm btn-danger">
+                    <i class="bi bi-file-earmark-pdf"></i> Exportar Folha PDF
+                </a>
+            {% else %}
+                <a href="{{ path(exportarFolhaRota, exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}" class="btn btn-sm btn-success">
+                    <i class="bi bi-file-earmark-spreadsheet"></i> Exportar Folha XLSX
+                </a>
+            {% endif %}
         {% endif %}
     </div>
 

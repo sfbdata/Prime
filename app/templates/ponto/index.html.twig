@@ -17,7 +17,8 @@
                     <h3 class="card-title">Registrar Ponto</h3>
                 </div>
                 <div class="card-body text-center">
-                    <div id="clock" class="h1 mb-4">00:00:00</div>
+                    <div id="clock" class="h1 mb-4" title="Tempo trabalhado hoje">00:00:00</div>
+                    <div id="clock-label" class="text-muted small mb-2"></div>
 
                     <div id="gps-status" class="alert alert-info small mb-3">
                         <i class="bi bi-geo-alt"></i> Aguardando geolocalização
@@ -49,7 +50,8 @@
                 competenciaSelecionada: competenciaSelecionada,
                 competenciaFormAction: path('ponto_index'),
                 competenciaFieldId: 'competencia-ponto-index',
-                exportarFolhaHabilitado: true
+                exportarFolhaHabilitado: true,
+                exportarFolhaRota: 'ponto_exportar_pdf'
             } %}
         </div>
     </div>
@@ -58,13 +60,73 @@
 <script>
     const GPS_PRECISAO_ACEITAVEL_METROS = 90;
 
-    // Relógio em tempo real
-    function updateClock() {
-        const now = new Date();
-        document.getElementById('clock').textContent = now.toLocaleTimeString('pt-BR');
-    }
-    setInterval(updateClock, 1000);
-    updateClock();
+    // Contador de tempo trabalhado no dia
+    (function() {
+        const pontoHoje = {{ pontoHoje|default({})|json_encode|raw }};
+
+        const clockEl = document.getElementById('clock');
+        const labelEl = document.getElementById('clock-label');
+
+        function parseHMS(hms) {
+            if (!hms) return null;
+            const today = new Date().toISOString().slice(0, 10);
+            return new Date(today + 'T' + hms);
+        }
+
+        const tEntrada = parseHMS(pontoHoje.entrada);
+        const tRepouso = parseHMS(pontoHoje.repouso);
+        const tRetorno = parseHMS(pontoHoje.retorno);
+        const tSaida   = parseHMS(pontoHoje.saida);
+
+        function calcSegundosTrabalhados(agora) {
+            if (!tEntrada) return 0;
+
+            let total = 0;
+            const fim1 = tRepouso || tSaida || agora;
+            total += Math.max(0, fim1 - tEntrada);
+
+            if (tRetorno) {
+                const fim2 = tSaida || agora;
+                total += Math.max(0, fim2 - tRetorno);
+            }
+
+            return Math.floor(total / 1000);
+        }
+
+        function formatarTempo(segundos) {
+            const h = Math.floor(segundos / 3600);
+            const m = Math.floor((segundos % 3600) / 60);
+            const s = segundos % 60;
+            return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+
+        function updateClock() {
+            const agora = new Date();
+            let label = '';
+
+            if (!tEntrada) {
+                clockEl.textContent = '00:00:00';
+                label = 'Aguardando entrada';
+            } else if (tSaida) {
+                const segundos = calcSegundosTrabalhados(agora);
+                clockEl.textContent = formatarTempo(segundos);
+                label = 'Jornada encerrada';
+            } else if (tRepouso && !tRetorno) {
+                const segundos = calcSegundosTrabalhados(agora);
+                clockEl.textContent = formatarTempo(segundos);
+                label = 'Em repouso';
+            } else {
+                const segundos = calcSegundosTrabalhados(agora);
+                clockEl.textContent = formatarTempo(segundos);
+                label = 'Tempo trabalhado';
+            }
+
+            labelEl.textContent = label;
+        }
+
+        setInterval(updateClock, 1000);
+        updateClock();
+    })();
 
     const btnPonto = document.getElementById('btn-bater-ponto');
     const gpsStatus = document.getElementById('gps-status');
@@ -78,33 +140,40 @@
     tipoRegistro.addEventListener('change', updateButtonState);
 
     // Geolocalização obrigatória
+    function aplicarPosicao(position) {
+        const accuracy = position.coords.accuracy;
+        currentLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            precisaoGps: accuracy,
+        };
+
+        if (accuracy <= GPS_PRECISAO_ACEITAVEL_METROS) {
+            gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS: ${accuracy.toFixed(1)}m de precisão`;
+            gpsStatus.className = 'alert alert-success small mb-3';
+        } else {
+            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> GPS impreciso (${accuracy.toFixed(1)}m). O sistema ainda validará se você está dentro do raio de alguma sede.`;
+            gpsStatus.className = 'alert alert-warning small mb-3';
+        }
+
+        updateButtonState();
+    }
+
+    function erroGps(error) {
+        gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Permita o acesso à localização para registrar o ponto.`;
+        gpsStatus.className = 'alert alert-danger small mb-3';
+        btnPonto.disabled = true;
+        console.log('GPS não disponível:', error.message);
+    }
+
     if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const accuracy = position.coords.accuracy;
-                currentLocation = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    precisaoGps: accuracy,
-                };
-
-                gpsStatus.innerHTML = `<i class="bi bi-geo-alt-fill"></i> GPS: ${accuracy.toFixed(1)}m de precisão`;
-                if (accuracy <= GPS_PRECISAO_ACEITAVEL_METROS) {
-                    gpsStatus.className = 'alert alert-success small mb-3';
-                } else {
-                    gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> GPS impreciso (${accuracy.toFixed(1)}m). O sistema ainda validará se você está dentro do raio de alguma sede.`;
-                    gpsStatus.className = 'alert alert-warning small mb-3';
-                }
-
-                updateButtonState();
-            },
+            aplicarPosicao,
             (error) => {
-                gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Permita o acesso à localização para registrar o ponto.`;
-                gpsStatus.className = 'alert alert-danger small mb-3';
-                btnPonto.disabled = true;
-                console.log('GPS não disponível:', error.message);
+                // Fallback sem alta precisão caso o primeiro tente atingir timeout
+                navigator.geolocation.getCurrentPosition(aplicarPosicao, erroGps, { timeout: 10000 });
             },
-            { enableHighAccuracy: true, timeout: 5000 }
+            { enableHighAccuracy: true, timeout: 10000 }
         );
     } else {
         gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
