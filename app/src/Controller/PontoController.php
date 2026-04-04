@@ -45,7 +45,12 @@ final class PontoController extends AbstractController
         $ano = (int) $agora->format('Y');
         $competenciaAtual = $agora->format('Y-m');
 
-        $competenciasPonto = $repository->findCompetenciasComRegistroPorUsuario($user);
+        $limiteMinimo = $agora->modify('first day of last month')->format('Y-m');
+
+        $competenciasPonto = array_values(array_filter(
+            $repository->findCompetenciasComRegistroPorUsuario($user),
+            fn($c) => $c['valor'] >= $limiteMinimo
+        ));
         $competenciasDisponiveis = array_column($competenciasPonto, 'valor');
 
         if (!in_array($competenciaAtual, $competenciasDisponiveis, true)) {
