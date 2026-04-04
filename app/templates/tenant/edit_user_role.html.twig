@@ -5,155 +5,323 @@
 {% block body %}
 <section class="content-header">
     <div class="container-fluid">
-        <h1 class="m-0"><i class="bi bi-shield-lock me-2"></i>Editar Permissões</h1>
+        <h1 class="m-0"><i class="bi bi-shield-lock me-2"></i>Editar Permissões — {{ user.fullName }}</h1>
     </div>
 </section>
 
 <section class="content">
     <div class="container-fluid">
         <div class="row justify-content-center">
-            <div class="col-lg-6 col-md-8">
+            <div class="col-lg-8 col-md-10">
 
-                {# Perfil e senha #}
-                <div class="card card-outline card-primary mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-person me-2"></i>{{ user.fullName }}</h3>
-                    </div>
-                    <div class="card-body">
-                        {{ form_start(form) }}
-                            <div class="mb-4">
-                                {{ form_label(form.tenantRole, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
-                                {{ form_widget(form.tenantRole) }}
-                                {{ form_errors(form.tenantRole) }}
+                <ul class="nav nav-tabs mb-3" id="editUserTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-perfil-btn" data-bs-toggle="tab" data-bs-target="#tab-perfil" type="button" role="tab">
+                            <i class="bi bi-person me-1"></i>Perfil e Senha
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-acessos-btn" data-bs-toggle="tab" data-bs-target="#tab-acessos" type="button" role="tab">
+                            <i class="bi bi-unlock me-1"></i>Acessos Específicos
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-escala-btn" data-bs-toggle="tab" data-bs-target="#tab-escala" type="button" role="tab">
+                            <i class="bi bi-clock me-1"></i>Escala de Trabalho
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-ponto-btn" data-bs-toggle="tab" data-bs-target="#tab-ponto" type="button" role="tab">
+                            <i class="bi bi-calendar-check me-1"></i>Batidas de Ponto
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="editUserTabsContent">
+
+                    {# Aba: Perfil e Senha #}
+                    <div class="tab-pane fade show active" id="tab-perfil" role="tabpanel">
+                        <div class="card card-outline card-primary mb-3">
+                            <div class="card-header">
+                                <h3 class="card-title"><i class="bi bi-person me-2"></i>{{ user.fullName }}</h3>
                             </div>
+                            <div class="card-body">
+                                {{ form_start(form) }}
+                                    <div class="mb-4">
+                                        {{ form_label(form.tenantRole, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                                        {{ form_widget(form.tenantRole) }}
+                                        {{ form_errors(form.tenantRole) }}
+                                    </div>
 
-                            <div class="mb-4">
-                                <label class="form-label fw-bold d-block">Status da conta</label>
-                                <div class="d-flex align-items-center gap-3">
-                                    {% if user.isActive %}
-                                        <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ativa</span>
-                                    {% else %}
-                                        <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Inativa</span>
-                                    {% endif %}
-                                    <div class="form-check form-switch mb-0">
-                                        {{ form_widget(form.isActive, {'attr': {'class': 'form-check-input', 'role': 'switch', 'id': 'isActiveSwitch'}}) }}
-                                        <label class="form-check-label" for="isActiveSwitch">Ativar / Desativar</label>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-bold d-block">Status da conta</label>
+                                        <div class="d-flex align-items-center gap-3">
+                                            {% if user.isActive %}
+                                                <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ativa</span>
+                                            {% else %}
+                                                <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Inativa</span>
+                                            {% endif %}
+                                            <div class="form-check form-switch mb-0">
+                                                {{ form_widget(form.isActive, {'attr': {'class': 'form-check-input', 'role': 'switch', 'id': 'isActiveSwitch'}}) }}
+                                                <label class="form-check-label" for="isActiveSwitch">Ativar / Desativar</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-4">
+
+                                    <h6 class="mb-3"><i class="bi bi-key me-1"></i>Alterar Senha (opcional)</h6>
+                                    <p class="text-muted small">Preencha os campos abaixo apenas se desejar alterar a senha.</p>
+
+                                    <div class="mb-3">
+                                        {{ form_label(form.newPassword.first, null, {'label_attr': {'class': 'form-label'}}) }}
+                                        {{ form_widget(form.newPassword.first, {'attr': {'class': 'form-control'}}) }}
+                                        {{ form_errors(form.newPassword.first) }}
+                                    </div>
+
+                                    <div class="mb-3">
+                                        {{ form_label(form.newPassword.second, null, {'label_attr': {'class': 'form-label'}}) }}
+                                        {{ form_widget(form.newPassword.second, {'attr': {'class': 'form-control'}}) }}
+                                        {{ form_errors(form.newPassword.second) }}
+                                    </div>
+
+                                    {{ form_errors(form.newPassword) }}
+                            </div>
+                            <div class="card-footer">
+                                <div class="d-flex gap-2 justify-content-between">
+                                    <a href="{{ path('app_tenant_users', {id: user.tenant.id}) }}" class="btn btn-outline-secondary">
+                                        <i class="bi bi-arrow-left me-1"></i>Voltar
+                                    </a>
+                                    <button class="btn btn-primary">
+                                        <i class="bi bi-check-lg me-1"></i>Salvar
+                                    </button>
+                                </div>
+                            </div>
+                            {{ form_end(form) }}
+                        </div>
+                    </div>
+
+                    {# Aba: Acessos específicos por item #}
+                    <div class="tab-pane fade" id="tab-acessos" role="tabpanel">
+                        <div class="card card-outline card-secondary mb-3">
+                            <div class="card-header">
+                                <h3 class="card-title"><i class="bi bi-unlock me-2"></i>Acessos específicos por item</h3>
+                            </div>
+                            <div class="card-body p-0">
+                                {% if userAccesses is empty %}
+                                    <p class="text-muted small p-3 mb-0">Nenhum acesso específico concedido a este usuário.</p>
+                                {% else %}
+                                    <table class="table table-hover mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Tipo</th>
+                                                <th>Item</th>
+                                                <th>Permissões</th>
+                                                <th>Concedido por</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for ra in userAccesses %}
+                                                {% set label = resourceLabels[ra.resourceType][ra.resourceId] ?? (ra.resourceType ~ ' #' ~ ra.resourceId) %}
+                                                <tr>
+                                                    <td class="align-middle">
+                                                        <span class="badge text-bg-light border text-capitalize">{{ ra.resourceType }}</span>
+                                                    </td>
+                                                    <td class="align-middle">{{ label }}</td>
+                                                    <td class="align-middle">
+                                                        {% if ra.canView %}
+                                                            <span class="badge text-bg-info me-1">Ver</span>
+                                                        {% endif %}
+                                                        {% if ra.canEdit %}
+                                                            <span class="badge text-bg-warning text-dark me-1">Editar</span>
+                                                        {% endif %}
+                                                        {% if ra.canDelete %}
+                                                            <span class="badge text-bg-danger me-1">Excluir</span>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="align-middle small text-muted">
+                                                        {% if ra.grantedBy %}
+                                                            {{ ra.grantedBy.fullName }}
+                                                        {% else %}
+                                                            —
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="align-middle text-end">
+                                                        <form method="POST"
+                                                              action="{{ path('app_tenant_user_resource_access_remove', {tenantId: tenantId, userId: user.id, raId: ra.id}) }}"
+                                                              onsubmit="return confirm('Remover este acesso específico?')">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('remove_resource_access_' ~ ra.id) }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover acesso">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    {# Aba: Escala de Trabalho #}
+                    <div class="tab-pane fade" id="tab-escala" role="tabpanel">
+                        <div class="card card-outline card-warning mb-3">
+                            <div class="card-header">
+                                <h3 class="card-title"><i class="bi bi-clock me-2"></i>Escala de Trabalho</h3>
+                            </div>
+                            {{ form_start(escalaForm, {action: path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id})}) }}
+                            <div class="card-body">
+                                <div class="row g-3 mb-3">
+                                    <div class="col-6">
+                                        {{ form_label(escalaForm.entrada1, null, {label_attr: {class: 'form-label'}}) }}
+                                        {{ form_widget(escalaForm.entrada1, {attr: {class: 'form-control', type: 'time'}}) }}
+                                        {{ form_errors(escalaForm.entrada1) }}
+                                    </div>
+                                    <div class="col-6">
+                                        {{ form_label(escalaForm.saida1, null, {label_attr: {class: 'form-label'}}) }}
+                                        {{ form_widget(escalaForm.saida1, {attr: {class: 'form-control', type: 'time'}}) }}
+                                        {{ form_errors(escalaForm.saida1) }}
+                                    </div>
+                                    <div class="col-6">
+                                        {{ form_label(escalaForm.entrada2, null, {label_attr: {class: 'form-label'}}) }}
+                                        {{ form_widget(escalaForm.entrada2, {attr: {class: 'form-control', type: 'time'}}) }}
+                                        {{ form_errors(escalaForm.entrada2) }}
+                                    </div>
+                                    <div class="col-6">
+                                        {{ form_label(escalaForm.saida2, null, {label_attr: {class: 'form-label'}}) }}
+                                        {{ form_widget(escalaForm.saida2, {attr: {class: 'form-control', type: 'time'}}) }}
+                                        {{ form_errors(escalaForm.saida2) }}
+                                    </div>
+                                </div>
+
+                                <hr>
+
+                                <div class="form-check form-switch mb-3">
+                                    {{ form_widget(escalaForm.sabadoAtivado, {attr: {class: 'form-check-input', id: 'sabadoSwitch'}}) }}
+                                    <label class="form-check-label" for="sabadoSwitch">Trabalha aos sábados</label>
+                                </div>
+
+                                <div id="escala-sabado" class="{{ escalaForm.sabadoAtivado.vars.data ? '' : 'd-none' }}">
+                                    <div class="row g-3">
+                                        <div class="col-6">
+                                            {{ form_label(escalaForm.entradaSabado, null, {label_attr: {class: 'form-label'}}) }}
+                                            {{ form_widget(escalaForm.entradaSabado, {attr: {class: 'form-control', type: 'time'}}) }}
+                                            {{ form_errors(escalaForm.entradaSabado) }}
+                                        </div>
+                                        <div class="col-6">
+                                            {{ form_label(escalaForm.saidaSabado, null, {label_attr: {class: 'form-label'}}) }}
+                                            {{ form_widget(escalaForm.saidaSabado, {attr: {class: 'form-control', type: 'time'}}) }}
+                                            {{ form_errors(escalaForm.saidaSabado) }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-
-                            <hr class="my-4">
-
-                            <h6 class="mb-3"><i class="bi bi-key me-1"></i>Alterar Senha (opcional)</h6>
-                            <p class="text-muted small">Preencha os campos abaixo apenas se desejar alterar a senha.</p>
-
-                            <div class="mb-3">
-                                {{ form_label(form.newPassword.first, null, {'label_attr': {'class': 'form-label'}}) }}
-                                {{ form_widget(form.newPassword.first, {'attr': {'class': 'form-control'}}) }}
-                                {{ form_errors(form.newPassword.first) }}
+                            <div class="card-footer text-end">
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="bi bi-save me-1"></i>Salvar Escala
+                                </button>
                             </div>
-
-                            <div class="mb-3">
-                                {{ form_label(form.newPassword.second, null, {'label_attr': {'class': 'form-label'}}) }}
-                                {{ form_widget(form.newPassword.second, {'attr': {'class': 'form-control'}}) }}
-                                {{ form_errors(form.newPassword.second) }}
-                            </div>
-
-                            {{ form_errors(form.newPassword) }}
-                    </div>
-                    <div class="card-footer">
-                        <div class="d-flex gap-2 justify-content-between">
-                            <a href="{{ path('app_tenant_users', {id: user.tenant.id}) }}" class="btn btn-outline-secondary">
-                                <i class="bi bi-arrow-left me-1"></i>Voltar
-                            </a>
-                            <button class="btn btn-primary">
-                                <i class="bi bi-check-lg me-1"></i>Salvar
-                            </button>
+                            {{ form_end(escalaForm) }}
                         </div>
                     </div>
-                    {{ form_end(form) }}
-                </div>
 
-                {# Acessos específicos por item #}
-                <div class="card card-outline card-secondary mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-unlock me-2"></i>Acessos específicos por item</h3>
+                    {# Aba: Batidas de Ponto #}
+                    <div class="tab-pane fade" id="tab-ponto" role="tabpanel">
+                        {% include 'ponto/_folha_table.html.twig' with {
+                            titulo: 'Batidas de ponto' ~ (
+                                mesCompetenciaPonto and anoCompetenciaPonto
+                                    ? ' - ' ~ ('%02d'|format(mesCompetenciaPonto)) ~ '/' ~ anoCompetenciaPonto
+                                    : ''
+                            ),
+                            folhaRows: folhaRowsPonto,
+                            competenciasPonto: competenciasPonto,
+                            competenciaSelecionada: competenciaSelecionada,
+                            competenciaFormAction: path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id}),
+                            competenciaFieldId: 'competencia-ponto-user',
+                            exportarFolhaHabilitado: true,
+                            exportarFolhaParametros: {userId: user.id},
+                            mostrarBancoHoras: true,
+                            editarBatidasHabilitado: true,
+                            editarBatidasRotaAdd: 'app_tenant_user_ponto_add',
+                            editarBatidasRotaEdit: 'app_tenant_user_ponto_edit',
+                            editarBatidasRotaDelete: 'app_tenant_user_ponto_delete',
+                            editarBatidasParametros: {tenantId: tenantId, id: user.id}
+                        } only %}
                     </div>
-                    <div class="card-body p-0">
-                        {% if userAccesses is empty %}
-                            <p class="text-muted small p-3 mb-0">Nenhum acesso específico concedido a este usuário.</p>
-                        {% else %}
-                            <table class="table table-hover mb-0">
-                                <thead>
-                                    <tr>
-                                        <th>Tipo</th>
-                                        <th>Item</th>
-                                        <th>Permissões</th>
-                                        <th>Concedido por</th>
-                                        <th></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for ra in userAccesses %}
-                                        {% set label = resourceLabels[ra.resourceType][ra.resourceId] ?? (ra.resourceType ~ ' #' ~ ra.resourceId) %}
-                                        <tr>
-                                            <td class="align-middle">
-                                                <span class="badge text-bg-light border text-capitalize">{{ ra.resourceType }}</span>
-                                            </td>
-                                            <td class="align-middle">{{ label }}</td>
-                                            <td class="align-middle">
-                                                {% if ra.canView %}
-                                                    <span class="badge text-bg-info me-1">Ver</span>
-                                                {% endif %}
-                                                {% if ra.canEdit %}
-                                                    <span class="badge text-bg-warning text-dark me-1">Editar</span>
-                                                {% endif %}
-                                                {% if ra.canDelete %}
-                                                    <span class="badge text-bg-danger me-1">Excluir</span>
-                                                {% endif %}
-                                            </td>
-                                            <td class="align-middle small text-muted">
-                                                {% if ra.grantedBy %}
-                                                    {{ ra.grantedBy.fullName }}
-                                                {% else %}
-                                                    —
-                                                {% endif %}
-                                            </td>
-                                            <td class="align-middle text-end">
-                                                <form method="POST"
-                                                      action="{{ path('app_tenant_user_resource_access_remove', {tenantId: tenantId, userId: user.id, raId: ra.id}) }}"
-                                                      onsubmit="return confirm('Remover este acesso específico?')">
-                                                    <input type="hidden" name="_token" value="{{ csrf_token('remove_resource_access_' ~ ra.id) }}">
-                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover acesso">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        {% endif %}
-                    </div>
-                </div>
 
-                {% include 'ponto/_folha_table.html.twig' with {
-                    titulo: 'Batidas de ponto' ~ (
-                        mesCompetenciaPonto and anoCompetenciaPonto
-                            ? ' - ' ~ ('%02d'|format(mesCompetenciaPonto)) ~ '/' ~ anoCompetenciaPonto
-                            : ''
-                    ),
-                    folhaRows: folhaRowsPonto,
-                    competenciasPonto: competenciasPonto,
-                    competenciaSelecionada: competenciaSelecionada,
-                    competenciaFormAction: path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id}),
-                    competenciaFieldId: 'competencia-ponto-user',
-                    exportarFolhaHabilitado: true,
-                    exportarFolhaParametros: {userId: user.id}
-                } only %}
+                </div>{# /tab-content #}
 
             </div>
         </div>
     </div>
 </section>
+
+{# Modal: Adicionar batida manual #}
+<div class="modal fade" id="modalAddBatida" tabindex="-1" aria-labelledby="modalAddBatidaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="post" action="{{ path('app_tenant_user_ponto_add', {tenantId: tenantId, id: user.id}) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalAddBatidaLabel"><i class="bi bi-plus-circle me-2"></i>Adicionar Batida</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="competencia" id="modalAddCompetencia" value="{{ competenciaSelecionada }}">
+                    <div class="mb-3">
+                        <label class="form-label">Data</label>
+                        <input type="date" name="registro_ponto_manual[data]" id="modalAddData" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hora</label>
+                        <input type="time" name="registro_ponto_manual[hora]" id="modalAddHora" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select name="registro_ponto_manual[tipo]" id="modalAddTipo" class="form-select" required>
+                            <option value="entrada">Entrada</option>
+                            <option value="repouso">Repouso</option>
+                            <option value="retorno">Retorno</option>
+                            <option value="saida">Saída</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observação <span class="text-muted small">(opcional)</span></label>
+                        <textarea name="registro_ponto_manual[observacao]" class="form-control" rows="2" placeholder="Motivo do lançamento manual"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+<script>
+    document.getElementById('sabadoSwitch').addEventListener('change', function () {
+        document.getElementById('escala-sabado').classList.toggle('d-none', !this.checked);
+    });
+
+    function abrirModalAddBatida(tipo, data) {
+        document.getElementById('modalAddTipo').value = tipo;
+        document.getElementById('modalAddData').value = data;
+        new bootstrap.Modal(document.getElementById('modalAddBatida')).show();
+    }
+
+    // Ativa a aba correta se a URL tiver ?tab=ponto
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('tab') === 'ponto') {
+        var tabBtn = document.getElementById('tab-ponto-btn');
+        if (tabBtn) {
+            new bootstrap.Tab(tabBtn).show();
+        }
+    }
+</script>
 {% endblock %}

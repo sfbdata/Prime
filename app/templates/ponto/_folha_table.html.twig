@@ -4,6 +4,12 @@
 {% set exportarFolhaHabilitado = exportarFolhaHabilitado|default(false) %}
 {% set exportarFolhaRota = exportarFolhaRota|default('ponto_exportar_xlsx') %}
 {% set exportarFolhaParametros = exportarFolhaParametros|default({}) %}
+{% set mostrarBancoHoras = mostrarBancoHoras|default(false) %}
+{% set editarBatidasHabilitado = editarBatidasHabilitado|default(false) %}
+{% set editarBatidasRotaAdd = editarBatidasRotaAdd|default('') %}
+{% set editarBatidasRotaEdit = editarBatidasRotaEdit|default('') %}
+{% set editarBatidasRotaDelete = editarBatidasRotaDelete|default('') %}
+{% set editarBatidasParametros = editarBatidasParametros|default({}) %}
 
 <div class="card card-outline card-info mb-3">
     <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
@@ -53,6 +59,11 @@
                         <th>Repouso</th>
                         <th>Retorno</th>
                         <th>Saída</th>
+                        {% if mostrarBancoHoras %}
+                            <th title="Horas trabalhadas no dia">Trabalhado</th>
+                            <th title="Saldo do dia (positivo = extra, negativo = falta)">Saldo Dia</th>
+                            <th title="Saldo acumulado no mês">Banco de Horas</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -60,10 +71,78 @@
                         <tr class="{{ linha.fimSemana ? 'table-secondary' : '' }}">
                             <td>{{ linha.diaMes }}</td>
                             <td>{{ linha.diaSemana }}</td>
-                            <td>{{ linha.entrada }}</td>
-                            <td>{{ linha.repouso }}</td>
-                            <td>{{ linha.retorno }}</td>
-                            <td>{{ linha.saida }}</td>
+
+                            {# Macro para célula editável #}
+                            {% for tipoInfo in [
+                                {campo: 'entrada', id: linha.entradaId ?? null},
+                                {campo: 'repouso', id: linha.repousoId ?? null},
+                                {campo: 'retorno', id: linha.retornoId ?? null},
+                                {campo: 'saida',   id: linha.saidaId   ?? null}
+                            ] %}
+                                <td class="text-nowrap">
+                                    {% set horario = attribute(linha, tipoInfo.campo) %}
+                                    {% if editarBatidasHabilitado %}
+                                        <div class="d-flex align-items-center gap-1">
+                                            {% if tipoInfo.id %}
+                                                <a href="{{ path(editarBatidasRotaEdit, editarBatidasParametros|merge({registroId: tipoInfo.id, competencia: competenciaSelecionada})) }}"
+                                                   class="text-body text-decoration-none" title="Editar batida">
+                                                    {{ horario }}
+                                                </a>
+                                                <form method="post"
+                                                      action="{{ path(editarBatidasRotaDelete, editarBatidasParametros|merge({registroId: tipoInfo.id})) }}"
+                                                      class="d-inline"
+                                                      onsubmit="return confirm('Excluir esta batida?')">
+                                                    <input type="hidden" name="_token" value="{{ csrf_token('delete_ponto_' ~ tipoInfo.id) }}">
+                                                    <button type="submit" class="btn btn-link btn-sm p-0 text-danger" title="Excluir batida">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <button type="button"
+                                                        class="btn btn-link btn-sm p-0 text-secondary"
+                                                        title="Adicionar {{ tipoInfo.campo }}"
+                                                        onclick="abrirModalAddBatida('{{ tipoInfo.campo }}', '{{ linha.chaveDia }}')">
+                                                    <i class="bi bi-plus-circle"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        {{ horario }}
+                                    {% endif %}
+                                </td>
+                            {% endfor %}
+
+                            {% if mostrarBancoHoras %}
+                                <td class="text-nowrap">
+                                    {% if linha.minutosTrabalhadosDia is not null and linha.minutosTrabalhadosDia > 0 %}
+                                        {{ (linha.minutosTrabalhadosDia // 60) }}h{{ '%02d'|format(linha.minutosTrabalhadosDia % 60) }}m
+                                    {% endif %}
+                                </td>
+                                <td class="text-nowrap fw-semibold">
+                                    {% if linha.saldoDia is not null %}
+                                        {% set absSaldo = linha.saldoDia < 0 ? -linha.saldoDia : linha.saldoDia %}
+                                        {% if linha.saldoDia > 0 %}
+                                            <span class="text-success">+{{ (absSaldo // 60) }}h{{ '%02d'|format(absSaldo % 60) }}m</span>
+                                        {% elseif linha.saldoDia < 0 %}
+                                            <span class="text-danger">-{{ (absSaldo // 60) }}h{{ '%02d'|format(absSaldo % 60) }}m</span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td class="text-nowrap fw-semibold">
+                                    {% if linha.saldoAcumulado is not null %}
+                                        {% set absAcum = linha.saldoAcumulado < 0 ? -linha.saldoAcumulado : linha.saldoAcumulado %}
+                                        {% if linha.saldoAcumulado > 0 %}
+                                            <span class="text-success">+{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m</span>
+                                        {% elseif linha.saldoAcumulado < 0 %}
+                                            <span class="text-danger">-{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m</span>
+                                        {% else %}
+                                            <span class="text-muted">0h</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            {% endif %}
                         </tr>
                     {% endfor %}
                 </tbody>

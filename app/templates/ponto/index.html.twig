@@ -17,6 +17,15 @@
                     <h3 class="card-title">Registrar Ponto</h3>
                 </div>
                 <div class="card-body text-center">
+                    {% if saldoMes is not null %}
+                        {% set absAcum = saldoMes < 0 ? -saldoMes : saldoMes %}
+                        <div class="mb-3">
+                            <small class="text-muted d-block">Saldo</small>
+                            <span class="h4 fw-bold {{ saldoMes >= 0 ? 'text-success' : 'text-danger' }}">
+                                {{ saldoMes < 0 ? '-' : '+' }}{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m
+                            </span>
+                        </div>
+                    {% endif %}
                     <div id="clock" class="h1 mb-4" title="Tempo trabalhado hoje">00:00:00</div>
                     <div id="clock-label" class="text-muted small mb-2"></div>
 
@@ -51,8 +60,10 @@
                 competenciaFormAction: path('ponto_index'),
                 competenciaFieldId: 'competencia-ponto-index',
                 exportarFolhaHabilitado: true,
-                exportarFolhaRota: 'ponto_exportar_pdf'
-            } %}
+                exportarFolhaRota: 'ponto_exportar_pdf',
+                mostrarBancoHoras: true,
+                editarBatidasHabilitado: false
+            } only %}
         </div>
     </div>
 </div>

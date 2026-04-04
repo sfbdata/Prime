@@ -1,0 +1,64 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Batida de Ponto{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid">
+        <h1 class="m-0"><i class="bi bi-pencil-square me-2"></i>Editar Batida — {{ user.fullName }}</h1>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row justify-content-center">
+            <div class="col-lg-5 col-md-7">
+                <div class="card card-outline card-warning">
+                    <div class="card-header">
+                        <h3 class="card-title">
+                            <i class="bi bi-clock-history me-2"></i>
+                            Batida #{{ registro.id }} — {{ registro.dataHora|date('d/m/Y H:i') }}
+                        </h3>
+                    </div>
+                    {{ form_start(form) }}
+                    <div class="card-body">
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                {{ form_label(form.data, null, {label_attr: {class: 'form-label'}}) }}
+                                {{ form_widget(form.data, {attr: {class: 'form-control'}}) }}
+                                {{ form_errors(form.data) }}
+                            </div>
+                            <div class="col-6">
+                                {{ form_label(form.hora, null, {label_attr: {class: 'form-label'}}) }}
+                                {{ form_widget(form.hora, {attr: {class: 'form-control'}}) }}
+                                {{ form_errors(form.hora) }}
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            {{ form_label(form.tipo, null, {label_attr: {class: 'form-label'}}) }}
+                            {{ form_widget(form.tipo, {attr: {class: 'form-select'}}) }}
+                            {{ form_errors(form.tipo) }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form_label(form.observacao, null, {label_attr: {class: 'form-label'}}) }}
+                            {{ form_widget(form.observacao, {attr: {class: 'form-control'}}) }}
+                            {{ form_errors(form.observacao) }}
+                        </div>
+                        <input type="hidden" name="competencia" value="{{ competencia }}">
+                    </div>
+                    <div class="card-footer d-flex justify-content-between gap-2">
+                        <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id, competencia: competencia}) }}#tab-ponto"
+                           class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-save me-1"></i>Salvar
+                        </button>
+                    </div>
+                    {{ form_end(form) }}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
