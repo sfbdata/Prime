@@ -2,20 +2,29 @@
 
 namespace App\Service\Ponto;
 
+use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\Feriado;
 use App\Entity\Ponto\RegistroPonto;
 
 class FolhaPontoBuilder
 {
+    public function __construct(
+        private readonly CalculadoraJornada $calculadora
+    ) {}
+
     /**
      * @param RegistroPonto[] $batidas
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool}>
+     * @param Feriado[] $feriados
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
         \DateTimeImmutable $fimMes,
         array $batidas,
         bool $includeEmptyDays = true,
-        bool $orderDesc = false
+        bool $orderDesc = false,
+        ?EscalaTrabalho $escala = null,
+        array $feriados = []
     ): array {
         $registrosPorDia = [];
         foreach ($batidas as $batida) {
@@ -51,19 +60,43 @@ class FolhaPontoBuilder
         ];
 
         $rows = [];
+        $saldoAcumulado = 0;
+
         for ($dia = $inicioMes; $dia <= $fimMes; $dia = $dia->modify('+1 day')) {
             $chaveDia = $dia->format('Y-m-d');
             $indiceDiaSemana = (int) $dia->format('N');
 
             $row = [
-                'diaMes' => $dia->format('d'),
+                'diaMes'    => $dia->format('d'),
                 'diaSemana' => $diasSemana[$indiceDiaSemana],
-                'entrada' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]->getDataHora()->format('H:i:s') : '',
-                'repouso' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getDataHora()->format('H:i:s') : '',
-                'retorno' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getDataHora()->format('H:i:s') : '',
-                'saida' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getDataHora()->format('H:i:s') : '',
+                'chaveDia'  => $chaveDia,
+                'entrada'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]->getDataHora()->format('H:i:s') : '',
+                'repouso'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getDataHora()->format('H:i:s') : '',
+                'retorno'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getDataHora()->format('H:i:s') : '',
+                'saida'     => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA])   ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getDataHora()->format('H:i:s')   : '',
+                'entradaId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_ENTRADA]->getId() : null,
+                'repousoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getId() : null,
+                'retornoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getId() : null,
+                'saidaId'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA])   ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getId()   : null,
                 'fimSemana' => $indiceDiaSemana >= 6,
+                'minutosTrabalhadosDia' => null,
+                'saldoDia'       => null,
+                'saldoAcumulado' => null,
             ];
+
+            if ($escala !== null) {
+                $batidasDoDia = isset($registrosPorDia[$chaveDia])
+                    ? array_values($registrosPorDia[$chaveDia])
+                    : [];
+
+                $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
+                $saldoDia = $this->calculadora->calcularSaldoDia($escala->getUser(), $dia, $batidasDoDia, $escala, $feriados);
+                $saldoAcumulado += $saldoDia;
+
+                $row['minutosTrabalhadosDia'] = $minutos;
+                $row['saldoDia']              = $saldoDia;
+                $row['saldoAcumulado']        = $saldoAcumulado;
+            }
 
             if (
                 !$includeEmptyDays

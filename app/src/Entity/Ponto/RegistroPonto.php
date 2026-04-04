@@ -32,13 +32,13 @@ class RegistroPonto
     #[ORM\Column(type: 'datetime')]
     private ?\DateTimeInterface $dataHora = null;
 
-    #[ORM\Column(type: 'decimal', precision: 10, scale: 8)]
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 8, nullable: true)]
     private ?string $latitude = null;
 
-    #[ORM\Column(type: 'decimal', precision: 11, scale: 8)]
+    #[ORM\Column(type: 'decimal', precision: 11, scale: 8, nullable: true)]
     private ?string $longitude = null;
 
-    #[ORM\Column(type: 'decimal', precision: 10, scale: 2)]
+    #[ORM\Column(type: 'decimal', precision: 10, scale: 2, nullable: true)]
     private ?string $precisaoGps = null; // em metros
 
     #[ORM\ManyToOne]
@@ -91,7 +91,7 @@ class RegistroPonto
         return $this->latitude;
     }
 
-    public function setLatitude(string $latitude): static
+    public function setLatitude(?string $latitude): static
     {
         $this->latitude = $latitude;
         return $this;
@@ -102,7 +102,7 @@ class RegistroPonto
         return $this->longitude;
     }
 
-    public function setLongitude(string $longitude): static
+    public function setLongitude(?string $longitude): static
     {
         $this->longitude = $longitude;
         return $this;
@@ -113,7 +113,7 @@ class RegistroPonto
         return $this->precisaoGps;
     }
 
-    public function setPrecisaoGps(string $precisaoGps): static
+    public function setPrecisaoGps(?string $precisaoGps): static
     {
         $this->precisaoGps = $precisaoGps;
         return $this;

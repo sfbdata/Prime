@@ -5,7 +5,7 @@ namespace App\Entity\Ponto;
 use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: \App\Repository\Ponto\FeriadoRepository::class)]
 class Feriado
 {
     #[ORM\Id]
