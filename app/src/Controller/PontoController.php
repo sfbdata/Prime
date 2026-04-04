@@ -9,6 +9,8 @@ use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Ponto\FolhaPontoBuilder;
 use Doctrine\ORM\EntityManagerInterface;
+use Dompdf\Dompdf;
+use Dompdf\Options;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -19,6 +21,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
+use Twig\Environment;
 
 #[Route('/ponto')]
 final class PontoController extends AbstractController
@@ -69,12 +72,30 @@ final class PontoController extends AbstractController
         $batidas = $repository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
         $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, true);
 
+        $hojeStr = $agora->format('Y-m-d');
+        $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
+            ? $batidas
+            : $repository->findByUserAndCompetencia($user, $ano, $mes);
+        $batidasHoje = array_filter(
+            $batidasParaHoje,
+            fn($b) => $b->getDataHora()->format('Y-m-d') === $hojeStr
+        );
+
+        $pontoHoje = ['entrada' => null, 'repouso' => null, 'retorno' => null, 'saida' => null];
+        foreach ($batidasHoje as $batida) {
+            $tipo = $batida->getTipo();
+            if (array_key_exists($tipo, $pontoHoje)) {
+                $pontoHoje[$tipo] = $batida->getDataHora()->format('H:i:s');
+            }
+        }
+
         return $this->render('ponto/index.html.twig', [
             'folhaRows' => $folhaRows,
             'mesAtual' => $mesSelecionado,
             'anoAtual' => $anoSelecionado,
             'competenciasPonto' => $competenciasPonto,
             'competenciaSelecionada' => $competenciaSelecionada,
+            'pontoHoje' => $pontoHoje,
         ]);
     }
 
@@ -251,6 +272,83 @@ final class PontoController extends AbstractController
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         return $raioTerra * $c;
+    }
+
+    #[Route('/exportar-folha-pdf', name: 'ponto_exportar_pdf')]
+    public function exportarFolhaPdf(
+        Request $request,
+        RegistroPontoRepository $repository,
+        PermissionChecker $permissionChecker,
+        FolhaPontoBuilder $folhaPontoBuilder,
+        UserRepository $userRepository,
+        Environment $twig
+    ): Response {
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+
+        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $targetUser = $user;
+        $targetUserId = (int) $request->query->get('userId', 0);
+
+        if ($targetUserId > 0 && $targetUserId !== (int) $user->getId()) {
+            $targetUser = $userRepository->find($targetUserId);
+            if ($targetUser === null) {
+                throw $this->createNotFoundException('Usuário para exportação não encontrado.');
+            }
+
+            $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+            $isSameTenant = $targetUser->getTenant()?->getId() === $user->getTenant()?->getId();
+
+            if (!$isSuperAdmin && !($isSameTenant && $permissionChecker->canAdminister($user, 'admin.users.manage'))) {
+                throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
+            }
+        }
+
+        $mes = max(1, min(12, (int) $request->query->get('mes', (new \DateTimeImmutable())->format('m'))));
+        $ano = max(1970, (int) $request->query->get('ano', (new \DateTimeImmutable())->format('Y')));
+
+        /** @var \App\Entity\Ponto\RegistroPonto[] $batidas */
+        $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
+
+        $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
+        $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas);
+
+        $nomeUsuario = trim((string) $targetUser->getFullName());
+        if ($nomeUsuario === '') {
+            $nomeUsuario = (string) $targetUser->getUserIdentifier();
+        }
+
+        $html = $twig->render('ponto/folha_pdf.html.twig', [
+            'folhaRows' => $folhaRows,
+            'mes' => $mes,
+            'ano' => $ano,
+            'nomeUsuario' => $nomeUsuario,
+        ]);
+
+        $options = new Options();
+        $options->set('isHtml5ParserEnabled', true);
+        $options->set('isRemoteEnabled', false);
+
+        $dompdf = new Dompdf($options);
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $nomeArquivoBase = preg_replace('/[^A-Za-z0-9]+/', '', $nomeUsuario) ?: 'Usuario';
+        $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.pdf', $nomeArquivoBase, $mes, $ano);
+
+        return new Response(
+            $dompdf->output(),
+            200,
+            [
+                'Content-Type' => 'application/pdf',
+                'Content-Disposition' => sprintf('attachment; filename="%s"', $nomeArquivo),
+            ]
+        );
     }
 
     #[Route('/exportar-folha-xlsx', name: 'ponto_exportar_xlsx')]
