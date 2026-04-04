@@ -11,7 +11,8 @@ cd /var/www/app && \
 php bin/console cache:clear && \
 php bin/console doctrine:cache:clear-metadata && \
 php bin/console doctrine:cache:clear-query && \
-php bin/console doctrine:cache:clear-result
+php bin/console doctrine:cache:clear-result && \
+php bin/console doctrine:migrations:migrate --no-interaction
 "
 
 docker exec --user 1000 jusprime_php_dev bash -c "
