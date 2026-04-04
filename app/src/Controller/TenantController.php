@@ -2,16 +2,21 @@
 
 namespace App\Controller;
 
+use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
+use App\Form\EscalaTrabalhoType;
 use App\Form\EditUserTenantRoleType;
+use App\Form\RegistroPontoManualType;
 use App\Form\SedeType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
 use App\Repository\ClienteRepository;
 use App\Repository\PastaRepository;
+use App\Repository\Ponto\FeriadoRepository;
 use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
@@ -324,7 +329,7 @@ final class TenantController extends AbstractController
         return $labels;
     }
 
-        #[Route('/{tenantId}/user/{id}/edit-role', name: 'app_tenant_user_edit_role', methods: ['GET','POST'])]
+    #[Route('/{tenantId}/user/{id}/edit-role', name: 'app_tenant_user_edit_role', methods: ['GET','POST'])]
     public function editUserRole(
         int $tenantId,
         User $user,
@@ -337,6 +342,7 @@ final class TenantController extends AbstractController
         PastaRepository $pastaRepository,
         ProcessoRepository $processoRepository,
         RegistroPontoRepository $registroPontoRepository,
+        FeriadoRepository $feriadoRepository,
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder
     ): Response {
@@ -375,6 +381,50 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_users', ['id' => $tenantId]);
         }
 
+        // Escala de trabalho
+        $escala = $user->getEscalaTrabalho();
+        if ($escala === null) {
+            $escala = new EscalaTrabalho();
+            $escala->setUser($user);
+        }
+
+        $escalaForm = $this->createForm(EscalaTrabalhoType::class, $escala);
+
+        // Pré-popular campo virtual sabadoAtivado no GET
+        if (in_array(6, $escala->getDiasSemana())) {
+            $escalaForm->get('sabadoAtivado')->setData(true);
+        }
+
+        $escalaForm->handleRequest($request);
+
+        if ($escalaForm->isSubmitted() && $escalaForm->isValid()) {
+            $sabadoAtivado = (bool) $escalaForm->get('sabadoAtivado')->getData();
+            $diasSemana = [1, 2, 3, 4, 5];
+
+            if ($sabadoAtivado) {
+                $diasSemana[] = 6;
+                $entradaSab = $escala->getEntradaSabado();
+                $saidaSab   = $escala->getSaidaSabado();
+                if ($entradaSab !== null && $saidaSab !== null) {
+                    [$hE, $mE] = array_map('intval', explode(':', $entradaSab));
+                    [$hS, $mS] = array_map('intval', explode(':', $saidaSab));
+                    $escala->setCargaHorariaSabado(($hS * 60 + $mS) - ($hE * 60 + $mE));
+                }
+            } else {
+                $escala->setEntradaSabado(null);
+                $escala->setSaidaSabado(null);
+                $escala->setCargaHorariaSabado(null);
+            }
+
+            $escala->setDiasSemana($diasSemana);
+            $escala->setCargaHorariaDiaria($this->calcularCargaDiaria($escala));
+
+            $entityManager->persist($escala);
+            $entityManager->flush();
+            $this->addFlash('success', 'Escala de trabalho atualizada!');
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
+        }
+
         $userAccesses   = $resourceAccessRepository->findByUsers([$user])[(int) $user->getId()] ?? [];
         $resourceLabels = $this->resolveResourceLabels(
             [(int) $user->getId() => $userAccesses],
@@ -391,7 +441,6 @@ final class TenantController extends AbstractController
             $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
         }
 
-        $batidasPonto = [];
         $folhaRowsPonto = [];
         $mesCompetenciaPonto = null;
         $anoCompetenciaPonto = null;
@@ -401,23 +450,227 @@ final class TenantController extends AbstractController
 
             $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
             $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, false, true);
+            $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
+            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $escala, $feriados);
             $mesCompetenciaPonto = $mesSelecionado;
             $anoCompetenciaPonto = $anoSelecionado;
         }
 
         return $this->render('tenant/edit_user_role.html.twig', [
-            'form'           => $form->createView(),
-            'user'           => $user,
-            'tenantId'       => $tenantId,
-            'userAccesses'   => $userAccesses,
-            'resourceLabels' => $resourceLabels,
-            'competenciasPonto' => $competenciasPonto,
+            'form'                   => $form->createView(),
+            'escalaForm'             => $escalaForm->createView(),
+            'escala'                 => $escala,
+            'user'                   => $user,
+            'tenantId'               => $tenantId,
+            'userAccesses'           => $userAccesses,
+            'resourceLabels'         => $resourceLabels,
+            'competenciasPonto'      => $competenciasPonto,
             'competenciaSelecionada' => $competenciaSelecionada,
-            'folhaRowsPonto' => $folhaRowsPonto,
-            'mesCompetenciaPonto' => $mesCompetenciaPonto,
-            'anoCompetenciaPonto' => $anoCompetenciaPonto,
+            'folhaRowsPonto'         => $folhaRowsPonto,
+            'mesCompetenciaPonto'    => $mesCompetenciaPonto,
+            'anoCompetenciaPonto'    => $anoCompetenciaPonto,
         ]);
+    }
+
+    #[Route('/{tenantId}/user/{id}/ponto/add', name: 'app_tenant_user_ponto_add', methods: ['POST'])]
+    public function pontoAdd(
+        int $tenantId,
+        User $user,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para lançar batidas.');
+        }
+
+        $form = $this->createForm(RegistroPontoManualType::class);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            /** @var \DateTime $data */
+            $data = $form->get('data')->getData();
+            /** @var \DateTime $hora */
+            $hora = $form->get('hora')->getData();
+
+            $dataHora = new \DateTime(
+                $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
+            );
+
+            $registro = new RegistroPonto();
+            $registro->setUser($user);
+            $registro->setDataHora($dataHora);
+            $registro->setTipo($form->get('tipo')->getData());
+            $registro->setObservacao($form->get('observacao')->getData());
+            $registro->setSedeNomeSnapshot('Lançamento manual');
+
+            $entityManager->persist($registro);
+            $entityManager->flush();
+
+            $this->addFlash('success', 'Batida registrada com sucesso.');
+        } else {
+            $this->addFlash('danger', 'Erro ao registrar batida. Verifique os campos.');
+        }
+
+        $competencia = $request->request->get('competencia', '');
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
+            'tenantId'    => $tenantId,
+            'id'          => $user->getId(),
+            'competencia' => $competencia,
+            'tab'         => 'ponto',
+        ]);
+    }
+
+    #[Route('/{tenantId}/user/{id}/ponto/{registroId}/edit', name: 'app_tenant_user_ponto_edit', methods: ['GET', 'POST'])]
+    public function pontoEdit(
+        int $tenantId,
+        User $user,
+        int $registroId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        RegistroPontoRepository $registroPontoRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para editar batidas.');
+        }
+
+        $registro = $registroPontoRepository->find($registroId);
+
+        if ($registro === null || $registro->getUser()?->getId() !== $user->getId()) {
+            throw $this->createNotFoundException('Registro não encontrado.');
+        }
+
+        $dataHoraAtual = $registro->getDataHora();
+
+        $form = $this->createForm(RegistroPontoManualType::class, null, [
+            'data' => $dataHoraAtual,
+            'hora' => $dataHoraAtual,
+            'tipo' => $registro->getTipo(),
+        ]);
+
+        // Pré-popular campos virtuais
+        $form->get('data')->setData($dataHoraAtual instanceof \DateTimeInterface ? \DateTime::createFromInterface($dataHoraAtual) : null);
+        $form->get('hora')->setData($dataHoraAtual instanceof \DateTimeInterface ? \DateTime::createFromInterface($dataHoraAtual) : null);
+        $form->get('tipo')->setData($registro->getTipo());
+        $form->get('observacao')->setData($registro->getObservacao());
+
+        $form->handleRequest($request);
+
+        $competencia = $request->query->get('competencia', $registro->getDataHora()?->format('Y-m') ?? '');
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            /** @var \DateTime $data */
+            $data = $form->get('data')->getData();
+            /** @var \DateTime $hora */
+            $hora = $form->get('hora')->getData();
+
+            $dataHora = new \DateTime(
+                $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
+            );
+
+            $registro->setDataHora($dataHora);
+            $registro->setTipo($form->get('tipo')->getData());
+            $registro->setObservacao($form->get('observacao')->getData());
+            $registro->setSedeNomeSnapshot('Lançamento manual');
+
+            $entityManager->flush();
+
+            $this->addFlash('success', 'Batida atualizada com sucesso.');
+
+            return $this->redirectToRoute('app_tenant_user_edit_role', [
+                'tenantId'    => $tenantId,
+                'id'          => $user->getId(),
+                'competencia' => $competencia,
+                'tab'         => 'ponto',
+            ]);
+        }
+
+        return $this->render('tenant/ponto_edit.html.twig', [
+            'form'        => $form->createView(),
+            'registro'    => $registro,
+            'user'        => $user,
+            'tenantId'    => $tenantId,
+            'competencia' => $competencia,
+        ]);
+    }
+
+    #[Route('/{tenantId}/user/{id}/ponto/{registroId}/delete', name: 'app_tenant_user_ponto_delete', methods: ['POST'])]
+    public function pontoDelete(
+        int $tenantId,
+        User $user,
+        int $registroId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        RegistroPontoRepository $registroPontoRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para excluir batidas.');
+        }
+
+        if (!$this->isCsrfTokenValid('delete_ponto_' . $registroId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $registro = $registroPontoRepository->find($registroId);
+
+        if ($registro === null || $registro->getUser()?->getId() !== $user->getId()) {
+            throw $this->createNotFoundException('Registro não encontrado.');
+        }
+
+        $competencia = $registro->getDataHora()?->format('Y-m') ?? '';
+
+        $entityManager->remove($registro);
+        $entityManager->flush();
+
+        $this->addFlash('success', 'Batida excluída com sucesso.');
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
+            'tenantId'    => $tenantId,
+            'id'          => $user->getId(),
+            'competencia' => $competencia,
+            'tab'         => 'ponto',
+        ]);
+    }
+
+    private function calcularCargaDiaria(EscalaTrabalho $escala): int
+    {
+        [$hE1, $mE1] = array_map('intval', explode(':', $escala->getEntrada1() ?? '09:00'));
+        [$hS1, $mS1] = array_map('intval', explode(':', $escala->getSaida1()   ?? '12:00'));
+        [$hE2, $mE2] = array_map('intval', explode(':', $escala->getEntrada2() ?? '13:00'));
+        [$hS2, $mS2] = array_map('intval', explode(':', $escala->getSaida2()   ?? '18:00'));
+
+        return max(0, (($hS1 * 60 + $mS1) - ($hE1 * 60 + $mE1))
+                    + (($hS2 * 60 + $mS2) - ($hE2 * 60 + $mE2)));
     }
 
     #[Route('/{tenantId}/user/{userId}/resource-access/{raId}/remove', name: 'app_tenant_user_resource_access_remove', methods: ['POST'])]

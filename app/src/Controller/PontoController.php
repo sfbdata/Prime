@@ -2,7 +2,9 @@
 
 namespace App\Controller;
 
+use App\Entity\Ponto\EscalaTrabalho;
 use App\Entity\Ponto\RegistroPonto;
+use App\Repository\Ponto\FeriadoRepository;
 use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
@@ -30,6 +32,7 @@ final class PontoController extends AbstractController
     public function index(
         Request $request,
         RegistroPontoRepository $repository,
+        FeriadoRepository $feriadoRepository,
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder
     ): Response {
@@ -75,7 +78,13 @@ final class PontoController extends AbstractController
 
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, true);
+        $escala = $user->getEscalaTrabalho();
+        if ($escala === null) {
+            $escala = new EscalaTrabalho();
+            $escala->setUser($user);
+        }
+        $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, true, $escala, $feriados);
 
         $hojeStr = $agora->format('Y-m-d');
         $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
@@ -94,6 +103,9 @@ final class PontoController extends AbstractController
             }
         }
 
+        $ultimaLinha = !empty($folhaRows) ? end($folhaRows) : null;
+        $saldoMes = $ultimaLinha !== null ? ($ultimaLinha['saldoAcumulado'] ?? null) : null;
+
         return $this->render('ponto/index.html.twig', [
             'folhaRows' => $folhaRows,
             'mesAtual' => $mesSelecionado,
@@ -101,6 +113,7 @@ final class PontoController extends AbstractController
             'competenciasPonto' => $competenciasPonto,
             'competenciaSelecionada' => $competenciaSelecionada,
             'pontoHoje' => $pontoHoje,
+            'saldoMes' => $saldoMes,
         ]);
     }
 
