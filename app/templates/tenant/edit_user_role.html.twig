@@ -35,6 +35,15 @@
                             <i class="bi bi-calendar-check me-1"></i>Batidas de Ponto
                         </button>
                     </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-justificativas-btn" data-bs-toggle="tab" data-bs-target="#tab-justificativas" type="button" role="tab">
+                            <i class="bi bi-calendar-x me-1"></i>Justificativas
+                            {% set qtdPendentes = justificativas|filter(j => j.status == 'pendente')|length %}
+                            {% if qtdPendentes > 0 %}
+                                <span class="badge text-bg-warning text-dark ms-1">{{ qtdPendentes }}</span>
+                            {% endif %}
+                        </button>
+                    </li>
                 </ul>
 
                 <div class="tab-content" id="editUserTabsContent">
@@ -252,6 +261,15 @@
                         } only %}
                     </div>
 
+                    {# Aba: Justificativas #}
+                    <div class="tab-pane fade" id="tab-justificativas" role="tabpanel">
+                        {% include 'tenant/_justificativas_tab.html.twig' with {
+                            justificativas: justificativas,
+                            tenantId: tenantId,
+                            user: user
+                        } only %}
+                    </div>
+
                 </div>{# /tab-content #}
 
             </div>
@@ -305,23 +323,50 @@
 
 {% block javascripts %}
 <script>
-    document.getElementById('sabadoSwitch').addEventListener('change', function () {
-        document.getElementById('escala-sabado').classList.toggle('d-none', !this.checked);
+    document.addEventListener('DOMContentLoaded', function () {
+        // Sábado toggle
+        var sabadoSwitch = document.getElementById('sabadoSwitch');
+        if (sabadoSwitch) {
+            sabadoSwitch.addEventListener('change', function () {
+                document.getElementById('escala-sabado').classList.toggle('d-none', !this.checked);
+            });
+        }
+
+        // Ativa a aba correta com base no query param ?tab=
+        var tabMap = {
+            perfil:          'tab-perfil-btn',
+            acessos:         'tab-acessos-btn',
+            escala:          'tab-escala-btn',
+            ponto:           'tab-ponto-btn',
+            justificativas:  'tab-justificativas-btn',
+        };
+        var params = new URLSearchParams(window.location.search);
+        var tabParam = params.get('tab');
+        if (tabParam && tabMap[tabParam]) {
+            var tabBtn = document.getElementById(tabMap[tabParam]);
+            if (tabBtn) {
+                new bootstrap.Tab(tabBtn).show();
+            }
+        }
+
+        // Ao trocar de aba manualmente, atualiza a URL sem recarregar
+        var tabEls = document.querySelectorAll('#editUserTabs [data-bs-toggle="tab"]');
+        tabEls.forEach(function (tabEl) {
+            tabEl.addEventListener('shown.bs.tab', function (e) {
+                var tabKey = Object.keys(tabMap).find(function (k) { return tabMap[k] === e.target.id; });
+                if (tabKey) {
+                    var url = new URL(window.location.href);
+                    url.searchParams.set('tab', tabKey);
+                    history.replaceState(null, '', url.toString());
+                }
+            });
+        });
     });
 
     function abrirModalAddBatida(tipo, data) {
         document.getElementById('modalAddTipo').value = tipo;
         document.getElementById('modalAddData').value = data;
         new bootstrap.Modal(document.getElementById('modalAddBatida')).show();
-    }
-
-    // Ativa a aba correta se a URL tiver ?tab=ponto
-    var params = new URLSearchParams(window.location.search);
-    if (params.get('tab') === 'ponto') {
-        var tabBtn = document.getElementById('tab-ponto-btn');
-        if (tabBtn) {
-            new bootstrap.Tab(tabBtn).show();
-        }
     }
 </script>
 {% endblock %}

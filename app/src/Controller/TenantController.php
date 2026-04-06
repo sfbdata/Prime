@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Ponto\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
@@ -17,6 +18,7 @@ use App\Form\TenantPasswordType;
 use App\Repository\ClienteRepository;
 use App\Repository\PastaRepository;
 use App\Repository\Ponto\FeriadoRepository;
+use App\Repository\Ponto\JustificativaPontoRepository;
 use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
@@ -30,14 +32,20 @@ use App\Service\TenantBootstrapService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[Route('/tenant')]
 final class TenantController extends AbstractController
 {
+    public function __construct(
+        private readonly string $justificativasUploadsDir,
+    ) {}
+
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
     public function index(TenantRepository $tenantRepository, PermissionChecker $permissionChecker): Response
     {
@@ -343,6 +351,7 @@ final class TenantController extends AbstractController
         ProcessoRepository $processoRepository,
         RegistroPontoRepository $registroPontoRepository,
         FeriadoRepository $feriadoRepository,
+        JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder
     ): Response {
@@ -422,7 +431,7 @@ final class TenantController extends AbstractController
             $entityManager->persist($escala);
             $entityManager->flush();
             $this->addFlash('success', 'Escala de trabalho atualizada!');
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'escala']);
         }
 
         $userAccesses   = $resourceAccessRepository->findByUsers([$user])[(int) $user->getId()] ?? [];
@@ -451,10 +460,13 @@ final class TenantController extends AbstractController
             $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
             $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
             $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
-            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $escala, $feriados);
+            $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
+            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $escala, $feriados, $justificativasDoMes);
             $mesCompetenciaPonto = $mesSelecionado;
             $anoCompetenciaPonto = $anoSelecionado;
         }
+
+        $justificativas = $justificativaRepository->findByTenantUser($user);
 
         return $this->render('tenant/edit_user_role.html.twig', [
             'form'                   => $form->createView(),
@@ -469,6 +481,7 @@ final class TenantController extends AbstractController
             'folhaRowsPonto'         => $folhaRowsPonto,
             'mesCompetenciaPonto'    => $mesCompetenciaPonto,
             'anoCompetenciaPonto'    => $anoCompetenciaPonto,
+            'justificativas'         => $justificativas,
         ]);
     }
 
@@ -502,21 +515,52 @@ final class TenantController extends AbstractController
             /** @var \DateTime $hora */
             $hora = $form->get('hora')->getData();
 
-            $dataHora = new \DateTime(
-                $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
-            );
+            $diaSemana = (int) $data->format('N');
 
-            $registro = new RegistroPonto();
-            $registro->setUser($user);
-            $registro->setDataHora($dataHora);
-            $registro->setTipo($form->get('tipo')->getData());
-            $registro->setObservacao($form->get('observacao')->getData());
-            $registro->setSedeNomeSnapshot('Lançamento manual');
+            if ($diaSemana === 7) {
+                $this->addFlash('danger', 'Não é permitido lançar batidas aos domingos.');
+            } elseif ($diaSemana === 6) {
+                $escala = $user->getEscalaTrabalho();
+                $trabalhaNoSabado = $escala !== null
+                    && in_array(6, $escala->getDiasSemana(), true)
+                    && $escala->getCargaHorariaSabado() !== null;
 
-            $entityManager->persist($registro);
-            $entityManager->flush();
+                if (!$trabalhaNoSabado) {
+                    $this->addFlash('danger', 'Este usuário não possui escala de trabalho configurada para sábados.');
+                } else {
+                    $dataHora = new \DateTime(
+                        $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
+                    );
 
-            $this->addFlash('success', 'Batida registrada com sucesso.');
+                    $registro = new RegistroPonto();
+                    $registro->setUser($user);
+                    $registro->setDataHora($dataHora);
+                    $registro->setTipo($form->get('tipo')->getData());
+                    $registro->setObservacao($form->get('observacao')->getData());
+                    $registro->setSedeNomeSnapshot('Lançamento manual');
+
+                    $entityManager->persist($registro);
+                    $entityManager->flush();
+
+                    $this->addFlash('success', 'Batida registrada com sucesso.');
+                }
+            } else {
+                $dataHora = new \DateTime(
+                    $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
+                );
+
+                $registro = new RegistroPonto();
+                $registro->setUser($user);
+                $registro->setDataHora($dataHora);
+                $registro->setTipo($form->get('tipo')->getData());
+                $registro->setObservacao($form->get('observacao')->getData());
+                $registro->setSedeNomeSnapshot('Lançamento manual');
+
+                $entityManager->persist($registro);
+                $entityManager->flush();
+
+                $this->addFlash('success', 'Batida registrada com sucesso.');
+            }
         } else {
             $this->addFlash('danger', 'Erro ao registrar batida. Verifique os campos.');
         }
@@ -562,11 +606,7 @@ final class TenantController extends AbstractController
 
         $dataHoraAtual = $registro->getDataHora();
 
-        $form = $this->createForm(RegistroPontoManualType::class, null, [
-            'data' => $dataHoraAtual,
-            'hora' => $dataHoraAtual,
-            'tipo' => $registro->getTipo(),
-        ]);
+        $form = $this->createForm(RegistroPontoManualType::class, null);
 
         // Pré-popular campos virtuais
         $form->get('data')->setData($dataHoraAtual instanceof \DateTimeInterface ? \DateTime::createFromInterface($dataHoraAtual) : null);
@@ -584,25 +624,60 @@ final class TenantController extends AbstractController
             /** @var \DateTime $hora */
             $hora = $form->get('hora')->getData();
 
-            $dataHora = new \DateTime(
-                $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
-            );
+            $diaSemana = (int) $data->format('N');
 
-            $registro->setDataHora($dataHora);
-            $registro->setTipo($form->get('tipo')->getData());
-            $registro->setObservacao($form->get('observacao')->getData());
-            $registro->setSedeNomeSnapshot('Lançamento manual');
+            if ($diaSemana === 7) {
+                $this->addFlash('danger', 'Não é permitido editar batidas em domingos.');
+            } elseif ($diaSemana === 6) {
+                $escala = $user->getEscalaTrabalho();
+                $trabalhaNoSabado = $escala !== null
+                    && in_array(6, $escala->getDiasSemana(), true)
+                    && $escala->getCargaHorariaSabado() !== null;
 
-            $entityManager->flush();
+                if (!$trabalhaNoSabado) {
+                    $this->addFlash('danger', 'Este usuário não possui escala de trabalho configurada para sábados.');
+                } else {
+                    $dataHora = new \DateTime(
+                        $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
+                    );
 
-            $this->addFlash('success', 'Batida atualizada com sucesso.');
+                    $registro->setDataHora($dataHora);
+                    $registro->setTipo($form->get('tipo')->getData());
+                    $registro->setObservacao($form->get('observacao')->getData());
+                    $registro->setSedeNomeSnapshot('Lançamento manual');
 
-            return $this->redirectToRoute('app_tenant_user_edit_role', [
-                'tenantId'    => $tenantId,
-                'id'          => $user->getId(),
-                'competencia' => $competencia,
-                'tab'         => 'ponto',
-            ]);
+                    $entityManager->flush();
+
+                    $this->addFlash('success', 'Batida atualizada com sucesso.');
+
+                    return $this->redirectToRoute('app_tenant_user_edit_role', [
+                        'tenantId'    => $tenantId,
+                        'id'          => $user->getId(),
+                        'competencia' => $competencia,
+                        'tab'         => 'ponto',
+                    ]);
+                }
+            } else {
+                $dataHora = new \DateTime(
+                    $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
+                );
+
+                $registro->setDataHora($dataHora);
+                $registro->setTipo($form->get('tipo')->getData());
+                $registro->setObservacao($form->get('observacao')->getData());
+                $registro->setSedeNomeSnapshot('Lançamento manual');
+
+                $entityManager->flush();
+
+                $this->addFlash('success', 'Batida atualizada com sucesso.');
+
+                return $this->redirectToRoute('app_tenant_user_edit_role', [
+                    'tenantId'    => $tenantId,
+                    'id'          => $user->getId(),
+                    'competencia' => $competencia,
+                    'tab'         => 'ponto',
+                ]);
+            }
         }
 
         return $this->render('tenant/ponto_edit.html.twig', [
@@ -662,6 +737,167 @@ final class TenantController extends AbstractController
         ]);
     }
 
+    #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/aprovar', name: 'app_tenant_user_justificativa_aprovar', methods: ['POST'])]
+    public function aprovarJustificativa(
+        int $tenantId,
+        User $user,
+        int $justificativaId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        JustificativaPontoRepository $justificativaRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para aprovar justificativas.');
+        }
+
+        if (!$this->isCsrfTokenValid('justificativa_aprovar_' . $justificativaId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $justificativa = $justificativaRepository->find($justificativaId);
+
+        if ($justificativa === null || $justificativa->getUser()?->getId() !== $user->getId()) {
+            throw $this->createNotFoundException('Justificativa não encontrada.');
+        }
+
+        if ($justificativa->getStatus() !== 'pendente') {
+            $this->addFlash('warning', 'Apenas justificativas pendentes podem ser aprovadas.');
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
+        $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
+
+        $justificativa->setStatus('aprovado');
+        $justificativa->setDataAnalise(new \DateTime());
+        $justificativa->setAnalisadoPor($currentUser);
+        if ($observacao !== '') {
+            $justificativa->setObservacaoAnalise($observacao);
+        }
+
+        $entityManager->flush();
+
+        $this->addFlash('success', sprintf('Justificativa de %s aprovada.', $justificativa->getData()?->format('d/m/Y')));
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
+            'tenantId' => $tenantId,
+            'id'       => $user->getId(),
+            'tab'      => 'justificativas',
+        ]);
+    }
+
+    #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/rejeitar', name: 'app_tenant_user_justificativa_rejeitar', methods: ['POST'])]
+    public function rejeitarJustificativa(
+        int $tenantId,
+        User $user,
+        int $justificativaId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        JustificativaPontoRepository $justificativaRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para rejeitar justificativas.');
+        }
+
+        if (!$this->isCsrfTokenValid('justificativa_rejeitar_' . $justificativaId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $justificativa = $justificativaRepository->find($justificativaId);
+
+        if ($justificativa === null || $justificativa->getUser()?->getId() !== $user->getId()) {
+            throw $this->createNotFoundException('Justificativa não encontrada.');
+        }
+
+        if ($justificativa->getStatus() !== 'pendente') {
+            $this->addFlash('warning', 'Apenas justificativas pendentes podem ser rejeitadas.');
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
+        $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
+        if ($observacao === '') {
+            $this->addFlash('danger', 'Informe o motivo da rejeição.');
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
+        $justificativa->setStatus('rejeitado');
+        $justificativa->setDataAnalise(new \DateTime());
+        $justificativa->setAnalisadoPor($currentUser);
+        $justificativa->setObservacaoAnalise($observacao);
+
+        $entityManager->flush();
+
+        $this->addFlash('success', sprintf('Justificativa de %s rejeitada.', $justificativa->getData()?->format('d/m/Y')));
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
+            'tenantId' => $tenantId,
+            'id'       => $user->getId(),
+            'tab'      => 'justificativas',
+        ]);
+    }
+
+    #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/anexo', name: 'app_tenant_user_justificativa_anexo', methods: ['GET'])]
+    public function downloadAnexoJustificativa(
+        int $tenantId,
+        User $user,
+        int $justificativaId,
+        JustificativaPontoRepository $justificativaRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão.');
+        }
+
+        $justificativa = $justificativaRepository->find($justificativaId);
+
+        if ($justificativa === null || $justificativa->getUser()?->getId() !== $user->getId()) {
+            throw $this->createNotFoundException('Justificativa não encontrada.');
+        }
+
+        if ($justificativa->getAnexoPath() === null) {
+            throw $this->createNotFoundException('Esta justificativa não possui atestado.');
+        }
+
+        $filePath = $this->justificativasUploadsDir . '/' . $justificativa->getAnexoPath();
+
+        if (!file_exists($filePath)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+
+        $response = new BinaryFileResponse($filePath);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $justificativa->getAnexoPath());
+
+        return $response;
+    }
+
     private function calcularCargaDiaria(EscalaTrabalho $escala): int
     {
         [$hE1, $mE1] = array_map('intval', explode(':', $escala->getEntrada1() ?? '09:00'));
@@ -715,6 +951,7 @@ final class TenantController extends AbstractController
         return $this->redirectToRoute('app_tenant_user_edit_role', [
             'tenantId' => $tenantId,
             'id'       => $userId,
+            'tab'      => 'acessos',
         ]);
     }
 

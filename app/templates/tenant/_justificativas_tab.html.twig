@@ -1,0 +1,131 @@
+<div class="card card-outline card-warning mb-3">
+    <div class="card-header">
+        <h3 class="card-title"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta — {{ user.fullName }}</h3>
+    </div>
+    <div class="card-body p-0">
+        {% if justificativas is empty %}
+            <p class="text-muted small p-3 mb-0">Nenhuma justificativa enviada por este usuário.</p>
+        {% else %}
+            {# Agrupar por batchId #}
+            {% set batches = {} %}
+            {% for j in justificativas %}
+                {% set batchKey = j.batchId ?? ('id_' ~ j.id) %}
+                {% if batches[batchKey] is not defined %}
+                    {% set batches = batches|merge({(batchKey): []}) %}
+                {% endif %}
+                {% set batches = batches|merge({(batchKey): batches[batchKey]|merge([j])}) %}
+            {% endfor %}
+
+            <div class="accordion" id="accordionJustificativas">
+                {% for batchKey, batch in batches %}
+                    {% set primeiraJust = batch[0] %}
+                    {% set isPendente = primeiraJust.status == 'pendente' %}
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button {{ not isPendente ? 'collapsed' : '' }}"
+                                    type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#batch-{{ batchKey }}"
+                                    aria-expanded="{{ isPendente ? 'true' : 'false' }}">
+                                <div class="d-flex align-items-center gap-2 flex-wrap w-100 me-3">
+                                    <span>
+                                        {% for j in batch %}
+                                            <span class="badge text-bg-light border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
+                                        {% endfor %}
+                                    </span>
+                                    {% if primeiraJust.status == 'aprovado' %}
+                                        <span class="badge text-bg-success ms-auto"><i class="bi bi-check-circle me-1"></i>Aprovado</span>
+                                    {% elseif primeiraJust.status == 'pendente' %}
+                                        <span class="badge text-bg-warning text-dark ms-auto"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>
+                                    {% else %}
+                                        <span class="badge text-bg-danger ms-auto"><i class="bi bi-x-circle me-1"></i>Rejeitado</span>
+                                    {% endif %}
+                                </div>
+                            </button>
+                        </h2>
+                        <div id="batch-{{ batchKey }}" class="accordion-collapse collapse {{ isPendente ? 'show' : '' }}"
+                             data-bs-parent="#accordionJustificativas">
+                            <div class="accordion-body">
+                                <dl class="row mb-3">
+                                    <dt class="col-sm-3">Motivo</dt>
+                                    <dd class="col-sm-9">{{ primeiraJust.descricao }}</dd>
+
+                                    <dt class="col-sm-3">Observação</dt>
+                                    <dd class="col-sm-9">{{ primeiraJust.observacaoAnalise ?? '—' }}</dd>
+
+                                    <dt class="col-sm-3">Atestado</dt>
+                                    <dd class="col-sm-9">
+                                        {% if primeiraJust.anexoPath %}
+                                            <a href="{{ path('app_tenant_user_justificativa_anexo', {tenantId: tenantId, id: user.id, justificativaId: primeiraJust.id}) }}"
+                                               target="_blank" class="btn btn-sm btn-outline-secondary">
+                                                <i class="bi bi-paperclip me-1"></i>Visualizar atestado
+                                            </a>
+                                        {% else %}
+                                            <span class="text-muted">Sem atestado</span>
+                                        {% endif %}
+                                    </dd>
+
+                                    {% if primeiraJust.status != 'pendente' %}
+                                        <dt class="col-sm-3">Analisado por</dt>
+                                        <dd class="col-sm-9">
+                                            {{ primeiraJust.analisadoPor ? primeiraJust.analisadoPor.fullName : '—' }}
+                                            {% if primeiraJust.dataAnalise %}
+                                                <span class="text-muted small ms-2">{{ primeiraJust.dataAnalise|date('d/m/Y') }}</span>
+                                            {% endif %}
+                                        </dd>
+                                        {% if primeiraJust.observacaoAnalise and primeiraJust.status == 'rejeitado' %}
+                                            <dt class="col-sm-3">Motivo da rejeição</dt>
+                                            <dd class="col-sm-9 text-danger">{{ primeiraJust.observacaoAnalise }}</dd>
+                                        {% endif %}
+                                    {% endif %}
+                                </dl>
+
+                                {% if primeiraJust.status == 'pendente' %}
+                                    {# Botões de aprovar e rejeitar para CADA dia do lote individualmente #}
+                                    {% for j in batch %}
+                                        <div class="border rounded p-3 mb-2 bg-light">
+                                            <strong class="d-block mb-2">
+                                                <i class="bi bi-calendar-day me-1"></i>{{ j.data|date('d/m/Y') }}
+                                            </strong>
+                                            <div class="d-flex gap-2 flex-wrap">
+                                                {# Aprovar #}
+                                                <form method="post"
+                                                      action="{{ path('app_tenant_user_justificativa_aprovar', {tenantId: tenantId, id: user.id, justificativaId: j.id}) }}"
+                                                      class="d-flex gap-2 align-items-center">
+                                                    <input type="hidden" name="_token" value="{{ csrf_token('justificativa_aprovar_' ~ j.id) }}">
+                                                    <input type="text" name="observacaoAnalise" class="form-control form-control-sm"
+                                                           style="max-width: 220px" placeholder="Obs. aprovação (opcional)">
+                                                    <button type="submit" class="btn btn-sm btn-success"
+                                                            onclick="return confirm('Aprovar justificativa de {{ j.data|date('d/m/Y') }}?')">
+                                                        <i class="bi bi-check-lg me-1"></i>Aprovar
+                                                    </button>
+                                                </form>
+
+                                                {# Rejeitar #}
+                                                <form method="post"
+                                                      action="{{ path('app_tenant_user_justificativa_rejeitar', {tenantId: tenantId, id: user.id, justificativaId: j.id}) }}"
+                                                      class="d-flex gap-2 align-items-center"
+                                                      onsubmit="
+                                                          var obs = this.querySelector('[name=observacaoAnalise]').value.trim();
+                                                          if (!obs) { alert('Informe o motivo da rejeição.'); return false; }
+                                                          return confirm('Rejeitar justificativa de {{ j.data|date('d/m/Y') }}?');
+                                                      ">
+                                                    <input type="hidden" name="_token" value="{{ csrf_token('justificativa_rejeitar_' ~ j.id) }}">
+                                                    <input type="text" name="observacaoAnalise" class="form-control form-control-sm"
+                                                           style="max-width: 220px" placeholder="Motivo da rejeição (obrigatório)" required>
+                                                    <button type="submit" class="btn btn-sm btn-danger">
+                                                        <i class="bi bi-x-lg me-1"></i>Rejeitar
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</div>
