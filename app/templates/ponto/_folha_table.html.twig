@@ -2,9 +2,9 @@
 {% set exportarAnoResolved = exportarAno is defined ? exportarAno : (competenciaParts|length == 2 ? competenciaParts[0] : null) %}
 {% set exportarMesResolved = exportarMes is defined ? exportarMes : (competenciaParts|length == 2 ? competenciaParts[1] : null) %}
 {% set exportarFolhaHabilitado = exportarFolhaHabilitado|default(false) %}
-{% set exportarFolhaRota = exportarFolhaRota|default('ponto_exportar_xlsx') %}
 {% set exportarFolhaParametros = exportarFolhaParametros|default({}) %}
 {% set mostrarBancoHoras = mostrarBancoHoras|default(false) %}
+{% set mostrarJustificativas = mostrarJustificativas|default(false) %}
 {% set editarBatidasHabilitado = editarBatidasHabilitado|default(false) %}
 {% set editarBatidasRotaAdd = editarBatidasRotaAdd|default('') %}
 {% set editarBatidasRotaEdit = editarBatidasRotaEdit|default('') %}
@@ -12,7 +12,7 @@
 {% set editarBatidasParametros = editarBatidasParametros|default({}) %}
 
 <div class="card card-outline card-info mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center gap-2 flex-wrap">
+    <div class="card-header d-flex align-items-center gap-2 flex-wrap">
         <h3 class="card-title mb-0">{{ titulo }}</h3>
 
         {% if competenciasPonto is defined and competenciasPonto is not empty and competenciaFormAction is defined %}
@@ -32,15 +32,23 @@
         {% endif %}
 
         {% if exportarFolhaHabilitado and exportarAnoResolved and exportarMesResolved %}
-            {% if exportarFolhaRota == 'ponto_exportar_pdf' %}
-                <a href="{{ path(exportarFolhaRota, exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}" class="btn btn-sm btn-danger">
-                    <i class="bi bi-file-earmark-pdf"></i> Exportar Folha PDF
-                </a>
-            {% else %}
-                <a href="{{ path(exportarFolhaRota, exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}" class="btn btn-sm btn-success">
-                    <i class="bi bi-file-earmark-spreadsheet"></i> Exportar Folha XLSX
-                </a>
-            {% endif %}
+            <div class="btn-group ms-auto">
+                <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-1"></i>Exportar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a class="dropdown-item" href="{{ path('ponto_exportar_pdf', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}">
+                            <i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDF
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="{{ path('ponto_exportar_xlsx', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}">
+                            <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>XLSX
+                        </a>
+                    </li>
+                </ul>
+            </div>
         {% endif %}
     </div>
 
@@ -59,6 +67,9 @@
                         <th>Repouso</th>
                         <th>Retorno</th>
                         <th>Saída</th>
+                        {% if mostrarJustificativas %}
+                            <th>Justificativa</th>
+                        {% endif %}
                         {% if mostrarBancoHoras %}
                             <th title="Horas trabalhadas no dia">Trabalhado</th>
                             <th title="Saldo do dia (positivo = extra, negativo = falta)">Saldo Dia</th>
@@ -111,6 +122,27 @@
                                     {% endif %}
                                 </td>
                             {% endfor %}
+
+                            {% if mostrarJustificativas %}
+                                <td>
+                                    {% if linha.justificativa is defined and linha.justificativa is not null %}
+                                        {% set j = linha.justificativa %}
+                                        {% if j.status == 'aprovado' %}
+                                            <span class="badge text-bg-success" title="{{ j.descricao }}">
+                                                <i class="bi bi-check-circle me-1"></i>Aprovada
+                                            </span>
+                                        {% elseif j.status == 'pendente' %}
+                                            <span class="badge text-bg-warning text-dark" title="{{ j.descricao }}">
+                                                <i class="bi bi-hourglass-split me-1"></i>Pendente
+                                            </span>
+                                        {% else %}
+                                            <span class="badge text-bg-danger" title="{{ j.descricao }}">
+                                                <i class="bi bi-x-circle me-1"></i>Rejeitada
+                                            </span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            {% endif %}
 
                             {% if mostrarBancoHoras %}
                                 <td class="text-nowrap">

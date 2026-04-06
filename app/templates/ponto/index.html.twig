@@ -47,6 +47,11 @@
                     <button id="btn-bater-ponto" class="btn btn-lg btn-primary w-100" disabled>
                         <i class="bi bi-fingerprint"></i> Bater Ponto
                     </button>
+
+                    <button type="button" class="btn btn-outline-warning w-100 mt-2"
+                            data-bs-toggle="modal" data-bs-target="#modalJustificativa">
+                        <i class="bi bi-calendar-x me-1"></i> Justificar Falta
+                    </button>
                 </div>
             </div>
         </div>
@@ -60,13 +65,17 @@
                 competenciaFormAction: path('ponto_index'),
                 competenciaFieldId: 'competencia-ponto-index',
                 exportarFolhaHabilitado: true,
-                exportarFolhaRota: 'ponto_exportar_pdf',
                 mostrarBancoHoras: true,
+                mostrarJustificativas: true,
                 editarBatidasHabilitado: false
             } only %}
+
+            {% include 'ponto/_justificativas_list.html.twig' with {justificativas: justificativas} only %}
         </div>
     </div>
 </div>
+
+{% include 'ponto/_justificativa_form.html.twig' with {justificativaForm: justificativaForm, mesAtual: mesAtual, anoAtual: anoAtual} only %}
 
 <script>
     const GPS_PRECISAO_ACEITAVEL_METROS = 90;

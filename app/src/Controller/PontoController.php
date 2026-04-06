@@ -3,8 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Ponto\RegistroPonto;
+use App\Form\JustificativaPontoType;
 use App\Repository\Ponto\FeriadoRepository;
+use App\Repository\Ponto\JustificativaPontoRepository;
 use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
@@ -18,9 +21,11 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Twig\Environment;
@@ -28,11 +33,16 @@ use Twig\Environment;
 #[Route('/ponto')]
 final class PontoController extends AbstractController
 {
+    public function __construct(
+        private readonly string $justificativasUploadsDir,
+    ) {}
+
     #[Route('/', name: 'ponto_index')]
     public function index(
         Request $request,
         RegistroPontoRepository $repository,
         FeriadoRepository $feriadoRepository,
+        JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder
     ): Response {
@@ -84,7 +94,9 @@ final class PontoController extends AbstractController
             $escala->setUser($user);
         }
         $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, true, $escala, $feriados);
+
+        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, true, $escala, $feriados, $justificativasDoMes);
 
         $hojeStr = $agora->format('Y-m-d');
         $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
@@ -103,8 +115,10 @@ final class PontoController extends AbstractController
             }
         }
 
-        $ultimaLinha = !empty($folhaRows) ? end($folhaRows) : null;
+        $ultimaLinha = !empty($folhaRows) ? reset($folhaRows) : null;
         $saldoMes = $ultimaLinha !== null ? ($ultimaLinha['saldoAcumulado'] ?? null) : null;
+
+        $justificativaForm = $this->createForm(JustificativaPontoType::class);
 
         return $this->render('ponto/index.html.twig', [
             'folhaRows' => $folhaRows,
@@ -114,7 +128,150 @@ final class PontoController extends AbstractController
             'competenciaSelecionada' => $competenciaSelecionada,
             'pontoHoje' => $pontoHoje,
             'saldoMes' => $saldoMes,
+            'justificativas' => $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado),
+            'justificativaForm' => $justificativaForm->createView(),
         ]);
+    }
+
+    #[Route('/justificativa/nova', name: 'ponto_justificativa_nova', methods: ['GET', 'POST'])]
+    public function novaJustificativa(
+        Request $request,
+        EntityManagerInterface $entityManager,
+        JustificativaPontoRepository $justificativaRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+
+        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+            throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
+        }
+
+        $form = $this->createForm(JustificativaPontoType::class);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $datasRaw = trim((string) $form->get('datas')->getData());
+            $descricao = trim((string) $form->get('descricao')->getData());
+            $observacao = trim((string) ($form->get('observacao')->getData() ?? ''));
+
+            $datasArray = array_filter(array_map('trim', explode(',', $datasRaw)));
+
+            if (empty($datasArray)) {
+                $this->addFlash('warning', 'Selecione ao menos uma data para justificar.');
+                return $this->redirectToRoute('ponto_index');
+            }
+
+            $hoje = new \DateTimeImmutable('today');
+            $datasValidas = [];
+
+            foreach ($datasArray as $dataStr) {
+                $dataObj = \DateTime::createFromFormat('Y-m-d', $dataStr);
+                if ($dataObj === false) {
+                    continue;
+                }
+                // Não permitir datas futuras
+                if ($dataObj > $hoje) {
+                    $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
+                    continue;
+                }
+                // Não permitir domingo
+                if ((int) $dataObj->format('N') === 7) {
+                    $this->addFlash('warning', sprintf('A data %s é domingo e foi ignorada.', $dataObj->format('d/m/Y')));
+                    continue;
+                }
+                // Verificar duplicata pendente/aprovada
+                $existente = $justificativaRepository->findOneByUserAndData($user, $dataObj);
+                if ($existente !== null) {
+                    $this->addFlash('warning', sprintf(
+                        'Já existe uma justificativa %s para %s.',
+                        $existente->getStatus(),
+                        $dataObj->format('d/m/Y')
+                    ));
+                    continue;
+                }
+
+                $datasValidas[] = $dataObj;
+            }
+
+            if (empty($datasValidas)) {
+                return $this->redirectToRoute('ponto_index');
+            }
+
+            // Upload do atestado
+            $anexoPath = null;
+            $anexoFile = $form->get('anexo')->getData();
+            if ($anexoFile !== null) {
+                if (!is_dir($this->justificativasUploadsDir)) {
+                    mkdir($this->justificativasUploadsDir, 0755, true);
+                }
+                $extensao = $anexoFile->guessExtension() ?? 'bin';
+                $nomeUnico = bin2hex(random_bytes(16)) . '.' . $extensao;
+                $anexoFile->move($this->justificativasUploadsDir, $nomeUnico);
+                $anexoPath = $nomeUnico;
+            }
+
+            $batchId = bin2hex(random_bytes(16));
+
+            foreach ($datasValidas as $dataObj) {
+                $justificativa = new JustificativaPonto();
+                $justificativa->setUser($user);
+                $justificativa->setData($dataObj);
+                $justificativa->setDescricao($descricao);
+                $justificativa->setAnexoPath($anexoPath);
+                $justificativa->setStatus('pendente');
+                $justificativa->setBatchId($batchId);
+                if ($observacao !== '') {
+                    $justificativa->setObservacaoAnalise($observacao);
+                }
+                $entityManager->persist($justificativa);
+            }
+
+            $entityManager->flush();
+
+            $this->addFlash('success', sprintf(
+                'Justificativa enviada para %d dia(s). Aguarde análise do administrador.',
+                count($datasValidas)
+            ));
+        } elseif ($form->isSubmitted() && !$form->isValid()) {
+            foreach ($form->getErrors(true) as $error) {
+                $this->addFlash('danger', $error->getMessage());
+            }
+        }
+
+        return $this->redirectToRoute('ponto_index');
+    }
+
+    #[Route('/justificativa/{id}/anexo', name: 'ponto_justificativa_anexo', methods: ['GET'])]
+    public function downloadAnexo(
+        JustificativaPonto $justificativa,
+        PermissionChecker $permissionChecker
+    ): Response {
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+
+        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if ($justificativa->getUser()->getId() !== $user->getId()) {
+            throw $this->createAccessDeniedException('Acesso negado a este atestado.');
+        }
+
+        if ($justificativa->getAnexoPath() === null) {
+            throw $this->createNotFoundException('Esta justificativa não possui atestado.');
+        }
+
+        $filePath = $this->justificativasUploadsDir . '/' . $justificativa->getAnexoPath();
+
+        if (!file_exists($filePath)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+
+        $response = new BinaryFileResponse($filePath);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $justificativa->getAnexoPath());
+
+        return $response;
     }
 
     #[Route('/batida', name: 'ponto_batida', methods: ['POST'])]
@@ -166,6 +323,30 @@ final class PontoController extends AbstractController
                 'success' => false,
                 'message' => 'Tipo de registro invalido. Selecione Entrada, Repouso, Retorno ou Saida.',
             ], 422);
+        }
+
+        $hoje = new \DateTimeImmutable();
+        $diaSemanaHoje = (int) $hoje->format('N');
+
+        if ($diaSemanaHoje === 7) {
+            return $this->json([
+                'success' => false,
+                'message' => 'Não é permitido registrar ponto aos domingos.',
+            ], 422);
+        }
+
+        if ($diaSemanaHoje === 6) {
+            $escala = $user->getEscalaTrabalho();
+            $trabalhaNoSabado = $escala !== null
+                && in_array(6, $escala->getDiasSemana(), true)
+                && $escala->getCargaHorariaSabado() !== null;
+
+            if (!$trabalhaNoSabado) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Você não possui escala de trabalho configurada para sábados.',
+                ], 422);
+            }
         }
 
         if ($latitude === null || $longitude === null) {
@@ -296,6 +477,8 @@ final class PontoController extends AbstractController
     public function exportarFolhaPdf(
         Request $request,
         RegistroPontoRepository $repository,
+        FeriadoRepository $feriadoRepository,
+        JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder,
         UserRepository $userRepository,
@@ -330,10 +513,13 @@ final class PontoController extends AbstractController
 
         /** @var \App\Entity\Ponto\RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
+        $escala  = $targetUser->getEscalaTrabalho();
+        $feriados = $targetUser->getTenant() !== null ? $feriadoRepository->findByTenant($targetUser->getTenant()) : [];
+        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $escala, $feriados, $justificativasDoMes);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -373,6 +559,8 @@ final class PontoController extends AbstractController
     public function exportarFolhaXlsx(
         Request $request,
         RegistroPontoRepository $repository,
+        FeriadoRepository $feriadoRepository,
+        JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder,
         UserRepository $userRepository
@@ -406,10 +594,13 @@ final class PontoController extends AbstractController
 
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
+        $escala  = $targetUser->getEscalaTrabalho();
+        $feriados = $targetUser->getTenant() !== null ? $feriadoRepository->findByTenant($targetUser->getTenant()) : [];
+        $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $escala, $feriados, $justificativasDoMes);
 
         $response = new StreamedResponse(function () use ($folhaRows, $mes, $ano) {
             $spreadsheet = new Spreadsheet();

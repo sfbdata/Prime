@@ -1,0 +1,72 @@
+<div class="card card-outline card-warning mb-3">
+    <div class="card-header">
+        <h3 class="card-title"><i class="bi bi-calendar-check me-2"></i>Minhas Justificativas</h3>
+    </div>
+    <div class="card-body p-0">
+        {% if justificativas is empty %}
+            <p class="text-muted small p-3 mb-0">Nenhuma justificativa enviada nesta competência.</p>
+        {% else %}
+            {# Agrupar por batchId para exibir dias do mesmo lote juntos #}
+            {% set batches = {} %}
+            {% for j in justificativas %}
+                {% set batchKey = j.batchId ?? ('id_' ~ j.id) %}
+                {% if batches[batchKey] is not defined %}
+                    {% set batches = batches|merge({(batchKey): []}) %}
+                {% endif %}
+                {% set batches = batches|merge({(batchKey): batches[batchKey]|merge([j])}) %}
+            {% endfor %}
+
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>Data(s)</th>
+                        <th>Motivo</th>
+                        <th>Status</th>
+                        <th>Atestado</th>
+                        <th>Obs. da Análise</th>
+                        <th>Analisado em</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for batchKey, batch in batches %}
+                        <tr>
+                            <td>
+                                {% for j in batch %}
+                                    <span class="badge text-bg-light border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
+                                {% endfor %}
+                            </td>
+                            <td class="small">{{ batch[0].descricao }}</td>
+                            <td>
+                                {% set status = batch[0].status %}
+                                {% if status == 'aprovado' %}
+                                    <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Aprovado</span>
+                                {% elseif status == 'pendente' %}
+                                    <span class="badge text-bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>
+                                {% else %}
+                                    <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Rejeitado</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if batch[0].anexoPath %}
+                                    <a href="{{ path('ponto_justificativa_anexo', {id: batch[0].id}) }}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-paperclip"></i> Ver
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="small text-muted">{{ batch[0].observacaoAnalise ?? '—' }}</td>
+                            <td class="small text-muted">
+                                {% if batch[0].dataAnalise %}
+                                    {{ batch[0].dataAnalise|date('d/m/Y') }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% endif %}
+    </div>
+</div>
