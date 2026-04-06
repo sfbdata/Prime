@@ -20,6 +20,10 @@ class CalculadoraJornada
      */
     public function calcularSaldoDia(User $user, \DateTimeInterface $data, array $batidas, ?EscalaTrabalho $escala, array $feriados): int
     {
+        if ((int) $data->format('N') === 7) {
+            return 0;
+        }
+
         $isFeriado = $this->isFeriado($data, $feriados);
         $isDiaTrabalho = $escala ? in_array((int) $data->format('N'), $escala->getDiasSemana()) : false;
         $ehSabado = (int) $data->format('N') === 6;

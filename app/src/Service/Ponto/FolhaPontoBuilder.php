@@ -4,6 +4,7 @@ namespace App\Service\Ponto;
 
 use App\Entity\Ponto\EscalaTrabalho;
 use App\Entity\Ponto\Feriado;
+use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Ponto\RegistroPonto;
 
 class FolhaPontoBuilder
@@ -15,7 +16,8 @@ class FolhaPontoBuilder
     /**
      * @param RegistroPonto[] $batidas
      * @param Feriado[] $feriados
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null}>
+     * @param array<string, JustificativaPonto> $justificativasDoMes Justificativas indexadas por 'Y-m-d'
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -24,7 +26,8 @@ class FolhaPontoBuilder
         bool $includeEmptyDays = true,
         bool $orderDesc = false,
         ?EscalaTrabalho $escala = null,
-        array $feriados = []
+        array $feriados = [],
+        array $justificativasDoMes = []
     ): array {
         $registrosPorDia = [];
         foreach ($batidas as $batida) {
@@ -82,20 +85,38 @@ class FolhaPontoBuilder
                 'minutosTrabalhadosDia' => null,
                 'saldoDia'       => null,
                 'saldoAcumulado' => null,
+                'justificadoDia' => false,
+                'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
             ];
 
             if ($escala !== null) {
-                $batidasDoDia = isset($registrosPorDia[$chaveDia])
-                    ? array_values($registrosPorDia[$chaveDia])
-                    : [];
+                if ($indiceDiaSemana === 7) {
+                    $row['minutosTrabalhadosDia'] = 0;
+                    $row['saldoDia']              = 0;
+                    $row['saldoAcumulado']        = $saldoAcumulado;
+                } else {
+                    $batidasDoDia = isset($registrosPorDia[$chaveDia])
+                        ? array_values($registrosPorDia[$chaveDia])
+                        : [];
 
-                $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
-                $saldoDia = $this->calculadora->calcularSaldoDia($escala->getUser(), $dia, $batidasDoDia, $escala, $feriados);
-                $saldoAcumulado += $saldoDia;
+                    $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
+                    $saldoDia = $this->calculadora->calcularSaldoDia($escala->getUser(), $dia, $batidasDoDia, $escala, $feriados);
 
-                $row['minutosTrabalhadosDia'] = $minutos;
-                $row['saldoDia']              = $saldoDia;
-                $row['saldoAcumulado']        = $saldoAcumulado;
+                    $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
+                    $justificadoDia = false;
+                    if ($justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'aprovado' && $saldoDia < 0) {
+                        $saldoDia = 0;
+                        $justificadoDia = true;
+                    }
+
+                    $saldoAcumulado += $saldoDia;
+
+                    $row['minutosTrabalhadosDia'] = $minutos;
+                    $row['saldoDia']              = $saldoDia;
+                    $row['saldoAcumulado']        = $saldoAcumulado;
+                    $row['justificadoDia']        = $justificadoDia;
+                    $row['justificativa']         = $justificativaDoDia;
+                }
             }
 
             if (
