@@ -5,7 +5,8 @@ namespace App\Entity\Ponto;
 use App\Entity\Auth\User;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: \App\Repository\Ponto\JustificativaPontoRepository::class)]
+#[ORM\Index(fields: ['batchId'], name: 'IDX_JUST_BATCH')]
 class JustificativaPonto
 {
     #[ORM\Id]
@@ -38,6 +39,9 @@ class JustificativaPonto
 
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observacaoAnalise = null;
+
+    #[ORM\Column(length: 36, nullable: true)]
+    private ?string $batchId = null;
 
     public function getId(): ?int
     {
@@ -129,6 +133,17 @@ class JustificativaPonto
     public function setObservacaoAnalise(?string $observacaoAnalise): static
     {
         $this->observacaoAnalise = $observacaoAnalise;
+        return $this;
+    }
+
+    public function getBatchId(): ?string
+    {
+        return $this->batchId;
+    }
+
+    public function setBatchId(?string $batchId): static
+    {
+        $this->batchId = $batchId;
         return $this;
     }
 }
