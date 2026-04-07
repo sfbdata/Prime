@@ -11,6 +11,7 @@ use App\Repository\Ponto\JustificativaPontoRepository;
 use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
+use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Ponto\FolhaPontoBuilder;
 use App\Service\Ponto\VerificadorAlertaPonto;
@@ -140,7 +141,8 @@ final class PontoController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         JustificativaPontoRepository $justificativaRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        NotificacaoService $notificacaoService
     ): Response {
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
@@ -202,6 +204,7 @@ final class PontoController extends AbstractController
             }
 
             $batchId = bin2hex(random_bytes(16));
+            $justificativasCriadas = [];
 
             foreach ($datasValidas as $dataObj) {
                 $justificativa = new JustificativaPonto();
@@ -213,9 +216,15 @@ final class PontoController extends AbstractController
                 $justificativa->setBatchId($batchId);
 
                 $entityManager->persist($justificativa);
+                $justificativasCriadas[] = $justificativa;
             }
 
             $entityManager->flush();
+
+            $urlGestor = $this->generateUrl('app_tenant_users', ['id' => $user->getTenant()->getId()]);
+            foreach ($justificativasCriadas as $j) {
+                $notificacaoService->notificarJustificativaEnviada($j, $urlGestor);
+            }
 
             $this->addFlash('success', sprintf(
                 'Justificativa enviada para %d dia(s). Aguarde análise do administrador.',
