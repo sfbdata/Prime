@@ -757,7 +757,7 @@ final class TenantController extends AbstractController
         $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException('Sem permissão para aprovar justificativas.');
+            throw $this->createAccessDeniedException('Sem permissão para abonar justificativas.');
         }
 
         if (!$this->isCsrfTokenValid('justificativa_aprovar_' . $justificativaId, (string) $request->request->get('_token'))) {
@@ -771,13 +771,13 @@ final class TenantController extends AbstractController
         }
 
         if ($justificativa->getStatus() !== 'pendente') {
-            $this->addFlash('warning', 'Apenas justificativas pendentes podem ser aprovadas.');
+            $this->addFlash('warning', 'Apenas justificativas pendentes podem ser abonadas.');
             return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
         }
 
         $observacao = trim((string) $request->request->get('observacaoAnalise', ''));
 
-        $justificativa->setStatus('aprovado');
+        $justificativa->setStatus('abonado');
         $justificativa->setDataAnalise(new \DateTime());
         $justificativa->setAnalisadoPor($currentUser);
         if ($observacao !== '') {
@@ -786,7 +786,7 @@ final class TenantController extends AbstractController
 
         $entityManager->flush();
 
-        $this->addFlash('success', sprintf('Justificativa de %s aprovada.', $justificativa->getData()?->format('d/m/Y')));
+        $this->addFlash('success', sprintf('Justificativa de %s abonada.', $justificativa->getData()?->format('d/m/Y')));
 
         return $this->redirectToRoute('app_tenant_user_edit_role', [
             'tenantId' => $tenantId,
