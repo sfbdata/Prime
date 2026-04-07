@@ -44,6 +44,10 @@ class EscalaTrabalhoType extends AbstractType
                 'label'    => 'Saída (sábado)',
                 'required' => false,
                 'attr'     => ['placeholder' => '13:00', 'pattern' => '[0-2][0-9]:[0-5][0-9]'],
+            ])
+            ->add('alertaHabilitado', CheckboxType::class, [
+                'label'    => 'Ativar alerta de registro de ponto',
+                'required' => false,
             ]);
     }
 
