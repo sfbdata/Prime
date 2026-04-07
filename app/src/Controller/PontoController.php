@@ -13,6 +13,7 @@ use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Ponto\FolhaPontoBuilder;
+use App\Service\Ponto\VerificadorAlertaPonto;
 use Doctrine\ORM\EntityManagerInterface;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -35,6 +36,7 @@ final class PontoController extends AbstractController
 {
     public function __construct(
         private readonly string $justificativasUploadsDir,
+        private readonly VerificadorAlertaPonto $verificadorAlerta,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -258,6 +260,28 @@ final class PontoController extends AbstractController
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $justificativa->getAnexoPath());
 
         return $response;
+    }
+
+    #[Route('/alerta-horario', name: 'ponto_alerta_horario', methods: ['GET'])]
+    public function alertaHorario(PermissionChecker $permissionChecker): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return $this->json(['alertar' => false], 401);
+        }
+
+        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+            return $this->json(['alertar' => false]);
+        }
+
+        $escala = $user->getEscalaTrabalho();
+        if ($escala === null) {
+            return $this->json(['alertar' => false]);
+        }
+
+        return $this->json($this->verificadorAlerta->verificar($escala, new \DateTimeImmutable()));
     }
 
     #[Route('/batida', name: 'ponto_batida', methods: ['POST'])]
