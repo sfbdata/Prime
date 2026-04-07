@@ -213,6 +213,35 @@ class NotificacaoService
         $this->notificacaoRepository->marcarTodasComoLidas($usuario);
     }
 
+    public function notificarJustificativaEnviada(JustificativaPonto $justificativa, string $urlGestor): void
+    {
+        $user = $justificativa->getUser();
+        $tenant = $user?->getTenant();
+        if ($tenant === null) {
+            return;
+        }
+
+        $usuarios = $this->userRepository->createQueryBuilder('u')
+            ->where('u.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getResult();
+
+        $gestores = array_filter($usuarios, fn(User $u) =>
+            $this->permissionChecker->canAdminister($u, 'admin.users.manage')
+        );
+
+        $data = $justificativa->getData()?->format('d/m/Y') ?? '';
+        foreach ($gestores as $gestor) {
+            $this->criarNotificacao(
+                $gestor,
+                Notificacao::TIPO_PONTO_JUSTIFICATIVA_ENVIADA,
+                sprintf('%s enviou uma justificativa de ponto para %s.', $user->getFullName(), $data),
+                $urlGestor
+            );
+        }
+    }
+
     public function notificarJustificativaAprovada(JustificativaPonto $justificativa, string $urlPonto): void
     {
         $this->criarNotificacao(
