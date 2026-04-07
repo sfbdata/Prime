@@ -1,0 +1,212 @@
+{#
+  Modal de alerta para registro de ponto eletrônico.
+  Incluído em base.html.twig apenas para usuários autenticados com acesso ao módulo ponto.
+#}
+
+<div class="modal fade" id="modalAlertaPonto" tabindex="-1"
+     aria-labelledby="modalAlertaPontoLabel" aria-hidden="true"
+     data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark border-0">
+                <h5 class="modal-title fw-semibold" id="modalAlertaPontoLabel">
+                    <i class="bi bi-clock-history me-2"></i>Registro de Ponto
+                </h5>
+            </div>
+            <div class="modal-body py-4 text-center">
+                <p class="fs-5 mb-1" id="alertaPontoMensagem"></p>
+                <p class="text-muted small mb-0" id="alertaPontoHorario"></p>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pb-4">
+                <a href="{{ path('ponto_index') }}"
+                   class="btn btn-warning text-dark fw-semibold px-4"
+                   id="btnIrParaPonto">
+                    <i class="bi bi-fingerprint me-1"></i>Ir para o Ponto Eletrônico
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var POLLING_INTERVALO_MS  = 60000;
+    var ENDPOINT              = '{{ path('ponto_alerta_horario') }}';
+    var STORAGE_PREFIX        = 'alerta_ponto_';
+    var modalEl               = document.getElementById('modalAlertaPonto');
+    var modal                 = null;
+    var tituloOriginal        = document.title;
+    var intervaloPiscarTitulo = null;
+    var piscarAtivo           = false;
+
+    // ── Storage ──────────────────────────────────────────────────────────────
+
+    function getChaveStorage(horario) {
+        var hoje = new Date();
+        var data = hoje.getFullYear()
+            + '-' + String(hoje.getMonth() + 1).padStart(2, '0')
+            + '-' + String(hoje.getDate()).padStart(2, '0');
+        return STORAGE_PREFIX + data + '_' + horario;
+    }
+
+    function jaFoiDispensado(horario) {
+        try {
+            return localStorage.getItem(getChaveStorage(horario)) === '1';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function marcarComoDispensado(horario) {
+        try {
+            localStorage.setItem(getChaveStorage(horario), '1');
+            limparChavesAntigas();
+        } catch (e) {}
+    }
+
+    function limparChavesAntigas() {
+        try {
+            var limite = new Date();
+            limite.setDate(limite.getDate() - 2);
+            var prefixoLimite = STORAGE_PREFIX + limite.getFullYear()
+                + '-' + String(limite.getMonth() + 1).padStart(2, '0')
+                + '-' + String(limite.getDate()).padStart(2, '0');
+            Object.keys(localStorage).forEach(function (chave) {
+                if (chave.startsWith(STORAGE_PREFIX) && chave < prefixoLimite) {
+                    localStorage.removeItem(chave);
+                }
+            });
+        } catch (e) {}
+    }
+
+    // ── Título piscando (fallback para abas sem foco) ─────────────────────────
+
+    function iniciarPiscarTitulo(mensagem) {
+        if (piscarAtivo) return;
+        piscarAtivo = true;
+        var alternado = false;
+        intervaloPiscarTitulo = setInterval(function () {
+            document.title = alternado ? tituloOriginal : '🔔 ' + mensagem;
+            alternado = !alternado;
+        }, 1000);
+    }
+
+    function pararPiscarTitulo() {
+        piscarAtivo = false;
+        clearInterval(intervaloPiscarTitulo);
+        intervaloPiscarTitulo = null;
+        document.title = tituloOriginal;
+    }
+
+    // ── Web Notifications API ─────────────────────────────────────────────────
+
+    function solicitarPermissaoNotificacao(callback) {
+        if (!('Notification' in window)) {
+            callback(false);
+            return;
+        }
+        if (Notification.permission === 'granted') {
+            callback(true);
+            return;
+        }
+        if (Notification.permission === 'denied') {
+            callback(false);
+            return;
+        }
+        Notification.requestPermission().then(function (permissao) {
+            callback(permissao === 'granted');
+        });
+    }
+
+    function dispararNotificacaoNativa(dados) {
+        solicitarPermissaoNotificacao(function (permitido) {
+            if (!permitido) return;
+            var notif = new Notification('Registro de Ponto', {
+                body:    dados.mensagem + '\nHorário: ' + dados.horario,
+                icon:    '/favicon.ico',
+                tag:     'alerta-ponto-' + dados.horario,
+                requireInteraction: true
+            });
+            notif.addEventListener('click', function () {
+                window.focus();
+                notif.close();
+                if (modal) modal.show();
+            });
+        });
+    }
+
+    // ── Exibição principal ────────────────────────────────────────────────────
+
+    function exibirAlerta(dados) {
+        if (!modalEl) return;
+        if (jaFoiDispensado(dados.horario)) return;
+
+        var elMensagem = document.getElementById('alertaPontoMensagem');
+        var elHorario  = document.getElementById('alertaPontoHorario');
+        if (elMensagem) elMensagem.textContent = dados.mensagem;
+        if (elHorario)  elHorario.textContent  = 'Horário configurado: ' + dados.horario;
+
+        modalEl._horarioAtual = dados.horario;
+
+        // Notificação nativa (pisca ícone na barra de tarefas do SO)
+        dispararNotificacaoNativa(dados);
+
+        // Título piscando como fallback (funciona sem permissão)
+        iniciarPiscarTitulo(dados.mensagem);
+
+        if (!modal) {
+            modal = new bootstrap.Modal(modalEl);
+
+            var btnIr = document.getElementById('btnIrParaPonto');
+            if (btnIr) {
+                btnIr.addEventListener('click', function () {
+                    if (modalEl._horarioAtual) {
+                        marcarComoDispensado(modalEl._horarioAtual);
+                    }
+                    pararPiscarTitulo();
+                });
+            }
+        }
+
+        // Para de piscar o título quando o modal fechar
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            pararPiscarTitulo();
+        }, { once: true });
+
+        // Para de piscar se o usuário voltar para a aba
+        document.addEventListener('visibilitychange', function pararAoFocar() {
+            if (!document.hidden) {
+                pararPiscarTitulo();
+                document.removeEventListener('visibilitychange', pararAoFocar);
+            }
+        });
+
+        modal.show();
+    }
+
+    // ── Polling ───────────────────────────────────────────────────────────────
+
+    function verificarAlerta() {
+        fetch(ENDPOINT, { credentials: 'same-origin' })
+            .then(function (r) {
+                if (!r.ok) return null;
+                return r.json();
+            })
+            .then(function (dados) {
+                if (dados && dados.alertar === true) {
+                    exibirAlerta(dados);
+                }
+            })
+            .catch(function (e) {
+                console.debug('Alerta ponto:', e);
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        verificarAlerta();
+        setInterval(verificarAlerta, POLLING_INTERVALO_MS);
+    });
+}());
+</script>
