@@ -209,6 +209,13 @@
                                 <hr>
 
                                 <div class="form-check form-switch mb-3">
+                                    {{ form_widget(escalaForm.alertaHabilitado, {attr: {class: 'form-check-input', id: 'alertaPontoSwitch'}}) }}
+                                    <label class="form-check-label" for="alertaPontoSwitch">Ativar alerta de registro de ponto</label>
+                                </div>
+
+                                <hr>
+
+                                <div class="form-check form-switch mb-3">
                                     {{ form_widget(escalaForm.sabadoAtivado, {attr: {class: 'form-check-input', id: 'sabadoSwitch'}}) }}
                                     <label class="form-check-label" for="sabadoSwitch">Trabalha aos sábados</label>
                                 </div>
