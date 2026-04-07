@@ -218,7 +218,7 @@ class NotificacaoService
         $this->criarNotificacao(
             $justificativa->getUser(),
             Notificacao::TIPO_PONTO_JUSTIFICATIVA_APROVADA,
-            'Sua justificativa de ponto foi aprovada.',
+            'Sua justificativa de ponto foi abonada.',
             $urlPonto
         );
     }
