@@ -33,8 +33,8 @@
                                             <span class="badge text-bg-light border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
                                         {% endfor %}
                                     </span>
-                                    {% if primeiraJust.status == 'aprovado' %}
-                                        <span class="badge text-bg-success ms-auto"><i class="bi bi-check-circle me-1"></i>Aprovado</span>
+                                    {% if primeiraJust.status == 'abonado' %}
+                                        <span class="badge text-bg-success ms-auto"><i class="bi bi-check-circle me-1"></i>Abonado</span>
                                     {% elseif primeiraJust.status == 'pendente' %}
                                         <span class="badge text-bg-warning text-dark ms-auto"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>
                                     {% else %}
@@ -81,23 +81,23 @@
                                 </dl>
 
                                 {% if primeiraJust.status == 'pendente' %}
-                                    {# Botões de aprovar e rejeitar para CADA dia do lote individualmente #}
+                                    {# Botões de abonar e rejeitar para CADA dia do lote individualmente #}
                                     {% for j in batch %}
                                         <div class="border rounded p-3 mb-2 bg-light">
                                             <strong class="d-block mb-2">
                                                 <i class="bi bi-calendar-day me-1"></i>{{ j.data|date('d/m/Y') }}
                                             </strong>
                                             <div class="d-flex gap-2 flex-wrap">
-                                                {# Aprovar #}
+                                                {# Abonar #}
                                                 <form method="post"
                                                       action="{{ path('app_tenant_user_justificativa_aprovar', {tenantId: tenantId, id: user.id, justificativaId: j.id}) }}"
                                                       class="d-flex gap-2 align-items-center">
                                                     <input type="hidden" name="_token" value="{{ csrf_token('justificativa_aprovar_' ~ j.id) }}">
                                                     <input type="text" name="observacaoAnalise" class="form-control form-control-sm"
-                                                           style="max-width: 220px" placeholder="Obs. aprovação (opcional)">
+                                                           style="max-width: 220px" placeholder="Obs. abono (opcional)">
                                                     <button type="submit" class="btn btn-sm btn-success"
-                                                            onclick="return confirm('Aprovar justificativa de {{ j.data|date('d/m/Y') }}?')">
-                                                        <i class="bi bi-check-lg me-1"></i>Aprovar
+                                                            onclick="return confirm('Abonar justificativa de {{ j.data|date('d/m/Y') }}?')">
+                                                        <i class="bi bi-check-lg me-1"></i>Abonar
                                                     </button>
                                                 </form>
 

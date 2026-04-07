@@ -38,8 +38,8 @@
                             <td class="small">{{ batch[0].descricao }}</td>
                             <td>
                                 {% set status = batch[0].status %}
-                                {% if status == 'aprovado' %}
-                                    <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Aprovado</span>
+                                {% if status == 'abonado' %}
+                                    <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Abonado</span>
                                 {% elseif status == 'pendente' %}
                                     <span class="badge text-bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>
                                 {% else %}

@@ -67,13 +67,13 @@
                         <th>Repouso</th>
                         <th>Retorno</th>
                         <th>Saída</th>
-                        {% if mostrarJustificativas %}
-                            <th>Justificativa</th>
-                        {% endif %}
                         {% if mostrarBancoHoras %}
                             <th title="Horas trabalhadas no dia">Trabalhado</th>
                             <th title="Saldo do dia (positivo = extra, negativo = falta)">Saldo Dia</th>
                             <th title="Saldo acumulado no mês">Banco de Horas</th>
+                        {% endif %}
+                        {% if mostrarJustificativas %}
+                            <th>Justificativa</th>
                         {% endif %}
                     </tr>
                 </thead>
@@ -123,27 +123,6 @@
                                 </td>
                             {% endfor %}
 
-                            {% if mostrarJustificativas %}
-                                <td>
-                                    {% if linha.justificativa is defined and linha.justificativa is not null %}
-                                        {% set j = linha.justificativa %}
-                                        {% if j.status == 'aprovado' %}
-                                            <span class="badge text-bg-success" title="{{ j.descricao }}">
-                                                <i class="bi bi-check-circle me-1"></i>Aprovada
-                                            </span>
-                                        {% elseif j.status == 'pendente' %}
-                                            <span class="badge text-bg-warning text-dark" title="{{ j.descricao }}">
-                                                <i class="bi bi-hourglass-split me-1"></i>Pendente
-                                            </span>
-                                        {% else %}
-                                            <span class="badge text-bg-danger" title="{{ j.descricao }}">
-                                                <i class="bi bi-x-circle me-1"></i>Rejeitada
-                                            </span>
-                                        {% endif %}
-                                    {% endif %}
-                                </td>
-                            {% endif %}
-
                             {% if mostrarBancoHoras %}
                                 <td class="text-nowrap">
                                     {% if linha.minutosTrabalhadosDia is not null and linha.minutosTrabalhadosDia > 0 %}
@@ -171,6 +150,27 @@
                                             <span class="text-danger">-{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m</span>
                                         {% else %}
                                             <span class="text-muted">0h</span>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                            {% endif %}
+
+                            {% if mostrarJustificativas %}
+                                <td>
+                                    {% if linha.justificativa is defined and linha.justificativa is not null %}
+                                        {% set j = linha.justificativa %}
+                                        {% if j.status == 'abonado' %}
+                                            <span class="badge text-bg-success" title="{{ j.descricao }}">
+                                                <i class="bi bi-check-circle me-1"></i>Abonada
+                                            </span>
+                                        {% elseif j.status == 'pendente' %}
+                                            <span class="badge text-bg-warning text-dark" title="{{ j.descricao }}">
+                                                <i class="bi bi-hourglass-split me-1"></i>Pendente
+                                            </span>
+                                        {% else %}
+                                            <span class="badge text-bg-danger" title="{{ j.descricao }}">
+                                                <i class="bi bi-x-circle me-1"></i>Rejeitada
+                                            </span>
                                         {% endif %}
                                     {% endif %}
                                 </td>
