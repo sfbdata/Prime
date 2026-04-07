@@ -28,7 +28,7 @@ class JustificativaPonto
     private ?string $anexoPath = null; // Caminho para o arquivo (PDF/Imagem)
 
     #[ORM\Column(length: 20)]
-    private ?string $status = 'pendente'; // pendente, aprovado, rejeitado
+    private ?string $status = 'pendente'; // pendente, abonado, rejeitado
 
     #[ORM\Column(type: 'datetime', nullable: true)]
     private ?\DateTimeInterface $dataAnalise = null;

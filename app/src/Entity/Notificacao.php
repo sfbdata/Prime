@@ -17,7 +17,7 @@ class Notificacao
     public const TIPO_TAREFA_CONCLUIDA = 'tarefa_concluida';
     public const TIPO_EVENTO_CRIADO = 'evento_criado';
     public const TIPO_EVENTO_CANCELADO = 'evento_cancelado';
-    public const TIPO_PONTO_JUSTIFICATIVA_APROVADA  = 'ponto_justificativa_aprovada';
+    public const TIPO_PONTO_JUSTIFICATIVA_APROVADA  = 'ponto_justificativa_abonada';
     public const TIPO_PONTO_JUSTIFICATIVA_REJEITADA = 'ponto_justificativa_rejeitada';
 
     #[ORM\Id]
