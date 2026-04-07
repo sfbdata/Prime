@@ -26,6 +26,7 @@ use App\Repository\SedeRepository;
 use App\Repository\TenantRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
+use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Ponto\FolhaPontoBuilder;
 use App\Service\TenantBootstrapService;
@@ -745,7 +746,8 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         JustificativaPontoRepository $justificativaRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        NotificacaoService $notificacaoService
     ): Response {
         $currentUser = $this->getUser();
 
@@ -786,6 +788,9 @@ final class TenantController extends AbstractController
 
         $entityManager->flush();
 
+        $urlPonto = $this->generateUrl('ponto_index');
+        $notificacaoService->notificarJustificativaAprovada($justificativa, $urlPonto);
+
         $this->addFlash('success', sprintf('Justificativa de %s abonada.', $justificativa->getData()?->format('d/m/Y')));
 
         return $this->redirectToRoute('app_tenant_user_edit_role', [
@@ -803,7 +808,8 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         JustificativaPontoRepository $justificativaRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        NotificacaoService $notificacaoService
     ): Response {
         $currentUser = $this->getUser();
 
@@ -845,6 +851,9 @@ final class TenantController extends AbstractController
         $justificativa->setObservacaoAnalise($observacao);
 
         $entityManager->flush();
+
+        $urlPonto = $this->generateUrl('ponto_index');
+        $notificacaoService->notificarJustificativaRejeitada($justificativa, $urlPonto);
 
         $this->addFlash('success', sprintf('Justificativa de %s rejeitada.', $justificativa->getData()?->format('d/m/Y')));
 
