@@ -57,7 +57,7 @@ class PastaController extends AbstractController
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -66,8 +66,20 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('homepage');
         }
 
+        $filters = [
+            'nup'               => $request->query->get('nup', ''),
+            'status'            => $request->query->get('status', ''),
+            'responsavel'       => $request->query->get('responsavel', ''),
+            'status_documentos' => $request->query->get('status_documentos', ''),
+        ];
+
+        $hasFilters = array_filter($filters, fn($v) => $v !== '');
+
         return $this->render('pasta/index.html.twig', [
-            'pastas' => $this->pastaRepository->findAll(),
+            'pastas'      => $hasFilters ? $this->pastaRepository->findByFilters($filters) : $this->pastaRepository->findAll(),
+            'filters'     => $filters,
+            'nups'        => $this->pastaRepository->findAllNups(),
+            'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
         ]);
     }
 
