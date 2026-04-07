@@ -17,6 +17,7 @@ class Notificacao
     public const TIPO_TAREFA_CONCLUIDA = 'tarefa_concluida';
     public const TIPO_EVENTO_CRIADO = 'evento_criado';
     public const TIPO_EVENTO_CANCELADO = 'evento_cancelado';
+    public const TIPO_PONTO_JUSTIFICATIVA_ENVIADA    = 'ponto_justificativa_enviada';
     public const TIPO_PONTO_JUSTIFICATIVA_APROVADA  = 'ponto_justificativa_abonada';
     public const TIPO_PONTO_JUSTIFICATIVA_REJEITADA = 'ponto_justificativa_rejeitada';
 
@@ -163,6 +164,7 @@ class Notificacao
             self::TIPO_TAREFA_CONCLUIDA => 'bi-check-circle text-success',
             self::TIPO_EVENTO_CRIADO => 'bi-calendar-plus text-primary',
             self::TIPO_EVENTO_CANCELADO => 'bi-calendar-x text-danger',
+            self::TIPO_PONTO_JUSTIFICATIVA_ENVIADA    => 'bi-file-earmark-text text-info',
             self::TIPO_PONTO_JUSTIFICATIVA_APROVADA  => 'bi-check2-circle text-success',
             self::TIPO_PONTO_JUSTIFICATIVA_REJEITADA => 'bi-x-circle text-danger',
             default => 'bi-bell text-secondary',
