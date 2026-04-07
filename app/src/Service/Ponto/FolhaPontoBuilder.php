@@ -2,15 +2,20 @@
 
 namespace App\Service\Ponto;
 
+use App\Entity\Auth\User;
 use App\Entity\Ponto\EscalaTrabalho;
 use App\Entity\Ponto\Feriado;
 use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Ponto\RegistroPonto;
+use App\Repository\Ponto\JustificativaPontoRepository;
+use App\Repository\Ponto\RegistroPontoRepository;
 
 class FolhaPontoBuilder
 {
     public function __construct(
-        private readonly CalculadoraJornada $calculadora
+        private readonly CalculadoraJornada $calculadora,
+        private readonly RegistroPontoRepository $registroPontoRepository,
+        private readonly JustificativaPontoRepository $justificativaPontoRepository,
     ) {}
 
     /**
@@ -104,7 +109,7 @@ class FolhaPontoBuilder
 
                     $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
                     $justificadoDia = false;
-                    if ($justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'aprovado' && $saldoDia < 0) {
+                    if ($justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'abonado' && $saldoDia < 0) {
                         $saldoDia = 0;
                         $justificadoDia = true;
                     }
@@ -137,5 +142,81 @@ class FolhaPontoBuilder
         }
 
         return $rows;
+    }
+
+    /**
+     * Calcula o saldo acumulado do banco de horas para o ano inteiro.
+     *
+     * Regras:
+     * - Começa no max(createdAt do usuário, 01/01/ano)
+     * - Termina no min(hoje, 31/12/ano) — dias futuros nunca contam
+     *
+     * @param Feriado[] $feriados
+     */
+    public function calcularSaldoAnual(User $user, int $ano, array $feriados): int
+    {
+        $escala = $user->getEscalaTrabalho();
+        if ($escala === null) {
+            return 0;
+        }
+
+        $hoje = new \DateTimeImmutable('today');
+
+        $createdAt = $user->getCreatedAt();
+        if ($createdAt === null) {
+            return 0;
+        }
+        $inicioCadastro = \DateTimeImmutable::createFromInterface($createdAt)->setTime(0, 0, 0);
+
+        $inicioAno = new \DateTimeImmutable(sprintf('%04d-01-01', $ano));
+        $inicio = $inicioCadastro > $inicioAno ? $inicioCadastro : $inicioAno;
+
+        $fimAno = new \DateTimeImmutable(sprintf('%04d-12-31', $ano));
+        $fim = $hoje < $fimAno ? $hoje : $fimAno;
+
+        if ($inicio > $fim) {
+            return 0;
+        }
+
+        $saldoTotal = 0;
+        $mesAtual = (int) $inicio->format('m');
+        $anoAtual = (int) $inicio->format('Y');
+        $mesFim   = (int) $fim->format('m');
+        $anoFim   = (int) $fim->format('Y');
+
+        while ($anoAtual < $anoFim || ($anoAtual === $anoFim && $mesAtual <= $mesFim)) {
+            $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01', $anoAtual, $mesAtual));
+            $fimMes = $inicioMes->modify('last day of this month');
+
+            $inicioEfetivo = $inicio > $inicioMes ? $inicio : $inicioMes;
+            $fimEfetivo    = $fim < $fimMes ? $fim : $fimMes;
+
+            $batidas = $this->registroPontoRepository->findByUserAndCompetencia($user, $anoAtual, $mesAtual);
+            $justificativas = $this->justificativaPontoRepository->findByUserAndCompetenciaIndexed($user, $anoAtual, $mesAtual);
+
+            $rows = $this->buildRows(
+                $inicioEfetivo->setTime(0, 0, 0),
+                $fimEfetivo->setTime(23, 59, 59),
+                $batidas,
+                true,
+                false,
+                $escala,
+                $feriados,
+                $justificativas
+            );
+
+            if (!empty($rows)) {
+                $ultimoRow = end($rows);
+                $saldoTotal += ($ultimoRow['saldoAcumulado'] ?? 0);
+            }
+
+            $mesAtual++;
+            if ($mesAtual > 12) {
+                $mesAtual = 1;
+                $anoAtual++;
+            }
+        }
+
+        return $saldoTotal;
     }
 }
