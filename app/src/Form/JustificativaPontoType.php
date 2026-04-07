@@ -23,9 +23,9 @@ class JustificativaPontoType extends AbstractType
                 ],
             ])
             ->add('descricao', TextareaType::class, [
-                'label'       => 'Motivo / Descrição',
+                'label'       => 'Motivo / Descrição / Esquecimento',
                 'mapped'      => false,
-                'attr'        => ['rows' => 3, 'placeholder' => 'Descreva o motivo da ausência'],
+                'attr'        => ['rows' => 3, 'placeholder' => 'Descreva o motivo da ausência ou detalhes do esquecimento'],
                 'constraints' => [
                     new NotBlank(message: 'Informe o motivo da ausência.'),
                 ],
@@ -43,12 +43,7 @@ class JustificativaPontoType extends AbstractType
                     ]),
                 ],
             ])
-            ->add('observacao', TextareaType::class, [
-                'label'    => 'Observação (opcional)',
-                'mapped'   => false,
-                'required' => false,
-                'attr'     => ['rows' => 2, 'placeholder' => 'Observação adicional (opcional)'],
-            ]);
+;
     }
 
     public function configureOptions(OptionsResolver $resolver): void
