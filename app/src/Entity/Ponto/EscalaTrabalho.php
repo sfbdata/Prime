@@ -46,6 +46,9 @@ class EscalaTrabalho
     #[ORM\Column(nullable: true)]
     private ?int $cargaHorariaSabado = null; // em minutos
 
+    #[ORM\Column]
+    private bool $alertaHabilitado = true;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -158,6 +161,17 @@ class EscalaTrabalho
     public function setCargaHorariaSabado(?int $cargaHorariaSabado): static
     {
         $this->cargaHorariaSabado = $cargaHorariaSabado;
+        return $this;
+    }
+
+    public function isAlertaHabilitado(): bool
+    {
+        return $this->alertaHabilitado;
+    }
+
+    public function setAlertaHabilitado(bool $alertaHabilitado): static
+    {
+        $this->alertaHabilitado = $alertaHabilitado;
         return $this;
     }
 }
