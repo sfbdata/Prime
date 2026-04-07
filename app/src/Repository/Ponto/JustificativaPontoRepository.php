@@ -40,7 +40,7 @@ class JustificativaPontoRepository extends ServiceEntityRepository
 
     /**
      * Retorna as justificativas do mês indexadas por 'Y-m-d' (para uso no FolhaPontoBuilder).
-     * Se houver mais de uma justificativa por dia, prevalece a aprovada; senão a mais recente.
+     * Se houver mais de uma justificativa por dia, prevalece a abonada; senão a mais recente.
      *
      * @return array<string, JustificativaPonto>
      */
@@ -53,8 +53,8 @@ class JustificativaPontoRepository extends ServiceEntityRepository
             $key = $j->getData()->format('Y-m-d');
             if (!isset($indexed[$key])) {
                 $indexed[$key] = $j;
-            } elseif ($j->getStatus() === 'aprovado') {
-                // Aprovada tem prioridade sobre pendente/rejeitada
+            } elseif ($j->getStatus() === 'abonado') {
+                // Abonada tem prioridade sobre pendente/rejeitada
                 $indexed[$key] = $j;
             }
         }
@@ -79,14 +79,14 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Verifica se já existe uma justificativa pendente ou aprovada para o usuário nessa data.
+     * Verifica se já existe uma justificativa pendente ou abonada para o usuário nessa data.
      */
     public function findOneByUserAndData(User $user, \DateTimeInterface $data): ?JustificativaPonto
     {
         return $this->createQueryBuilder('j')
             ->where('j.user = :user')
             ->andWhere('j.data = :data')
-            ->andWhere("j.status IN ('pendente', 'aprovado')")
+            ->andWhere("j.status IN ('pendente', 'abonado')")
             ->setParameter('user', $user)
             ->setParameter('data', $data)
             ->setMaxResults(1)
