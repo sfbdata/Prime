@@ -115,8 +115,8 @@ final class PontoController extends AbstractController
             }
         }
 
-        $ultimaLinha = !empty($folhaRows) ? reset($folhaRows) : null;
-        $saldoMes = $ultimaLinha !== null ? ($ultimaLinha['saldoAcumulado'] ?? null) : null;
+        $anoAtual = (int) $agora->format('Y');
+        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados);
 
         $justificativaForm = $this->createForm(JustificativaPontoType::class);
 
@@ -153,7 +153,6 @@ final class PontoController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $datasRaw = trim((string) $form->get('datas')->getData());
             $descricao = trim((string) $form->get('descricao')->getData());
-            $observacao = trim((string) ($form->get('observacao')->getData() ?? ''));
 
             $datasArray = array_filter(array_map('trim', explode(',', $datasRaw)));
 
@@ -180,17 +179,6 @@ final class PontoController extends AbstractController
                     $this->addFlash('warning', sprintf('A data %s é domingo e foi ignorada.', $dataObj->format('d/m/Y')));
                     continue;
                 }
-                // Verificar duplicata pendente/aprovada
-                $existente = $justificativaRepository->findOneByUserAndData($user, $dataObj);
-                if ($existente !== null) {
-                    $this->addFlash('warning', sprintf(
-                        'Já existe uma justificativa %s para %s.',
-                        $existente->getStatus(),
-                        $dataObj->format('d/m/Y')
-                    ));
-                    continue;
-                }
-
                 $datasValidas[] = $dataObj;
             }
 
@@ -221,9 +209,7 @@ final class PontoController extends AbstractController
                 $justificativa->setAnexoPath($anexoPath);
                 $justificativa->setStatus('pendente');
                 $justificativa->setBatchId($batchId);
-                if ($observacao !== '') {
-                    $justificativa->setObservacaoAnalise($observacao);
-                }
+
                 $entityManager->persist($justificativa);
             }
 
