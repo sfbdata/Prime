@@ -13,20 +13,20 @@
     <div class="row">
         <div class="col-md-4">
             <div class="card card-primary card-outline">
-                <div class="card-header">
-                    <h3 class="card-title">Registrar Ponto</h3>
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h3 class="card-title mb-0">Registrar Ponto</h3>
+                    {% if saldoMes is not null %}
+                        {% set absAcum = saldoMes < 0 ? -saldoMes : saldoMes %}
+                        <div class="text-end ms-auto">
+                            <small class="text-muted d-block" style="font-size:0.7rem;">Banco de horas</small>
+                            <span class="h6 fw-bold mb-0 {{ saldoMes >= 0 ? 'text-success' : 'text-danger' }}">
+                                {{ saldoMes < 0 ? '-' : '+' }}{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m
+                            </span>
+                        </div>
+                    {% endif %}
                 </div>
                 <div class="card-body text-center">
                     <div class="d-flex align-items-center justify-content-center gap-3 mb-4">
-                        {% if saldoMes is not null %}
-                            {% set absAcum = saldoMes < 0 ? -saldoMes : saldoMes %}
-                            <div class="text-start">
-                                <small class="text-muted d-block" style="font-size:0.7rem;">Banco de horas</small>
-                                <span class="h6 fw-bold mb-0 {{ saldoMes >= 0 ? 'text-success' : 'text-danger' }}">
-                                    {{ saldoMes < 0 ? '-' : '+' }}{{ (absAcum // 60) }}h{{ '%02d'|format(absAcum % 60) }}m
-                                </span>
-                            </div>
-                        {% endif %}
                         <div id="clock" class="h1 mb-0" title="Tempo trabalhado hoje">00:00:00</div>
                     </div>
                     <div id="clock-label" class="text-muted small mb-2"></div>
