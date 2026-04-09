@@ -155,7 +155,18 @@
     const tipoRegistro = document.getElementById('tipo-registro');
     let currentLocation = null;
 
+    const ehDomingo = new Date().getDay() === 0;
+
+    if (ehDomingo) {
+        btnPonto.disabled = true;
+        btnPonto.innerHTML = '<i class="bi bi-slash-circle"></i> Registro indisponível aos domingos';
+        tipoRegistro.disabled = true;
+        gpsStatus.innerHTML = '<i class="bi bi-info-circle"></i> Não é permitido registrar ponto aos domingos.';
+        gpsStatus.className = 'alert alert-warning small mb-3';
+    }
+
     function updateButtonState() {
+        if (ehDomingo) return;
         btnPonto.disabled = !currentLocation || !tipoRegistro.value;
     }
 
@@ -188,18 +199,20 @@
         console.log('GPS não disponível:', error.message);
     }
 
-    if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-            aplicarPosicao,
-            (error) => {
-                // Fallback sem alta precisão caso o primeiro tente atingir timeout
-                navigator.geolocation.getCurrentPosition(aplicarPosicao, erroGps, { timeout: 10000 });
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    } else {
-        gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
-        gpsStatus.className = 'alert alert-danger small mb-3';
+    if (!ehDomingo) {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                aplicarPosicao,
+                (error) => {
+                    // Fallback sem alta precisão caso o primeiro tente atingir timeout
+                    navigator.geolocation.getCurrentPosition(aplicarPosicao, erroGps, { timeout: 10000 });
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } else {
+            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
+            gpsStatus.className = 'alert alert-danger small mb-3';
+        }
     }
 
     // Botão de Bater Ponto
