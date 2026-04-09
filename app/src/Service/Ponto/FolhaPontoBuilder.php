@@ -87,6 +87,7 @@ class FolhaPontoBuilder
                 'retornoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getId() : null,
                 'saidaId'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA])   ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getId()   : null,
                 'fimSemana' => $indiceDiaSemana >= 6,
+                'domingo'   => $indiceDiaSemana === 7,
                 'minutosTrabalhadosDia' => null,
                 'saldoDia'       => null,
                 'saldoAcumulado' => null,
