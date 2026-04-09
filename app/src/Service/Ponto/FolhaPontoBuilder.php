@@ -69,10 +69,12 @@ class FolhaPontoBuilder
 
         $rows = [];
         $saldoAcumulado = 0;
+        $hoje = new \DateTimeImmutable('today');
 
         for ($dia = $inicioMes; $dia <= $fimMes; $dia = $dia->modify('+1 day')) {
             $chaveDia = $dia->format('Y-m-d');
             $indiceDiaSemana = (int) $dia->format('N');
+            $diaFuturo = $dia > $hoje;
 
             $row = [
                 'diaMes'    => $dia->format('d'),
@@ -98,7 +100,12 @@ class FolhaPontoBuilder
 
             if ($escala !== null) {
                 $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriados);
-                if ($feriadoDoDia !== null) {
+                if ($diaFuturo) {
+                    // Dias futuros: não exibe saldo nem soma no banco
+                    $row['minutosTrabalhadosDia'] = null;
+                    $row['saldoDia']              = null;
+                    $row['saldoAcumulado']        = null;
+                } elseif ($feriadoDoDia !== null) {
                     $row['isFeriado']            = true;
                     $row['diaSemana']            = 'FERIADO - ' . $row['diaSemana'];
                     $row['minutosTrabalhadosDia'] = 0;
@@ -113,23 +120,34 @@ class FolhaPontoBuilder
                         ? array_values($registrosPorDia[$chaveDia])
                         : [];
 
-                    $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
-                    $saldoDia = $this->calculadora->calcularSaldoDia($escala->getUser(), $dia, $batidasDoDia, $escala, $feriados);
+                    $temSaida = isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]);
+                    $diaHoje  = $dia->format('Y-m-d') === $hoje->format('Y-m-d');
 
-                    $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
-                    $justificadoDia = false;
-                    if ($justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'abonado' && $saldoDia < 0) {
-                        $saldoDia = 0;
-                        $justificadoDia = true;
+                    // Dia atual sem saída: mostra horas trabalhadas mas não saldo nem banco
+                    if ($diaHoje && !$temSaida) {
+                        $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
+                        $row['minutosTrabalhadosDia'] = $minutos;
+                        $row['saldoDia']              = null;
+                        $row['saldoAcumulado']        = null;
+                    } else {
+                        $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
+                        $saldoDia = $this->calculadora->calcularSaldoDia($escala->getUser(), $dia, $batidasDoDia, $escala, $feriados);
+
+                        $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
+                        $justificadoDia = false;
+                        if ($justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'abonado' && $saldoDia < 0) {
+                            $saldoDia = 0;
+                            $justificadoDia = true;
+                        }
+
+                        $saldoAcumulado += $saldoDia;
+
+                        $row['minutosTrabalhadosDia'] = $minutos;
+                        $row['saldoDia']              = $saldoDia;
+                        $row['saldoAcumulado']        = $saldoAcumulado;
+                        $row['justificadoDia']        = $justificadoDia;
+                        $row['justificativa']         = $justificativaDoDia;
                     }
-
-                    $saldoAcumulado += $saldoDia;
-
-                    $row['minutosTrabalhadosDia'] = $minutos;
-                    $row['saldoDia']              = $saldoDia;
-                    $row['saldoAcumulado']        = $saldoAcumulado;
-                    $row['justificadoDia']        = $justificadoDia;
-                    $row['justificativa']         = $justificativaDoDia;
                 }
             }
 
@@ -215,8 +233,13 @@ class FolhaPontoBuilder
             );
 
             if (!empty($rows)) {
-                $ultimoRow = end($rows);
-                $saldoTotal += ($ultimoRow['saldoAcumulado'] ?? 0);
+                // Procura o último row com saldoAcumulado não-nulo (hoje sem saída retorna null)
+                foreach (array_reverse($rows) as $row) {
+                    if ($row['saldoAcumulado'] !== null) {
+                        $saldoTotal += $row['saldoAcumulado'];
+                        break;
+                    }
+                }
             }
 
             $mesAtual++;
