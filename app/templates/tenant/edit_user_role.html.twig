@@ -369,6 +369,15 @@
             });
         });
 
+        // Abre o modal de adicionar batida preenchendo data e tipo
+        window.abrirModalAddBatida = function (tipo, chaveDia) {
+            document.getElementById('modalAddData').value = chaveDia;
+            document.getElementById('modalAddTipo').value = tipo;
+            document.getElementById('modalAddCompetencia').value = chaveDia.substring(0, 7);
+            var modal = new bootstrap.Modal(document.getElementById('modalAddBatida'));
+            modal.show();
+        };
+
         // Bloquear adição de batida manual aos domingos
         var formAddBatida = document.querySelector('#modalAddBatida form');
         if (formAddBatida) {
