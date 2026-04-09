@@ -8,6 +8,7 @@ use App\Entity\Ponto\RegistroPonto;
 use App\Form\JustificativaPontoType;
 use App\Repository\Ponto\FeriadoRepository;
 use App\Repository\Ponto\JustificativaPontoRepository;
+use App\Service\Ponto\CalculadoraJornada;
 use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
@@ -299,7 +300,9 @@ final class PontoController extends AbstractController
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        FeriadoRepository $feriadoRepository,
+        CalculadoraJornada $calculadora
     ): JsonResponse {
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
@@ -351,6 +354,15 @@ final class PontoController extends AbstractController
             return $this->json([
                 'success' => false,
                 'message' => 'Não é permitido registrar ponto aos domingos.',
+            ], 422);
+        }
+
+        $feriados = $feriadoRepository->findByTenant($user->getTenant());
+        $feriadoHoje = $calculadora->getFeriadoDoDia($hoje, $feriados);
+        if ($feriadoHoje !== null) {
+            return $this->json([
+                'success' => false,
+                'message' => sprintf('Hoje é feriado (%s). Não é permitido registrar ponto.', $feriadoHoje->getNome()),
             ], 422);
         }
 

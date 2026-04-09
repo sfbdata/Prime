@@ -28,6 +28,7 @@ use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
+use App\Service\Ponto\CalculadoraJornada;
 use App\Service\Ponto\FolhaPontoBuilder;
 use App\Service\TenantBootstrapService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -492,7 +493,9 @@ final class TenantController extends AbstractController
         User $user,
         Request $request,
         EntityManagerInterface $entityManager,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        FeriadoRepository $feriadoRepository,
+        CalculadoraJornada $calculadora
     ): Response {
         $currentUser = $this->getUser();
 
@@ -518,8 +521,13 @@ final class TenantController extends AbstractController
 
             $diaSemana = (int) $data->format('N');
 
+            $feriados = $feriadoRepository->findByTenant($user->getTenant());
+            $feriadoDoDia = $calculadora->getFeriadoDoDia($data, $feriados);
+
             if ($diaSemana === 7) {
                 $this->addFlash('danger', 'Não é permitido lançar batidas aos domingos.');
+            } elseif ($feriadoDoDia !== null) {
+                $this->addFlash('danger', sprintf('O dia %s é feriado (%s). Não é permitido lançar batidas.', $data->format('d/m/Y'), $feriadoDoDia->getNome()));
             } elseif ($diaSemana === 6) {
                 $escala = $user->getEscalaTrabalho();
                 $trabalhaNoSabado = $escala !== null
@@ -584,7 +592,9 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         RegistroPontoRepository $registroPontoRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        FeriadoRepository $feriadoRepository,
+        CalculadoraJornada $calculadora
     ): Response {
         $currentUser = $this->getUser();
 
@@ -627,8 +637,13 @@ final class TenantController extends AbstractController
 
             $diaSemana = (int) $data->format('N');
 
+            $feriados = $feriadoRepository->findByTenant($user->getTenant());
+            $feriadoDoDia = $calculadora->getFeriadoDoDia($data, $feriados);
+
             if ($diaSemana === 7) {
                 $this->addFlash('danger', 'Não é permitido editar batidas em domingos.');
+            } elseif ($feriadoDoDia !== null) {
+                $this->addFlash('danger', sprintf('O dia %s é feriado (%s). Não é permitido editar batidas.', $data->format('d/m/Y'), $feriadoDoDia->getNome()));
             } elseif ($diaSemana === 6) {
                 $escala = $user->getEscalaTrabalho();
                 $trabalhaNoSabado = $escala !== null
