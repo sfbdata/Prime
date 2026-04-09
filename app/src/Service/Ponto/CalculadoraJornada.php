@@ -43,20 +43,26 @@ class CalculadoraJornada
         return $minutosTrabalhados - $cargaEsperada;
     }
 
-    private function isFeriado(\DateTimeInterface $data, array $feriados): bool
+    /** Retorna o Feriado correspondente à data, ou null se não for feriado. */
+    public function getFeriadoDoDia(\DateTimeInterface $data, array $feriados): ?Feriado
     {
         foreach ($feriados as $feriado) {
             if ($feriado->isRecorrente()) {
                 if ($feriado->getData()->format('m-d') === $data->format('m-d')) {
-                    return true;
+                    return $feriado;
                 }
             } else {
                 if ($feriado->getData()->format('Y-m-d') === $data->format('Y-m-d')) {
-                    return true;
+                    return $feriado;
                 }
             }
         }
-        return false;
+        return null;
+    }
+
+    private function isFeriado(\DateTimeInterface $data, array $feriados): bool
+    {
+        return $this->getFeriadoDoDia($data, $feriados) !== null;
     }
 
     /**
