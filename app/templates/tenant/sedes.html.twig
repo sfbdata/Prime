@@ -11,6 +11,26 @@
             border-radius: .5rem;
             border: 1px solid #dee2e6;
         }
+        .map-locate-btn {
+            position: absolute;
+            top: 80px;
+            right: 10px;
+            z-index: 1000;
+            width: 34px;
+            height: 34px;
+            border-radius: 4px;
+            background: white;
+            border: 2px solid rgba(0,0,0,0.2);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            padding: 0;
+        }
+        .map-locate-btn:hover {
+            background: #f4f4f4;
+        }
     </style>
 {% endblock %}
 
@@ -40,49 +60,130 @@
         <div class="col-md-5">
             <div class="card">
                 <div class="card-header">
-                    <h3 class="card-title">Nova Sede</h3>
+                    <h3 class="card-title" id="form-card-title">
+                        {{ editSede is defined ? 'Editar Sede' : 'Nova Sede' }}
+                    </h3>
                 </div>
                 <div class="card-body">
-                    {{ form_start(form) }}
+
+                    {% set activeForm = editSede is defined ? editForm : form %}
+                    {% set formAction = editSede is defined
+                        ? path('app_tenant_sede_edit', {'tenantId': tenant.id, 'sedeId': editSede.id})
+                        : path('app_tenant_sedes', {'id': tenant.id}) %}
+
+                    {{ form_start(activeForm, {'action': formAction}) }}
 
                     <div class="mb-3">
-                        {{ form_label(form.nome, null, {'label_attr': {'class': 'form-label'}}) }}
-                        {{ form_widget(form.nome, {'attr': {'class': 'form-control'}}) }}
-                        {{ form_errors(form.nome) }}
+                        {{ form_label(activeForm.nome, null, {'label_attr': {'class': 'form-label'}}) }}
+                        {{ form_widget(activeForm.nome, {'attr': {'class': 'form-control'}}) }}
+                        {{ form_errors(activeForm.nome) }}
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Ponto exato da sede no mapa</label>
-                        <div id="sede-map" class="mb-2"></div>
-                        <div class="form-text mb-2">Clique no mapa para marcar a localização da sede.</div>
-                        <div class="row g-2">
-                            <div class="col-6">
-                                {{ form_label(form.latitude, null, {'label_attr': {'class': 'form-label form-label-sm'}}) }}
-                                {{ form_widget(form.latitude, {'attr': {'class': 'form-control form-control-sm', 'placeholder': '-23.550520', 'readonly': 'readonly'}}) }}
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-12">
+                                <input type="text"
+                                       id="cep-search-input"
+                                       class="form-control form-control-sm"
+                                       placeholder="CEP (ex: 01310-100) ou endereço"
+                                       maxlength="9"
+                                       aria-label="CEP ou endereço">
                             </div>
-                            <div class="col-6">
-                                {{ form_label(form.longitude, null, {'label_attr': {'class': 'form-label form-label-sm'}}) }}
-                                {{ form_widget(form.longitude, {'attr': {'class': 'form-control form-control-sm', 'placeholder': '-46.633308', 'readonly': 'readonly'}}) }}
+                            <div class="col-12" id="address-extra-fields" style="display:none">
+                                <div class="row g-2">
+                                    <div class="col-8">
+                                        <input type="text"
+                                               id="search-logradouro"
+                                               class="form-control form-control-sm"
+                                               placeholder="Logradouro">
+                                    </div>
+                                    <div class="col-4">
+                                        <input type="text"
+                                               id="search-numero"
+                                               class="form-control form-control-sm"
+                                               placeholder="Número">
+                                    </div>
+                                    <div class="col-7">
+                                        <input type="text"
+                                               id="search-cidade"
+                                               class="form-control form-control-sm"
+                                               placeholder="Cidade">
+                                    </div>
+                                    <div class="col-5">
+                                        <select id="search-estado" class="form-select form-select-sm">
+                                            <option value="">Estado (UF)</option>
+                                            <option value="AC">AC</option><option value="AL">AL</option>
+                                            <option value="AP">AP</option><option value="AM">AM</option>
+                                            <option value="BA">BA</option><option value="CE">CE</option>
+                                            <option value="DF">DF</option><option value="ES">ES</option>
+                                            <option value="GO">GO</option><option value="MA">MA</option>
+                                            <option value="MT">MT</option><option value="MS">MS</option>
+                                            <option value="MG">MG</option><option value="PA">PA</option>
+                                            <option value="PB">PB</option><option value="PR">PR</option>
+                                            <option value="PE">PE</option><option value="PI">PI</option>
+                                            <option value="RJ">RJ</option><option value="RN">RN</option>
+                                            <option value="RS">RS</option><option value="RO">RO</option>
+                                            <option value="RR">RR</option><option value="SC">SC</option>
+                                            <option value="SP">SP</option><option value="SE">SE</option>
+                                            <option value="TO">TO</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-outline-secondary btn-sm flex-grow-1" type="button" id="btn-cep-search">
+                                        <i class="bi bi-search"></i> Buscar
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-toggle-fields" title="Preencher endereço manualmente">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                        <div id="cep-search-feedback" class="form-text mb-1" style="display:none"></div>
+
+                        <div style="position: relative;">
+                            <div id="sede-map" class="mb-2"></div>
+                            <button type="button" id="btn-gps-locate" class="map-locate-btn" title="Usar minha localização">
+                                <i class="bi bi-geo-alt-fill"></i>
+                            </button>
+                        </div>
+
+                        <div class="form-text mb-2">Clique no mapa para marcar a localização da sede.</div>
+
+                        {{ form_widget(activeForm.latitude) }}
+                        {{ form_widget(activeForm.longitude) }}
+                        {{ form_errors(activeForm.latitude) }}
+                        {{ form_errors(activeForm.longitude) }}
                     </div>
 
                     <div class="mb-3">
-                        {{ form_label(form.raioPermitido, null, {'label_attr': {'class': 'form-label'}}) }}
-                        {{ form_widget(form.raioPermitido, {'attr': {'class': 'form-control'}}) }}
+                        {{ form_label(activeForm.raioPermitido, null, {'label_attr': {'class': 'form-label'}}) }}
+                        {{ form_widget(activeForm.raioPermitido, {'attr': {'class': 'form-control'}}) }}
                         <div class="form-text">Distância máxima da sede para validar GPS (metros).</div>
                     </div>
 
                     <div class="mb-3">
-                        {{ form_label(form.timezone, null, {'label_attr': {'class': 'form-label'}}) }}
-                        {{ form_widget(form.timezone, {'attr': {'class': 'form-control'}}) }}
+                        {{ form_label(activeForm.timezone, null, {'label_attr': {'class': 'form-label'}}) }}
+                        {{ form_widget(activeForm.timezone, {'attr': {'class': 'form-control'}}) }}
                     </div>
 
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> Salvar Sede
+                    <button type="submit" class="btn btn-primary" id="btn-salvar">
+                        {% if editSede is defined %}
+                            <i class="bi bi-pencil"></i> Atualizar Sede
+                        {% else %}
+                            <i class="bi bi-plus-circle"></i> Salvar Sede
+                        {% endif %}
+                    </button>
+                    <button type="button" id="btn-cancelar-sede" class="btn btn-secondary ms-2"
+                            style="{{ editSede is defined ? '' : 'display:none' }}">
+                        Cancelar
                     </button>
 
-                    {{ form_end(form) }}
+                    {{ form_end(activeForm) }}
                 </div>
             </div>
         </div>
@@ -104,7 +205,13 @@
                         </thead>
                         <tbody>
                         {% for sede in sedes %}
-                            <tr>
+                            <tr data-sede-id="{{ sede.id }}"
+                                data-sede-nome="{{ sede.nome }}"
+                                data-sede-lat="{{ sede.latitude }}"
+                                data-sede-lng="{{ sede.longitude }}"
+                                data-sede-raio="{{ sede.raioPermitido }}"
+                                data-sede-timezone="{{ sede.timezone }}"
+                                data-sede-edit-url="{{ path('app_tenant_sede_edit', {'tenantId': tenant.id, 'sedeId': sede.id}) }}">
                                 <td>{{ sede.nome }}</td>
                                 <td>
                                     {% if sede.latitude and sede.longitude %}
@@ -115,6 +222,12 @@
                                 </td>
                                 <td>{{ sede.raioPermitido }}m</td>
                                 <td>
+                                    <button type="button"
+                                            class="btn btn-sm btn-warning btn-editar-sede me-1"
+                                            data-sede-id="{{ sede.id }}"
+                                            title="Editar sede">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
                                     <form method="post"
                                           action="{{ path('app_tenant_sede_delete', {'tenantId': tenant.id, 'sedeId': sede.id}) }}"
                                           class="d-inline-block"
@@ -145,8 +258,28 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const latInput = document.getElementById('{{ form.latitude.vars.id }}');
-            const lngInput = document.getElementById('{{ form.longitude.vars.id }}');
+            {% set activeForm = editSede is defined ? editForm : form %}
+
+            const latInput     = document.getElementById('{{ activeForm.latitude.vars.id }}');
+            const lngInput     = document.getElementById('{{ activeForm.longitude.vars.id }}');
+            const nomeInput    = document.getElementById('{{ activeForm.nome.vars.id }}');
+            const raioInput    = document.getElementById('{{ activeForm.raioPermitido.vars.id }}');
+            const tzInput      = document.getElementById('{{ activeForm.timezone.vars.id }}');
+            const sedeForm     = latInput?.closest('form');
+            const CREATE_URL   = '{{ path('app_tenant_sedes', {'id': tenant.id}) }}';
+            const cardTitle    = document.getElementById('form-card-title');
+            const btnSalvar    = document.getElementById('btn-salvar');
+            const btnCancelar  = document.getElementById('btn-cancelar-sede');
+            const cepInput        = document.getElementById('cep-search-input');
+            const btnCepSearch    = document.getElementById('btn-cep-search');
+            const btnToggleFields = document.getElementById('btn-toggle-fields');
+            const addressExtra    = document.getElementById('address-extra-fields');
+            const fieldLogradouro = document.getElementById('search-logradouro');
+            const fieldNumero     = document.getElementById('search-numero');
+            const fieldCidade     = document.getElementById('search-cidade');
+            const fieldEstado     = document.getElementById('search-estado');
+            const cepFeedback     = document.getElementById('cep-search-feedback');
+            const btnGps          = document.getElementById('btn-gps-locate');
 
             if (!latInput || !lngInput || !document.getElementById('sede-map')) {
                 return;
@@ -159,7 +292,7 @@
             const initialLat = parseFloat(latInput.value) || defaultLat;
             const initialLng = parseFloat(lngInput.value) || defaultLng;
 
-            const map = L.map('sede-map').setView([initialLat, initialLng], 16);
+            const map = L.map('sede-map').setView([initialLat, initialLng], hasInitialCoordinates ? 16 : 13);
 
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
@@ -197,6 +330,256 @@
                     updateInputs(current);
                 });
             }
+
+            // --- Busca de endereço ---
+
+            function showCepFeedback(msg, isError) {
+                cepFeedback.textContent = msg;
+                cepFeedback.className = 'form-text mb-1 ' + (isError !== false ? 'text-danger' : 'text-success');
+                cepFeedback.style.display = 'block';
+            }
+
+            function hideCepFeedback() {
+                cepFeedback.style.display = 'none';
+            }
+
+            function panToResult(lat, lon) {
+                const latlng = { lat: parseFloat(lat), lng: parseFloat(lon) };
+                map.setView([latlng.lat, latlng.lng], 17);
+                marker.setLatLng(latlng);
+                updateInputs(latlng);
+            }
+
+            async function searchByNominatim(params) {
+                const qs = Object.entries(params)
+                    .filter(([, v]) => v)
+                    .map(([k, v]) => k + '=' + encodeURIComponent(v))
+                    .join('&');
+
+                const response = await fetch(
+                    'https://nominatim.openstreetmap.org/search?' + qs + '&format=json&limit=1&countrycodes=br&accept-language=pt-BR'
+                );
+
+                if (!response.ok) throw new Error('http_error');
+
+                return response.json();
+            }
+
+            async function searchAddress() {
+                const cepRaw  = cepInput.value.trim();
+                const isCep   = /^\d{5}-?\d{3}$/.test(cepRaw);
+                const extraOpen = addressExtra.style.display !== 'none';
+
+                btnCepSearch.disabled = true;
+                hideCepFeedback();
+
+                try {
+                    if (isCep) {
+                        const cepLimpo = cepRaw.replace('-', '');
+                        let found = false;
+
+                        // Passo 1: ViaCEP — obtém logradouro, bairro, cidade, UF
+                        let vc = null;
+                        try {
+                            const vcRes = await fetch('https://viacep.com.br/ws/' + cepLimpo + '/json/');
+                            if (vcRes.ok) {
+                                const data = await vcRes.json();
+                                if (!data.erro) {
+                                    vc = data;
+                                    fieldLogradouro.value = vc.logradouro || '';
+                                    fieldCidade.value     = vc.localidade || '';
+                                    fieldEstado.value     = vc.uf || '';
+                                    addressExtra.style.display = '';
+                                }
+                            }
+                        } catch (_) {}
+
+                        if (vc) {
+                            // Passo 2: tentar queries no Nominatim em ordem de precisão decrescente
+                            const tentativas = [
+                                // logradouro + bairro + cidade + UF
+                                [vc.logradouro, vc.bairro, vc.localidade, vc.uf, 'Brasil'].filter(Boolean).join(', '),
+                                // só bairro + cidade + UF (mais cobertura no OSM)
+                                [vc.bairro, vc.localidade, vc.uf, 'Brasil'].filter(Boolean).join(', '),
+                                // cidade + UF
+                                [vc.localidade, vc.uf, 'Brasil'].filter(Boolean).join(', '),
+                            ].filter(Boolean);
+
+                            for (const q of tentativas) {
+                                const results = await searchByNominatim({ q });
+                                if (results && results.length > 0) {
+                                    panToResult(results[0].lat, results[0].lon);
+                                    const precisao = tentativas.indexOf(q) === 0 ? '' :
+                                        tentativas.indexOf(q) === 1 ? ' (aproximado — bairro)' : ' (aproximado — cidade)';
+                                    showCepFeedback('Localização encontrada: ' + (results[0].display_name || '') + precisao, false);
+                                    found = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (!found) {
+                            showCepFeedback('Não foi possível localizar o endereço automaticamente. Ajuste o mapa manualmente ou preencha os campos abaixo.');
+                            addressExtra.style.display = '';
+                        }
+
+                    } else if (extraOpen) {
+                        // Busca estruturada com campos extras
+                        const partes = [
+                            cepRaw,
+                            fieldLogradouro.value.trim(),
+                            fieldNumero.value.trim(),
+                            fieldCidade.value.trim(),
+                            fieldEstado.value.trim(),
+                            'Brasil'
+                        ].filter(Boolean);
+
+                        if (partes.length < 2) {
+                            showCepFeedback('Informe pelo menos um endereço para buscar.');
+                            return;
+                        }
+
+                        const results = await searchByNominatim({ q: partes.join(', ') });
+
+                        if (!results || results.length === 0) {
+                            showCepFeedback('Nenhum resultado encontrado. Tente adicionar mais detalhes.');
+                            return;
+                        }
+                        panToResult(results[0].lat, results[0].lon);
+                        showCepFeedback('Localização encontrada: ' + (results[0].display_name || ''), false);
+
+                    } else {
+                        // Busca livre simples
+                        if (!cepRaw) {
+                            showCepFeedback('Digite um CEP ou endereço para buscar.');
+                            return;
+                        }
+                        const results = await searchByNominatim({ q: cepRaw + ', Brasil' });
+
+                        if (!results || results.length === 0) {
+                            showCepFeedback('Nenhum resultado. Clique em ✎ para preencher cidade e estado.');
+                            addressExtra.style.display = '';
+                            return;
+                        }
+                        panToResult(results[0].lat, results[0].lon);
+                        showCepFeedback('Localização encontrada: ' + (results[0].display_name || ''), false);
+                    }
+
+                } catch (e) {
+                    showCepFeedback('Erro ao buscar endereço. Verifique sua conexão e tente novamente.');
+                } finally {
+                    btnCepSearch.disabled = false;
+                }
+            }
+
+            // Formatar CEP automaticamente enquanto digita
+            cepInput.addEventListener('input', function () {
+                let v = this.value.replace(/\D/g, '').slice(0, 8);
+                if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
+                this.value = v;
+            });
+
+            btnCepSearch.addEventListener('click', searchAddress);
+
+            cepInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    searchAddress();
+                }
+            });
+
+            btnToggleFields.addEventListener('click', function () {
+                const isOpen = addressExtra.style.display !== 'none';
+                addressExtra.style.display = isOpen ? 'none' : '';
+                this.classList.toggle('btn-secondary', !isOpen);
+                this.classList.toggle('btn-outline-secondary', isOpen);
+            });
+
+            // --- Botão GPS ---
+
+            btnGps.addEventListener('click', function () {
+                if (!navigator.geolocation) {
+                    alert('Geolocalização não suportada neste navegador.');
+                    return;
+                }
+
+                btnGps.disabled = true;
+                btnGps.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+
+                navigator.geolocation.getCurrentPosition(
+                    function (position) {
+                        const latlng = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude
+                        };
+                        map.setView([latlng.lat, latlng.lng], 17);
+                        marker.setLatLng(latlng);
+                        updateInputs(latlng);
+                        btnGps.disabled = false;
+                        btnGps.innerHTML = '<i class="bi bi-geo-alt-fill"></i>';
+                    },
+                    function (error) {
+                        btnGps.disabled = false;
+                        btnGps.innerHTML = '<i class="bi bi-geo-alt-fill"></i>';
+                        const msgs = {
+                            1: 'Permissão de localização negada.',
+                            2: 'Posição indisponível.',
+                            3: 'Tempo esgotado ao obter localização.'
+                        };
+                        alert(msgs[error.code] || 'Erro ao obter localização.');
+                    },
+                    { timeout: 10000, maximumAge: 60000 }
+                );
+            });
+
+            // --- Modo edição ---
+
+            document.addEventListener('click', function (e) {
+                const btn = e.target.closest('.btn-editar-sede');
+                if (!btn) return;
+
+                const sedeId = btn.dataset.sedeId;
+                const tr = document.querySelector('tr[data-sede-id="' + sedeId + '"]');
+                if (!tr) return;
+
+                const { sedeNome, sedeLat, sedeLng, sedeRaio, sedeTimezone, sedeEditUrl } = tr.dataset;
+
+                nomeInput.value  = sedeNome;
+                raioInput.value  = sedeRaio;
+                tzInput.value    = sedeTimezone;
+                latInput.value   = sedeLat;
+                lngInput.value   = sedeLng;
+
+                const latlng = { lat: parseFloat(sedeLat), lng: parseFloat(sedeLng) };
+                map.setView([latlng.lat, latlng.lng], 17);
+                marker.setLatLng(latlng);
+
+                sedeForm.action = sedeEditUrl;
+
+                cardTitle.textContent      = 'Editar Sede';
+                btnSalvar.innerHTML        = '<i class="bi bi-pencil"></i> Atualizar Sede';
+                btnCancelar.style.display  = '';
+                hideCepFeedback();
+
+                cardTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+
+            // --- Cancelar edição ---
+
+            btnCancelar.addEventListener('click', function () {
+                sedeForm.action = CREATE_URL;
+                sedeForm.reset();
+                latInput.value  = '';
+                lngInput.value  = '';
+
+                map.setView([defaultLat, defaultLng], 13);
+                marker.setLatLng([defaultLat, defaultLng]);
+
+                cardTitle.textContent      = 'Nova Sede';
+                btnSalvar.innerHTML        = '<i class="bi bi-plus-circle"></i> Salvar Sede';
+                btnCancelar.style.display  = 'none';
+                hideCepFeedback();
+            });
         });
     </script>
 {% endblock %}

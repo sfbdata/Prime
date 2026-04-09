@@ -23,7 +23,7 @@ class Sede
     private ?string $longitude = null;
 
     #[ORM\Column]
-    private ?int $raioPermitido = 50; // em metros
+    private ?int $raioPermitido = 100; // em metros
 
     #[ORM\Column(length: 50)]
     private ?string $timezone = 'America/Sao_Paulo';

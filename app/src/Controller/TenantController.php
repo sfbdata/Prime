@@ -1009,6 +1009,60 @@ final class TenantController extends AbstractController
         ]);
     }
 
+    #[Route('/{tenantId}/sedes/{sedeId}/edit', name: 'app_tenant_sede_edit', methods: ['POST'])]
+    public function editSede(
+        int $tenantId,
+        int $sedeId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        SedeRepository $sedeRepository,
+        PermissionChecker $permissionChecker
+    ): Response {
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+        $isOwnTenant  = $user->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, 'admin.ponto.manage'))) {
+            throw $this->createAccessDeniedException('Você não tem permissão para editar sedes.');
+        }
+
+        $sede = $sedeRepository->find($sedeId);
+
+        if (!$sede || $sede->getTenant()?->getId() !== $tenantId) {
+            throw $this->createNotFoundException('Sede não encontrada.');
+        }
+
+        $editForm = $this->createForm(SedeType::class, $sede, ['block_prefix' => 'sede_edit']);
+        $editForm->handleRequest($request);
+
+        if ($editForm->isSubmitted() && $editForm->isValid()) {
+            $entityManager->flush();
+            $this->addFlash('success', 'Sede atualizada com sucesso!');
+
+            return $this->redirectToRoute('app_tenant_sedes', ['id' => $tenantId]);
+        }
+
+        // Falha de validação: re-renderizar a página com o form de edição com erros
+        $tenant   = $sede->getTenant();
+        $newSede  = new Sede();
+        $form     = $this->createForm(SedeType::class, $newSede);
+        $sedes    = $sedeRepository->findBy(['tenant' => $tenant]);
+
+        return $this->render('tenant/sedes.html.twig', [
+            'tenant'   => $tenant,
+            'sedes'    => $sedes,
+            'form'     => $form->createView(),
+            'editForm' => $editForm->createView(),
+            'editSede' => $sede,
+        ]);
+    }
+
     #[Route('/{tenantId}/sedes/{sedeId}/delete', name: 'app_tenant_sede_delete', methods: ['POST'])]
     public function deleteSede(
         int $tenantId,
