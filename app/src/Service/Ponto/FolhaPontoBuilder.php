@@ -86,8 +86,9 @@ class FolhaPontoBuilder
                 'repousoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getId() : null,
                 'retornoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getId() : null,
                 'saidaId'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA])   ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getId()   : null,
-                'fimSemana' => $indiceDiaSemana >= 6,
-                'domingo'   => $indiceDiaSemana === 7,
+                'fimSemana'  => $indiceDiaSemana >= 6,
+                'domingo'    => $indiceDiaSemana === 7,
+                'isFeriado'  => false,
                 'minutosTrabalhadosDia' => null,
                 'saldoDia'       => null,
                 'saldoAcumulado' => null,
@@ -96,7 +97,14 @@ class FolhaPontoBuilder
             ];
 
             if ($escala !== null) {
-                if ($indiceDiaSemana === 7) {
+                $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriados);
+                if ($feriadoDoDia !== null) {
+                    $row['isFeriado']            = true;
+                    $row['diaSemana']            = 'FERIADO - ' . $row['diaSemana'];
+                    $row['minutosTrabalhadosDia'] = 0;
+                    $row['saldoDia']              = 0;
+                    $row['saldoAcumulado']        = $saldoAcumulado;
+                } elseif ($indiceDiaSemana === 7) {
                     $row['minutosTrabalhadosDia'] = 0;
                     $row['saldoDia']              = 0;
                     $row['saldoAcumulado']        = $saldoAcumulado;
