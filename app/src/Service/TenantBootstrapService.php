@@ -4,6 +4,7 @@ namespace App\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Permission\Permission;
+use App\Entity\Ponto\Feriado;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
@@ -31,6 +32,18 @@ class TenantBootstrapService
      *
      * @return TenantRole O perfil "Administrador do Escritório" criado (ou já existente).
      */
+    private const FERIADOS_NACIONAIS = [
+        ['nome' => 'Confraternização Universal (Ano Novo)', 'mes' => 1,  'dia' => 1],
+        ['nome' => 'Tiradentes',                            'mes' => 4,  'dia' => 21],
+        ['nome' => 'Dia Mundial do Trabalho',               'mes' => 5,  'dia' => 1],
+        ['nome' => 'Independência do Brasil',               'mes' => 9,  'dia' => 7],
+        ['nome' => 'Nossa Senhora Aparecida',               'mes' => 10, 'dia' => 12],
+        ['nome' => 'Finados',                               'mes' => 11, 'dia' => 2],
+        ['nome' => 'Proclamação da República',              'mes' => 11, 'dia' => 15],
+        ['nome' => 'Consciência Negra',                     'mes' => 11, 'dia' => 20],
+        ['nome' => 'Natal',                                 'mes' => 12, 'dia' => 25],
+    ];
+
     public function bootstrap(Tenant $tenant, ?User $creator = null): TenantRole
     {
         $adminRole = $this->findOrCreateAdminRole($tenant);
@@ -40,9 +53,24 @@ class TenantBootstrapService
             $this->entityManager->persist($creator);
         }
 
+        $this->seedFeriadosNacionais($tenant);
+
         $this->entityManager->flush();
 
         return $adminRole;
+    }
+
+    private function seedFeriadosNacionais(Tenant $tenant): void
+    {
+        foreach (self::FERIADOS_NACIONAIS as $dado) {
+            $feriado = new Feriado();
+            $feriado->setNome($dado['nome']);
+            $feriado->setData(new \DateTime(sprintf('2000-%02d-%02d', $dado['mes'], $dado['dia'])));
+            $feriado->setRecorrente(true);
+            $feriado->setTenant($tenant);
+
+            $this->entityManager->persist($feriado);
+        }
     }
 
     private function findOrCreateAdminRole(Tenant $tenant): TenantRole
