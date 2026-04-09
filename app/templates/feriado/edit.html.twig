@@ -1,0 +1,37 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Editar Feriado — {{ feriado.nome }}{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">
+            <i class="bi bi-calendar-check me-2"></i>
+            Editar: <em>{{ feriado.nome }}</em>
+        </h1>
+        <a href="{{ path('app_feriado_index', {tenantId: tenantId}) }}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card">
+            {{ form_start(form, {attr: {novalidate: 'novalidate'}}) }}
+            <div class="card-body">
+                {% include 'feriado/_form.html.twig' with {form: form} %}
+            </div>
+            <div class="card-footer d-flex justify-content-end gap-2">
+                <a href="{{ path('app_feriado_index', {tenantId: tenantId}) }}" class="btn btn-secondary">
+                    Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i> Salvar Alterações
+                </button>
+            </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
+</section>
+{% endblock %}

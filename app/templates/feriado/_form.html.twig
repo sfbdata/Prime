@@ -1,0 +1,39 @@
+<div class="row">
+    <div class="col-md-6">
+
+        <div class="mb-3">
+            {{ form_label(form.nome, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.nome, {attr: {class: 'form-control' ~ (form.nome.vars.errors|length ? ' is-invalid' : '')}}) }}
+            {% if form.nome.vars.errors|length %}
+                <div class="invalid-feedback">
+                    {% for error in form.nome.vars.errors %}{{ error.message }}{% endfor %}
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="mb-3">
+            {{ form_label(form.data, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+            {{ form_widget(form.data, {attr: {class: 'form-control' ~ (form.data.vars.errors|length ? ' is-invalid' : '')}}) }}
+            {% if form.data.vars.errors|length %}
+                <div class="invalid-feedback">
+                    {% for error in form.data.vars.errors %}{{ error.message }}{% endfor %}
+                </div>
+            {% endif %}
+            <div class="form-text text-muted">
+                Para feriados recorrentes, o ano da data é ignorado — apenas o dia e o mês importam.
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <div class="form-check">
+                {{ form_widget(form.recorrente, {attr: {class: 'form-check-input'}}) }}
+                {{ form_label(form.recorrente, null, {label_attr: {class: 'form-check-label'}}) }}
+            </div>
+            <div class="form-text text-muted">
+                Marque para feriados que caem sempre na mesma data todo ano (ex: Natal, Tiradentes).
+                Deixe desmarcado para folgas e dispensas pontuais.
+            </div>
+        </div>
+
+    </div>
+</div>
