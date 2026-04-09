@@ -9,11 +9,16 @@ use App\Entity\Auth\User;
 
 class CalculadoraJornada
 {
-    private const TOLERANCIA_MINUTOS = 15;
+    // Tolerância negativa: atrasos menores que este valor são ignorados (não descontam)
+    private const TOLERANCIA_ATRASO_MINUTOS = 5;
 
     /**
      * Calcula o saldo do dia em minutos para um usuário.
      * Retorna positivo (hora extra), negativo (falta) ou 0 (dentro da tolerância).
+     *
+     * Regras de tolerância assimétrica:
+     * - Horas extras: qualquer minuto a mais (>= 1 min) conta positivamente
+     * - Atrasos: só desconta se a falta for >= TOLERANCIA_ATRASO_MINUTOS (5 min)
      *
      * @param RegistroPonto[] $batidas
      * @param Feriado[] $feriados
@@ -35,12 +40,19 @@ class CalculadoraJornada
         }
 
         $minutosTrabalhados = $this->calcularMinutosTrabalhados($batidas);
+        $saldo = $minutosTrabalhados - $cargaEsperada;
 
-        if (abs($minutosTrabalhados - $cargaEsperada) <= self::TOLERANCIA_MINUTOS) {
+        // Horas extras: conta a partir de 1 minuto trabalhado a mais
+        if ($saldo > 0) {
+            return $saldo;
+        }
+
+        // Atrasos: ignora se a falta for menor que a tolerância
+        if (abs($saldo) < self::TOLERANCIA_ATRASO_MINUTOS) {
             return 0;
         }
 
-        return $minutosTrabalhados - $cargaEsperada;
+        return $saldo;
     }
 
     /** Retorna o Feriado correspondente à data, ou null se não for feriado. */
