@@ -48,6 +48,7 @@ docker exec jusprime_php_dev bash -c 'cd app && composer <cmd>'
 - Inspecionar container/rotas → `debug:container` · `debug:router` · `debug:autowiring`
 
 ## Symfony
+- **Entidades:** usar constructor property promotion do PHP 8.x — nunca declarar propriedades separadas do construtor.
 - `#[Route(...)]` para rotas, `#[ORM\...]` para mapeamento
 - Controllers estendem `AbstractController`. Injeção via construtor `private readonly`. Nunca `$this->get()`.
 - Autowire + autoconfigure habilitados. Services explícitos só quando necessário.
