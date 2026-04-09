@@ -209,6 +209,16 @@
                         </li>
                     {% endif %}
 
+                    {% if can_administer('admin.tenant.settings.manage') %}
+                        <li class="pje-menu-item">
+                            <a href="{{ path('app_feriado_index', {'tenantId': app.user.tenant.id}) }}"
+                               class="pje-menu-link {{ currentRoute starts with 'app_feriado_' ? 'active' : '' }}">
+                                <i class="bi bi-calendar-check pje-nav-icon"></i>
+                                <span>Feriados e Folgas</span>
+                            </a>
+                        </li>
+                    {% endif %}
+
                     {% if can_administer('admin.audit.view') %}
                         <li class="pje-menu-item">
                             <a href="{{ path('audit_log_index') }}"

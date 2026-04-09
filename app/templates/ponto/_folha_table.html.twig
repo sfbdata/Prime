@@ -79,9 +79,15 @@
                 </thead>
                 <tbody>
                     {% for linha in folhaRows %}
-                        <tr class="{{ linha.fimSemana ? 'table-secondary' : '' }}">
+                        <tr class="{{ linha.isFeriado|default(false) ? 'table-warning' : (linha.fimSemana ? 'table-secondary' : '') }}">
                             <td>{{ linha.diaMes }}</td>
-                            <td>{{ linha.diaSemana }}</td>
+                            <td>
+                                {% if linha.isFeriado|default(false) %}
+                                    <span class="text-warning-emphasis fw-semibold">{{ linha.diaSemana }}</span>
+                                {% else %}
+                                    {{ linha.diaSemana }}
+                                {% endif %}
+                            </td>
 
                             {# Macro para célula editável #}
                             {% for tipoInfo in [
@@ -108,7 +114,7 @@
                                                         <i class="bi bi-x-circle"></i>
                                                     </button>
                                                 </form>
-                                            {% elseif linha.domingo %}
+                                            {% elseif linha.domingo or linha.isFeriado|default(false) %}
                                                 <span class="text-muted">—</span>
                                             {% else %}
                                                 <button type="button"
