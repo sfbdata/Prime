@@ -17,6 +17,14 @@ final class Version20260408180237 extends AbstractMigration
         return '';
     }
 
+    public function preUp(Schema $schema): void
+    {
+        $this->skipIf(
+            !$schema->hasTable('checklist_item_cliente'),
+            'Tabelas de checklist/documento não existem neste banco — migration de reestruturação ignorada.'
+        );
+    }
+
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
