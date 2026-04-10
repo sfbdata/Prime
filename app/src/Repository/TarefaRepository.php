@@ -2,7 +2,7 @@
 
 namespace App\Repository;
 
-use App\Entity\Processo\Processo;
+use App\Processo\Entity\Processo;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;

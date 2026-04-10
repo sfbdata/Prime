@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Service;
+namespace App\Processo\Service;
 
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 

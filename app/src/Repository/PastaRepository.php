@@ -2,7 +2,7 @@
 
 namespace App\Repository;
 
-use App\Entity\Cliente\Cliente;
+use App\Cliente\Entity\Cliente;
 use App\Entity\Pasta\Pasta;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;

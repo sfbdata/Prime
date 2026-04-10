@@ -2,10 +2,10 @@
 
 namespace App\Form;
 
-use App\Entity\Cliente\Cliente;
-use App\Entity\Cliente\ClientePF;
+use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClientePF;
 use App\Entity\Pasta\Pasta;
-use App\Entity\Processo\Processo;
+use App\Processo\Entity\Processo;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;

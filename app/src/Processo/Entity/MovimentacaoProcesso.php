@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Entity\Processo;
+namespace App\Processo\Entity;
 
-use App\Repository\MovimentacaoProcessoRepository;
+use App\Processo\Repository\MovimentacaoProcessoRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: MovimentacaoProcessoRepository::class)]

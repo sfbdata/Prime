@@ -3,8 +3,8 @@
 namespace App\Entity\Pasta;
 
 use App\Entity\Auth\User;
-use App\Entity\Cliente\Cliente;
-use App\Entity\Processo\Processo;
+use App\Cliente\Entity\Cliente;
+use App\Processo\Entity\Processo;
 use App\Entity\Tarefa\Tarefa;
 use App\Repository\PastaRepository;
 use Doctrine\Common\Collections\ArrayCollection;

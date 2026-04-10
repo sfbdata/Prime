@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Form;
+namespace App\Cliente\Form;
 
-use App\Entity\Cliente\ClientePF;
+use App\Cliente\Entity\ClientePF;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\Form\Extension\Core\Type\TextType;

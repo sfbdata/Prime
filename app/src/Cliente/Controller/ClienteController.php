@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Controller;
+namespace App\Cliente\Controller;
 
 use App\Controller\Trait\ResourceAccessTrait;
-use App\Entity\Cliente\Cliente;
-use App\Entity\Cliente\ClientePF;
-use App\Entity\Cliente\ClientePJ;
+use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClientePF;
+use App\Cliente\Entity\ClientePJ;
 use App\Entity\Comercial\PreCadastro;
-use App\Form\ClientePFType;
-use App\Form\ClientePJType;
-use App\Repository\ClienteRepository;
-use App\Repository\ClientePFRepository;
-use App\Repository\ClientePJRepository;
+use App\Cliente\Form\ClientePFType;
+use App\Cliente\Form\ClientePJType;
+use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Repository\ClientePFRepository;
+use App\Cliente\Repository\ClientePJRepository;
 use App\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\PreCadastroRepository;
@@ -145,7 +145,7 @@ class ClienteController extends AbstractController
             $cliente->setNomeCompleto($preCadastro->getNomeCliente());
             $cliente->setCpf($preCadastro->getCpf());
             $cliente->setTelefoneCelular($preCadastro->getTelefone());
-            
+
             $form = $this->createForm(ClientePFType::class, $cliente);
             $form->handleRequest($request);
 
@@ -167,7 +167,7 @@ class ClienteController extends AbstractController
             $cliente->setRazaoSocial($preCadastro->getNomeCliente());
             $cliente->setCnpj($preCadastro->getCpf());
             $cliente->setTelefoneCelular($preCadastro->getTelefone());
-            
+
             $form = $this->createForm(ClientePJType::class, $cliente);
             $form->handleRequest($request);
 

@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Entity\Processo;
+namespace App\Processo\Entity;
 
 use App\Entity\Auth\User;
-use App\Repository\ProcessoRepository;
+use App\Processo\Repository\ProcessoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;

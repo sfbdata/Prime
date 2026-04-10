@@ -1,22 +1,22 @@
 <?php
 
-namespace App\Repository;
+namespace App\Cliente\Repository;
 
-use App\Entity\Cliente\ClientePF;
+use App\Cliente\Entity\ClientePJ;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<ClientePF>
+ * @extends ServiceEntityRepository<ClientePJ>
  */
-class ClientePFRepository extends ServiceEntityRepository
+class ClientePJRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
-        parent::__construct($registry, ClientePF::class);
+        parent::__construct($registry, ClientePJ::class);
     }
 
-    public function save(ClientePF $entity, bool $flush = false): void
+    public function save(ClientePJ $entity, bool $flush = false): void
     {
         $this->getEntityManager()->persist($entity);
 
@@ -25,7 +25,7 @@ class ClientePFRepository extends ServiceEntityRepository
         }
     }
 
-    public function remove(ClientePF $entity, bool $flush = false): void
+    public function remove(ClientePJ $entity, bool $flush = false): void
     {
         $this->getEntityManager()->remove($entity);
 

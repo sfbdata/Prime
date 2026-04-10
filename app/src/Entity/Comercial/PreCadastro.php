@@ -2,7 +2,7 @@
 
 namespace App\Entity\Comercial;
 
-use App\Entity\Cliente\Cliente;
+use App\Cliente\Entity\Cliente;
 use App\Repository\PreCadastroRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;

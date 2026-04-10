@@ -1,8 +1,10 @@
 <?php
 
-namespace App\Repository;
+namespace App\Cliente\Repository;
 
-use App\Entity\Cliente\Cliente;
+use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClientePF;
+use App\Cliente\Entity\ClientePJ;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -44,9 +46,9 @@ class ClienteRepository extends ServiceEntityRepository
 
         if (!empty($filters['tipo'])) {
             if ($filters['tipo'] === 'PF') {
-                $qb->andWhere('c INSTANCE OF App\Entity\Cliente\ClientePF');
+                $qb->andWhere('c INSTANCE OF App\Cliente\Entity\ClientePF');
             } elseif ($filters['tipo'] === 'PJ') {
-                $qb->andWhere('c INSTANCE OF App\Entity\Cliente\ClientePJ');
+                $qb->andWhere('c INSTANCE OF App\Cliente\Entity\ClientePJ');
             }
         }
 
@@ -61,7 +63,7 @@ class ClienteRepository extends ServiceEntityRepository
         if (!empty($filters['nome'])) {
             $nome = mb_strtolower($filters['nome']);
             $results = array_filter($results, function ($cliente) use ($nome) {
-                if ($cliente instanceof \App\Entity\Cliente\ClientePF) {
+                if ($cliente instanceof ClientePF) {
                     return str_contains(mb_strtolower($cliente->getNomeCompleto()), $nome);
                 } else {
                     return str_contains(mb_strtolower($cliente->getRazaoSocial()), $nome);
@@ -73,7 +75,7 @@ class ClienteRepository extends ServiceEntityRepository
         if (!empty($filters['documento'])) {
             $documento = $filters['documento'];
             $results = array_filter($results, function ($cliente) use ($documento) {
-                if ($cliente instanceof \App\Entity\Cliente\ClientePF) {
+                if ($cliente instanceof ClientePF) {
                     return str_contains($cliente->getCpf(), $documento);
                 } else {
                     return str_contains($cliente->getCnpj(), $documento);
@@ -92,7 +94,7 @@ class ClienteRepository extends ServiceEntityRepository
         $clientes = $this->findAll();
         $nomes = [];
         foreach ($clientes as $cliente) {
-            if ($cliente instanceof \App\Entity\Cliente\ClientePF) {
+            if ($cliente instanceof ClientePF) {
                 $nomes[$cliente->getNomeCompleto()] = $cliente->getNomeCompleto();
             } else {
                 $nomes[$cliente->getRazaoSocial()] = $cliente->getRazaoSocial();
@@ -109,7 +111,7 @@ class ClienteRepository extends ServiceEntityRepository
         $clientes = $this->findAll();
         $documentos = [];
         foreach ($clientes as $cliente) {
-            if ($cliente instanceof \App\Entity\Cliente\ClientePF) {
+            if ($cliente instanceof ClientePF) {
                 $doc = $cliente->getCpf();
                 if ($doc) {
                     $documentos[$doc] = $doc;

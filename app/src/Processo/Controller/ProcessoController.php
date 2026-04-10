@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Controller;
+namespace App\Processo\Controller;
 
 use App\Controller\Trait\ResourceAccessTrait;
-use App\Entity\Processo\Processo;
-use App\Entity\Processo\ParteProcesso;
-use App\Entity\Processo\MovimentacaoProcesso;
-use App\Repository\ProcessoRepository;
+use App\Processo\Entity\Processo;
+use App\Processo\Entity\ParteProcesso;
+use App\Processo\Entity\MovimentacaoProcesso;
+use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
-use App\Repository\ClienteRepository;
+use App\Cliente\Repository\ClienteRepository;
 use App\Repository\TarefaRepository;
-use App\Service\DatajudClient;
-use App\Service\DatajudProcessoMapper;
+use App\Processo\Service\DatajudClient;
+use App\Processo\Service\DatajudProcessoMapper;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;

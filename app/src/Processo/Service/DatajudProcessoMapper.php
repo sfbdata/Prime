@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Service;
+namespace App\Processo\Service;
 
-use App\Entity\Processo\MovimentacaoProcesso;
-use App\Entity\Processo\ParteProcesso;
-use App\Entity\Processo\Processo;
-use App\Repository\ProcessoRepository;
+use App\Processo\Entity\MovimentacaoProcesso;
+use App\Processo\Entity\ParteProcesso;
+use App\Processo\Entity\Processo;
+use App\Processo\Repository\ProcessoRepository;
 
 class DatajudProcessoMapper
 {
@@ -17,11 +17,11 @@ class DatajudProcessoMapper
     public function mapFromSource(Processo $processo, array $source): Processo
     {
         $processo->setNumeroProcesso((string) ($source['numeroProcesso'] ?? $processo->getNumeroProcesso()));
-        
+
         // Tratamento especial para orgaoJulgador com conversão de encoding
         $orgaoJulgadorRaw = $source['orgaoJulgador']['nome'] ?? $source['orgaoJulgador'] ?? null;
         $processo->setOrgaoJulgador($this->fixOrgaoJulgador($orgaoJulgadorRaw));
-        
+
         $processo->setSiglaTribunal($this->stringOrDefault($source['tribunal'] ?? null));
         $processo->setClasseProcessual($this->stringOrDefault($source['classe']['nome'] ?? $source['classeProcessual'] ?? null));
         $processo->setAssuntoProcessual($this->stringOrDefault($this->resolveAssunto($source['assuntos'] ?? null)));
@@ -149,7 +149,7 @@ class DatajudProcessoMapper
     private function stringOrDefault(?string $value, string $default = 'N/A'): string
     {
         $value = $value ?? '';
-        
+
         // Corrigir problemas de encoding específicos da API DataJud
         // Alguns acentos vêm como "?" - tentamos recuperar usando iconv
         if (strpos($value, '?') !== false) {
@@ -158,7 +158,7 @@ class DatajudProcessoMapper
             if ($converted !== false && $converted !== $value) {
                 $value = $converted;
             }
-            
+
             // Se ainda tem "?", tenta outro encoding
             if (strpos($value, '?') !== false) {
                 $converted = @iconv('ISO-8859-1', 'UTF-8', $value);
@@ -167,7 +167,7 @@ class DatajudProcessoMapper
                 }
             }
         }
-        
+
         return trim($value) === '' ? $default : $value;
     }
 
@@ -180,20 +180,20 @@ class DatajudProcessoMapper
         if (!$value) {
             return 'N/A';
         }
-        
+
         // Tenta conversão direta de ISO-8859-1 para UTF-8
         // A maioria dos problemas de órgaoJulgador vêm disso
         $converted = @iconv('ISO-8859-1', 'UTF-8//TRANSLIT', $value);
         if ($converted !== false) {
             return trim($converted);
         }
-        
+
         // Se falhar, tenta CP1252
         $converted = @iconv('CP1252', 'UTF-8//TRANSLIT', $value);
         if ($converted !== false) {
             return trim($converted);
         }
-        
+
         // Se tudo falhar, retorna como está
         return trim($value);
     }

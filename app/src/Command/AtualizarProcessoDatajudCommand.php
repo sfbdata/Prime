@@ -2,10 +2,10 @@
 
 namespace App\Command;
 
-use App\Entity\Processo\Processo;
-use App\Repository\ProcessoRepository;
-use App\Service\DatajudClient;
-use App\Service\DatajudProcessoMapper;
+use App\Processo\Entity\Processo;
+use App\Processo\Repository\ProcessoRepository;
+use App\Processo\Service\DatajudClient;
+use App\Processo\Service\DatajudProcessoMapper;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;

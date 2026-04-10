@@ -1,22 +1,22 @@
 <?php
 
-namespace App\Repository;
+namespace App\Processo\Repository;
 
-use App\Entity\Cliente\ClientePJ;
+use App\Processo\Entity\MovimentacaoProcesso;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<ClientePJ>
+ * @extends ServiceEntityRepository<MovimentacaoProcesso>
  */
-class ClientePJRepository extends ServiceEntityRepository
+class MovimentacaoProcessoRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
-        parent::__construct($registry, ClientePJ::class);
+        parent::__construct($registry, MovimentacaoProcesso::class);
     }
 
-    public function save(ClientePJ $entity, bool $flush = false): void
+    public function save(MovimentacaoProcesso $entity, bool $flush = false): void
     {
         $this->getEntityManager()->persist($entity);
 
@@ -25,7 +25,7 @@ class ClientePJRepository extends ServiceEntityRepository
         }
     }
 
-    public function remove(ClientePJ $entity, bool $flush = false): void
+    public function remove(MovimentacaoProcesso $entity, bool $flush = false): void
     {
         $this->getEntityManager()->remove($entity);
 

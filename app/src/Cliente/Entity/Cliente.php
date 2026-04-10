@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Entity\Cliente;
+namespace App\Cliente\Entity;
 
 use App\Entity\Auth\User;
-use App\Repository\ClienteRepository;
+use App\Cliente\Repository\ClienteRepository;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ClienteRepository::class)]

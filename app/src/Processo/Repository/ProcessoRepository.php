@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Repository;
+namespace App\Processo\Repository;
 
-use App\Entity\Processo\Processo;
+use App\Processo\Entity\Processo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
