@@ -52,7 +52,12 @@
                     <div class="tab-pane fade show active" id="tab-perfil" role="tabpanel">
                         <div class="card card-outline card-primary mb-3">
                             <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-person me-2"></i>{{ user.fullName }}</h3>
+                                <h3 class="card-title">
+                                    <i class="bi bi-person me-2"></i>{{ user.fullName }}
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-1 align-baseline text-secondary" data-bs-toggle="modal" data-bs-target="#modalEditarNome" title="Alterar nome">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </h3>
                             </div>
                             <div class="card-body">
                                 {{ form_start(form) }}
@@ -320,6 +325,29 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{# Modal: alterar nome do usuário #}
+<div class="modal fade" id="modalEditarNome" tabindex="-1" aria-labelledby="modalEditarNomeLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <form method="post" action="{{ path('app_tenant_user_edit_name', {tenantId: tenantId, id: user.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('edit_user_name_' ~ user.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditarNomeLabel"><i class="bi bi-pencil me-2"></i>Alterar nome</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="inputFullName" class="form-label fw-bold">Nome completo</label>
+                    <input type="text" class="form-control" id="inputFullName" name="fullName" value="{{ user.fullName }}" required maxlength="255" autofocus>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1"></i>Salvar</button>
                 </div>
             </form>
         </div>

@@ -15,12 +15,12 @@ use App\Form\SedeType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
-use App\Repository\ClienteRepository;
+use App\Cliente\Repository\ClienteRepository;
 use App\Repository\PastaRepository;
 use App\Repository\Ponto\FeriadoRepository;
 use App\Repository\Ponto\JustificativaPontoRepository;
 use App\Repository\Ponto\RegistroPontoRepository;
-use App\Repository\ProcessoRepository;
+use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\SedeRepository;
 use App\Repository\TenantRepository;
@@ -485,6 +485,46 @@ final class TenantController extends AbstractController
             'anoCompetenciaPonto'    => $anoCompetenciaPonto,
             'justificativas'         => $justificativas,
         ]);
+    }
+
+    #[Route('/{tenantId}/user/{id}/edit-name', name: 'app_tenant_user_edit_name', methods: ['POST'])]
+    public function editUserName(
+        int $tenantId,
+        User $user,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Você não tem permissão para editar nomes de usuário.');
+        }
+
+        if (!$this->isCsrfTokenValid('edit_user_name_' . $user->getId(), $request->request->get('_token'))) {
+            $this->addFlash('error', 'Token inválido.');
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
+        }
+
+        $novoNome = trim($request->request->get('fullName', ''));
+
+        if ($novoNome === '') {
+            $this->addFlash('error', 'O nome não pode ser vazio.');
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
+        }
+
+        $user->setFullName($novoNome);
+        $entityManager->flush();
+        $this->addFlash('success', 'Nome atualizado com sucesso!');
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
     }
 
     #[Route('/{tenantId}/user/{id}/ponto/add', name: 'app_tenant_user_ponto_add', methods: ['POST'])]
