@@ -52,7 +52,7 @@ class UserAuthenticator extends AbstractLoginFormAuthenticator
             $this->em->flush();
         }
 
-        return new RedirectResponse($this->router->generate('homepage'));
+        return new RedirectResponse($this->router->generate('expediente_index'));
     }
 
 

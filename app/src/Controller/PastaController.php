@@ -9,6 +9,8 @@ use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\ParteContraria;
 use App\Entity\Pasta\PastaDocumento;
 use App\Processo\Entity\Processo;
+use App\Processo\Entity\ParteProcesso;
+use App\Processo\Entity\MovimentacaoProcesso;
 use App\Cliente\Repository\ClienteRepository;
 use App\Repository\PastaDocumentoRepository;
 use App\Repository\PastaRepository;
@@ -63,7 +65,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         if (!$this->permissionChecker->canAccessModule($currentUser, 'pastas')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pastas.');
-            return $this->redirectToRoute('homepage');
+            return $this->redirectToRoute('expediente_index');
         }
 
         $filters = [
@@ -90,7 +92,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         if (!$this->permissionChecker->canAccessModule($currentUser, 'pastas')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pastas.');
-            return $this->redirectToRoute('homepage');
+            return $this->redirectToRoute('expediente_index');
         }
 
         $pasta = new Pasta();
@@ -578,7 +580,9 @@ class PastaController extends AbstractController
         $descricao = trim((string) ($data['descricao'] ?? ''));
         $pasta->setDescricao($descricao !== '' ? $descricao : null);
 
-        $processoId = (int) ($data['processo_id'] ?? 0);
+        $processoId      = (int) ($data['processo_id'] ?? 0);
+        $numeroProcesso  = trim((string) ($data['numeroProcesso'] ?? ''));
+
         if ($processoId > 0) {
             $processo = $this->processoRepository->find($processoId);
             if ($processo instanceof Processo) {
@@ -586,8 +590,13 @@ class PastaController extends AbstractController
             } else {
                 $errors[] = 'Processo não encontrado.';
             }
+        } elseif ($numeroProcesso !== '') {
+            $processo = new Processo();
+            $this->fillProcessoFromData($processo, $data);
+            $processo->setCriadoPor($this->getUser());
+            $this->em->persist($processo);
+            $pasta->setProcesso($processo);
         } else {
-            // Nenhum processo selecionado → deixa null
             $pasta->setProcesso(null);
         }
 
@@ -604,6 +613,59 @@ class PastaController extends AbstractController
         $this->syncPartesContrarias($pasta, is_array($data['partes_contrarias'] ?? null) ? $data['partes_contrarias'] : []);
 
         return $errors;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    private function fillProcessoFromData(Processo $processo, array $data): void
+    {
+        $numeroNormalizado = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
+        $processo->setNumeroProcesso($numeroNormalizado ?? '');
+        $processo->setOrgaoJulgador((string) ($data['orgaoJulgador'] ?? ''));
+        $processo->setSiglaTribunal((string) ($data['siglaTribunal'] ?? ''));
+        $processo->setClasseProcessual((string) ($data['classeProcessual'] ?? ''));
+        $processo->setAssuntoProcessual((string) ($data['assuntoProcessual'] ?? ''));
+        $processo->setSituacaoProcesso((string) ($data['situacaoProcesso'] ?? 'EM_ANDAMENTO'));
+        $processo->setInstancia((string) ($data['instancia'] ?? 'G1'));
+        $processo->setDataDistribuicao($this->parseDateOrNull($data['dataDistribuicao'] ?? null));
+        $processo->setDataBaixa($this->parseDateOrNull($data['dataBaixa'] ?? null));
+
+        foreach (is_array($data['partes'] ?? null) ? $data['partes'] : [] as $parteData) {
+            $nome = trim((string) ($parteData['nome'] ?? ''));
+            if ($nome === '') {
+                continue;
+            }
+            $parte = new ParteProcesso();
+            $parte->setTipo((string) ($parteData['tipo'] ?? 'PARTE'));
+            $parte->setNome($nome);
+            $parte->setDocumento(($parteData['documento'] ?? '') !== '' ? (string) $parteData['documento'] : null);
+            $parte->setPapel(($parteData['papel'] ?? '') !== '' ? (string) $parteData['papel'] : null);
+            $processo->addParte($parte);
+        }
+
+        foreach (is_array($data['movimentacoes'] ?? null) ? $data['movimentacoes'] : [] as $movData) {
+            $descricao = trim((string) ($movData['descricao'] ?? ''));
+            if ($descricao === '') {
+                continue;
+            }
+            $mov = new MovimentacaoProcesso();
+            $mov->setDescricao($descricao);
+            $mov->setTipo(($movData['tipo'] ?? '') !== '' ? (string) $movData['tipo'] : null);
+            $mov->setOrgao(($movData['orgao'] ?? '') !== '' ? (string) $movData['orgao'] : null);
+            $mov->setDataMovimentacao($this->parseDateOrNull($movData['dataMovimentacao'] ?? null));
+            $processo->addMovimentacao($mov);
+        }
+    }
+
+    private function parseDateOrNull(mixed $value): ?\DateTimeInterface
+    {
+        $dateValue = is_string($value) ? trim($value) : '';
+        if ($dateValue === '') {
+            return null;
+        }
+
+        return \DateTime::createFromFormat('!Y-m-d', $dateValue) ?: null;
     }
 
     /**

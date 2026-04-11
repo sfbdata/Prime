@@ -58,7 +58,7 @@
                                     aria-label="Abrir/fechar menu">
                                 <i class="bi bi-list"></i>
                             </button>
-                            <a href="{{ path('homepage') }}" class="navtop-brand">
+                            <a href="{{ path('expediente_index') }}" class="navtop-brand">
                                 <span class="navtop-brand-text">JusPrime</span>
                             </a>
                             {# Separador + título da página atual #}
@@ -86,8 +86,8 @@
                                 {% set pageTitle = 'Convidar Usuários' %}
                             {% elseif currentRoute == 'app_profile' %}
                                 {% set pageTitle = 'Meu Perfil' %}
-                            {% elseif currentRoute in ['homepage', 'home'] %}
-                                {% set pageTitle = '' %}
+                            {% elseif currentRoute starts with 'expediente_' %}
+                                {% set pageTitle = 'Expediente' %}
                             {% endif %}
                             {% if pageTitle %}
                                 <span class="navtop-page-sep">|</span>
@@ -197,9 +197,9 @@
 
                     {# ── Subnav branco ── #}
                     <div class="navtop-subnav">
-                        <a href="{{ path('homepage') }}"
-                           class="navtop-subnav-link {{ app.request.attributes.get('_route') in ['homepage','home'] ? 'active' : '' }}">
-                            Home
+                        <a href="{{ path('expediente_index') }}"
+                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'expediente_' ? 'active' : '' }}">
+                            Expediente
                         </a>
                         <a href="{{ path('cliente_index') }}"
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'cliente_' ? 'active' : '' }}">

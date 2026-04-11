@@ -34,12 +34,26 @@
         <form method="POST" id="processoForm"
               action="{{ isEdit ? path('processo_edit', {id: processo.id}) : path('processo_new') }}">
 
-            {# Informações Principais #}
-            <div class="card card-primary card-outline mb-4">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="bi bi-info-circle me-1"></i> Informações do Processo</h3>
-                </div>
-                <div class="card-body">git 
+            {# ── Barra de abas do processo ── #}
+            <div class="processo-tabs">
+                <button type="button" class="processo-tab active" data-tab="proc-info">
+                    <i class="bi bi-info-circle me-1"></i> Informações
+                </button>
+                <button type="button" class="processo-tab" data-tab="proc-cliente">
+                    <i class="bi bi-person me-1"></i> Cliente
+                </button>
+                <button type="button" class="processo-tab" data-tab="proc-partes">
+                    <i class="bi bi-people me-1"></i> Partes
+                </button>
+                <button type="button" class="processo-tab" data-tab="proc-movimentacoes">
+                    <i class="bi bi-clock-history me-1"></i> Movimentações
+                </button>
+            </div>
+
+            {# ── ABA: Informações do Processo ── #}
+            <div class="processo-tab-content active" id="tab-proc-info">
+                <div class="card card-primary card-outline mb-0 border-top-0 rounded-top-0">
+                <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-8">
                             <label for="numeroProcesso" class="form-label">
@@ -220,13 +234,12 @@
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {# Cliente #}
-            <div class="card card-outline card-success mb-4">
-                <div class="card-header">
-                    <h3 class="card-title"><i class="bi bi-person me-1"></i> Cliente</h3>
                 </div>
+            </div>{# fim tab-proc-info #}
+
+            {# ── ABA: Cliente ── #}
+            <div class="processo-tab-content" id="tab-proc-cliente">
+                <div class="card card-outline card-success mb-0 border-top-0 rounded-top-0">
                 <div class="card-body">
                     <div class="col-md-8">
                         <label for="cliente_id" class="form-label">Cliente vinculado</label>
@@ -247,15 +260,14 @@
                         </select>
                     </div>
                 </div>
-            </div>
+                </div>
+            </div>{# fim tab-proc-cliente #}
 
-            {# Partes do Processo #}
-            <div class="card card-outline card-warning mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="card-title mb-0">
-                        <i class="bi bi-people me-1"></i> Partes do Processo
-                    </h3>
-                    <button type="button" id="btn-add-parte" class="btn btn-sm btn-warning">
+            {# ── ABA: Partes do Processo ── #}
+            <div class="processo-tab-content" id="tab-proc-partes">
+                <div class="card card-outline card-warning mb-0 border-top-0 rounded-top-0">
+                <div class="card-header d-flex justify-content-between align-items-center border-top-0">
+                    <button type="button" id="btn-add-parte" class="btn btn-sm btn-warning ms-auto">
                         <i class="bi bi-plus-lg me-1"></i> Adicionar Parte
                     </button>
                 </div>
@@ -328,15 +340,14 @@
                         {% endif %}
                     </div>
                 </div>
-            </div>
+                </div>
+            </div>{# fim tab-proc-partes #}
 
-            {# Movimentações #}
-            <div class="card card-outline card-info mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h3 class="card-title mb-0">
-                        <i class="bi bi-clock-history me-1"></i> Movimentações do Processo
-                    </h3>
-                    <button type="button" id="btn-add-movimentacao" class="btn btn-sm btn-info">
+            {# ── ABA: Movimentações ── #}
+            <div class="processo-tab-content" id="tab-proc-movimentacoes">
+                <div class="card card-outline card-info mb-0 border-top-0 rounded-top-0">
+                <div class="card-header d-flex justify-content-between align-items-center border-top-0">
+                    <button type="button" id="btn-add-movimentacao" class="btn btn-sm btn-info ms-auto">
                         <i class="bi bi-plus-lg me-1"></i> Adicionar Movimentação
                     </button>
                 </div>
@@ -402,7 +413,8 @@
                         {% endif %}
                     </div>
                 </div>
-            </div>
+                </div>
+            </div>{# fim tab-proc-movimentacoes #}
 
             {# Botões de ação #}
             <div class="d-flex justify-content-between mb-4">
@@ -450,10 +462,52 @@
 </div>
 {% endblock %}
 
+{% block stylesheets %}
+{{ parent() }}
+<style>
+.processo-tabs {
+    display: flex;
+    border-bottom: 3px solid #1a6fa3;
+    background: #fff;
+    margin-bottom: 0;
+}
+.processo-tab {
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -3px;
+    padding: 10px 20px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #888;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    outline: none;
+}
+.processo-tab:hover { color: #1a6fa3; }
+.processo-tab.active { color: #1a6fa3; border-bottom-color: #1a6fa3; }
+.processo-tab-content { display: none; }
+.processo-tab-content.active { display: block; }
+.processo-tab-content .card { border-radius: 0 0 4px 4px; }
+</style>
+{% endblock %}
+
 {% block javascripts %}
 {{ parent() }}
 <script>
 $(document).ready(function () {
+
+    // ── Alternância de abas do processo ──
+    document.querySelectorAll('.processo-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.processo-tab').forEach(function(t) { t.classList.remove('active'); });
+            document.querySelectorAll('.processo-tab-content').forEach(function(c) { c.classList.remove('active'); });
+            tab.classList.add('active');
+            var painel = document.getElementById('tab-' + tab.dataset.tab);
+            if (painel) painel.classList.add('active');
+        });
+    });
 
     // Select2 para cliente
     $('.select2-search').select2({

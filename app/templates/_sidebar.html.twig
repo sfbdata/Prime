@@ -27,14 +27,14 @@
             <ul class="pje-menu-list">
 
                 <li class="pje-menu-item">
-                    <a href="{{ path('homepage') }}"
-                       class="pje-menu-link {{ currentRoute in ['homepage','home'] ? 'active' : '' }}">
-                        <i class="bi bi-house pje-nav-icon"></i>
-                        <span>Home</span>
+                    <a href="{{ path('expediente_index') }}"
+                       class="pje-menu-link {{ currentRoute starts with 'expediente_' ? 'active' : '' }}">
+                        <i class="bi bi-inbox-fill pje-nav-icon"></i>
+                        <span>Expediente</span>
                     </a>
                 </li>
 
-                {% if can_access_module('pastas') %}
+{% if can_access_module('pastas') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('pasta_index') }}"
                            class="pje-menu-link {{ currentRoute starts with 'pasta_' ? 'active' : '' }}">
