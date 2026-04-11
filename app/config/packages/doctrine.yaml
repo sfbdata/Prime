@@ -36,6 +36,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Processo/Entity'
                 prefix: 'App\Processo\Entity'
                 alias: AppProcesso
+            AppExpediente:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Expediente/Entity'
+                prefix: 'App\Expediente\Entity'
+                alias: AppExpediente
         controller_resolver:
             auto_mapping: false
 

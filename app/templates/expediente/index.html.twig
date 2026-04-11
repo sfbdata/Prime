@@ -1,0 +1,788 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Expediente{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-inbox-fill me-2"></i>Expediente</h1>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="row g-0" style="min-height: calc(100vh - 160px);">
+
+            {# ── Menu lateral do expediente ── #}
+            <div class="col-auto expediente-sidebar">
+                <div class="expediente-menu">
+
+                    <nav class="expediente-nav">
+
+                        {# ── Marcadores (pastas organizadoras) ── #}
+                        <div class="expediente-marcadores-header">
+                            <span class="expediente-marcadores-titulo">Marcadores</span>
+                            <button type="button" class="expediente-marcadores-add js-abrir-modal-marcador"
+                                    data-pai-id="" title="Novo marcador">
+                                <i class="bi bi-plus-lg"></i>
+                            </button>
+                        </div>
+                        <ul class="expediente-menu-list" id="lista-marcadores">
+
+                            {# Marcadores do banco #}
+                            {% for pasta in pastas %}
+                                {% include 'expediente/_pasta_item.html.twig' with { pasta: pasta } %}
+                            {% endfor %}
+
+                        </ul>
+
+                    </nav>
+                </div>
+            </div>
+
+            {# ── Modal: novo marcador / sub-marcador ── #}
+            <div class="modal fade" id="modalNovoMarcador" tabindex="-1" aria-labelledby="modalNovoMarcadorLabel" aria-hidden="true">
+                <div class="modal-dialog modal-sm modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h6 class="modal-title" id="modalNovoMarcadorLabel">
+                                <i class="bi bi-tag me-1"></i> <span id="modalMarcadorTitulo">Novo marcador</span>
+                            </h6>
+                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body py-3">
+                            <input type="hidden" id="marcadorPaiId">
+                            <input type="hidden" id="marcadorPaiNome">
+                            <div id="marcadorContexto" class="text-muted small mb-2" style="display:none;">
+                                Sub-marcador de: <strong id="marcadorPaiNomeExibir"></strong>
+                            </div>
+                            <label for="nomeMarcador" class="form-label form-label-sm">Nome</label>
+                            <input type="text" id="nomeMarcador" class="form-control form-control-sm"
+                                   placeholder="Ex.: Em andamento, Aguardando…" maxlength="100" autocomplete="off">
+                            <div id="marcadorErro" class="text-danger small mt-1" style="display:none;"></div>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarMarcador">
+                                <i class="bi bi-check-lg me-1"></i> Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Modal: editar marcador ── #}
+            <div class="modal fade" id="modalEditarMarcador" tabindex="-1" aria-labelledby="modalEditarMarcadorLabel" aria-hidden="true">
+                <div class="modal-dialog modal-sm modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h6 class="modal-title" id="modalEditarMarcadorLabel">
+                                <i class="bi bi-pencil me-1"></i> Editar marcador
+                            </h6>
+                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body py-3">
+                            <input type="hidden" id="editarMarcadorId">
+                            <input type="hidden" id="editarMarcadorToken">
+
+                            <label for="editarNomeMarcador" class="form-label form-label-sm">Nome</label>
+                            <input type="text" id="editarNomeMarcador" class="form-control form-control-sm mb-3"
+                                   maxlength="100" autocomplete="off">
+
+                            <label class="form-label form-label-sm d-block mb-1">Cor do marcador</label>
+                            <div class="marcador-cores" id="editarCoresMarcador">
+                                <button type="button" class="marcador-cor-btn" data-cor="" title="Sem cor">
+                                    <i class="bi bi-slash-circle text-muted" style="font-size:1rem;"></i>
+                                </button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#fde8e8" style="background:#fde8e8;" title="Rosa"></button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#fde8f5" style="background:#fde8f5;" title="Lilás rosa"></button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#ede8fd" style="background:#ede8fd;" title="Lavanda"></button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#e8eafd" style="background:#e8eafd;" title="Azul lavanda"></button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#e8f4fd" style="background:#e8f4fd;" title="Azul claro"></button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#e8fdf0" style="background:#e8fdf0;" title="Verde menta"></button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#fdf6e8" style="background:#fdf6e8;" title="Amarelo creme"></button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#fde8d0" style="background:#fde8d0;" title="Pêssego"></button>
+                                <button type="button" class="marcador-cor-btn" data-cor="#f0f0f0" style="background:#f0f0f0;" title="Cinza claro"></button>
+                            </div>
+
+                            <div id="editarMarcadorErro" class="text-danger small mt-2" style="display:none;"></div>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarEdicaoMarcador">
+                                <i class="bi bi-check-lg me-1"></i> Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Área de conteúdo principal ── #}
+            <div class="col expediente-content">
+                <div id="expediente-painel">
+                    <div class="expediente-content-placeholder">
+                        <i class="bi bi-inbox text-muted" style="font-size: 3rem; opacity: 0.3;"></i>
+                        <p class="text-muted mt-3">Selecione um grupo para visualizar os expedientes</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+/* ── Layout geral ─────────────────────────────────────────────── */
+.expediente-sidebar {
+    width: 260px;
+    min-width: 260px;
+    border-right: 1px solid #dee2e6;
+    overflow-y: auto;
+}
+
+.expediente-content {
+    overflow-y: auto;
+}
+
+.expediente-content-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+}
+
+/* ── Lista do menu ────────────────────────────────────────────── */
+.expediente-menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 0;
+}
+
+.expediente-menu-item {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.expediente-menu-item:last-child {
+    border-bottom: none;
+}
+
+/* ── Links do menu principal ──────────────────────────────────── */
+.expediente-menu-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    color: #454545;
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: background 0.12s;
+    cursor: pointer;
+}
+
+.expediente-menu-link:hover {
+    background: #e9ecef;
+    color: #212529;
+}
+
+.expediente-menu-link.active {
+    background: #e9ecef;
+    color: #212529;
+    font-weight: 600;
+}
+
+.expediente-chevron {
+    font-size: 0.7rem;
+    width: 12px;
+    flex-shrink: 0;
+    transition: transform 0.2s;
+    color: #6c757d;
+}
+
+.expediente-icon {
+    font-size: 0.95rem;
+    flex-shrink: 0;
+    color: #454545;
+}
+
+.expediente-icon--no-chevron {
+    margin-left: 18px;
+}
+
+/* ── Submenus ─────────────────────────────────────────────────── */
+.expediente-submenu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: none;
+    border-top: 1px solid #dee2e6;
+}
+
+.expediente-submenu.show {
+    display: block;
+}
+
+.expediente-submenu li {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.expediente-submenu li:last-child {
+    border-bottom: none;
+}
+
+.expediente-submenu-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px 6px 48px;
+    color: #454545;
+    text-decoration: none;
+    font-size: 0.8rem;
+    transition: background 0.12s;
+}
+
+.expediente-submenu-link:hover {
+    background: #e9ecef;
+    color: #212529;
+}
+
+.expediente-sub-icon {
+    font-size: 0.82rem;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+/* ── Botão + inline no marcador pai ──────────────────────────── */
+.expediente-btn-add-sub {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    color: transparent;
+    font-size: 0.72rem;
+    cursor: pointer;
+    border-radius: 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.12s, background 0.12s;
+}
+
+.expediente-menu-link:hover .expediente-btn-add-sub,
+.expediente-menu-link.active .expediente-btn-add-sub {
+    color: #6c757d;
+}
+
+.expediente-btn-add-sub:hover {
+    background: rgba(0,0,0,0.08);
+    color: #212529 !important;
+}
+
+/* ── Paleta de cores do modal de edição ──────────────────────── */
+.marcador-cores {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.marcador-cor-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.15s, transform 0.12s;
+    background: #fff;
+    outline: none;
+}
+
+.marcador-cor-btn:hover {
+    transform: scale(1.15);
+    border-color: #6c757d;
+}
+
+.marcador-cor-btn.ativo {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 2px rgba(13,110,253,.25);
+}
+
+/* ── Fundo colorido no item do menu ──────────────────────────── */
+.expediente-menu-link.com-cor {
+    border-left: 3px solid transparent;
+}
+
+/* ── Botões de ação inline (editar / excluir) ─────────────────── */
+.expediente-btn-acao {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    color: transparent;
+    font-size: 0.72rem;
+    cursor: pointer;
+    border-radius: 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.12s, background 0.12s;
+}
+
+.expediente-menu-link:hover .expediente-btn-acao,
+.expediente-menu-link.active .expediente-btn-acao {
+    color: #adb5bd;
+}
+
+.expediente-btn-acao:hover {
+    background: rgba(0,0,0,0.08);
+    color: #212529 !important;
+}
+
+.expediente-btn-acao.js-excluir-marcador:hover {
+    background: rgba(220,53,69,0.12);
+    color: #dc3545 !important;
+}
+
+.expediente-btn-acao-sub {
+    color: transparent;
+    font-size: 0.72rem;
+}
+
+.expediente-submenu-link:hover .expediente-btn-acao-sub {
+    color: #adb5bd;
+}
+
+.expediente-btn-acao-sub:hover {
+    background: rgba(0,0,0,0.08);
+    color: #212529 !important;
+}
+
+.expediente-btn-acao-sub.js-excluir-marcador:hover {
+    background: rgba(220,53,69,0.12);
+    color: #dc3545 !important;
+}
+
+/* ── Header de marcadores ─────────────────────────────────────── */
+.expediente-marcadores-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px 4px;
+    border-top: 1px solid #dee2e6;
+}
+
+.expediente-marcadores-titulo {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6c757d;
+}
+
+.expediente-marcadores-add {
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    color: #6c757d;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    line-height: 1;
+    transition: background 0.12s, color 0.12s;
+}
+
+.expediente-marcadores-add:hover {
+    background: #e9ecef;
+    color: #212529;
+}
+</style>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var painel       = document.getElementById('expediente-painel');
+    var urlCriar     = '{{ path('expediente_pasta_criar') }}';
+    var urlExcluir   = '{{ path('expediente_pasta_excluir', {'id': 0}) }}';
+    var urlEditar    = '{{ path('expediente_pasta_editar', {'id': 0}) }}';
+    var csrfToken    = '{{ csrf_token('pasta_organizadora') }}';
+
+    // ── Carrega painel via AJAX ──
+    document.querySelectorAll('.expediente-menu-link[data-painel]').forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+
+            document.querySelectorAll('.expediente-menu-link').forEach(function (l) {
+                l.classList.remove('active');
+            });
+            this.classList.add('active');
+
+            painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
+
+            fetch(this.dataset.painel, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.text(); })
+            .then(function (html) { painel.innerHTML = html; })
+            .catch(function () {
+                painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
+            });
+        });
+    });
+
+    // ── Toggle submenus dos marcadores ──
+    document.querySelectorAll('.expediente-menu-link[data-grupo]').forEach(function (link) {
+        link.addEventListener('click', toggleSubmenu);
+    });
+
+    // ── Modal novo marcador ──
+    var modal        = document.getElementById('modalNovoMarcador');
+    var inputNome    = document.getElementById('nomeMarcador');
+    var inputPaiId   = document.getElementById('marcadorPaiId');
+    var inputPaiNome = document.getElementById('marcadorPaiNome');
+    var divContexto  = document.getElementById('marcadorContexto');
+    var spanPaiNome  = document.getElementById('marcadorPaiNomeExibir');
+    var divErro      = document.getElementById('marcadorErro');
+    var tituloModal  = document.getElementById('modalMarcadorTitulo');
+
+    function abrirModal(paiId, paiNome) {
+        inputPaiId.value   = paiId   || '';
+        inputPaiNome.value = paiNome || '';
+        inputNome.value    = '';
+        divErro.style.display = 'none';
+
+        if (paiId) {
+            tituloModal.textContent   = 'Novo sub-marcador';
+            spanPaiNome.textContent   = paiNome;
+            divContexto.style.display = '';
+        } else {
+            tituloModal.textContent   = 'Novo marcador';
+            divContexto.style.display = 'none';
+        }
+
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+        setTimeout(function () { inputNome.focus(); }, 300);
+    }
+
+    // Botão + do header de marcadores
+    document.querySelectorAll('.js-abrir-modal-marcador').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            abrirModal(this.dataset.paiId || '', this.dataset.paiNome || '');
+        });
+    });
+
+    // Botão + sub-marcador (delegado — funciona para itens inseridos via JS também)
+    document.getElementById('lista-marcadores').addEventListener('click', function (e) {
+        var btn = e.target.closest('.expediente-btn-add-sub');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        abrirModal(btn.dataset.paiId, btn.dataset.paiNome);
+    });
+
+    // ── Modal editar marcador ──
+    var modalEditar       = document.getElementById('modalEditarMarcador');
+    var editarId          = document.getElementById('editarMarcadorId');
+    var editarToken       = document.getElementById('editarMarcadorToken');
+    var editarNome        = document.getElementById('editarNomeMarcador');
+    var editarErro        = document.getElementById('editarMarcadorErro');
+    var editarCorAtiva    = '';
+
+    document.getElementById('editarCoresMarcador').addEventListener('click', function (e) {
+        var btn = e.target.closest('.marcador-cor-btn');
+        if (!btn) return;
+        editarCorAtiva = btn.dataset.cor;
+        document.querySelectorAll('.marcador-cor-btn').forEach(function (b) { b.classList.remove('ativo'); });
+        btn.classList.add('ativo');
+    });
+
+    function abrirModalEditar(id, nomeAtual, corAtual, token) {
+        editarId.value    = id;
+        editarToken.value = token;
+        editarNome.value  = nomeAtual;
+        editarCorAtiva    = corAtual || '';
+        editarErro.style.display = 'none';
+
+        document.querySelectorAll('.marcador-cor-btn').forEach(function (b) {
+            b.classList.toggle('ativo', b.dataset.cor === editarCorAtiva);
+        });
+
+        bootstrap.Modal.getOrCreateInstance(modalEditar).show();
+        setTimeout(function () { editarNome.focus(); editarNome.select(); }, 300);
+    }
+
+    // Botão editar (delegado)
+    document.getElementById('lista-marcadores').addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-editar-marcador');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var item = document.getElementById('item-pasta-' + btn.dataset.id);
+        var link = item ? item.querySelector('.expediente-menu-link, .expediente-submenu-link') : null;
+        var corAtual = link ? (link.dataset.cor || '') : '';
+
+        abrirModalEditar(btn.dataset.id, btn.dataset.nome, corAtual, btn.dataset.token);
+    });
+
+    document.getElementById('btnSalvarEdicaoMarcador').addEventListener('click', function () {
+        var nome = editarNome.value.trim();
+        if (!nome) { editarNome.focus(); return; }
+
+        var btn = this;
+        btn.disabled = true;
+        editarErro.style.display = 'none';
+
+        var id  = editarId.value;
+        var url = urlEditar.replace('/0', '/' + id);
+
+        fetch(url, {
+            method: 'PATCH',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: '_token=' + encodeURIComponent(editarToken.value) +
+                  '&nome='  + encodeURIComponent(nome) +
+                  '&cor='   + encodeURIComponent(editarCorAtiva),
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            btn.disabled = false;
+            if (!res.ok) {
+                editarErro.textContent   = res.data.erro || 'Erro ao salvar.';
+                editarErro.style.display = '';
+                return;
+            }
+            var item = document.getElementById('item-pasta-' + res.data.id);
+            if (item) {
+                // Atualiza span do nome
+                var span = item.querySelector('a span');
+                if (span) span.textContent = res.data.nome;
+
+                // Atualiza cor no link
+                var link = item.querySelector('.expediente-menu-link, .expediente-submenu-link');
+                if (link) {
+                    link.dataset.cor = res.data.cor || '';
+                    aplicarCorNoLink(link, res.data.cor);
+                }
+
+                // Atualiza data-nome nos botões do item
+                item.querySelectorAll('[data-id="' + res.data.id + '"]').forEach(function (b) {
+                    b.dataset.nome = res.data.nome;
+                });
+                // Atualiza data-pai-nome nos botões de sub-marcador
+                item.querySelectorAll('[data-pai-id="' + res.data.id + '"]').forEach(function (b) {
+                    b.dataset.paiNome = res.data.nome;
+                });
+            }
+            bootstrap.Modal.getInstance(modalEditar).hide();
+        })
+        .catch(function () {
+            btn.disabled = false;
+            editarErro.textContent   = 'Erro de comunicação.';
+            editarErro.style.display = '';
+        });
+    });
+
+    function aplicarCorNoLink(link, cor) {
+        if (cor) {
+            link.style.backgroundColor = cor;
+            link.style.borderLeft = '3px solid ' + escurecer(cor);
+        } else {
+            link.style.backgroundColor = '';
+            link.style.borderLeft = '';
+        }
+    }
+
+    function escurecer(hex) {
+        var r = parseInt(hex.slice(1,3),16) - 30;
+        var g = parseInt(hex.slice(3,5),16) - 30;
+        var b = parseInt(hex.slice(5,7),16) - 30;
+        return 'rgb(' + Math.max(0,r) + ',' + Math.max(0,g) + ',' + Math.max(0,b) + ')';
+    }
+
+    // Botão excluir (delegado)
+    document.getElementById('lista-marcadores').addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-excluir-marcador');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        var id    = btn.dataset.id;
+        var nome  = btn.dataset.nome;
+        var token = btn.dataset.token;
+        var item  = document.getElementById('item-pasta-' + id);
+
+        var temSubs = item && item.querySelector('.expediente-submenu li:not(:last-child)');
+        var msg = temSubs
+            ? 'Excluir o marcador "' + nome + '" removerá todos os seus sub-marcadores. Continuar?'
+            : 'Excluir o marcador "' + nome + '"?';
+
+        if (!confirm(msg)) return;
+
+        var url = urlExcluir.replace('/0', '/' + id);
+
+        fetch(url, {
+            method: 'DELETE',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: '_token=' + encodeURIComponent(token),
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            if (!res.ok) {
+                alert(res.data.erro || 'Erro ao excluir.');
+                return;
+            }
+            if (item) item.remove();
+        })
+        .catch(function () { alert('Erro de comunicação.'); });
+    });
+
+    document.getElementById('btnSalvarMarcador').addEventListener('click', function () {
+        var nome  = inputNome.value.trim();
+        var paiId = inputPaiId.value;
+
+        if (!nome) { inputNome.focus(); return; }
+
+        var btn = this;
+        btn.disabled = true;
+
+        var body = new URLSearchParams({ nome: nome, _token: csrfToken });
+        if (paiId) body.append('pai_id', paiId);
+
+        fetch(urlCriar, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            if (!res.ok) {
+                divErro.textContent   = res.data.erro || 'Erro ao salvar.';
+                divErro.style.display = '';
+                btn.disabled = false;
+                return;
+            }
+            inserirNoMenu(res.data);
+            bootstrap.Modal.getInstance(modal).hide();
+            btn.disabled = false;
+        })
+        .catch(function () {
+            divErro.textContent   = 'Erro de comunicação.';
+            divErro.style.display = '';
+            btn.disabled = false;
+        });
+    });
+
+    function inserirNoMenu(marcador) {
+        if (marcador.paiId) {
+            // Sub-marcador: adiciona dentro do submenu do pai
+            var submenu = document.getElementById('grupo-pasta-' + marcador.paiId);
+            if (!submenu) return;
+
+            var li = document.createElement('li');
+            li.id        = 'item-pasta-' + marcador.id;
+            li.innerHTML = criarHtmlSub(marcador);
+            // Insere antes do botão "Novo sub-marcador"
+            var btnNovo = submenu.querySelector('.js-abrir-modal-marcador');
+            submenu.insertBefore(li, btnNovo ? btnNovo.parentElement : null);
+            submenu.classList.add('show');
+
+            var chevron = submenu.previousElementSibling
+                ? submenu.previousElementSibling.querySelector('.expediente-chevron')
+                : null;
+            if (chevron) {
+                chevron.classList.remove('bi-chevron-right');
+                chevron.classList.add('bi-chevron-down');
+            }
+        } else {
+            // Marcador raiz
+            var lista = document.getElementById('lista-marcadores');
+            var li = document.createElement('li');
+            li.id        = 'item-pasta-' + marcador.id;
+            li.className = 'expediente-menu-item';
+            li.innerHTML = criarHtmlRaiz(marcador);
+            lista.appendChild(li);
+
+            var link = li.querySelector('.expediente-menu-link[data-grupo]');
+            if (link) link.addEventListener('click', toggleSubmenu);
+        }
+    }
+
+    function criarHtmlRaiz(marcador) {
+        var grupoId     = 'pasta-' + marcador.id;
+        var csrfExcluir = marcador.csrfExcluir || '';
+        var csrfEditar  = marcador.csrfEditar  || '';
+        var cor         = marcador.cor         || '';
+        var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid ' + escurecer(cor) + ';"' : '';
+        return '<a href="#" class="expediente-menu-link" data-grupo="' + grupoId + '" data-cor="' + escHtml(cor) + '"' + estiloLink + '>' +
+               '<i class="bi bi-chevron-right expediente-chevron"></i>' +
+               '<i class="bi bi-tag expediente-icon"></i>' +
+               '<span>' + escHtml(marcador.nome) + '</span>' +
+               '<button type="button" class="expediente-btn-add-sub ms-auto"' +
+               ' data-pai-id="' + marcador.id + '" data-pai-nome="' + escHtml(marcador.nome) + '"' +
+               ' title="Novo sub-marcador"><i class="bi bi-plus-lg"></i></button>' +
+               '<button type="button" class="expediente-btn-acao js-editar-marcador"' +
+               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '"' +
+               ' title="Editar marcador"><i class="bi bi-pencil"></i></button>' +
+               '<button type="button" class="expediente-btn-acao js-excluir-marcador"' +
+               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfExcluir) + '"' +
+               ' title="Excluir marcador"><i class="bi bi-trash3"></i></button>' +
+               '</a>' +
+               '<ul class="expediente-submenu" id="grupo-pasta-' + marcador.id + '">' +
+               '<li><button type="button" class="expediente-submenu-link w-100 border-0 bg-transparent text-start js-abrir-modal-marcador"' +
+               ' data-pai-id="' + marcador.id + '" data-pai-nome="' + escHtml(marcador.nome) + '">' +
+               '<i class="bi bi-plus expediente-sub-icon"></i>Novo sub-marcador</button></li>' +
+               '</ul>';
+    }
+
+    function criarHtmlSub(marcador) {
+        var csrfExcluir = marcador.csrfExcluir || '';
+        var csrfEditar  = marcador.csrfEditar  || '';
+        var cor         = marcador.cor         || '';
+        var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid ' + escurecer(cor) + ';"' : '';
+        return '<a href="#" class="expediente-submenu-link" data-cor="' + escHtml(cor) + '"' + estiloLink + '>' +
+               '<i class="bi bi-tag expediente-sub-icon"></i>' +
+               '<span>' + escHtml(marcador.nome) + '</span>' +
+               '<button type="button" class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"' +
+               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '"' +
+               ' title="Editar sub-marcador"><i class="bi bi-pencil"></i></button>' +
+               '<button type="button" class="expediente-btn-acao expediente-btn-acao-sub js-excluir-marcador"' +
+               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfExcluir) + '"' +
+               ' title="Excluir sub-marcador"><i class="bi bi-trash3"></i></button>' +
+               '</a>';
+    }
+
+    function toggleSubmenu(e) {
+        e.preventDefault();
+        var grupo   = this.dataset.grupo;
+        var submenu = document.getElementById('grupo-' + grupo);
+        var chevron = this.querySelector('.expediente-chevron');
+
+        document.querySelectorAll('.expediente-menu-link').forEach(function (l) {
+            l.classList.remove('active');
+        });
+        this.classList.add('active');
+
+        if (!submenu) return;
+        var aberto = submenu.classList.contains('show');
+        document.querySelectorAll('.expediente-submenu').forEach(function (sm) { sm.classList.remove('show'); });
+        document.querySelectorAll('.expediente-chevron').forEach(function (ch) {
+            ch.classList.remove('bi-chevron-down');
+            ch.classList.add('bi-chevron-right');
+        });
+        if (!aberto) {
+            submenu.classList.add('show');
+            if (chevron) { chevron.classList.remove('bi-chevron-right'); chevron.classList.add('bi-chevron-down'); }
+        }
+    }
+
+    function escHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,70 @@
+{% set grupoId = 'pasta-' ~ pasta.id %}
+{% set estiloLink = pasta.cor ? 'background:' ~ pasta.cor ~ ';border-left:3px solid rgba(0,0,0,0.12);' : '' %}
+<li class="expediente-menu-item" id="item-pasta-{{ pasta.id }}">
+    <a href="#" class="expediente-menu-link" data-grupo="{{ grupoId }}" data-cor="{{ pasta.cor }}"
+       {% if estiloLink %}style="{{ estiloLink }}"{% endif %}>
+        <i class="bi bi-chevron-right expediente-chevron"></i>
+        <i class="bi bi-tag expediente-icon"></i>
+        <span>{{ pasta.nome }}</span>
+        <button type="button"
+                class="expediente-btn-add-sub ms-auto"
+                data-pai-id="{{ pasta.id }}"
+                data-pai-nome="{{ pasta.nome }}"
+                title="Novo sub-marcador">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+        <button type="button"
+                class="expediente-btn-acao js-editar-marcador"
+                data-id="{{ pasta.id }}"
+                data-nome="{{ pasta.nome }}"
+                data-token="{{ csrf_token('editar_pasta_' ~ pasta.id) }}"
+                title="Editar marcador">
+            <i class="bi bi-pencil"></i>
+        </button>
+        <button type="button"
+                class="expediente-btn-acao js-excluir-marcador"
+                data-id="{{ pasta.id }}"
+                data-nome="{{ pasta.nome }}"
+                data-token="{{ csrf_token('excluir_pasta_' ~ pasta.id) }}"
+                title="Excluir marcador">
+            <i class="bi bi-trash3"></i>
+        </button>
+    </a>
+    <ul class="expediente-submenu" id="grupo-{{ grupoId }}">
+        {% for sub in pasta.subpastas %}
+            {% set estiloSub = sub.cor ? 'background:' ~ sub.cor ~ ';border-left:3px solid rgba(0,0,0,0.12);' : '' %}
+            <li id="item-pasta-{{ sub.id }}">
+                <a href="#" class="expediente-submenu-link" data-cor="{{ sub.cor }}"
+                   {% if estiloSub %}style="{{ estiloSub }}"{% endif %}>
+                    <i class="bi bi-tag expediente-sub-icon"></i>
+                    <span>{{ sub.nome }}</span>
+                    <button type="button"
+                            class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"
+                            data-id="{{ sub.id }}"
+                            data-nome="{{ sub.nome }}"
+                            data-token="{{ csrf_token('editar_pasta_' ~ sub.id) }}"
+                            title="Editar sub-marcador">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button"
+                            class="expediente-btn-acao expediente-btn-acao-sub js-excluir-marcador"
+                            data-id="{{ sub.id }}"
+                            data-nome="{{ sub.nome }}"
+                            data-token="{{ csrf_token('excluir_pasta_' ~ sub.id) }}"
+                            title="Excluir sub-marcador">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </a>
+            </li>
+        {% endfor %}
+        <li>
+            <button type="button"
+                    class="expediente-submenu-link w-100 border-0 bg-transparent text-start js-abrir-modal-marcador"
+                    data-pai-id="{{ pasta.id }}"
+                    data-pai-nome="{{ pasta.nome }}">
+                <i class="bi bi-plus expediente-sub-icon"></i>
+                Novo sub-marcador
+            </button>
+        </li>
+    </ul>
+</li>

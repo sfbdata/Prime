@@ -1,0 +1,33 @@
+<div class="p-3" id="acervo-geral-wrapper">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="m-0"><i class="bi bi-folder2-open me-2"></i>Acervo geral</h5>
+        <a href="{{ path('pasta_new') }}" class="btn btn-sm btn-success">
+            <i class="bi bi-plus-lg me-1"></i> Nova Pasta
+        </a>
+    </div>
+
+    {{ include('pasta/_tabela.html.twig') }}
+</div>
+
+<script>
+(function () {
+    var painel = document.getElementById('expediente-painel');
+    var form = document.getElementById('formFiltrosPasta');
+    if (!form || !painel) return;
+
+    function carregarComFiltros(url) {
+        painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.text(); })
+            .then(function (html) { painel.innerHTML = html; })
+            .catch(function () {
+                painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
+            });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        carregarComFiltros(form.action + '?' + new URLSearchParams(new FormData(form)).toString());
+    });
+})();
+</script>
