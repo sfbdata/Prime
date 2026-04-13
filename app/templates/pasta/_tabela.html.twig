@@ -81,12 +81,13 @@
                 <tr>
                     <th class="sortable" data-col="0"><i class="bi bi-upc me-1"></i> NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i> Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable" data-col="2"><i class="bi bi-briefcase me-1"></i> Nome da Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" data-col="2"><i class="bi bi-briefcase me-1"></i> Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="3"><i class="bi bi-file-earmark-check me-1"></i> Documentação <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="4"><i class="bi bi-flag me-1"></i> Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="5"><i class="bi bi-person-badge me-1"></i> Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="6"><i class="bi bi-calendar-plus me-1"></i> Criado <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="7"><i class="bi bi-clock-history me-1"></i> Modificado <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th><i class="bi bi-tags me-1"></i> Marcadores</th>
                     <th><i class="bi bi-gear me-1"></i> Ações</th>
                 </tr>
             </thead>
@@ -96,9 +97,16 @@
                     <td class="fw-semibold">{{ pasta.nup }}</td>
                     <td>
                         {% if pasta.clientes|length > 0 %}
-                            {% for cliente in pasta.clientes %}
-                                <div>{{ cliente.nomeExibicao }}</div>
-                            {% endfor %}
+                            {% if pasta.clientes|length == 1 %}
+                                {{ pasta.clientes[0].nomeExibicao }}
+                            {% else %}
+                                <span class="clientes-resumo"
+                                      data-bs-placement="right"
+                                      data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
+                                    {{ pasta.clientes[0].nomeExibicao }}&hellip;
+                                    <span class="badge text-bg-secondary ms-1" style="font-size:.65rem;">+{{ pasta.clientes|length - 1 }}</span>
+                                </span>
+                            {% endif %}
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
@@ -137,6 +145,26 @@
                         {% else %}
                             {{ dias }} dias atrás
                         {% endif %}
+                    </td>
+                    <td class="pasta-marcadores-col" data-pasta-id="{{ pasta.id }}">
+                        <div class="d-flex flex-wrap gap-1 align-items-center">
+                            {% for m in pasta.marcadores %}
+                                <span class="badge rounded-pill px-2"
+                                      style="{% if m.cor %}background:{{ m.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:#e9ecef;color:#333;{% endif %}font-size:.7rem;">
+                                    {{ m.nome }}
+                                </span>
+                            {% endfor %}
+                            <button type="button"
+                                    class="btn btn-xs py-0 px-1 btn-outline-secondary js-mover-para"
+                                    style="font-size:.7rem;line-height:1.4;"
+                                    data-pasta-id="{{ pasta.id }}"
+                                    data-pasta-nome="{{ pasta.nup }}"
+                                    data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
+                                    data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
+                                    title="Mover para…">
+                                <i class="bi bi-tags"></i>
+                            </button>
+                        </div>
                     </td>
                     <td>
                         <div class="acoes-grupo">
@@ -182,15 +210,46 @@
 {% endif %}
 
 <style>
-.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+#tabelaPastas thead th {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+#tabelaPastas thead th i:first-child {
+    vertical-align: middle;
+}
+#tabelaPastas tbody td {
+    vertical-align: middle;
+}
+.clientes-resumo { cursor: default; white-space: nowrap; }
+.sortable { cursor: pointer; user-select: none; }
 .sortable:hover { background-color: rgba(0,0,0,0.05); }
-.sort-icon { font-size: 0.7em; opacity: 0.4; flex-shrink: 0; }
+.sort-icon { font-size: 0.7em; opacity: 0.4; flex-shrink: 0; vertical-align: middle; }
 .sortable.asc .sort-icon, .sortable.desc .sort-icon { opacity: 1; }
 .sortable.asc .sort-icon::before { content: "\F148"; }
 .sortable.desc .sort-icon::before { content: "\F128"; }
 </style>
 <script>
 (function () {
+    /* ── Tooltips dos clientes ── */
+    function iniciarTooltipsClientes() {
+        document.querySelectorAll('.clientes-resumo[data-clientes]').forEach(function (el) {
+            if (bootstrap.Tooltip.getInstance(el)) return;
+            var nomes = el.dataset.clientes.split('||');
+            var html = nomes.map(function (n) { return '<div>' + n + '</div>'; }).join('');
+            new bootstrap.Tooltip(el, {
+                html: true,
+                trigger: 'hover',
+                placement: el.dataset.bsPlacement || 'right',
+                title: function () { return html; }
+            });
+        });
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', iniciarTooltipsClientes);
+    } else {
+        iniciarTooltipsClientes();
+    }
+
     var table = document.getElementById('tabelaPastas');
     if (!table) return;
     var headers = table.querySelectorAll('th.sortable');

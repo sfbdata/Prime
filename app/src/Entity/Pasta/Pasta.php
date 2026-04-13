@@ -4,6 +4,7 @@ namespace App\Entity\Pasta;
 
 use App\Entity\Auth\User;
 use App\Cliente\Entity\Cliente;
+use App\Expediente\Entity\Marcador;
 use App\Processo\Entity\Processo;
 use App\Entity\Tarefa\Tarefa;
 use App\Repository\PastaRepository;
@@ -40,8 +41,11 @@ class Pasta
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $dataAbertura;
 
-    #[ORM\Column(type: 'text', nullable: true)]
-    private ?string $descricao = null;
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $nomeCliente = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $nomeAcao = null;
 
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
@@ -75,6 +79,10 @@ class Pasta
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: Tarefa::class)]
     private Collection $tarefas;
 
+    #[ORM\ManyToMany(targetEntity: Marcador::class)]
+    #[ORM\JoinTable(name: 'pasta_marcador')]
+    private Collection $marcadores;
+
     #[ORM\Column(options: ['default' => false])]
     private bool $docPecaOk = false;
 
@@ -105,6 +113,7 @@ class Pasta
         $this->partesContrarias = new ArrayCollection();
         $this->documentos = new ArrayCollection();
         $this->tarefas = new ArrayCollection();
+        $this->marcadores = new ArrayCollection();
         $this->statusDocumentos = self::STATUS_DOCUMENTOS_PENDENTE;
     }
 
@@ -146,14 +155,25 @@ class Pasta
         return $this;
     }
 
-    public function getDescricao(): ?string
+    public function getNomeCliente(): ?string
     {
-        return $this->descricao;
+        return $this->nomeCliente;
     }
 
-    public function setDescricao(?string $descricao): self
+    public function setNomeCliente(?string $nomeCliente): self
     {
-        $this->descricao = $descricao;
+        $this->nomeCliente = $nomeCliente;
+        return $this;
+    }
+
+    public function getNomeAcao(): ?string
+    {
+        return $this->nomeAcao;
+    }
+
+    public function setNomeAcao(?string $nomeAcao): self
+    {
+        $this->nomeAcao = $nomeAcao;
         return $this;
     }
 
@@ -316,5 +336,43 @@ class Pasta
             && $this->docComprovanteResidenciaOk && $this->docGratuidadeJusticaOk && $this->docDemaisOk)
             ? self::STATUS_DOCUMENTOS_APTO
             : self::STATUS_DOCUMENTOS_PENDENTE;
+    }
+
+    /** @return Collection<int, Marcador> */
+    public function getMarcadores(): Collection
+    {
+        return $this->marcadores;
+    }
+
+    public function addMarcador(Marcador $marcador): self
+    {
+        foreach ($this->marcadores as $existente) {
+            if ($existente->getId() === $marcador->getId()) {
+                return $this;
+            }
+        }
+        $this->marcadores->add($marcador);
+        return $this;
+    }
+
+    public function removeMarcador(Marcador $marcador): self
+    {
+        foreach ($this->marcadores as $existente) {
+            if ($existente->getId() === $marcador->getId()) {
+                $this->marcadores->removeElement($existente);
+                return $this;
+            }
+        }
+        return $this;
+    }
+
+    public function hasMarcador(Marcador $marcador): bool
+    {
+        foreach ($this->marcadores as $existente) {
+            if ($existente->getId() === $marcador->getId()) {
+                return true;
+            }
+        }
+        return false;
     }
 }

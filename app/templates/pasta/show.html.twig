@@ -39,28 +39,6 @@
                 <div class="row">
                     {# Left Column - Tabs #}
                     <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1">
-                        {# Info Boxes #}
-                        <div class="row">
-                            <div class="col-12 col-sm-6">
-                                <div class="info-box bg-light">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Status</span>
-                                        <span class="info-box-number text-center text-muted mb-0">
-                                            {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-6">
-                                <div class="info-box bg-light">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Clientes</span>
-                                        <span class="info-box-number text-center text-muted mb-0">{{ pasta.clientes|length }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
                         {# Tabs #}
                         <ul class="nav nav-tabs" id="pastaTabs" role="tablist">
                             <li class="nav-item" role="presentation">
@@ -96,47 +74,32 @@
                             {# Tab: Dados da Pasta #}
                             <div class="tab-pane fade show active" id="dados" role="tabpanel" aria-labelledby="dados-tab">
                                 <h5 class="mb-3"><i class="bi bi-info-circle me-1"></i> Informações Gerais</h5>
-                                <div class="row mb-4">
-                                    <div class="col-md-6">
-                                        <div class="text-muted">
-                                            <p class="text-sm mb-2"><abbr title="Número Único de Pasta">NUP</abbr>
-                                                <b class="d-block">{{ pasta.nup }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.nup }}" title="Copiar"></i></b>
-                                            </p>
-                                            <p class="text-sm mb-2">Data de Abertura
-                                                <b class="d-block">{{ pasta.dataAbertura|date('d/m/Y') }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.dataAbertura|date('d/m/Y') }}" title="Copiar"></i></b>
-                                            </p>
-                                        </div>
+                                <div class="row mb-4 g-3">
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                        <p class="text-sm text-muted mb-1"><abbr title="Número Único de Pasta">NUP</abbr></p>
+                                        <b>{{ pasta.nup }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.nup }}" title="Copiar"></i></b>
                                     </div>
-                                    <div class="col-md-6">
-                                        <div class="text-muted">
-                                            <p class="text-sm mb-2">Processo Vinculado
-                                                <b class="d-block">
-                                                    {% if pasta.processo %}
-                                                        <a href="{{ path('processo_show', {id: pasta.processo.id}) }}">
-                                                            {{ pasta.processo.numeroProcesso }}
-                                                        </a>
-                                                    {% else %}
-                                                        <span class="text-muted">—</span>
-                                                    {% endif %}
-                                                </b>
-                                            </p>
-                                            <p class="text-sm mb-2">Responsável
-                                                <b class="d-block">{{ pasta.responsavel ? pasta.responsavel.fullName : '—' }}</b>
-                                            </p>
-                                        </div>
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                        <p class="text-sm text-muted mb-1">Processo Vinculado</p>
+                                        <b>
+                                            {% if pasta.processo %}
+                                                <a href="{{ path('processo_show', {id: pasta.processo.id}) }}">{{ pasta.processo.numeroProcesso }}</a>
+                                                <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.processo.numeroProcesso }}" title="Copiar"></i>
+                                            {% else %}
+                                                <span class="text-muted">—</span>
+                                            {% endif %}
+                                        </b>
+                                    </div>
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                        <p class="text-sm text-muted mb-1">Data de Abertura</p>
+                                        <b>{{ pasta.dataAbertura|date('d/m/Y') }} <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.dataAbertura|date('d/m/Y') }}" title="Copiar"></i></b>
+                                    </div>
+                                    <div class="col-12 col-sm-6 col-lg-3">
+                                        <p class="text-sm text-muted mb-1">Responsável</p>
+                                        <b>{{ pasta.responsavel ? pasta.responsavel.fullName : '—' }}</b>
                                     </div>
                                 </div>
 
-                                {% if pasta.descricao %}
-                                <hr class="section-divider">
-
-                                <h5 class="mb-3"><i class="bi bi-card-text me-1"></i> Descrição</h5>
-                                <div class="row mb-4">
-                                    <div class="col-12">
-                                        <div class="p-3 bg-light rounded" style="white-space: pre-wrap;">{{ pasta.descricao }}</div>
-                                    </div>
-                                </div>
-                                {% endif %}
                             </div>
 
                             {# Tab: Partes #}
@@ -346,12 +309,13 @@
                     </a>
                     <div class="d-flex gap-2">
                         <a href="{{ path('pasta_edit', {id: pasta.id}) }}"
-                           class="btn btn-outline-primary btn-sm"
+                           class="btn btn-outline-primary btn-sm d-inline-flex align-items-center"
                            title="Editar pasta"
                            aria-label="Editar pasta">
                             <i class="bi bi-pencil me-1"></i> Editar
                         </a>
                         <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
+                              class="d-flex"
                               onsubmit="return confirm('Tem certeza que deseja excluir esta pasta? Esta ação não pode ser desfeita.');">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
                             <button type="submit"

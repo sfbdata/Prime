@@ -59,30 +59,9 @@ class PastaController extends AbstractController
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
-    public function index(Request $request): Response
+    public function index(): Response
     {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'pastas')) {
-            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pastas.');
-            return $this->redirectToRoute('expediente_index');
-        }
-
-        $filters = [
-            'nup'               => $request->query->get('nup', ''),
-            'status'            => $request->query->get('status', ''),
-            'responsavel'       => $request->query->get('responsavel', ''),
-            'status_documentos' => $request->query->get('status_documentos', ''),
-        ];
-
-        $hasFilters = array_filter($filters, fn($v) => $v !== '');
-
-        return $this->render('pasta/index.html.twig', [
-            'pastas'      => $hasFilters ? $this->pastaRepository->findByFilters($filters) : $this->pastaRepository->findAll(),
-            'filters'     => $filters,
-            'nups'        => $this->pastaRepository->findAllNups(),
-            'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
-        ]);
+        return $this->redirectToRoute('expediente_index');
     }
 
     #[Route('/nova', name: 'pasta_new', methods: ['GET', 'POST'])]
@@ -113,7 +92,7 @@ class PastaController extends AbstractController
                     $this->em->flush();
                     $this->addFlash('success', 'Pasta criada com sucesso.');
 
-                    return $this->redirectToRoute('pasta_index');
+                    return $this->redirectToRoute('expediente_index');
                 }
             } else {
                 foreach ($errors as $error) {
@@ -174,7 +153,7 @@ class PastaController extends AbstractController
                     $this->em->flush();
                     $this->addFlash('success', 'Pasta atualizada com sucesso.');
 
-                    return $this->redirectToRoute('pasta_index');
+                    return $this->redirectToRoute('expediente_index');
                 }
             } else {
                 foreach ($errors as $error) {
@@ -219,7 +198,7 @@ class PastaController extends AbstractController
 
         $this->addFlash('success', 'Pasta removida com sucesso.');
 
-        return $this->redirectToRoute('pasta_index');
+        return $this->redirectToRoute('expediente_index');
     }
 
     // -------------------------------------------------------------------------
@@ -577,8 +556,11 @@ class PastaController extends AbstractController
             }
         }
 
-        $descricao = trim((string) ($data['descricao'] ?? ''));
-        $pasta->setDescricao($descricao !== '' ? $descricao : null);
+        $nomeCliente = trim((string) ($data['nome_cliente'] ?? ''));
+        $pasta->setNomeCliente($nomeCliente !== '' ? $nomeCliente : null);
+
+        $nomeAcao = trim((string) ($data['nome_acao'] ?? ''));
+        $pasta->setNomeAcao($nomeAcao !== '' ? $nomeAcao : null);
 
         $processoId      = (int) ($data['processo_id'] ?? 0);
         $numeroProcesso  = trim((string) ($data['numeroProcesso'] ?? ''));

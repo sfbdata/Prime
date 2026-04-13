@@ -15,7 +15,7 @@
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
                     <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ path('pasta_index') }}">Pastas</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('expediente_index') }}">Expediente</a></li>
                     {% if isEdit %}
                         <li class="breadcrumb-item">
                             <a href="{{ path('pasta_show', {id: pasta.id}) }}">{{ pasta.nup }}</a>
@@ -58,16 +58,17 @@
                 <div class="pasta-field-group">
                     <label for="nomeCliente" class="pasta-label">Nome do cliente</label>
                     <input type="text" id="nomeCliente" name="nome_cliente" class="pasta-input"
-                           value=""
+                           value="{{ pasta.nomeCliente ?? '' }}"
                            placeholder="">
                 </div>
 
                 <div class="pasta-field-group">
-                    <label for="descricao" class="pasta-label">Matéria</label>
-                    <textarea id="descricao" name="descricao" class="pasta-textarea"
-                              rows="8"
-                              placeholder="">{{ pasta.descricao ?? '' }}</textarea>
+                    <label for="nomeAcao" class="pasta-label">Nome da Ação</label>
+                    <input type="text" id="nomeAcao" name="nome_acao" class="pasta-input"
+                           value="{{ pasta.nomeAcao ?? '' }}"
+                           placeholder="">
                 </div>
+
             </div>
 
             {# ══════════════════════════════════════════════ #}
