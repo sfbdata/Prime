@@ -4,14 +4,14 @@ namespace App\Expediente\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Expediente\Repository\PastaOrganizadoraRepository;
+use App\Expediente\Repository\MarcadorRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: PastaOrganizadoraRepository::class)]
+#[ORM\Entity(repositoryClass: MarcadorRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class PastaOrganizadora
+class Marcador
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -24,13 +24,13 @@ class PastaOrganizadora
     #[ORM\Column(type: 'integer')]
     private int $ordem = 0;
 
-    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'subpastas')]
+    #[ORM\ManyToOne(targetEntity: self::class, inversedBy: 'filhos')]
     #[ORM\JoinColumn(name: 'pai_id', referencedColumnName: 'id', nullable: true, onDelete: 'CASCADE')]
     private ?self $pai = null;
 
     #[ORM\OneToMany(mappedBy: 'pai', targetEntity: self::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['ordem' => 'ASC', 'nome' => 'ASC'])]
-    private Collection $subpastas;
+    private Collection $filhos;
 
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
@@ -52,7 +52,7 @@ class PastaOrganizadora
         $this->tenant    = $tenant;
         $this->criadoPor = $criadoPor;
         $this->pai       = $pai;
-        $this->subpastas = new ArrayCollection();
+        $this->filhos    = new ArrayCollection();
     }
 
     #[ORM\PrePersist]
@@ -102,9 +102,9 @@ class PastaOrganizadora
         return $this;
     }
 
-    public function getSubpastas(): Collection
+    public function getFilhos(): Collection
     {
-        return $this->subpastas;
+        return $this->filhos;
     }
 
     public function getTenant(): ?Tenant

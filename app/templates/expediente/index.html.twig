@@ -1,5 +1,22 @@
 {% extends 'base.html.twig' %}
 
+{% macro paletaCores(containerId) %}
+<div class="marcador-cores" id="{{ containerId }}">
+    <button type="button" class="marcador-cor-btn" data-cor="" title="Sem cor">
+        <i class="bi bi-slash-circle text-muted" style="font-size:1rem;"></i>
+    </button>
+    <button type="button" class="marcador-cor-btn" data-cor="#fde8e8" style="background:#fde8e8;" title="Rosa"></button>
+    <button type="button" class="marcador-cor-btn" data-cor="#fde8f5" style="background:#fde8f5;" title="Lilás rosa"></button>
+    <button type="button" class="marcador-cor-btn" data-cor="#ede8fd" style="background:#ede8fd;" title="Lavanda"></button>
+    <button type="button" class="marcador-cor-btn" data-cor="#e8eafd" style="background:#e8eafd;" title="Azul lavanda"></button>
+    <button type="button" class="marcador-cor-btn" data-cor="#e8f4fd" style="background:#e8f4fd;" title="Azul claro"></button>
+    <button type="button" class="marcador-cor-btn" data-cor="#e8fdf0" style="background:#e8fdf0;" title="Verde menta"></button>
+    <button type="button" class="marcador-cor-btn" data-cor="#fdf6e8" style="background:#fdf6e8;" title="Amarelo creme"></button>
+    <button type="button" class="marcador-cor-btn" data-cor="#fde8d0" style="background:#fde8d0;" title="Pêssego"></button>
+    <button type="button" class="marcador-cor-btn" data-cor="#f0f0f0" style="background:#f0f0f0;" title="Cinza claro"></button>
+</div>
+{% endmacro %}
+
 {% block title %}Expediente{% endblock %}
 
 {% block body %}
@@ -19,6 +36,26 @@
 
                     <nav class="expediente-nav">
 
+                        {# ── Pastas ── #}
+                        <div class="expediente-marcadores-header">
+                            <span class="expediente-marcadores-titulo">Pastas</span>
+                            <a href="{{ path('pasta_new') }}"
+                               class="expediente-marcadores-add"
+                               title="Nova Pasta">
+                                <i class="bi bi-plus-lg"></i>
+                            </a>
+                        </div>
+                        <ul class="expediente-menu-list">
+                            <li class="expediente-menu-item">
+                                <a href="#"
+                                   class="expediente-menu-link"
+                                   data-painel="{{ path('expediente_acervo_geral') }}">
+                                    <i class="bi bi-folder2-open expediente-icon expediente-icon--no-chevron"></i>
+                                    <span>Todas as pastas</span>
+                                </a>
+                            </li>
+                        </ul>
+
                         {# ── Marcadores (pastas organizadoras) ── #}
                         <div class="expediente-marcadores-header">
                             <span class="expediente-marcadores-titulo">Marcadores</span>
@@ -30,8 +67,8 @@
                         <ul class="expediente-menu-list" id="lista-marcadores">
 
                             {# Marcadores do banco #}
-                            {% for pasta in pastas %}
-                                {% include 'expediente/_pasta_item.html.twig' with { pasta: pasta } %}
+                            {% for marcador in pastas %}
+                                {% include 'expediente/_pasta_item.html.twig' with { marcador: marcador } %}
                             {% endfor %}
 
                         </ul>
@@ -57,9 +94,11 @@
                                 Sub-marcador de: <strong id="marcadorPaiNomeExibir"></strong>
                             </div>
                             <label for="nomeMarcador" class="form-label form-label-sm">Nome</label>
-                            <input type="text" id="nomeMarcador" class="form-control form-control-sm"
+                            <input type="text" id="nomeMarcador" class="form-control form-control-sm mb-3"
                                    placeholder="Ex.: Em andamento, Aguardando…" maxlength="100" autocomplete="off">
-                            <div id="marcadorErro" class="text-danger small mt-1" style="display:none;"></div>
+                            <label class="form-label form-label-sm d-block mb-1">Cor do marcador</label>
+                            {{ _self.paletaCores('criarCoresMarcador') }}
+                            <div id="marcadorErro" class="text-danger small mt-2" style="display:none;"></div>
                         </div>
                         <div class="modal-footer py-2">
                             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -90,26 +129,47 @@
                                    maxlength="100" autocomplete="off">
 
                             <label class="form-label form-label-sm d-block mb-1">Cor do marcador</label>
-                            <div class="marcador-cores" id="editarCoresMarcador">
-                                <button type="button" class="marcador-cor-btn" data-cor="" title="Sem cor">
-                                    <i class="bi bi-slash-circle text-muted" style="font-size:1rem;"></i>
-                                </button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#fde8e8" style="background:#fde8e8;" title="Rosa"></button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#fde8f5" style="background:#fde8f5;" title="Lilás rosa"></button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#ede8fd" style="background:#ede8fd;" title="Lavanda"></button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#e8eafd" style="background:#e8eafd;" title="Azul lavanda"></button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#e8f4fd" style="background:#e8f4fd;" title="Azul claro"></button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#e8fdf0" style="background:#e8fdf0;" title="Verde menta"></button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#fdf6e8" style="background:#fdf6e8;" title="Amarelo creme"></button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#fde8d0" style="background:#fde8d0;" title="Pêssego"></button>
-                                <button type="button" class="marcador-cor-btn" data-cor="#f0f0f0" style="background:#f0f0f0;" title="Cinza claro"></button>
-                            </div>
+                            {{ _self.paletaCores('editarCoresMarcador') }}
 
                             <div id="editarMarcadorErro" class="text-danger small mt-2" style="display:none;"></div>
                         </div>
                         <div class="modal-footer py-2">
                             <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                             <button type="button" class="btn btn-primary btn-sm" id="btnSalvarEdicaoMarcador">
+                                <i class="bi bi-check-lg me-1"></i> Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {# ── Modal: mover pasta para marcadores ── #}
+            <div class="modal fade" id="modalMoverPara" tabindex="-1" aria-labelledby="modalMoverParaLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered" style="max-width:360px;">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h6 class="modal-title" id="modalMoverParaLabel">
+                                <i class="bi bi-tags me-1"></i> Mover para…
+                            </h6>
+                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body py-3">
+                            <input type="hidden" id="moverParaPastaId">
+                            <input type="hidden" id="moverParaCsrfToken">
+                            <p class="text-muted small mb-2">
+                                Pasta: <strong id="moverParaPastaNome"></strong>
+                            </p>
+                            <div id="moverParaLista" class="d-flex flex-wrap gap-2 mb-2">
+                                {# Preenchido via JS #}
+                            </div>
+                            <div id="moverParaVazio" class="text-muted small" style="display:none;">
+                                Nenhum marcador criado ainda.
+                            </div>
+                            <div id="moverParaErro" class="text-danger small mt-2" style="display:none;"></div>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarMoverPara">
                                 <i class="bi bi-check-lg me-1"></i> Salvar
                             </button>
                         </div>
@@ -406,39 +466,71 @@
 {{ parent() }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var painel       = document.getElementById('expediente-painel');
-    var urlCriar     = '{{ path('expediente_pasta_criar') }}';
-    var urlExcluir   = '{{ path('expediente_pasta_excluir', {'id': 0}) }}';
-    var urlEditar    = '{{ path('expediente_pasta_editar', {'id': 0}) }}';
-    var csrfToken    = '{{ csrf_token('pasta_organizadora') }}';
+    var painel           = document.getElementById('expediente-painel');
+    var urlCriar         = '{{ path('expediente_marcador_criar') }}';
+    var urlExcluir       = '{{ path('expediente_marcador_excluir', {'id': 0}) }}';
+    var urlEditar        = '{{ path('expediente_marcador_editar', {'id': 0}) }}';
+    var urlPainelMarcador = '{{ path('expediente_marcador_pastas', {'id': 0}) }}';
+    var urlPastaMarcadores = '{{ path('expediente_pasta_marcadores', {'id': 0}) }}';
+    var csrfToken        = '{{ csrf_token('marcador') }}';
 
-    // ── Carrega painel via AJAX ──
+    // Marcadores disponíveis no tenant (para o modal "Mover para")
+    var todosMarcadores = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor})|json_encode|raw }};
+
+    // ── Carrega painel via AJAX — "Todas as pastas" ──
     document.querySelectorAll('.expediente-menu-link[data-painel]').forEach(function (link) {
         link.addEventListener('click', function (e) {
             e.preventDefault();
-
-            document.querySelectorAll('.expediente-menu-link').forEach(function (l) {
-                l.classList.remove('active');
-            });
+            document.querySelectorAll('.expediente-menu-link').forEach(function (l) { l.classList.remove('active'); });
             this.classList.add('active');
-
-            painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
-
-            fetch(this.dataset.painel, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-            .then(function (r) { return r.text(); })
-            .then(function (html) { painel.innerHTML = html; })
-            .catch(function () {
-                painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
-            });
+            carregarPainel(this.dataset.painel);
         });
     });
 
-    // ── Toggle submenus dos marcadores ──
-    document.querySelectorAll('.expediente-menu-link[data-grupo]').forEach(function (link) {
-        link.addEventListener('click', toggleSubmenu);
+    // ── Clicar em marcador raiz ou sub-marcador: carrega painel (delegado) ──
+    document.getElementById('lista-marcadores').addEventListener('click', function (e) {
+        // Sub-marcador
+        var subLink = e.target.closest('.expediente-submenu-link[data-marcador-id]');
+        if (subLink) {
+            e.preventDefault();
+            e.stopPropagation();
+            document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link').forEach(function (l) { l.classList.remove('active'); });
+            subLink.classList.add('active');
+            var url = urlPainelMarcador.replace('/0/', '/' + subLink.dataset.marcadorId + '/');
+            carregarPainel(url);
+            return;
+        }
+
+        // Marcador raiz (link com data-grupo e data-marcador-id)
+        var rootLink = e.target.closest('.expediente-menu-link[data-grupo]');
+        if (rootLink && !e.target.closest('button')) {
+            toggleSubmenu.call(rootLink, e);
+        }
     });
+
+    // ── Paleta de cores compartilhada ──
+    function inicializarPaletaCores(containerId) {
+        var container = document.getElementById(containerId);
+        var corAtiva  = '';
+
+        container.addEventListener('click', function (e) {
+            var btn = e.target.closest('.marcador-cor-btn');
+            if (!btn) return;
+            corAtiva = btn.dataset.cor;
+            container.querySelectorAll('.marcador-cor-btn').forEach(function (b) { b.classList.remove('ativo'); });
+            btn.classList.add('ativo');
+        });
+
+        return {
+            getCor:   function ()    { return corAtiva; },
+            definir:  function (cor) {
+                corAtiva = cor || '';
+                container.querySelectorAll('.marcador-cor-btn').forEach(function (b) {
+                    b.classList.toggle('ativo', b.dataset.cor === corAtiva);
+                });
+            },
+        };
+    }
 
     // ── Modal novo marcador ──
     var modal        = document.getElementById('modalNovoMarcador');
@@ -449,12 +541,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var spanPaiNome  = document.getElementById('marcadorPaiNomeExibir');
     var divErro      = document.getElementById('marcadorErro');
     var tituloModal  = document.getElementById('modalMarcadorTitulo');
+    var paletaCriar  = inicializarPaletaCores('criarCoresMarcador');
 
     function abrirModal(paiId, paiNome) {
         inputPaiId.value   = paiId   || '';
         inputPaiNome.value = paiNome || '';
         inputNome.value    = '';
         divErro.style.display = 'none';
+        paletaCriar.definir('');
 
         if (paiId) {
             tituloModal.textContent   = 'Novo sub-marcador';
@@ -486,31 +580,19 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ── Modal editar marcador ──
-    var modalEditar       = document.getElementById('modalEditarMarcador');
-    var editarId          = document.getElementById('editarMarcadorId');
-    var editarToken       = document.getElementById('editarMarcadorToken');
-    var editarNome        = document.getElementById('editarNomeMarcador');
-    var editarErro        = document.getElementById('editarMarcadorErro');
-    var editarCorAtiva    = '';
-
-    document.getElementById('editarCoresMarcador').addEventListener('click', function (e) {
-        var btn = e.target.closest('.marcador-cor-btn');
-        if (!btn) return;
-        editarCorAtiva = btn.dataset.cor;
-        document.querySelectorAll('.marcador-cor-btn').forEach(function (b) { b.classList.remove('ativo'); });
-        btn.classList.add('ativo');
-    });
+    var modalEditar  = document.getElementById('modalEditarMarcador');
+    var editarId     = document.getElementById('editarMarcadorId');
+    var editarToken  = document.getElementById('editarMarcadorToken');
+    var editarNome   = document.getElementById('editarNomeMarcador');
+    var editarErro   = document.getElementById('editarMarcadorErro');
+    var paletaEditar = inicializarPaletaCores('editarCoresMarcador');
 
     function abrirModalEditar(id, nomeAtual, corAtual, token) {
         editarId.value    = id;
         editarToken.value = token;
         editarNome.value  = nomeAtual;
-        editarCorAtiva    = corAtual || '';
         editarErro.style.display = 'none';
-
-        document.querySelectorAll('.marcador-cor-btn').forEach(function (b) {
-            b.classList.toggle('ativo', b.dataset.cor === editarCorAtiva);
-        });
+        paletaEditar.definir(corAtual);
 
         bootstrap.Modal.getOrCreateInstance(modalEditar).show();
         setTimeout(function () { editarNome.focus(); editarNome.select(); }, 300);
@@ -546,7 +628,7 @@ document.addEventListener('DOMContentLoaded', function () {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
             body: '_token=' + encodeURIComponent(editarToken.value) +
                   '&nome='  + encodeURIComponent(nome) +
-                  '&cor='   + encodeURIComponent(editarCorAtiva),
+                  '&cor='   + encodeURIComponent(paletaEditar.getCor()),
         })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
@@ -650,7 +732,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var btn = this;
         btn.disabled = true;
 
-        var body = new URLSearchParams({ nome: nome, _token: csrfToken });
+        var body = new URLSearchParams({ nome: nome, _token: csrfToken, cor: paletaCriar.getCor() });
         if (paiId) body.append('pai_id', paiId);
 
         fetch(urlCriar, {
@@ -707,8 +789,7 @@ document.addEventListener('DOMContentLoaded', function () {
             li.innerHTML = criarHtmlRaiz(marcador);
             lista.appendChild(li);
 
-            var link = li.querySelector('.expediente-menu-link[data-grupo]');
-            if (link) link.addEventListener('click', toggleSubmenu);
+            // delegação cuida do click — sem listener manual necessário
         }
     }
 
@@ -718,7 +799,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var csrfEditar  = marcador.csrfEditar  || '';
         var cor         = marcador.cor         || '';
         var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid ' + escurecer(cor) + ';"' : '';
-        return '<a href="#" class="expediente-menu-link" data-grupo="' + grupoId + '" data-cor="' + escHtml(cor) + '"' + estiloLink + '>' +
+        return '<a href="#" class="expediente-menu-link" data-grupo="' + grupoId + '" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
                '<i class="bi bi-chevron-right expediente-chevron"></i>' +
                '<i class="bi bi-tag expediente-icon"></i>' +
                '<span>' + escHtml(marcador.nome) + '</span>' +
@@ -744,7 +825,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var csrfEditar  = marcador.csrfEditar  || '';
         var cor         = marcador.cor         || '';
         var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid ' + escurecer(cor) + ';"' : '';
-        return '<a href="#" class="expediente-submenu-link" data-cor="' + escHtml(cor) + '"' + estiloLink + '>' +
+        return '<a href="#" class="expediente-submenu-link" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
                '<i class="bi bi-tag expediente-sub-icon"></i>' +
                '<span>' + escHtml(marcador.nome) + '</span>' +
                '<button type="button" class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"' +
@@ -754,6 +835,17 @@ document.addEventListener('DOMContentLoaded', function () {
                ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfExcluir) + '"' +
                ' title="Excluir sub-marcador"><i class="bi bi-trash3"></i></button>' +
                '</a>';
+    }
+
+    function carregarPainel(url) {
+        document.querySelectorAll('.expediente-menu-link').forEach(function (l) { l.classList.remove('active'); });
+        painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.text(); })
+            .then(function (html) { painel.innerHTML = html; })
+            .catch(function () {
+                painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
+            });
     }
 
     function toggleSubmenu(e) {
@@ -767,18 +859,147 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         this.classList.add('active');
 
+        // Extrai o id do marcador a partir do grupo ("pasta-{id}")
+        var marcadorId = grupo ? grupo.replace('pasta-', '') : null;
+        if (marcadorId) {
+            var url = urlPainelMarcador.replace('/0/', '/' + marcadorId + '/');
+            carregarPainel(url);
+        }
+
         if (!submenu) return;
         var aberto = submenu.classList.contains('show');
-        document.querySelectorAll('.expediente-submenu').forEach(function (sm) { sm.classList.remove('show'); });
-        document.querySelectorAll('.expediente-chevron').forEach(function (ch) {
-            ch.classList.remove('bi-chevron-down');
-            ch.classList.add('bi-chevron-right');
-        });
-        if (!aberto) {
+        if (aberto) {
+            submenu.classList.remove('show');
+            if (chevron) { chevron.classList.remove('bi-chevron-down'); chevron.classList.add('bi-chevron-right'); }
+        } else {
             submenu.classList.add('show');
             if (chevron) { chevron.classList.remove('bi-chevron-right'); chevron.classList.add('bi-chevron-down'); }
         }
     }
+
+    // ── Modal "Mover para" ──
+    var modalMoverPara     = document.getElementById('modalMoverPara');
+    var moverParaPastaId   = document.getElementById('moverParaPastaId');
+    var moverParaCsrf      = document.getElementById('moverParaCsrfToken');
+    var moverParaPastaNome = document.getElementById('moverParaPastaNome');
+    var moverParaLista     = document.getElementById('moverParaLista');
+    var moverParaVazio     = document.getElementById('moverParaVazio');
+    var moverParaErro      = document.getElementById('moverParaErro');
+
+    // Abertura delegada — funciona para elementos inseridos dinamicamente no painel
+    document.getElementById('expediente-painel').addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-mover-para');
+        if (!btn) return;
+        e.preventDefault();
+
+        var pastaId   = btn.dataset.pastaId;
+        var pastaNome = btn.dataset.pastaNome;
+        var ativos    = (btn.dataset.marcadoresAtivos || '').split(',').filter(Boolean);
+
+        moverParaPastaId.value   = pastaId;
+        moverParaPastaNome.textContent = pastaNome;
+        moverParaErro.style.display = 'none';
+
+        var csrfVal = btn.dataset.csrfToken;
+        moverParaCsrf.value = csrfVal;
+
+        // Renderiza pills/checkboxes
+        moverParaLista.innerHTML = '';
+        if (todosMarcadores.length === 0) {
+            moverParaVazio.style.display = '';
+        } else {
+            moverParaVazio.style.display = 'none';
+            todosMarcadores.forEach(function (m) {
+                var ativo  = ativos.indexOf(String(m.id)) !== -1;
+                var corBg  = m.cor || '#e9ecef';
+                var pill   = document.createElement('span');
+                pill.style.cssText = 'background:' + corBg + ';border:2px solid ' + (ativo ? '#0d6efd' : 'transparent') + ';' +
+                    'color:#333;border-radius:20px;padding:4px 10px;font-size:.78rem;cursor:pointer;' +
+                    'display:inline-flex;align-items:center;gap:5px;user-select:none;transition:border-color .15s;';
+                var cb = document.createElement('input');
+                cb.type  = 'checkbox';
+                cb.name  = 'marcadores[]';
+                cb.value = String(m.id);
+                cb.checked = ativo;
+                cb.style.display = 'none';
+                var icon = document.createElement('i');
+                icon.className = 'bi bi-tag';
+                icon.style.fontSize = '.72rem';
+                var txt = document.createTextNode(m.nome);
+                pill.appendChild(cb);
+                pill.appendChild(icon);
+                pill.appendChild(txt);
+                pill.addEventListener('click', function () {
+                    cb.checked = !cb.checked;
+                    pill.style.borderColor = cb.checked ? '#0d6efd' : 'transparent';
+                });
+                moverParaLista.appendChild(pill);
+            });
+        }
+
+        bootstrap.Modal.getOrCreateInstance(modalMoverPara).show();
+    });
+
+    document.getElementById('btnSalvarMoverPara').addEventListener('click', function () {
+        var btn     = this;
+        var pastaId = moverParaPastaId.value;
+        var url     = urlPastaMarcadores.replace('/0/', '/' + pastaId + '/');
+        var csrf    = moverParaCsrf.value;
+
+        var selecionados = moverParaLista.querySelectorAll('input[type="checkbox"]:checked');
+        var params       = new URLSearchParams({ _token: csrf });
+        selecionados.forEach(function (cb) { params.append('marcadores[]', cb.value); });
+
+        btn.disabled = true;
+        moverParaErro.style.display = 'none';
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString(),
+        })
+        .then(function (r) {
+            return r.text().then(function (txt) {
+                try { return { ok: r.ok, data: JSON.parse(txt) }; }
+                catch (_) { return { ok: false, data: { erro: 'Resposta inválida do servidor.' }, raw: txt }; }
+            });
+        })
+        .then(function (res) {
+            btn.disabled = false;
+            if (!res.ok) {
+                moverParaErro.textContent   = res.data.erro || 'Erro ao salvar.';
+                moverParaErro.style.display = '';
+                return;
+            }
+            // Atualiza a linha da pasta no painel atual, se visível.
+            // data-pasta-id está na própria <td class="pasta-marcadores-col"> e também no botão interno.
+            var colMarcadores = document.querySelector('td.pasta-marcadores-col[data-pasta-id="' + res.data.pastaId + '"]');
+            if (colMarcadores) {
+                // Substitui apenas os badges, preservando o botão js-mover-para
+                var btnMover = colMarcadores.querySelector('.js-mover-para');
+                var novosBadges = res.data.marcadores.map(function (m) {
+                    var bg = m.cor || '#e9ecef';
+                    return '<span class="badge rounded-pill px-2" style="background:' + bg + ';color:#333;border:1px solid rgba(0,0,0,.1);font-size:.7rem;">' + escHtml(m.nome) + '</span>';
+                }).join(' ');
+                // Remove badges antigos (todos os <span> dentro do <div> wrapper)
+                var wrapper = colMarcadores.querySelector('.d-flex');
+                if (wrapper) {
+                    wrapper.querySelectorAll('span.badge').forEach(function (s) { s.remove(); });
+                    wrapper.insertAdjacentHTML('afterbegin', novosBadges);
+                }
+                if (btnMover) {
+                    btnMover.dataset.marcadoresAtivos = res.data.marcadores.map(function (m) { return m.id; }).join(',');
+                }
+            }
+            bootstrap.Modal.getOrCreateInstance(modalMoverPara).hide();
+        })
+        .catch(function (err) {
+            btn.disabled = false;
+            moverParaErro.textContent   = 'Erro de comunicação.';
+            moverParaErro.style.display = '';
+            console.error('[mover-para] erro inesperado:', err);
+        });
+    });
 
     function escHtml(str) {
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');

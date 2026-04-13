@@ -3,11 +3,11 @@
 namespace App\Expediente\UseCase;
 
 use App\Entity\Auth\User;
-use App\Expediente\Entity\PastaOrganizadora;
-use App\Expediente\Repository\PastaOrganizadoraRepository;
+use App\Expediente\Entity\Marcador;
+use App\Expediente\Repository\MarcadorRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
-class EditarPastaOrganizadoraUseCase
+class EditarMarcadorUseCase
 {
     private const CORES_PERMITIDAS = [
         '#fde8e8', '#fde8f5', '#ede8fd', '#e8eafd', '#e8f4fd',
@@ -15,15 +15,15 @@ class EditarPastaOrganizadoraUseCase
     ];
 
     public function __construct(
-        private readonly PastaOrganizadoraRepository $repository,
+        private readonly MarcadorRepository $repository,
         private readonly EntityManagerInterface $em,
     ) {}
 
-    public function executar(int $id, string $nome, ?string $cor, User $usuario): PastaOrganizadora
+    public function executar(int $id, string $nome, ?string $cor, User $usuario): Marcador
     {
-        $pasta = $this->repository->findPorTenant($id, $usuario->getTenant());
+        $marcador = $this->repository->findPorTenant($id, $usuario->getTenant());
 
-        if ($pasta === null) {
+        if ($marcador === null) {
             throw new \DomainException('Marcador não encontrado.');
         }
 
@@ -31,10 +31,10 @@ class EditarPastaOrganizadoraUseCase
             throw new \DomainException('Cor inválida.');
         }
 
-        $pasta->setNome($nome);
-        $pasta->setCor($cor);
+        $marcador->setNome($nome);
+        $marcador->setCor($cor);
         $this->em->flush();
 
-        return $pasta;
+        return $marcador;
     }
 }
