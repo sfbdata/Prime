@@ -188,25 +188,44 @@
                             </div>
                             {{ form_start(escalaForm, {action: path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id})}) }}
                             <div class="card-body">
+
+                                {# Dias de trabalho (Seg-Sex) #}
+                                <div class="mb-3">
+                                    {{ form_label(escalaForm.diasSemana, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                    <div class="d-flex flex-wrap gap-3 mt-1">
+                                        {% for child in escalaForm.diasSemana %}
+                                            <div class="form-check form-check-inline">
+                                                {{ form_widget(child, {attr: {class: 'form-check-input'}}) }}
+                                                {{ form_label(child, null, {label_attr: {class: 'form-check-label'}}) }}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    {{ form_errors(escalaForm.diasSemana) }}
+                                </div>
+
+                                <hr>
+
+                                {# Horários da jornada principal #}
+                                <p class="text-muted small mb-2">Horários aplicados nos dias selecionados acima.</p>
                                 <div class="row g-3 mb-3">
                                     <div class="col-6">
                                         {{ form_label(escalaForm.entrada1, null, {label_attr: {class: 'form-label'}}) }}
-                                        {{ form_widget(escalaForm.entrada1, {attr: {class: 'form-control', type: 'time'}}) }}
+                                        {{ form_widget(escalaForm.entrada1) }}
                                         {{ form_errors(escalaForm.entrada1) }}
                                     </div>
                                     <div class="col-6">
                                         {{ form_label(escalaForm.saida1, null, {label_attr: {class: 'form-label'}}) }}
-                                        {{ form_widget(escalaForm.saida1, {attr: {class: 'form-control', type: 'time'}}) }}
+                                        {{ form_widget(escalaForm.saida1) }}
                                         {{ form_errors(escalaForm.saida1) }}
                                     </div>
                                     <div class="col-6">
                                         {{ form_label(escalaForm.entrada2, null, {label_attr: {class: 'form-label'}}) }}
-                                        {{ form_widget(escalaForm.entrada2, {attr: {class: 'form-control', type: 'time'}}) }}
+                                        {{ form_widget(escalaForm.entrada2) }}
                                         {{ form_errors(escalaForm.entrada2) }}
                                     </div>
                                     <div class="col-6">
                                         {{ form_label(escalaForm.saida2, null, {label_attr: {class: 'form-label'}}) }}
-                                        {{ form_widget(escalaForm.saida2, {attr: {class: 'form-control', type: 'time'}}) }}
+                                        {{ form_widget(escalaForm.saida2) }}
                                         {{ form_errors(escalaForm.saida2) }}
                                     </div>
                                 </div>
@@ -226,15 +245,16 @@
                                 </div>
 
                                 <div id="escala-sabado" class="{{ escalaForm.sabadoAtivado.vars.data ? '' : 'd-none' }}">
+                                    <p class="text-muted small mb-2">Jornada corrida (sem intervalo de almoço).</p>
                                     <div class="row g-3">
                                         <div class="col-6">
                                             {{ form_label(escalaForm.entradaSabado, null, {label_attr: {class: 'form-label'}}) }}
-                                            {{ form_widget(escalaForm.entradaSabado, {attr: {class: 'form-control', type: 'time'}}) }}
+                                            {{ form_widget(escalaForm.entradaSabado) }}
                                             {{ form_errors(escalaForm.entradaSabado) }}
                                         </div>
                                         <div class="col-6">
                                             {{ form_label(escalaForm.saidaSabado, null, {label_attr: {class: 'form-label'}}) }}
-                                            {{ form_widget(escalaForm.saidaSabado, {attr: {class: 'form-control', type: 'time'}}) }}
+                                            {{ form_widget(escalaForm.saidaSabado) }}
                                             {{ form_errors(escalaForm.saidaSabado) }}
                                         </div>
                                     </div>

@@ -100,7 +100,7 @@ final class PontoController extends AbstractController
         $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, true, $escala, $feriados, $justificativasDoMes);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $escala, $feriados, $justificativasDoMes);
 
         $hojeStr = $agora->format('Y-m-d');
         $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
@@ -366,8 +366,9 @@ final class PontoController extends AbstractController
             ], 422);
         }
 
+        $escala = $user->getEscalaTrabalho();
+
         if ($diaSemanaHoje === 6) {
-            $escala = $user->getEscalaTrabalho();
             $trabalhaNoSabado = $escala !== null
                 && in_array(6, $escala->getDiasSemana(), true)
                 && $escala->getCargaHorariaSabado() !== null;
@@ -378,6 +379,12 @@ final class PontoController extends AbstractController
                     'message' => 'Você não possui escala de trabalho configurada para sábados.',
                 ], 422);
             }
+        } elseif ($escala !== null && !in_array($diaSemanaHoje, $escala->getDiasSemana(), true)) {
+            $nomeDia = ['', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'][$diaSemanaHoje];
+            return $this->json([
+                'success' => false,
+                'message' => sprintf('%s-feira não está configurada na sua escala de trabalho.', $nomeDia),
+            ], 422);
         }
 
         if ($latitude === null || $longitude === null) {

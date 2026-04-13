@@ -166,10 +166,7 @@
                         <div class="form-text">Distância máxima da sede para validar GPS (metros).</div>
                     </div>
 
-                    <div class="mb-3">
-                        {{ form_label(activeForm.timezone, null, {'label_attr': {'class': 'form-label'}}) }}
-                        {{ form_widget(activeForm.timezone, {'attr': {'class': 'form-control'}}) }}
-                    </div>
+                    {{ form_widget(activeForm.timezone, {'attr': {'type': 'hidden'}}) }}
 
                     <button type="submit" class="btn btn-primary" id="btn-salvar">
                         {% if editSede is defined %}

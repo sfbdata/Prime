@@ -410,23 +410,29 @@ final class TenantController extends AbstractController
 
         if ($escalaForm->isSubmitted() && $escalaForm->isValid()) {
             $sabadoAtivado = (bool) $escalaForm->get('sabadoAtivado')->getData();
-            $diasSemana = [1, 2, 3, 4, 5];
+
+            // Dias de Seg-Sex vêm do campo diasSemana (já mapeado na entidade)
+            $diasSemana = array_values((array) $escala->getDiasSemana());
 
             if ($sabadoAtivado) {
-                $diasSemana[] = 6;
+                if (!in_array(6, $diasSemana, true)) {
+                    $diasSemana[] = 6;
+                }
                 $entradaSab = $escala->getEntradaSabado();
                 $saidaSab   = $escala->getSaidaSabado();
                 if ($entradaSab !== null && $saidaSab !== null) {
                     [$hE, $mE] = array_map('intval', explode(':', $entradaSab));
                     [$hS, $mS] = array_map('intval', explode(':', $saidaSab));
-                    $escala->setCargaHorariaSabado(($hS * 60 + $mS) - ($hE * 60 + $mE));
+                    $escala->setCargaHorariaSabado(max(0, ($hS * 60 + $mS) - ($hE * 60 + $mE)));
                 }
             } else {
+                $diasSemana = array_values(array_filter($diasSemana, fn($d) => $d !== 6));
                 $escala->setEntradaSabado(null);
                 $escala->setSaidaSabado(null);
                 $escala->setCargaHorariaSabado(null);
             }
 
+            sort($diasSemana);
             $escala->setDiasSemana($diasSemana);
             $escala->setCargaHorariaDiaria($this->calcularCargaDiaria($escala));
 

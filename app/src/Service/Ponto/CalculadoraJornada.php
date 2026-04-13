@@ -30,10 +30,16 @@ class CalculadoraJornada
         }
 
         $isFeriado = $this->isFeriado($data, $feriados);
-        $isDiaTrabalho = $escala ? in_array((int) $data->format('N'), $escala->getDiasSemana()) : false;
-        $ehSabado = (int) $data->format('N') === 6;
+        $indiceDia = (int) $data->format('N');
+        $isDiaTrabalho = $escala ? in_array($indiceDia, $escala->getDiasSemana(), true) : false;
+        $ehSabado = $indiceDia === 6;
 
-        if ($ehSabado && $escala && in_array(6, $escala->getDiasSemana()) && $escala->getCargaHorariaSabado() !== null) {
+        // Dias fora da escala (ex: escala flexível sem determinado dia) não geram saldo
+        if ($escala !== null && !$isDiaTrabalho) {
+            return 0;
+        }
+
+        if ($ehSabado && $escala && in_array(6, $escala->getDiasSemana(), true) && $escala->getCargaHorariaSabado() !== null) {
             $cargaEsperada = $isFeriado ? 0 : $escala->getCargaHorariaSabado();
         } else {
             $cargaEsperada = ($isDiaTrabalho && !$isFeriado) ? ($escala?->getCargaHorariaDiaria() ?? 0) : 0;
