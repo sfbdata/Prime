@@ -8,6 +8,7 @@ use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Repository\AuditLogRepository;
 use App\Repository\Pasta\PastaMensagemRepository;
+use App\Repository\UserRepository;
 
 class PastaTimelineAssembler
 {
@@ -36,9 +37,13 @@ class PastaTimelineAssembler
         'processo'     => 'Processo',
     ];
 
+    /** @var array<int, string|null> */
+    private array $nomeCache = [];
+
     public function __construct(
         private readonly PastaMensagemRepository $mensagemRepository,
         private readonly AuditLogRepository $auditLogRepository,
+        private readonly UserRepository $userRepository,
     ) {}
 
     /**
@@ -104,12 +109,16 @@ class PastaTimelineAssembler
 
         $createdAt = new \DateTimeImmutable((string) ($row['created_at'] ?? 'now'));
 
+        $actorUserId = isset($row['actor_user_id']) && $row['actor_user_id'] !== '' && $row['actor_user_id'] !== null
+            ? (int) $row['actor_user_id']
+            : null;
+
         return new TimelineItemDTO(
             tipo:       TimelineItemType::EVENTO,
             dataHora:   $createdAt,
             titulo:     $titulo,
             detalhe:    $detalhe,
-            autorNome:  null,
+            autorNome:  $this->resolverNomeAtor($actorUserId),
             autorEmail: isset($row['actor_email']) && $row['actor_email'] !== '' ? (string) $row['actor_email'] : null,
             icone:      $icone,
             badgeCss:   $badgeCss,
@@ -197,6 +206,20 @@ class PastaTimelineAssembler
         return $changes['diff']['after']['nome']
             ?? $changes['diff']['before']['nome']
             ?? null;
+    }
+
+    private function resolverNomeAtor(?int $userId): ?string
+    {
+        if ($userId === null) {
+            return null;
+        }
+
+        if (!array_key_exists($userId, $this->nomeCache)) {
+            $user = $this->userRepository->find($userId);
+            $this->nomeCache[$userId] = $user?->getFullName();
+        }
+
+        return $this->nomeCache[$userId];
     }
 
     private function resolverTituloAtualizacao(?array $changes): string

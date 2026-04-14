@@ -71,17 +71,17 @@
                                 </small>
                             </div>
 
-                            {% if item.autorNome or item.autorEmail %}
-                                <div class="lh-sm">
-                                    <small class="text-muted">
-                                        <i class="bi bi-person me-1"></i>{{ item.autorNome ?? item.autorEmail }}
-                                    </small>
-                                </div>
-                            {% endif %}
-
                             {% if item.detalhe %}
                                 <div class="mt-1 small {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}">
                                     {{ item.detalhe|nl2br }}
+                                </div>
+                            {% endif %}
+
+                            {% if item.autorNome or item.autorEmail %}
+                                <div class="lh-sm mt-1">
+                                    <small class="text-muted">
+                                        <i class="bi bi-person me-1"></i>{{ item.autorNome ?? item.autorEmail }}
+                                    </small>
                                 </div>
                             {% endif %}
                         </div>
