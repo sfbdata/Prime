@@ -15,7 +15,7 @@
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
                     <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item"><a href="{{ path('pasta_index') }}">Pastas</a></li>
+                    <li class="breadcrumb-item"><a href="{{ path('expediente_index') }}">Pastas</a></li>
                     <li class="breadcrumb-item active">Detalhes</li>
                 </ol>
             </div>
@@ -47,6 +47,14 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
+                                    <i class="bi bi-check2-square me-1"></i> Tarefas
+                                    {% if pasta.tarefas|length > 0 %}
+                                        <span class="badge text-bg-secondary ms-1">{{ pasta.tarefas|length }}</span>
+                                    {% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="partes-tab" data-bs-toggle="tab" data-bs-target="#partes" type="button" role="tab" aria-controls="partes" aria-selected="false">
                                     <i class="bi bi-people me-1"></i> Partes
                                     {% set totalPartes = pasta.clientes|length + pasta.partesContrarias|length %}
@@ -56,11 +64,18 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
-                                    <i class="bi bi-check2-square me-1"></i> Tarefas
-                                    {% if pasta.tarefas|length > 0 %}
-                                        <span class="badge text-bg-secondary ms-1">{{ pasta.tarefas|length }}</span>
-                                    {% endif %}
+                                <button class="nav-link" id="processo-tab" data-bs-toggle="tab" data-bs-target="#processo" type="button" role="tab" aria-controls="processo" aria-selected="false">
+                                    <i class="bi bi-briefcase me-1"></i> Processo
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="contrato-tab" data-bs-toggle="tab" data-bs-target="#contrato" type="button" role="tab" aria-controls="contrato" aria-selected="false">
+                                    <i class="bi bi-file-earmark-text me-1"></i> Contrato
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="financeiro-tab" data-bs-toggle="tab" data-bs-target="#financeiro" type="button" role="tab" aria-controls="financeiro" aria-selected="false">
+                                    <i class="bi bi-cash-coin me-1"></i> Financeiro
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -100,13 +115,26 @@
                                     </div>
                                 </div>
 
+                                {% include 'pasta/_timeline.html.twig' with {timelineItems: timelineItems, pasta: pasta} only %}
+
                             </div>
 
                             {# Tab: Partes #}
                             <div class="tab-pane fade" id="partes" role="tabpanel" aria-labelledby="partes-tab">
-                                <div class="row">
+                                <div class="row g-4">
+
+                                    {# ── Clientes ── #}
                                     <div class="col-md-6">
-                                        <h5 class="mb-3"><i class="bi bi-people me-1"></i> Clientes</h5>
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="mb-0"><i class="bi bi-people me-1"></i> Clientes</h6>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    title="Adicionar cliente"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalAdicionarCliente">
+                                                <i class="bi bi-plus-lg"></i>
+                                            </button>
+                                        </div>
                                         {% if pasta.clientes|length > 0 %}
                                             {% for cliente in pasta.clientes %}
                                                 <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
@@ -122,12 +150,29 @@
                                                     </div>
                                                 </a>
                                             {% endfor %}
+                                        {% elseif pasta.nomeCliente %}
+                                            <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+                                                <i class="bi bi-person-circle text-muted"></i>
+                                                <span>{{ pasta.nomeCliente }}</span>
+                                                <span class="badge text-bg-secondary ms-auto" style="font-size:.65rem;">não vinculado</span>
+                                            </div>
                                         {% else %}
-                                            <p class="text-muted small mb-3"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</p>
+                                            <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</p>
                                         {% endif %}
                                     </div>
+
+                                    {# ── Partes Contrárias ── #}
                                     <div class="col-md-6">
-                                        <h5 class="mb-3"><i class="bi bi-person-x me-1"></i> Partes Contrárias</h5>
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="mb-0"><i class="bi bi-person-x me-1"></i> Partes Contrárias</h6>
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    title="Adicionar parte contrária"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalAdicionarParteContraria">
+                                                <i class="bi bi-plus-lg"></i>
+                                            </button>
+                                        </div>
                                         {% if pasta.partesContrarias|length > 0 %}
                                             {% for parte in pasta.partesContrarias %}
                                                 <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
@@ -139,6 +184,145 @@
                                             <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte contrária registrada.</p>
                                         {% endif %}
                                     </div>
+
+                                </div>
+                            </div>
+
+                            {# Tab: Processo #}
+                            <div class="tab-pane fade" id="processo" role="tabpanel" aria-labelledby="processo-tab">
+                                {% if pasta.processo %}
+                                    <div class="row g-3">
+                                        <div class="col-12 col-sm-6 col-lg-4">
+                                            <p class="text-muted small mb-1">Número do Processo</p>
+                                            <b>
+                                                {{ pasta.processo.numeroProcesso }}
+                                                <i class="bi bi-copy text-primary copy-btn ms-1" role="button"
+                                                   data-copy="{{ pasta.processo.numeroProcesso }}" title="Copiar"></i>
+                                            </b>
+                                        </div>
+                                        {% if pasta.processo.classeProcessual %}
+                                            <div class="col-12 col-sm-6 col-lg-4">
+                                                <p class="text-muted small mb-1">Classe Processual</p>
+                                                <b>{{ pasta.processo.classeProcessual }}</b>
+                                            </div>
+                                        {% endif %}
+                                        {% if pasta.processo.assuntoProcessual %}
+                                            <div class="col-12 col-sm-6 col-lg-4">
+                                                <p class="text-muted small mb-1">Assunto</p>
+                                                <b>{{ pasta.processo.assuntoProcessual }}</b>
+                                            </div>
+                                        {% endif %}
+                                        {% if pasta.processo.orgaoJulgador %}
+                                            <div class="col-12 col-sm-6 col-lg-4">
+                                                <p class="text-muted small mb-1">Órgão Julgador</p>
+                                                <b>{{ pasta.processo.orgaoJulgador }}</b>
+                                            </div>
+                                        {% endif %}
+                                        {% if pasta.processo.siglaTribunal %}
+                                            <div class="col-12 col-sm-6 col-lg-4">
+                                                <p class="text-muted small mb-1">Tribunal</p>
+                                                <b>{{ pasta.processo.siglaTribunal }}</b>
+                                            </div>
+                                        {% endif %}
+                                        {% if pasta.processo.instancia %}
+                                            <div class="col-12 col-sm-6 col-lg-4">
+                                                <p class="text-muted small mb-1">Instância</p>
+                                                <b>{{ pasta.processo.instancia }}</b>
+                                            </div>
+                                        {% endif %}
+                                        {% if pasta.processo.situacaoProcesso %}
+                                            <div class="col-12 col-sm-6 col-lg-4">
+                                                <p class="text-muted small mb-1">Situação</p>
+                                                <b>{{ pasta.processo.situacaoProcesso }}</b>
+                                            </div>
+                                        {% endif %}
+                                        {% if pasta.processo.dataDistribuicao %}
+                                            <div class="col-12 col-sm-6 col-lg-4">
+                                                <p class="text-muted small mb-1">Data de Distribuição</p>
+                                                <b>{{ pasta.processo.dataDistribuicao|date('d/m/Y') }}</b>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    {% if pasta.processo.partes|length > 0 %}
+                                        <hr>
+                                        <h6 class="mb-3"><i class="bi bi-people me-1"></i> Partes do Processo</h6>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-hover align-middle mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Nome</th>
+                                                        <th>Tipo</th>
+                                                        <th>Papel</th>
+                                                        <th>Documento</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for parte in pasta.processo.partes %}
+                                                        <tr>
+                                                            <td>{{ parte.nome }}</td>
+                                                            <td>{{ parte.tipo }}</td>
+                                                            <td>{{ parte.papel ?? '—' }}</td>
+                                                            <td>{{ parte.documento ?? '—' }}</td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% endif %}
+
+                                    <div class="mt-3">
+                                        <a href="{{ path('processo_show', {id: pasta.processo.id}) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-box-arrow-up-right me-1"></i> Ver processo completo
+                                        </a>
+                                    </div>
+                                {% else %}
+                                    <div class="d-flex flex-column align-items-start gap-3">
+                                        <p class="text-muted small mb-0">
+                                            <i class="bi bi-info-circle me-1"></i>
+                                            {% if pasta.nomeAcao %}
+                                                Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. Nenhum processo judicial vinculado.
+                                            {% else %}
+                                                Nenhum processo judicial vinculado a esta pasta.
+                                            {% endif %}
+                                        </p>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-primary"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalVincularProcesso">
+                                            <i class="bi bi-plus-lg me-1"></i> Vincular Processo
+                                        </button>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            {# Tab: Contrato #}
+                            <div class="tab-pane fade" id="contrato" role="tabpanel" aria-labelledby="contrato-tab">
+                                <div class="d-flex flex-column align-items-start gap-3">
+                                    <p class="text-muted small mb-0">
+                                        <i class="bi bi-info-circle me-1"></i> Nenhum contrato vinculado a esta pasta.
+                                    </p>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            disabled
+                                            title="Em breve">
+                                        <i class="bi bi-plus-lg me-1"></i> Adicionar Contrato
+                                    </button>
+                                </div>
+                            </div>
+
+                            {# Tab: Financeiro #}
+                            <div class="tab-pane fade" id="financeiro" role="tabpanel" aria-labelledby="financeiro-tab">
+                                <div class="d-flex flex-column align-items-start gap-3">
+                                    <p class="text-muted small mb-0">
+                                        <i class="bi bi-info-circle me-1"></i> Nenhum lançamento financeiro vinculado a esta pasta.
+                                    </p>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-primary"
+                                            disabled
+                                            title="Em breve">
+                                        <i class="bi bi-plus-lg me-1"></i> Adicionar Lançamento
+                                    </button>
                                 </div>
                             </div>
 
@@ -304,33 +488,88 @@
             </div>
             <div class="card-footer">
                 <div class="d-flex justify-content-between">
-                    <a href="{{ path('pasta_index') }}" class="btn btn-secondary">
+                    <a href="{{ path('expediente_index') }}" class="btn btn-secondary">
                         <i class="bi bi-arrow-left me-1"></i> Voltar às Pastas
                     </a>
-                    <div class="d-flex gap-2">
-                        <a href="{{ path('pasta_edit', {id: pasta.id}) }}"
-                           class="btn btn-outline-primary btn-sm d-inline-flex align-items-center"
-                           title="Editar pasta"
-                           aria-label="Editar pasta">
-                            <i class="bi bi-pencil me-1"></i> Editar
-                        </a>
-                        <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
-                              class="d-flex"
-                              onsubmit="return confirm('Tem certeza que deseja excluir esta pasta? Esta ação não pode ser desfeita.');">
-                            <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
-                            <button type="submit"
-                                    class="btn btn-outline-danger btn-sm"
-                                    title="Excluir pasta"
-                                    aria-label="Excluir pasta">
-                                <i class="bi bi-trash me-1"></i> Excluir Pasta
-                            </button>
-                        </form>
-                    </div>
+                    <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
+                          class="d-flex"
+                          onsubmit="return confirm('Tem certeza que deseja excluir esta pasta? Esta ação não pode ser desfeita.');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
+                        <button type="submit"
+                                class="btn btn-outline-danger btn-sm"
+                                title="Excluir pasta"
+                                aria-label="Excluir pasta">
+                            <i class="bi bi-trash me-1"></i> Excluir Pasta
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
     </div>
 </section>
+
+{# Modal: Adicionar Cliente (implementação futura) #}
+<div class="modal fade" id="modalAdicionarCliente" tabindex="-1" aria-labelledby="modalAdicionarClienteLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="modalAdicionarClienteLabel">
+                    <i class="bi bi-person-plus me-1"></i> Adicionar Cliente
+                </h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-4 text-center text-muted">
+                <i class="bi bi-tools fs-2 mb-2 d-block"></i>
+                Funcionalidade em desenvolvimento.
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal: Adicionar Parte Contrária (implementação futura) #}
+<div class="modal fade" id="modalAdicionarParteContraria" tabindex="-1" aria-labelledby="modalAdicionarParteContrariaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="modalAdicionarParteContrariaLabel">
+                    <i class="bi bi-person-dash me-1"></i> Adicionar Parte Contrária
+                </h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-4 text-center text-muted">
+                <i class="bi bi-tools fs-2 mb-2 d-block"></i>
+                Funcionalidade em desenvolvimento.
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Modal: Vincular Processo (implementação futura) #}
+<div class="modal fade" id="modalVincularProcesso" tabindex="-1" aria-labelledby="modalVincularProcessoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="modalVincularProcessoLabel">
+                    <i class="bi bi-briefcase me-1"></i> Vincular Processo
+                </h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-4 text-center text-muted">
+                <i class="bi bi-tools fs-2 mb-2 d-block"></i>
+                Funcionalidade em desenvolvimento.
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 {# Modal: Preview de Documento (único reutilizável) #}
 <div class="modal fade" id="previewDocModal" tabindex="-1" aria-labelledby="previewDocModalLabel" aria-hidden="true">
@@ -763,5 +1002,115 @@ document.addEventListener('DOMContentLoaded', function () {
         inputOculto.files = dt.files;
     });
 });
+
+/* ── Timeline: envio AJAX de mensagem ──────────────────── */
+(function () {
+    const form        = document.getElementById('formTimelineMensagem');
+    const textarea    = document.getElementById('timelineConteudo');
+    const btnEnviar   = document.getElementById('btnEnviarMensagem');
+    const erroDiv     = document.getElementById('timelineMensagemErro');
+    const list        = document.getElementById('timelineList');
+    const countBadge  = document.getElementById('timeline-count');
+    const vazioMsg    = document.getElementById('timelineVazio');
+    const urlEnviar   = '{{ path("pasta_enviar_mensagem", {id: pasta.id}) }}';
+
+    if (!form) { return; }
+
+    textarea.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            form.requestSubmit();
+        }
+    });
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const conteudo = textarea.value.trim();
+        if (conteudo === '') {
+            mostrarErro('A mensagem não pode ser vazia.');
+            return;
+        }
+
+        btnEnviar.disabled = true;
+        btnEnviar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
+        esconderErro();
+
+        try {
+            const resp = await fetch(urlEnviar, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            const data = await resp.json();
+
+            if (!resp.ok) {
+                mostrarErro(data.erro ?? 'Erro ao enviar mensagem.');
+                return;
+            }
+
+            inserirMensagem(data);
+            textarea.value = '';
+            if (vazioMsg) { vazioMsg.remove(); }
+            if (countBadge) {
+                countBadge.textContent = parseInt(countBadge.textContent || '0', 10) + 1;
+            }
+        } catch (_) {
+            mostrarErro('Erro de rede. Tente novamente.');
+        } finally {
+            btnEnviar.disabled = false;
+            btnEnviar.innerHTML = '<i class="bi bi-send me-1"></i> Enviar';
+        }
+    });
+
+    function inserirMensagem(data) {
+        const dt   = new Date(data.criadaEmTs);
+        const hora = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const corpo = esc(data.conteudo).replace(/\n/g, '<br>');
+
+        const html = `
+        <div class="d-flex gap-2 mb-2 timeline-entry timeline-entry--mensagem timeline-entry--new">
+            <div class="flex-shrink-0 pt-1">
+                <span class="badge rounded-circle timeline-icon text-bg-info">
+                    <i class="bi bi-chat-left-text"></i>
+                </span>
+            </div>
+            <div class="flex-grow-1 timeline-item-body timeline-item-body--mensagem" style="min-width:0">
+                <div class="d-flex justify-content-between align-items-start gap-1 flex-wrap">
+                    <span class="fw-semibold small lh-sm">Mensagem</span>
+                    <small class="text-muted flex-shrink-0 lh-sm">
+                        <i class="bi bi-clock me-1"></i>${hora}
+                    </small>
+                </div>
+                <div class="lh-sm">
+                    <small class="text-muted">
+                        <i class="bi bi-person me-1"></i>${esc(data.autorNome ?? '')}
+                    </small>
+                </div>
+                <div class="mt-1 small text-body">${corpo}</div>
+            </div>
+        </div>`;
+
+        list.insertAdjacentHTML('afterbegin', html);
+        list.scrollTop = 0;
+    }
+
+    function mostrarErro(msg) {
+        erroDiv.textContent = msg;
+        erroDiv.classList.remove('d-none');
+    }
+
+    function esconderErro() {
+        erroDiv.classList.add('d-none');
+    }
+
+    function esc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+}());
 </script>
 {% endblock %}

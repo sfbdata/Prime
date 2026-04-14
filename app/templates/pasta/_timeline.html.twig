@@ -1,0 +1,148 @@
+<div class="card mt-4" id="pasta-timeline-card">
+    <div class="card-header">
+        <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+            <i class="bi bi-clock-history me-1"></i>Histórico
+            <span class="badge text-bg-secondary" id="timeline-count">{{ timelineItems|length }}</span>
+        </h3>
+    </div>
+
+    {# Formulário de nova mensagem #}
+    <div class="card-body border-bottom pb-3">
+        <form id="formTimelineMensagem">
+            <input type="hidden" name="_token" value="{{ csrf_token('pasta_mensagem_' ~ pasta.id) }}">
+            <div class="d-flex gap-2 align-items-end">
+                <div class="flex-grow-1">
+                    <textarea
+                        name="conteudo"
+                        id="timelineConteudo"
+                        class="form-control form-control-sm"
+                        rows="2"
+                        maxlength="5000"
+                        placeholder="Adicionar observação, combinado ou anotação do caso… (Ctrl+Enter para enviar)"
+                    ></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm flex-shrink-0" id="btnEnviarMensagem">
+                    <i class="bi bi-send me-1"></i> Enviar
+                </button>
+            </div>
+            <div id="timelineMensagemErro" class="text-danger small mt-1 d-none"></div>
+        </form>
+    </div>
+
+    {# Lista da timeline #}
+    <div class="card-body p-2">
+        <div id="timelineList"
+             style="max-height: 480px; overflow-y: auto; padding: 4px 8px;">
+
+            {% if timelineItems|length == 0 %}
+                <div class="text-center text-muted py-5" id="timelineVazio">
+                    <i class="bi bi-clock-history fs-1 d-block mb-2 opacity-25"></i>
+                    <span class="small">Nenhum evento registrado ainda.</span>
+                </div>
+            {% else %}
+                {% set lastDate = null %}
+                {% for item in timelineItems %}
+                    {% set currentDate = item.dataHora|date('Y-m-d') %}
+                    {% if currentDate != lastDate %}
+                        <div class="d-flex align-items-center gap-2 my-2 timeline-date-label">
+                            <hr class="flex-grow-1 my-0 opacity-25">
+                            <span class="badge text-bg-light border text-muted small fw-normal px-2">
+                                {{ item.dataHora|date('d/m/Y') }}
+                            </span>
+                            <hr class="flex-grow-1 my-0 opacity-25">
+                        </div>
+                        {% set lastDate = currentDate %}
+                    {% endif %}
+
+                    <div class="d-flex gap-2 mb-2 timeline-entry {% if item.tipo.value == 'mensagem' %}timeline-entry--mensagem{% endif %}">
+                        {# Ícone #}
+                        <div class="flex-shrink-0 pt-1">
+                            <span class="badge rounded-circle timeline-icon {{ item.badgeCss }}">
+                                <i class="bi {{ item.icone }}"></i>
+                            </span>
+                        </div>
+
+                        {# Conteúdo #}
+                        <div class="flex-grow-1 timeline-item-body {% if item.tipo.value == 'mensagem' %}timeline-item-body--mensagem{% endif %}">
+                            <div class="d-flex justify-content-between align-items-start gap-1 flex-wrap">
+                                <span class="fw-semibold small lh-sm">{{ item.titulo }}</span>
+                                <small class="text-muted flex-shrink-0 lh-sm">
+                                    <i class="bi bi-clock me-1"></i>{{ item.dataHora|date('H:i') }}
+                                </small>
+                            </div>
+
+                            {% if item.autorNome or item.autorEmail %}
+                                <div class="lh-sm">
+                                    <small class="text-muted">
+                                        <i class="bi bi-person me-1"></i>{{ item.autorNome ?? item.autorEmail }}
+                                    </small>
+                                </div>
+                            {% endif %}
+
+                            {% if item.detalhe %}
+                                <div class="mt-1 small {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}">
+                                    {{ item.detalhe|nl2br }}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+
+                <div class="text-center py-2">
+                    <span class="badge text-bg-light border text-muted small fw-normal">
+                        <i class="bi bi-check2-all me-1"></i>Início do histórico
+                    </span>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+/* ── Timeline Pasta ─────────────────────────────────────── */
+#pasta-timeline-card .timeline-icon {
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .8rem;
+    flex-shrink: 0;
+}
+
+#pasta-timeline-card .timeline-item-body {
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: #fafafa;
+    min-width: 0; /* evita overflow em mobile */
+}
+
+#pasta-timeline-card .timeline-item-body--mensagem {
+    border: 1px solid #dee2e6;
+    border-left: 3px solid #0dcaf0;
+    background: rgba(13, 202, 240, 0.04);
+    border-radius: 0 6px 6px 0;
+}
+
+/* Linha vertical conectando os itens */
+#pasta-timeline-card .timeline-entry {
+    position: relative;
+}
+
+/* Item recém-inserido via AJAX */
+.timeline-entry--new {
+    animation: slideInTimeline 0.25s ease-out;
+}
+
+@keyframes slideInTimeline {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Mobile: garantir que nada transborde */
+@media (max-width: 576px) {
+    #pasta-timeline-card .timeline-item-body { font-size: .8rem; }
+    #pasta-timeline-card .timeline-icon { width: 26px; height: 26px; font-size: .75rem; }
+}
+</style>

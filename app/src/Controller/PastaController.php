@@ -18,9 +18,12 @@ use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
+use App\Pasta\Service\PastaTimelineAssembler;
+use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -56,6 +59,8 @@ class PastaController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly string $uploadsDir,
         private readonly PermissionChecker $permissionChecker,
+        private readonly PastaTimelineAssembler $timelineAssembler,
+        private readonly EnviarMensagemPastaUseCase $enviarMensagemUseCase,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -92,7 +97,7 @@ class PastaController extends AbstractController
                     $this->em->flush();
                     $this->addFlash('success', 'Pasta criada com sucesso.');
 
-                    return $this->redirectToRoute('expediente_index');
+                    return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
                 }
             } else {
                 foreach ($errors as $error) {
@@ -121,11 +126,54 @@ class PastaController extends AbstractController
             return $redirect;
         }
 
+        $tenant    = $currentUser->getTenant();
+        $tenantId  = $tenant?->getId() ?? 0;
+        $processoId = $pasta->getProcesso()?->getId();
+
+        $timelineItems = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
+
         return $this->render('pasta/show.html.twig', [
-            'pasta' => $pasta,
+            'pasta'              => $pasta,
             'documentTypeOptions' => self::DOCUMENT_TYPES,
-            'documentosPorTipo' => $this->groupDocumentsByType($pasta),
+            'documentosPorTipo'  => $this->groupDocumentsByType($pasta),
+            'timelineItems'      => $timelineItems,
         ]);
+    }
+
+    #[Route('/{id}/mensagem', name: 'pasta_enviar_mensagem', methods: ['POST'])]
+    public function enviarMensagem(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_mensagem_' . $pasta->getId(), (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $conteudo = trim((string) $request->request->get('conteudo', ''));
+
+        if ($conteudo === '') {
+            return $this->json(['erro' => 'A mensagem não pode ser vazia.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $mensagem = $this->enviarMensagemUseCase->executar($pasta, $currentUser, $conteudo);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'id'         => $mensagem->getId(),
+            'conteudo'   => $mensagem->getConteudo(),
+            'autorNome'  => $currentUser->getFullName(),
+            'criadaEm'   => $mensagem->getCriadaEm()->format('d/m/Y H:i'),
+            'criadaEmTs' => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
+        ], Response::HTTP_CREATED);
     }
 
     #[Route('/{id}/editar', name: 'pasta_edit', methods: ['GET', 'POST'])]

@@ -6,6 +6,7 @@
        {% if estiloLink %}style="{{ estiloLink }}"{% endif %}>
         <i class="bi bi-chevron-right expediente-chevron"></i>
         <i class="bi bi-tag expediente-icon"></i>
+        {% if marcador.cor %}<span class="marcador-cor-dot" style="background:{{ marcador.cor }};" title="{{ marcador.nome }}"></span>{% endif %}
         <span>{{ marcador.nome }}</span>
         <button type="button"
                 class="expediente-btn-add-sub ms-auto"
@@ -58,14 +59,5 @@
                 </a>
             </li>
         {% endfor %}
-        <li>
-            <button type="button"
-                    class="expediente-submenu-link w-100 border-0 bg-transparent text-start js-abrir-modal-marcador"
-                    data-pai-id="{{ marcador.id }}"
-                    data-pai-nome="{{ marcador.nome }}">
-                <i class="bi bi-plus expediente-sub-icon"></i>
-                Novo sub-marcador
-            </button>
-        </li>
     </ul>
 </li>

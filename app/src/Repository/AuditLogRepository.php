@@ -131,6 +131,75 @@ class AuditLogRepository extends ServiceEntityRepository
         return array_values($options);
     }
 
+    /**
+     * Busca todos os eventos de auditoria relevantes para a timeline de uma Pasta.
+     * Usa UNION ALL via DBAL para poder usar operadores JSON do PostgreSQL.
+     *
+     * @return array<int, array{id:int, action:string, entity_class:string, entity_id:string|null, changes:string|null, actor_email:string|null, created_at:string}>
+     */
+    public function findForPastaTimeline(
+        int $pastaId,
+        int $tenantId,
+        ?int $processoId,
+        int $limit = 150
+    ): array {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $processoClause = '';
+        if ($processoId !== null) {
+            $processoClause = "
+            UNION ALL
+            SELECT id, action, entity_class, entity_id, changes, actor_email, created_at
+            FROM audit_log
+            WHERE entity_class = 'App\\Entity\\Processo\\Processo'
+              AND tenant_id = :tenantId
+              AND entity_id = :processoIdStr";
+        }
+
+        $sql = "
+            SELECT id, action, entity_class, entity_id, changes, actor_email, created_at
+            FROM audit_log
+            WHERE entity_class = 'App\\Entity\\Pasta\\Pasta'
+              AND tenant_id = :tenantId
+              AND entity_id = :pastaIdStr
+            UNION ALL
+            SELECT id, action, entity_class, entity_id, changes, actor_email, created_at
+            FROM audit_log
+            WHERE entity_class = 'App\\Entity\\Pasta\\PastaDocumento'
+              AND tenant_id = :tenantId
+              AND (
+                entity_id IN (SELECT id::text FROM pasta_documento WHERE pasta_id = :pastaId)
+                OR (changes->'diff'->'after'->'pasta'->>'id')::text = :pastaIdStr
+                OR (changes->'diff'->'before'->'pasta'->>'id')::text = :pastaIdStr
+              )
+            UNION ALL
+            SELECT id, action, entity_class, entity_id, changes, actor_email, created_at
+            FROM audit_log
+            WHERE entity_class = 'App\\Entity\\Pasta\\ParteContraria'
+              AND tenant_id = :tenantId
+              AND (
+                entity_id IN (SELECT id::text FROM parte_contraria WHERE pasta_id = :pastaId)
+                OR (changes->'diff'->'after'->'pasta'->>'id')::text = :pastaIdStr
+              )
+            {$processoClause}
+            ORDER BY created_at DESC
+            LIMIT :limit
+        ";
+
+        $params = [
+            'pastaId'    => $pastaId,
+            'pastaIdStr' => (string) $pastaId,
+            'tenantId'   => $tenantId,
+            'limit'      => $limit,
+        ];
+
+        if ($processoId !== null) {
+            $params['processoIdStr'] = (string) $processoId;
+        }
+
+        return $conn->executeQuery($sql, $params)->fetchAllAssociative();
+    }
+
     private function buildFilteredQueryBuilder(
         ?string $entityClass,
         ?string $userFilter,

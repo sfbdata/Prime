@@ -28,10 +28,38 @@
 
 <section class="content">
     <div class="container-fluid">
+        {# ── Label do painel ativo (mobile) ── #}
+        <div class="d-flex d-md-none align-items-center mb-2 px-1" style="min-height:28px;">
+            <small class="text-muted" id="labelPainelAtivo"></small>
+        </div>
+
+        {# ── Botão pull-tab mobile (fixo na borda esquerda) ── #}
+        <button type="button" class="btn-expediente-pull-tab d-md-none" id="btnAbrirDrawer"
+                aria-label="Abrir menu de navegação" aria-expanded="false">
+            <i class="bi bi-chevron-right" id="iconePullTab"></i>
+        </button>
+
+        {# ── Overlay mobile ── #}
+        <div class="expediente-overlay" id="expedienteOverlay"></div>
+
         <div class="row g-0" style="min-height: calc(100vh - 160px);">
 
             {# ── Menu lateral do expediente ── #}
-            <div class="col-auto expediente-sidebar">
+            <div class="col-auto expediente-sidebar" id="expedienteSidebar">
+                {# Header do drawer — visível apenas em mobile #}
+                <div class="drawer-header d-md-none">
+                    <span><i class="bi bi-layout-sidebar me-1"></i> Expediente</span>
+                    <button type="button" class="drawer-header-close" id="btnFecharDrawer" aria-label="Fechar menu">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+
+                {# Botão de colapsar — visível apenas em desktop #}
+                <button type="button" class="expediente-sidebar-toggle-btn d-none d-md-flex" id="expedienteSidebarToggleBtn"
+                        title="Retrair menu" aria-label="Retrair/expandir menu lateral">
+                    <i class="bi bi-chevron-left" id="expedienteSidebarToggleIcon"></i>
+                </button>
+
                 <div class="expediente-menu">
 
                     <nav class="expediente-nav">
@@ -39,11 +67,13 @@
                         {# ── Pastas ── #}
                         <div class="expediente-marcadores-header">
                             <span class="expediente-marcadores-titulo">Pastas</span>
-                            <a href="{{ path('pasta_new') }}"
-                               class="expediente-marcadores-add"
-                               title="Nova Pasta">
+                            <button type="button"
+                                    class="expediente-marcadores-add"
+                                    title="Nova Pasta"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalNovaPasta">
                                 <i class="bi bi-plus-lg"></i>
-                            </a>
+                            </button>
                         </div>
                         <ul class="expediente-menu-list">
                             <li class="expediente-menu-item">
@@ -74,6 +104,51 @@
                         </ul>
 
                     </nav>
+                </div>
+            </div>
+
+            {# ── Modal: nova pasta (aba Cadastro) ── #}
+            <div class="modal fade" id="modalNovaPasta" tabindex="-1" aria-labelledby="modalNovaPastaLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+                    <div class="modal-content">
+                        <div class="modal-header py-2">
+                            <h6 class="modal-title" id="modalNovaPastaLabel">
+                                <i class="bi bi-folder-plus me-1"></i> Nova Pasta
+                            </h6>
+                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+                        </div>
+                        <form method="post" action="{{ path('pasta_new') }}" id="form-nova-pasta-modal">
+                            <div class="modal-body py-3">
+
+                                <div class="mb-3">
+                                    <label for="modal_nup" class="form-label form-label-sm">Número da Pasta (NUP)</label>
+                                    <input type="text" id="modal_nup" name="nup"
+                                           class="form-control form-control-sm"
+                                           placeholder="Ex.: 001" autocomplete="off">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="modal_nome_cliente" class="form-label form-label-sm">Nome do cliente</label>
+                                    <input type="text" id="modal_nome_cliente" name="nome_cliente"
+                                           class="form-control form-control-sm" autocomplete="off">
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="modal_nome_acao" class="form-label form-label-sm">Nome da Ação</label>
+                                    <input type="text" id="modal_nome_acao" name="nome_acao"
+                                           class="form-control form-control-sm" autocomplete="off">
+                                </div>
+
+                                <div id="modalNovaPastaErro" class="text-danger small mt-1" style="display:none;"></div>
+                            </div>
+                            <div class="modal-footer py-2">
+                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="submit" class="btn btn-primary btn-sm">
+                                    <i class="bi bi-check-lg me-1"></i> Salvar
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
 
@@ -145,7 +220,7 @@
 
             {# ── Modal: mover pasta para marcadores ── #}
             <div class="modal fade" id="modalMoverPara" tabindex="-1" aria-labelledby="modalMoverParaLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered" style="max-width:360px;">
+                <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
                     <div class="modal-content">
                         <div class="modal-header py-2">
                             <h6 class="modal-title" id="modalMoverParaLabel">
@@ -153,25 +228,38 @@
                             </h6>
                             <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
                         </div>
-                        <div class="modal-body py-3">
+                        <div class="modal-body p-0">
                             <input type="hidden" id="moverParaPastaId">
                             <input type="hidden" id="moverParaCsrfToken">
-                            <p class="text-muted small mb-2">
-                                Pasta: <strong id="moverParaPastaNome"></strong>
-                            </p>
-                            <div id="moverParaLista" class="d-flex flex-wrap gap-2 mb-2">
-                                {# Preenchido via JS #}
+                            <div class="px-3 pt-3 pb-2 border-bottom">
+                                <p class="text-muted small mb-2">
+                                    Pasta: <strong id="moverParaPastaNome"></strong>
+                                </p>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text bg-white border-end-0">
+                                        <i class="bi bi-search text-muted"></i>
+                                    </span>
+                                    <input type="text" id="moverParaBusca" class="form-control border-start-0 ps-0"
+                                           placeholder="Filtrar marcadores…" autocomplete="off">
+                                </div>
                             </div>
-                            <div id="moverParaVazio" class="text-muted small" style="display:none;">
-                                Nenhum marcador criado ainda.
+                            <div id="moverParaLista" style="max-height:320px;overflow-y:auto;">
+                                {# Preenchido via JS — árvore hierárquica de marcadores #}
                             </div>
-                            <div id="moverParaErro" class="text-danger small mt-2" style="display:none;"></div>
+                            <div id="moverParaVazio" class="text-muted small text-center py-4 px-3" style="display:none;">
+                                <i class="bi bi-tags d-block mb-1" style="font-size:1.4rem;opacity:.4;"></i>
+                                <span id="moverParaVazioTexto">Nenhum marcador criado ainda.</span>
+                            </div>
+                            <div id="moverParaErro" class="text-danger small px-3 pt-2" style="display:none;"></div>
                         </div>
-                        <div class="modal-footer py-2">
-                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarMoverPara">
-                                <i class="bi bi-check-lg me-1"></i> Salvar
-                            </button>
+                        <div class="modal-footer py-2 justify-content-between">
+                            <span class="text-muted small" id="moverParaContador" style="display:none;"></span>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="btnSalvarMoverPara">
+                                    <i class="bi bi-check-lg me-1"></i> Salvar
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -200,11 +288,233 @@
     width: 260px;
     min-width: 260px;
     border-right: 1px solid #dee2e6;
-    overflow-y: auto;
+    overflow: visible; /* visível para o botão de toggle não ser cortado */
+    transition: width 0.22s cubic-bezier(.4,0,.2,1), min-width 0.22s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    z-index: 10; /* garante que o botão de toggle fique na frente do conteúdo */
+    flex-shrink: 0;
 }
 
+/* O scroll fica no menu interno, não na sidebar (para botão de toggle não ser cortado) */
+.expediente-menu {
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    max-height: calc(100vh - 160px);
+    position: relative;
+    z-index: 0; /* fica abaixo do botão de toggle que usa z-index: 20 */
+}
+
+/* ── Estado retraído (collapsed) ─────────────────────────────── */
+.expediente-sidebar.sidebar-collapsed {
+    width: 52px;
+    min-width: 52px;
+}
+
+.expediente-sidebar.sidebar-collapsed .expediente-menu-link span,
+.expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo,
+.expediente-sidebar.sidebar-collapsed .expediente-btn-add-sub,
+.expediente-sidebar.sidebar-collapsed .expediente-btn-acao,
+.expediente-sidebar.sidebar-collapsed .expediente-chevron,
+.expediente-sidebar.sidebar-collapsed .expediente-submenu,
+.expediente-sidebar.sidebar-collapsed .expediente-icon--no-chevron ~ span {
+    display: none !important;
+}
+
+.expediente-sidebar.sidebar-collapsed .expediente-marcadores-header {
+    justify-content: center;
+    padding: 8px 4px;
+}
+
+.expediente-sidebar.sidebar-collapsed .expediente-marcadores-add {
+    display: flex !important;
+}
+
+.expediente-sidebar.sidebar-collapsed .expediente-menu-link {
+    justify-content: center;
+    padding: 10px 4px;
+}
+
+.expediente-sidebar.sidebar-collapsed .expediente-icon {
+    margin-left: 0 !important;
+    font-size: 1.05rem;
+}
+
+.expediente-sidebar.sidebar-collapsed .expediente-icon--no-chevron {
+    margin-left: 0 !important;
+}
+
+/* Dot colorido no estado collapsed para marcadores com cor */
+.expediente-sidebar.sidebar-collapsed .marcador-cor-dot {
+    display: inline-block !important;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: -12px;
+    margin-left: -4px;
+    border: 1.5px solid rgba(0,0,0,0.12);
+    position: relative;
+    top: -6px;
+    left: 2px;
+}
+
+.marcador-cor-dot { display: none; }
+
+/* ── Botão de toggle da sidebar ───────────────────────────────── */
+.expediente-sidebar-toggle-btn {
+    position: absolute;
+    right: -13px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 20;
+    width: 26px;
+    height: 26px;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+    transition: background 0.15s, box-shadow 0.15s;
+    color: #6c757d;
+    font-size: 0.7rem;
+    padding: 0;
+}
+
+.expediente-sidebar-toggle-btn:hover {
+    background: #e9ecef;
+    color: #212529;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.14);
+}
+
+/* ── Botão pull-tab mobile (fixo na borda esquerda) ────────────── */
+.btn-expediente-pull-tab {
+    display: none;
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1051; /* acima do drawer */
+    width: 28px;
+    height: 52px;
+    padding: 0;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.10);
+    color: #6c757d;
+    font-size: 0.95rem;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.25s cubic-bezier(.4,0,.2,1), background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.btn-expediente-pull-tab:hover,
+.btn-expediente-pull-tab:focus {
+    background: #f0f4ff;
+    color: #0d6efd;
+    box-shadow: 2px 0 12px rgba(13,110,253,0.18);
+    outline: none;
+}
+.btn-expediente-pull-tab.drawer-aberto {
+    left: 280px;
+    background: #f0f4ff;
+    color: #0d6efd;
+    box-shadow: 2px 0 8px rgba(13,110,253,0.13);
+}
+
+/* ── Overlay mobile ───────────────────────────────────────────── */
+.expediente-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1040;
+    backdrop-filter: blur(2px);
+}
+.expediente-overlay.show { display: block; }
+
+/* ── Drawer mobile ────────────────────────────────────────────── */
+@media (max-width: 767.98px) {
+    .expediente-sidebar {
+        position: fixed !important;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        z-index: 1050;
+        width: 280px !important;
+        min-width: 280px !important;
+        transform: translateX(-100%);
+        transition: transform 0.25s cubic-bezier(.4,0,.2,1);
+        background: #fff;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+        overflow-y: auto;
+        padding-top: 56px; /* espaço para header do drawer */
+    }
+    .expediente-sidebar.drawer-open {
+        transform: translateX(0);
+    }
+    /* Cancela o collapsed no mobile */
+    .expediente-sidebar.sidebar-collapsed {
+        width: 280px !important;
+        min-width: 280px !important;
+    }
+    .expediente-sidebar.sidebar-collapsed .expediente-menu-link span,
+    .expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo,
+    .expediente-sidebar.sidebar-collapsed .expediente-btn-add-sub,
+    .expediente-sidebar.sidebar-collapsed .expediente-btn-acao,
+    .expediente-sidebar.sidebar-collapsed .expediente-chevron {
+        display: flex !important;
+    }
+    .expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo { display: inline !important; }
+    .expediente-sidebar.sidebar-collapsed .expediente-menu-link span { display: inline !important; }
+    .expediente-sidebar.sidebar-collapsed .expediente-menu-link {
+        justify-content: flex-start;
+        padding: 8px 12px;
+    }
+    .expediente-sidebar-toggle-btn { display: none !important; }
+    .btn-expediente-pull-tab { display: flex !important; }
+
+    /* Header do drawer mobile */
+    .drawer-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 50px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: #212529;
+    }
+    .drawer-header-close {
+        background: none;
+        border: none;
+        font-size: 1.1rem;
+        color: #6c757d;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 4px;
+    }
+    .drawer-header-close:hover { background: #e9ecef; color: #212529; }
+
+    /* Painel ocupa tela cheia */
+    .expediente-content { overflow-x: hidden; }
+    .row.g-0 { flex-direction: column !important; }
+}
+
+/* ── Conteúdo ─────────────────────────────────────────────────── */
 .expediente-content {
     overflow-y: auto;
+    min-width: 0;
 }
 
 .expediente-content-placeholder {
@@ -341,6 +651,109 @@
     color: #212529 !important;
 }
 
+/* ── Modal "Mover para" — árvore hierárquica ──────────────────── */
+.mover-para-item {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+    border-bottom: 1px solid #f0f0f0;
+}
+.mover-para-item:last-child { border-bottom: none; }
+
+.mover-para-cb {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.mover-para-label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    padding: 9px 12px 9px 0;
+    cursor: pointer;
+    user-select: none;
+    transition: background .12s;
+    border-radius: 0;
+}
+.mover-para-label:hover { background: #f8f9fa; }
+
+.mover-para-cb:checked + .mover-para-label {
+    background: #eef4ff;
+}
+
+.mover-para-stripe {
+    flex-shrink: 0;
+    width: 4px;
+    align-self: stretch;
+    border-radius: 0;
+    margin-right: 4px;
+}
+
+.mover-para-chevron {
+    flex-shrink: 0;
+    width: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #adb5bd;
+    font-size: .72rem;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 3px;
+    transition: background .1s;
+}
+.mover-para-chevron:hover { background: rgba(0,0,0,.07); color: #495057; }
+
+.mover-para-icon {
+    flex-shrink: 0;
+    font-size: .78rem;
+    opacity: .85;
+}
+
+.mover-para-nome {
+    flex: 1;
+    font-size: .85rem;
+    font-weight: 500;
+    color: #212529;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mover-para-count {
+    flex-shrink: 0;
+    font-size: .7rem;
+    color: #adb5bd;
+    background: #f1f3f5;
+    border-radius: 10px;
+    padding: 1px 6px;
+    margin-left: auto;
+}
+
+/* Filhos */
+.mover-para-grupo { overflow: hidden; }
+.mover-para-grupo-oculto { display: none; }
+
+.mover-para-filho .mover-para-label {
+    padding-left: 0;
+    background: #fafafa;
+}
+.mover-para-filho .mover-para-label:hover { background: #f1f4ff; }
+.mover-para-filho .mover-para-cb:checked + .mover-para-label { background: #e8f0fe; }
+
+.mover-para-indent {
+    flex-shrink: 0;
+    width: 26px;
+}
+
+/* Scroll com barra estilizada */
+#moverParaLista::-webkit-scrollbar { width: 4px; }
+#moverParaLista::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 4px; }
+
 /* ── Paleta de cores do modal de edição ──────────────────────── */
 .marcador-cores {
     display: flex;
@@ -466,6 +879,98 @@
 {{ parent() }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // ── Toggle sidebar (desktop) ──────────────────────────────────
+    var sidebar         = document.getElementById('expedienteSidebar');
+    var toggleBtn       = document.getElementById('expedienteSidebarToggleBtn');
+    var toggleIcon      = document.getElementById('expedienteSidebarToggleIcon');
+    var labelPainel     = document.getElementById('labelPainelAtivo');
+    var collapsed       = localStorage.getItem('expediente_sidebar_collapsed') === '1';
+
+    function aplicarEstadoSidebar() {
+        if (collapsed) {
+            sidebar.classList.add('sidebar-collapsed');
+            toggleIcon.className = 'bi bi-chevron-right';
+            if (toggleBtn) toggleBtn.title = 'Expandir menu';
+        } else {
+            sidebar.classList.remove('sidebar-collapsed');
+            toggleIcon.className = 'bi bi-chevron-left';
+            if (toggleBtn) toggleBtn.title = 'Retrair menu';
+        }
+    }
+    aplicarEstadoSidebar();
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function () {
+            collapsed = !collapsed;
+            localStorage.setItem('expediente_sidebar_collapsed', collapsed ? '1' : '0');
+            aplicarEstadoSidebar();
+            // Reposicionar tooltips
+            atualizarTooltipsSidebar();
+        });
+    }
+
+    // Tooltips nos links da sidebar quando colapsada
+    function atualizarTooltipsSidebar() {
+        sidebar.querySelectorAll('.expediente-menu-link[data-painel], .expediente-menu-link[data-grupo]').forEach(function (link) {
+            var nomeTip = link.querySelector('span') ? link.querySelector('span').textContent.trim() : '';
+            var inst = bootstrap.Tooltip.getInstance(link);
+            if (collapsed) {
+                if (!inst) {
+                    new bootstrap.Tooltip(link, { title: nomeTip, placement: 'right', trigger: 'hover' });
+                }
+            } else {
+                if (inst) inst.dispose();
+            }
+        });
+    }
+    atualizarTooltipsSidebar();
+
+    // ── Drawer mobile ─────────────────────────────────────────────
+    var overlay         = document.getElementById('expedienteOverlay');
+    var btnAbrir        = document.getElementById('btnAbrirDrawer');
+    var btnFechar       = document.getElementById('btnFecharDrawer');
+    var iconePullTab    = document.getElementById('iconePullTab');
+
+    function abrirDrawer() {
+        sidebar.classList.add('drawer-open');
+        overlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        if (btnAbrir) {
+            btnAbrir.classList.add('drawer-aberto');
+            btnAbrir.setAttribute('aria-expanded', 'true');
+            btnAbrir.setAttribute('aria-label', 'Fechar menu de navegação');
+        }
+        if (iconePullTab) {
+            iconePullTab.className = 'bi bi-chevron-left';
+        }
+    }
+    function fecharDrawer() {
+        sidebar.classList.remove('drawer-open');
+        overlay.classList.remove('show');
+        document.body.style.overflow = '';
+        if (btnAbrir) {
+            btnAbrir.classList.remove('drawer-aberto');
+            btnAbrir.setAttribute('aria-expanded', 'false');
+            btnAbrir.setAttribute('aria-label', 'Abrir menu de navegação');
+        }
+        if (iconePullTab) {
+            iconePullTab.className = 'bi bi-chevron-right';
+        }
+    }
+    if (btnAbrir)  btnAbrir.addEventListener('click', function () {
+        sidebar.classList.contains('drawer-open') ? fecharDrawer() : abrirDrawer();
+    });
+    if (btnFechar) btnFechar.addEventListener('click', fecharDrawer);
+    if (overlay)   overlay.addEventListener('click', fecharDrawer);
+
+    // Fechar drawer ao selecionar item no mobile
+    document.addEventListener('click', function (e) {
+        if (window.innerWidth < 768 && sidebar.classList.contains('drawer-open')) {
+            var link = e.target.closest('.expediente-menu-link[data-painel], .expediente-submenu-link[data-marcador-id], .expediente-menu-link[data-grupo]');
+            if (link) setTimeout(fecharDrawer, 180);
+        }
+    });
+
     var painel           = document.getElementById('expediente-painel');
     var urlCriar         = '{{ path('expediente_marcador_criar') }}';
     var urlExcluir       = '{{ path('expediente_marcador_excluir', {'id': 0}) }}';
@@ -475,14 +980,14 @@ document.addEventListener('DOMContentLoaded', function () {
     var csrfToken        = '{{ csrf_token('marcador') }}';
 
     // Marcadores disponíveis no tenant (para o modal "Mover para")
-    var todosMarcadores = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor})|json_encode|raw }};
+    var todosMarcadores = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor, paiId: m.pai ? m.pai.id : null})|json_encode|raw }};
 
     // ── Seleciona "Todas as pastas" automaticamente ao abrir a página ──
     (function () {
         var linkTodasPastas = document.querySelector('.expediente-menu-link[data-painel]');
         if (linkTodasPastas) {
             linkTodasPastas.classList.add('active');
-            carregarPainel(linkTodasPastas.dataset.painel);
+            carregarPainel(linkTodasPastas.dataset.painel, 'Todas as pastas');
         }
     })();
 
@@ -492,7 +997,7 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             document.querySelectorAll('.expediente-menu-link').forEach(function (l) { l.classList.remove('active'); });
             this.classList.add('active');
-            carregarPainel(this.dataset.painel);
+            carregarPainel(this.dataset.painel, 'Todas as pastas');
         });
     });
 
@@ -506,7 +1011,8 @@ document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link').forEach(function (l) { l.classList.remove('active'); });
             subLink.classList.add('active');
             var url = urlPainelMarcador.replace('/0/', '/' + subLink.dataset.marcadorId + '/');
-            carregarPainel(url);
+            var nomeSubLink = subLink.querySelector('span') ? subLink.querySelector('span').textContent.trim() : '';
+            carregarPainel(url, nomeSubLink);
             return;
         }
 
@@ -808,9 +1314,11 @@ document.addEventListener('DOMContentLoaded', function () {
         var csrfEditar  = marcador.csrfEditar  || '';
         var cor         = marcador.cor         || '';
         var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid ' + escurecer(cor) + ';"' : '';
+        var dotCor = cor ? '<span class="marcador-cor-dot" style="background:' + escHtml(cor) + ';" title="' + escHtml(marcador.nome) + '"></span>' : '';
         return '<a href="#" class="expediente-menu-link" data-grupo="' + grupoId + '" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
                '<i class="bi bi-chevron-right expediente-chevron"></i>' +
                '<i class="bi bi-tag expediente-icon"></i>' +
+               dotCor +
                '<span>' + escHtml(marcador.nome) + '</span>' +
                '<button type="button" class="expediente-btn-add-sub ms-auto"' +
                ' data-pai-id="' + marcador.id + '" data-pai-nome="' + escHtml(marcador.nome) + '"' +
@@ -823,9 +1331,6 @@ document.addEventListener('DOMContentLoaded', function () {
                ' title="Excluir marcador"><i class="bi bi-trash3"></i></button>' +
                '</a>' +
                '<ul class="expediente-submenu" id="grupo-pasta-' + marcador.id + '">' +
-               '<li><button type="button" class="expediente-submenu-link w-100 border-0 bg-transparent text-start js-abrir-modal-marcador"' +
-               ' data-pai-id="' + marcador.id + '" data-pai-nome="' + escHtml(marcador.nome) + '">' +
-               '<i class="bi bi-plus expediente-sub-icon"></i>Novo sub-marcador</button></li>' +
                '</ul>';
     }
 
@@ -846,9 +1351,10 @@ document.addEventListener('DOMContentLoaded', function () {
                '</a>';
     }
 
-    function carregarPainel(url) {
+    function carregarPainel(url, nomeAtivo) {
         document.querySelectorAll('.expediente-menu-link').forEach(function (l) { l.classList.remove('active'); });
         painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
+        if (labelPainel && nomeAtivo) labelPainel.textContent = nomeAtivo;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.text(); })
             .then(function (html) { painel.innerHTML = html; })
@@ -872,7 +1378,8 @@ document.addEventListener('DOMContentLoaded', function () {
         var marcadorId = grupo ? grupo.replace('pasta-', '') : null;
         if (marcadorId) {
             var url = urlPainelMarcador.replace('/0/', '/' + marcadorId + '/');
-            carregarPainel(url);
+            var nomeMarcador = this.querySelector('span') ? this.querySelector('span').textContent.trim() : '';
+            carregarPainel(url, nomeMarcador);
         }
 
         if (!submenu) return;
@@ -894,6 +1401,190 @@ document.addEventListener('DOMContentLoaded', function () {
     var moverParaLista     = document.getElementById('moverParaLista');
     var moverParaVazio     = document.getElementById('moverParaVazio');
     var moverParaErro      = document.getElementById('moverParaErro');
+    var moverParaBusca     = document.getElementById('moverParaBusca');
+    var moverParaContador  = document.getElementById('moverParaContador');
+
+    // Monta a árvore hierárquica de marcadores na lista do modal.
+    // Exibe grupos expansíveis (raiz + seus sub-marcadores).
+    function renderizarArvore(ativos, filtro) {
+        moverParaLista.innerHTML = '';
+        filtro = (filtro || '').toLowerCase().trim();
+
+        // Separa raízes e filhos
+        var raizes = todosMarcadores.filter(function (m) { return m.paiId === null; });
+        var filhosMap = {};
+        todosMarcadores.forEach(function (m) {
+            if (m.paiId !== null) {
+                if (!filhosMap[m.paiId]) filhosMap[m.paiId] = [];
+                filhosMap[m.paiId].push(m);
+            }
+        });
+
+        var totalVisiveis = 0;
+
+        raizes.forEach(function (raiz) {
+            var filhos = filhosMap[raiz.id] || [];
+
+            // Aplica filtro de busca — mostra o grupo se raiz ou algum filho bate
+            var raizBate = !filtro || raiz.nome.toLowerCase().indexOf(filtro) !== -1;
+            var filhosBatidos = filtro
+                ? filhos.filter(function (f) { return f.nome.toLowerCase().indexOf(filtro) !== -1; })
+                : filhos;
+            if (!raizBate && filhosBatidos.length === 0) return;
+
+            totalVisiveis++;
+
+            var corRaiz     = raiz.cor || '#e9ecef';
+            var raizAtivo   = ativos.indexOf(String(raiz.id)) !== -1;
+            var temFilhos   = filhos.length > 0;
+            // Expande automaticamente se filtro ativo ou se algum filho está selecionado ou bateu no filtro
+            var expandido   = filtro
+                ? (filhosBatidos.length > 0)
+                : filhos.some(function (f) { return ativos.indexOf(String(f.id)) !== -1; });
+
+            // ── Linha da raiz ──
+            var itemRaiz = document.createElement('div');
+            itemRaiz.className = 'mover-para-item mover-para-raiz';
+            itemRaiz.setAttribute('data-id', raiz.id);
+
+            var leftStripe = '<span class="mover-para-stripe" style="background:' + corRaiz + ';"></span>';
+
+            var chevronCls = temFilhos ? (expandido ? 'bi-chevron-down' : 'bi-chevron-right') : 'bi-dot';
+            var chevronHtml = '<span class="mover-para-chevron"><i class="bi ' + chevronCls + '"></i></span>';
+
+            var cbRaiz = document.createElement('input');
+            cbRaiz.type    = 'checkbox';
+            cbRaiz.name    = 'marcadores[]';
+            cbRaiz.value   = String(raiz.id);
+            cbRaiz.checked = raizAtivo;
+            cbRaiz.className = 'mover-para-cb';
+            cbRaiz.id      = 'mcb-' + raiz.id;
+
+            var labelRaiz = document.createElement('label');
+            labelRaiz.htmlFor   = 'mcb-' + raiz.id;
+            labelRaiz.className = 'mover-para-label';
+            labelRaiz.innerHTML = leftStripe + chevronHtml +
+                '<i class="bi bi-tag mover-para-icon" style="color:' + escurecer(corRaiz) + ';"></i>' +
+                '<span class="mover-para-nome">' + escHtml(raiz.nome) + '</span>' +
+                (temFilhos ? '<span class="mover-para-count">' + filhos.length + '</span>' : '');
+
+            itemRaiz.appendChild(cbRaiz);
+            itemRaiz.appendChild(labelRaiz);
+
+            // Abre/fecha submenu ao clicar no chevron
+            if (temFilhos) {
+                labelRaiz.querySelector('.mover-para-chevron').addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    var sub = itemRaiz.nextElementSibling;
+                    if (!sub || !sub.classList.contains('mover-para-grupo')) return;
+                    var aberto = !sub.classList.contains('mover-para-grupo-oculto');
+                    sub.classList.toggle('mover-para-grupo-oculto', aberto);
+                    var ic = this.querySelector('i');
+                    ic.className = aberto ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
+                });
+            }
+
+            moverParaLista.appendChild(itemRaiz);
+
+            // ── Grupo de filhos ──
+            if (temFilhos) {
+                var grupoDiv = document.createElement('div');
+                grupoDiv.className = 'mover-para-grupo' + (expandido ? '' : ' mover-para-grupo-oculto');
+
+                (filtro ? filhosBatidos : filhos).forEach(function (filho) {
+                    var corFilho  = filho.cor || corRaiz;
+                    var filhoAtivo = ativos.indexOf(String(filho.id)) !== -1;
+                    totalVisiveis++;
+
+                    var itemFilho = document.createElement('div');
+                    itemFilho.className = 'mover-para-item mover-para-filho';
+                    itemFilho.setAttribute('data-id', filho.id);
+
+                    var cbFilho = document.createElement('input');
+                    cbFilho.type    = 'checkbox';
+                    cbFilho.name    = 'marcadores[]';
+                    cbFilho.value   = String(filho.id);
+                    cbFilho.checked = filhoAtivo;
+                    cbFilho.className = 'mover-para-cb';
+                    cbFilho.id      = 'mcb-' + filho.id;
+
+                    var labelFilho = document.createElement('label');
+                    labelFilho.htmlFor   = 'mcb-' + filho.id;
+                    labelFilho.className = 'mover-para-label';
+                    labelFilho.innerHTML =
+                        '<span class="mover-para-stripe" style="background:' + corRaiz + ';"></span>' +
+                        '<span class="mover-para-indent"></span>' +
+                        '<i class="bi bi-tag mover-para-icon" style="color:' + escurecer(corFilho) + ';font-size:.7rem;"></i>' +
+                        '<span class="mover-para-nome" style="font-size:.82rem;">' + escHtml(filho.nome) + '</span>';
+
+                    if (filho.cor) {
+                        labelFilho.style.setProperty('--filho-bg', filho.cor + '33');
+                    }
+
+                    itemFilho.appendChild(cbFilho);
+                    itemFilho.appendChild(labelFilho);
+                    grupoDiv.appendChild(itemFilho);
+                });
+
+                moverParaLista.appendChild(grupoDiv);
+            }
+        });
+
+        // Marcadores raiz sem filhos que não têm pai correspondente (orphans improvável)
+        var comPaiValido = todosMarcadores
+            .filter(function (m) { return m.paiId !== null && !raizes.find(function(r){ return r.id === m.paiId; }); });
+        comPaiValido.forEach(function (m) {
+            if (filtro && m.nome.toLowerCase().indexOf(filtro) === -1) return;
+            totalVisiveis++;
+            var corBg   = m.cor || '#e9ecef';
+            var ativo   = ativos.indexOf(String(m.id)) !== -1;
+            var itemOrphan = document.createElement('div');
+            itemOrphan.className = 'mover-para-item mover-para-raiz';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox'; cb.name = 'marcadores[]'; cb.value = String(m.id);
+            cb.checked = ativo; cb.className = 'mover-para-cb'; cb.id = 'mcb-' + m.id;
+            var lbl = document.createElement('label');
+            lbl.htmlFor = 'mcb-' + m.id; lbl.className = 'mover-para-label';
+            lbl.innerHTML = '<span class="mover-para-stripe" style="background:' + corBg + ';"></span>' +
+                '<span class="mover-para-chevron"><i class="bi bi-dot"></i></span>' +
+                '<i class="bi bi-tag mover-para-icon" style="color:' + escurecer(corBg) + ';"></i>' +
+                '<span class="mover-para-nome">' + escHtml(m.nome) + '</span>';
+            itemOrphan.appendChild(cb); itemOrphan.appendChild(lbl);
+            moverParaLista.appendChild(itemOrphan);
+        });
+
+        // Atualiza contador no rodapé
+        var selecionados = moverParaLista.querySelectorAll('.mover-para-cb:checked').length;
+        atualizarContador();
+
+        if (totalVisiveis === 0) {
+            moverParaVazio.style.display = '';
+            document.getElementById('moverParaVazioTexto').textContent =
+                filtro ? 'Nenhum marcador encontrado para "' + filtro + '".' : 'Nenhum marcador criado ainda.';
+        } else {
+            moverParaVazio.style.display = 'none';
+        }
+    }
+
+    function atualizarContador() {
+        var n = moverParaLista.querySelectorAll('.mover-para-cb:checked').length;
+        if (n === 0) {
+            moverParaContador.style.display = 'none';
+        } else {
+            moverParaContador.style.display = '';
+            moverParaContador.textContent   = n + ' selecionado' + (n !== 1 ? 's' : '');
+        }
+    }
+
+    moverParaLista.addEventListener('change', function (e) {
+        if (e.target.classList.contains('mover-para-cb')) atualizarContador();
+    });
+
+    moverParaBusca.addEventListener('input', function () {
+        var ativos = Array.from(moverParaLista.querySelectorAll('.mover-para-cb:checked')).map(function (c) { return c.value; });
+        renderizarArvore(ativos, this.value);
+    });
 
     // Abertura delegada — funciona para elementos inseridos dinamicamente no painel
     document.getElementById('expediente-painel').addEventListener('click', function (e) {
@@ -905,48 +1596,16 @@ document.addEventListener('DOMContentLoaded', function () {
         var pastaNome = btn.dataset.pastaNome;
         var ativos    = (btn.dataset.marcadoresAtivos || '').split(',').filter(Boolean);
 
-        moverParaPastaId.value   = pastaId;
+        moverParaPastaId.value         = pastaId;
         moverParaPastaNome.textContent = pastaNome;
-        moverParaErro.style.display = 'none';
+        moverParaErro.style.display    = 'none';
+        moverParaBusca.value           = '';
+        moverParaCsrf.value            = btn.dataset.csrfToken;
 
-        var csrfVal = btn.dataset.csrfToken;
-        moverParaCsrf.value = csrfVal;
-
-        // Renderiza pills/checkboxes
-        moverParaLista.innerHTML = '';
-        if (todosMarcadores.length === 0) {
-            moverParaVazio.style.display = '';
-        } else {
-            moverParaVazio.style.display = 'none';
-            todosMarcadores.forEach(function (m) {
-                var ativo  = ativos.indexOf(String(m.id)) !== -1;
-                var corBg  = m.cor || '#e9ecef';
-                var pill   = document.createElement('span');
-                pill.style.cssText = 'background:' + corBg + ';border:2px solid ' + (ativo ? '#0d6efd' : 'transparent') + ';' +
-                    'color:#333;border-radius:20px;padding:4px 10px;font-size:.78rem;cursor:pointer;' +
-                    'display:inline-flex;align-items:center;gap:5px;user-select:none;transition:border-color .15s;';
-                var cb = document.createElement('input');
-                cb.type  = 'checkbox';
-                cb.name  = 'marcadores[]';
-                cb.value = String(m.id);
-                cb.checked = ativo;
-                cb.style.display = 'none';
-                var icon = document.createElement('i');
-                icon.className = 'bi bi-tag';
-                icon.style.fontSize = '.72rem';
-                var txt = document.createTextNode(m.nome);
-                pill.appendChild(cb);
-                pill.appendChild(icon);
-                pill.appendChild(txt);
-                pill.addEventListener('click', function () {
-                    cb.checked = !cb.checked;
-                    pill.style.borderColor = cb.checked ? '#0d6efd' : 'transparent';
-                });
-                moverParaLista.appendChild(pill);
-            });
-        }
+        renderizarArvore(ativos, '');
 
         bootstrap.Modal.getOrCreateInstance(modalMoverPara).show();
+        setTimeout(function () { moverParaBusca.focus(); }, 350);
     });
 
     document.getElementById('btnSalvarMoverPara').addEventListener('click', function () {
