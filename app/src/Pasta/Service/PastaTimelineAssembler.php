@@ -159,7 +159,7 @@ class PastaTimelineAssembler
                 null,
             ],
             str_ends_with($entityClass, '\Pasta') && $action === 'update' => [
-                'Pasta atualizada',
+                $this->resolverTituloAtualizacao($changes),
                 'bi-pencil-square',
                 'text-bg-secondary',
                 $this->extractChangeSummary($changes),
@@ -199,6 +199,36 @@ class PastaTimelineAssembler
             ?? null;
     }
 
+    private function resolverTituloAtualizacao(?array $changes): string
+    {
+        $diff = $changes['diff']['changes'] ?? [];
+        if (!is_array($diff)) {
+            return 'Pasta atualizada';
+        }
+
+        foreach (array_keys($diff) as $field) {
+            if (preg_match('/^clientes\[/', (string) $field)) {
+                return 'Cliente da pasta alterado';
+            }
+            if (preg_match('/^marcadores\[/', (string) $field)) {
+                return 'Marcador alterado';
+            }
+            if ((string) $field === 'responsavel') {
+                return 'Responsável alterado';
+            }
+            if ((string) $field === 'status') {
+                return 'Status da pasta alterado';
+            }
+            if ((string) $field === 'processo') {
+                return 'Processo vinculado atualizado';
+            }
+        }
+
+        return 'Pasta atualizada';
+    }
+
+    private const DATE_FIELDS = ['dataAbertura', 'dataEncerramento', 'createdAt', 'updatedAt'];
+
     private function extractChangeSummary(?array $changes): ?string
     {
         $diff = $changes['diff']['changes'] ?? [];
@@ -211,13 +241,10 @@ class PastaTimelineAssembler
             if (in_array($field, self::CHECKLIST_FIELDS, true)) {
                 continue;
             }
-            $label = self::FIELD_LABELS[$field] ?? $field;
-            $to    = $change['to'] ?? null;
-            if (is_array($to)) {
-                $to = $to['label'] ?? 'alterado';
-            }
-            if ($to !== null && $to !== '') {
-                $parts[] = sprintf('%s: %s', $label, $to);
+
+            $frase = $this->descreverMudanca($field, $change);
+            if ($frase !== null) {
+                $parts[] = $frase;
             }
         }
 
@@ -225,6 +252,81 @@ class PastaTimelineAssembler
             return null;
         }
 
-        return implode(', ', array_slice($parts, 0, 3));
+        return implode(' · ', array_slice($parts, 0, 3));
+    }
+
+    private function descreverMudanca(string $field, mixed $change): ?string
+    {
+        // Mudanças em coleções ManyToMany: clientes[+:1], clientes[-:2]
+        if (preg_match('/^(\w+)\[([+\-]):/', $field, $m)) {
+            $colecao = $m[1];
+            $operacao = $m[2];
+            $label = self::FIELD_LABELS[$colecao] ?? $colecao;
+            $nome = null;
+
+            if (is_array($change['to'] ?? null)) {
+                $nome = $change['to']['label'] ?? null;
+            } elseif (is_array($change['from'] ?? null)) {
+                $nome = $change['from']['label'] ?? null;
+            }
+
+            if ($operacao === '+') {
+                return $nome ? sprintf('%s adicionado: %s', $label, $nome) : sprintf('%s adicionado', $label);
+            }
+            return $nome ? sprintf('%s removido: %s', $label, $nome) : sprintf('%s removido', $label);
+        }
+
+        $to   = $change['to'] ?? null;
+        $from = $change['from'] ?? null;
+
+        // Associação com label (responsavel, processo, etc.)
+        if (is_array($to) && isset($to['label'])) {
+            $label = self::FIELD_LABELS[$field] ?? $field;
+            return $to['label']
+                ? sprintf('%s alterado para "%s"', $label, $to['label'])
+                : sprintf('%s removido', $label);
+        }
+
+        // Campo de data
+        if (in_array($field, self::DATE_FIELDS, true) && is_string($to) && $to !== '') {
+            $label = self::FIELD_LABELS[$field] ?? $field;
+            return sprintf('%s alterada para %s', $label, $this->formatarData($to));
+        }
+
+        // Status
+        if ($field === 'status' && is_string($to)) {
+            $mapa = [
+                'ativo'       => 'ativa',
+                'arquivado'   => 'arquivada',
+                'arquivada'   => 'arquivada',
+            ];
+            return 'Pasta ' . ($mapa[$to] ?? $to);
+        }
+
+        // Campo de texto simples
+        $label = self::FIELD_LABELS[$field] ?? null;
+        if ($label === null) {
+            return null;
+        }
+
+        if (is_string($to) && $to !== '') {
+            return sprintf('%s alterado para "%s"', $label, $to);
+        }
+
+        if ($to === null && $from !== null) {
+            return sprintf('%s removido', $label);
+        }
+
+        return sprintf('%s atualizado', $label);
+    }
+
+    private function formatarData(string $valor): string
+    {
+        try {
+            $dt = new \DateTimeImmutable($valor);
+            return $dt->format('d/m/Y');
+        } catch (\Throwable) {
+            return $valor;
+        }
     }
 }
