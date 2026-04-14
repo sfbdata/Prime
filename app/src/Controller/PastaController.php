@@ -594,15 +594,8 @@ class PastaController extends AbstractController
             $pasta->setStatus($status);
         }
 
-        $dataAberturaStr = trim((string) ($data['dataAbertura'] ?? ''));
-        if ($dataAberturaStr !== '') {
-            $dataAbertura = \DateTimeImmutable::createFromFormat('Y-m-d', $dataAberturaStr);
-            if ($dataAbertura === false) {
-                $errors[] = 'Data de abertura inválida. Use o formato AAAA-MM-DD.';
-            } else {
-                $pasta->setDataAbertura($dataAbertura);
-            }
-        }
+        // dataAbertura é definida apenas na criação (via construtor da entidade)
+        // e nunca alterada após isso
 
         $nomeCliente = trim((string) ($data['nome_cliente'] ?? ''));
         $pasta->setNomeCliente($nomeCliente !== '' ? $nomeCliente : null);
