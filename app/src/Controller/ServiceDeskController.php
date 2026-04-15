@@ -12,14 +12,13 @@ use App\Repository\ChamadoRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
+use App\Shared\Service\ArquivoStorageService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\String\Slugger\SluggerInterface;
 
 /**
  * ServiceDeskController - Gerencia chamados de TI (Help Desk)
@@ -55,9 +54,9 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 class ServiceDeskController extends AbstractController
 {
     public function __construct(
-        private readonly ParameterBagInterface $parameterBag,
+        private readonly string $chamadosUploadsDir,
         private readonly NotificacaoService $notificacaoService,
-        private readonly SluggerInterface $slugger
+        private readonly ArquivoStorageService $storage,
     ) {
     }
 
@@ -363,22 +362,12 @@ class ServiceDeskController extends AbstractController
      */
     private function processarAnexos(Chamado $chamado, array $arquivos, User $usuario): void
     {
-        $uploadDir = $this->parameterBag->get('kernel.project_dir') . '/public/uploads/chamados';
-
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
         foreach ($arquivos as $arquivo) {
             if (!$arquivo instanceof UploadedFile) {
                 continue;
             }
 
-            $nomeOriginal = pathinfo($arquivo->getClientOriginalName(), PATHINFO_FILENAME);
-            $extensao = $arquivo->guessExtension() ?? 'bin';
-            $nomeArquivo = $this->slugger->slug($nomeOriginal) . '-' . uniqid() . '.' . $extensao;
-
-            $arquivo->move($uploadDir, $nomeArquivo);
+            $nomeArquivo = $this->storage->salvar($arquivo, $this->chamadosUploadsDir);
 
             $anexo = new ChamadoAnexo();
             $anexo->setChamado($chamado);

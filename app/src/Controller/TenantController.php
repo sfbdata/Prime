@@ -34,10 +34,9 @@ use App\Service\TenantBootstrapService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Shared\Service\ArquivoStorageService;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -46,6 +45,7 @@ final class TenantController extends AbstractController
 {
     public function __construct(
         private readonly string $justificativasUploadsDir,
+        private readonly ArquivoStorageService $storage,
     ) {}
 
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
@@ -956,16 +956,13 @@ final class TenantController extends AbstractController
             throw $this->createNotFoundException('Esta justificativa não possui atestado.');
         }
 
-        $filePath = $this->justificativasUploadsDir . '/' . $justificativa->getAnexoPath();
+        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
 
-        if (!file_exists($filePath)) {
+        if (!$this->storage->existe($filePath)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        $response = new BinaryFileResponse($filePath);
-        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $justificativa->getAnexoPath());
-
-        return $response;
+        return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
     }
 
     private function calcularCargaDiaria(EscalaTrabalho $escala): int

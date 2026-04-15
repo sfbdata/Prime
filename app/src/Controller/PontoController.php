@@ -23,12 +23,11 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use App\Shared\Service\ArquivoStorageService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 use Twig\Environment;
@@ -39,6 +38,7 @@ final class PontoController extends AbstractController
     public function __construct(
         private readonly string $justificativasUploadsDir,
         private readonly VerificadorAlertaPonto $verificadorAlerta,
+        private readonly ArquivoStorageService $storage,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -195,13 +195,7 @@ final class PontoController extends AbstractController
             $anexoPath = null;
             $anexoFile = $form->get('anexo')->getData();
             if ($anexoFile !== null) {
-                if (!is_dir($this->justificativasUploadsDir)) {
-                    mkdir($this->justificativasUploadsDir, 0755, true);
-                }
-                $extensao = $anexoFile->guessExtension() ?? 'bin';
-                $nomeUnico = bin2hex(random_bytes(16)) . '.' . $extensao;
-                $anexoFile->move($this->justificativasUploadsDir, $nomeUnico);
-                $anexoPath = $nomeUnico;
+                $anexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
             }
 
             $batchId = bin2hex(random_bytes(16));
@@ -260,16 +254,13 @@ final class PontoController extends AbstractController
             throw $this->createNotFoundException('Esta justificativa não possui atestado.');
         }
 
-        $filePath = $this->justificativasUploadsDir . '/' . $justificativa->getAnexoPath();
+        $filePath = $this->storage->caminho($this->justificativasUploadsDir, $justificativa->getAnexoPath());
 
-        if (!file_exists($filePath)) {
+        if (!$this->storage->existe($filePath)) {
             throw $this->createNotFoundException('Arquivo não encontrado.');
         }
 
-        $response = new BinaryFileResponse($filePath);
-        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, $justificativa->getAnexoPath());
-
-        return $response;
+        return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
     }
 
     #[Route('/alerta-horario', name: 'ponto_alerta_horario', methods: ['GET'])]
