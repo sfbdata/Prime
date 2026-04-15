@@ -124,7 +124,7 @@
                                 <div class="row g-4">
 
                                     {# ── Clientes ── #}
-                                    <div class="col-md-6">
+                                    <div class="col-12 col-md-6">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
                                             <h6 class="mb-0"><i class="bi bi-people me-1"></i> Clientes</h6>
                                             <button type="button"
@@ -135,30 +135,131 @@
                                                 <i class="bi bi-plus-lg"></i>
                                             </button>
                                         </div>
-                                        {% if pasta.clientes|length > 0 %}
-                                            {% for cliente in pasta.clientes %}
-                                                <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="d-block text-decoration-none mb-3 pb-3 border-bottom vinculo-link">
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <i class="bi bi-person-circle text-muted"></i>
-                                                        <span class="fw-semibold text-primary">
-                                                            {% if cliente.cpf is defined and cliente.cpf %}
-                                                                {{ cliente.nomeCompleto }}
-                                                            {% else %}
-                                                                {{ cliente.razaoSocial }}
-                                                            {% endif %}
-                                                        </span>
+                                        <div id="clientesList">
+                                            {% if pasta.clientes|length > 0 %}
+                                                {% for cliente in pasta.clientes %}
+                                                    {# Busca dados de documentos deste cliente #}
+                                                    {% set clienteDocs = null %}
+                                                    {% for item in clientesComDocumentos %}
+                                                        {% if item.cliente.id == cliente.id %}
+                                                            {% set clienteDocs = item %}
+                                                        {% endif %}
+                                                    {% endfor %}
+
+                                                    <div class="cliente-row mb-3 pb-3 border-bottom" data-cliente-id="{{ cliente.id }}">
+                                                        {# Cabeçalho: nome + desvincular #}
+                                                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                                            <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="text-decoration-none flex-grow-1 vinculo-link">
+                                                                <div class="d-flex align-items-center gap-2">
+                                                                    <i class="bi bi-person-circle text-muted"></i>
+                                                                    <span class="fw-semibold text-primary">
+                                                                        {% if cliente.cpf is defined and cliente.cpf %}
+                                                                            {{ cliente.nomeCompleto }}
+                                                                        {% else %}
+                                                                            {{ cliente.razaoSocial }}
+                                                                        {% endif %}
+                                                                    </span>
+                                                                </div>
+                                                            </a>
+                                                            <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">
+                                                                <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_desvincular_' ~ pasta.id ~ '_' ~ cliente.id) }}">
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular cliente da pasta">
+                                                                    <i class="bi bi-trash"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+
+                                                        {# Arquivos do cliente — inline, sem modal #}
+                                                        {% if clienteDocs is not null %}
+                                                            <div class="cliente-arquivos ps-1">
+                                                                {# Documentos existentes #}
+                                                                {% set hasDocCliente = false %}
+                                                                {% for tipo, docs in clienteDocs.documentosPorTipo %}
+                                                                    {% if docs|length > 0 %}{% set hasDocCliente = true %}{% endif %}
+                                                                {% endfor %}
+
+                                                                {% if hasDocCliente %}
+                                                                    <div class="mb-2">
+                                                                        {% for tipo, docs in clienteDocs.documentosPorTipo %}
+                                                                            {% if docs|length > 0 %}
+                                                                                {% set label = documentTypeOptionsCliente[tipo] ?? tipo %}
+                                                                                <div class="text-muted small mb-1 mt-2">
+                                                                                    <i class="bi bi-folder me-1"></i>{{ label }}
+                                                                                </div>
+                                                                                {% for doc in docs %}
+                                                                                    <div class="d-flex align-items-center gap-2 rounded px-2 py-1 mb-1 doc-row-cliente">
+                                                                                        <i class="bi bi-file-earmark-text text-primary flex-shrink-0"></i>
+                                                                                        <span class="text-truncate flex-grow-1 small fw-semibold">{{ doc.nomeOriginal }}</span>
+                                                                                        <small class="text-muted text-nowrap d-none d-sm-inline">{{ doc.uploadedAt|date('d/m/Y') }}</small>
+                                                                                        <div class="d-flex gap-1 flex-shrink-0">
+                                                                                            <button type="button" class="btn btn-xs btn-outline-primary"
+                                                                                                    title="Visualizar"
+                                                                                                    data-bs-toggle="modal"
+                                                                                                    data-bs-target="#previewDocModal"
+                                                                                                    data-url="{{ path('cliente_documento_view', {id: doc.id}) }}"
+                                                                                                    data-nome="{{ doc.nomeOriginal }}"
+                                                                                                    data-mime="{{ doc.mimeType }}">
+                                                                                                <i class="bi bi-eye"></i>
+                                                                                            </button>
+                                                                                            <button type="button" class="btn btn-xs btn-outline-secondary"
+                                                                                                    title="Editar"
+                                                                                                    data-bs-toggle="modal"
+                                                                                                    data-bs-target="#editDocClienteModal{{ doc.id }}">
+                                                                                                <i class="bi bi-pencil"></i>
+                                                                                            </button>
+                                                                                        </div>
+                                                                                    </div>
+                                                                                {% endfor %}
+                                                                            {% endif %}
+                                                                        {% endfor %}
+                                                                    </div>
+                                                                {% endif %}
+
+                                                                {# Upload inline #}
+                                                                <form method="post" enctype="multipart/form-data"
+                                                                      action="{{ path('cliente_documento_upload', {id: cliente.id}) }}"
+                                                                      class="form-upload-cliente-inline mt-2"
+                                                                      data-cliente-id="{{ cliente.id }}">
+                                                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_cliente_' ~ cliente.id) }}">
+                                                                    <input type="file" id="fileInputCliente{{ cliente.id }}"
+                                                                           multiple
+                                                                           accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,audio/*,video/*"
+                                                                           class="d-none file-input-cliente">
+
+                                                                    <div id="listaUploadCliente{{ cliente.id }}" class="mb-2"></div>
+
+                                                                    <div class="d-flex align-items-center gap-2">
+                                                                        <button type="button"
+                                                                                class="btn btn-xs btn-outline-primary btn-escolher-arquivo-cliente"
+                                                                                data-cliente-id="{{ cliente.id }}">
+                                                                            <i class="bi bi-paperclip me-1"></i> Anexar arquivo
+                                                                        </button>
+                                                                        <button type="submit"
+                                                                                class="btn btn-xs btn-success btn-enviar-cliente d-none"
+                                                                                data-cliente-id="{{ cliente.id }}">
+                                                                            <i class="bi bi-cloud-upload me-1"></i> Enviar
+                                                                        </button>
+                                                                        <button type="button"
+                                                                                class="btn btn-xs btn-outline-secondary btn-cancelar-cliente d-none"
+                                                                                data-cliente-id="{{ cliente.id }}">
+                                                                            <i class="bi bi-x"></i>
+                                                                        </button>
+                                                                    </div>
+                                                                </form>
+                                                            </div>
+                                                        {% endif %}
                                                     </div>
-                                                </a>
-                                            {% endfor %}
-                                        {% elseif pasta.nomeCliente %}
-                                            <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
-                                                <i class="bi bi-person-circle text-muted"></i>
-                                                <span>{{ pasta.nomeCliente }}</span>
-                                                <span class="badge text-bg-secondary ms-auto" style="font-size:.65rem;">não vinculado</span>
-                                            </div>
-                                        {% else %}
-                                            <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</p>
-                                        {% endif %}
+                                                {% endfor %}
+                                            {% elseif pasta.nomeCliente %}
+                                                <div id="clientesPlaceholder" class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
+                                                    <i class="bi bi-person-circle text-muted"></i>
+                                                    <span>{{ pasta.nomeCliente }}</span>
+                                                    <span class="badge text-bg-secondary ms-auto" style="font-size:.65rem;">não vinculado</span>
+                                                </div>
+                                            {% else %}
+                                                <div id="clientesPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</div>
+                                            {% endif %}
+                                        </div>
                                     </div>
 
                                     {# ── Partes Contrárias ── #}
@@ -173,16 +274,26 @@
                                                 <i class="bi bi-plus-lg"></i>
                                             </button>
                                         </div>
-                                        {% if pasta.partesContrarias|length > 0 %}
-                                            {% for parte in pasta.partesContrarias %}
-                                                <div class="d-flex align-items-center gap-2 mb-3 pb-3 border-bottom">
-                                                    <i class="bi bi-person-dash text-muted"></i>
-                                                    <span>{{ parte.nome }}</span>
-                                                </div>
-                                            {% endfor %}
-                                        {% else %}
-                                            <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte contrária registrada.</p>
-                                        {% endif %}
+                                        <div id="partesContrariasList">
+                                            {% if pasta.partesContrarias|length > 0 %}
+                                                {% for parte in pasta.partesContrarias %}
+                                                    <div class="parte-contraria-row d-flex align-items-center justify-content-between gap-2 mb-3 pb-3 border-bottom" data-parte-contraria-id="{{ parte.id }}">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <i class="bi bi-person-dash text-muted"></i>
+                                                            <span>{{ parte.nome }}</span>
+                                                        </div>
+                                                        <form method="post" action="{{ path('pasta_parte_contraria_desvincular', {id: pasta.id, parteContraria: parte.id}) }}" class="js-ajax-desvincular-parte-contraria m-0">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('pasta_parte_contraria_desvincular_' ~ pasta.id ~ '_' ~ parte.id) }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular parte contrária da pasta">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                {% endfor %}
+                                            {% else %}
+                                                <div id="partesContrariasPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte contrária registrada.</div>
+                                            {% endif %}
+                                        </div>
                                     </div>
 
                                 </div>
@@ -190,6 +301,7 @@
 
                             {# Tab: Processo #}
                             <div class="tab-pane fade" id="processo" role="tabpanel" aria-labelledby="processo-tab">
+                                <div id="processoTabContent">
                                 {% if pasta.processo %}
                                     <div class="row g-3">
                                         <div class="col-12 col-sm-6 col-lg-4">
@@ -294,6 +406,7 @@
                                         </button>
                                     </div>
                                 {% endif %}
+                                </div><!-- /processoTabContent -->
                             </div>
 
                             {# Tab: Contrato #}
@@ -455,31 +568,91 @@
 
                                 {# Arquivos por categoria #}
                                 <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> Arquivos da Pasta</h6>
-                                <ul class="list-unstyled mb-0">
-                                    {% set hasDocuments = false %}
-                                    {% for tipo, label in documentTypeOptions %}
-                                        {% set docs = documentosPorTipo[tipo] ?? [] %}
-                                        {% for doc in docs %}
-                                            {% set hasDocuments = true %}
-                                            <li class="mb-2">
-                                                <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" class="btn-link text-secondary text-decoration-none">
-                                                    <i class="bi bi-download me-1"></i>
-                                                    <i class="bi bi-file-earmark me-1"></i>
-                                                    {{ doc.nomeOriginal }}
-                                                </a>
-                                                <small class="text-muted d-block ms-4">{{ label }} - {{ doc.uploadedAt|date('d/m/Y') }} · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}</small>
-                                            </li>
-                                        {% endfor %}
+
+                                {# Documentos já enviados #}
+                                {% set hasDocuments = false %}
+                                {% for tipo, docs in documentosPorTipo %}
+                                    {% if docs|length > 0 %}{% set hasDocuments = true %}{% endif %}
+                                {% endfor %}
+
+                                {% if hasDocuments %}
+                                <div class="mb-3">
+                                    {% for tipo, docs in documentosPorTipo %}
+                                        {% if docs|length > 0 %}
+                                            {% set label = documentTypeOptions[tipo] ?? tipo %}
+                                            {% for doc in docs %}
+                                                <div class="d-flex align-items-center border rounded px-3 py-2 mb-2 gap-3">
+                                                    <i class="bi bi-file-earmark-text fs-5 text-primary flex-shrink-0"></i>
+                                                    <div class="flex-grow-1 overflow-hidden">
+                                                        <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="text-truncate d-block fw-semibold">
+                                                            {{ doc.nomeOriginal }}
+                                                        </a>
+                                                        <small class="text-muted">
+                                                            {{ label }}
+                                                            {% if doc.descricao %} · {{ doc.descricao }}{% endif %}
+                                                            {% if doc.numero %} · Nº {{ doc.numero }}{% endif %}
+                                                            · {{ doc.uploadedAt|date('d/m/Y') }}
+                                                            · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}
+                                                        </small>
+                                                    </div>
+                                                    <div class="d-flex gap-1 flex-shrink-0">
+                                                        <button type="button" class="btn btn-sm btn-outline-primary"
+                                                                title="Visualizar"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#previewDocModal"
+                                                                data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
+                                                                data-nome="{{ doc.nomeOriginal }}"
+                                                                data-mime="{{ doc.mimeType }}">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                                title="Editar"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#editDocModal{{ doc.id }}">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </button>
+                                                        <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');">
+                                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
+                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            {% endfor %}
+                                        {% endif %}
                                     {% endfor %}
-                                    {% if not hasDocuments %}
-                                        <li class="text-muted"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado.</li>
-                                    {% endif %}
-                                </ul>
-                            </div>
-                            <div class="card-footer text-center">
-                                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentosModal">
-                                    <i class="bi bi-cloud-upload me-1"></i> Upload
-                                </button>
+                                </div>
+                                <hr>
+                                {% else %}
+                                <p class="text-muted mb-3"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado.</p>
+                                {% endif %}
+
+                                {# Formulário de upload inline #}
+                                <form id="formAnexos" method="post" enctype="multipart/form-data"
+                                      action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
+
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <button type="button" id="btnAdicionarAnexo" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
+                                        </button>
+                                        <button type="button" id="btnLimparAnexos" class="btn btn-sm btn-outline-secondary d-none">
+                                            <i class="bi bi-x-circle me-1"></i> Limpar
+                                        </button>
+                                        <input type="file" id="inputAnexoOculto" multiple
+                                               accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
+                                               class="d-none">
+                                    </div>
+
+                                    <div id="listaAnexos"></div>
+
+                                    <div id="areaEnviar" class="d-none mt-3 text-end">
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
 
@@ -508,9 +681,9 @@
     </div>
 </section>
 
-{# Modal: Adicionar Cliente (implementação futura) #}
+{# Modal: Adicionar Cliente #}
 <div class="modal fade" id="modalAdicionarCliente" tabindex="-1" aria-labelledby="modalAdicionarClienteLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+    <div class="modal-dialog modal-dialog-scrollable" style="max-width:560px;">
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalAdicionarClienteLabel">
@@ -518,18 +691,876 @@
                 </h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body py-4 text-center text-muted">
-                <i class="bi bi-tools fs-2 mb-2 d-block"></i>
-                Funcionalidade em desenvolvimento.
-            </div>
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
-            </div>
+            <form id="formNovoCliente" method="post" action="{{ path('pasta_cliente_novo', {id: pasta.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_novo_' ~ pasta.id) }}">
+                <input type="hidden" name="tipo" id="campoTipoCliente" value="">
+                <input type="hidden" id="urlBuscarClientes" value="{{ path('pasta_clientes_buscar', {id: pasta.id}) }}">
+                <input type="hidden" id="urlVincularCliente" value="{{ path('pasta_cliente_vincular', {id: pasta.id}) }}">
+                <input type="hidden" id="csrfVincularCliente" value="{{ csrf_token('pasta_cliente_vincular_' ~ pasta.id) }}">
+
+                <div class="modal-body">
+
+                    <div id="alertaErroCliente" class="alert alert-danger alert-sm py-2 d-none" role="alert"></div>
+
+                    {# — Passo 1: escolha do tipo — #}
+                    <div id="passoEscolhaTipo">
+                        <p class="text-muted small mb-3">Selecione o tipo de cliente para continuar:</p>
+                        <div class="d-flex gap-3">
+                            <button type="button" class="btn btn-outline-primary flex-fill py-3" id="btnEscolherPF">
+                                <i class="bi bi-person fs-4 d-block mb-1"></i>
+                                Pessoa Física
+                            </button>
+                            <button type="button" class="btn btn-outline-primary flex-fill py-3" id="btnEscolherPJ">
+                                <i class="bi bi-building fs-4 d-block mb-1"></i>
+                                Pessoa Jurídica
+                            </button>
+                        </div>
+
+                        {# — Divisor — #}
+                        <div class="d-flex align-items-center gap-2 my-4">
+                            <hr class="flex-fill m-0">
+                            <span class="text-muted small px-1 text-nowrap">ou selecione um cliente já cadastrado</span>
+                            <hr class="flex-fill m-0">
+                        </div>
+
+                        {# — Busca de cliente existente — #}
+                        <div class="position-relative">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text bg-white border-end-0">
+                                    <i class="bi bi-search text-muted"></i>
+                                </span>
+                                <input type="text"
+                                       id="buscaClienteExistente"
+                                       class="form-control border-start-0 ps-0"
+                                       placeholder="Buscar por nome, CPF ou CNPJ…"
+                                       autocomplete="off">
+                                <span class="input-group-text bg-white border-start-0 d-none" id="buscaClienteSpinner">
+                                    <span class="spinner-border spinner-border-sm text-secondary" role="status"></span>
+                                </span>
+                            </div>
+                            <ul id="buscaClienteResultados"
+                                class="list-group shadow-sm w-100 d-none mt-2"
+                                style="z-index:1060; max-height:220px; overflow-y:auto;">
+                            </ul>
+                        </div>
+                        <div id="clienteSelecionadoPreview" class="d-none mt-3 p-2 rounded border bg-light d-flex align-items-center justify-content-between gap-2">
+                            <div class="d-flex align-items-center gap-2 overflow-hidden">
+                                <i class="bi bi-person-check text-success fs-5 flex-shrink-0"></i>
+                                <div class="overflow-hidden">
+                                    <div class="fw-semibold text-truncate small" id="clienteSelecionadoNome"></div>
+                                    <div class="text-muted" style="font-size:.75rem;" id="clienteSelecionadoDoc"></div>
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-link btn-sm p-0 text-danger flex-shrink-0" id="btnLimparClienteSelecionado" title="Remover seleção">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {# — Formulário PF — #}
+                    <div id="formPF" class="d-none">
+                        <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+                            <button type="button" class="btn btn-sm btn-link p-0 text-secondary" id="btnVoltarPF">
+                                <i class="bi bi-arrow-left"></i>
+                            </button>
+                            <span class="fw-semibold"><i class="bi bi-person me-1"></i> Pessoa Física</span>
+                        </div>
+
+                        {# Abas PF #}
+                        <ul class="nav nav-tabs nav-tabs-sm mb-3" id="tabsPF" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active py-1 px-3" id="pf-dados-tab"
+                                        data-bs-toggle="tab" data-bs-target="#pf-dados"
+                                        type="button" role="tab">
+                                    Dados Pessoais
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link py-1 px-3" id="pf-contato-tab"
+                                        data-bs-toggle="tab" data-bs-target="#pf-contato"
+                                        type="button" role="tab">
+                                    Contato
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link py-1 px-3" id="pf-endereco-tab"
+                                        data-bs-toggle="tab" data-bs-target="#pf-endereco"
+                                        type="button" role="tab">
+                                    Endereço
+                                </button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="tabsPFContent">
+
+                            {# PF — Dados Pessoais #}
+                            <div class="tab-pane fade show active" id="pf-dados" role="tabpanel">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">Nome Completo <span class="text-danger">*</span></label>
+                                        <input type="text" name="nomeCompleto" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">CPF <span class="text-danger">*</span></label>
+                                        <input type="text" name="cpf" class="form-control form-control-sm" placeholder="000.000.000-00">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Data de Nascimento</label>
+                                        <input type="date" name="dataNascimento" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Estado Civil</label>
+                                        <select name="estadoCivil" class="form-select form-select-sm">
+                                            <option value="">— selecione —</option>
+                                            <option value="SOLTEIRO">Solteiro(a)</option>
+                                            <option value="CASADO">Casado(a)</option>
+                                            <option value="DIVORCIADO">Divorciado(a)</option>
+                                            <option value="VIUVO">Viúvo(a)</option>
+                                            <option value="UNIAO_ESTAVEL">União estável</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Profissão</label>
+                                        <input type="text" name="profissao" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-5">
+                                        <label class="form-label form-label-sm mb-1">RG <span class="text-danger">*</span></label>
+                                        <input type="text" name="rg" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-7">
+                                        <label class="form-label form-label-sm mb-1">Órgão Expedidor <span class="text-danger">*</span></label>
+                                        <input type="text" name="rgOrgaoExpedidor" class="form-control form-control-sm" placeholder="SSP/SP">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Data de Emissão do RG</label>
+                                        <input type="date" name="rgDataEmissao" class="form-control form-control-sm">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# PF — Contato #}
+                            <div class="tab-pane fade" id="pf-contato" role="tabpanel">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">E-mail <span class="text-danger">*</span></label>
+                                        <input type="email" name="email" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Celular</label>
+                                        <input type="tel" name="telefoneCelular" class="form-control form-control-sm" placeholder="(00) 90000-0000">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Telefone Fixo</label>
+                                        <input type="tel" name="telefoneFixo" class="form-control form-control-sm" placeholder="(00) 0000-0000">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# PF — Endereço #}
+                            <div class="tab-pane fade" id="pf-endereco" role="tabpanel">
+                                <div class="row g-2">
+                                    <div class="col-4">
+                                        <label class="form-label form-label-sm mb-1">CEP <span class="text-danger">*</span></label>
+                                        <input type="text" name="cep" class="form-control form-control-sm" placeholder="00000-000">
+                                    </div>
+                                    <div class="col-8">
+                                        <label class="form-label form-label-sm mb-1">Endereço <span class="text-danger">*</span></label>
+                                        <input type="text" name="endereco" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Complemento</label>
+                                        <input type="text" name="complemento" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label form-label-sm mb-1">Cidade <span class="text-danger">*</span></label>
+                                        <input type="text" name="cidade" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-2">
+                                        <label class="form-label form-label-sm mb-1">UF <span class="text-danger">*</span></label>
+                                        <input type="text" name="estado" class="form-control form-control-sm" maxlength="2" placeholder="SP">
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>{# /tab-content PF #}
+                    </div>{# /formPF #}
+
+                    {# — Formulário PJ — #}
+                    <div id="formPJ" class="d-none">
+                        <div class="d-flex align-items-center gap-2 mb-3 pb-2 border-bottom">
+                            <button type="button" class="btn btn-sm btn-link p-0 text-secondary" id="btnVoltarPJ">
+                                <i class="bi bi-arrow-left"></i>
+                            </button>
+                            <span class="fw-semibold"><i class="bi bi-building me-1"></i> Pessoa Jurídica</span>
+                        </div>
+
+                        {# Abas PJ #}
+                        <ul class="nav nav-tabs nav-tabs-sm mb-3" id="tabsPJ" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active py-1 px-3" id="pj-empresa-tab"
+                                        data-bs-toggle="tab" data-bs-target="#pj-empresa"
+                                        type="button" role="tab">
+                                    Dados da Empresa
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link py-1 px-3" id="pj-representante-tab"
+                                        data-bs-toggle="tab" data-bs-target="#pj-representante"
+                                        type="button" role="tab">
+                                    Representante Legal
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link py-1 px-3" id="pj-contato-tab"
+                                        data-bs-toggle="tab" data-bs-target="#pj-contato"
+                                        type="button" role="tab">
+                                    Contato
+                                </button>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="tabsPJContent">
+
+                            {# PJ — Dados da Empresa #}
+                            <div class="tab-pane fade show active" id="pj-empresa" role="tabpanel">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">Razão Social <span class="text-danger">*</span></label>
+                                        <input type="text" name="razaoSocial" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">Nome Fantasia</label>
+                                        <input type="text" name="nomeFantasia" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">CNPJ <span class="text-danger">*</span></label>
+                                        <input type="text" name="cnpj" class="form-control form-control-sm" placeholder="00.000.000/0000-00">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Inscrição Estadual</label>
+                                        <input type="text" name="inscricaoEstadual" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Inscrição Municipal</label>
+                                        <input type="text" name="inscricaoMunicipal" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">Endereço da Sede <span class="text-danger">*</span></label>
+                                        <input type="text" name="enderecSede" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label form-label-sm mb-1">CEP <span class="text-danger">*</span></label>
+                                        <input type="text" name="cep" class="form-control form-control-sm" placeholder="00000-000">
+                                    </div>
+                                    <div class="col-8">
+                                        <label class="form-label form-label-sm mb-1">Endereço <span class="text-danger">*</span></label>
+                                        <input type="text" name="endereco" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Complemento</label>
+                                        <input type="text" name="complemento" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-4">
+                                        <label class="form-label form-label-sm mb-1">Cidade <span class="text-danger">*</span></label>
+                                        <input type="text" name="cidade" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-2">
+                                        <label class="form-label form-label-sm mb-1">UF <span class="text-danger">*</span></label>
+                                        <input type="text" name="estado" class="form-control form-control-sm" maxlength="2" placeholder="SP">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# PJ — Representante Legal #}
+                            <div class="tab-pane fade" id="pj-representante" role="tabpanel">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">Nome <span class="text-danger">*</span></label>
+                                        <input type="text" name="representanteLegal" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">CPF <span class="text-danger">*</span></label>
+                                        <input type="text" name="representanteCpf" class="form-control form-control-sm" placeholder="000.000.000-00">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">RG <span class="text-danger">*</span></label>
+                                        <input type="text" name="representanteRg" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">Cargo <span class="text-danger">*</span></label>
+                                        <input type="text" name="representanteCargo" class="form-control form-control-sm">
+                                    </div>
+                                </div>
+                            </div>
+
+                            {# PJ — Contato #}
+                            <div class="tab-pane fade" id="pj-contato" role="tabpanel">
+                                <div class="row g-2">
+                                    <div class="col-12">
+                                        <label class="form-label form-label-sm mb-1">E-mail <span class="text-danger">*</span></label>
+                                        <input type="email" name="email" class="form-control form-control-sm">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Celular</label>
+                                        <input type="tel" name="telefoneCelular" class="form-control form-control-sm" placeholder="(00) 90000-0000">
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label form-label-sm mb-1">Telefone Fixo</label>
+                                        <input type="tel" name="telefoneFixo" class="form-control form-control-sm" placeholder="(00) 0000-0000">
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>{# /tab-content PJ #}
+                    </div>{# /formPJ #}
+
+                </div>{# /modal-body #}
+
+                <div class="modal-footer py-2" id="footerFormCliente" style="display:none!important;">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i> Salvar Cliente
+                    </button>
+                </div>
+                <div class="modal-footer py-2 d-none" id="footerVincularCliente">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success btn-sm" id="btnConfirmarVincular">
+                        <i class="bi bi-link-45deg me-1"></i> Vincular Cliente
+                    </button>
+                </div>
+                <div class="modal-footer py-2" id="footerEscolhaTipo">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-{# Modal: Adicionar Parte Contrária (implementação futura) #}
+<script>
+(function () {
+    'use strict';
+
+    const modal = document.getElementById('modalAdicionarCliente');
+    if (!modal) return;
+
+    const passoEscolha       = modal.querySelector('#passoEscolhaTipo');
+    const formPF             = modal.querySelector('#formPF');
+    const formPJ             = modal.querySelector('#formPJ');
+    const campoTipo          = modal.querySelector('#campoTipoCliente');
+    const footerForm         = modal.querySelector('#footerFormCliente');
+    const footerEscolha      = modal.querySelector('#footerEscolhaTipo');
+    const footerVincular     = modal.querySelector('#footerVincularCliente');
+    const alertaErro         = modal.querySelector('#alertaErroCliente');
+    const form               = modal.querySelector('#formNovoCliente');
+    const btnSalvar          = footerForm.querySelector('button[type="submit"]');
+
+    // Busca de cliente existente
+    const inputBusca         = modal.querySelector('#buscaClienteExistente');
+    const listaResultados    = modal.querySelector('#buscaClienteResultados');
+    const spinnerBusca       = modal.querySelector('#buscaClienteSpinner');
+    const preview            = modal.querySelector('#clienteSelecionadoPreview');
+    const previewNome        = modal.querySelector('#clienteSelecionadoNome');
+    const previewDoc         = modal.querySelector('#clienteSelecionadoDoc');
+    const btnLimpar          = modal.querySelector('#btnLimparClienteSelecionado');
+    const btnConfirmarVincular = modal.querySelector('#btnConfirmarVincular');
+    const urlBuscar          = document.getElementById('urlBuscarClientes')?.value ?? '';
+    const urlVincular        = document.getElementById('urlVincularCliente')?.value ?? '';
+    const csrfVincular       = document.getElementById('csrfVincularCliente')?.value ?? '';
+    const pastaId            = '{{ pasta.id }}';
+    const clientesContainer  = document.getElementById('clientesList');
+    const partesContainer    = document.getElementById('partesContrariasList');
+
+    let clienteSelecionadoId = null;
+    let debounceTimer        = null;
+
+    function criarClienteRow(cliente) {
+        const row = document.createElement('div');
+        row.className = 'cliente-row d-flex align-items-center justify-content-between gap-2 mb-3 pb-3 border-bottom';
+        row.dataset.clienteId = cliente.id;
+
+        const link = document.createElement('a');
+        link.href = `/clientes/${cliente.id}`;
+        link.className = 'text-decoration-none flex-grow-1 me-2 vinculo-link';
+
+        const linkContent = document.createElement('div');
+        linkContent.className = 'd-flex align-items-center gap-2';
+
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-person-circle text-muted';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'fw-semibold text-primary';
+        nameSpan.textContent = cliente.nome;
+
+        linkContent.appendChild(icon);
+        linkContent.appendChild(nameSpan);
+        link.appendChild(linkContent);
+
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = `/pasta/${pastaId}/cliente/${cliente.id}/desvincular`;
+        form.className = 'js-ajax-desvincular-cliente m-0';
+
+        const tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = '_token';
+        tokenInput.value = cliente.csrfToken;
+
+        const button = document.createElement('button');
+        button.type = 'submit';
+        button.className = 'btn btn-sm btn-outline-danger';
+        button.title = 'Desvincular cliente da pasta';
+        button.innerHTML = '<i class="bi bi-trash"></i>';
+
+        form.appendChild(tokenInput);
+        form.appendChild(button);
+
+        row.appendChild(link);
+        row.appendChild(form);
+
+        return row;
+    }
+
+    function appendClienteRow(cliente) {
+        if (!clientesContainer) {
+            return;
+        }
+        const placeholder = clientesContainer.querySelector('#clientesPlaceholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+        clientesContainer.appendChild(criarClienteRow(cliente));
+    }
+
+    function removeClienteRow(clienteId, form = null) {
+        if (!clientesContainer) {
+            return;
+        }
+
+        let row = null;
+        if (clienteId) {
+            row = clientesContainer.querySelector(`.cliente-row[data-cliente-id="${clienteId}"]`);
+        }
+        if (!row && form) {
+            row = form.closest('.cliente-row');
+        }
+
+        if (row) {
+            row.remove();
+        }
+        if (!clientesContainer.querySelector('.cliente-row')) {
+            clientesContainer.insertAdjacentHTML('beforeend', '<div id="clientesPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum cliente vinculado.</div>');
+        }
+    }
+
+    function criarParteContrariaRow(parte) {
+        const row = document.createElement('div');
+        row.className = 'parte-contraria-row d-flex align-items-center justify-content-between gap-2 mb-3 pb-3 border-bottom';
+        row.dataset.parteContrariaId = parte.id;
+
+        const label = document.createElement('div');
+        label.className = 'd-flex align-items-center gap-2';
+
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-person-dash text-muted';
+
+        const nomeSpan = document.createElement('span');
+        nomeSpan.textContent = parte.nome;
+
+        label.appendChild(icon);
+        label.appendChild(nomeSpan);
+
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = `/pasta/${pastaId}/parte-contraria/${parte.id}/desvincular`;
+        form.className = 'js-ajax-desvincular-parte-contraria m-0';
+
+        const tokenInput = document.createElement('input');
+        tokenInput.type = 'hidden';
+        tokenInput.name = '_token';
+        tokenInput.value = parte.csrfToken;
+
+        const button = document.createElement('button');
+        button.type = 'submit';
+        button.className = 'btn btn-sm btn-outline-danger';
+        button.title = 'Desvincular parte contrária da pasta';
+        button.innerHTML = '<i class="bi bi-trash"></i>';
+
+        form.appendChild(tokenInput);
+        form.appendChild(button);
+
+        row.appendChild(label);
+        row.appendChild(form);
+
+        return row;
+    }
+
+    function appendParteContrariaRow(parte) {
+        if (!partesContainer) {
+            return;
+        }
+        const placeholder = partesContainer.querySelector('#partesContrariasPlaceholder');
+        if (placeholder) {
+            placeholder.remove();
+        }
+        partesContainer.appendChild(criarParteContrariaRow(parte));
+    }
+
+    function removeParteContrariaRow(parteId, form = null) {
+        if (!partesContainer) {
+            return;
+        }
+
+        let row = null;
+        if (parteId) {
+            row = partesContainer.querySelector(`.parte-contraria-row[data-parte-contraria-id="${parteId}"]`);
+        }
+        if (!row && form) {
+            row = form.closest('.parte-contraria-row');
+        }
+
+        if (row) {
+            row.remove();
+        }
+        if (!partesContainer.querySelector('.parte-contraria-row')) {
+            partesContainer.insertAdjacentHTML('beforeend', '<div id="partesContrariasPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte contrária registrada.</div>');
+        }
+    }
+
+    function mostrarErro(msg) {
+        alertaErro.textContent = msg;
+        alertaErro.classList.remove('d-none');
+        alertaErro.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function ocultarErro() {
+        alertaErro.classList.add('d-none');
+        alertaErro.textContent = '';
+    }
+
+    function mostrar(tipo) {
+        ocultarErro();
+        passoEscolha.classList.add('d-none');
+        footerEscolha.style.setProperty('display', 'none', 'important');
+        footerForm.style.removeProperty('display');
+
+        if (tipo === 'pf') {
+            formPF.classList.remove('d-none');
+            formPJ.classList.add('d-none');
+            campoTipo.value = 'pf';
+            // Ativa primeira aba do PF
+            bootstrap.Tab.getOrCreateInstance(modal.querySelector('#pf-dados-tab')).show();
+        } else {
+            formPJ.classList.remove('d-none');
+            formPF.classList.add('d-none');
+            campoTipo.value = 'pj';
+            // Ativa primeira aba do PJ
+            bootstrap.Tab.getOrCreateInstance(modal.querySelector('#pj-empresa-tab')).show();
+        }
+    }
+
+    function voltar() {
+        ocultarErro();
+        formPF.classList.add('d-none');
+        formPJ.classList.add('d-none');
+        passoEscolha.classList.remove('d-none');
+        footerForm.style.setProperty('display', 'none', 'important');
+        footerEscolha.style.removeProperty('display');
+        campoTipo.value = '';
+    }
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        ocultarErro();
+
+        btnSalvar.disabled = true;
+        const icone = btnSalvar.querySelector('i');
+        if (icone) icone.className = 'bi bi-hourglass-split me-1';
+
+        // Desabilita inputs do form inativo para não serem incluídos no FormData
+        const tipoAtivo = campoTipo.value;
+        const formInativo = tipoAtivo === 'pf' ? formPJ : formPF;
+        const inputsDesabilitados = formInativo.querySelectorAll('input, select, textarea');
+        inputsDesabilitados.forEach(el => { el.disabled = true; });
+
+        try {
+            const resp = await fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(form),
+            });
+
+            if (!resp.ok) {
+                let msgErro = 'Erro ao salvar cliente.';
+                try {
+                    const dados = await resp.json();
+                    msgErro = dados.erro ?? msgErro;
+                } catch (_) { /* resposta não é JSON */ }
+                mostrarErro(msgErro);
+                return;
+            }
+
+            const dados = await resp.json();
+            if (dados.sucesso && dados.cliente) {
+                appendClienteRow(dados.cliente);
+                bootstrap.Modal.getInstance(modal)?.hide();
+                return;
+            }
+
+            mostrarErro('Cliente salvo, mas não foi possível atualizar a lista.');
+        } catch (err) {
+            mostrarErro('Erro de comunicação. Tente novamente.');
+            console.error('[formNovoCliente]', err);
+        } finally {
+            inputsDesabilitados.forEach(el => { el.disabled = false; });
+            btnSalvar.disabled = false;
+            if (icone) icone.className = 'bi bi-check-lg me-1';
+        }
+    });
+
+    // — Busca de cliente existente —
+
+    function selecionarCliente(id, nome, documento, tipo) {
+        clienteSelecionadoId = id;
+        previewNome.textContent = nome;
+        previewDoc.textContent  = documento + ' · ' + tipo;
+        preview.classList.remove('d-none');
+        listaResultados.classList.add('d-none');
+        inputBusca.value = '';
+        footerVincular.classList.remove('d-none');
+        footerEscolha.classList.add('d-none');
+    }
+
+    function limparSelecao() {
+        clienteSelecionadoId = null;
+        preview.classList.add('d-none');
+        footerVincular.classList.add('d-none');
+        footerEscolha.classList.remove('d-none');
+    }
+
+    async function executarBusca(termo) {
+        if (termo.length < 2) {
+            listaResultados.classList.add('d-none');
+            return;
+        }
+
+        spinnerBusca.classList.remove('d-none');
+        try {
+            const resp = await fetch(urlBuscar + '?q=' + encodeURIComponent(termo), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (!resp.ok) return;
+
+            const dados = await resp.json();
+            listaResultados.innerHTML = '';
+
+            if (dados.length === 0) {
+                listaResultados.innerHTML = '<li class="list-group-item text-muted small py-2">Nenhum cliente encontrado.</li>';
+            } else {
+                dados.forEach(c => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2 py-2';
+                    li.style.cursor = 'pointer';
+                    li.innerHTML = `
+                        <i class="bi ${c.tipo === 'PF' ? 'bi-person' : 'bi-building'} text-primary flex-shrink-0"></i>
+                        <div class="overflow-hidden flex-fill">
+                            <div class="fw-semibold text-truncate small">${c.nome}</div>
+                            <div class="text-muted" style="font-size:.72rem;">${c.documento} · ${c.tipo}</div>
+                        </div>
+                        <i class="bi bi-plus-circle text-success flex-shrink-0"></i>`;
+                    li.addEventListener('click', () => selecionarCliente(c.id, c.nome, c.documento, c.tipo));
+                    listaResultados.appendChild(li);
+                });
+            }
+
+            listaResultados.classList.remove('d-none');
+        } catch (_) {
+            /* silencioso */
+        } finally {
+            spinnerBusca.classList.add('d-none');
+        }
+    }
+
+    inputBusca.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => executarBusca(inputBusca.value.trim()), 300);
+    });
+
+    inputBusca.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            listaResultados.classList.add('d-none');
+        }
+    });
+
+    document.addEventListener('click', e => {
+        if (!listaResultados.contains(e.target) && e.target !== inputBusca) {
+            listaResultados.classList.add('d-none');
+        }
+    });
+
+    btnLimpar.addEventListener('click', limparSelecao);
+
+    document.addEventListener('submit', async (event) => {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) {
+            return;
+        }
+
+        if (form.matches('form.js-ajax-desvincular-cliente')) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+            }
+
+            try {
+                const resp = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new FormData(form),
+                });
+
+                if (!resp.ok) {
+                    const dados = await resp.json().catch(() => ({}));
+                    alert(dados.erro ?? 'Erro ao desvincular cliente.');
+                    return;
+                }
+
+                const dados = await resp.json().catch(() => ({}));
+                if (dados.sucesso) {
+                    removeClienteRow(dados.clienteId ?? '', form);
+                    return;
+                }
+
+                alert(dados.erro ?? 'Erro ao desvincular cliente.');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                }
+            }
+        }
+
+        if (form.matches('form.js-ajax-desvincular-parte-contraria')) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+            }
+
+            try {
+                const resp = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new FormData(form),
+                });
+
+                if (!resp.ok) {
+                    const dados = await resp.json().catch(() => ({}));
+                    alert(dados.erro ?? 'Erro ao desvincular parte contrária.');
+                    return;
+                }
+
+                const dados = await resp.json().catch(() => ({}));
+                if (dados.sucesso) {
+                    removeParteContrariaRow(dados.parteContrariaId ?? '', form);
+                    return;
+                }
+
+                alert(dados.erro ?? 'Erro ao desvincular parte contrária.');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                }
+            }
+        }
+
+        if (form.matches('form.js-ajax-parte-contraria-form')) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+            }
+
+            try {
+                const resp = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new FormData(form),
+                });
+
+                if (!resp.ok) {
+                    const dados = await resp.json().catch(() => ({}));
+                    alert(dados.erro ?? 'Erro ao adicionar parte contrária.');
+                    return;
+                }
+
+                const dados = await resp.json();
+                if (dados.sucesso && dados.parte) {
+                    appendParteContrariaRow(dados.parte);
+                    bootstrap.Modal.getInstance(document.getElementById('modalAdicionarParteContraria'))?.hide();
+                    form.reset();
+                    return;
+                }
+
+                alert('Parte contrária adicionada, mas não foi possível atualizar a lista.');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                }
+            }
+        }
+    });
+
+    btnConfirmarVincular.addEventListener('click', async () => {
+        if (!clienteSelecionadoId) return;
+
+        btnConfirmarVincular.disabled = true;
+        const icone = btnConfirmarVincular.querySelector('i');
+        if (icone) icone.className = 'bi bi-hourglass-split me-1';
+
+        try {
+            const body = new FormData();
+            body.append('cliente_id', String(clienteSelecionadoId));
+            body.append('_token', csrfVincular);
+
+            const resp = await fetch(urlVincular, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body,
+            });
+
+            if (!resp.ok) {
+                const dados = await resp.json().catch(() => ({}));
+                mostrarErro(dados.erro ?? 'Erro ao vincular cliente.');
+                return;
+            }
+
+            const dados = await resp.json();
+            if (dados.sucesso && dados.cliente) {
+                appendClienteRow(dados.cliente);
+                bootstrap.Modal.getInstance(modal)?.hide();
+                return;
+            }
+
+            mostrarErro('Cliente vinculado, mas não foi possível atualizar a lista.');
+        } catch (_) {
+            mostrarErro('Erro de comunicação. Tente novamente.');
+        } finally {
+            btnConfirmarVincular.disabled = false;
+            if (icone) icone.className = 'bi bi-link-45deg me-1';
+        }
+    });
+
+    // — Fim busca de cliente existente —
+
+    modal.querySelector('#btnEscolherPF').addEventListener('click', () => mostrar('pf'));
+    modal.querySelector('#btnEscolherPJ').addEventListener('click', () => mostrar('pj'));
+    modal.querySelector('#btnVoltarPF').addEventListener('click', voltar);
+    modal.querySelector('#btnVoltarPJ').addEventListener('click', voltar);
+
+    modal.addEventListener('hidden.bs.modal', () => { voltar(); limparSelecao(); });
+}());
+</script>
+
+{# Modal: Adicionar Parte Contrária #}
 <div class="modal fade" id="modalAdicionarParteContraria" tabindex="-1" aria-labelledby="modalAdicionarParteContrariaLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
         <div class="modal-content">
@@ -539,20 +1570,36 @@
                 </h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body py-4 text-center text-muted">
-                <i class="bi bi-tools fs-2 mb-2 d-block"></i>
-                Funcionalidade em desenvolvimento.
-            </div>
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
-            </div>
+            <form method="post" action="{{ path('pasta_parte_contraria_nova', {id: pasta.id}) }}" class="js-ajax-parte-contraria-form">
+                <input type="hidden" name="_token" value="{{ csrf_token('pasta_parte_contraria_nova_' ~ pasta.id) }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nomeParteContraria" class="form-label form-label-sm mb-1">
+                            Nome <span class="text-danger">*</span>
+                        </label>
+                        <input type="text"
+                               id="nomeParteContraria"
+                               name="nome"
+                               class="form-control form-control-sm"
+                               placeholder="Nome completo ou razão social"
+                               required
+                               autofocus>
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i> Salvar
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-{# Modal: Vincular Processo (implementação futura) #}
+{# Modal: Vincular Processo #}
 <div class="modal fade" id="modalVincularProcesso" tabindex="-1" aria-labelledby="modalVincularProcessoLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header py-2">
                 <h6 class="modal-title" id="modalVincularProcessoLabel">
@@ -560,13 +1607,284 @@
                 </h6>
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body py-4 text-center text-muted">
-                <i class="bi bi-tools fs-2 mb-2 d-block"></i>
-                Funcionalidade em desenvolvimento.
-            </div>
-            <div class="modal-footer py-2">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
-            </div>
+            <form method="POST" id="formVincularProcesso"
+                  action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('vincular_processo_' ~ pasta.id) }}">
+                <div class="modal-body py-3">
+
+                    {# Abas do formulário de processo #}
+                    <div class="processo-modal-tabs d-flex border-bottom mb-0">
+                        <button type="button" class="processo-modal-tab active" data-modal-tab="modal-proc-info">
+                            <i class="bi bi-info-circle me-1"></i> Informações
+                        </button>
+                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-partes">
+                            <i class="bi bi-people me-1"></i> Partes
+                        </button>
+                        <button type="button" class="processo-modal-tab" data-modal-tab="modal-proc-movimentacoes">
+                            <i class="bi bi-clock-history me-1"></i> Movimentações
+                        </button>
+                    </div>
+
+                    {# ABA: Informações #}
+                    <div class="processo-modal-tab-content active pt-3" id="tab-modal-proc-info">
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="mp-numeroProcesso" class="form-label">
+                                    Número do Processo <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="mp-numeroProcesso" name="numeroProcesso" class="form-control"
+                                       placeholder="Ex: 1234567-89.2024.1.23.4567" required>
+                                <div class="form-text">Formato: NNNNNNN-DD.AAAA.J.TT.OOOO</div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button id="mp-btn-datajud" type="button" class="btn btn-info w-100"
+                                        data-bs-toggle="tooltip" title="Busca o processo na base de dados do CNJ">
+                                    <i class="bi bi-search me-1"></i> Buscar no CNJ
+                                </button>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="mp-siglaTribunal" class="form-label">
+                                    Sigla do Tribunal <span class="text-danger">*</span>
+                                </label>
+                                <select id="mp-siglaTribunal" name="siglaTribunal" class="form-select mp-select2-tribunal" required>
+                                    <optgroup label="Tribunais Superiores">
+                                        <option value="tst">TST - Tribunal Superior do Trabalho</option>
+                                        <option value="tse">TSE - Tribunal Superior Eleitoral</option>
+                                        <option value="stj">STJ - Superior Tribunal de Justiça</option>
+                                        <option value="stm">STM - Superior Tribunal Militar</option>
+                                    </optgroup>
+                                    <optgroup label="Justiça Federal">
+                                        <option value="trf1">TRF1 - Tribunal Regional Federal 1ª Região</option>
+                                        <option value="trf2">TRF2 - Tribunal Regional Federal 2ª Região</option>
+                                        <option value="trf3">TRF3 - Tribunal Regional Federal 3ª Região</option>
+                                        <option value="trf4">TRF4 - Tribunal Regional Federal 4ª Região</option>
+                                        <option value="trf5">TRF5 - Tribunal Regional Federal 5ª Região</option>
+                                        <option value="trf6">TRF6 - Tribunal Regional Federal 6ª Região</option>
+                                    </optgroup>
+                                    <optgroup label="Justiça Estadual">
+                                        <option value="tjac">TJAC - Tribunal de Justiça do Acre</option>
+                                        <option value="tjal">TJAL - Tribunal de Justiça de Alagoas</option>
+                                        <option value="tjam">TJAM - Tribunal de Justiça do Amazonas</option>
+                                        <option value="tjap">TJAP - Tribunal de Justiça de Amapá</option>
+                                        <option value="tjba">TJBA - Tribunal de Justiça da Bahia</option>
+                                        <option value="tjce">TJCE - Tribunal de Justiça do Ceará</option>
+                                        <option value="tjdft" selected>TJDFT - Tribunal de Justiça do Distrito Federal e Territórios</option>
+                                        <option value="tjes">TJES - Tribunal de Justiça do Espírito Santo</option>
+                                        <option value="tjgo">TJGO - Tribunal de Justiça de Goiás</option>
+                                        <option value="tjma">TJMA - Tribunal de Justiça do Maranhão</option>
+                                        <option value="tjmg">TJMG - Tribunal de Justiça de Minas Gerais</option>
+                                        <option value="tjms">TJMS - Tribunal de Justiça do Mato Grosso do Sul</option>
+                                        <option value="tjmt">TJMT - Tribunal de Justiça do Mato Grosso</option>
+                                        <option value="tjpa">TJPA - Tribunal de Justiça do Pará</option>
+                                        <option value="tjpb">TJPB - Tribunal de Justiça da Paraíba</option>
+                                        <option value="tjpe">TJPE - Tribunal de Justiça de Pernambuco</option>
+                                        <option value="tjpi">TJPI - Tribunal de Justiça do Piauí</option>
+                                        <option value="tjpr">TJPR - Tribunal de Justiça do Paraná</option>
+                                        <option value="tjrj">TJRJ - Tribunal de Justiça do Rio de Janeiro</option>
+                                        <option value="tjrn">TJRN - Tribunal de Justiça do Rio Grande do Norte</option>
+                                        <option value="tjro">TJRO - Tribunal de Justiça de Rondônia</option>
+                                        <option value="tjrr">TJRR - Tribunal de Justiça de Roraima</option>
+                                        <option value="tjrs">TJRS - Tribunal de Justiça do Rio Grande do Sul</option>
+                                        <option value="tjsc">TJSC - Tribunal de Justiça de Santa Catarina</option>
+                                        <option value="tjse">TJSE - Tribunal de Justiça de Sergipe</option>
+                                        <option value="tjsp">TJSP - Tribunal de Justiça de São Paulo</option>
+                                        <option value="tjto">TJTO - Tribunal de Justiça do Tocantins</option>
+                                    </optgroup>
+                                    <optgroup label="Justiça do Trabalho">
+                                        <option value="trt1">TRT1 - Tribunal Regional do Trabalho 1ª Região</option>
+                                        <option value="trt2">TRT2 - Tribunal Regional do Trabalho 2ª Região</option>
+                                        <option value="trt3">TRT3 - Tribunal Regional do Trabalho 3ª Região</option>
+                                        <option value="trt4">TRT4 - Tribunal Regional do Trabalho 4ª Região</option>
+                                        <option value="trt5">TRT5 - Tribunal Regional do Trabalho 5ª Região</option>
+                                        <option value="trt6">TRT6 - Tribunal Regional do Trabalho 6ª Região</option>
+                                        <option value="trt7">TRT7 - Tribunal Regional do Trabalho 7ª Região</option>
+                                        <option value="trt8">TRT8 - Tribunal Regional do Trabalho 8ª Região</option>
+                                        <option value="trt9">TRT9 - Tribunal Regional do Trabalho 9ª Região</option>
+                                        <option value="trt10">TRT10 - Tribunal Regional do Trabalho 10ª Região</option>
+                                        <option value="trt11">TRT11 - Tribunal Regional do Trabalho 11ª Região</option>
+                                        <option value="trt12">TRT12 - Tribunal Regional do Trabalho 12ª Região</option>
+                                        <option value="trt13">TRT13 - Tribunal Regional do Trabalho 13ª Região</option>
+                                        <option value="trt14">TRT14 - Tribunal Regional do Trabalho 14ª Região</option>
+                                        <option value="trt15">TRT15 - Tribunal Regional do Trabalho 15ª Região</option>
+                                        <option value="trt16">TRT16 - Tribunal Regional do Trabalho 16ª Região</option>
+                                        <option value="trt17">TRT17 - Tribunal Regional do Trabalho 17ª Região</option>
+                                        <option value="trt18">TRT18 - Tribunal Regional do Trabalho 18ª Região</option>
+                                        <option value="trt19">TRT19 - Tribunal Regional do Trabalho 19ª Região</option>
+                                        <option value="trt20">TRT20 - Tribunal Regional do Trabalho 20ª Região</option>
+                                        <option value="trt21">TRT21 - Tribunal Regional do Trabalho 21ª Região</option>
+                                        <option value="trt22">TRT22 - Tribunal Regional do Trabalho 22ª Região</option>
+                                        <option value="trt23">TRT23 - Tribunal Regional do Trabalho 23ª Região</option>
+                                        <option value="trt24">TRT24 - Tribunal Regional do Trabalho 24ª Região</option>
+                                    </optgroup>
+                                    <optgroup label="Justiça Eleitoral">
+                                        <option value="tre-ac">TRE-AC - Tribunal Regional Eleitoral do Acre</option>
+                                        <option value="tre-al">TRE-AL - Tribunal Regional Eleitoral de Alagoas</option>
+                                        <option value="tre-am">TRE-AM - Tribunal Regional Eleitoral do Amazonas</option>
+                                        <option value="tre-ap">TRE-AP - Tribunal Regional Eleitoral de Amapá</option>
+                                        <option value="tre-ba">TRE-BA - Tribunal Regional Eleitoral da Bahia</option>
+                                        <option value="tre-ce">TRE-CE - Tribunal Regional Eleitoral do Ceará</option>
+                                        <option value="tre-dft">TRE-DFT - Tribunal Regional Eleitoral do DF</option>
+                                        <option value="tre-es">TRE-ES - Tribunal Regional Eleitoral do Espírito Santo</option>
+                                        <option value="tre-go">TRE-GO - Tribunal Regional Eleitoral de Goiás</option>
+                                        <option value="tre-ma">TRE-MA - Tribunal Regional Eleitoral do Maranhão</option>
+                                        <option value="tre-mg">TRE-MG - Tribunal Regional Eleitoral de Minas Gerais</option>
+                                        <option value="tre-ms">TRE-MS - Tribunal Regional Eleitoral do Mato Grosso do Sul</option>
+                                        <option value="tre-mt">TRE-MT - Tribunal Regional Eleitoral do Mato Grosso</option>
+                                        <option value="tre-pa">TRE-PA - Tribunal Regional Eleitoral do Pará</option>
+                                        <option value="tre-pb">TRE-PB - Tribunal Regional Eleitoral da Paraíba</option>
+                                        <option value="tre-pe">TRE-PE - Tribunal Regional Eleitoral de Pernambuco</option>
+                                        <option value="tre-pi">TRE-PI - Tribunal Regional Eleitoral do Piauí</option>
+                                        <option value="tre-pr">TRE-PR - Tribunal Regional Eleitoral do Paraná</option>
+                                        <option value="tre-rj">TRE-RJ - Tribunal Regional Eleitoral do Rio de Janeiro</option>
+                                        <option value="tre-rn">TRE-RN - Tribunal Regional Eleitoral do Rio Grande do Norte</option>
+                                        <option value="tre-ro">TRE-RO - Tribunal Regional Eleitoral de Rondônia</option>
+                                        <option value="tre-rr">TRE-RR - Tribunal Regional Eleitoral de Roraima</option>
+                                        <option value="tre-rs">TRE-RS - Tribunal Regional Eleitoral do Rio Grande do Sul</option>
+                                        <option value="tre-sc">TRE-SC - Tribunal Regional Eleitoral de Santa Catarina</option>
+                                        <option value="tre-se">TRE-SE - Tribunal Regional Eleitoral de Sergipe</option>
+                                        <option value="tre-sp">TRE-SP - Tribunal Regional Eleitoral de São Paulo</option>
+                                        <option value="tre-to">TRE-TO - Tribunal Regional Eleitoral do Tocantins</option>
+                                    </optgroup>
+                                    <optgroup label="Justiça Militar">
+                                        <option value="tjmmg">TJMMG - Tribunal de Justiça Militar de Minas Gerais</option>
+                                        <option value="tjmrs">TJMRS - Tribunal de Justiça Militar do Rio Grande do Sul</option>
+                                        <option value="tjmsp">TJMSP - Tribunal de Justiça Militar de São Paulo</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="mp-orgaoJulgador" class="form-label">
+                                    Órgão Julgador <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="mp-orgaoJulgador" name="orgaoJulgador" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="mp-classeProcessual" class="form-label">
+                                    Classe Processual <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="mp-classeProcessual" name="classeProcessual" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="mp-assuntoProcessual" class="form-label">
+                                    Assunto Processual <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" id="mp-assuntoProcessual" name="assuntoProcessual" class="form-control" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="mp-situacaoProcesso" class="form-label">Situação <span class="text-danger">*</span></label>
+                                <select id="mp-situacaoProcesso" name="situacaoProcesso" class="form-select" required>
+                                    <option value="EM_ANDAMENTO" selected>Em Andamento</option>
+                                    <option value="ENCERRADO">Encerrado</option>
+                                    <option value="SUSPENSO">Suspenso</option>
+                                    <option value="PARALISADO">Paralisado</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="mp-instancia" class="form-label">Instância <span class="text-danger">*</span></label>
+                                <select id="mp-instancia" name="instancia" class="form-select" required>
+                                    <option value="G1" selected>G1 - Primeira Instância</option>
+                                    <option value="G2">G2 - Segunda Instância</option>
+                                    <option value="ST">ST - Superior Tribunal</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="mp-dataDistribuicao" class="form-label">Data de Distribuição</label>
+                                <input type="date" id="mp-dataDistribuicao" name="dataDistribuicao" class="form-control">
+                            </div>
+                        </div>
+                    </div>{# fim tab-modal-proc-info #}
+
+                    {# ABA: Partes #}
+                    <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-partes">
+                        <div class="d-flex justify-content-end mb-2">
+                            <button type="button" id="mp-btn-add-parte" class="btn btn-sm btn-warning">
+                                <i class="bi bi-plus-lg me-1"></i> Adicionar Parte
+                            </button>
+                        </div>
+                        <div id="mp-partesContainer">
+                            <div class="mp-parte-row card mb-2 p-3" style="position: relative;">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Tipo</label>
+                                        <select name="partes[0][tipo]" class="form-select">
+                                            <option value="PARTE">Parte</option>
+                                            <option value="ADVOGADO">Advogado</option>
+                                            <option value="JUIZ">Juiz</option>
+                                            <option value="PROMOTOR">Promotor</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <label class="form-label">Nome</label>
+                                        <input type="text" name="partes[0][nome]" class="form-control" placeholder="Nome da parte">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Documento</label>
+                                        <input type="text" name="partes[0][documento]" class="form-control" placeholder="CPF/CNPJ">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Papel</label>
+                                        <input type="text" name="partes[0][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
+                                        style="display: none; position: absolute; top: 8px; right: 12px;"
+                                        title="Remover"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>{# fim tab-modal-proc-partes #}
+
+                    {# ABA: Movimentações #}
+                    <div class="processo-modal-tab-content pt-3" id="tab-modal-proc-movimentacoes">
+                        <div class="d-flex justify-content-end mb-2">
+                            <button type="button" id="mp-btn-add-movimentacao" class="btn btn-sm btn-info">
+                                <i class="bi bi-plus-lg me-1"></i> Adicionar Movimentação
+                            </button>
+                        </div>
+                        <div id="mp-movimentacoesContainer">
+                            <div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
+                                <div class="row g-2">
+                                    <div class="col-md-3">
+                                        <label class="form-label">Data</label>
+                                        <input type="date" name="movimentacoes[0][dataMovimentacao]" class="form-control">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label">Descrição</label>
+                                        <input type="text" name="movimentacoes[0][descricao]" class="form-control" placeholder="Descrição da movimentação">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Tipo</label>
+                                        <input type="text" name="movimentacoes[0][tipo]" class="form-control" placeholder="Tipo de movimento">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">Órgão</label>
+                                        <input type="text" name="movimentacoes[0][orgao]" class="form-control" placeholder="Órgão">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
+                                        style="display: none; position: absolute; top: 8px; right: 12px;"
+                                        title="Remover"><i class="bi bi-trash"></i></button>
+                            </div>
+                        </div>
+                    </div>{# fim tab-modal-proc-movimentacoes #}
+
+                    {# Modal de carregamento DataJud (interno ao modal de processo) #}
+                    <div id="mp-loadingOverlay" class="d-none text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Buscando...</span>
+                        </div>
+                        <p class="mt-2 mb-0 small">Buscando processo no DataJud...</p>
+                    </div>
+
+                    <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
+
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i> Vincular Processo
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -594,6 +1912,59 @@
     </div>
 </div>
 
+{# Modais: Editar Documento do Cliente #}
+{% for cliente in pasta.clientes %}
+    {% for item in clientesComDocumentos %}
+        {% if item.cliente.id == cliente.id %}
+            {% for tipo, docs in item.documentosPorTipo %}
+                {% for doc in docs %}
+                    {% set label = documentTypeOptionsCliente[tipo] ?? tipo %}
+                    <div class="modal fade" id="editDocClienteModal{{ doc.id }}" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="post" action="{{ path('cliente_documento_edit', {id: doc.id}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('edit_doc_cliente_' ~ doc.id) }}">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title"><i class="bi bi-pencil me-1"></i> Editar documento</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="text-muted small mb-3"><i class="bi bi-file-earmark me-1"></i>{{ doc.nomeOriginal }}</p>
+                                        <div class="mb-3">
+                                            <label class="form-label">Tipo de documento</label>
+                                            <select name="categoria" class="form-select" required>
+                                                {% for valor, texto in documentTypeOptionsCliente %}
+                                                    <option value="{{ valor }}" {{ doc.categoria == valor ? 'selected' : '' }}>{{ texto }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Descrição</label>
+                                            <input type="text" name="descricao" class="form-control"
+                                                   value="{{ doc.descricao ?? '' }}" maxlength="500" placeholder="Descrição (opcional)">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Número (opcional)</label>
+                                            <input type="text" name="numero" class="form-control"
+                                                   value="{{ doc.numero ?? '' }}" maxlength="255" placeholder="Número">
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-check-lg me-1"></i> Salvar
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+        {% endif %}
+    {% endfor %}
+{% endfor %}
+
 {# Modais: Editar Documento #}
 {% for tipo, docs in documentosPorTipo %}
     {% for doc in docs %}
@@ -610,7 +1981,11 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                         </div>
                         <div class="modal-body">
-                            <p class="text-muted small mb-3"><i class="bi bi-file-earmark me-1"></i>{{ doc.nomeOriginal }}</p>
+                            <div class="mb-3">
+                                <label class="form-label">Nome do arquivo</label>
+                                <input type="text" name="nomeOriginal" class="form-control"
+                                       value="{{ doc.nomeOriginal }}" maxlength="255" required>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">Tipo de documento</label>
                                 <select name="categoria" class="form-select" required>
@@ -643,113 +2018,7 @@
     {% endfor %}
 {% endfor %}
 
-{# Modal: Upload de Documentos (Anexos) #}
-<div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="uploadDocumentosModalLabel">
-                    <i class="bi bi-paperclip me-1"></i> Anexos
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
 
-            <div class="modal-body">
-
-                {# ── Documentos já enviados ── #}
-                {% set hasDocuments = false %}
-                {% for tipo, docs in documentosPorTipo %}
-                    {% if docs|length > 0 %}{% set hasDocuments = true %}{% endif %}
-                {% endfor %}
-
-                {% if hasDocuments %}
-                <div class="mb-4">
-                    <h6 class="text-muted mb-2"><i class="bi bi-archive me-1"></i> Documentos enviados</h6>
-                    {% for tipo, docs in documentosPorTipo %}
-                        {% if docs|length > 0 %}
-                            {% set label = documentTypeOptions[tipo] ?? tipo %}
-                            {% for doc in docs %}
-                                <div class="d-flex align-items-center border rounded px-3 py-2 mb-2 gap-3">
-                                    <i class="bi bi-file-earmark-text fs-5 text-primary flex-shrink-0"></i>
-                                    <div class="flex-grow-1 overflow-hidden">
-                                        <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="text-truncate d-block fw-semibold">
-                                            {{ doc.nomeOriginal }}
-                                        </a>
-                                        <small class="text-muted">
-                                            {{ label }}
-                                            {% if doc.descricao %} · {{ doc.descricao }}{% endif %}
-                                            {% if doc.numero %} · Nº {{ doc.numero }}{% endif %}
-                                            · {{ doc.uploadedAt|date('d/m/Y') }}
-                                            · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}
-                                        </small>
-                                    </div>
-                                    <div class="d-flex gap-1 flex-shrink-0">
-                                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                                title="Visualizar"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#previewDocModal"
-                                                data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
-                                                data-nome="{{ doc.nomeOriginal }}"
-                                                data-mime="{{ doc.mimeType }}">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                                title="Editar"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#editDocModal{{ doc.id }}">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-                            {% endfor %}
-                        {% endif %}
-                    {% endfor %}
-                </div>
-                <hr>
-                {% endif %}
-
-                {# ── Formulário de novos anexos ── #}
-                <form id="formAnexos" method="post" enctype="multipart/form-data"
-                      action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
-
-                    {# Toolbar superior #}
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <button type="button" id="btnAdicionarAnexo" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-1"></i> Adicionar
-                        </button>
-                        <button type="button" id="btnLimparAnexos" class="btn btn-outline-secondary d-none">
-                            <i class="bi bi-x-circle me-1"></i> Limpar
-                        </button>
-                        {# Input oculto — aceita múltiplos arquivos #}
-                        <input type="file" id="inputAnexoOculto" multiple
-                               accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
-                               class="d-none">
-                    </div>
-
-                    {# Lista de arquivos selecionados #}
-                    <div id="listaAnexos">
-                        {# Itens injetados pelo JS #}
-                    </div>
-
-                    {# Botão enviar — aparece só quando há itens #}
-                    <div id="areaEnviar" class="d-none mt-3 text-end">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-                        </button>
-                    </div>
-                </form>
-
-            </div>{# /modal-body #}
-        </div>
-    </div>
-</div>
 
 <style>
 .section-divider {
@@ -795,6 +2064,33 @@
 .anexo-item .anexo-tamanho {
     font-size: .8rem;
     color: #6c757d;
+}
+
+/* Botão extra-pequeno */
+.btn-xs {
+    padding: .15rem .4rem;
+    font-size: .75rem;
+    line-height: 1.4;
+    border-radius: .2rem;
+}
+
+/* Linha de arquivo do cliente na aba Partes */
+.doc-row-cliente {
+    background: transparent;
+    transition: background-color .15s;
+}
+.doc-row-cliente:hover {
+    background-color: rgba(0,0,0,.03);
+}
+
+/* Área de upload inline do cliente */
+.cliente-arquivos {
+    border-left: 2px solid #e9ecef;
+    padding-left: .75rem;
+    margin-top: .25rem;
+}
+.upload-item-cliente {
+    background: #f8f9fa;
 }
 </style>
 
@@ -859,20 +2155,29 @@ document.addEventListener('DOMContentLoaded', function () {
     var tooltipEls = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipEls.forEach(function (el) { new bootstrap.Tooltip(el); });
 
-    /* ── Copy buttons ── */
-    document.querySelectorAll('.copy-btn').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            const text = this.getAttribute('data-copy');
-            navigator.clipboard.writeText(text).then(() => {
-                this.classList.replace('bi-copy', 'bi-check-lg');
-                this.classList.add('copied');
-                setTimeout(() => {
-                    this.classList.replace('bi-check-lg', 'bi-copy');
-                    this.classList.remove('copied');
-                }, 1500);
+    function attachCopyButtons() {
+        document.querySelectorAll('.copy-btn').forEach(function (btn) {
+            if (btn.dataset.copyAttached) {
+                return;
+            }
+
+            btn.addEventListener('click', function () {
+                const text = this.getAttribute('data-copy');
+                navigator.clipboard.writeText(text).then(() => {
+                    this.classList.replace('bi-copy', 'bi-check-lg');
+                    this.classList.add('copied');
+                    setTimeout(() => {
+                        this.classList.replace('bi-check-lg', 'bi-copy');
+                        this.classList.remove('copied');
+                    }, 1500);
+                });
             });
+
+            btn.dataset.copyAttached = '1';
         });
-    });
+    }
+
+    attachCopyButtons();
 
     /* ── Anexos ── */
     const documentTypeOptions = {{ documentTypeOptions|json_encode|raw }};
@@ -1001,6 +2306,93 @@ document.addEventListener('DOMContentLoaded', function () {
         inputOculto.name = 'arquivos[]';
         inputOculto.files = dt.files;
     });
+
+    /* ── Upload inline de documentos do cliente ── */
+    const docTypesCliente = {{ documentTypeOptionsCliente|json_encode|raw }};
+
+    function buildSelectCliente(idx) {
+        let html = '<option value="">Tipo</option>';
+        for (const [v, t] of Object.entries(docTypesCliente)) {
+            html += `<option value="${v}">${t}</option>`;
+        }
+        return `<select name="categorias[${idx}]" class="form-select form-select-sm" required>${html}</select>`;
+    }
+
+    document.querySelectorAll('.form-upload-cliente-inline').forEach(function (form) {
+        const cid      = form.dataset.clienteId;
+        const input    = document.getElementById(`fileInputCliente${cid}`);
+        const lista    = document.getElementById(`listaUploadCliente${cid}`);
+        const btnEsc   = form.querySelector('.btn-escolher-arquivo-cliente');
+        const btnEnv   = form.querySelector('.btn-enviar-cliente');
+        const btnCan   = form.querySelector('.btn-cancelar-cliente');
+
+        if (!input || !lista || !btnEsc) return;
+
+        let fileIdx = 0;
+
+        function atualizar() {
+            const tem = lista.querySelectorAll('.upload-item-cliente').length > 0;
+            btnEnv.classList.toggle('d-none', !tem);
+            btnCan.classList.toggle('d-none', !tem);
+        }
+
+        function adicionarArquivo(file) {
+            const i = fileIdx++;
+            const div = document.createElement('div');
+            div.className = 'upload-item-cliente border rounded p-2 mb-2 small';
+            div._file = file;
+            div.dataset.idx = i;
+            div.innerHTML = `
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <i class="bi bi-file-earmark-text text-primary flex-shrink-0"></i>
+                    <span class="text-truncate flex-grow-1 fw-semibold">${file.name}</span>
+                    <span class="text-muted text-nowrap">${formatarTamanho(file.size)}</span>
+                    <button type="button" class="btn btn-xs btn-outline-danger btn-rm-upload flex-shrink-0">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+                <div class="row g-1">
+                    <div class="col-12 col-sm-5">${buildSelectCliente(i)}</div>
+                    <div class="col-12 col-sm-7">
+                        <input type="text" name="descricoes[${i}]" class="form-control form-control-sm"
+                               placeholder="Descrição (opcional)" maxlength="500">
+                    </div>
+                </div>`;
+            div.querySelector('.btn-rm-upload').addEventListener('click', function () {
+                div.remove();
+                atualizar();
+            });
+            lista.appendChild(div);
+        }
+
+        btnEsc.addEventListener('click', function () { input.value = ''; input.click(); });
+
+        input.addEventListener('change', function () {
+            Array.from(this.files).forEach(adicionarArquivo);
+            atualizar();
+        });
+
+        btnCan.addEventListener('click', function () {
+            lista.innerHTML = '';
+            input.value = '';
+            atualizar();
+        });
+
+        form.addEventListener('submit', function (e) {
+            const itens = Array.from(lista.querySelectorAll('.upload-item-cliente'));
+            if (itens.length === 0) { e.preventDefault(); return; }
+            itens.forEach(function (item, novoIdx) {
+                ['categorias', 'descricoes'].forEach(function (campo) {
+                    const el = item.querySelector(`[name^="${campo}["]`);
+                    if (el) el.name = `${campo}[${novoIdx}]`;
+                });
+            });
+            const dt = new DataTransfer();
+            itens.forEach(function (item) { if (item._file) dt.items.add(item._file); });
+            input.name = 'arquivos[]';
+            input.files = dt.files;
+        });
+    });
 });
 
 /* ── Timeline: envio AJAX de mensagem ──────────────────── */
@@ -1111,6 +2503,378 @@ document.addEventListener('DOMContentLoaded', function () {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
     }
+}());
+</script>
+
+<style>
+.processo-modal-tabs {
+    border-bottom: 3px solid #1a6fa3;
+    background: #fff;
+    margin-bottom: 0;
+}
+.processo-modal-tab {
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -3px;
+    padding: 8px 16px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: #888;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    outline: none;
+}
+.processo-modal-tab:hover { color: #1a6fa3; }
+.processo-modal-tab.active { color: #1a6fa3; border-bottom-color: #1a6fa3; }
+.processo-modal-tab-content { display: none; }
+.processo-modal-tab-content.active { display: block; }
+</style>
+
+<script>
+(function () {
+    /* ── Abas do modal de processo ── */
+    document.querySelectorAll('.processo-modal-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+            document.querySelectorAll('.processo-modal-tab').forEach(function (t) { t.classList.remove('active'); });
+            document.querySelectorAll('.processo-modal-tab-content').forEach(function (c) { c.classList.remove('active'); });
+            tab.classList.add('active');
+            var painel = document.getElementById('tab-' + tab.dataset.modalTab);
+            if (painel) painel.classList.add('active');
+        });
+    });
+
+    /* ── Select2 para tribunal no modal ── */
+    var modalEl = document.getElementById('modalVincularProcesso');
+    modalEl.addEventListener('shown.bs.modal', function () {
+        if (window.$ && $.fn.select2) {
+            $('#mp-siglaTribunal').select2({
+                width: '100%',
+                placeholder: 'Selecione um tribunal',
+                dropdownParent: $('#modalVincularProcesso'),
+                language: { noResults: function () { return 'Nenhum tribunal encontrado'; } }
+            });
+        }
+    });
+
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function renderProcessoTab(processo) {
+        var partesHtml = '';
+        if (processo.partes && processo.partes.length > 0) {
+            partesHtml = '<hr>' +
+                '<h6 class="mb-3"><i class="bi bi-people me-1"></i> Partes do Processo</h6>' +
+                '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead><tr><th>Nome</th><th>Tipo</th><th>Papel</th><th>Documento</th></tr></thead><tbody>';
+            processo.partes.forEach(function (parte) {
+                partesHtml += '<tr><td>' + escapeHtml(parte.nome) + '</td>' +
+                    '<td>' + escapeHtml(parte.tipo || '—') + '</td>' +
+                    '<td>' + escapeHtml(parte.papel || '—') + '</td>' +
+                    '<td>' + escapeHtml(parte.documento || '—') + '</td></tr>';
+            });
+            partesHtml += '</tbody></table></div>';
+        }
+
+        var dataDistribuicaoHtml = '';
+        if (processo.dataDistribuicao) {
+            dataDistribuicaoHtml = '<div class="col-12 col-sm-6 col-lg-4">' +
+                '<p class="text-muted small mb-1">Data de Distribuição</p>' +
+                '<b>' + escapeHtml(processo.dataDistribuicao) + '</b>' +
+                '</div>';
+        }
+
+        return '<div class="row g-3">' +
+            '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Número do Processo</p><b>' + escapeHtml(processo.numeroProcesso) + ' <i class="bi bi-copy text-primary copy-btn ms-1" role="button" data-copy="' + escapeHtml(processo.numeroProcesso) + '" title="Copiar"></i></b></div>' +
+            (processo.classeProcessual ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Classe Processual</p><b>' + escapeHtml(processo.classeProcessual) + '</b></div>' : '') +
+            (processo.assuntoProcessual ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Assunto</p><b>' + escapeHtml(processo.assuntoProcessual) + '</b></div>' : '') +
+            (processo.orgaoJulgador ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Órgão Julgador</p><b>' + escapeHtml(processo.orgaoJulgador) + '</b></div>' : '') +
+            (processo.siglaTribunal ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Tribunal</p><b>' + escapeHtml(processo.siglaTribunal) + '</b></div>' : '') +
+            (processo.instancia ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Instância</p><b>' + escapeHtml(processo.instancia) + '</b></div>' : '') +
+            (processo.situacaoProcesso ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Situação</p><b>' + escapeHtml(processo.situacaoProcesso) + '</b></div>' : '') +
+            dataDistribuicaoHtml +
+            '</div>' + partesHtml +
+            '<div class="mt-3"><a href="/processos/' + escapeHtml(processo.id) + '" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right me-1"></i> Ver processo completo</a></div>';
+    }
+
+    /* ── Submit via AJAX ── */
+    document.getElementById('formVincularProcesso').addEventListener('submit', async function (e) {
+        e.preventDefault();
+        var feedbackEl = document.getElementById('mp-feedbackAlerta');
+        var btnSalvar  = this.querySelector('button[type="submit"]');
+        var icone      = btnSalvar.querySelector('i');
+
+        feedbackEl.className = 'd-none mt-3';
+        feedbackEl.innerHTML = '';
+        btnSalvar.disabled = true;
+        if (icone) icone.className = 'bi bi-hourglass-split me-1';
+
+        try {
+            var resp = await fetch(this.action, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: new FormData(this),
+            });
+            var dados = await resp.json();
+
+            if (!resp.ok) {
+                feedbackEl.className = 'alert alert-danger mt-3';
+                feedbackEl.textContent = dados.erro ?? 'Erro ao vincular processo.';
+                return;
+            }
+
+            if (dados.sucesso && dados.processo) {
+                var content = document.getElementById('processoTabContent');
+                if (content) {
+                    content.innerHTML = renderProcessoTab(dados.processo);
+                    attachCopyButtons();
+                }
+                bootstrap.Modal.getInstance(modalEl)?.hide();
+                return;
+            }
+
+            feedbackEl.className = 'alert alert-danger mt-3';
+            feedbackEl.textContent = 'Processo vinculado, mas não foi possível atualizar o conteúdo.';
+        } catch (_) {
+            feedbackEl.className = 'alert alert-danger mt-3';
+            feedbackEl.textContent = 'Erro de comunicação. Tente novamente.';
+        } finally {
+            btnSalvar.disabled = false;
+            if (icone) icone.className = 'bi bi-check-lg me-1';
+        }
+    });
+
+    /* ── Fechar modal limpa o formulário ── */
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('formVincularProcesso').reset();
+        var partesContainer = document.getElementById('mp-partesContainer');
+        partesContainer.innerHTML = mpParteRowHtml(0);
+        var movContainer = document.getElementById('mp-movimentacoesContainer');
+        movContainer.innerHTML = mpMovRowHtml(0);
+        mpUpdateRemoveButtons();
+        document.getElementById('mp-feedbackAlerta').className = 'd-none mt-3';
+        document.getElementById('mp-feedbackAlerta').innerHTML = '';
+        document.querySelectorAll('.processo-modal-tab').forEach(function (t) { t.classList.remove('active'); });
+        document.querySelectorAll('.processo-modal-tab-content').forEach(function (c) { c.classList.remove('active'); });
+        document.querySelector('.processo-modal-tab[data-modal-tab="modal-proc-info"]').classList.add('active');
+        document.getElementById('tab-modal-proc-info').classList.add('active');
+        if (window.$ && $.fn.select2) {
+            $('#mp-siglaTribunal').val('tjdft').trigger('change');
+        }
+    });
+
+    /* ── Templates de linha ── */
+    function mpParteRowHtml(idx) {
+        return `<div class="mp-parte-row card mb-2 p-3" style="position: relative;">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <select name="partes[${idx}][tipo]" class="form-select">
+                        <option value="PARTE">Parte</option>
+                        <option value="ADVOGADO">Advogado</option>
+                        <option value="JUIZ">Juiz</option>
+                        <option value="PROMOTOR">Promotor</option>
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Nome</label>
+                    <input type="text" name="partes[${idx}][nome]" class="form-control" placeholder="Nome da parte">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Documento</label>
+                    <input type="text" name="partes[${idx}][documento]" class="form-control" placeholder="CPF/CNPJ">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Papel</label>
+                    <input type="text" name="partes[${idx}][papel]" class="form-control" placeholder="Polo ativo/passivo">
+                </div>
+            </div>
+            <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
+                    style="display: none; position: absolute; top: 8px; right: 12px;"
+                    title="Remover"><i class="bi bi-trash"></i></button>
+        </div>`;
+    }
+
+    function mpMovRowHtml(idx) {
+        return `<div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
+            <div class="row g-2">
+                <div class="col-md-3">
+                    <label class="form-label">Data</label>
+                    <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Descrição</label>
+                    <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" placeholder="Descrição da movimentação">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo</label>
+                    <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" placeholder="Tipo de movimento">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Órgão</label>
+                    <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" placeholder="Órgão">
+                </div>
+            </div>
+            <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
+                    style="display: none; position: absolute; top: 8px; right: 12px;"
+                    title="Remover"><i class="bi bi-trash"></i></button>
+        </div>`;
+    }
+
+    /* ── Adicionar / remover partes ── */
+    document.getElementById('mp-btn-add-parte').addEventListener('click', function () {
+        var container = document.getElementById('mp-partesContainer');
+        var idx = container.querySelectorAll('.mp-parte-row').length;
+        container.insertAdjacentHTML('beforeend', mpParteRowHtml(idx));
+        mpAttachRemovePartes();
+    });
+
+    function mpAttachRemovePartes() {
+        document.querySelectorAll('#mp-partesContainer .mp-remove-parte').forEach(function (btn) {
+            btn.onclick = function () { btn.closest('.mp-parte-row').remove(); mpUpdateRemoveButtons(); };
+        });
+        mpUpdateRemoveButtons();
+    }
+
+    /* ── Adicionar / remover movimentações ── */
+    document.getElementById('mp-btn-add-movimentacao').addEventListener('click', function () {
+        var container = document.getElementById('mp-movimentacoesContainer');
+        var idx = container.querySelectorAll('.mp-movimentacao-row').length;
+        container.insertAdjacentHTML('beforeend', mpMovRowHtml(idx));
+        mpAttachRemoveMovimentacoes();
+    });
+
+    function mpAttachRemoveMovimentacoes() {
+        document.querySelectorAll('#mp-movimentacoesContainer .mp-remove-movimentacao').forEach(function (btn) {
+            btn.onclick = function () { btn.closest('.mp-movimentacao-row').remove(); mpUpdateRemoveButtons(); };
+        });
+        mpUpdateRemoveButtons();
+    }
+
+    function mpUpdateRemoveButtons() {
+        var partes = document.querySelectorAll('#mp-partesContainer .mp-parte-row').length;
+        document.querySelectorAll('#mp-partesContainer .mp-remove-parte').forEach(function (btn) {
+            btn.style.display = partes > 1 ? 'block' : 'none';
+        });
+        var movs = document.querySelectorAll('#mp-movimentacoesContainer .mp-movimentacao-row').length;
+        document.querySelectorAll('#mp-movimentacoesContainer .mp-remove-movimentacao').forEach(function (btn) {
+            btn.style.display = movs > 1 ? 'block' : 'none';
+        });
+    }
+
+    /* ── Busca DataJud ── */
+    document.getElementById('mp-btn-datajud').addEventListener('click', async function () {
+        var numeroProcesso = document.getElementById('mp-numeroProcesso').value;
+        var siglaTribunal  = document.getElementById('mp-siglaTribunal').value;
+        var feedbackEl     = document.getElementById('mp-feedbackAlerta');
+        var loadingEl      = document.getElementById('mp-loadingOverlay');
+
+        feedbackEl.className = 'd-none mt-3';
+        feedbackEl.innerHTML = '';
+
+        if (!numeroProcesso) {
+            feedbackEl.className = 'alert alert-warning mt-3';
+            feedbackEl.textContent = 'Informe o número do processo.';
+            return;
+        }
+        if (!siglaTribunal) {
+            feedbackEl.className = 'alert alert-warning mt-3';
+            feedbackEl.textContent = 'Informe a sigla do tribunal.';
+            return;
+        }
+
+        loadingEl.classList.remove('d-none');
+        try {
+            var response = await fetch('{{ path("api_datajud_search") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ numeroProcesso: numeroProcesso, tribunalAlias: siglaTribunal.toLowerCase() })
+            });
+            var data = await response.json();
+            loadingEl.classList.add('d-none');
+
+            if (!response.ok || !data.success) {
+                feedbackEl.className = 'alert alert-danger mt-3';
+                feedbackEl.textContent = data.error || 'Erro ao buscar processo no CNJ/DataJud.';
+                return;
+            }
+
+            var pd = data.data;
+            document.getElementById('mp-orgaoJulgador').value     = pd.orgaoJulgador     || '';
+            document.getElementById('mp-classeProcessual').value  = pd.classeProcessual  || '';
+            document.getElementById('mp-assuntoProcessual').value = pd.assuntoProcessual || '';
+            document.getElementById('mp-situacaoProcesso').value  = pd.situacaoProcesso  || 'EM_ANDAMENTO';
+            document.getElementById('mp-instancia').value         = pd.instancia         || 'G1';
+            document.getElementById('mp-dataDistribuicao').value  = pd.dataDistribuicao  || '';
+
+            var partesContainer = document.getElementById('mp-partesContainer');
+            partesContainer.innerHTML = '';
+            var partesList = (pd.partes && pd.partes.length > 0) ? pd.partes : [{}];
+            partesList.forEach(function (parte, idx) {
+                partesContainer.insertAdjacentHTML('beforeend', `<div class="mp-parte-row card mb-2 p-3" style="position: relative;">
+                    <div class="row g-2">
+                        <div class="col-md-3"><label class="form-label">Tipo</label>
+                            <select name="partes[${idx}][tipo]" class="form-select">
+                                <option value="PARTE" ${(parte.tipo||'')==='PARTE'?'selected':''}>Parte</option>
+                                <option value="ADVOGADO" ${(parte.tipo||'')==='ADVOGADO'?'selected':''}>Advogado</option>
+                                <option value="JUIZ" ${(parte.tipo||'')==='JUIZ'?'selected':''}>Juiz</option>
+                                <option value="PROMOTOR" ${(parte.tipo||'')==='PROMOTOR'?'selected':''}>Promotor</option>
+                            </select></div>
+                        <div class="col-md-5"><label class="form-label">Nome</label>
+                            <input type="text" name="partes[${idx}][nome]" class="form-control" value="${parte.nome||''}" placeholder="Nome da parte"></div>
+                        <div class="col-md-2"><label class="form-label">Documento</label>
+                            <input type="text" name="partes[${idx}][documento]" class="form-control" value="${parte.documento||''}" placeholder="CPF/CNPJ"></div>
+                        <div class="col-md-2"><label class="form-label">Papel</label>
+                            <input type="text" name="partes[${idx}][papel]" class="form-control" value="${parte.papel||''}" placeholder="Polo ativo/passivo"></div>
+                    </div>
+                    <button type="button" class="btn btn-outline-danger btn-sm mp-remove-parte"
+                            style="display: ${partesList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
+                            title="Remover"><i class="bi bi-trash"></i></button>
+                </div>`);
+            });
+
+            var movContainer = document.getElementById('mp-movimentacoesContainer');
+            movContainer.innerHTML = '';
+            var movsList = (pd.movimentacoes && pd.movimentacoes.length > 0) ? pd.movimentacoes : [{}];
+            movsList.forEach(function (mov, idx) {
+                movContainer.insertAdjacentHTML('beforeend', `<div class="mp-movimentacao-row card mb-2 p-3" style="position: relative;">
+                    <div class="row g-2">
+                        <div class="col-md-3"><label class="form-label">Data</label>
+                            <input type="date" name="movimentacoes[${idx}][dataMovimentacao]" class="form-control" value="${mov.dataMovimentacao||''}"></div>
+                        <div class="col-md-4"><label class="form-label">Descrição</label>
+                            <input type="text" name="movimentacoes[${idx}][descricao]" class="form-control" value="${mov.descricao||''}" placeholder="Descrição da movimentação"></div>
+                        <div class="col-md-3"><label class="form-label">Tipo</label>
+                            <input type="text" name="movimentacoes[${idx}][tipo]" class="form-control" value="${mov.tipo||''}" placeholder="Tipo de movimento"></div>
+                        <div class="col-md-2"><label class="form-label">Órgão</label>
+                            <input type="text" name="movimentacoes[${idx}][orgao]" class="form-control" value="${mov.orgao||''}" placeholder="Órgão"></div>
+                    </div>
+                    <button type="button" class="btn btn-outline-danger btn-sm mp-remove-movimentacao"
+                            style="display: ${movsList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
+                            title="Remover"><i class="bi bi-trash"></i></button>
+                </div>`);
+            });
+
+            mpAttachRemovePartes();
+            mpAttachRemoveMovimentacoes();
+
+            feedbackEl.className = 'alert alert-success mt-3';
+            feedbackEl.textContent = 'Processo carregado com sucesso! Verifique os dados antes de salvar.';
+
+        } catch (e) {
+            loadingEl.classList.add('d-none');
+            feedbackEl.className = 'alert alert-danger mt-3';
+            feedbackEl.textContent = 'Erro ao buscar processo no CNJ/DataJud. Tente novamente em instantes.';
+        }
+    });
+
+    mpAttachRemovePartes();
+    mpAttachRemoveMovimentacoes();
 }());
 </script>
 {% endblock %}

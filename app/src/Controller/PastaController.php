@@ -5,6 +5,8 @@ namespace App\Controller;
 use App\Controller\Trait\ResourceAccessTrait;
 use App\Entity\Auth\User;
 use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClientePF;
+use App\Cliente\Entity\ClientePJ;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\ParteContraria;
 use App\Entity\Pasta\PastaDocumento;
@@ -12,6 +14,10 @@ use App\Processo\Entity\Processo;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
 use App\Cliente\Repository\ClienteRepository;
+use App\Cliente\Repository\ClientePFRepository;
+use App\Cliente\Repository\ClientePJRepository;
+use App\Cliente\Entity\ClienteDocumento;
+use App\Repository\ClienteDocumentoRepository;
 use App\Repository\PastaDocumentoRepository;
 use App\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
@@ -22,12 +28,12 @@ use App\Pasta\Service\PastaTimelineAssembler;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use App\Shared\Service\ArquivoStorageService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
@@ -53,14 +59,19 @@ class PastaController extends AbstractController
         private readonly EntityManagerInterface $em,
         private readonly PastaRepository $pastaRepository,
         private readonly PastaDocumentoRepository $pastaDocumentoRepository,
+        private readonly ClienteDocumentoRepository $clienteDocumentoRepository,
         private readonly ProcessoRepository $processoRepository,
         private readonly ClienteRepository $clienteRepository,
+        private readonly ClientePFRepository $clientePFRepository,
+        private readonly ClientePJRepository $clientePJRepository,
         private readonly UserRepository $userRepository,
         private readonly ValidatorInterface $validator,
         private readonly string $uploadsDir,
+        private readonly ArquivoStorageService $storage,
         private readonly PermissionChecker $permissionChecker,
         private readonly PastaTimelineAssembler $timelineAssembler,
         private readonly EnviarMensagemPastaUseCase $enviarMensagemUseCase,
+        private readonly CsrfTokenManagerInterface $csrfTokenManager,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -133,10 +144,433 @@ class PastaController extends AbstractController
         $timelineItems = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
 
         return $this->render('pasta/show.html.twig', [
-            'pasta'              => $pasta,
-            'documentTypeOptions' => self::DOCUMENT_TYPES,
-            'documentosPorTipo'  => $this->groupDocumentsByType($pasta),
-            'timelineItems'      => $timelineItems,
+            'pasta'                       => $pasta,
+            'documentTypeOptions'         => self::DOCUMENT_TYPES,
+            'documentosPorTipo'           => $this->groupDocumentsByType($pasta),
+            'documentTypeOptionsCliente'  => self::DOCUMENT_TYPES_CLIENTE,
+            'clientesComDocumentos'       => $this->groupClienteDocumentosByCliente($pasta),
+            'timelineItems'               => $timelineItems,
+        ]);
+    }
+
+    #[Route('/{id}/parte-contraria/nova', name: 'pasta_parte_contraria_nova', methods: ['POST'])]
+    public function novaParteContraria(Pasta $pasta, Request $request): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_parte_contraria_nova_' . $pasta->getId(), (string) $request->request->get('_token'))) {
+            $this->addFlash('error', 'Token de segurança inválido.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+
+        $nome = trim((string) $request->request->get('nome', ''));
+
+        if ($nome === '') {
+            $this->addFlash('error', 'O nome da parte contrária é obrigatório.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+
+        $parte = new ParteContraria();
+        $parte->setNome($nome);
+        $pasta->addParteContraria($parte);
+
+        $this->em->persist($parte);
+        $this->em->flush();
+
+        if ($request->isXmlHttpRequest()) {
+            return $this->json([
+                'sucesso' => true,
+                'parte' => [
+                    'id' => $parte->getId(),
+                    'nome' => $parte->getNome(),
+                    'csrfToken' => $this->csrfTokenManager->getToken('pasta_parte_contraria_desvincular_' . $pasta->getId() . '_' . $parte->getId())->getValue(),
+                ],
+            ]);
+        }
+
+        $this->addFlash('success', 'Parte contrária adicionada com sucesso.');
+
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+    }
+
+    #[Route('/{id}/cliente/novo', name: 'pasta_cliente_novo', methods: ['POST'])]
+    public function novoCliente(Pasta $pasta, Request $request): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        $isXhr = $request->isXmlHttpRequest();
+
+        if (!$this->isCsrfTokenValid('pasta_cliente_novo_' . $pasta->getId(), (string) $request->request->get('_token'))) {
+            if ($isXhr) {
+                return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+            }
+            $this->addFlash('error', 'Token de segurança inválido.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+
+        $tipo = $request->request->get('tipo');
+        $dados = $request->request->all();
+
+        if ($tipo === 'pf') {
+            $cliente = new ClientePF();
+            $nomeCompleto = trim((string) ($dados['nomeCompleto'] ?? ''));
+            $cpf          = trim((string) ($dados['cpf'] ?? ''));
+            $rg           = trim((string) ($dados['rg'] ?? ''));
+            $rgOrgao      = trim((string) ($dados['rgOrgaoExpedidor'] ?? ''));
+
+            if ($nomeCompleto === '' || $cpf === '' || $rg === '' || $rgOrgao === '') {
+                if ($isXhr) {
+                    return $this->json(['erro' => 'Nome completo, CPF, RG e órgão expedidor são obrigatórios.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                $this->addFlash('error', 'Nome completo, CPF, RG e órgão expedidor são obrigatórios.');
+                return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+            }
+
+            $cliente->setNomeCompleto($nomeCompleto);
+            $cliente->setCpf($cpf);
+            $cliente->setRg($rg);
+            $cliente->setRgOrgaoExpedidor($rgOrgao);
+
+            $rgData = trim((string) ($dados['rgDataEmissao'] ?? ''));
+            if ($rgData !== '') {
+                $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $rgData);
+                if ($dt !== false) {
+                    $cliente->setRgDataEmissao($dt);
+                }
+            }
+
+            $nascimento = trim((string) ($dados['dataNascimento'] ?? ''));
+            if ($nascimento !== '') {
+                $dt = \DateTimeImmutable::createFromFormat('Y-m-d', $nascimento);
+                if ($dt !== false) {
+                    $cliente->setDataNascimento($dt);
+                }
+            }
+
+            $estadoCivil = trim((string) ($dados['estadoCivil'] ?? ''));
+            if ($estadoCivil !== '') {
+                $cliente->setEstadoCivil($estadoCivil);
+            }
+
+            $profissao = trim((string) ($dados['profissao'] ?? ''));
+            if ($profissao !== '') {
+                $cliente->setProfissao($profissao);
+            }
+        } elseif ($tipo === 'pj') {
+            $cliente = new ClientePJ();
+            $razaoSocial      = trim((string) ($dados['razaoSocial'] ?? ''));
+            $cnpj             = trim((string) ($dados['cnpj'] ?? ''));
+            $enderecSede      = trim((string) ($dados['enderecSede'] ?? ''));
+            $representante    = trim((string) ($dados['representanteLegal'] ?? ''));
+            $representanteCpf = trim((string) ($dados['representanteCpf'] ?? ''));
+            $representanteRg  = trim((string) ($dados['representanteRg'] ?? ''));
+            $representanteCargo = trim((string) ($dados['representanteCargo'] ?? ''));
+
+            if ($razaoSocial === '' || $cnpj === '' || $enderecSede === '' || $representante === '' || $representanteCpf === '' || $representanteRg === '' || $representanteCargo === '') {
+                if ($isXhr) {
+                    return $this->json(['erro' => 'Razão social, CNPJ, endereço sede e dados do representante legal são obrigatórios.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                $this->addFlash('error', 'Razão social, CNPJ, endereço sede e dados do representante legal são obrigatórios.');
+                return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+            }
+
+            $cliente->setRazaoSocial($razaoSocial);
+            $cliente->setCnpj($cnpj);
+            $cliente->setEnderecSede($enderecSede);
+            $cliente->setRepresentanteLegal($representante);
+            $cliente->setRepresentanteCpf($representanteCpf);
+            $cliente->setRepresentanteRg($representanteRg);
+            $cliente->setRepresentanteCargo($representanteCargo);
+
+            $nomeFantasia = trim((string) ($dados['nomeFantasia'] ?? ''));
+            if ($nomeFantasia !== '') {
+                $cliente->setNomeFantasia($nomeFantasia);
+            }
+
+            $inscricaoEstadual = trim((string) ($dados['inscricaoEstadual'] ?? ''));
+            if ($inscricaoEstadual !== '') {
+                $cliente->setInscricaoEstadual($inscricaoEstadual);
+            }
+
+            $inscricaoMunicipal = trim((string) ($dados['inscricaoMunicipal'] ?? ''));
+            if ($inscricaoMunicipal !== '') {
+                $cliente->setInscricaoMunicipal($inscricaoMunicipal);
+            }
+        } else {
+            if ($isXhr) {
+                return $this->json(['erro' => 'Tipo de cliente inválido.'], Response::HTTP_BAD_REQUEST);
+            }
+            $this->addFlash('error', 'Tipo de cliente inválido.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+
+        // Campos comuns
+        $email = trim((string) ($dados['email'] ?? ''));
+        if ($email === '') {
+            if ($isXhr) {
+                return $this->json(['erro' => 'O e-mail é obrigatório.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $this->addFlash('error', 'O e-mail é obrigatório.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+        $cliente->setEmail($email);
+
+        $cep = trim((string) ($dados['cep'] ?? ''));
+        $endereco = trim((string) ($dados['endereco'] ?? ''));
+        $cidade = trim((string) ($dados['cidade'] ?? ''));
+        $estado = trim((string) ($dados['estado'] ?? ''));
+
+        if ($cep === '' || $endereco === '' || $cidade === '' || $estado === '') {
+            if ($isXhr) {
+                return $this->json(['erro' => 'CEP, endereço, cidade e estado são obrigatórios.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $this->addFlash('error', 'CEP, endereço, cidade e estado são obrigatórios.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+        $cliente->setCep($cep);
+        $cliente->setEndereco($endereco);
+        $cliente->setCidade($cidade);
+        $cliente->setEstado(substr($estado, 0, 2));
+
+        $complemento = trim((string) ($dados['complemento'] ?? ''));
+        if ($complemento !== '') {
+            $cliente->setComplemento($complemento);
+        }
+
+        $celular = trim((string) ($dados['telefoneCelular'] ?? ''));
+        if ($celular !== '') {
+            $cliente->setTelefoneCelular($celular);
+        }
+
+        $fixo = trim((string) ($dados['telefoneFixo'] ?? ''));
+        if ($fixo !== '') {
+            $cliente->setTelefoneFixo($fixo);
+        }
+
+        if ($cliente instanceof ClientePF) {
+            $cpfExistente = $this->clientePFRepository->findOneBy(['cpf' => $cliente->getCpf()]);
+            if ($cpfExistente !== null) {
+                $msg = sprintf('Já existe um cliente cadastrado com o CPF %s.', $cliente->getCpf());
+                if ($isXhr) {
+                    return $this->json(['erro' => $msg], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                $this->addFlash('error', $msg);
+                return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+            }
+        } elseif ($cliente instanceof ClientePJ) {
+            $cnpjExistente = $this->clientePJRepository->findOneBy(['cnpj' => $cliente->getCnpj()]);
+            if ($cnpjExistente !== null) {
+                $msg = sprintf('Já existe um cliente cadastrado com o CNPJ %s.', $cliente->getCnpj());
+                if ($isXhr) {
+                    return $this->json(['erro' => $msg], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                $this->addFlash('error', $msg);
+                return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+            }
+        }
+
+        $cliente->setCriadoPor($currentUser);
+
+        $this->em->persist($cliente);
+        $pasta->addCliente($cliente);
+        $this->em->flush();
+
+        if ($isXhr) {
+            return $this->json([
+                'sucesso' => true,
+                'cliente' => [
+                    'id' => $cliente->getId(),
+                    'nome' => $cliente instanceof ClientePF ? $cliente->getNomeCompleto() : $cliente->getRazaoSocial(),
+                    'documento' => $cliente instanceof ClientePF ? $cliente->getCpf() : $cliente->getCnpj(),
+                    'tipo' => $cliente instanceof ClientePF ? 'PF' : 'PJ',
+                    'csrfToken' => $this->csrfTokenManager->getToken('pasta_cliente_desvincular_' . $pasta->getId() . '_' . $cliente->getId())->getValue(),
+                ],
+            ]);
+        }
+
+        $this->addFlash('success', 'Cliente cadastrado e vinculado à pasta com sucesso.');
+
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+    }
+
+    #[Route('/{id}/cliente/{cliente}/desvincular', name: 'pasta_cliente_desvincular', methods: ['POST'])]
+    public function desvincularCliente(Pasta $pasta, Cliente $cliente, Request $request): Response
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_cliente_desvincular_' . $pasta->getId() . '_' . $cliente->getId(), (string) $request->request->get('_token'))) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+            }
+            $this->addFlash('error', 'Token de segurança inválido.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+
+        if (!$pasta->getClientes()->contains($cliente)) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['erro' => 'Cliente não vinculado a esta pasta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $this->addFlash('warning', 'Cliente não vinculado a esta pasta.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+
+        $pasta->removeCliente($cliente);
+        $this->em->flush();
+
+        if ($request->isXmlHttpRequest()) {
+            return $this->json(['sucesso' => true, 'clienteId' => $cliente->getId()]);
+        }
+
+        $this->addFlash('success', 'Cliente desvinculado da pasta com sucesso.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+    }
+
+    #[Route('/{id}/parte-contraria/{parteContraria}/desvincular', name: 'pasta_parte_contraria_desvincular', methods: ['POST'])]
+    public function desvincularParteContraria(Pasta $pasta, ParteContraria $parteContraria, Request $request): Response
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_parte_contraria_desvincular_' . $pasta->getId() . '_' . $parteContraria->getId(), (string) $request->request->get('_token'))) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+            }
+            $this->addFlash('error', 'Token de segurança inválido.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+
+        if ($parteContraria->getPasta()?->getId() !== $pasta->getId()) {
+            if ($request->isXmlHttpRequest()) {
+                return $this->json(['erro' => 'Parte contrária não pertence a esta pasta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $this->addFlash('warning', 'Parte contrária não pertence a esta pasta.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+        }
+
+        $pasta->removeParteContraria($parteContraria);
+        $this->em->flush();
+
+        if ($request->isXmlHttpRequest()) {
+            return $this->json(['sucesso' => true, 'parteContrariaId' => $parteContraria->getId()]);
+        }
+
+        $this->addFlash('success', 'Parte contrária desvinculada da pasta com sucesso.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
+    }
+
+    #[Route('/{id}/clientes/buscar', name: 'pasta_clientes_buscar', methods: ['GET'])]
+    public function buscarClientes(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $termo = trim((string) $request->query->get('q', ''));
+        if (mb_strlen($termo) < 2) {
+            return $this->json([]);
+        }
+
+        $clientesVinculados = $pasta->getClientes()->map(fn($c) => $c->getId())->toArray();
+
+        $todos = $this->clienteRepository->findAll();
+        $resultado = [];
+
+        foreach ($todos as $cliente) {
+            if (in_array($cliente->getId(), $clientesVinculados, true)) {
+                continue;
+            }
+
+            $nome = $cliente instanceof ClientePF
+                ? $cliente->getNomeCompleto()
+                : $cliente->getRazaoSocial();
+
+            $documento = $cliente instanceof ClientePF
+                ? ($cliente->getCpf() ?? '')
+                : ($cliente->getCnpj() ?? '');
+
+            if (str_contains(mb_strtolower($nome), mb_strtolower($termo))
+                || str_contains($documento, $termo)) {
+                $resultado[] = [
+                    'id'        => $cliente->getId(),
+                    'nome'      => $nome,
+                    'documento' => $documento,
+                    'tipo'      => $cliente instanceof ClientePF ? 'PF' : 'PJ',
+                ];
+            }
+
+            if (count($resultado) >= 10) {
+                break;
+            }
+        }
+
+        return $this->json($resultado);
+    }
+
+    #[Route('/{id}/cliente/vincular', name: 'pasta_cliente_vincular', methods: ['POST'])]
+    public function vincularCliente(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_cliente_vincular_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $clienteId = (int) $request->request->get('cliente_id', 0);
+        $cliente = $this->clienteRepository->find($clienteId);
+
+        if (!$cliente) {
+            return $this->json(['erro' => 'Cliente não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if ($pasta->getClientes()->contains($cliente)) {
+            return $this->json(['erro' => 'Este cliente já está vinculado à pasta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $pasta->addCliente($cliente);
+        $this->em->flush();
+
+        return $this->json([
+            'sucesso' => true,
+            'cliente' => [
+                'id' => $cliente->getId(),
+                'nome' => $cliente instanceof ClientePF ? $cliente->getNomeCompleto() : $cliente->getRazaoSocial(),
+                'documento' => $cliente instanceof ClientePF ? $cliente->getCpf() : $cliente->getCnpj(),
+                'tipo' => $cliente instanceof ClientePF ? 'PF' : 'PJ',
+                'csrfToken' => $this->csrfTokenManager->getToken('pasta_cliente_desvincular_' . $pastaId . '_' . $cliente->getId())->getValue(),
+            ],
         ]);
     }
 
@@ -174,6 +608,91 @@ class PastaController extends AbstractController
             'criadaEm'   => $mensagem->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs' => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
         ], Response::HTTP_CREATED);
+    }
+
+    #[Route('/{id}/processo/vincular', name: 'pasta_vincular_processo', methods: ['POST'])]
+    public function vincularProcesso(Pasta $pasta, Request $request): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        $isXhr = $request->isXmlHttpRequest();
+
+        if (!$this->isCsrfTokenValid('vincular_processo_' . $pastaId, (string) $request->request->get('_token'))) {
+            if ($isXhr) {
+                return $this->json(['erro' => 'Token CSRF inválido.'], Response::HTTP_BAD_REQUEST);
+            }
+            $this->addFlash('danger', 'Token CSRF inválido.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+        }
+
+        $data = $request->request->all();
+        $processoId     = (int) ($data['processo_id'] ?? 0);
+        $numeroProcesso = trim((string) ($data['numeroProcesso'] ?? ''));
+
+        if ($processoId > 0) {
+            $processo = $this->processoRepository->find($processoId);
+            if (!$processo instanceof Processo) {
+                if ($isXhr) {
+                    return $this->json(['erro' => 'Processo não encontrado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                $this->addFlash('danger', 'Processo não encontrado.');
+                return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+            }
+            $pasta->setProcesso($processo);
+        } elseif ($numeroProcesso !== '') {
+            $numeroNormalizado = preg_replace('/\D+/', '', $numeroProcesso);
+            $existente = $this->processoRepository->findByNumeroProcesso($numeroNormalizado ?? '');
+            if ($existente !== null) {
+                $pasta->setProcesso($existente);
+            } else {
+                $processo = new Processo();
+                $this->fillProcessoFromData($processo, $data);
+                $processo->setCriadoPor($this->getUser());
+                $this->em->persist($processo);
+                $pasta->setProcesso($processo);
+            }
+        } else {
+            if ($isXhr) {
+                return $this->json(['erro' => 'Informe o número do processo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $this->addFlash('warning', 'Informe o número do processo.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+        }
+
+        $this->em->flush();
+
+        if ($isXhr) {
+            $processo = $pasta->getProcesso();
+            return $this->json([
+                'sucesso' => true,
+                'processo' => [
+                    'id' => $processo->getId(),
+                    'numeroProcesso' => $processo->getNumeroProcesso(),
+                    'classeProcessual' => $processo->getClasseProcessual(),
+                    'assuntoProcessual' => $processo->getAssuntoProcessual(),
+                    'orgaoJulgador' => $processo->getOrgaoJulgador(),
+                    'siglaTribunal' => $processo->getSiglaTribunal(),
+                    'instancia' => $processo->getInstancia(),
+                    'situacaoProcesso' => $processo->getSituacaoProcesso(),
+                    'dataDistribuicao' => $processo->getDataDistribuicao()?->format('d/m/Y'),
+                    'partes' => array_map(fn($parte) => [
+                        'nome' => $parte->getNome(),
+                        'tipo' => $parte->getTipo(),
+                        'papel' => $parte->getPapel(),
+                        'documento' => $parte->getDocumento(),
+                    ], $processo->getPartes()->toArray()),
+                ],
+            ]);
+        }
+
+        $this->addFlash('success', 'Processo vinculado com sucesso.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
     }
 
     #[Route('/{id}/editar', name: 'pasta_edit', methods: ['GET', 'POST'])]
@@ -235,10 +754,7 @@ class PastaController extends AbstractController
         }
 
         foreach ($pasta->getDocumentos() as $doc) {
-            $caminho = $this->uploadsDir . '/' . $doc->getCaminhoArquivo();
-            if (file_exists($caminho)) {
-                unlink($caminho);
-            }
+            $this->storage->excluir($this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()));
         }
 
         $this->em->remove($pasta);
@@ -263,13 +779,27 @@ class PastaController extends AbstractController
         PastaDocumento::CATEGORIA_DEMAIS                => 'Demais documentos',
     ];
 
+    private const DOCUMENT_TYPES_CLIENTE = [
+        ClienteDocumento::CATEGORIA_IDENTIFICACAO          => 'Identificação',
+        ClienteDocumento::CATEGORIA_PROCURACAO             => 'Procuração',
+        ClienteDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => 'Comprovante de residência',
+        ClienteDocumento::CATEGORIA_CONTRATO               => 'Contrato',
+        ClienteDocumento::CATEGORIA_DEMAIS                 => 'Demais documentos',
+    ];
+
     private const MIME_LIMITS = [
         // Imagens
         'image/png'                          => 3 * 1024 * 1024,
         'image/jpeg'                         => 3 * 1024 * 1024,
         // Documentos
         'application/pdf'                    => 10 * 1024 * 1024,
+        // KML — mimetypes alternativos que diferentes SOs podem detectar
         'application/vnd.google-earth.kml+xml' => 5 * 1024 * 1024,
+        'application/xml'                    => 5 * 1024 * 1024,
+        'text/xml'                           => 5 * 1024 * 1024,
+        // Planilhas
+        'application/vnd.ms-excel'                                          => 10 * 1024 * 1024, // .xls
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' => 10 * 1024 * 1024, // .xlsx
         // Áudio
         'audio/x-opus+ogg'                   => 10 * 1024 * 1024,
         'audio/vorbis'                        => 10 * 1024 * 1024,
@@ -310,10 +840,6 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }
 
-        if (!is_dir($this->uploadsDir)) {
-            mkdir($this->uploadsDir, 0755, true);
-        }
-
         $categorias  = $request->request->all('categorias');
         $descricoes  = $request->request->all('descricoes');
         $numeros     = $request->request->all('numeros');
@@ -350,8 +876,7 @@ class PastaController extends AbstractController
             $descricao    = isset($descricoes[$i]) ? trim((string) $descricoes[$i]) : '';
             $numero       = isset($numeros[$i]) ? trim((string) $numeros[$i]) : '';
 
-            $nomeUnico = bin2hex(random_bytes(16)) . '.' . $file->guessExtension();
-            $file->move($this->uploadsDir, $nomeUnico);
+            $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
 
             $doc = new PastaDocumento();
             $doc->setPasta($pasta);
@@ -399,19 +924,13 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
-        $caminho = $this->uploadsDir . '/' . $doc->getCaminhoArquivo();
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
 
-        if (!file_exists($caminho)) {
+        if (!$this->storage->existe($caminho)) {
             throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
         }
 
-        $response = new BinaryFileResponse($caminho);
-        $response->setContentDisposition(
-            ResponseHeaderBag::DISPOSITION_INLINE,
-            $doc->getNomeOriginal()
-        );
-
-        return $response;
+        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
     }
 
     #[Route('/documento/{id}/download', name: 'pasta_documento_download', methods: ['GET'])]
@@ -424,21 +943,15 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
-        $caminho = $this->uploadsDir . '/' . $doc->getCaminhoArquivo();
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
 
-        if (!file_exists($caminho)) {
+        if (!$this->storage->existe($caminho)) {
             $this->addFlash('error', 'Arquivo não encontrado no servidor.');
 
             return $this->redirectToRoute('pasta_show', ['id' => $doc->getPasta()?->getId()]);
         }
 
-        $response = new BinaryFileResponse($caminho);
-        $response->setContentDisposition(
-            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
-            $doc->getNomeOriginal()
-        );
-
-        return $response;
+        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
     }
 
     #[Route('/documento/{id}/editar', name: 'pasta_documento_edit', methods: ['POST'])]
@@ -458,13 +971,17 @@ class PastaController extends AbstractController
         $categoriaRaw = strtoupper(trim((string) $request->request->get('categoria', '')));
         $categoria    = array_key_exists($categoriaRaw, self::DOCUMENT_TYPES) ? $categoriaRaw : $doc->getCategoria();
 
-        $descricao = trim((string) $request->request->get('descricao', ''));
-        $numero    = trim((string) $request->request->get('numero', ''));
+        $descricao    = trim((string) $request->request->get('descricao', ''));
+        $numero       = trim((string) $request->request->get('numero', ''));
+        $nomeOriginal = trim((string) $request->request->get('nomeOriginal', ''));
 
         $categoriaAnterior = $doc->getCategoria();
         $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);
         $doc->setNumero($numero !== '' ? $numero : null);
+        if ($nomeOriginal !== '') {
+            $doc->setNomeOriginal($nomeOriginal);
+        }
 
         $pasta = $doc->getPasta();
         if ($pasta !== null && $categoriaAnterior !== $categoria) {
@@ -495,10 +1012,7 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $caminho = $this->uploadsDir . '/' . $doc->getCaminhoArquivo();
-        if (file_exists($caminho)) {
-            unlink($caminho);
-        }
+        $this->storage->excluir($this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()));
 
         $pasta = $doc->getPasta();
         $categoria = $doc->getCategoria();
@@ -563,6 +1077,28 @@ class PastaController extends AbstractController
             }
         }
         return $grouped;
+    }
+
+    /**
+     * @return array<int, array{cliente: \App\Cliente\Entity\Cliente, documentosPorTipo: array<string, ClienteDocumento[]>}>
+     */
+    private function groupClienteDocumentosByCliente(Pasta $pasta): array
+    {
+        $result = [];
+        foreach ($pasta->getClientes() as $cliente) {
+            $grouped = [];
+            foreach (array_keys(self::DOCUMENT_TYPES_CLIENTE) as $tipo) {
+                $grouped[$tipo] = [];
+            }
+            foreach ($cliente->getDocumentos() as $doc) {
+                $cat = $doc->getCategoria();
+                if (array_key_exists($cat, $grouped)) {
+                    $grouped[$cat][] = $doc;
+                }
+            }
+            $result[] = ['cliente' => $cliente, 'documentosPorTipo' => $grouped];
+        }
+        return $result;
     }
 
     /**

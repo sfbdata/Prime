@@ -102,8 +102,8 @@ class PastaTimelineAssembler
 
         [$titulo, $icone, $badgeCss, $detalhe] = $this->resolveEventoVisual($entityClass, $action, $changes);
 
-        // Descartar se update de Pasta sem campos legíveis (apenas checklist)
-        if ($detalhe === null && $action === 'update' && str_ends_with($entityClass, '\Pasta')) {
+        // Descartar se update de Pasta sem informação útil (apenas checklist ou título genérico)
+        if ($detalhe === null && $action === 'update' && str_ends_with($entityClass, '\Pasta') && $titulo === 'Pasta atualizada') {
             return null;
         }
 
@@ -234,7 +234,14 @@ class PastaTimelineAssembler
                 return 'Cliente da pasta alterado';
             }
             if (preg_match('/^marcadores\[/', (string) $field)) {
-                return 'Marcador alterado';
+                $nomeMarcador = null;
+                if (is_array($diff[$field] ?? null)) {
+                    $nomeMarcador = ($diff[$field]['to']['label'] ?? null)
+                        ?? ($diff[$field]['from']['label'] ?? null);
+                }
+                return $nomeMarcador
+                    ? sprintf('Pasta movida para: %s', $nomeMarcador)
+                    : 'Pasta movida de seção';
             }
             if ((string) $field === 'responsavel') {
                 return 'Responsável alterado';
@@ -284,6 +291,12 @@ class PastaTimelineAssembler
         if (preg_match('/^(\w+)\[([+\-]):/', $field, $m)) {
             $colecao = $m[1];
             $operacao = $m[2];
+
+            // Marcador: nome já vai no título, detalhe desnecessário
+            if ($colecao === 'marcadores') {
+                return null;
+            }
+
             $label = self::FIELD_LABELS[$colecao] ?? $colecao;
             $nome = null;
 
