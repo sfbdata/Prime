@@ -383,10 +383,16 @@
                                         </div>
                                     {% endif %}
 
-                                    <div class="mt-3">
+                                    <div class="mt-3 d-flex align-items-center gap-2">
                                         <a href="{{ path('processo_show', {id: pasta.processo.id}) }}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-box-arrow-up-right me-1"></i> Ver processo completo
                                         </a>
+                                        <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular processo da pasta">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
                                     </div>
                                 {% else %}
                                     <div class="d-flex flex-column align-items-start gap-3">
@@ -1065,6 +1071,7 @@
     const urlVincular        = document.getElementById('urlVincularCliente')?.value ?? '';
     const csrfVincular       = document.getElementById('csrfVincularCliente')?.value ?? '';
     const pastaId            = '{{ pasta.id }}';
+    const csrfDesvincularProcesso = '{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}';
     const clientesContainer  = document.getElementById('clientesList');
     const partesContainer    = document.getElementById('partesContrariasList');
 
@@ -1465,6 +1472,51 @@
                 }
 
                 alert(dados.erro ?? 'Erro ao desvincular parte contrária.');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                }
+            }
+        }
+
+        if (form.matches('form.js-ajax-desvincular-processo')) {
+            event.preventDefault();
+            if (!confirm('Desvincular o processo desta pasta?')) {
+                return;
+            }
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+            }
+
+            try {
+                const resp = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new FormData(form),
+                });
+
+                if (!resp.ok) {
+                    const dados = await resp.json().catch(() => ({}));
+                    alert(dados.erro ?? 'Erro ao desvincular processo.');
+                    return;
+                }
+
+                const dados = await resp.json().catch(() => ({}));
+                if (dados.sucesso) {
+                    const content = document.getElementById('processoTabContent');
+                    if (content) {
+                        content.innerHTML =
+                            '<div class="d-flex flex-column align-items-start gap-3">' +
+                            '<p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum processo judicial vinculado a esta pasta.</p>' +
+                            '<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">' +
+                            '<i class="bi bi-plus-lg me-1"></i> Vincular Processo</button>' +
+                            '</div>';
+                    }
+                    return;
+                }
+
+                alert(dados.erro ?? 'Erro ao desvincular processo.');
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -2600,7 +2652,13 @@ document.addEventListener('DOMContentLoaded', function () {
             (processo.situacaoProcesso ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Situação</p><b>' + escapeHtml(processo.situacaoProcesso) + '</b></div>' : '') +
             dataDistribuicaoHtml +
             '</div>' + partesHtml +
-            '<div class="mt-3"><a href="/processos/' + escapeHtml(processo.id) + '" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right me-1"></i> Ver processo completo</a></div>';
+            '<div class="mt-3 d-flex align-items-center gap-2">' +
+            '<a href="/processos/' + escapeHtml(processo.id) + '" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right me-1"></i> Ver processo completo</a>' +
+            '<form method="post" action="/pasta/' + escapeHtml(pastaId) + '/processo/desvincular" class="js-ajax-desvincular-processo m-0">' +
+            '<input type="hidden" name="_token" value="' + escapeHtml(csrfDesvincularProcesso) + '">' +
+            '<button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular processo da pasta"><i class="bi bi-trash"></i></button>' +
+            '</form>' +
+            '</div>';
     }
 
     /* ── Submit via AJAX ── */

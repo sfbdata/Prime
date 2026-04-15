@@ -695,6 +695,46 @@ class PastaController extends AbstractController
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
     }
 
+    #[Route('/{id}/processo/desvincular', name: 'pasta_desvincular_processo', methods: ['POST'])]
+    public function desvincularProcesso(Pasta $pasta, Request $request): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        $isXhr = $request->isXmlHttpRequest();
+
+        if (!$this->isCsrfTokenValid('pasta_desvincular_processo_' . $pastaId, (string) $request->request->get('_token'))) {
+            if ($isXhr) {
+                return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+            }
+            $this->addFlash('error', 'Token de segurança inválido.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+        }
+
+        if ($pasta->getProcesso() === null) {
+            if ($isXhr) {
+                return $this->json(['erro' => 'Nenhum processo vinculado a esta pasta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+            $this->addFlash('warning', 'Nenhum processo vinculado a esta pasta.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+        }
+
+        $pasta->setProcesso(null);
+        $this->em->flush();
+
+        if ($isXhr) {
+            return $this->json(['sucesso' => true]);
+        }
+
+        $this->addFlash('success', 'Processo desvinculado da pasta com sucesso.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+    }
+
     #[Route('/{id}/editar', name: 'pasta_edit', methods: ['GET', 'POST'])]
     public function edit(Pasta $pasta, Request $request): Response
     {
