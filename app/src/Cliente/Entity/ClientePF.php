@@ -18,11 +18,11 @@ class ClientePF extends Cliente
     #[ORM\Column(length: 100)]
     private string $rgOrgaoExpedidor;
 
-    #[ORM\Column(type: 'date', nullable: true)]
-    private ?\DateTimeInterface $rgDataEmissao = null;
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $rgDataEmissao = null;
 
-    #[ORM\Column(type: 'date', nullable: true)]
-    private ?\DateTimeInterface $dataNascimento = null;
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $dataNascimento = null;
 
     #[ORM\Column(length: 50)]
     private string $nomeCompleto;
@@ -71,23 +71,23 @@ class ClientePF extends Cliente
         return $this;
     }
 
-    public function getRgDataEmissao(): ?\DateTimeInterface
+    public function getRgDataEmissao(): ?\DateTimeImmutable
     {
         return $this->rgDataEmissao;
     }
 
-    public function setRgDataEmissao(?\DateTimeInterface $rgDataEmissao): self
+    public function setRgDataEmissao(?\DateTimeImmutable $rgDataEmissao): self
     {
         $this->rgDataEmissao = $rgDataEmissao;
         return $this;
     }
 
-    public function getDataNascimento(): ?\DateTimeInterface
+    public function getDataNascimento(): ?\DateTimeImmutable
     {
         return $this->dataNascimento;
     }
 
-    public function setDataNascimento(?\DateTimeInterface $dataNascimento): self
+    public function setDataNascimento(?\DateTimeImmutable $dataNascimento): self
     {
         $this->dataNascimento = $dataNascimento;
         return $this;

@@ -4,6 +4,8 @@ namespace App\Cliente\Entity;
 
 use App\Entity\Auth\User;
 use App\Cliente\Repository\ClienteRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ClienteRepository::class)]
@@ -52,10 +54,14 @@ abstract class Cliente
     #[ORM\JoinColumn(nullable: true)]
     private ?User $criadoPor = null;
 
+    #[ORM\OneToMany(targetEntity: ClienteDocumento::class, mappedBy: 'cliente', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $documentos;
+
     public function __construct()
     {
         $this->criadoAt = new \DateTimeImmutable();
         $this->modificadoEm = new \DateTimeImmutable();
+        $this->documentos = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -191,5 +197,28 @@ abstract class Cliente
     }
 
     abstract public function getNomeExibicao(): string;
+
+    /** @return Collection<int, ClienteDocumento> */
+    public function getDocumentos(): Collection
+    {
+        return $this->documentos;
+    }
+
+    public function addDocumento(ClienteDocumento $documento): self
+    {
+        if (!$this->documentos->contains($documento)) {
+            $this->documentos->add($documento);
+            $documento->setCliente($this);
+        }
+
+        return $this;
+    }
+
+    public function removeDocumento(ClienteDocumento $documento): self
+    {
+        $this->documentos->removeElement($documento);
+
+        return $this;
+    }
 
 }
