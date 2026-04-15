@@ -162,12 +162,22 @@
                     </td>
                     <td class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}">
                         <div class="d-flex flex-wrap gap-1 align-items-center">
-                            {% for m in pasta.marcadores %}
+                            {% if pasta.marcadores|length > 0 %}
+                                {% set primeiro = pasta.marcadores|first %}
                                 <span class="badge rounded-pill px-2"
-                                      style="{% if m.cor %}background:{{ m.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:#e9ecef;color:#333;{% endif %}font-size:.68rem;">
-                                    {{ m.nome }}
+                                      style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:#e9ecef;color:#333;{% endif %}font-size:.68rem;">
+                                    {{ primeiro.nome }}
                                 </span>
-                            {% endfor %}
+                                {% if pasta.marcadores|length > 1 %}
+                                    <span class="badge rounded-pill px-2 marcadores-extra"
+                                          style="background:#e9ecef;color:#333;font-size:.68rem;cursor:default;"
+                                          data-bs-toggle="tooltip"
+                                          data-bs-html="true"
+                                          title="{{ pasta.marcadores|slice(1)|map(m => m.nome)|join('<br>') }}">
+                                        &hellip;
+                                    </span>
+                                {% endif %}
+                            {% endif %}
                             <button type="button"
                                     class="btn btn-xs py-0 px-1 btn-outline-secondary js-mover-para"
                                     style="font-size:.7rem;line-height:1.4;"
@@ -266,12 +276,20 @@
             <div class="pasta-card-row pasta-marcadores-col" data-pasta-id="{{ pasta.id }}">
                 <span class="pasta-card-label"><i class="bi bi-tags me-1"></i></span>
                 <div class="d-flex flex-wrap gap-1 align-items-center flex-grow-1">
-                    {% for m in pasta.marcadores %}
-                        <span class="badge rounded-pill px-2"
-                              style="{% if m.cor %}background:{{ m.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:#e9ecef;color:#333;{% endif %}font-size:.68rem;">
-                            {{ m.nome }}
+                    {% set primeiroMobile = pasta.marcadores|first %}
+                    <span class="badge rounded-pill px-2"
+                          style="{% if primeiroMobile.cor %}background:{{ primeiroMobile.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:#e9ecef;color:#333;{% endif %}font-size:.68rem;">
+                        {{ primeiroMobile.nome }}
+                    </span>
+                    {% if pasta.marcadores|length > 1 %}
+                        <span class="badge rounded-pill px-2 marcadores-extra"
+                              style="background:#e9ecef;color:#333;font-size:.68rem;cursor:default;"
+                              data-bs-toggle="tooltip"
+                              data-bs-html="true"
+                              title="{{ pasta.marcadores|slice(1)|map(m => m.nome)|join('<br>') }}">
+                            &hellip;
                         </span>
-                    {% endfor %}
+                    {% endif %}
                     <button type="button"
                             class="btn btn-xs py-0 px-1 btn-outline-secondary js-mover-para"
                             style="font-size:.7rem;line-height:1.4;"
@@ -473,10 +491,23 @@
             });
         });
     }
+
+    /* ── Tooltips dos marcadores extras ── */
+    function iniciarTooltipsMarcadores() {
+        document.querySelectorAll('.marcadores-extra[data-bs-toggle="tooltip"]').forEach(function (el) {
+            if (bootstrap.Tooltip.getInstance(el)) return;
+            new bootstrap.Tooltip(el, { html: true, trigger: 'hover', placement: 'top' });
+        });
+    }
+
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', iniciarTooltipsClientes);
+        document.addEventListener('DOMContentLoaded', function () {
+            iniciarTooltipsClientes();
+            iniciarTooltipsMarcadores();
+        });
     } else {
         iniciarTooltipsClientes();
+        iniciarTooltipsMarcadores();
     }
 
     var table = document.getElementById('tabelaPastas');

@@ -1645,15 +1645,29 @@ document.addEventListener('DOMContentLoaded', function () {
             if (colMarcadores) {
                 // Substitui apenas os badges, preservando o botão js-mover-para
                 var btnMover = colMarcadores.querySelector('.js-mover-para');
-                var novosBadges = res.data.marcadores.map(function (m) {
-                    var bg = m.cor || '#e9ecef';
-                    return '<span class="badge rounded-pill px-2" style="background:' + bg + ';color:#333;border:1px solid rgba(0,0,0,.1);font-size:.7rem;">' + escHtml(m.nome) + '</span>';
-                }).join(' ');
+                var novosHtml = '';
+                if (res.data.marcadores.length > 0) {
+                    var primeiro = res.data.marcadores[0];
+                    var bg0 = primeiro.cor || '#e9ecef';
+                    var borda0 = primeiro.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
+                    novosHtml += '<span class="badge rounded-pill px-2" style="background:' + bg0 + ';color:#333;' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
+                    if (res.data.marcadores.length > 1) {
+                        var extras = res.data.marcadores.slice(1).map(function (m) { return escHtml(m.nome); }).join('<br>');
+                        novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:#e9ecef;color:#333;font-size:.68rem;cursor:default;" title="' + extras + '">&hellip;</span>';
+                    }
+                }
                 // Remove badges antigos (todos os <span> dentro do <div> wrapper)
                 var wrapper = colMarcadores.querySelector('.d-flex');
                 if (wrapper) {
                     wrapper.querySelectorAll('span.badge').forEach(function (s) { s.remove(); });
-                    wrapper.insertAdjacentHTML('afterbegin', novosBadges);
+                    wrapper.insertAdjacentHTML('afterbegin', novosHtml);
+                    // Reinicializa tooltip no badge de extras, se existir
+                    var extraBadge = wrapper.querySelector('.marcadores-extra');
+                    if (extraBadge) {
+                        var tt = bootstrap.Tooltip.getInstance(extraBadge);
+                        if (tt) tt.dispose();
+                        new bootstrap.Tooltip(extraBadge, { html: true, trigger: 'hover', placement: 'top' });
+                    }
                 }
                 if (btnMover) {
                     btnMover.dataset.marcadoresAtivos = res.data.marcadores.map(function (m) { return m.id; }).join(',');
