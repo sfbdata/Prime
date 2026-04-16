@@ -27,14 +27,121 @@
 <section class="content">
     <div class="container-fluid">
         <div class="card card-primary card-outline">
-            <div class="card-header">
-                <h3 class="card-title"><i class="bi bi-folder me-1"></i> Pasta</h3>
-                <div class="card-tools">
+            <div class="card-header d-flex align-items-center">
+                <h3 class="card-title mb-0"><i class="bi bi-folder me-1"></i> Pasta</h3>
+
+                {# ── Barra de ações minimalistas ── #}
+                <div class="pasta-acoes-bar d-flex align-items-center" style="margin-left: 3rem;">
+                    <button type="button" class="pasta-acao-btn" title="Editar pasta"
+                            data-bs-toggle="modal" data-bs-target="#modalEditarPasta">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button"
+                            id="btn-alternar-status"
+                            class="pasta-acao-btn {{ pasta.status == 'arquivado' ? 'pasta-acao-btn--arquivado' : '' }}"
+                            title="{{ pasta.status == 'ativo' ? 'Arquivar pasta' : 'Reativar pasta' }}"
+                            data-pasta-id="{{ pasta.id }}"
+                            data-status-atual="{{ pasta.status }}"
+                            data-csrf="{{ csrf_token('pasta_alternar_status_' ~ pasta.id) }}"
+                            data-url="{{ path('pasta_alternar_status', {id: pasta.id}) }}">
+                        <i class="bi {{ pasta.status == 'ativo' ? 'bi-archive' : 'bi-archive-fill' }}"></i>
+                        <span class="pasta-acao-label">{{ pasta.status == 'ativo' ? 'Arquivar' : 'Ativar' }}</span>
+                    </button>
+                    <span class="pasta-acao-sep"></span>
+                    <button type="button" class="pasta-acao-btn" title="Adiar">
+                        <i class="bi bi-clock"></i>
+                    </button>
+                    <span class="pasta-acao-sep"></span>
+                    <form method="post" action="{{ path('pasta_delete', {id: pasta.id}) }}"
+                          onsubmit="return confirm('Tem certeza que deseja excluir a pasta {{ pasta.nup|e('js') }}?');"
+                          class="d-contents">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete_pasta_' ~ pasta.id) }}">
+                        <button type="submit" class="pasta-acao-btn pasta-acao-btn--danger" title="Excluir pasta">
+                            <i class="bi bi-trash3"></i>
+                        </button>
+                    </form>
+                    <span class="pasta-acao-sep"></span>
+                    <button type="button" class="pasta-acao-btn js-mover-para" title="Mover para marcador"
+                            data-pasta-id="{{ pasta.id }}"
+                            data-pasta-nome="{{ pasta.nup }}"
+                            data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
+                            data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}">
+                        <i class="bi bi-tag"></i>
+                    </button>
+                    <button type="button" class="pasta-acao-btn" title="Mais ações"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-three-dots-vertical"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:.85rem;min-width:170px;">
+                        <li>
+                            <a class="dropdown-item" href="#">
+                                <i class="bi bi-printer me-2 text-muted"></i>Imprimir
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="#">
+                                <i class="bi bi-share me-2 text-muted"></i>Compartilhar
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="card-tools ms-auto">
                     <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
                         {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
                     </span>
                 </div>
             </div>
+
+            <style>
+            .pasta-acoes-bar {
+                gap: 2px;
+                position: relative;
+            }
+            .pasta-acao-btn {
+                background: none;
+                border: none;
+                padding: 6px 8px;
+                color: #7bafd4;
+                font-size: 1rem;
+                border-radius: 50%;
+                cursor: pointer;
+                line-height: 1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: background .15s, color .15s;
+            }
+            .pasta-acao-btn:hover {
+                background: rgba(123,175,212,.15);
+                color: #4a90c4;
+            }
+            .pasta-acao-btn--danger:hover {
+                background: rgba(220,53,69,.10);
+                color: #dc3545;
+            }
+            .pasta-acao-btn--arquivado {
+                color: #fd7e14;
+            }
+            .pasta-acao-btn--arquivado:hover {
+                background: rgba(253,126,20,.12);
+                color: #e06200;
+            }
+            .pasta-acao-label {
+                font-size: .75rem;
+                margin-left: 4px;
+                font-weight: 500;
+                letter-spacing: .01em;
+            }
+            .pasta-acao-sep {
+                width: 1px;
+                height: 18px;
+                background: #dadce0;
+                margin: 0 4px;
+                flex-shrink: 0;
+            }
+            .d-contents { display: contents; }
+            </style>
             <div class="card-body">
                 <div class="row">
                     {# Left Column - Tabs #}
@@ -111,7 +218,22 @@
                                     </div>
                                     <div class="col-12 col-sm-6 col-lg-3">
                                         <p class="text-sm text-muted mb-1">Responsável</p>
-                                        <b>{{ pasta.responsavel ? pasta.responsavel.fullName : '—' }}</b>
+                                        <div class="pasta-responsavel-inline" data-pasta-id="{{ pasta.id }}"
+                                             data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
+                                             data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}">
+                                            <select class="form-select form-select-sm pasta-responsavel-select"
+                                                    style="max-width:180px;"
+                                                    data-valor-atual="{{ pasta.responsavel ? pasta.responsavel.id : '' }}">
+                                                <option value="">— Sem responsável —</option>
+                                                {% for u in usuarios %}
+                                                    <option value="{{ u.id }}"
+                                                        {% if pasta.responsavel and pasta.responsavel.id == u.id %}selected{% endif %}>
+                                                        {{ u.fullName }}
+                                                    </option>
+                                                {% endfor %}
+                                            </select>
+                                            <span class="pasta-responsavel-feedback ms-1" style="font-size:.75rem;"></span>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -146,51 +268,73 @@
                                                         {% endif %}
                                                     {% endfor %}
 
-                                                    <div class="cliente-row mb-3 pb-3 border-bottom" data-cliente-id="{{ cliente.id }}">
-                                                        {# Cabeçalho: nome + desvincular #}
-                                                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-                                                            <a href="{{ path('cliente_show', {id: cliente.id}) }}" class="text-decoration-none flex-grow-1 vinculo-link">
+                                                    {# Conta total de docs deste cliente #}
+                                                    {% set totalDocsCliente = 0 %}
+                                                    {% if clienteDocs is not null %}
+                                                        {% for tipo, docs in clienteDocs.documentosPorTipo %}
+                                                            {% set totalDocsCliente = totalDocsCliente + docs|length %}
+                                                        {% endfor %}
+                                                    {% endif %}
+
+                                                    <div class="cliente-row border-bottom" data-cliente-id="{{ cliente.id }}">
+                                                        {# ── Linha compacta: toggle do accordion ── #}
+                                                        <div class="d-flex align-items-center gap-2 py-2 px-1">
+                                                            {# Toggle accordion #}
+                                                            <button class="btn btn-link p-0 text-start text-decoration-none flex-grow-1 cliente-accordion-toggle"
+                                                                    type="button"
+                                                                    data-bs-toggle="collapse"
+                                                                    data-bs-target="#clienteAcc{{ cliente.id }}"
+                                                                    aria-expanded="false"
+                                                                    aria-controls="clienteAcc{{ cliente.id }}">
                                                                 <div class="d-flex align-items-center gap-2">
-                                                                    <i class="bi bi-person-circle text-muted"></i>
-                                                                    <span class="fw-semibold text-primary">
+                                                                    <i class="bi bi-person-circle text-muted fs-6"></i>
+                                                                    <span class="fw-semibold text-primary small">
                                                                         {% if cliente.cpf is defined and cliente.cpf %}
                                                                             {{ cliente.nomeCompleto }}
                                                                         {% else %}
                                                                             {{ cliente.razaoSocial }}
                                                                         {% endif %}
                                                                     </span>
+                                                                    {% if totalDocsCliente > 0 %}
+                                                                        <span class="badge text-bg-secondary rounded-pill" style="font-size:.65rem;">{{ totalDocsCliente }}</span>
+                                                                    {% endif %}
                                                                 </div>
-                                                            </a>
-                                                            <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">
-                                                                <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_desvincular_' ~ pasta.id ~ '_' ~ cliente.id) }}">
-                                                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular cliente da pasta">
-                                                                    <i class="bi bi-trash"></i>
-                                                                </button>
-                                                            </form>
+                                                            </button>
+
+                                                            {# Ações rápidas: ir ao cliente + desvincular #}
+                                                            <div class="d-flex gap-1 flex-shrink-0">
+                                                                <a href="{{ path('cliente_show', {id: cliente.id}) }}"
+                                                                   class="btn btn-xs btn-outline-secondary"
+                                                                   title="Abrir ficha do cliente">
+                                                                    <i class="bi bi-box-arrow-up-right"></i>
+                                                                </a>
+                                                                <form method="post" action="{{ path('pasta_cliente_desvincular', {id: pasta.id, cliente: cliente.id}) }}" class="js-ajax-desvincular-cliente m-0">
+                                                                    <input type="hidden" name="_token" value="{{ csrf_token('pasta_cliente_desvincular_' ~ pasta.id ~ '_' ~ cliente.id) }}">
+                                                                    <button type="submit" class="btn btn-xs btn-outline-danger" title="Desvincular cliente da pasta">
+                                                                        <i class="bi bi-trash"></i>
+                                                                    </button>
+                                                                </form>
+                                                            </div>
                                                         </div>
 
-                                                        {# Arquivos do cliente — inline, sem modal #}
-                                                        {% if clienteDocs is not null %}
-                                                            <div class="cliente-arquivos ps-1">
-                                                                {# Documentos existentes #}
-                                                                {% set hasDocCliente = false %}
-                                                                {% for tipo, docs in clienteDocs.documentosPorTipo %}
-                                                                    {% if docs|length > 0 %}{% set hasDocCliente = true %}{% endif %}
-                                                                {% endfor %}
+                                                        {# ── Painel colapsável com arquivos + upload ── #}
+                                                        <div class="collapse" id="clienteAcc{{ cliente.id }}">
+                                                            <div class="cliente-acc-body pb-3 pt-1 px-1">
 
-                                                                {% if hasDocCliente %}
+                                                                {# Documentos existentes #}
+                                                                {% if clienteDocs is not null and totalDocsCliente > 0 %}
                                                                     <div class="mb-2">
                                                                         {% for tipo, docs in clienteDocs.documentosPorTipo %}
                                                                             {% if docs|length > 0 %}
                                                                                 {% set label = documentTypeOptionsCliente[tipo] ?? tipo %}
-                                                                                <div class="text-muted small mb-1 mt-2">
+                                                                                <div class="text-muted" style="font-size:.7rem;letter-spacing:.03em;text-transform:uppercase;margin-bottom:.25rem;margin-top:.6rem;">
                                                                                     <i class="bi bi-folder me-1"></i>{{ label }}
                                                                                 </div>
                                                                                 {% for doc in docs %}
                                                                                     <div class="d-flex align-items-center gap-2 rounded px-2 py-1 mb-1 doc-row-cliente">
-                                                                                        <i class="bi bi-file-earmark-text text-primary flex-shrink-0"></i>
-                                                                                        <span class="text-truncate flex-grow-1 small fw-semibold">{{ doc.nomeOriginal }}</span>
-                                                                                        <small class="text-muted text-nowrap d-none d-sm-inline">{{ doc.uploadedAt|date('d/m/Y') }}</small>
+                                                                                        <i class="bi bi-file-earmark-text text-primary flex-shrink-0" style="font-size:.85rem;"></i>
+                                                                                        <span class="text-truncate flex-grow-1" style="font-size:.8rem;">{{ doc.nomeOriginal }}</span>
+                                                                                        <small class="text-muted text-nowrap d-none d-sm-inline" style="font-size:.7rem;">{{ doc.uploadedAt|date('d/m/Y') }}</small>
                                                                                         <div class="d-flex gap-1 flex-shrink-0">
                                                                                             <button type="button" class="btn btn-xs btn-outline-primary"
                                                                                                     title="Visualizar"
@@ -213,12 +357,14 @@
                                                                             {% endif %}
                                                                         {% endfor %}
                                                                     </div>
+                                                                {% else %}
+                                                                    <p class="text-muted small mb-2"><i class="bi bi-inbox me-1"></i>Nenhum arquivo anexado.</p>
                                                                 {% endif %}
 
-                                                                {# Upload inline #}
+                                                                {# Upload inline — dentro do accordion #}
                                                                 <form method="post" enctype="multipart/form-data"
                                                                       action="{{ path('cliente_documento_upload', {id: cliente.id}) }}"
-                                                                      class="form-upload-cliente-inline mt-2"
+                                                                      class="form-upload-cliente-inline"
                                                                       data-cliente-id="{{ cliente.id }}">
                                                                     <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_cliente_' ~ cliente.id) }}">
                                                                     <input type="file" id="fileInputCliente{{ cliente.id }}"
@@ -228,11 +374,11 @@
 
                                                                     <div id="listaUploadCliente{{ cliente.id }}" class="mb-2"></div>
 
-                                                                    <div class="d-flex align-items-center gap-2">
+                                                                    <div class="d-flex align-items-center gap-2 mt-1">
                                                                         <button type="button"
                                                                                 class="btn btn-xs btn-outline-primary btn-escolher-arquivo-cliente"
                                                                                 data-cliente-id="{{ cliente.id }}">
-                                                                            <i class="bi bi-paperclip me-1"></i> Anexar arquivo
+                                                                            <i class="bi bi-paperclip me-1"></i> Anexar
                                                                         </button>
                                                                         <button type="submit"
                                                                                 class="btn btn-xs btn-success btn-enviar-cliente d-none"
@@ -246,8 +392,9 @@
                                                                         </button>
                                                                     </div>
                                                                 </form>
+
                                                             </div>
-                                                        {% endif %}
+                                                        </div>
                                                     </div>
                                                 {% endfor %}
                                             {% elseif pasta.nomeCliente %}
@@ -575,6 +722,32 @@
                                 {# Arquivos por categoria #}
                                 <h6 class="text-muted mb-3"><i class="bi bi-folder me-1"></i> Arquivos da Pasta</h6>
 
+                                {# Formulário de upload inline #}
+                                <form id="formAnexos" method="post" enctype="multipart/form-data"
+                                      action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
+
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <button type="button" id="btnAdicionarAnexo" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
+                                        </button>
+                                        <button type="button" id="btnLimparAnexos" class="btn btn-sm btn-outline-secondary d-none">
+                                            <i class="bi bi-x-circle me-1"></i> Limpar
+                                        </button>
+                                        <input type="file" id="inputAnexoOculto" multiple
+                                               accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
+                                               class="d-none">
+                                    </div>
+
+                                    <div id="listaAnexos"></div>
+
+                                    <div id="areaEnviar" class="d-none mt-3 text-end">
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                                        </button>
+                                    </div>
+                                </form>
+
                                 {# Documentos já enviados #}
                                 {% set hasDocuments = false %}
                                 {% for tipo, docs in documentosPorTipo %}
@@ -582,6 +755,7 @@
                                 {% endfor %}
 
                                 {% if hasDocuments %}
+                                <hr>
                                 <div class="mb-3">
                                     {% for tipo, docs in documentosPorTipo %}
                                         {% if docs|length > 0 %}
@@ -629,36 +803,7 @@
                                         {% endif %}
                                     {% endfor %}
                                 </div>
-                                <hr>
-                                {% else %}
-                                <p class="text-muted mb-3"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado.</p>
                                 {% endif %}
-
-                                {# Formulário de upload inline #}
-                                <form id="formAnexos" method="post" enctype="multipart/form-data"
-                                      action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
-
-                                    <div class="d-flex align-items-center gap-2 mb-3">
-                                        <button type="button" id="btnAdicionarAnexo" class="btn btn-sm btn-primary">
-                                            <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
-                                        </button>
-                                        <button type="button" id="btnLimparAnexos" class="btn btn-sm btn-outline-secondary d-none">
-                                            <i class="bi bi-x-circle me-1"></i> Limpar
-                                        </button>
-                                        <input type="file" id="inputAnexoOculto" multiple
-                                               accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
-                                               class="d-none">
-                                    </div>
-
-                                    <div id="listaAnexos"></div>
-
-                                    <div id="areaEnviar" class="d-none mt-3 text-end">
-                                        <button type="submit" class="btn btn-sm btn-success">
-                                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-                                        </button>
-                                    </div>
-                                </form>
                             </div>
                         </div>
 
@@ -749,17 +894,8 @@
                                 style="z-index:1060; max-height:220px; overflow-y:auto;">
                             </ul>
                         </div>
-                        <div id="clienteSelecionadoPreview" class="d-none mt-3 p-2 rounded border bg-light d-flex align-items-center justify-content-between gap-2">
-                            <div class="d-flex align-items-center gap-2 overflow-hidden">
-                                <i class="bi bi-person-check text-success fs-5 flex-shrink-0"></i>
-                                <div class="overflow-hidden">
-                                    <div class="fw-semibold text-truncate small" id="clienteSelecionadoNome"></div>
-                                    <div class="text-muted" style="font-size:.75rem;" id="clienteSelecionadoDoc"></div>
-                                </div>
-                            </div>
-                            <button type="button" class="btn btn-link btn-sm p-0 text-danger flex-shrink-0" id="btnLimparClienteSelecionado" title="Remover seleção">
-                                <i class="bi bi-x-lg"></i>
-                            </button>
+                        <div id="clientesSelecionadosContainer" class="d-none mt-3">
+                            <div id="clientesSelecionadosChips" class="d-flex flex-wrap gap-2"></div>
                         </div>
                     </div>
 
@@ -1029,7 +1165,7 @@
                 <div class="modal-footer py-2 d-none" id="footerVincularCliente">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
                     <button type="button" class="btn btn-success btn-sm" id="btnConfirmarVincular">
-                        <i class="bi bi-link-45deg me-1"></i> Vincular Cliente
+                        <i class="bi bi-link-45deg me-1"></i> <span class="btn-label">Vincular Cliente</span>
                     </button>
                 </div>
                 <div class="modal-footer py-2" id="footerEscolhaTipo">
@@ -1059,33 +1195,36 @@
     const btnSalvar          = footerForm.querySelector('button[type="submit"]');
 
     // Busca de cliente existente
-    const inputBusca         = modal.querySelector('#buscaClienteExistente');
-    const listaResultados    = modal.querySelector('#buscaClienteResultados');
-    const spinnerBusca       = modal.querySelector('#buscaClienteSpinner');
-    const preview            = modal.querySelector('#clienteSelecionadoPreview');
-    const previewNome        = modal.querySelector('#clienteSelecionadoNome');
-    const previewDoc         = modal.querySelector('#clienteSelecionadoDoc');
-    const btnLimpar          = modal.querySelector('#btnLimparClienteSelecionado');
-    const btnConfirmarVincular = modal.querySelector('#btnConfirmarVincular');
-    const urlBuscar          = document.getElementById('urlBuscarClientes')?.value ?? '';
-    const urlVincular        = document.getElementById('urlVincularCliente')?.value ?? '';
-    const csrfVincular       = document.getElementById('csrfVincularCliente')?.value ?? '';
-    const pastaId            = '{{ pasta.id }}';
+    const inputBusca              = modal.querySelector('#buscaClienteExistente');
+    const listaResultados         = modal.querySelector('#buscaClienteResultados');
+    const spinnerBusca            = modal.querySelector('#buscaClienteSpinner');
+    const chipsContainer          = modal.querySelector('#clientesSelecionadosContainer');
+    const chipsWrapper            = modal.querySelector('#clientesSelecionadosChips');
+    const btnConfirmarVincular    = modal.querySelector('#btnConfirmarVincular');
+    const urlBuscar               = document.getElementById('urlBuscarClientes')?.value ?? '';
+    const urlVincular             = document.getElementById('urlVincularCliente')?.value ?? '';
+    const csrfVincular            = document.getElementById('csrfVincularCliente')?.value ?? '';
+    const pastaId                 = '{{ pasta.id }}';
     const csrfDesvincularProcesso = '{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}';
-    const clientesContainer  = document.getElementById('clientesList');
-    const partesContainer    = document.getElementById('partesContrariasList');
+    const clientesContainer       = document.getElementById('clientesList');
+    const partesContainer         = document.getElementById('partesContrariasList');
 
-    let clienteSelecionadoId = null;
+    /** @type {Array<{id: number, nome: string, documento: string, tipo: string}>} */
+    let clientesSelecionados = [];
     let debounceTimer        = null;
 
     function criarClienteRow(cliente) {
         const row = document.createElement('div');
-        row.className = 'cliente-row d-flex align-items-center justify-content-between gap-2 mb-3 pb-3 border-bottom';
+        row.className = 'cliente-row mb-3 pb-3 border-bottom';
         row.dataset.clienteId = cliente.id;
+
+        // Cabeçalho: nome + botão desvincular
+        const header = document.createElement('div');
+        header.className = 'd-flex align-items-center justify-content-between gap-2 mb-2';
 
         const link = document.createElement('a');
         link.href = `/clientes/${cliente.id}`;
-        link.className = 'text-decoration-none flex-grow-1 me-2 vinculo-link';
+        link.className = 'text-decoration-none flex-grow-1 vinculo-link';
 
         const linkContent = document.createElement('div');
         linkContent.className = 'd-flex align-items-center gap-2';
@@ -1101,27 +1240,89 @@
         linkContent.appendChild(nameSpan);
         link.appendChild(linkContent);
 
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = `/pasta/${pastaId}/cliente/${cliente.id}/desvincular`;
-        form.className = 'js-ajax-desvincular-cliente m-0';
+        const formDesvincular = document.createElement('form');
+        formDesvincular.method = 'post';
+        formDesvincular.action = `/pasta/${pastaId}/cliente/${cliente.id}/desvincular`;
+        formDesvincular.className = 'js-ajax-desvincular-cliente m-0';
 
         const tokenInput = document.createElement('input');
         tokenInput.type = 'hidden';
         tokenInput.name = '_token';
         tokenInput.value = cliente.csrfToken;
 
-        const button = document.createElement('button');
-        button.type = 'submit';
-        button.className = 'btn btn-sm btn-outline-danger';
-        button.title = 'Desvincular cliente da pasta';
-        button.innerHTML = '<i class="bi bi-trash"></i>';
+        const btnDesvincular = document.createElement('button');
+        btnDesvincular.type = 'submit';
+        btnDesvincular.className = 'btn btn-sm btn-outline-danger';
+        btnDesvincular.title = 'Desvincular cliente da pasta';
+        btnDesvincular.innerHTML = '<i class="bi bi-trash"></i>';
 
-        form.appendChild(tokenInput);
-        form.appendChild(button);
+        formDesvincular.appendChild(tokenInput);
+        formDesvincular.appendChild(btnDesvincular);
 
-        row.appendChild(link);
-        row.appendChild(form);
+        header.appendChild(link);
+        header.appendChild(formDesvincular);
+
+        // Área de arquivos com form de upload
+        const arquivosDiv = document.createElement('div');
+        arquivosDiv.className = 'cliente-arquivos ps-1';
+
+        const formUpload = document.createElement('form');
+        formUpload.method = 'post';
+        formUpload.enctype = 'multipart/form-data';
+        formUpload.action = `/clientes/${cliente.id}/documento/upload`;
+        formUpload.className = 'form-upload-cliente-inline mt-2';
+        formUpload.dataset.clienteId = cliente.id;
+
+        const tokenUpload = document.createElement('input');
+        tokenUpload.type = 'hidden';
+        tokenUpload.name = '_token';
+        tokenUpload.value = cliente.csrfTokenUpload;
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.id = `fileInputCliente${cliente.id}`;
+        fileInput.multiple = true;
+        fileInput.accept = '.pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,audio/*,video/*';
+        fileInput.className = 'd-none file-input-cliente';
+
+        const listaUpload = document.createElement('div');
+        listaUpload.id = `listaUploadCliente${cliente.id}`;
+        listaUpload.className = 'mb-2';
+
+        const botoesDiv = document.createElement('div');
+        botoesDiv.className = 'd-flex align-items-center gap-2';
+
+        const btnAnexar = document.createElement('button');
+        btnAnexar.type = 'button';
+        btnAnexar.className = 'btn btn-xs btn-outline-primary btn-escolher-arquivo-cliente';
+        btnAnexar.dataset.clienteId = cliente.id;
+        btnAnexar.innerHTML = '<i class="bi bi-paperclip me-1"></i> Anexar arquivo';
+
+        const btnEnviar = document.createElement('button');
+        btnEnviar.type = 'submit';
+        btnEnviar.className = 'btn btn-xs btn-success btn-enviar-cliente d-none';
+        btnEnviar.dataset.clienteId = cliente.id;
+        btnEnviar.innerHTML = '<i class="bi bi-cloud-upload me-1"></i> Enviar';
+
+        const btnCancelar = document.createElement('button');
+        btnCancelar.type = 'button';
+        btnCancelar.className = 'btn btn-xs btn-outline-secondary btn-cancelar-cliente d-none';
+        btnCancelar.dataset.clienteId = cliente.id;
+        btnCancelar.innerHTML = '<i class="bi bi-x"></i>';
+
+        botoesDiv.appendChild(btnAnexar);
+        botoesDiv.appendChild(btnEnviar);
+        botoesDiv.appendChild(btnCancelar);
+
+        formUpload.appendChild(tokenUpload);
+        formUpload.appendChild(fileInput);
+        formUpload.appendChild(listaUpload);
+        formUpload.appendChild(botoesDiv);
+
+        arquivosDiv.appendChild(formUpload);
+
+        row.appendChild(header);
+        row.appendChild(arquivosDiv);
 
         return row;
     }
@@ -1325,20 +1526,65 @@
 
     // — Busca de cliente existente —
 
+    function atualizarEstadoFooter() {
+        if (clientesSelecionados.length > 0) {
+            footerVincular.classList.remove('d-none');
+            footerEscolha.classList.add('d-none');
+            const label = clientesSelecionados.length === 1
+                ? 'Vincular 1 Cliente'
+                : `Vincular ${clientesSelecionados.length} Clientes`;
+            btnConfirmarVincular.querySelector('span.btn-label') && (btnConfirmarVincular.querySelector('span.btn-label').textContent = label);
+        } else {
+            footerVincular.classList.add('d-none');
+            footerEscolha.classList.remove('d-none');
+        }
+    }
+
+    function criarChip(cliente) {
+        const chip = document.createElement('span');
+        chip.className = 'badge d-inline-flex align-items-center gap-1 ps-2 pe-1 py-1 rounded-pill border';
+        chip.style.cssText = 'background:#e9f5ff; color:#0d6efd; border-color:#9ecbf5 !important; font-size:.78rem; font-weight:500;';
+        chip.innerHTML = `
+            <i class="bi ${cliente.tipo === 'PF' ? 'bi-person' : 'bi-building'} me-1"></i>
+            ${escHtml(cliente.nome)}
+            <button type="button" class="btn-close btn-close-sm ms-1" style="font-size:.55rem;" title="Remover" aria-label="Remover ${escHtml(cliente.nome)}"></button>`;
+        chip.querySelector('.btn-close').addEventListener('click', () => removerSelecionado(cliente.id));
+        return chip;
+    }
+
+    function escHtml(str) {
+        return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
     function selecionarCliente(id, nome, documento, tipo) {
-        clienteSelecionadoId = id;
-        previewNome.textContent = nome;
-        previewDoc.textContent  = documento + ' · ' + tipo;
-        preview.classList.remove('d-none');
+        if (clientesSelecionados.some(c => c.id === id)) {
+            listaResultados.classList.add('d-none');
+            inputBusca.value = '';
+            return;
+        }
+
+        clientesSelecionados.push({ id, nome, documento, tipo });
+        chipsWrapper.appendChild(criarChip({ id, nome, documento, tipo }));
+        chipsContainer.classList.remove('d-none');
         listaResultados.classList.add('d-none');
         inputBusca.value = '';
-        footerVincular.classList.remove('d-none');
-        footerEscolha.classList.add('d-none');
+        atualizarEstadoFooter();
+    }
+
+    function removerSelecionado(id) {
+        clientesSelecionados = clientesSelecionados.filter(c => c.id !== id);
+        chipsWrapper.innerHTML = '';
+        clientesSelecionados.forEach(c => chipsWrapper.appendChild(criarChip(c)));
+        if (clientesSelecionados.length === 0) {
+            chipsContainer.classList.add('d-none');
+        }
+        atualizarEstadoFooter();
     }
 
     function limparSelecao() {
-        clienteSelecionadoId = null;
-        preview.classList.add('d-none');
+        clientesSelecionados = [];
+        chipsWrapper.innerHTML = '';
+        chipsContainer.classList.add('d-none');
         footerVincular.classList.add('d-none');
         footerEscolha.classList.remove('d-none');
     }
@@ -1363,17 +1609,21 @@
                 listaResultados.innerHTML = '<li class="list-group-item text-muted small py-2">Nenhum cliente encontrado.</li>';
             } else {
                 dados.forEach(c => {
+                    const jaSelecionado = clientesSelecionados.some(s => s.id === c.id);
                     const li = document.createElement('li');
                     li.className = 'list-group-item list-group-item-action d-flex align-items-center gap-2 py-2';
-                    li.style.cursor = 'pointer';
+                    li.style.cursor = jaSelecionado ? 'default' : 'pointer';
+                    if (jaSelecionado) li.classList.add('opacity-50');
                     li.innerHTML = `
                         <i class="bi ${c.tipo === 'PF' ? 'bi-person' : 'bi-building'} text-primary flex-shrink-0"></i>
                         <div class="overflow-hidden flex-fill">
-                            <div class="fw-semibold text-truncate small">${c.nome}</div>
-                            <div class="text-muted" style="font-size:.72rem;">${c.documento} · ${c.tipo}</div>
+                            <div class="fw-semibold text-truncate small">${escHtml(c.nome)}</div>
+                            <div class="text-muted" style="font-size:.72rem;">${escHtml(c.documento)} · ${c.tipo}</div>
                         </div>
-                        <i class="bi bi-plus-circle text-success flex-shrink-0"></i>`;
-                    li.addEventListener('click', () => selecionarCliente(c.id, c.nome, c.documento, c.tipo));
+                        <i class="bi ${jaSelecionado ? 'bi-check-circle-fill text-success' : 'bi-plus-circle text-success'} flex-shrink-0"></i>`;
+                    if (!jaSelecionado) {
+                        li.addEventListener('click', () => selecionarCliente(c.id, c.nome, c.documento, c.tipo));
+                    }
                     listaResultados.appendChild(li);
                 });
             }
@@ -1402,8 +1652,6 @@
             listaResultados.classList.add('d-none');
         }
     });
-
-    btnLimpar.addEventListener('click', limparSelecao);
 
     document.addEventListener('submit', async (event) => {
         const form = event.target;
@@ -1562,42 +1810,57 @@
     });
 
     btnConfirmarVincular.addEventListener('click', async () => {
-        if (!clienteSelecionadoId) return;
+        if (clientesSelecionados.length === 0) return;
 
         btnConfirmarVincular.disabled = true;
         const icone = btnConfirmarVincular.querySelector('i');
         if (icone) icone.className = 'bi bi-hourglass-split me-1';
 
-        try {
-            const body = new FormData();
-            body.append('cliente_id', String(clienteSelecionadoId));
-            body.append('_token', csrfVincular);
+        const erros = [];
+        const vinculados = [];
 
-            const resp = await fetch(urlVincular, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body,
-            });
+        for (const cliente of clientesSelecionados) {
+            try {
+                const body = new FormData();
+                body.append('cliente_id', String(cliente.id));
+                body.append('_token', csrfVincular);
 
-            if (!resp.ok) {
-                const dados = await resp.json().catch(() => ({}));
-                mostrarErro(dados.erro ?? 'Erro ao vincular cliente.');
-                return;
+                const resp = await fetch(urlVincular, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body,
+                });
+
+                if (!resp.ok) {
+                    const dados = await resp.json().catch(() => ({}));
+                    erros.push(dados.erro ?? `Erro ao vincular "${cliente.nome}".`);
+                    continue;
+                }
+
+                const dados = await resp.json();
+                if (dados.sucesso && dados.cliente) {
+                    appendClienteRow(dados.cliente);
+                    vinculados.push(cliente.id);
+                } else {
+                    erros.push(`"${cliente.nome}" vinculado, mas não foi possível atualizar a lista.`);
+                }
+            } catch (_) {
+                erros.push(`Erro de comunicação ao vincular "${cliente.nome}".`);
             }
+        }
 
-            const dados = await resp.json();
-            if (dados.sucesso && dados.cliente) {
-                appendClienteRow(dados.cliente);
-                bootstrap.Modal.getInstance(modal)?.hide();
-                return;
-            }
+        btnConfirmarVincular.disabled = false;
+        if (icone) icone.className = 'bi bi-link-45deg me-1';
 
-            mostrarErro('Cliente vinculado, mas não foi possível atualizar a lista.');
-        } catch (_) {
-            mostrarErro('Erro de comunicação. Tente novamente.');
-        } finally {
-            btnConfirmarVincular.disabled = false;
-            if (icone) icone.className = 'bi bi-link-45deg me-1';
+        if (erros.length > 0) {
+            mostrarErro(erros.join(' '));
+        }
+
+        if (vinculados.length > 0 && erros.length === 0) {
+            bootstrap.Modal.getInstance(modal)?.hide();
+        } else if (vinculados.length > 0) {
+            // Remove os que foram vinculados com sucesso, mantém os que deram erro
+            vinculados.forEach(id => removerSelecionado(id));
         }
     });
 
@@ -2033,10 +2296,18 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                         </div>
                         <div class="modal-body">
+                            {% set ext = doc.nomeOriginal|split('.')|last %}
+                            {% set nomeBase = doc.nomeOriginal ends with ('.' ~ ext) and doc.nomeOriginal != ext
+                                ? doc.nomeOriginal|slice(0, doc.nomeOriginal|length - ext|length - 1)
+                                : doc.nomeOriginal %}
                             <div class="mb-3">
                                 <label class="form-label">Nome do arquivo</label>
-                                <input type="text" name="nomeOriginal" class="form-control"
-                                       value="{{ doc.nomeOriginal }}" maxlength="255" required>
+                                <div class="input-group">
+                                    <input type="text" name="nomeBase" class="form-control"
+                                           value="{{ nomeBase }}" maxlength="250" required>
+                                    <span class="input-group-text text-muted">.{{ ext }}</span>
+                                </div>
+                                <div class="form-text">A extensão <strong>.{{ ext }}</strong> é preservada automaticamente.</div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Tipo de documento</label>
@@ -2126,21 +2397,37 @@
     border-radius: .2rem;
 }
 
-/* Linha de arquivo do cliente na aba Partes */
+/* Linha compacta de cliente na aba Partes */
+.cliente-row {
+    transition: background-color .12s;
+}
+.cliente-row:hover {
+    background-color: rgba(0,0,0,.02);
+}
+.cliente-accordion-toggle {
+    color: inherit;
+    line-height: 1.3;
+}
+.cliente-accordion-toggle:focus {
+    box-shadow: none;
+}
+
+/* Painel interno do accordion de cliente */
+.cliente-acc-body {
+    border-left: 2px solid #e9ecef;
+    margin-left: .25rem;
+    padding-left: .75rem;
+}
+
+/* Linha de arquivo do cliente */
 .doc-row-cliente {
     background: transparent;
     transition: background-color .15s;
 }
 .doc-row-cliente:hover {
-    background-color: rgba(0,0,0,.03);
+    background-color: rgba(0,0,0,.04);
 }
 
-/* Área de upload inline do cliente */
-.cliente-arquivos {
-    border-left: 2px solid #e9ecef;
-    padding-left: .75rem;
-    margin-top: .25rem;
-}
 .upload-item-cliente {
     background: #f8f9fa;
 }
@@ -2933,6 +3220,192 @@ document.addEventListener('DOMContentLoaded', function () {
 
     mpAttachRemovePartes();
     mpAttachRemoveMovimentacoes();
+}());
+</script>
+
+{# ── Modal: editar pasta ── #}
+<div class="modal fade" id="modalEditarPasta" tabindex="-1" aria-labelledby="modalEditarPastaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="modalEditarPastaLabel">
+                    <i class="bi bi-pencil me-1"></i> Editar Pasta
+                </h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{{ path('pasta_edit', {id: pasta.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('edit_pasta_' ~ pasta.id) }}">
+                <div class="modal-body py-3">
+
+                    <div class="mb-3">
+                        <label for="edit_nup" class="form-label form-label-sm">Número da Pasta (NUP)</label>
+                        <input type="text" id="edit_nup" name="nup"
+                               class="form-control form-control-sm"
+                               value="{{ pasta.nup }}" required autocomplete="off">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label form-label-sm">Nome do cliente</label>
+                        {% if pasta.clientes|length > 0 %}
+                            <div class="d-flex flex-wrap gap-1 form-control form-control-sm h-auto py-1" style="min-height:2.1rem;">
+                                {% for cliente in pasta.clientes %}
+                                    <span class="badge text-bg-secondary fw-normal">
+                                        <i class="bi bi-person me-1"></i>{{ cliente.cpf is defined and cliente.cpf ? cliente.nomeCompleto : cliente.razaoSocial }}
+                                    </span>
+                                {% endfor %}
+                            </div>
+                            <div class="form-text text-muted">Para alterar clientes, use o painel de partes da pasta.</div>
+                        {% else %}
+                            <input type="text" id="edit_nome_cliente" name="nome_cliente"
+                                   class="form-control form-control-sm"
+                                   value="{{ pasta.nomeCliente }}" autocomplete="off">
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_nome_acao" class="form-label form-label-sm">Nome da Ação</label>
+                        <input type="text" id="edit_nome_acao" name="nome_acao"
+                               class="form-control form-control-sm"
+                               value="{{ pasta.nomeAcao }}" autocomplete="off">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_status" class="form-label form-label-sm">Status</label>
+                        <select id="edit_status" name="status" class="form-select form-select-sm">
+                            <option value="ativo" {{ pasta.status == 'ativo' ? 'selected' : '' }}>Ativo</option>
+                            <option value="arquivado" {{ pasta.status == 'arquivado' ? 'selected' : '' }}>Arquivado</option>
+                        </select>
+                    </div>
+
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i> Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var btn = document.getElementById('btn-alternar-status');
+    if (!btn) return;
+
+    var badgeEl = document.querySelector('.card-tools .badge');
+
+    btn.addEventListener('click', function () {
+        var url  = btn.dataset.url;
+        var csrf = btn.dataset.csrf;
+
+        btn.disabled = true;
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest' },
+            body: '_token=' + encodeURIComponent(csrf),
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.sucesso) {
+                alert(data.erro || 'Erro ao alterar status.');
+                btn.disabled = false;
+                return;
+            }
+
+            var novoStatus = data.novoStatus;
+            btn.dataset.statusAtual = novoStatus;
+
+            var eAtivo = novoStatus === 'ativo';
+
+            /* ícone */
+            var icone = btn.querySelector('i');
+            icone.className = 'bi ' + (eAtivo ? 'bi-archive' : 'bi-archive-fill');
+
+            /* label */
+            var label = btn.querySelector('.pasta-acao-label');
+            label.textContent = eAtivo ? 'Arquivar' : 'Ativar';
+
+            /* title */
+            btn.title = eAtivo ? 'Arquivar pasta' : 'Reativar pasta';
+
+            /* cor do botão */
+            btn.classList.toggle('pasta-acao-btn--arquivado', !eAtivo);
+
+            /* badge de status no card-tools */
+            if (badgeEl) {
+                badgeEl.textContent = eAtivo ? 'Ativo' : 'Arquivado';
+                badgeEl.className = 'badge ' + (eAtivo ? 'text-bg-success' : 'text-bg-secondary');
+            }
+
+            btn.disabled = false;
+        })
+        .catch(function () {
+            alert('Erro de comunicação com o servidor.');
+            btn.disabled = false;
+        });
+    });
+}());
+</script>
+
+{# ── Modal: mover pasta para marcadores ── #}
+{{ include('_partials/modal_mover_marcador.html.twig', {
+    todosMarcadores: todosMarcadores,
+    urlPastaMarcadores: path('expediente_pasta_marcadores', {id: 0}),
+    delegateSelector: null
+}) }}
+
+<script>
+(function () {
+    var wrapper = document.querySelector('.pasta-responsavel-inline');
+    if (!wrapper) return;
+
+    var select   = wrapper.querySelector('.pasta-responsavel-select');
+    var feedback = wrapper.querySelector('.pasta-responsavel-feedback');
+    var url      = wrapper.dataset.url;
+    var csrf     = wrapper.dataset.csrf;
+    var timer    = null;
+
+    select.addEventListener('change', function () {
+        clearTimeout(timer);
+        feedback.textContent = '';
+        timer = setTimeout(function () {
+            salvarResponsavel(select.value);
+        }, 300);
+    });
+
+    function salvarResponsavel(responsavelId) {
+        select.disabled = true;
+        feedback.textContent = '…';
+        feedback.style.color = '#6c757d';
+
+        var body = new URLSearchParams({ _token: csrf, responsavel_id: responsavelId });
+
+        fetch(url, {
+            method: 'PATCH',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            select.disabled = false;
+            if (!res.ok) {
+                feedback.textContent = res.data.erro || 'Erro ao salvar.';
+                feedback.style.color = '#dc3545';
+                return;
+            }
+            feedback.textContent = '✓';
+            feedback.style.color = '#198754';
+            setTimeout(function () { feedback.textContent = ''; }, 2000);
+        })
+        .catch(function () {
+            select.disabled = false;
+            feedback.textContent = 'Erro de comunicação.';
+            feedback.style.color = '#dc3545';
+        });
+    }
 }());
 </script>
 {% endblock %}

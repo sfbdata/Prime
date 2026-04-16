@@ -283,25 +283,46 @@
                         <div class="card card-primary card-outline mt-3">
                             <div class="card-header">
                                 <h3 class="card-title"><i class="bi bi-paperclip me-1"></i> Arquivos do Cliente</h3>
-                                <div class="card-tools">
-                                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadDocumentosModal">
-                                        <i class="bi bi-cloud-upload me-1"></i> Upload
-                                    </button>
-                                </div>
                             </div>
                             <div class="card-body">
+                                {# Formulário de upload inline #}
+                                <form id="formAnexosCliente" method="post" enctype="multipart/form-data"
+                                      action="{{ path('cliente_documento_upload', {id: cliente.id}) }}">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_cliente_' ~ cliente.id) }}">
+
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <button type="button" id="btnAdicionarAnexoCliente" class="btn btn-sm btn-primary">
+                                            <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
+                                        </button>
+                                        <button type="button" id="btnLimparAnexosCliente" class="btn btn-sm btn-outline-secondary d-none">
+                                            <i class="bi bi-x-circle me-1"></i> Limpar
+                                        </button>
+                                        <input type="file" id="inputAnexoOcultoCliente" multiple
+                                               accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,audio/*,video/*"
+                                               class="d-none">
+                                    </div>
+
+                                    <div id="listaAnexosCliente"></div>
+
+                                    <div id="areaEnviarCliente" class="d-none mt-3 text-end">
+                                        <button type="submit" class="btn btn-sm btn-success">
+                                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                                        </button>
+                                    </div>
+                                </form>
+
+                                {# Documentos já enviados #}
                                 {% set hasDocuments = false %}
                                 {% for tipo, docs in documentosPorTipo %}
                                     {% if docs|length > 0 %}{% set hasDocuments = true %}{% endif %}
                                 {% endfor %}
 
-                                {% if not hasDocuments %}
-                                    <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum arquivo enviado.</p>
-                                {% else %}
+                                {% if hasDocuments %}
+                                <hr>
+                                <div class="mb-3">
                                     {% for tipo, docs in documentosPorTipo %}
                                         {% if docs|length > 0 %}
                                             {% set label = documentTypeOptions[tipo] ?? tipo %}
-                                            <h6 class="text-muted mt-2 mb-2"><i class="bi bi-folder me-1"></i> {{ label }}</h6>
                                             {% for doc in docs %}
                                                 <div class="d-flex align-items-center border rounded px-3 py-2 mb-2 gap-3">
                                                     <i class="bi bi-file-earmark-text fs-5 text-primary flex-shrink-0"></i>
@@ -344,6 +365,7 @@
                                             {% endfor %}
                                         {% endif %}
                                     {% endfor %}
+                                </div>
                                 {% endif %}
                             </div>
                         </div>
@@ -415,7 +437,19 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                         </div>
                         <div class="modal-body">
-                            <p class="text-muted small mb-3"><i class="bi bi-file-earmark me-1"></i>{{ doc.nomeOriginal }}</p>
+                            {% set ext = doc.nomeOriginal|split('.')|last %}
+                            {% set nomeBase = doc.nomeOriginal ends with ('.' ~ ext) and doc.nomeOriginal != ext
+                                ? doc.nomeOriginal|slice(0, doc.nomeOriginal|length - ext|length - 1)
+                                : doc.nomeOriginal %}
+                            <div class="mb-3">
+                                <label class="form-label">Nome do arquivo</label>
+                                <div class="input-group">
+                                    <input type="text" name="nomeBase" class="form-control"
+                                           value="{{ nomeBase }}" maxlength="250" required>
+                                    <span class="input-group-text text-muted">.{{ ext }}</span>
+                                </div>
+                                <div class="form-text">A extensão <strong>.{{ ext }}</strong> é preservada automaticamente.</div>
+                            </div>
                             <div class="mb-3">
                                 <label class="form-label">Tipo de documento</label>
                                 <select name="categoria" class="form-select" required>
@@ -448,45 +482,6 @@
     {% endfor %}
 {% endfor %}
 
-{# Modal: Upload de Documentos #}
-<div class="modal fade" id="uploadDocumentosModal" tabindex="-1" aria-labelledby="uploadDocumentosModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="uploadDocumentosModalLabel">
-                    <i class="bi bi-paperclip me-1"></i> Anexos
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formAnexosCliente" method="post" enctype="multipart/form-data"
-                      action="{{ path('cliente_documento_upload', {id: cliente.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_cliente_' ~ cliente.id) }}">
-
-                    <div class="d-flex align-items-center gap-2 mb-3">
-                        <button type="button" id="btnAdicionarAnexoCliente" class="btn btn-primary">
-                            <i class="bi bi-plus-lg me-1"></i> Adicionar
-                        </button>
-                        <button type="button" id="btnLimparAnexosCliente" class="btn btn-outline-secondary d-none">
-                            <i class="bi bi-x-circle me-1"></i> Limpar
-                        </button>
-                        <input type="file" id="inputAnexoOcultoCliente" multiple
-                               accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,audio/*,video/*"
-                               class="d-none">
-                    </div>
-
-                    <div id="listaAnexosCliente"></div>
-
-                    <div id="areaEnviarCliente" class="d-none mt-3 text-end">
-                        <button type="submit" class="btn btn-success">
-                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
 
 <style>
 .copy-btn {

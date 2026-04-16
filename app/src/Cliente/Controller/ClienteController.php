@@ -492,10 +492,16 @@ class ClienteController extends AbstractController
 
         $descricao = trim((string) $request->request->get('descricao', ''));
         $numero    = trim((string) $request->request->get('numero', ''));
+        $nomeBase  = trim((string) $request->request->get('nomeBase', ''));
 
         $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);
         $doc->setNumero($numero !== '' ? $numero : null);
+        if ($nomeBase !== '') {
+            $extensao = pathinfo($doc->getNomeOriginal(), PATHINFO_EXTENSION);
+            $nomeComExtensao = $nomeBase . ($extensao !== '' ? '.' . $extensao : '');
+            $doc->setNomeOriginal($nomeComExtensao);
+        }
 
         $this->em->flush();
 

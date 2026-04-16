@@ -4,6 +4,7 @@ namespace App\Pasta\Service;
 
 use App\Entity\Pasta\Pasta;
 use App\Entity\Tenant\Tenant;
+use App\Expediente\Repository\MarcadorRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Repository\AuditLogRepository;
@@ -40,10 +41,14 @@ class PastaTimelineAssembler
     /** @var array<int, string|null> */
     private array $nomeCache = [];
 
+    /** @var array<int, string|null> */
+    private array $marcadorCache = [];
+
     public function __construct(
         private readonly PastaMensagemRepository $mensagemRepository,
         private readonly AuditLogRepository $auditLogRepository,
         private readonly UserRepository $userRepository,
+        private readonly MarcadorRepository $marcadorRepository,
     ) {}
 
     /**
@@ -168,10 +173,7 @@ class PastaTimelineAssembler
                 null,
             ],
             str_ends_with($entityClass, '\Pasta') && $action === 'update' => [
-                $this->resolverTituloAtualizacao($changes),
-                'bi-pencil-square',
-                'text-bg-secondary',
-                $this->extractChangeSummary($changes),
+                ...($this->resolverAtualizacaoPasta($changes)),
             ],
             str_ends_with($entityClass, 'Processo') && $action === 'create' => [
                 'Processo vinculado',
@@ -208,6 +210,27 @@ class PastaTimelineAssembler
             ?? null;
     }
 
+    private function resolverNomeMarcador(mixed $entry): ?string
+    {
+        $label = is_array($entry) ? ($entry['label'] ?? null) : null;
+        if (is_string($label) && $label !== '') {
+            return $label;
+        }
+
+        $id = is_array($entry) ? ($entry['id'] ?? null) : null;
+        if ($id === null) {
+            return null;
+        }
+
+        $id = (int) $id;
+        if (!array_key_exists($id, $this->marcadorCache)) {
+            $marcador = $this->marcadorRepository->find($id);
+            $this->marcadorCache[$id] = $marcador?->getNome();
+        }
+
+        return $this->marcadorCache[$id];
+    }
+
     private function resolverNomeAtor(?int $userId): ?string
     {
         if ($userId === null) {
@@ -222,39 +245,86 @@ class PastaTimelineAssembler
         return $this->nomeCache[$userId];
     }
 
-    private function resolverTituloAtualizacao(?array $changes): string
+    /**
+     * @return array{string, string, string, string|null} [titulo, icone, badgeCss, detalhe]
+     */
+    private function resolverAtualizacaoPasta(?array $changes): array
     {
         $diff = $changes['diff']['changes'] ?? [];
-        if (!is_array($diff)) {
-            return 'Pasta atualizada';
-        }
 
-        foreach (array_keys($diff) as $field) {
-            if (preg_match('/^clientes\[/', (string) $field)) {
-                return 'Cliente da pasta alterado';
-            }
-            if (preg_match('/^marcadores\[/', (string) $field)) {
-                $nomeMarcador = null;
-                if (is_array($diff[$field] ?? null)) {
-                    $nomeMarcador = ($diff[$field]['to']['label'] ?? null)
-                        ?? ($diff[$field]['from']['label'] ?? null);
+        if (is_array($diff)) {
+            foreach (array_keys($diff) as $field) {
+                if (preg_match('/^clientes\[/', (string) $field)) {
+                    return ['Cliente da pasta alterado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
                 }
-                return $nomeMarcador
-                    ? sprintf('Pasta movida para: %s', $nomeMarcador)
-                    : 'Pasta movida de seção';
-            }
-            if ((string) $field === 'responsavel') {
-                return 'Responsável alterado';
-            }
-            if ((string) $field === 'status') {
-                return 'Status da pasta alterado';
-            }
-            if ((string) $field === 'processo') {
-                return 'Processo vinculado atualizado';
+                if (preg_match('/^marcadores\[/', (string) $field)) {
+                    [$titulo, $detalhe] = $this->resolverTituloMudancaMarcadores($diff);
+                    return [$titulo, 'bi-tag', 'text-bg-warning', $detalhe];
+                }
+                if ((string) $field === 'responsavel') {
+                    return ['Responsável alterado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
+                }
+                if ((string) $field === 'status') {
+                    return ['Status da pasta alterado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
+                }
+                if ((string) $field === 'processo') {
+                    return ['Processo vinculado atualizado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
+                }
             }
         }
 
-        return 'Pasta atualizada';
+        return ['Pasta atualizada', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
+    }
+
+    /**
+     * @return array{string, string|null} [titulo, detalhe]
+     */
+    private function resolverTituloMudancaMarcadores(array $diff): array
+    {
+        $removidos   = [];
+        $adicionados = [];
+
+        foreach ($diff as $field => $change) {
+            if (!preg_match('/^marcadores\[([+\-]):/', (string) $field, $m)) {
+                continue;
+            }
+
+            $entry = $m[1] === '+' ? ($change['to'] ?? null) : ($change['from'] ?? null);
+            $nome  = $this->resolverNomeMarcador($entry);
+
+            if ($nome === null) {
+                continue;
+            }
+
+            if ($m[1] === '+') {
+                $adicionados[] = $nome;
+            } else {
+                $removidos[] = $nome;
+            }
+        }
+
+        $temRemovidos   = $removidos !== [];
+        $temAdicionados = $adicionados !== [];
+
+        if ($temRemovidos && $temAdicionados) {
+            $titulo  = 'Marcadores alterados';
+            $detalhe = sprintf(
+                "Removido de: %s\nAdicionado em: %s",
+                implode(', ', $removidos),
+                implode(', ', $adicionados)
+            );
+            return [$titulo, $detalhe];
+        }
+
+        if ($temAdicionados) {
+            return ['Marcador adicionado', implode(', ', $adicionados)];
+        }
+
+        if ($temRemovidos) {
+            return ['Marcador removido', implode(', ', $removidos)];
+        }
+
+        return ['Marcadores da pasta alterados', null];
     }
 
     private const DATE_FIELDS = ['dataAbertura', 'dataEncerramento', 'createdAt', 'updatedAt'];

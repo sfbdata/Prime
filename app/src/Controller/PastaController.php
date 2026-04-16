@@ -23,6 +23,7 @@ use App\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
+use App\Expediente\Repository\MarcadorRepository;
 use App\Service\PermissionChecker;
 use App\Pasta\Service\PastaTimelineAssembler;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
@@ -72,6 +73,7 @@ class PastaController extends AbstractController
         private readonly PastaTimelineAssembler $timelineAssembler,
         private readonly EnviarMensagemPastaUseCase $enviarMensagemUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
+        private readonly MarcadorRepository $marcadorRepository,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -80,8 +82,8 @@ class PastaController extends AbstractController
         return $this->redirectToRoute('expediente_index');
     }
 
-    #[Route('/nova', name: 'pasta_new', methods: ['GET', 'POST'])]
-    public function new(Request $request): Response
+    #[Route('/nova', name: 'pasta_new', methods: ['POST'])]
+    public function criar(Request $request): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -90,40 +92,29 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('expediente_index');
         }
 
-        $pasta = new Pasta();
-
-        if ($request->isMethod('POST')) {
-            $errors = $this->fillPastaFromRequest($pasta, $request->request->all());
-
-            if ($errors === []) {
-                $violations = $this->validator->validate($pasta);
-
-                if (count($violations) > 0) {
-                    foreach ($violations as $violation) {
-                        $this->addFlash('error', $violation->getMessage());
-                    }
-                } else {
-                    $pasta->setCriadoPor($this->getUser());
-                    $this->em->persist($pasta);
-                    $this->em->flush();
-                    $this->addFlash('success', 'Pasta criada com sucesso.');
-
-                    return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-                }
-            } else {
-                foreach ($errors as $error) {
-                    $this->addFlash('error', $error);
-                }
-            }
+        $nup = trim((string) $request->request->get('nup', ''));
+        if ($nup === '') {
+            $this->addFlash('error', 'O NUP é obrigatório.');
+            return $this->redirectToRoute('expediente_index');
         }
 
-        return $this->render('pasta/new.html.twig', [
-            'pasta' => $pasta,
-            'processos' => $this->processoRepository->findAll(),
-            'clientes' => $this->clienteRepository->findAll(),
-            'usuarios' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
-            'isEdit' => false,
-        ]);
+        $existente = $this->pastaRepository->findOneBy(['nup' => $nup]);
+        if ($existente !== null) {
+            $this->addFlash('error', sprintf('O NUP "%s" já está em uso por outra pasta.', $nup));
+            return $this->redirectToRoute('expediente_index');
+        }
+
+        $pasta = new Pasta();
+        $pasta->setNup($nup);
+        $pasta->setNomeCliente(($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null);
+        $pasta->setNomeAcao(($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null);
+        $pasta->setCriadoPor($currentUser);
+
+        $this->em->persist($pasta);
+        $this->em->flush();
+
+        $this->addFlash('success', 'Pasta criada com sucesso.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }
 
     #[Route('/{id}', name: 'pasta_show', methods: ['GET'])]
@@ -141,7 +132,10 @@ class PastaController extends AbstractController
         $tenantId  = $tenant?->getId() ?? 0;
         $processoId = $pasta->getProcesso()?->getId();
 
-        $timelineItems = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
+        $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
+        $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
+
+        $usuarios = $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
 
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
@@ -150,6 +144,8 @@ class PastaController extends AbstractController
             'documentTypeOptionsCliente'  => self::DOCUMENT_TYPES_CLIENTE,
             'clientesComDocumentos'       => $this->groupClienteDocumentosByCliente($pasta),
             'timelineItems'               => $timelineItems,
+            'todosMarcadores'             => $todosMarcadores,
+            'usuarios'                    => $usuarios,
         ]);
     }
 
@@ -396,6 +392,7 @@ class PastaController extends AbstractController
                     'documento' => $cliente instanceof ClientePF ? $cliente->getCpf() : $cliente->getCnpj(),
                     'tipo' => $cliente instanceof ClientePF ? 'PF' : 'PJ',
                     'csrfToken' => $this->csrfTokenManager->getToken('pasta_cliente_desvincular_' . $pasta->getId() . '_' . $cliente->getId())->getValue(),
+                    'csrfTokenUpload' => $this->csrfTokenManager->getToken('upload_documento_cliente_' . $cliente->getId())->getValue(),
                 ],
             ]);
         }
@@ -570,6 +567,7 @@ class PastaController extends AbstractController
                 'documento' => $cliente instanceof ClientePF ? $cliente->getCpf() : $cliente->getCnpj(),
                 'tipo' => $cliente instanceof ClientePF ? 'PF' : 'PJ',
                 'csrfToken' => $this->csrfTokenManager->getToken('pasta_cliente_desvincular_' . $pastaId . '_' . $cliente->getId())->getValue(),
+                'csrfTokenUpload' => $this->csrfTokenManager->getToken('upload_documento_cliente_' . $cliente->getId())->getValue(),
             ],
         ]);
     }
@@ -735,46 +733,111 @@ class PastaController extends AbstractController
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
     }
 
-    #[Route('/{id}/editar', name: 'pasta_edit', methods: ['GET', 'POST'])]
-    public function edit(Pasta $pasta, Request $request): Response
+    #[Route('/{id}/editar', name: 'pasta_edit', methods: ['POST'])]
+    public function editar(Pasta $pasta, Request $request): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_show', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        if (!$this->isCsrfTokenValid('edit_pasta_'.$pasta->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $nup = trim((string) $request->request->get('nup', ''));
+        if ($nup === '') {
+            $this->addFlash('error', 'O NUP é obrigatório.');
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+        }
+
+        $existente = $this->pastaRepository->findOneBy(['nup' => $nup]);
+        if ($existente !== null && $existente->getId() !== $pasta->getId()) {
+            $this->addFlash('error', sprintf('O NUP "%s" já está em uso por outra pasta.', $nup));
+            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+        }
+
+        $pasta->setNup($nup);
+        $pasta->setNomeCliente(($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null);
+        $pasta->setNomeAcao(($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null);
+
+        $status = $request->request->get('status', Pasta::STATUS_ATIVO);
+        if (in_array($status, [Pasta::STATUS_ATIVO, Pasta::STATUS_ARQUIVADO], true)) {
+            $pasta->setStatus($status);
+        }
+
+        $this->em->flush();
+
+        $this->addFlash('success', 'Pasta atualizada com sucesso.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+    }
+
+    #[Route('/{id}/responsavel', name: 'pasta_atualizar_responsavel', methods: ['PATCH'])]
+    public function atualizarResponsavel(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_responsavel_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $responsavelId = $request->request->get('responsavel_id');
+
+        if ($responsavelId === '' || $responsavelId === null) {
+            $pasta->setResponsavel(null);
+        } else {
+            $responsavel = $this->userRepository->find((int) $responsavelId);
+            if ($responsavel === null || $responsavel->getTenant()?->getId() !== $currentUser->getTenant()?->getId()) {
+                return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
+            }
+            $pasta->setResponsavel($responsavel);
+        }
+
+        $this->em->flush();
+
+        $responsavel = $pasta->getResponsavel();
+
+        return $this->json([
+            'sucesso'          => true,
+            'responsavelId'    => $responsavel?->getId(),
+            'responsavelNome'  => $responsavel?->getFullName() ?? '—',
+        ]);
+    }
+
+    #[Route('/{id}/alternar-status', name: 'pasta_alternar_status', methods: ['POST'])]
+    public function alternarStatus(Pasta $pasta, Request $request): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
         if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $redirect;
+            return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
-        if ($request->isMethod('POST')) {
-            $errors = $this->fillPastaFromRequest($pasta, $request->request->all());
-
-            if ($errors === []) {
-                $violations = $this->validator->validate($pasta);
-
-                if (count($violations) > 0) {
-                    foreach ($violations as $violation) {
-                        $this->addFlash('error', $violation->getMessage());
-                    }
-                } else {
-                    $this->em->flush();
-                    $this->addFlash('success', 'Pasta atualizada com sucesso.');
-
-                    return $this->redirectToRoute('expediente_index');
-                }
-            } else {
-                foreach ($errors as $error) {
-                    $this->addFlash('error', $error);
-                }
-            }
+        if (!$this->isCsrfTokenValid('pasta_alternar_status_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        return $this->render('pasta/new.html.twig', [
-            'pasta' => $pasta,
-            'processos' => $this->processoRepository->findAll(),
-            'clientes' => $this->clienteRepository->findAll(),
-            'usuarios' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
-            'isEdit' => true,
+        $novoStatus = $pasta->getStatus() === Pasta::STATUS_ATIVO
+            ? Pasta::STATUS_ARQUIVADO
+            : Pasta::STATUS_ATIVO;
+
+        $pasta->setStatus($novoStatus);
+        $this->em->flush();
+
+        return $this->json([
+            'sucesso'    => true,
+            'novoStatus' => $novoStatus,
         ]);
     }
 
@@ -1013,14 +1076,16 @@ class PastaController extends AbstractController
 
         $descricao    = trim((string) $request->request->get('descricao', ''));
         $numero       = trim((string) $request->request->get('numero', ''));
-        $nomeOriginal = trim((string) $request->request->get('nomeOriginal', ''));
+        $nomeBase     = trim((string) $request->request->get('nomeBase', ''));
 
         $categoriaAnterior = $doc->getCategoria();
         $doc->setCategoria($categoria);
         $doc->setDescricao($descricao !== '' ? $descricao : null);
         $doc->setNumero($numero !== '' ? $numero : null);
-        if ($nomeOriginal !== '') {
-            $doc->setNomeOriginal($nomeOriginal);
+        if ($nomeBase !== '') {
+            $extensao = pathinfo($doc->getNomeOriginal(), PATHINFO_EXTENSION);
+            $nomeComExtensao = $nomeBase . ($extensao !== '' ? '.' . $extensao : '');
+            $doc->setNomeOriginal($nomeComExtensao);
         }
 
         $pasta = $doc->getPasta();
@@ -1139,79 +1204,6 @@ class PastaController extends AbstractController
             $result[] = ['cliente' => $cliente, 'documentosPorTipo' => $grouped];
         }
         return $result;
-    }
-
-    /**
-     * Preenche a entidade Pasta com os dados do request e retorna lista de erros de validação manual.
-     *
-     * @param array<string, mixed> $data
-     * @return list<string>
-     */
-    private function fillPastaFromRequest(Pasta $pasta, array $data): array
-    {
-        $errors = [];
-
-        $nup = trim((string) ($data['nup'] ?? ''));
-        if ($nup === '') {
-            $errors[] = 'O NUP é obrigatório.';
-        } else {
-            $existente = $this->pastaRepository->findOneBy(['nup' => $nup]);
-            if ($existente !== null && $existente->getId() !== $pasta->getId()) {
-                $errors[] = sprintf('O NUP "%s" já está em uso por outra pasta.', $nup);
-            } else {
-                $pasta->setNup($nup);
-            }
-        }
-
-        $status = (string) ($data['status'] ?? Pasta::STATUS_ATIVO);
-        if (!in_array($status, [Pasta::STATUS_ATIVO, Pasta::STATUS_ARQUIVADO], true)) {
-            $errors[] = 'Status inválido. Valores aceitos: ativo, arquivado.';
-        } else {
-            $pasta->setStatus($status);
-        }
-
-        // dataAbertura é definida apenas na criação (via construtor da entidade)
-        // e nunca alterada após isso
-
-        $nomeCliente = trim((string) ($data['nome_cliente'] ?? ''));
-        $pasta->setNomeCliente($nomeCliente !== '' ? $nomeCliente : null);
-
-        $nomeAcao = trim((string) ($data['nome_acao'] ?? ''));
-        $pasta->setNomeAcao($nomeAcao !== '' ? $nomeAcao : null);
-
-        $processoId      = (int) ($data['processo_id'] ?? 0);
-        $numeroProcesso  = trim((string) ($data['numeroProcesso'] ?? ''));
-
-        if ($processoId > 0) {
-            $processo = $this->processoRepository->find($processoId);
-            if ($processo instanceof Processo) {
-                $pasta->setProcesso($processo);
-            } else {
-                $errors[] = 'Processo não encontrado.';
-            }
-        } elseif ($numeroProcesso !== '') {
-            $processo = new Processo();
-            $this->fillProcessoFromData($processo, $data);
-            $processo->setCriadoPor($this->getUser());
-            $this->em->persist($processo);
-            $pasta->setProcesso($processo);
-        } else {
-            $pasta->setProcesso(null);
-        }
-
-
-        $responsavelId = (int) ($data['responsavel_id'] ?? 0);
-        if ($responsavelId > 0) {
-            $responsavel = $this->userRepository->find($responsavelId);
-            $pasta->setResponsavel($responsavel instanceof User ? $responsavel : null);
-        } else {
-            $pasta->setResponsavel(null);
-        }
-
-        $this->syncClientes($pasta, is_array($data['clientes'] ?? null) ? $data['clientes'] : []);
-        $this->syncPartesContrarias($pasta, is_array($data['partes_contrarias'] ?? null) ? $data['partes_contrarias'] : []);
-
-        return $errors;
     }
 
     /**

@@ -107,50 +107,7 @@
                 </div>
             </div>
 
-            {# ── Modal: nova pasta (aba Cadastro) ── #}
-            <div class="modal fade" id="modalNovaPasta" tabindex="-1" aria-labelledby="modalNovaPastaLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
-                    <div class="modal-content">
-                        <div class="modal-header py-2">
-                            <h6 class="modal-title" id="modalNovaPastaLabel">
-                                <i class="bi bi-folder-plus me-1"></i> Nova Pasta
-                            </h6>
-                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
-                        </div>
-                        <form method="post" action="{{ path('pasta_new') }}" id="form-nova-pasta-modal">
-                            <div class="modal-body py-3">
-
-                                <div class="mb-3">
-                                    <label for="modal_nup" class="form-label form-label-sm">Número da Pasta (NUP)</label>
-                                    <input type="text" id="modal_nup" name="nup"
-                                           class="form-control form-control-sm"
-                                           placeholder="Ex.: 001" autocomplete="off">
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="modal_nome_cliente" class="form-label form-label-sm">Nome do cliente</label>
-                                    <input type="text" id="modal_nome_cliente" name="nome_cliente"
-                                           class="form-control form-control-sm" autocomplete="off">
-                                </div>
-
-                                <div class="mb-3">
-                                    <label for="modal_nome_acao" class="form-label form-label-sm">Nome da Ação</label>
-                                    <input type="text" id="modal_nome_acao" name="nome_acao"
-                                           class="form-control form-control-sm" autocomplete="off">
-                                </div>
-
-                                <div id="modalNovaPastaErro" class="text-danger small mt-1" style="display:none;"></div>
-                            </div>
-                            <div class="modal-footer py-2">
-                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-primary btn-sm">
-                                    <i class="bi bi-check-lg me-1"></i> Salvar
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
+            {{ include('_partials/modal_nova_pasta.html.twig') }}
 
             {# ── Modal: novo marcador / sub-marcador ── #}
             <div class="modal fade" id="modalNovoMarcador" tabindex="-1" aria-labelledby="modalNovoMarcadorLabel" aria-hidden="true">
@@ -219,51 +176,12 @@
             </div>
 
             {# ── Modal: mover pasta para marcadores ── #}
-            <div class="modal fade" id="modalMoverPara" tabindex="-1" aria-labelledby="modalMoverParaLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered" style="max-width:420px;">
-                    <div class="modal-content">
-                        <div class="modal-header py-2">
-                            <h6 class="modal-title" id="modalMoverParaLabel">
-                                <i class="bi bi-tags me-1"></i> Mover para…
-                            </h6>
-                            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body p-0">
-                            <input type="hidden" id="moverParaPastaId">
-                            <input type="hidden" id="moverParaCsrfToken">
-                            <div class="px-3 pt-3 pb-2 border-bottom">
-                                <p class="text-muted small mb-2">
-                                    Pasta: <strong id="moverParaPastaNome"></strong>
-                                </p>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text bg-white border-end-0">
-                                        <i class="bi bi-search text-muted"></i>
-                                    </span>
-                                    <input type="text" id="moverParaBusca" class="form-control border-start-0 ps-0"
-                                           placeholder="Filtrar marcadores…" autocomplete="off">
-                                </div>
-                            </div>
-                            <div id="moverParaLista" style="max-height:320px;overflow-y:auto;">
-                                {# Preenchido via JS — árvore hierárquica de marcadores #}
-                            </div>
-                            <div id="moverParaVazio" class="text-muted small text-center py-4 px-3" style="display:none;">
-                                <i class="bi bi-tags d-block mb-1" style="font-size:1.4rem;opacity:.4;"></i>
-                                <span id="moverParaVazioTexto">Nenhum marcador criado ainda.</span>
-                            </div>
-                            <div id="moverParaErro" class="text-danger small px-3 pt-2" style="display:none;"></div>
-                        </div>
-                        <div class="modal-footer py-2 justify-content-between">
-                            <span class="text-muted small" id="moverParaContador" style="display:none;"></span>
-                            <div class="d-flex gap-2">
-                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="button" class="btn btn-primary btn-sm" id="btnSalvarMoverPara">
-                                    <i class="bi bi-check-lg me-1"></i> Salvar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {{ include('_partials/modal_mover_marcador.html.twig', {
+                todosMarcadores: todosMarcadores,
+                urlPastaMarcadores: path('expediente_pasta_marcadores', {id: 0}),
+                delegateSelector: '#expediente-painel',
+                onSucessoCallback: 'moverParaAtualizarBadgesTabela'
+            }) }}
 
             {# ── Área de conteúdo principal ── #}
             <div class="col expediente-content">
@@ -878,6 +796,14 @@
 {% block javascripts %}
 {{ parent() }}
 <script>
+/* ── Linhas clicáveis da tabela de pastas (delegado no document) ── */
+document.addEventListener('click', function (e) {
+    var tr = e.target.closest('tr.pasta-row-link');
+    if (!tr) return;
+    if (e.target.closest('button, a, form, input')) return;
+    window.location.href = tr.dataset.href;
+});
+
 document.addEventListener('DOMContentLoaded', function () {
     // ── Toggle sidebar (desktop) ──────────────────────────────────
     var sidebar         = document.getElementById('expedienteSidebar');
@@ -1393,299 +1319,95 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // ── Modal "Mover para" ──
-    var modalMoverPara     = document.getElementById('modalMoverPara');
-    var moverParaPastaId   = document.getElementById('moverParaPastaId');
-    var moverParaCsrf      = document.getElementById('moverParaCsrfToken');
-    var moverParaPastaNome = document.getElementById('moverParaPastaNome');
-    var moverParaLista     = document.getElementById('moverParaLista');
-    var moverParaVazio     = document.getElementById('moverParaVazio');
-    var moverParaErro      = document.getElementById('moverParaErro');
-    var moverParaBusca     = document.getElementById('moverParaBusca');
-    var moverParaContador  = document.getElementById('moverParaContador');
+    // ── Popover customizado dos marcadores extras (delegado — funciona para conteúdo AJAX) ──
+    (function () {
+        if (document.__marcadoresPopoverInit) return;
+        document.__marcadoresPopoverInit = true;
 
-    // Monta a árvore hierárquica de marcadores na lista do modal.
-    // Exibe grupos expansíveis (raiz + seus sub-marcadores).
-    function renderizarArvore(ativos, filtro) {
-        moverParaLista.innerHTML = '';
-        filtro = (filtro || '').toLowerCase().trim();
-
-        // Separa raízes e filhos
-        var raizes = todosMarcadores.filter(function (m) { return m.paiId === null; });
-        var filhosMap = {};
-        todosMarcadores.forEach(function (m) {
-            if (m.paiId !== null) {
-                if (!filhosMap[m.paiId]) filhosMap[m.paiId] = [];
-                filhosMap[m.paiId].push(m);
-            }
-        });
-
-        var totalVisiveis = 0;
-
-        raizes.forEach(function (raiz) {
-            var filhos = filhosMap[raiz.id] || [];
-
-            // Aplica filtro de busca — mostra o grupo se raiz ou algum filho bate
-            var raizBate = !filtro || raiz.nome.toLowerCase().indexOf(filtro) !== -1;
-            var filhosBatidos = filtro
-                ? filhos.filter(function (f) { return f.nome.toLowerCase().indexOf(filtro) !== -1; })
-                : filhos;
-            if (!raizBate && filhosBatidos.length === 0) return;
-
-            totalVisiveis++;
-
-            var corRaiz     = raiz.cor || '#e9ecef';
-            var raizAtivo   = ativos.indexOf(String(raiz.id)) !== -1;
-            var temFilhos   = filhos.length > 0;
-            // Expande automaticamente se filtro ativo ou se algum filho está selecionado ou bateu no filtro
-            var expandido   = filtro
-                ? (filhosBatidos.length > 0)
-                : filhos.some(function (f) { return ativos.indexOf(String(f.id)) !== -1; });
-
-            // ── Linha da raiz ──
-            var itemRaiz = document.createElement('div');
-            itemRaiz.className = 'mover-para-item mover-para-raiz';
-            itemRaiz.setAttribute('data-id', raiz.id);
-
-            var leftStripe = '<span class="mover-para-stripe" style="background:' + corRaiz + ';"></span>';
-
-            var chevronCls = temFilhos ? (expandido ? 'bi-chevron-down' : 'bi-chevron-right') : 'bi-dot';
-            var chevronHtml = '<span class="mover-para-chevron"><i class="bi ' + chevronCls + '"></i></span>';
-
-            var cbRaiz = document.createElement('input');
-            cbRaiz.type    = 'checkbox';
-            cbRaiz.name    = 'marcadores[]';
-            cbRaiz.value   = String(raiz.id);
-            cbRaiz.checked = raizAtivo;
-            cbRaiz.className = 'mover-para-cb';
-            cbRaiz.id      = 'mcb-' + raiz.id;
-
-            var labelRaiz = document.createElement('label');
-            labelRaiz.htmlFor   = 'mcb-' + raiz.id;
-            labelRaiz.className = 'mover-para-label';
-            labelRaiz.innerHTML = leftStripe + chevronHtml +
-                '<i class="bi bi-tag mover-para-icon" style="color:' + escurecer(corRaiz) + ';"></i>' +
-                '<span class="mover-para-nome">' + escHtml(raiz.nome) + '</span>' +
-                (temFilhos ? '<span class="mover-para-count">' + filhos.length + '</span>' : '');
-
-            itemRaiz.appendChild(cbRaiz);
-            itemRaiz.appendChild(labelRaiz);
-
-            // Abre/fecha submenu ao clicar no chevron
-            if (temFilhos) {
-                labelRaiz.querySelector('.mover-para-chevron').addEventListener('click', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    var sub = itemRaiz.nextElementSibling;
-                    if (!sub || !sub.classList.contains('mover-para-grupo')) return;
-                    var aberto = !sub.classList.contains('mover-para-grupo-oculto');
-                    sub.classList.toggle('mover-para-grupo-oculto', aberto);
-                    var ic = this.querySelector('i');
-                    ic.className = aberto ? 'bi bi-chevron-right' : 'bi bi-chevron-down';
-                });
-            }
-
-            moverParaLista.appendChild(itemRaiz);
-
-            // ── Grupo de filhos ──
-            if (temFilhos) {
-                var grupoDiv = document.createElement('div');
-                grupoDiv.className = 'mover-para-grupo' + (expandido ? '' : ' mover-para-grupo-oculto');
-
-                (filtro ? filhosBatidos : filhos).forEach(function (filho) {
-                    var corFilho  = filho.cor || corRaiz;
-                    var filhoAtivo = ativos.indexOf(String(filho.id)) !== -1;
-                    totalVisiveis++;
-
-                    var itemFilho = document.createElement('div');
-                    itemFilho.className = 'mover-para-item mover-para-filho';
-                    itemFilho.setAttribute('data-id', filho.id);
-
-                    var cbFilho = document.createElement('input');
-                    cbFilho.type    = 'checkbox';
-                    cbFilho.name    = 'marcadores[]';
-                    cbFilho.value   = String(filho.id);
-                    cbFilho.checked = filhoAtivo;
-                    cbFilho.className = 'mover-para-cb';
-                    cbFilho.id      = 'mcb-' + filho.id;
-
-                    var labelFilho = document.createElement('label');
-                    labelFilho.htmlFor   = 'mcb-' + filho.id;
-                    labelFilho.className = 'mover-para-label';
-                    labelFilho.innerHTML =
-                        '<span class="mover-para-stripe" style="background:' + corRaiz + ';"></span>' +
-                        '<span class="mover-para-indent"></span>' +
-                        '<i class="bi bi-tag mover-para-icon" style="color:' + escurecer(corFilho) + ';font-size:.7rem;"></i>' +
-                        '<span class="mover-para-nome" style="font-size:.82rem;">' + escHtml(filho.nome) + '</span>';
-
-                    if (filho.cor) {
-                        labelFilho.style.setProperty('--filho-bg', filho.cor + '33');
-                    }
-
-                    itemFilho.appendChild(cbFilho);
-                    itemFilho.appendChild(labelFilho);
-                    grupoDiv.appendChild(itemFilho);
-                });
-
-                moverParaLista.appendChild(grupoDiv);
-            }
-        });
-
-        // Marcadores raiz sem filhos que não têm pai correspondente (orphans improvável)
-        var comPaiValido = todosMarcadores
-            .filter(function (m) { return m.paiId !== null && !raizes.find(function(r){ return r.id === m.paiId; }); });
-        comPaiValido.forEach(function (m) {
-            if (filtro && m.nome.toLowerCase().indexOf(filtro) === -1) return;
-            totalVisiveis++;
-            var corBg   = m.cor || '#e9ecef';
-            var ativo   = ativos.indexOf(String(m.id)) !== -1;
-            var itemOrphan = document.createElement('div');
-            itemOrphan.className = 'mover-para-item mover-para-raiz';
-            var cb = document.createElement('input');
-            cb.type = 'checkbox'; cb.name = 'marcadores[]'; cb.value = String(m.id);
-            cb.checked = ativo; cb.className = 'mover-para-cb'; cb.id = 'mcb-' + m.id;
-            var lbl = document.createElement('label');
-            lbl.htmlFor = 'mcb-' + m.id; lbl.className = 'mover-para-label';
-            lbl.innerHTML = '<span class="mover-para-stripe" style="background:' + corBg + ';"></span>' +
-                '<span class="mover-para-chevron"><i class="bi bi-dot"></i></span>' +
-                '<i class="bi bi-tag mover-para-icon" style="color:' + escurecer(corBg) + ';"></i>' +
-                '<span class="mover-para-nome">' + escHtml(m.nome) + '</span>';
-            itemOrphan.appendChild(cb); itemOrphan.appendChild(lbl);
-            moverParaLista.appendChild(itemOrphan);
-        });
-
-        // Atualiza contador no rodapé
-        var selecionados = moverParaLista.querySelectorAll('.mover-para-cb:checked').length;
-        atualizarContador();
-
-        if (totalVisiveis === 0) {
-            moverParaVazio.style.display = '';
-            document.getElementById('moverParaVazioTexto').textContent =
-                filtro ? 'Nenhum marcador encontrado para "' + filtro + '".' : 'Nenhum marcador criado ainda.';
-        } else {
-            moverParaVazio.style.display = 'none';
+        if (!document.getElementById('marcadores-popover')) {
+            var popoverEl = document.createElement('div');
+            popoverEl.id = 'marcadores-popover';
+            popoverEl.className = 'marcadores-popover-box';
+            popoverEl.style.cssText = 'display:none;position:absolute;z-index:9999;background:#fff;border:1px solid #dee2e6;border-radius:8px;padding:8px 10px;box-shadow:0 4px 16px rgba(0,0,0,.13);display:none;flex-direction:column;gap:5px;min-width:120px;max-width:240px;pointer-events:none;';
+            document.body.appendChild(popoverEl);
         }
-    }
 
-    function atualizarContador() {
-        var n = moverParaLista.querySelectorAll('.mover-para-cb:checked').length;
-        if (n === 0) {
-            moverParaContador.style.display = 'none';
-        } else {
-            moverParaContador.style.display = '';
-            moverParaContador.textContent   = n + ' selecionado' + (n !== 1 ? 's' : '');
+        function escHtmlPop(str) {
+            return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
-    }
 
-    moverParaLista.addEventListener('change', function (e) {
-        if (e.target.classList.contains('mover-para-cb')) atualizarContador();
-    });
+        function posicionarPopover(anchor) {
+            var el = document.getElementById('marcadores-popover');
+            if (!el) return;
+            var rect = anchor.getBoundingClientRect();
+            el.style.visibility = 'hidden';
+            el.style.display = 'flex';
+            var popRect = el.getBoundingClientRect();
+            var top  = rect.top + window.scrollY - popRect.height - 8;
+            var left = rect.left + window.scrollX + (rect.width / 2) - (popRect.width / 2);
+            if (left < 8) left = 8;
+            if (left + popRect.width > window.innerWidth - 8) left = window.innerWidth - 8 - popRect.width;
+            if (top < window.scrollY + 8) top = rect.bottom + window.scrollY + 8;
+            el.style.top  = top + 'px';
+            el.style.left = left + 'px';
+            el.style.visibility = '';
+        }
 
-    moverParaBusca.addEventListener('input', function () {
-        var ativos = Array.from(moverParaLista.querySelectorAll('.mover-para-cb:checked')).map(function (c) { return c.value; });
-        renderizarArvore(ativos, this.value);
-    });
-
-    // Abertura delegada — funciona para elementos inseridos dinamicamente no painel
-    document.getElementById('expediente-painel').addEventListener('click', function (e) {
-        var btn = e.target.closest('.js-mover-para');
-        if (!btn) return;
-        e.preventDefault();
-
-        var pastaId   = btn.dataset.pastaId;
-        var pastaNome = btn.dataset.pastaNome;
-        var ativos    = (btn.dataset.marcadoresAtivos || '').split(',').filter(Boolean);
-
-        moverParaPastaId.value         = pastaId;
-        moverParaPastaNome.textContent = pastaNome;
-        moverParaErro.style.display    = 'none';
-        moverParaBusca.value           = '';
-        moverParaCsrf.value            = btn.dataset.csrfToken;
-
-        renderizarArvore(ativos, '');
-
-        bootstrap.Modal.getOrCreateInstance(modalMoverPara).show();
-        setTimeout(function () { moverParaBusca.focus(); }, 350);
-    });
-
-    document.getElementById('btnSalvarMoverPara').addEventListener('click', function () {
-        var btn     = this;
-        var pastaId = moverParaPastaId.value;
-        var url     = urlPastaMarcadores.replace('/0/', '/' + pastaId + '/');
-        var csrf    = moverParaCsrf.value;
-
-        var selecionados = moverParaLista.querySelectorAll('input[type="checkbox"]:checked');
-        var params       = new URLSearchParams({ _token: csrf });
-        selecionados.forEach(function (cb) { params.append('marcadores[]', cb.value); });
-
-        btn.disabled = true;
-        moverParaErro.style.display = 'none';
-
-        fetch(url, {
-            method: 'POST',
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: params.toString(),
-        })
-        .then(function (r) {
-            return r.text().then(function (txt) {
-                try { return { ok: r.ok, data: JSON.parse(txt) }; }
-                catch (_) { return { ok: false, data: { erro: 'Resposta inválida do servidor.' }, raw: txt }; }
-            });
-        })
-        .then(function (res) {
-            btn.disabled = false;
-            if (!res.ok) {
-                moverParaErro.textContent   = res.data.erro || 'Erro ao salvar.';
-                moverParaErro.style.display = '';
-                return;
-            }
-            // Atualiza a linha da pasta no painel atual, se visível.
-            // data-pasta-id está na própria <td class="pasta-marcadores-col"> e também no botão interno.
-            var colMarcadores = document.querySelector('td.pasta-marcadores-col[data-pasta-id="' + res.data.pastaId + '"]');
-            if (colMarcadores) {
-                // Substitui apenas os badges, preservando o botão js-mover-para
-                var btnMover = colMarcadores.querySelector('.js-mover-para');
-                var novosHtml = '';
-                if (res.data.marcadores.length > 0) {
-                    var primeiro = res.data.marcadores[0];
-                    var bg0 = primeiro.cor || '#e9ecef';
-                    var borda0 = primeiro.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
-                    novosHtml += '<span class="badge rounded-pill px-2" style="background:' + bg0 + ';color:#333;' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
-                    if (res.data.marcadores.length > 1) {
-                        var extras = res.data.marcadores.slice(1).map(function (m) { return escHtml(m.nome); }).join('<br>');
-                        novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:#e9ecef;color:#333;font-size:.68rem;cursor:default;" title="' + extras + '">&hellip;</span>';
-                    }
-                }
-                // Remove badges antigos (todos os <span> dentro do <div> wrapper)
-                var wrapper = colMarcadores.querySelector('.d-flex');
-                if (wrapper) {
-                    wrapper.querySelectorAll('span.badge').forEach(function (s) { s.remove(); });
-                    wrapper.insertAdjacentHTML('afterbegin', novosHtml);
-                    // Reinicializa tooltip no badge de extras, se existir
-                    var extraBadge = wrapper.querySelector('.marcadores-extra');
-                    if (extraBadge) {
-                        var tt = bootstrap.Tooltip.getInstance(extraBadge);
-                        if (tt) tt.dispose();
-                        new bootstrap.Tooltip(extraBadge, { html: true, trigger: 'hover', placement: 'top' });
-                    }
-                }
-                if (btnMover) {
-                    btnMover.dataset.marcadoresAtivos = res.data.marcadores.map(function (m) { return m.id; }).join(',');
-                }
-            }
-            bootstrap.Modal.getOrCreateInstance(modalMoverPara).hide();
-        })
-        .catch(function (err) {
-            btn.disabled = false;
-            moverParaErro.textContent   = 'Erro de comunicação.';
-            moverParaErro.style.display = '';
-            console.error('[mover-para] erro inesperado:', err);
+        document.addEventListener('mouseover', function (e) {
+            var badge = e.target.closest('.marcadores-extra[data-marcadores-json]');
+            if (!badge) return;
+            var marcadores;
+            try { marcadores = JSON.parse(badge.dataset.marcadoresJson); } catch (err) { return; }
+            if (!marcadores || marcadores.length === 0) return;
+            var el = document.getElementById('marcadores-popover');
+            if (!el) return;
+            el.innerHTML = marcadores.map(function (m) {
+                var bg    = m.cor || '#e9ecef';
+                var borda = m.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
+                return '<span style="display:inline-block;border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:500;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;background:' + bg + ';' + borda + '">' + escHtmlPop(m.nome) + '</span>';
+            }).join('');
+            posicionarPopover(badge);
         });
-    });
 
-    function escHtml(str) {
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    }
+        document.addEventListener('mouseout', function (e) {
+            var badge = e.target.closest('.marcadores-extra[data-marcadores-json]');
+            if (!badge) return;
+            var el = document.getElementById('marcadores-popover');
+            if (el) el.style.display = 'none';
+        });
+
+        document.addEventListener('scroll', function () {
+            var el = document.getElementById('marcadores-popover');
+            if (el && el.style.display !== 'none') el.style.display = 'none';
+        }, true);
+    })();
+
+    // ── Callback pós-salvar do modal "Mover para": atualiza badges na tabela ──
+    window.moverParaAtualizarBadgesTabela = function (data, escHtml) {
+        var colMarcadores = document.querySelector('td.pasta-marcadores-col[data-pasta-id="' + data.pastaId + '"]');
+        if (!colMarcadores) return;
+        var btnMover  = colMarcadores.querySelector('.js-mover-para');
+        var novosHtml = '';
+        if (data.marcadores.length > 0) {
+            var primeiro = data.marcadores[0];
+            var bg0    = primeiro.cor || '#e9ecef';
+            var borda0 = primeiro.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
+            novosHtml += '<span class="badge rounded-pill px-2" style="background:' + bg0 + ';color:#333;' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
+            if (data.marcadores.length > 1) {
+                var extrasJson = JSON.stringify(data.marcadores.slice(1).map(function (m) { return { nome: m.nome, cor: m.cor || '' }; }));
+                novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:#e9ecef;color:#333;font-size:.68rem;cursor:default;" data-marcadores-json=\'' + extrasJson.replace(/'/g, '&#39;') + '\'>&hellip;</span>';
+            }
+        }
+        var wrapper = colMarcadores.querySelector('.d-flex');
+        if (wrapper) {
+            wrapper.querySelectorAll('span.badge').forEach(function (s) { s.remove(); });
+            wrapper.insertAdjacentHTML('afterbegin', novosHtml);
+        }
+        if (btnMover) {
+            btnMover.dataset.marcadoresAtivos = data.marcadores.map(function (m) { return m.id; }).join(',');
+        }
+    };
+
 });
 </script>
 {% endblock %}
