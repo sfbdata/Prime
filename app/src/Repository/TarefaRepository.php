@@ -24,7 +24,7 @@ class TarefaRepository extends ServiceEntityRepository
     public function findByResponsavel(User $usuario): array
     {
         return $this->createQueryBuilder('t')
-            ->where('t.responsavel = :usuario OR t.criadoPor = :usuario')
+            ->where(':usuario MEMBER OF t.responsaveis OR t.criadoPor = :usuario')
             ->setParameter('usuario', $usuario)
             ->orderBy('t.dataCriacao', 'DESC')
             ->getQuery()

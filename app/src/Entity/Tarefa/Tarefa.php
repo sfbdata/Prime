@@ -57,9 +57,9 @@ class Tarefa
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $criadoPor = null;
 
-    #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    private ?User $responsavel = null;
+    #[ORM\ManyToMany(targetEntity: User::class)]
+    #[ORM\JoinTable(name: 'tarefa_responsaveis')]
+    private Collection $responsaveis;
 
     #[ORM\OneToMany(mappedBy: 'tarefa', targetEntity: TarefaMensagem::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
     #[ORM\OrderBy(['criadoEm' => 'ASC'])]
@@ -69,6 +69,7 @@ class Tarefa
     {
         $this->dataCriacao = new \DateTimeImmutable();
         $this->mensagens   = new ArrayCollection();
+        $this->responsaveis = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -169,14 +170,30 @@ class Tarefa
         return $this;
     }
 
-    public function getResponsavel(): ?User
+    /**
+     * @return Collection<int, User>
+     */
+    public function getResponsaveis(): Collection
     {
-        return $this->responsavel;
+        return $this->responsaveis;
     }
 
-    public function setResponsavel(?User $responsavel): self
+    public function getResponsavel(): ?User
     {
-        $this->responsavel = $responsavel;
+        return $this->responsaveis->first() ?: null;
+    }
+
+    public function addResponsavel(User $responsavel): self
+    {
+        if (!$this->responsaveis->contains($responsavel)) {
+            $this->responsaveis->add($responsavel);
+        }
+        return $this;
+    }
+
+    public function removeResponsavel(User $responsavel): self
+    {
+        $this->responsaveis->removeElement($responsavel);
         return $this;
     }
 

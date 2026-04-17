@@ -13,5 +13,7 @@ final readonly class TimelineItemDTO
         public ?string $autorEmail,
         public string $icone,
         public string $badgeCss,
+        public ?string $arquivoAnexo = null,
+        public ?int $mensagemId = null,
     ) {}
 }

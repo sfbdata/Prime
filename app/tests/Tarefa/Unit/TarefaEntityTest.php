@@ -46,7 +46,7 @@ class TarefaEntityTest extends TestCase
         $this->assertSame(Tarefa::STATUS_PENDENTE, $tarefa->getStatus());
         $this->assertNull($tarefa->getPrazo());
         $this->assertNull($tarefa->getCriadoPor());
-        $this->assertNull($tarefa->getResponsavel());
+        $this->assertCount(0, $tarefa->getResponsaveis());
         $this->assertNull($tarefa->getDataAlteracao());
         $this->assertNull($tarefa->getDataConclusao());
         $this->assertInstanceOf(\DateTimeImmutable::class, $tarefa->getDataCriacao());
@@ -218,9 +218,30 @@ class TarefaEntityTest extends TestCase
         $tarefa = $this->novaTarefa();
         $user   = $this->novoUsuario('resp@test.com');
 
-        $tarefa->setResponsavel($user);
+        $tarefa->addResponsavel($user);
 
+        $this->assertCount(1, $tarefa->getResponsaveis());
+        $this->assertSame($user, $tarefa->getResponsaveis()->first());
         $this->assertSame($user, $tarefa->getResponsavel());
+    }
+
+    public function testGetResponsavelRetornaPrimeiroResponsavel(): void
+    {
+        $tarefa  = $this->novaTarefa();
+        $first   = $this->novoUsuario('first@test.com');
+        $second  = $this->novoUsuario('second@test.com');
+
+        $tarefa->addResponsavel($first);
+        $tarefa->addResponsavel($second);
+
+        $this->assertSame($first, $tarefa->getResponsavel());
+    }
+
+    public function testGetResponsavelRetornaNullQuandoSemResponsaveis(): void
+    {
+        $tarefa = $this->novaTarefa();
+
+        $this->assertNull($tarefa->getResponsavel());
     }
 
     public function testDefinirCriadoPor(): void
@@ -238,10 +259,10 @@ class TarefaEntityTest extends TestCase
         $tarefa = $this->novaTarefa();
         $user   = $this->novoUsuario();
 
-        $tarefa->setResponsavel($user);
-        $tarefa->setResponsavel(null);
+        $tarefa->addResponsavel($user);
+        $tarefa->removeResponsavel($user);
 
-        $this->assertNull($tarefa->getResponsavel());
+        $this->assertCount(0, $tarefa->getResponsaveis());
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -363,7 +384,7 @@ class TarefaEntityTest extends TestCase
         $tarefa->setDescricao('Redigir recurso ao INSS.');
         $tarefa->setPasta($pasta);
         $tarefa->setCriadoPor($gestor);
-        $tarefa->setResponsavel($responsavel);
+        $tarefa->addResponsavel($responsavel);
         $tarefa->setPrazo(new \DateTimeImmutable('+7 days'));
 
         // 1. Criada → Pendente

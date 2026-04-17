@@ -77,9 +77,20 @@
                             </div>
                             <div class="col-6 col-md-3">
                                 <div class="tarefa-meta-box">
-                                    <span class="tarefa-meta-label">Responsável</span>
-                                    <span class="tarefa-meta-value text-truncate">
-                                        {{ tarefa.responsavel ? tarefa.responsavel.fullName : '—' }}
+                                    <span class="tarefa-meta-label d-flex align-items-center">
+                                        Responsáveis
+                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-muted" data-bs-toggle="modal" data-bs-target="#modalEditarResponsaveis" title="Editar responsáveis">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                    </span>
+                                    <span class="tarefa-meta-value">
+                                        {% if tarefa.responsaveis|length > 0 %}
+                                            {% for resp in tarefa.responsaveis %}
+                                                <div class="text-truncate">{{ resp.fullName }}</div>
+                                            {% endfor %}
+                                        {% else %}
+                                            —
+                                        {% endif %}
                                     </span>
                                 </div>
                             </div>
@@ -99,35 +110,20 @@
                             </div>
                         </div>
 
-                        {# Tabs #}
-                        <ul class="nav nav-tabs" id="tarefaTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#detalhes"
-                                        type="button" role="tab" aria-selected="true">
-                                    <i class="bi bi-card-text me-1"></i>Detalhes
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#historico"
-                                        type="button" role="tab" aria-selected="false">
-                                    <i class="bi bi-clock-history me-1"></i>Histórico
-                                    {% if timelineItems|length > 0 %}
-                                        <span class="badge text-bg-secondary ms-1">{{ timelineItems|length }}</span>
-                                    {% endif %}
-                                </button>
-                            </li>
-                        </ul>
-
-                        <div class="tab-content mt-3">
-
-                            {# ── Tab Detalhes ── #}
-                            <div class="tab-pane fade show active" id="detalhes" role="tabpanel">
+                        {# ── Detalhes ── #}
+                        <div class="mt-3">
                                 <div class="mb-3">
+                                    <p class="text-sm text-muted mb-1">
+                                        <i class="bi bi-folder me-1"></i>Pasta: 
+                                        <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}" class="text-decoration-none">{{ tarefa.pasta.nup }}</a>
+                                    </p>
                                     <p class="text-sm fw-semibold text-muted mb-1">
                                         <i class="bi bi-card-text me-1"></i>Descrição
                                     </p>
                                     <div class="ps-2 text-body">{{ tarefa.descricao|nl2br }}</div>
                                 </div>
+
+                                <hr class="my-4">
 
                                 {% if tarefa.dataConclusao %}
                                 <div class="mt-3 p-2 rounded bg-success bg-opacity-10 border border-success border-opacity-25">
@@ -137,14 +133,18 @@
                                     </span>
                                 </div>
                                 {% endif %}
-                            </div>
 
-                            {# ── Tab Histórico / Chat ── #}
-                            <div class="tab-pane fade" id="historico" role="tabpanel">
+                                <div class="card mt-4" id="tarefa-timeline-card">
+                                    <div class="card-header">
+                                        <h3 class="card-title mb-0 d-flex align-items-center gap-2">
+                                            <i class="bi bi-clock-history me-1"></i>Histórico
+                                            <span class="badge text-bg-secondary" id="timeline-count">{{ timelineItems|length }}</span>
+                                        </h3>
+                                    </div>
 
-                                {# Campo de mensagem + ação #}
-                                {% if tarefa.status != 'concluida' %}
-                                <div class="border-bottom pb-3 mb-3">
+                                    {# Campo de mensagem + ação #}
+                                    {% if tarefa.status != 'concluida' %}
+                                    <div class="card-body border-bottom pb-3">
                                     <form id="formTarefaMensagem" method="post"
                                           action="{{ path('tarefa_mensagem', {id: tarefa.id}) }}"
                                           enctype="multipart/form-data">
@@ -185,7 +185,8 @@
                                 {% endif %}
 
                                 {# Timeline #}
-                                <div id="timelineList" style="max-height: 500px; overflow-y: auto; padding: 2px 4px;">
+                                <div class="card-body p-2">
+                                    <div id="timelineList" style="max-height: 480px; overflow-y: auto; padding: 4px 8px;">
                                     {% if timelineItems|length == 0 %}
                                         <div class="text-center text-muted py-5">
                                             <i class="bi bi-clock-history fs-1 d-block mb-2 opacity-25"></i>
@@ -222,6 +223,41 @@
                                                             {{ item.detalhe|nl2br }}
                                                         </div>
                                                     {% endif %}
+                                                    {% if item.arquivoAnexo and item.mensagemId %}
+                                                        {% set ext      = item.arquivoAnexo|split('.')|last|lower %}
+                                                        {% set mimeMap  = {
+                                                            'pdf':  'application/pdf',
+                                                            'jpg':  'image/jpeg',
+                                                            'jpeg': 'image/jpeg',
+                                                            'png':  'image/png',
+                                                            'gif':  'image/gif',
+                                                            'webp': 'image/webp',
+                                                            'svg':  'image/svg+xml',
+                                                            'mp3':  'audio/mpeg',
+                                                            'mp4':  'video/mp4',
+                                                            'webm': 'video/webm',
+                                                        } %}
+                                                        {% set mime     = mimeMap[ext] ?? 'application/octet-stream' %}
+                                                        {% set ehImagem = mime starts with 'image/' %}
+                                                        {% set ehPdf    = mime == 'application/pdf' %}
+                                                        {% set urlView  = path('tarefa_mensagem_arquivo_view', {id: item.mensagemId}) %}
+                                                        <div class="mt-2 tarefa-anexo-wrap">
+                                                            <span class="tarefa-anexo-chip">
+                                                                <i class="bi {% if ehImagem %}bi-image{% elseif ehPdf %}bi-file-pdf{% else %}bi-file-earmark{% endif %} me-1"></i>
+                                                                <span class="tarefa-anexo-nome">{{ item.arquivoAnexo|split('/')|last }}</span>
+                                                                <button type="button"
+                                                                        class="tarefa-anexo-btn"
+                                                                        title="Visualizar arquivo"
+                                                                        data-bs-toggle="modal"
+                                                                        data-bs-target="#previewDocModal"
+                                                                        data-url="{{ urlView }}"
+                                                                        data-nome="{{ item.arquivoAnexo|split('/')|last }}"
+                                                                        data-mime="{{ mime }}">
+                                                                    <i class="bi bi-eye"></i>
+                                                                </button>
+                                                            </span>
+                                                        </div>
+                                                    {% endif %}
                                                     {% if item.autorNome or item.autorEmail %}
                                                         <div class="mt-1">
                                                             <small class="text-muted">
@@ -241,7 +277,10 @@
                                 </div>
 
                             </div>
-                        </div>{# /tab-content #}
+
+                        </div>
+
+                        </div>
 
                     </div>{# /col principal #}
 
@@ -297,7 +336,218 @@
     </div>
 </section>
 
+{# Modal para editar responsáveis #}
+<div class="modal fade" id="modalEditarResponsaveis" tabindex="-1" aria-labelledby="modalEditarResponsaveisLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-semibold mb-0" id="modalEditarResponsaveisLabel">
+                        <i class="bi bi-people-fill me-2 text-primary"></i>Responsáveis pela Tarefa
+                    </h5>
+                    <p class="text-muted small mb-0 mt-1">Pesquise e selecione os membros da equipe</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{{ path('tarefa_update_responsaveis', {id: tarefa.id}) }}">
+                <div class="modal-body pt-2 pb-2">
+                    <input type="hidden" name="_token" value="{{ csrf_token('update_responsaveis_' ~ tarefa.id) }}">
+
+                    {# Campo de busca #}
+                    <div class="resp-search-wrap mb-2">
+                        <i class="bi bi-search resp-search-icon"></i>
+                        <input type="text" id="buscaResponsavel" class="resp-search-input"
+                               placeholder="Buscar membro…" autocomplete="off">
+                    </div>
+
+                    {# Lista de usuários #}
+                    <div id="listaResponsaveis" class="resp-lista">
+                        {% for user in users %}
+                            {% set iniciais = user.fullName|split(' ')|map(n => n|slice(0,1))|join('')|upper|slice(0,2) %}
+                            {% set selecionado = tarefa.responsaveis.contains(user) %}
+                            <label class="resp-item{% if selecionado %} resp-item--ativo{% endif %}"
+                                   data-nome="{{ user.fullName|lower }}">
+                                <input type="checkbox" name="responsaveis[]"
+                                       value="{{ user.id }}"
+                                       class="resp-checkbox"
+                                       {% if selecionado %}checked{% endif %}>
+                                <span class="resp-avatar-md">{{ iniciais }}</span>
+                                <span class="resp-nome">{{ user.fullName }}</span>
+                                <i class="bi bi-check2 resp-check-icon"></i>
+                            </label>
+                        {% endfor %}
+                        <div id="respSemResultado" class="resp-sem-resultado d-none">
+                            <i class="bi bi-person-x"></i> Nenhum membro encontrado.
+                        </div>
+                    </div>
+
+                    {# Chips dos selecionados #}
+                    <div id="responsaveisSelecionados" class="resp-chips-wrap d-flex flex-wrap gap-2 mt-3">
+                        {# preenchido por JS #}
+                    </div>
+
+                    <div class="mt-2 d-flex align-items-center gap-2">
+                        <i class="bi bi-info-circle text-muted" style="font-size:.8rem;"></i>
+                        <span class="text-muted" style="font-size:.8rem;">
+                            <span id="contadorSelecionados">0</span> responsável(is) selecionado(s)
+                        </span>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                        <i class="bi bi-x me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check2 me-1"></i>Salvar Responsáveis
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <style>
+/* ── Modal Responsáveis — lista nativa ── */
+
+/* Campo de busca */
+.resp-search-wrap {
+    position: relative;
+}
+.resp-search-icon {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #adb5bd;
+    font-size: .9rem;
+    pointer-events: none;
+}
+.resp-search-input {
+    width: 100%;
+    border: 1.5px solid #dee2e6;
+    border-radius: 8px;
+    padding: 8px 12px 8px 34px;
+    font-size: .88rem;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+    box-sizing: border-box;
+    background: #fff;
+}
+.resp-search-input:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13,110,253,.1);
+}
+
+/* Lista scrollável */
+.resp-lista {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1.5px solid #dee2e6;
+    border-radius: 8px;
+    background: #fff;
+}
+.resp-lista::-webkit-scrollbar { width: 5px; }
+.resp-lista::-webkit-scrollbar-track { background: transparent; }
+.resp-lista::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 4px; }
+
+/* Cada linha de usuário */
+.resp-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid #f5f5f5;
+    transition: background .12s;
+    user-select: none;
+    margin: 0;
+}
+.resp-item:last-of-type { border-bottom: none; }
+.resp-item:hover { background: #f5f8ff; }
+.resp-item--ativo { background: #edf3ff; }
+.resp-item--ativo:hover { background: #deeaff; }
+
+/* Esconde o checkbox nativo */
+.resp-checkbox { display: none; }
+
+/* Avatar médio */
+.resp-avatar-md {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f8ef7, #6c5ce7);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+}
+.resp-item--ativo .resp-avatar-md {
+    background: linear-gradient(135deg, #1a6ef5, #5b21b6);
+}
+
+/* Nome */
+.resp-nome {
+    flex: 1;
+    font-size: .88rem;
+    color: #212529;
+    font-weight: 400;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.resp-item--ativo .resp-nome { font-weight: 500; color: #1a3a6b; }
+
+/* Ícone de check à direita */
+.resp-check-icon {
+    font-size: .9rem;
+    color: #198754;
+    opacity: 0;
+    transition: opacity .12s;
+    flex-shrink: 0;
+}
+.resp-item--ativo .resp-check-icon { opacity: 1; }
+
+/* Sem resultado */
+.resp-sem-resultado {
+    padding: 20px 14px;
+    text-align: center;
+    font-size: .85rem;
+    color: #adb5bd;
+}
+
+/* Chips de resumo (avatar sm) */
+.resp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f0f4ff;
+    border: 1px solid #c5d5f8;
+    border-radius: 20px;
+    padding: 3px 10px 3px 4px;
+    font-size: .8rem;
+    color: #1a3a6b;
+}
+.resp-avatar-sm {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4f8ef7, #6c5ce7);
+    color: #fff;
+    font-size: .62rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    text-transform: uppercase;
+}
+
 /* ── Meta boxes ── */
 .tarefa-meta-box {
     border: 1px solid #e9ecef;
@@ -378,9 +628,133 @@
     background: rgba(13,202,240,.04);
     border-radius: 0 6px 6px 0;
 }
+
+/* ── Chip de arquivo anexado ── */
+.tarefa-anexo-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.tarefa-anexo-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #f0f4ff;
+    border: 1px solid #c5d5f8;
+    border-radius: 20px;
+    padding: 3px 8px 3px 10px;
+    font-size: .78rem;
+    color: #1a3a6b;
+    max-width: 100%;
+}
+.tarefa-anexo-nome {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 180px;
+}
+.tarefa-anexo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #0d6efd;
+    color: #fff;
+    font-size: .75rem;
+    flex-shrink: 0;
+    text-decoration: none;
+    transition: background .15s;
+}
+.tarefa-anexo-btn:hover {
+    background: #0a58ca;
+    color: #fff;
+}
 </style>
 
 <script>
+/* ── Modal Responsáveis — lista nativa ── */
+(function () {
+    function iniciaisDeNome(nome) {
+        return nome.split(' ').filter(Boolean)
+            .map(function (p) { return p[0].toUpperCase(); })
+            .slice(0, 2).join('');
+    }
+
+    function atualizarResumo() {
+        var checks   = document.querySelectorAll('.resp-checkbox:checked');
+        var container = document.getElementById('responsaveisSelecionados');
+        var contador  = document.getElementById('contadorSelecionados');
+        if (!container || !contador) return;
+
+        container.innerHTML = '';
+        contador.textContent = checks.length;
+
+        checks.forEach(function (cb) {
+            var item     = cb.closest('.resp-item');
+            var nomeEl   = item ? item.querySelector('.resp-nome') : null;
+            var nome     = nomeEl ? nomeEl.textContent.trim() : '';
+            var iniciais = iniciaisDeNome(nome);
+
+            var chip = document.createElement('div');
+            chip.className = 'resp-chip';
+
+            var av = document.createElement('span');
+            av.className = 'resp-avatar-sm';
+            av.textContent = iniciais;
+
+            var lbl = document.createElement('span');
+            lbl.textContent = nome;
+
+            chip.appendChild(av);
+            chip.appendChild(lbl);
+            container.appendChild(chip);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var modalEl = document.getElementById('modalEditarResponsaveis');
+        if (!modalEl) return;
+
+        /* Inicializa estado visual ao abrir */
+        modalEl.addEventListener('shown.bs.modal', function () {
+            atualizarResumo();
+            var busca = document.getElementById('buscaResponsavel');
+            if (busca) { busca.value = ''; busca.focus(); }
+        });
+
+        /* Toggle ao clicar na linha */
+        var lista = document.getElementById('listaResponsaveis');
+        if (lista) {
+            lista.addEventListener('change', function (e) {
+                if (!e.target.classList.contains('resp-checkbox')) return;
+                var item = e.target.closest('.resp-item');
+                if (item) item.classList.toggle('resp-item--ativo', e.target.checked);
+                atualizarResumo();
+            });
+        }
+
+        /* Filtro de busca */
+        var busca = document.getElementById('buscaResponsavel');
+        if (busca) {
+            busca.addEventListener('input', function () {
+                var q = this.value.toLowerCase().trim();
+                var items = document.querySelectorAll('#listaResponsaveis .resp-item');
+                var visiveis = 0;
+                items.forEach(function (item) {
+                    var nome = (item.dataset.nome || '');
+                    var visivel = !q || nome.includes(q);
+                    item.style.display = visivel ? '' : 'none';
+                    if (visivel) visiveis++;
+                });
+                var semResult = document.getElementById('respSemResultado');
+                if (semResult) semResult.classList.toggle('d-none', visiveis > 0);
+            });
+        }
+    });
+})();
+
 function submeterMensagem(acao) {
     document.getElementById('acaoMensagem').value = acao;
     document.getElementById('formTarefaMensagem').submit();
@@ -400,6 +774,86 @@ document.addEventListener('DOMContentLoaded', function () {
     // Scroll timeline ao final
     var tl = document.getElementById('timelineList');
     if (tl) tl.scrollTop = tl.scrollHeight;
+});
+</script>
+
+{# Modal: Preview de arquivo do chat #}
+<div class="modal fade" id="previewDocModal" tabindex="-1" aria-labelledby="previewDocModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewDocModalLabel">
+                    <i class="bi bi-eye me-1"></i> <span id="previewDocNome"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center" style="min-height: 70vh;">
+                <div id="previewDocConteudo" class="w-100 h-100"></div>
+            </div>
+            <div class="modal-footer">
+                <a id="previewDocDownload" href="#" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-download me-1"></i> Baixar
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const previewModal    = document.getElementById('previewDocModal');
+    const previewConteudo = document.getElementById('previewDocConteudo');
+    const previewNome     = document.getElementById('previewDocNome');
+    const previewDownload = document.getElementById('previewDocDownload');
+
+    previewModal.addEventListener('show.bs.modal', function (e) {
+        const btn  = e.relatedTarget;
+        const url  = btn.dataset.url;
+        const nome = btn.dataset.nome;
+        const mime = btn.dataset.mime;
+
+        previewNome.textContent = nome;
+        previewDownload.href = url.replace('/visualizar', '/download');
+        previewConteudo.innerHTML = '';
+
+        if (mime === 'application/pdf') {
+            previewConteudo.innerHTML =
+                `<iframe src="${url}" class="w-100 border-0" style="height:75vh;" title="${nome}"></iframe>`;
+        } else if (mime.startsWith('image/')) {
+            previewConteudo.innerHTML =
+                `<img src="${url}" class="img-fluid d-block mx-auto p-3" style="max-height:75vh;object-fit:contain;" alt="${nome}">`;
+        } else if (mime.startsWith('audio/')) {
+            previewConteudo.innerHTML =
+                `<div class="p-4 text-center w-100">
+                    <i class="bi bi-file-earmark-music display-1 text-muted d-block mb-3"></i>
+                    <p class="text-muted mb-3">${nome}</p>
+                    <audio controls class="w-100" style="max-width:500px;">
+                        <source src="${url}" type="${mime}">
+                        Seu navegador não suporta reprodução de áudio.
+                    </audio>
+                 </div>`;
+        } else if (mime.startsWith('video/')) {
+            previewConteudo.innerHTML =
+                `<video controls class="w-100 d-block" style="max-height:75vh;">
+                    <source src="${url}" type="${mime}">
+                    Seu navegador não suporta reprodução de vídeo.
+                 </video>`;
+        } else {
+            previewConteudo.innerHTML =
+                `<div class="p-5 text-center text-muted w-100">
+                    <i class="bi bi-file-earmark display-1 d-block mb-3"></i>
+                    <p>Pré-visualização não disponível para este tipo de arquivo.</p>
+                    <a href="${url.replace('/visualizar', '/download')}" class="btn btn-primary">
+                        <i class="bi bi-download me-1"></i> Baixar arquivo
+                    </a>
+                 </div>`;
+        }
+    });
+
+    previewModal.addEventListener('hide.bs.modal', function () {
+        previewConteudo.innerHTML = '';
+    });
 });
 </script>
 

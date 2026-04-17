@@ -45,15 +45,20 @@ class TarefaTimelineAssembler
 
         // Mensagens manuais da tarefa
         foreach ($tarefa->getMensagens() as $msg) {
+            $textoMensagem = $msg->getMensagem();
+            $detalhe = ($textoMensagem !== '[Arquivo anexado]') ? $textoMensagem : null;
+
             $items[] = new TimelineItemDTO(
-                tipo:       TimelineItemType::MENSAGEM,
-                dataHora:   $msg->getCriadoEm(),
-                titulo:     'Mensagem',
-                detalhe:    $msg->getMensagem(),
-                autorNome:  $msg->getUsuario()?->getFullName(),
-                autorEmail: $msg->getUsuario()?->getEmail(),
-                icone:      'bi-chat-left-text',
-                badgeCss:   'text-bg-info',
+                tipo:          TimelineItemType::MENSAGEM,
+                dataHora:      $msg->getCriadoEm(),
+                titulo:        'Mensagem',
+                detalhe:       $detalhe,
+                autorNome:     $msg->getUsuario()?->getFullName(),
+                autorEmail:    $msg->getUsuario()?->getEmail(),
+                icone:         'bi-chat-left-text',
+                badgeCss:      'text-bg-info',
+                arquivoAnexo:  $msg->getArquivoAnexo(),
+                mensagemId:    $msg->getId(),
             );
         }
 

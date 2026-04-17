@@ -11,10 +11,12 @@ use App\Repository\UserRepository;
 use App\Tarefa\Service\TarefaTimelineAssembler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
@@ -58,7 +60,17 @@ class TarefaController extends AbstractController
         $usuario = $this->getUser();
 
         $pasta = $pastaRepository->find($pastaId);
-        if ($pasta === null || $pasta->getTenant()?->getId() !== $usuario->getTenant()?->getId()) {
+        if ($pasta === null) {
+            return $this->json(['erro' => 'Pasta não encontrada.'], 404);
+        }
+
+        $tenantId          = $usuario->getTenant()?->getId();
+        $criadorTenant     = $pasta->getCriadoPor()?->getTenant()?->getId();
+        $responsavelTenant = $pasta->getResponsavel()?->getTenant()?->getId();
+        $pastaAcessivel    = ($criadorTenant !== null && $criadorTenant === $tenantId)
+            || ($responsavelTenant !== null && $responsavelTenant === $tenantId);
+
+        if (!$pastaAcessivel) {
             return $this->json(['erro' => 'Pasta não encontrada.'], 404);
         }
 
@@ -93,7 +105,7 @@ class TarefaController extends AbstractController
         if ($responsavelId > 0) {
             $responsavel = $userRepository->find($responsavelId);
             if ($responsavel instanceof User && $responsavel->getTenant()?->getId() === $usuario->getTenant()?->getId()) {
-                $tarefa->setResponsavel($responsavel);
+                $tarefa->addResponsavel($responsavel);
             }
         }
 
@@ -107,7 +119,7 @@ class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa): Response
+    public function show(Tarefa $tarefa, UserRepository $userRepository): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -117,12 +129,44 @@ class TarefaController extends AbstractController
         $tenantId = (int) $usuario->getTenant()?->getId();
         $timelineItems = $this->timelineAssembler->montar($tarefa, $tenantId);
 
+        $users = $userRepository->findBy(['tenant' => $tenantId]);
+
         return $this->render('tarefa/show.html.twig', [
             'tarefa'        => $tarefa,
             'statusLabels'  => Tarefa::STATUS_LABELS,
             'timelineItems' => $timelineItems,
             'usuarioAtual'  => $usuario,
+            'users'         => $users,
         ]);
+    }
+
+    /**
+     * Atualiza os responsáveis da tarefa.
+     */
+    #[Route('/{id}/responsaveis', name: 'tarefa_update_responsaveis', methods: ['POST'])]
+    public function updateResponsaveis(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, UserRepository $userRepository): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $this->verificarAcessoTarefa($usuario, $tarefa);
+
+        if (!$this->isCsrfTokenValid('update_responsaveis_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $userIds = $request->request->all('responsaveis', []);
+        $users = $userRepository->findBy(['id' => $userIds, 'tenant' => $usuario->getTenant()]);
+
+        $tarefa->getResponsaveis()->clear();
+        foreach ($users as $user) {
+            $tarefa->addResponsavel($user);
+        }
+
+        $entityManager->flush();
+
+        $this->addFlash('success', 'Responsáveis atualizados com sucesso.');
+
+        return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
     }
 
     /**
@@ -197,6 +241,60 @@ class TarefaController extends AbstractController
         $pastaId = $tarefa->getPasta()->getId();
 
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'tarefas']);
+    }
+
+    /**
+     * Serve o arquivo de uma mensagem de tarefa inline (para preview).
+     */
+    #[Route('/mensagem/{id}/arquivo/visualizar', name: 'tarefa_mensagem_arquivo_view', methods: ['GET'])]
+    public function viewArquivoMensagem(TarefaMensagem $mensagem): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa());
+
+        $caminho = $this->resolverCaminhoArquivo((string) $mensagem->getArquivoAnexo());
+
+        if ($caminho === null || !file_exists($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+
+        $response = new BinaryFileResponse($caminho);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE, basename($caminho));
+        $mimeType = mime_content_type($caminho) ?: 'application/octet-stream';
+        $response->headers->set('Content-Type', $mimeType);
+
+        return $response;
+    }
+
+    /**
+     * Serve o arquivo de uma mensagem de tarefa como download.
+     */
+    #[Route('/mensagem/{id}/arquivo/download', name: 'tarefa_mensagem_arquivo_download', methods: ['GET'])]
+    public function downloadArquivoMensagem(TarefaMensagem $mensagem): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa());
+
+        $caminho = $this->resolverCaminhoArquivo((string) $mensagem->getArquivoAnexo());
+
+        if ($caminho === null || !file_exists($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+
+        return $this->file($caminho, basename($caminho), ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+    }
+
+    private function resolverCaminhoArquivo(string $caminhoPublico): ?string
+    {
+        if ($caminhoPublico === '') {
+            return null;
+        }
+
+        $projectDir = rtrim((string) $this->parameterBag->get('kernel.project_dir'), '/');
+
+        return $projectDir . '/public' . $caminhoPublico;
     }
 
     /**
