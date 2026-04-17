@@ -1,0 +1,70 @@
+{% set prazoInfo = tarefa.prazoInfo %}
+<a href="{{ path('tarefa_show', {id: tarefa.id}) }}"
+   class="tarefa-card-minhas text-decoration-none status-{{ tarefa.status }}">
+    <div class="tarefa-card-minhas-header">
+        <span class="tarefa-card-minhas-titulo">{{ tarefa.titulo }}</span>
+        <span class="badge {{ statusBadge[tarefa.status] ?? 'text-bg-secondary' }} flex-shrink-0">
+            {{ statusLabel[tarefa.status] ?? tarefa.status }}
+        </span>
+    </div>
+    <div class="tarefa-card-minhas-meta">
+        <span title="Pasta">
+            <i class="bi bi-folder me-1"></i>{{ tarefa.pasta.nup }}
+        </span>
+        {% if tarefa.responsavel %}
+        <span title="Responsável">
+            <i class="bi bi-person-check me-1"></i>{{ tarefa.responsavel.fullName }}
+        </span>
+        {% endif %}
+        {% if prazoInfo.texto != '-' %}
+        <span class="text-{{ prazoInfo.cor }}" title="Prazo">
+            <i class="bi bi-calendar-event me-1"></i>{{ prazoInfo.texto }}
+        </span>
+        {% endif %}
+        <span class="ms-auto text-muted" title="Criada em">
+            <i class="bi bi-clock me-1"></i>{{ tarefa.dataCriacao|date('d/m/Y') }}
+        </span>
+    </div>
+</a>
+
+<style>
+.tarefa-card-minhas {
+    display: block;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px 14px;
+    background: #fff;
+    transition: box-shadow .15s, border-color .15s;
+    color: inherit;
+}
+.tarefa-card-minhas:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    border-color: #c8cfe0;
+    color: inherit;
+}
+.tarefa-card-minhas.status-em_revisao { border-left: 3px solid #ffc107; }
+.tarefa-card-minhas.status-concluida  { border-left: 3px solid #198754; opacity: .72; }
+.tarefa-card-minhas.status-pendente   { border-left: 3px solid #adb5bd; }
+.tarefa-card-minhas-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+.tarefa-card-minhas-titulo {
+    font-weight: 600;
+    font-size: .88rem;
+    color: #212529;
+    flex: 1;
+    min-width: 0;
+}
+.tarefa-card-minhas-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: .77rem;
+    color: #6c757d;
+    align-items: center;
+}
+</style>

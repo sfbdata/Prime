@@ -2,6 +2,7 @@
 
 namespace App\Entity\Tarefa;
 
+use App\Entity\Auth\User;
 use App\Entity\Pasta\Pasta;
 use App\Repository\TarefaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -9,12 +10,18 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaRepository::class)]
+#[ORM\HasLifecycleCallbacks]
 class Tarefa
 {
-    public const STATUS_PENDENTE = 'pendente';
-    public const STATUS_EM_REVISAO = 'em_revisao';
-    public const STATUS_CONCLUIDA = 'concluida';
-    public const STATUS_REABERTA = 'reaberta';
+    public const STATUS_PENDENTE    = 'pendente';
+    public const STATUS_EM_REVISAO  = 'em_revisao';
+    public const STATUS_CONCLUIDA   = 'concluida';
+
+    public const STATUS_LABELS = [
+        self::STATUS_PENDENTE   => 'Pendente',
+        self::STATUS_EM_REVISAO => 'Para Revisão',
+        self::STATUS_CONCLUIDA  => 'Concluída',
+    ];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -37,17 +44,22 @@ class Tarefa
     private \DateTimeImmutable $dataCriacao;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $dataAlteracao = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $dataConclusao = null;
 
-    #[ORM\Column(type: 'json', nullable: true)]
-    private ?array $arquivosAdmin = [];
-
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'tarefas')]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    private ?Pasta $pasta = null;
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+    private Pasta $pasta;
 
-    #[ORM\OneToMany(mappedBy: 'tarefa', targetEntity: AtribuicaoTarefa::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
-    private Collection $atribuicoes;
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $criadoPor = null;
+
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $responsavel = null;
 
     #[ORM\OneToMany(mappedBy: 'tarefa', targetEntity: TarefaMensagem::class, orphanRemoval: true, cascade: ['persist', 'remove'])]
     #[ORM\OrderBy(['criadoEm' => 'ASC'])]
@@ -56,8 +68,13 @@ class Tarefa
     public function __construct()
     {
         $this->dataCriacao = new \DateTimeImmutable();
-        $this->atribuicoes = new ArrayCollection();
-        $this->mensagens = new ArrayCollection();
+        $this->mensagens   = new ArrayCollection();
+    }
+
+    #[ORM\PreUpdate]
+    public function atualizarDataAlteracao(): void
+    {
+        $this->dataAlteracao = new \DateTimeImmutable();
     }
 
     public function getId(): ?int
@@ -114,10 +131,9 @@ class Tarefa
         return $this->dataCriacao;
     }
 
-    public function setDataCriacao(\DateTimeImmutable $dataCriacao): self
+    public function getDataAlteracao(): ?\DateTimeImmutable
     {
-        $this->dataCriacao = $dataCriacao;
-        return $this;
+        return $this->dataAlteracao;
     }
 
     public function getDataConclusao(): ?\DateTimeImmutable
@@ -131,52 +147,36 @@ class Tarefa
         return $this;
     }
 
-    public function getArquivosAdmin(): array
-    {
-        return $this->arquivosAdmin ?? [];
-    }
-
-    public function setArquivosAdmin(?array $arquivosAdmin): self
-    {
-        $this->arquivosAdmin = $arquivosAdmin ?? [];
-        return $this;
-    }
-
-    public function addArquivoAdmin(string $arquivo): self
-    {
-        $arquivos = $this->getArquivosAdmin();
-        $arquivos[] = $arquivo;
-        $this->arquivosAdmin = $arquivos;
-
-        return $this;
-    }
-
-    public function getPasta(): ?Pasta
+    public function getPasta(): Pasta
     {
         return $this->pasta;
     }
 
-    public function setPasta(?Pasta $pasta): self
+    public function setPasta(Pasta $pasta): self
     {
         $this->pasta = $pasta;
         return $this;
     }
 
-    /**
-     * @return Collection<int, AtribuicaoTarefa>
-     */
-    public function getAtribuicoes(): Collection
+    public function getCriadoPor(): ?User
     {
-        return $this->atribuicoes;
+        return $this->criadoPor;
     }
 
-    public function addAtribuicao(AtribuicaoTarefa $atribuicao): self
+    public function setCriadoPor(?User $criadoPor): self
     {
-        if (!$this->atribuicoes->contains($atribuicao)) {
-            $this->atribuicoes->add($atribuicao);
-            $atribuicao->setTarefa($this);
-        }
+        $this->criadoPor = $criadoPor;
+        return $this;
+    }
 
+    public function getResponsavel(): ?User
+    {
+        return $this->responsavel;
+    }
+
+    public function setResponsavel(?User $responsavel): self
+    {
+        $this->responsavel = $responsavel;
         return $this;
     }
 
@@ -194,7 +194,6 @@ class Tarefa
             $this->mensagens->add($mensagem);
             $mensagem->setTarefa($this);
         }
-
         return $this;
     }
 
@@ -205,73 +204,30 @@ class Tarefa
                 $mensagem->setTarefa(null);
             }
         }
-
         return $this;
-    }
-
-    public function removeAtribuicao(AtribuicaoTarefa $atribuicao): self
-    {
-        if ($this->atribuicoes->removeElement($atribuicao)) {
-            if ($atribuicao->getTarefa() === $this) {
-                $atribuicao->setTarefa(null);
-            }
-        }
-
-        return $this;
-    }
-
-    public function getTempoTotalSegundos(): ?int
-    {
-        $inicio = null;
-        $fim = $this->dataConclusao;
-
-        foreach ($this->atribuicoes as $atribuicao) {
-            $dataAtribuicao = $atribuicao->getDataAtribuicao();
-            if ($inicio === null || $dataAtribuicao < $inicio) {
-                $inicio = $dataAtribuicao;
-            }
-
-            if ($fim === null && $atribuicao->getDataEnvioRevisao() !== null) {
-                $fim = $atribuicao->getDataEnvioRevisao();
-            }
-        }
-
-        if ($inicio === null || $fim === null) {
-            return null;
-        }
-
-        return max(0, $fim->getTimestamp() - $inicio->getTimestamp());
     }
 
     /**
-     * Retorna informações sobre o prazo da tarefa
-     * 
      * @return array{dias: int|null, cor: string, texto: string}
      */
     public function getPrazoInfo(): array
     {
         if ($this->prazo === null || $this->status === self::STATUS_CONCLUIDA) {
-            return [
-                'dias' => null,
-                'cor' => '',
-                'texto' => '-',
-            ];
+            return ['dias' => null, 'cor' => '', 'texto' => '-'];
         }
-        
+
         $hoje = new \DateTimeImmutable('today');
         $diff = $hoje->diff($this->prazo);
         $dias = (int) $diff->format('%r%a');
-        
-        // Determinar cor
+
         if ($dias > 3) {
-            $cor = 'success'; // verde
+            $cor = 'success';
         } elseif ($dias >= 1) {
-            $cor = 'warning'; // amarelo
+            $cor = 'warning';
         } else {
-            $cor = 'danger'; // vermelho (inclui 0 e negativos)
+            $cor = 'danger';
         }
-        
-        // Determinar texto
+
         if ($dias < 0) {
             $texto = abs($dias) . ' dia(s) atrasado';
         } elseif ($dias === 0) {
@@ -281,11 +237,7 @@ class Tarefa
         } else {
             $texto = $dias . ' dias';
         }
-        
-        return [
-            'dias' => $dias,
-            'cor' => $cor,
-            'texto' => $texto,
-        ];
+
+        return ['dias' => $dias, 'cor' => $cor, 'texto' => $texto];
     }
 }

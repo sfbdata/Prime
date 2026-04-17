@@ -2,9 +2,9 @@
 
 namespace App\Repository;
 
+use App\Entity\Auth\User;
 use App\Processo\Entity\Processo;
 use App\Entity\Tarefa\Tarefa;
-use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -21,25 +21,14 @@ class TarefaRepository extends ServiceEntityRepository
     /**
      * @return Tarefa[]
      */
-    public function findByTenantForAdmin(?Tenant $tenant): array
+    public function findByResponsavel(User $usuario): array
     {
-        $qb = $this->createQueryBuilder('t')
-            ->leftJoin('t.atribuicoes', 'a')
-            ->addSelect('a')
-            ->orderBy('t.dataCriacao', 'DESC');
-
-        if ($tenant !== null) {
-            $qb->andWhere('EXISTS (
-                SELECT 1
-                FROM App\\Entity\\Tarefa\\AtribuicaoTarefa a2
-                JOIN a2.usuario u2
-                WHERE a2.tarefa = t
-                AND u2.tenant = :tenant
-            )')
-                ->setParameter('tenant', $tenant);
-        }
-
-        return $qb->getQuery()->getResult();
+        return $this->createQueryBuilder('t')
+            ->where('t.responsavel = :usuario OR t.criadoPor = :usuario')
+            ->setParameter('usuario', $usuario)
+            ->orderBy('t.dataCriacao', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 
     /**
@@ -49,8 +38,6 @@ class TarefaRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('t')
             ->join('t.pasta', 'p')
-            ->leftJoin('t.atribuicoes', 'a')
-            ->addSelect('a')
             ->where('p.processo = :processo')
             ->setParameter('processo', $processo)
             ->orderBy('t.dataCriacao', 'DESC')

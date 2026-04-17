@@ -800,7 +800,7 @@
 document.addEventListener('click', function (e) {
     var tr = e.target.closest('tr.pasta-row-link');
     if (!tr) return;
-    if (e.target.closest('button, a, form, input')) return;
+    if (e.target.closest('button, a, form, input, select')) return;
     window.location.href = tr.dataset.href;
 });
 
@@ -1277,13 +1277,25 @@ document.addEventListener('DOMContentLoaded', function () {
                '</a>';
     }
 
+    function injetarHtmlComScripts(container, html) {
+        container.innerHTML = html;
+        container.querySelectorAll('script').forEach(function (scriptOriginal) {
+            var novoScript = document.createElement('script');
+            Array.from(scriptOriginal.attributes).forEach(function (attr) {
+                novoScript.setAttribute(attr.name, attr.value);
+            });
+            novoScript.textContent = scriptOriginal.textContent;
+            scriptOriginal.parentNode.replaceChild(novoScript, scriptOriginal);
+        });
+    }
+
     function carregarPainel(url, nomeAtivo) {
         document.querySelectorAll('.expediente-menu-link').forEach(function (l) { l.classList.remove('active'); });
         painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
         if (labelPainel && nomeAtivo) labelPainel.textContent = nomeAtivo;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.text(); })
-            .then(function (html) { painel.innerHTML = html; })
+            .then(function (html) { injetarHtmlComScripts(painel, html); })
             .catch(function () {
                 painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
             });

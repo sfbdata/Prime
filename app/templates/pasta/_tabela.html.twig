@@ -100,6 +100,7 @@
                     <th class="sortable col-doc-tabela" data-col="3" style="width:110px"><i class="bi bi-file-earmark-check me-1"></i>Doc. <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="4" style="width:90px"><i class="bi bi-flag me-1"></i>Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-resp-tabela" data-col="5"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Tarefas</th>
                     <th class="sortable col-data-tabela" data-col="6" style="width:95px"><i class="bi bi-calendar-plus me-1"></i>Criado <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-data-tabela" data-col="7" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="col-marc-tabela"><i class="bi bi-tags me-1"></i>Marcadores</th>
@@ -162,6 +163,20 @@
                                 <option value="{{ u.id }}" {% if pasta.responsavel and pasta.responsavel.id == u.id %}selected{% endif %}>{{ u.fullName }}</option>
                             {% endfor %}
                         </select>
+                    </td>
+                    <td class="col-tarefas-tabela align-middle">
+                        {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
+                        {% set totalTarefas = pasta.tarefas|length %}
+                        {% if totalTarefas > 0 %}
+                            {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
+                            <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
+                               class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                               title="{{ totalTarefas }} tarefa(s) · {{ tarefasAtivas|length }} ativa(s)">
+                                <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
+                            </a>
+                        {% else %}
+                            <span class="text-muted" style="font-size:.8rem;">—</span>
+                        {% endif %}
                     </td>
                     <td class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">{{ pasta.createdAt|date('d/m/Y') }}</td>
                     <td class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
@@ -368,7 +383,7 @@
     .col-data-tabela, .col-doc-tabela { display: none; }
 }
 @media (max-width: 900px) {
-    .col-acao-tabela, .col-resp-tabela { display: none; }
+    .col-acao-tabela, .col-resp-tabela, .col-tarefas-tabela { display: none; }
 }
 @media (max-width: 768px) {
     .col-marc-tabela { display: none; }
@@ -591,25 +606,39 @@
     }
 
 
-    var table = document.getElementById('tabelaPastas');
-    if (!table) return;
-    var headers = table.querySelectorAll('th.sortable');
-    var tbody = table.querySelector('tbody');
-    headers.forEach(function (header) {
-        header.addEventListener('click', function () {
-            var col = parseInt(this.dataset.col);
-            var isAsc = this.classList.contains('asc');
+    function iniciarOrdenacaoTabela() {
+        var table = document.getElementById('tabelaPastas');
+        if (!table) return;
+        var headers = table.querySelectorAll('th.sortable');
+        var tbody = table.querySelector('tbody');
+
+        function ordenarPorColuna(col, direcao) {
             headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
-            this.classList.add(isAsc ? 'desc' : 'asc');
+            headers[col].classList.add(direcao);
             var rows = Array.from(tbody.querySelectorAll('tr'));
             rows.sort(function (a, b) {
                 var aVal = (a.cells[col] ? a.cells[col].textContent.trim() : '').toLowerCase();
                 var bVal = (b.cells[col] ? b.cells[col].textContent.trim() : '').toLowerCase();
-                return isAsc ? bVal.localeCompare(aVal, 'pt-BR') : aVal.localeCompare(bVal, 'pt-BR');
+                return direcao === 'asc'
+                    ? aVal.localeCompare(bVal, 'pt-BR')
+                    : bVal.localeCompare(aVal, 'pt-BR');
             });
             rows.forEach(function (row) { tbody.appendChild(row); });
+        }
+
+        headers.forEach(function (header) {
+            header.addEventListener('click', function () {
+                var col = parseInt(this.dataset.col);
+                var isAsc = this.classList.contains('asc');
+                ordenarPorColuna(col, isAsc ? 'desc' : 'asc');
+            });
         });
-    });
+
+        /* Ordenação padrão: NUP (coluna 0) decrescente */
+        ordenarPorColuna(0, 'desc');
+    }
+
+    iniciarOrdenacaoTabela();
 })();
 </script>
 

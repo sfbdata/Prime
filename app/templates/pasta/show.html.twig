@@ -594,60 +594,111 @@
 
                             {# Tab: Tarefas #}
                             <div class="tab-pane fade" id="tarefas" role="tabpanel" aria-labelledby="tarefas-tab">
+                                {% set statusBadgeTarefa = {
+                                    'pendente':   'text-bg-secondary',
+                                    'em_revisao': 'text-bg-warning',
+                                    'concluida':  'text-bg-success',
+                                } %}
+                                {% set statusLabelTarefa = {
+                                    'pendente':   'Pendente',
+                                    'em_revisao': 'Para Revisão',
+                                    'concluida':  'Concluída',
+                                } %}
+
+                                <div class="d-flex justify-content-end mb-3">
+                                    <button type="button" class="btn btn-sm btn-primary"
+                                            data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
+                                        <i class="bi bi-plus-lg me-1"></i>Criar Tarefa
+                                    </button>
+                                </div>
+
                                 {% if pasta.tarefas|length > 0 %}
-                                    <div class="table-responsive">
-                                        <table class="table table-hover align-middle">
-                                            <thead>
-                                                <tr>
-                                                    <th>Título</th>
-                                                    <th>Status</th>
-                                                    <th>Prazo</th>
-                                                    <th>Criada em</th>
-                                                    <th></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for tarefa in pasta.tarefas %}
-                                                    {% set prazoInfo = tarefa.prazoInfo %}
-                                                    <tr>
-                                                        <td>{{ tarefa.titulo }}</td>
-                                                        <td>
-                                                            {% if tarefa.status == 'pendente' %}
-                                                                <span class="badge text-bg-warning">Pendente</span>
-                                                            {% elseif tarefa.status == 'em_revisao' %}
-                                                                <span class="badge text-bg-info">Em revisão</span>
-                                                            {% elseif tarefa.status == 'concluida' %}
-                                                                <span class="badge text-bg-success">Concluída</span>
-                                                            {% elseif tarefa.status == 'reaberta' %}
-                                                                <span class="badge text-bg-danger">Reaberta</span>
-                                                            {% else %}
-                                                                <span class="badge text-bg-secondary">{{ tarefa.status }}</span>
-                                                            {% endif %}
-                                                        </td>
-                                                        <td>
-                                                            {% if prazoInfo.texto != '-' %}
-                                                                <span class="badge text-bg-{{ prazoInfo.cor }}">{{ prazoInfo.texto }}</span>
-                                                            {% else %}
-                                                                <span class="text-muted">—</span>
-                                                            {% endif %}
-                                                        </td>
-                                                        <td>{{ tarefa.dataCriacao|date('d/m/Y') }}</td>
-                                                        <td>
-                                                            <a href="{{ path('tarefa_show', {id: tarefa.id}) }}"
-                                                               class="btn-action btn-action-view"
-                                                               title="Visualizar tarefa"
-                                                               aria-label="Visualizar tarefa">
-                                                                <i class="bi bi-eye"></i>
-                                                            </a>
-                                                        </td>
-                                                    </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
+                                    <div class="d-flex flex-column gap-2">
+                                        {% for tarefa in pasta.tarefas %}
+                                            {% set prazoInfo = tarefa.prazoInfo %}
+                                            <a href="{{ path('tarefa_show', {id: tarefa.id}) }}"
+                                               class="tarefa-card text-decoration-none status-{{ tarefa.status }}">
+                                                <div class="tarefa-card-header">
+                                                    <span class="tarefa-card-titulo">{{ tarefa.titulo }}</span>
+                                                    <span class="badge {{ statusBadgeTarefa[tarefa.status] ?? 'text-bg-secondary' }} flex-shrink-0">
+                                                        {{ statusLabelTarefa[tarefa.status] ?? tarefa.status }}
+                                                    </span>
+                                                </div>
+                                                <div class="tarefa-card-meta">
+                                                    <span title="Autor">
+                                                        <i class="bi bi-person me-1"></i>
+                                                        {{ tarefa.criadoPor ? tarefa.criadoPor.fullName : '—' }}
+                                                    </span>
+                                                    <span title="Responsável">
+                                                        <i class="bi bi-person-check me-1"></i>
+                                                        {{ tarefa.responsavel ? tarefa.responsavel.fullName : '—' }}
+                                                    </span>
+                                                    {% if prazoInfo.texto != '-' %}
+                                                    <span class="text-{{ prazoInfo.cor }}" title="Prazo">
+                                                        <i class="bi bi-calendar-event me-1"></i>{{ prazoInfo.texto }}
+                                                    </span>
+                                                    {% endif %}
+                                                    <span class="ms-auto text-muted" title="Criada em">
+                                                        <i class="bi bi-clock me-1"></i>{{ tarefa.dataCriacao|date('d/m/Y') }}
+                                                    </span>
+                                                    {% if tarefa.dataAlteracao %}
+                                                    <span class="text-muted" title="Última alteração">
+                                                        · mod. {{ tarefa.dataAlteracao|date('d/m/Y') }}
+                                                    </span>
+                                                    {% endif %}
+                                                </div>
+                                            </a>
+                                        {% endfor %}
                                     </div>
                                 {% else %}
-                                    <p class="text-muted"><i class="bi bi-info-circle me-1"></i> Nenhuma tarefa vinculada a esta pasta.</p>
+                                    <div class="text-center py-5 text-muted">
+                                        <i class="bi bi-check2-square fs-1 d-block mb-2 opacity-25"></i>
+                                        <span class="small">Nenhuma tarefa criada para esta pasta.</span>
+                                    </div>
                                 {% endif %}
+
+                                {# Estilos dos cards de tarefa #}
+                                <style>
+                                .tarefa-card {
+                                    display: block;
+                                    border: 1px solid #e9ecef;
+                                    border-radius: 8px;
+                                    padding: 12px 14px;
+                                    background: #fff;
+                                    transition: box-shadow .15s, border-color .15s;
+                                    color: inherit;
+                                }
+                                .tarefa-card:hover {
+                                    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+                                    border-color: #c8cfe0;
+                                    color: inherit;
+                                }
+                                .tarefa-card.status-em_revisao { border-left: 3px solid #ffc107; }
+                                .tarefa-card.status-concluida  { border-left: 3px solid #198754; opacity: .75; }
+                                .tarefa-card.status-pendente   { border-left: 3px solid #adb5bd; }
+                                .tarefa-card-header {
+                                    display: flex;
+                                    align-items: flex-start;
+                                    justify-content: space-between;
+                                    gap: 8px;
+                                    margin-bottom: 6px;
+                                }
+                                .tarefa-card-titulo {
+                                    font-weight: 600;
+                                    font-size: .88rem;
+                                    color: #212529;
+                                    flex: 1;
+                                    min-width: 0;
+                                }
+                                .tarefa-card-meta {
+                                    display: flex;
+                                    flex-wrap: wrap;
+                                    gap: 10px;
+                                    font-size: .77rem;
+                                    color: #6c757d;
+                                    align-items: center;
+                                }
+                                </style>
                             </div>
 
                             {# Tab: Detalhes #}
@@ -3406,6 +3457,108 @@ document.addEventListener('DOMContentLoaded', function () {
             feedback.style.color = '#dc3545';
         });
     }
+}());
+</script>
+
+{# ── Modal: Criar Tarefa ── #}
+<div class="modal fade" id="modalCriarTarefa" tabindex="-1" aria-labelledby="modalCriarTarefaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title" id="modalCriarTarefaLabel">
+                    <i class="bi bi-list-task me-2"></i>Nova Tarefa
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form id="formCriarTarefa" method="post"
+                  action="{{ path('tarefa_criar_para_pasta', {pastaId: pasta.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('tarefa_criar_' ~ pasta.id) }}">
+                <div class="modal-body">
+
+                    <div id="tarefaErroMsg" class="alert alert-danger d-none py-2 small"></div>
+
+                    <div class="mb-3">
+                        <label for="tarefaTitulo" class="form-label form-label-sm fw-semibold">Título <span class="text-danger">*</span></label>
+                        <input type="text" id="tarefaTitulo" name="titulo"
+                               class="form-control form-control-sm" maxlength="255" required
+                               placeholder="Resumo objetivo da tarefa">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="tarefaDescricao" class="form-label form-label-sm fw-semibold">Descrição <span class="text-danger">*</span></label>
+                        <textarea id="tarefaDescricao" name="descricao"
+                                  class="form-control form-control-sm" rows="3" required maxlength="5000"
+                                  placeholder="Descreva o que precisa ser feito…"></textarea>
+                    </div>
+
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label for="tarefaPrazo" class="form-label form-label-sm fw-semibold">Prazo</label>
+                            <input type="date" id="tarefaPrazo" name="prazo" class="form-control form-control-sm">
+                        </div>
+                        <div class="col-6">
+                            <label for="tarefaResponsavel" class="form-label form-label-sm fw-semibold">Responsável</label>
+                            <select id="tarefaResponsavel" name="responsavel_id" class="form-select form-select-sm">
+                                <option value="">— Nenhum —</option>
+                                {% for u in usuarios %}
+                                    <option value="{{ u.id }}">{{ u.fullName }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" id="btnEnviarTarefa" class="btn btn-primary btn-sm">
+                        <i class="bi bi-send me-1"></i>Criar Tarefa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var form = document.getElementById('formCriarTarefa');
+    if (!form) return;
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        var btn = document.getElementById('btnEnviarTarefa');
+        var erroBox = document.getElementById('tarefaErroMsg');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando…';
+        erroBox.classList.add('d-none');
+
+        var data = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: data,
+        })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+        .then(function (res) {
+            if (res.data.sucesso) {
+                // Redireciona para a tarefa criada
+                window.location.href = '/tarefas/' + res.data.id;
+            } else {
+                erroBox.textContent = res.data.erro || 'Erro ao criar tarefa.';
+                erroBox.classList.remove('d-none');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Tarefa';
+            }
+        })
+        .catch(function () {
+            erroBox.textContent = 'Erro de comunicação. Tente novamente.';
+            erroBox.classList.remove('d-none');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Tarefa';
+        });
+    });
 }());
 </script>
 {% endblock %}

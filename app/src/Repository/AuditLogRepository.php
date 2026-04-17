@@ -200,6 +200,44 @@ class AuditLogRepository extends ServiceEntityRepository
         return $conn->executeQuery($sql, $params)->fetchAllAssociative();
     }
 
+    /**
+     * Busca todos os eventos de auditoria relevantes para a timeline de uma Tarefa.
+     *
+     * @return array<int, array{id:int, action:string, entity_class:string, entity_id:string|null, changes:string|null, actor_user_id:int|null, actor_email:string|null, created_at:string}>
+     */
+    public function findForTarefaTimeline(int $tarefaId, int $tenantId, int $limit = 150): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $tarefaIdStr = (string) $tarefaId;
+
+        $sql = "
+            SELECT id, action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at
+            FROM audit_log
+            WHERE entity_class = 'App\\Entity\\Tarefa\\Tarefa'
+              AND tenant_id = :tenantId
+              AND entity_id = :tarefaIdStr
+            UNION ALL
+            SELECT id, action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at
+            FROM audit_log
+            WHERE entity_class = 'App\\Entity\\Tarefa\\TarefaMensagem'
+              AND tenant_id = :tenantId
+              AND (
+                entity_id IN (SELECT id::text FROM tarefa_mensagem WHERE tarefa_id = :tarefaId)
+                OR (changes->'diff'->'after'->'tarefa'->>'id')::text = :tarefaIdStr
+              )
+            ORDER BY created_at DESC
+            LIMIT :limit
+        ";
+
+        return $conn->executeQuery($sql, [
+            'tarefaId'    => $tarefaId,
+            'tarefaIdStr' => $tarefaIdStr,
+            'tenantId'    => $tenantId,
+            'limit'       => $limit,
+        ])->fetchAllAssociative();
+    }
+
     private function buildFilteredQueryBuilder(
         ?string $entityClass,
         ?string $userFilter,

@@ -169,15 +169,6 @@
                         </li>
                     {% endif %}
 
-                    {% if can_administer('admin.tarefas.manage') %}
-                        <li class="pje-menu-item">
-                            <a href="{{ path('tarefa_admin_index') }}"
-                               class="pje-menu-link {{ currentRoute starts with 'tarefa_admin_' ? 'active' : '' }}">
-                                <i class="bi bi-kanban pje-nav-icon"></i>
-                                <span>Gestão de Tarefas</span>
-                            </a>
-                        </li>
-                    {% endif %}
 
                     {% if can_administer('admin.servicedesk.manage') %}
                         <li class="pje-menu-item">

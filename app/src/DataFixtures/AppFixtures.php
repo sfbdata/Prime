@@ -14,7 +14,6 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\DocumentoProcesso;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
-use App\Entity\Tarefa\AtribuicaoTarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Service\TenantBootstrapService;
 use Doctrine\Bundle\FixturesBundle\Fixture;
@@ -651,112 +650,12 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
 
     // -----------------------------------------------
     // TAREFAS
+    // Tarefas agora são criadas diretamente nas pastas via UI.
+    // Fixtures não geram tarefas pois exigem pasta existente.
     // -----------------------------------------------
     private function loadTarefas(ObjectManager $manager, array $processos, array $users): void
     {
-        $tarefasDados = [
-            [
-                'titulo'    => 'Elaborar petição de réplica - Proc. Trabalhista João Ferreira',
-                'descricao' => 'Redigir réplica à contestação apresentada pela empresa XYZ, abordando os pontos controvertidos sobre o aviso prévio e as horas extras.',
-                'prazo'     => '+5 days',
-                'status'    => Tarefa::STATUS_PENDENTE,
-                'processo'  => $processos[0],
-                'atribuicoes' => [
-                    ['usuario' => $users[3], 'status' => AtribuicaoTarefa::STATUS_PENDENTE],
-                ],
-                'mensagens' => [
-                    ['usuario' => $users[1], 'texto' => 'Lucas, por favor elabore a réplica seguindo o modelo do escritório. Foco nos pontos de horas extras e aviso prévio.'],
-                    ['usuario' => $users[3], 'texto' => 'Entendido, Dra. Fernanda. Vou iniciar hoje e envio para revisão até quinta-feira.'],
-                ],
-            ],
-            [
-                'titulo'    => 'Agendar perícia médica - Proc. Trabalhista',
-                'descricao' => 'Verificar junto ao perito judicial indicado pelo juízo a disponibilidade de agenda e informar ao cliente com ao menos 5 dias de antecedência.',
-                'prazo'     => '+3 days',
-                'status'    => Tarefa::STATUS_EM_REVISAO,
-                'processo'  => $processos[0],
-                'atribuicoes' => [
-                    ['usuario' => $users[4], 'status' => AtribuicaoTarefa::STATUS_EM_REVISAO],
-                ],
-                'mensagens' => [
-                    ['usuario' => $users[1], 'texto' => 'Ana Paula, pode entrar em contato com o perito judicial e agendar a perícia?'],
-                    ['usuario' => $users[4], 'texto' => 'Já realizei o contato. O perito tem disponibilidade para a próxima terça ou quarta-feira.'],
-                ],
-            ],
-            [
-                'titulo'    => 'Minutar acordo de separação - Proc. Família',
-                'descricao' => 'Elaborar minuta do acordo de separação consensual conforme alinhado na última reunião com a cliente Maria Silva. Incluir cláusulas de guarda compartilhada, alimentos e partilha do imóvel.',
-                'prazo'     => '+10 days',
-                'status'    => Tarefa::STATUS_PENDENTE,
-                'processo'  => $processos[1],
-                'atribuicoes' => [
-                    ['usuario' => $users[2], 'status' => AtribuicaoTarefa::STATUS_PENDENTE],
-                ],
-                'mensagens' => [
-                    ['usuario' => $users[0], 'texto' => 'Marcelo, favor elaborar a minuta do acordo conforme reunião de ontem com a Maria.'],
-                ],
-            ],
-            [
-                'titulo'    => 'Preparar memoriais para julgamento - Apelação Roberto Santos',
-                'descricao' => 'Elaborar memoriais para o julgamento da apelação na 5ª Câmara, reforçando os argumentos sobre a ilegalidade da negativação e o dano moral presumido.',
-                'prazo'     => '+2 days',
-                'status'    => Tarefa::STATUS_CONCLUIDA,
-                'processo'  => $processos[2],
-                'atribuicoes' => [
-                    ['usuario' => $users[2], 'status' => AtribuicaoTarefa::STATUS_CONCLUIDA],
-                ],
-                'mensagens' => [
-                    ['usuario' => $users[2], 'texto' => 'Memoriais finalizados e protocolados no sistema do TJRJ. Aguardando inclusão em pauta.'],
-                    ['usuario' => $users[0], 'texto' => 'Ótimo trabalho, Marcelo. Tarefa concluída.'],
-                ],
-            ],
-            [
-                'titulo'    => 'Atualizar planilha de custas processuais - Geral',
-                'descricao' => 'Levantar e atualizar os valores de custas e despesas processuais de todos os processos ativos para controle financeiro do escritório.',
-                'prazo'     => '+7 days',
-                'status'    => Tarefa::STATUS_PENDENTE,
-                'processo'  => null,
-                'atribuicoes' => [
-                    ['usuario' => $users[4], 'status' => AtribuicaoTarefa::STATUS_PENDENTE],
-                ],
-                'mensagens' => [],
-            ],
-        ];
-
-        foreach ($tarefasDados as $dado) {
-            $tarefa = new Tarefa();
-            $tarefa->setTitulo($dado['titulo']);
-            $tarefa->setDescricao($dado['descricao']);
-            $tarefa->setPrazo(
-                $dado['prazo'] ? new \DateTimeImmutable($dado['prazo']) : null
-            );
-            $tarefa->setStatus($dado['status']);
-
-            if ($dado['status'] === Tarefa::STATUS_CONCLUIDA) {
-                $tarefa->setDataConclusao(new \DateTimeImmutable('-1 day'));
-            }
-
-            foreach ($dado['atribuicoes'] as $atribData) {
-                $atrib = new AtribuicaoTarefa();
-                $atrib->setUsuario($atribData['usuario']);
-                $atrib->setStatus($atribData['status']);
-                if ($atribData['status'] === AtribuicaoTarefa::STATUS_EM_REVISAO) {
-                    $atrib->setDataEnvioRevisao(new \DateTimeImmutable('-2 hours'));
-                }
-                $tarefa->addAtribuicao($atrib);
-                $manager->persist($atrib);
-            }
-
-            foreach ($dado['mensagens'] as $msgData) {
-                $msg = new TarefaMensagem();
-                $msg->setUsuario($msgData['usuario']);
-                $msg->setMensagem($msgData['texto']);
-                $tarefa->addMensagem($msg);
-                $manager->persist($msg);
-            }
-
-            $manager->persist($tarefa);
-        }
+        // Sem dados de seed — tarefas são criadas pelo usuário via pasta.
     }
 
     // -----------------------------------------------

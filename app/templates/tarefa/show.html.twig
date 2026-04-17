@@ -1,24 +1,15 @@
-{#
-  Tarefa Show Page - Exibe detalhes e chat da tarefa com botões contextuais.
-  
-  FLUXO DE STATUS:
-  - PENDENTE: Funcionário pode "Enviar para Revisão"
-  - EM_REVISAO: Admin pode "Enviar Pendência" ou "Encerrar Tarefa"
-  - CONCLUIDA: Admin pode "Reabrir Tarefa" (tarefa bloqueada para edição)
-  
-  Os botões são exibidos dinamicamente conforme o status atual e o perfil do usuário.
-#}
 {% extends 'base.html.twig' %}
 
-{% block title %}Tarefa {{ tarefa.id }}{% endblock %}
+{% block title %}Tarefa #{{ tarefa.id }}{% endblock %}
+
+{% set statusBadge = {
+    'pendente':    'text-bg-secondary',
+    'em_revisao':  'text-bg-warning',
+    'concluida':   'text-bg-success',
+} %}
 
 {% block body %}
-{# Variáveis de controle de fluxo #}
-{% set tarefaConcluida = tarefa.status == 'concluida' %}
-{% set tarefaEmRevisao = tarefa.status == 'em_revisao' %}
-{% set tarefaPendente = tarefa.status in ['pendente', 'reaberta'] %}
 
-{# Content Header #}
 <div class="content-header">
     <div class="container-fluid">
         <div class="row mb-2">
@@ -30,88 +21,80 @@
             <div class="col-sm-6">
                 <ol class="breadcrumb float-sm-end">
                     <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    {% if isAdmin %}
-                        <li class="breadcrumb-item"><a href="{{ path('tarefa_admin_index') }}">Gestão de Tarefas</a></li>
-                    {% else %}
-                        <li class="breadcrumb-item"><a href="{{ path('tarefa_minhas') }}">Minhas Tarefas</a></li>
-                    {% endif %}
-                    <li class="breadcrumb-item active">Detalhes</li>
+                    <li class="breadcrumb-item">
+                        <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}">{{ tarefa.pasta.nup }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">Tarefa</li>
                 </ol>
             </div>
         </div>
     </div>
 </div>
 
-{# Main Content #}
 <section class="content">
     <div class="container-fluid">
-        {# Alerta de tarefa concluída #}
-        {% if tarefaConcluida %}
-            <div class="alert alert-success d-flex align-items-center" role="alert">
-                <i class="bi bi-check-circle me-2"></i>
-                <div>Esta tarefa foi <strong>concluída</strong> em {{ tarefa.dataConclusao|date('d/m/Y H:i') }}. Alterações estão bloqueadas.</div>
-            </div>
-        {% endif %}
+
+        {% for type, msgs in app.flashes %}
+            {% for msg in msgs %}
+                <div class="alert alert-{{ type == 'success' ? 'success' : 'danger' }} alert-dismissible fade show mb-3" role="alert">
+                    {{ msg }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endfor %}
 
         <div class="card card-primary card-outline">
             <div class="card-header">
-                <h3 class="card-title">{{ tarefa.titulo }}</h3>
-                <div class="card-tools">
-                    <span class="badge {% if tarefa.status == 'concluida' %}text-bg-success{% elseif tarefa.status == 'em_revisao' %}text-bg-warning{% elseif tarefa.status == 'reaberta' %}text-bg-info{% else %}text-bg-secondary{% endif %}">
-                        {% if tarefa.status == 'pendente' %}PENDENTE
-                        {% elseif tarefa.status == 'em_revisao' %}EM REVISÃO
-                        {% elseif tarefa.status == 'concluida' %}CONCLUÍDA
-                        {% elseif tarefa.status == 'reaberta' %}PENDENTE
-                        {% endif %}
+                <h3 class="card-title fw-semibold">{{ tarefa.titulo }}</h3>
+                <div class="card-tools d-flex align-items-center gap-2">
+                    <span class="badge {{ statusBadge[tarefa.status] ?? 'text-bg-secondary' }}">
+                        {{ statusLabels[tarefa.status] ?? tarefa.status }}
                     </span>
                 </div>
             </div>
+
             <div class="card-body">
                 <div class="row">
-                    {# Left Column - Tabs #}
-                    <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1">
-                        {# Info Boxes #}
-                        <div class="row">
-                            <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Criada em</span>
-                                        <span class="info-box-number text-center text-muted mb-0">{{ tarefa.dataCriacao|date('d/m/Y H:i') }}</span>
-                                    </div>
+
+                    {# ── Coluna principal ── #}
+                    <div class="col-12 col-lg-8 order-2 order-lg-1">
+
+                        {# Info boxes #}
+                        <div class="row mb-4 g-2">
+                            <div class="col-6 col-md-3">
+                                <div class="tarefa-meta-box">
+                                    <span class="tarefa-meta-label">Criada em</span>
+                                    <span class="tarefa-meta-value">{{ tarefa.dataCriacao|date('d/m/Y') }}</span>
                                 </div>
                             </div>
-                            <div class="col-12 col-sm-4">
+                            <div class="col-6 col-md-3">
+                                <div class="tarefa-meta-box">
+                                    <span class="tarefa-meta-label">Autor</span>
+                                    <span class="tarefa-meta-value text-truncate">
+                                        {{ tarefa.criadoPor ? tarefa.criadoPor.fullName : '—' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <div class="tarefa-meta-box">
+                                    <span class="tarefa-meta-label">Responsável</span>
+                                    <span class="tarefa-meta-value text-truncate">
+                                        {{ tarefa.responsavel ? tarefa.responsavel.fullName : '—' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md-3">
                                 {% set prazoInfo = tarefa.prazoInfo %}
-                                <div class="info-box bg-light">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Prazo</span>
-                                        <span class="info-box-number text-center text-muted mb-0">
-                                            {% if prazoInfo.dias is not null %}
-                                                <span class="badge text-bg-{{ prazoInfo.cor }}">{{ prazoInfo.texto }}</span>
-                                                <small class="d-block text-muted" style="font-size: 0.7em;">{{ tarefa.prazo|date('d/m/Y H:i') }}</small>
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
-                                    <div class="info-box-content">
-                                        <span class="info-box-text text-center text-muted">Tempo Total</span>
-                                        <span class="info-box-number text-center text-muted mb-0">
-                                            {% if tarefa.dataConclusao %}
-                                                {% set segundosTotais = tarefa.dataConclusao.timestamp - tarefa.dataCriacao.timestamp %}
-                                                {% set dias = segundosTotais // 86400 %}
-                                                {% set horas = (segundosTotais % 86400) // 3600 %}
-                                                {% set minutos = (segundosTotais % 3600) // 60 %}
-                                                {% if dias > 0 %}{{ dias }}d {% endif %}{{ horas }}h {{ '%02d'|format(minutos) }}min
-                                            {% else %}
-                                                -
-                                            {% endif %}
-                                        </span>
-                                    </div>
+                                <div class="tarefa-meta-box">
+                                    <span class="tarefa-meta-label">Prazo</span>
+                                    <span class="tarefa-meta-value">
+                                        {% if prazoInfo.dias is not null %}
+                                            <span class="badge text-bg-{{ prazoInfo.cor }}">{{ prazoInfo.texto }}</span>
+                                            <small class="d-block text-muted" style="font-size:.7em;">{{ tarefa.prazo|date('d/m/Y') }}</small>
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -119,325 +102,305 @@
                         {# Tabs #}
                         <ul class="nav nav-tabs" id="tarefaTabs" role="tablist">
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="detalhes-tab" data-bs-toggle="tab" data-bs-target="#detalhes" type="button" role="tab" aria-controls="detalhes" aria-selected="true">
-                                    <i class="bi bi-info-circle me-1"></i> Detalhes
+                                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#detalhes"
+                                        type="button" role="tab" aria-selected="true">
+                                    <i class="bi bi-card-text me-1"></i>Detalhes
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="atribuicoes-tab" data-bs-toggle="tab" data-bs-target="#atribuicoes" type="button" role="tab" aria-controls="atribuicoes" aria-selected="false">
-                                    <i class="bi bi-people me-1"></i> Atribuições
-                                    {% if tarefa.atribuicoes|length > 0 %}<span class="badge text-bg-secondary ms-1">{{ tarefa.atribuicoes|length }}</span>{% endif %}
+                                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#historico"
+                                        type="button" role="tab" aria-selected="false">
+                                    <i class="bi bi-clock-history me-1"></i>Histórico
+                                    {% if timelineItems|length > 0 %}
+                                        <span class="badge text-bg-secondary ms-1">{{ timelineItems|length }}</span>
+                                    {% endif %}
                                 </button>
                             </li>
-                            {% set podeVerHistorico = isAdmin or atribuicaoDoUsuario %}
-                            {% if podeVerHistorico %}
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="historico-tab" data-bs-toggle="tab" data-bs-target="#historico" type="button" role="tab" aria-controls="historico" aria-selected="false">
-                                    <i class="bi bi-clock-history me-1"></i> Histórico
-                                    {% if tarefa.mensagens|length > 0 %}<span class="badge text-bg-secondary ms-1">{{ tarefa.mensagens|length }}</span>{% endif %}
-                                </button>
-                            </li>
-                            {% endif %}
                         </ul>
 
-                        <div class="tab-content mt-3" id="tarefaTabsContent">
-                            {# Tab: Detalhes #}
-                            <div class="tab-pane fade show active" id="detalhes" role="tabpanel" aria-labelledby="detalhes-tab">
-                                <div class="row">
-                                    <div class="col-md-12">
-                                        <div class="text-muted">
-                                            <p class="text-sm"><i class="bi bi-card-text me-1"></i> Descrição
-                                                <b class="d-block mt-1">{{ tarefa.descricao|nl2br }}</b>
-                                            </p>
-                                            <p class="text-sm"><i class="bi bi-calendar-check me-1"></i> Concluída em
-                                                <b class="d-block">{{ tarefa.dataConclusao ? tarefa.dataConclusao|date('d/m/Y H:i') : '-' }}</b>
-                                            </p>
-                                        </div>
-                                    </div>
+                        <div class="tab-content mt-3">
+
+                            {# ── Tab Detalhes ── #}
+                            <div class="tab-pane fade show active" id="detalhes" role="tabpanel">
+                                <div class="mb-3">
+                                    <p class="text-sm fw-semibold text-muted mb-1">
+                                        <i class="bi bi-card-text me-1"></i>Descrição
+                                    </p>
+                                    <div class="ps-2 text-body">{{ tarefa.descricao|nl2br }}</div>
                                 </div>
 
-                                {% if tarefa.arquivosAdmin|length > 0 %}
-                                <div class="mt-3 p-3 bg-light rounded">
-                                    <strong><i class="bi bi-paperclip me-1"></i> Arquivos do Admin:</strong>
-                                    <div class="mt-2">
-                                        {% for arquivo in tarefa.arquivosAdmin %}
-                                            <a href="{{ arquivo }}" target="_blank" class="btn btn-sm btn-outline-secondary me-2 mb-1">
-                                                <i class="bi bi-file-earmark me-1"></i>{{ arquivo|split('/')|last }}
-                                            </a>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                {% endif %}
-
-                                {% if tarefa.pasta %}
-                                <div class="mt-3 p-3 bg-light rounded">
-                                    <strong><i class="bi bi-folder me-1"></i> Pasta Associada:</strong>
-                                    <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}"
-                                       class="btn btn-sm btn-outline-secondary ms-2"
-                                       title="Ir para a pasta"
-                                       aria-label="Visualizar pasta associada">
-                                        <i class="bi bi-folder me-1"></i> {{ tarefa.pasta.nup }}
-                                    </a>
+                                {% if tarefa.dataConclusao %}
+                                <div class="mt-3 p-2 rounded bg-success bg-opacity-10 border border-success border-opacity-25">
+                                    <i class="bi bi-check-circle text-success me-1"></i>
+                                    <span class="small text-success fw-semibold">
+                                        Concluída em {{ tarefa.dataConclusao|date('d/m/Y H:i') }}
+                                    </span>
                                 </div>
                                 {% endif %}
                             </div>
 
-                            {# Tab: Atribuições #}
-                            <div class="tab-pane fade" id="atribuicoes" role="tabpanel" aria-labelledby="atribuicoes-tab">
-                                {% if tarefa.atribuicoes|length > 0 %}
-                                    {% for atr in tarefa.atribuicoes %}
-                                        <div class="border rounded p-3 mb-3">
-                                            <div class="row">
-                                                <div class="col-md-6">
-                                                    <p class="mb-1"><i class="bi bi-person me-1"></i> <strong>Usuário:</strong> {{ atr.usuario.fullName }}</p>
-                                                    <p class="mb-1 text-muted small">{{ atr.usuario.email }}</p>
-                                                </div>
-                                                <div class="col-md-6 text-md-end">
-                                                    <span class="badge {% if atr.status == 'concluida' %}text-bg-success{% elseif atr.status == 'em_revisao' %}text-bg-warning{% else %}text-bg-secondary{% endif %}">
-                                                        {% if atr.status == 'pendente' %}PENDENTE{% elseif atr.status == 'em_revisao' %}EM REVISÃO{% else %}CONCLUÍDA{% endif %}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            <hr class="my-2">
-                                            <div class="row small text-muted">
-                                                <div class="col-md-6">
-                                                    <i class="bi bi-calendar-plus me-1"></i> Atribuído em: {{ atr.dataAtribuicao|date('d/m/Y H:i') }}
-                                                </div>
-                                                <div class="col-md-6">
-                                                    <i class="bi bi-send me-1"></i> Envio revisão: {{ atr.dataEnvioRevisao ? atr.dataEnvioRevisao|date('d/m/Y H:i') : '-' }}
-                                                </div>
-                                            </div>
-                                            {% if atr.arquivosUsuario|length > 0 %}
-                                                <div class="mt-2">
-                                                    <strong class="small"><i class="bi bi-paperclip me-1"></i> Arquivos:</strong>
-                                                    {% for arquivo in atr.arquivosUsuario %}
-                                                        <a href="{{ arquivo }}" target="_blank" class="btn btn-sm btn-outline-secondary ms-1">
-                                                            <i class="bi bi-file-earmark me-1"></i>{{ arquivo|split('/')|last }}
-                                                        </a>
-                                                    {% endfor %}
-                                                </div>
+                            {# ── Tab Histórico / Chat ── #}
+                            <div class="tab-pane fade" id="historico" role="tabpanel">
+
+                                {# Campo de mensagem + ação #}
+                                {% if tarefa.status != 'concluida' %}
+                                <div class="border-bottom pb-3 mb-3">
+                                    <form id="formTarefaMensagem" method="post"
+                                          action="{{ path('tarefa_mensagem', {id: tarefa.id}) }}"
+                                          enctype="multipart/form-data">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('mensagem_tarefa_' ~ tarefa.id) }}">
+                                        <input type="hidden" name="acao" id="acaoMensagem" value="">
+
+                                        <textarea name="mensagem" id="tarefaMensagemConteudo"
+                                                  class="form-control form-control-sm mb-2"
+                                                  rows="2" maxlength="5000"
+                                                  placeholder="Escreva uma observação… (Ctrl+Enter para enviar)"></textarea>
+
+                                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                                            <input type="file" name="arquivo_mensagem" class="form-control form-control-sm" style="max-width:260px;">
+
+                                            {# Botões contextuais pelo ciclo de vida #}
+                                            {% if tarefa.status == 'pendente' %}
+                                                <button type="button" class="btn btn-warning btn-sm ms-auto flex-shrink-0"
+                                                        onclick="submeterMensagem('enviar')">
+                                                    <i class="bi bi-send me-1"></i>Enviar para Revisão
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0"
+                                                        onclick="submeterMensagem('')">
+                                                    <i class="bi bi-chat me-1"></i>Só comentar
+                                                </button>
+                                            {% elseif tarefa.status == 'em_revisao' %}
+                                                <button type="button" class="btn btn-secondary btn-sm ms-auto flex-shrink-0"
+                                                        onclick="submeterMensagem('devolver')">
+                                                    <i class="bi bi-arrow-return-left me-1"></i>Devolver
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0"
+                                                        onclick="submeterMensagem('')">
+                                                    <i class="bi bi-chat me-1"></i>Só comentar
+                                                </button>
                                             {% endif %}
                                         </div>
-                                    {% endfor %}
-                                {% else %}
-                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma atribuição cadastrada.</div>
+                                    </form>
+                                </div>
                                 {% endif %}
-                            </div>
 
-                            {# Tab: Histórico #}
-                            {% if podeVerHistorico %}
-                            <div class="tab-pane fade" id="historico" role="tabpanel" aria-labelledby="historico-tab">
-                                {% if tarefa.mensagens|length > 0 %}
-                                    <div style="max-height: 400px; overflow-y: auto;">
-                                        {% for mensagem in tarefa.mensagens %}
-                                            <div class="border rounded p-3 mb-2">
-                                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                                    <strong><i class="bi bi-person me-1"></i>{{ mensagem.usuario.fullName }}</strong>
-                                                    <small class="text-muted"><i class="bi bi-clock me-1"></i>{{ mensagem.criadoEm|date('d/m/Y H:i') }}</small>
+                                {# Timeline #}
+                                <div id="timelineList" style="max-height: 500px; overflow-y: auto; padding: 2px 4px;">
+                                    {% if timelineItems|length == 0 %}
+                                        <div class="text-center text-muted py-5">
+                                            <i class="bi bi-clock-history fs-1 d-block mb-2 opacity-25"></i>
+                                            <span class="small">Nenhum evento registrado ainda.</span>
+                                        </div>
+                                    {% else %}
+                                        {% set lastDate = null %}
+                                        {% for item in timelineItems %}
+                                            {% set currentDate = item.dataHora|date('Y-m-d') %}
+                                            {% if currentDate != lastDate %}
+                                                <div class="d-flex align-items-center gap-2 my-2">
+                                                    <hr class="flex-grow-1 my-0 opacity-25">
+                                                    <span class="badge text-bg-light border text-muted small fw-normal px-2">
+                                                        {{ item.dataHora|date('d/m/Y') }}
+                                                    </span>
+                                                    <hr class="flex-grow-1 my-0 opacity-25">
                                                 </div>
-                                                <div>{{ mensagem.mensagem|nl2br }}</div>
-                                                {% if mensagem.arquivoAnexo %}
-                                                    <div class="mt-2">
-                                                        <a href="{{ mensagem.arquivoAnexo }}" target="_blank" class="btn btn-sm btn-outline-secondary">
-                                                            <i class="bi bi-paperclip me-1"></i>{{ mensagem.arquivoAnexo|split('/')|last }}
-                                                        </a>
+                                                {% set lastDate = currentDate %}
+                                            {% endif %}
+
+                                            <div class="d-flex gap-2 mb-2 tarefa-timeline-entry{% if item.tipo.value == 'mensagem' %} tarefa-timeline-entry--mensagem{% endif %}">
+                                                <div class="flex-shrink-0 pt-1">
+                                                    <span class="badge rounded-circle tarefa-timeline-icon {{ item.badgeCss }}">
+                                                        <i class="bi {{ item.icone }}"></i>
+                                                    </span>
+                                                </div>
+                                                <div class="flex-grow-1 tarefa-timeline-body{% if item.tipo.value == 'mensagem' %} tarefa-timeline-body--mensagem{% endif %}">
+                                                    <div class="d-flex justify-content-between align-items-start gap-1">
+                                                        <span class="fw-semibold small">{{ item.titulo }}</span>
+                                                        <small class="text-muted flex-shrink-0">{{ item.dataHora|date('H:i') }}</small>
                                                     </div>
-                                                {% endif %}
+                                                    {% if item.detalhe %}
+                                                        <div class="mt-1 small {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}">
+                                                            {{ item.detalhe|nl2br }}
+                                                        </div>
+                                                    {% endif %}
+                                                    {% if item.autorNome or item.autorEmail %}
+                                                        <div class="mt-1">
+                                                            <small class="text-muted">
+                                                                <i class="bi bi-person me-1"></i>{{ item.autorNome ?? item.autorEmail }}
+                                                            </small>
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
                                             </div>
                                         {% endfor %}
-                                    </div>
-                                {% else %}
-                                    <div class="alert alert-info mb-0"><i class="bi bi-info-circle me-1"></i> Ainda não há mensagens no histórico.</div>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    {# Right Column - Sidebar #}
-                    <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
-                        {# Ações do Admin #}
-                        {% if isAdmin %}
-                        <div class="card card-outline card-secondary mb-3">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-gear me-2"></i>Ações do Admin</h3>
-                            </div>
-                            <div class="card-body">
-                                {% if tarefaEmRevisao %}
-                                    <div class="d-grid gap-2">
-                                        <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#modalPendencia"
-                                                aria-label="Enviar pendência">
-                                            <i class="bi bi-arrow-return-left me-1"></i> Enviar Pendência
-                                        </button>
-                                        <form method="post" action="{{ path('tarefa_encerrar', {id: tarefa.id}) }}" onsubmit="return confirm('Deseja encerrar esta tarefa? Ela será marcada como concluída.')">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('encerrar_' ~ tarefa.id) }}">
-                                            <button type="submit" class="btn btn-success w-100">
-                                                <i class="bi bi-check-lg me-1"></i> Encerrar Tarefa
-                                            </button>
-                                        </form>
-                                    </div>
-                                {% elseif tarefaConcluida %}
-                                    <div class="d-grid">
-                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalReabrir">
-                                            <i class="bi bi-arrow-repeat me-1"></i> Reabrir Tarefa
-                                        </button>
-                                    </div>
-                                {% elseif tarefaPendente %}
-                                    <div class="alert alert-info mb-0">
-                                        <i class="bi bi-hourglass-split me-1"></i> Aguardando o funcionário enviar para revisão.
-                                    </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        {# Enviar para Revisão (Funcionário) #}
-                        {% if not isAdmin and atribuicaoDoUsuario and tarefaPendente %}
-                        <div class="card card-outline card-primary mb-3">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-send me-2"></i>Enviar para Revisão</h3>
-                            </div>
-                            <div class="card-body">
-                                <p class="text-muted small">Após concluir, envie para o administrador revisar.</p>
-                                <form method="post" action="{{ path('tarefa_enviar_revisao', {id: tarefa.id}) }}" enctype="multipart/form-data">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('enviar_revisao_' ~ tarefa.id) }}">
-                                    <div class="mb-3">
-                                        <label class="form-label">Resposta</label>
-                                        <textarea name="mensagem" class="form-control" rows="3" placeholder="Descreva sua resposta..."></textarea>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label">Arquivos (opcional)</label>
-                                        <input type="file" name="arquivos_usuario[]" class="form-control" multiple>
-                                    </div>
-                                    <div class="d-grid">
-                                        <button type="submit" class="btn btn-primary">
-                                            <i class="bi bi-send me-1"></i> Enviar para Revisão
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                        {% endif %}
-
-                        {# Resumo #}
-                        <div class="card card-outline card-info">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-info-circle me-2"></i>Resumo</h3>
-                            </div>
-                            <div class="card-body p-0">
-                                <table class="table table-striped mb-0">
-                                    <tbody>
-                                        <tr>
-                                            <th style="width:40%"><i class="bi bi-hash me-1"></i>ID</th>
-                                            <td>{{ tarefa.id }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th><i class="bi bi-flag me-1"></i>Status</th>
-                                            <td>
-                                                <span class="badge {% if tarefa.status == 'concluida' %}text-bg-success{% elseif tarefa.status == 'em_revisao' %}text-bg-warning{% elseif tarefa.status == 'reaberta' %}text-bg-info{% else %}text-bg-secondary{% endif %}">
-                                                    {% if tarefa.status == 'pendente' %}PENDENTE
-                                                    {% elseif tarefa.status == 'em_revisao' %}EM REVISÃO
-                                                    {% elseif tarefa.status == 'concluida' %}CONCLUÍDA
-                                                    {% elseif tarefa.status == 'reaberta' %}PENDENTE
-                                                    {% endif %}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                        <tr>
-                                            <th><i class="bi bi-people me-1"></i>Atribuições</th>
-                                            <td>{{ tarefa.atribuicoes|length }}</td>
-                                        </tr>
-                                        <tr>
-                                            <th><i class="bi bi-chat me-1"></i>Mensagens</th>
-                                            <td>{{ tarefa.mensagens|length }}</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div class="card-footer">
-                                <div class="d-grid">
-                                    {% if isAdmin %}
-                                        <a href="{{ path('tarefa_admin_index') }}" class="btn btn-outline-secondary">
-                                            <i class="bi bi-arrow-left me-1"></i>Voltar para Gestão
-                                        </a>
-                                    {% else %}
-                                        <a href="{{ path('tarefa_minhas') }}" class="btn btn-outline-secondary">
-                                            <i class="bi bi-arrow-left me-1"></i>Voltar para Minhas Tarefas
-                                        </a>
+                                        <div class="text-center py-2">
+                                            <span class="badge text-bg-light border text-muted small fw-normal">
+                                                <i class="bi bi-check2-all me-1"></i>Início do histórico
+                                            </span>
+                                        </div>
                                     {% endif %}
                                 </div>
+
+                            </div>
+                        </div>{# /tab-content #}
+
+                    </div>{# /col principal #}
+
+                    {# ── Sidebar ── #}
+                    <div class="col-12 col-lg-4 order-1 order-lg-2">
+
+                        {# Status visual #}
+                        <div class="tarefa-status-card mb-3 status-{{ tarefa.status }}">
+                            <div class="tarefa-status-icon">
+                                {% if tarefa.status == 'pendente' %}
+                                    <i class="bi bi-hourglass-split"></i>
+                                {% elseif tarefa.status == 'em_revisao' %}
+                                    <i class="bi bi-eye"></i>
+                                {% else %}
+                                    <i class="bi bi-check-circle-fill"></i>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div class="tarefa-status-titulo">{{ statusLabels[tarefa.status] ?? tarefa.status }}</div>
+                                {% if tarefa.dataAlteracao %}
+                                    <div class="tarefa-status-sub">Atualizado {{ tarefa.dataAlteracao|date('d/m/Y H:i') }}</div>
+                                {% endif %}
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+
+                        {# Concluir tarefa #}
+                        {% if tarefa.status != 'concluida' %}
+                        <div class="mb-3">
+                            <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}"
+                                  onsubmit="return confirm('Confirma a conclusão desta tarefa?');">
+                                <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
+                                <button type="submit" class="btn btn-success btn-sm w-100">
+                                    <i class="bi bi-check2-circle me-1"></i>Concluir Tarefa
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                        {# Voltar #}
+                        <div class="d-grid">
+                            <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}#tarefas"
+                               class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-left me-1"></i>Voltar à Pasta
+                            </a>
+                        </div>
+
+                    </div>{# /sidebar #}
+
+                </div>{# /row #}
+            </div>{# /card-body #}
+        </div>{# /card #}
+
     </div>
 </section>
 
-{# ======================= MODAIS ======================= #}
-{# Modal: Enviar Pendência #}
-{% if isAdmin and tarefaEmRevisao %}
-    <div class="modal fade" id="modalPendencia" tabindex="-1" aria-labelledby="modalPendenciaLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="post" action="{{ path('tarefa_enviar_pendencia', {id: tarefa.id}) }}" enctype="multipart/form-data">
-                    <input type="hidden" name="_token" value="{{ csrf_token('enviar_pendencia_' ~ tarefa.id) }}">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalPendenciaLabel"><i class="bi bi-arrow-return-left me-2"></i>Enviar Pendência</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-muted">A tarefa será devolvida ao funcionário para ajustes.</p>
-                        <div class="mb-3">
-                            <label for="instrucoes" class="form-label">Instruções (opcional)</label>
-                            <textarea name="instrucoes" id="instrucoes" class="form-control" rows="4" placeholder="Descreva o que precisa ser ajustado..."></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="arquivo_pendencia" class="form-label">Arquivo (opcional)</label>
-                            <input type="file" name="arquivo_pendencia" id="arquivo_pendencia" class="form-control">
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-outline-warning btn-sm" aria-label="Confirmar envio de pendência">
-                            <i class="bi bi-arrow-return-left me-1"></i> Enviar Pendência
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-{% endif %}
+<style>
+/* ── Meta boxes ── */
+.tarefa-meta-box {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fafafa;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.tarefa-meta-label {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #9aa0ac;
+    font-weight: 600;
+}
+.tarefa-meta-value {
+    font-size: .88rem;
+    color: #212529;
+    font-weight: 500;
+    display: block;
+}
 
-{# Modal: Reabrir Tarefa #}
-{% if isAdmin and tarefaConcluida %}
-    <div class="modal fade" id="modalReabrir" tabindex="-1" aria-labelledby="modalReabrirLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form method="post" action="{{ path('tarefa_reabrir', {id: tarefa.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('reabrir_tarefa_' ~ tarefa.id) }}">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="modalReabrirLabel"><i class="bi bi-arrow-repeat me-2"></i>Reabrir Tarefa</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <p class="text-muted">A tarefa será reaberta e o funcionário poderá trabalhar novamente.</p>
-                        <div class="mb-3">
-                            <label for="instrucoes_complementares" class="form-label">Instruções (opcional)</label>
-                            <textarea name="instrucoes_complementares" id="instrucoes_complementares" class="form-control" rows="4" placeholder="Descreva o motivo da reabertura..."></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Confirmar reabertura da tarefa">
-                            <i class="bi bi-arrow-repeat me-1"></i> Reabrir Tarefa
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-{% endif %}
+/* ── Status card ── */
+.tarefa-status-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 10px;
+    border: 1px solid #dee2e6;
+    background: #f8f9fa;
+}
+.tarefa-status-card.status-pendente { border-color: #adb5bd; background: #f8f9fa; }
+.tarefa-status-card.status-em_revisao { border-color: #ffc107; background: #fff9e6; }
+.tarefa-status-card.status-concluida { border-color: #198754; background: #edf7f1; }
+
+.tarefa-status-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+.status-pendente .tarefa-status-icon { color: #6c757d; }
+.status-em_revisao .tarefa-status-icon { color: #e6a500; }
+.status-concluida .tarefa-status-icon { color: #198754; }
+
+.tarefa-status-titulo {
+    font-size: .9rem;
+    font-weight: 600;
+    color: #212529;
+}
+.tarefa-status-sub {
+    font-size: .75rem;
+    color: #9aa0ac;
+    margin-top: 2px;
+}
+
+/* ── Timeline ── */
+.tarefa-timeline-icon {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .78rem;
+    flex-shrink: 0;
+}
+.tarefa-timeline-body {
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: #fafafa;
+    min-width: 0;
+}
+.tarefa-timeline-body--mensagem {
+    border-left: 3px solid #0dcaf0;
+    background: rgba(13,202,240,.04);
+    border-radius: 0 6px 6px 0;
+}
+</style>
+
+<script>
+function submeterMensagem(acao) {
+    document.getElementById('acaoMensagem').value = acao;
+    document.getElementById('formTarefaMensagem').submit();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    var textarea = document.getElementById('tarefaMensagemConteudo');
+    if (textarea) {
+        textarea.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                submeterMensagem('');
+            }
+        });
+    }
+
+    // Scroll timeline ao final
+    var tl = document.getElementById('timelineList');
+    if (tl) tl.scrollTop = tl.scrollHeight;
+});
+</script>
 
 {% endblock %}
