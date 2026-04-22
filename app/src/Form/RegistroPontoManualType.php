@@ -23,10 +23,11 @@ class RegistroPontoManualType extends AbstractType
                 'constraints' => [new NotBlank(message: 'Informe a data.')],
             ])
             ->add('hora', TimeType::class, [
-                'label'       => 'Hora',
-                'widget'      => 'single_text',
-                'mapped'      => false,
-                'constraints' => [new NotBlank(message: 'Informe o horário.')],
+                'label'        => 'Hora',
+                'widget'       => 'single_text',
+                'mapped'       => false,
+                'with_seconds' => $options['with_seconds'],
+                'constraints'  => [new NotBlank(message: 'Informe o horário.')],
             ])
             ->add('tipo', ChoiceType::class, [
                 'label'   => 'Tipo',
@@ -51,6 +52,8 @@ class RegistroPontoManualType extends AbstractType
         $resolver->setDefaults([
             'data_class'      => null,
             'csrf_protection' => false,
+            'with_seconds'    => false,
         ]);
+        $resolver->setAllowedTypes('with_seconds', 'bool');
     }
 }

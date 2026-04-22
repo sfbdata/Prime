@@ -247,7 +247,8 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Hora</label>
-                        <input type="time" name="registro_ponto_manual[hora]" id="modalAddHora" class="form-control" required>
+                        {# FEATURE FLAG: step="1" apenas para jusprime.samuel@gmail.com — remover junto com deveMostrarSegundosBatida() #}
+                        <input type="time" name="registro_ponto_manual[hora]" id="modalAddHora" class="form-control" required{{ comSegundos ? ' step="1"' : '' }}>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Tipo</label>
