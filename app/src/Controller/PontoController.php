@@ -450,6 +450,24 @@ final class PontoController extends AbstractController
             ], 403);
         }
 
+        if ($tipo === RegistroPonto::TIPO_RETORNO) {
+            $repousoDoDia = $registroRepository->findRepousoDoDia($user, $hoje);
+            if ($repousoDoDia !== null) {
+                $diffMinutos = (int) round(
+                    ((new \DateTime())->getTimestamp() - $repousoDoDia->getDataHora()->getTimestamp()) / 60
+                );
+                if ($diffMinutos < 60) {
+                    return $this->json([
+                        'success' => false,
+                        'message' => sprintf(
+                            'Intervalo mínimo de repouso é de 1 hora. Aguarde mais %d minuto(s).',
+                            60 - $diffMinutos
+                        ),
+                    ], 422);
+                }
+            }
+        }
+
         // Cria o registro de ponto
         $registro = new RegistroPonto();
         $registro->setUser($user);

@@ -68,6 +68,25 @@ SQL;
         }, $rows);
     }
 
+    public function findRepousoDoDia(User $user, \DateTimeImmutable $dia): ?RegistroPonto
+    {
+        $inicio = $dia->setTime(0, 0, 0);
+        $fim    = $dia->setTime(23, 59, 59);
+
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tipo = :tipo')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('tipo', RegistroPonto::TIPO_REPOUSO)
+            ->setParameter('inicio', $inicio)
+            ->setParameter('fim', $fim)
+            ->orderBy('r.dataHora', 'ASC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function desvincularSede(Sede $sede): int
     {
         $nomeSede = $sede->getNome();
