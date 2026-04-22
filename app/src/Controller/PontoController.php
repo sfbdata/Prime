@@ -362,32 +362,7 @@ final class PontoController extends AbstractController
         $hoje = new \DateTimeImmutable();
         $diaSemanaHoje = (int) $hoje->format('N');
 
-        if ($diaSemanaHoje === 7) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Não é permitido registrar ponto aos domingos.',
-            ], 422);
-        }
-
         $feriados = $feriadoRepository->findByTenant($user->getTenant());
-        $feriadoHoje = $calculadora->getFeriadoDoDia($hoje, $feriados);
-        if ($feriadoHoje !== null) {
-            return $this->json([
-                'success' => false,
-                'message' => sprintf('Hoje é feriado (%s). Não é permitido registrar ponto.', $feriadoHoje->getNome()),
-            ], 422);
-        }
-
-        $jornadaTenantBatida = $user->getTenant()?->getJornadaTenant();
-        $metaDia = $this->jornadaResolver->resolverMetaDia($user, $hoje, $jornadaTenantBatida);
-
-        if ($metaDia === 0) {
-            $nomeDia = ['', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'][$diaSemanaHoje];
-            return $this->json([
-                'success' => false,
-                'message' => sprintf('%s não está configurada na sua escala de trabalho.', $nomeDia),
-            ], 422);
-        }
 
         if ($latitude === null || $longitude === null) {
             return $this->json([

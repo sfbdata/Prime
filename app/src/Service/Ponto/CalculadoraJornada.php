@@ -31,11 +31,6 @@ class CalculadoraJornada
     public function calcularSaldoDia(User $user, \DateTimeInterface $data, array $batidas, ?EscalaTrabalho $escala, array $feriados, ?JornadaTenant $jornadaTenant = null): int
     {
         $indiceDia = (int) $data->format('N');
-
-        if ($indiceDia === 7) {
-            return 0;
-        }
-
         $isFeriado = $this->isFeriado($data, $feriados);
 
         // Se o usuário tem blocos, JornadaResolver decide; 0 significa fora da escala
@@ -49,10 +44,6 @@ class CalculadoraJornada
             $isDiaTrabalho = $escala ? in_array($indiceDia, $escala->getDiasSemana(), true) : false;
             $ehSabado = $indiceDia === 6;
 
-            if ($escala !== null && !$isDiaTrabalho) {
-                return 0;
-            }
-
             if ($ehSabado && $escala && in_array(6, $escala->getDiasSemana(), true) && $escala->getCargaHorariaSabado() !== null) {
                 $cargaEsperada = $isFeriado ? 0 : $escala->getCargaHorariaSabado();
             } else {
@@ -61,6 +52,13 @@ class CalculadoraJornada
         }
 
         $minutosTrabalhados = $this->calcularMinutosTrabalhados($batidas);
+
+        // Dias fora da escala (domingo, feriado, sábado não escalado, etc.):
+        // sem meta, apenas crédito positivo — nunca gera saldo negativo
+        if ($cargaEsperada === 0) {
+            return $minutosTrabalhados;
+        }
+
         $saldo = $minutosTrabalhados - $cargaEsperada;
 
         if ($saldo > 0) {

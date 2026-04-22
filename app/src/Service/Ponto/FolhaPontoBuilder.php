@@ -107,17 +107,12 @@ class FolhaPontoBuilder
                     $row['minutosTrabalhadosDia'] = null;
                     $row['saldoDia']              = null;
                     $row['saldoAcumulado']        = null;
-                } elseif ($feriadoDoDia !== null) {
-                    $row['isFeriado']            = true;
-                    $row['diaSemana']            = 'FERIADO - ' . $row['diaSemana'];
-                    $row['minutosTrabalhadosDia'] = 0;
-                    $row['saldoDia']              = 0;
-                    $row['saldoAcumulado']        = $saldoAcumulado;
-                } elseif ($indiceDiaSemana === 7) {
-                    $row['minutosTrabalhadosDia'] = 0;
-                    $row['saldoDia']              = 0;
-                    $row['saldoAcumulado']        = $saldoAcumulado;
                 } else {
+                    if ($feriadoDoDia !== null) {
+                        $row['isFeriado'] = true;
+                        $row['diaSemana'] = 'FERIADO - ' . $row['diaSemana'];
+                    }
+
                     $batidasDoDia = isset($registrosPorDia[$chaveDia])
                         ? array_values($registrosPorDia[$chaveDia])
                         : [];

@@ -293,7 +293,7 @@ class CalculadoraJornadaTest extends TestCase
     // calcularSaldoDia — domingo (N=7) sempre retorna 0
     // ──────────────────────────────────────────────────────────────────
 
-    public function testDomingoSempreRetornaZero(): void
+    public function testDomingoSemMetaRetornaCreditoPositivo(): void
     {
         $escala = new EscalaTrabalho();
         $user = $this->novoUsuario($escala);
@@ -305,7 +305,8 @@ class CalculadoraJornadaTest extends TestCase
 
         $saldo = $this->calculadora->calcularSaldoDia($user, $this->domingo(), $batidas, $escala, []);
 
-        $this->assertSame(0, $saldo);
+        // Domingo não tem meta: 8h trabalhadas = +480 min de crédito
+        $this->assertSame(480, $saldo);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -346,7 +347,7 @@ class CalculadoraJornadaTest extends TestCase
         $this->assertSame(0, $saldo);
     }
 
-    public function testRetrocompatibilidadeDiaForaDaEscalaRetornaZero(): void
+    public function testRetrocompatibilidadeDiaForaDaEscalaRetornaCreditoPositivo(): void
     {
         $escala = new EscalaTrabalho();
         $escala->setDiasSemana([1, 2, 3, 4]); // sem sexta
@@ -361,7 +362,8 @@ class CalculadoraJornadaTest extends TestCase
 
         $saldo = $this->calculadora->calcularSaldoDia($user, $sexta, $batidas, $escala, []);
 
-        $this->assertSame(0, $saldo);
+        // Dia fora da escala não tem meta: 8h trabalhadas = +480 min de crédito
+        $this->assertSame(480, $saldo);
     }
 
     // ──────────────────────────────────────────────────────────────────
