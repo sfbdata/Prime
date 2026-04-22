@@ -2,10 +2,14 @@
 
 namespace App\Form;
 
+use App\Entity\Ponto\JustificativaPonto;
 use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
 use Symfony\Component\Form\Extension\Core\Type\FileType;
 use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
+use Symfony\Component\Form\Extension\Core\Type\TimeType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\File;
@@ -21,6 +25,32 @@ class JustificativaPontoType extends AbstractType
                 'constraints' => [
                     new NotBlank(message: 'Selecione ao menos uma data.'),
                 ],
+            ])
+            ->add('tipo', ChoiceType::class, [
+                'label'       => 'Tipo de Justificativa',
+                'mapped'      => false,
+                'choices'     => JustificativaPonto::TIPOS,
+                'placeholder' => 'Selecione o tipo',
+                'constraints' => [
+                    new NotBlank(message: 'Selecione o tipo de justificativa.'),
+                ],
+            ])
+            ->add('abonoParcial', CheckboxType::class, [
+                'label'    => 'Abono parcial (saída para consulta e retorno no mesmo dia)',
+                'mapped'   => false,
+                'required' => false,
+            ])
+            ->add('horaInicioAbono', TimeType::class, [
+                'label'    => 'Saída para atestado',
+                'mapped'   => false,
+                'required' => false,
+                'widget'   => 'single_text',
+            ])
+            ->add('horaFimAbono', TimeType::class, [
+                'label'    => 'Retorno do atestado',
+                'mapped'   => false,
+                'required' => false,
+                'widget'   => 'single_text',
             ])
             ->add('descricao', TextareaType::class, [
                 'label'       => 'Motivo / Descrição / Esquecimento',

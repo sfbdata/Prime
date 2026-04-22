@@ -137,9 +137,14 @@ class FolhaPontoBuilder
 
                         $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
                         $justificadoDia = false;
-                        if ($justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'abonado' && $saldoDia < 0) {
-                            $saldoDia = 0;
-                            $justificadoDia = true;
+                        if ($justificativaDoDia !== null && $justificativaDoDia->getStatus() === 'abonado') {
+                            if ($justificativaDoDia->isAbonoParcial()) {
+                                $saldoDia += $justificativaDoDia->getMinutosAbonados();
+                                $justificadoDia = true;
+                            } elseif ($saldoDia < 0) {
+                                $saldoDia = 0;
+                                $justificadoDia = true;
+                            }
                         }
 
                         $saldoAcumulado += $saldoDia;

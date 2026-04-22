@@ -47,6 +47,24 @@
                              data-bs-parent="#accordionJustificativas">
                             <div class="accordion-body">
                                 <dl class="row mb-3">
+                                    <dt class="col-sm-3">Tipo</dt>
+                                    <dd class="col-sm-9">
+                                        {% if primeiraJust.labelTipo %}
+                                            <span class="badge text-bg-info text-dark">{{ primeiraJust.labelTipo }}</span>
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                        {% if primeiraJust.abonoParcial %}
+                                            <span class="badge text-bg-secondary ms-1">Abono Parcial</span>
+                                            {% if primeiraJust.horaInicioAbono and primeiraJust.horaFimAbono %}
+                                                <span class="small text-muted ms-1">
+                                                    {{ primeiraJust.horaInicioAbono|date('H:i') }}–{{ primeiraJust.horaFimAbono|date('H:i') }}
+                                                    ({{ primeiraJust.minutosAbonados // 60 }}h{{ '%02d'|format(primeiraJust.minutosAbonados % 60) }}m)
+                                                </span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </dd>
+
                                     <dt class="col-sm-3">Motivo</dt>
                                     <dd class="col-sm-9">{{ primeiraJust.descricao }}</dd>
 

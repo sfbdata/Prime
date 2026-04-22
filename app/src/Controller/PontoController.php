@@ -162,11 +162,25 @@ final class PontoController extends AbstractController
         if ($form->isSubmitted() && $form->isValid()) {
             $datasRaw = trim((string) $form->get('datas')->getData());
             $descricao = trim((string) $form->get('descricao')->getData());
+            $tipo = $form->get('tipo')->getData();
+            $abonoParcial = (bool) $form->get('abonoParcial')->getData();
+            $horaInicio = $form->get('horaInicioAbono')->getData();
+            $horaFim = $form->get('horaFimAbono')->getData();
 
             $datasArray = array_filter(array_map('trim', explode(',', $datasRaw)));
 
             if (empty($datasArray)) {
                 $this->addFlash('warning', 'Selecione ao menos uma data para justificar.');
+                return $this->redirectToRoute('ponto_index');
+            }
+
+            if ($abonoParcial && count($datasArray) > 1) {
+                $this->addFlash('warning', 'Abono parcial só pode ser aplicado a uma única data.');
+                return $this->redirectToRoute('ponto_index');
+            }
+
+            if ($abonoParcial && ($horaInicio === null || $horaFim === null || $horaInicio >= $horaFim)) {
+                $this->addFlash('warning', 'Informe os horários de saída e retorno corretamente para o abono parcial.');
                 return $this->redirectToRoute('ponto_index');
             }
 
@@ -210,9 +224,15 @@ final class PontoController extends AbstractController
                 $justificativa->setUser($user);
                 $justificativa->setData($dataObj);
                 $justificativa->setDescricao($descricao);
+                $justificativa->setTipo($tipo);
                 $justificativa->setAnexoPath($anexoPath);
                 $justificativa->setStatus('pendente');
                 $justificativa->setBatchId($batchId);
+                $justificativa->setAbonoParcial($abonoParcial);
+                if ($abonoParcial) {
+                    $justificativa->setHoraInicioAbono($horaInicio);
+                    $justificativa->setHoraFimAbono($horaFim);
+                }
 
                 $entityManager->persist($justificativa);
                 $justificativasCriadas[] = $justificativa;

@@ -37,6 +37,34 @@
                 </div>
 
                 <div class="mb-3">
+                    {{ form_label(justificativaForm.tipo) }}
+                    {{ form_widget(justificativaForm.tipo, {attr: {class: 'form-select'}}) }}
+                    {{ form_errors(justificativaForm.tipo) }}
+                </div>
+
+                <div class="mb-3 form-check">
+                    {{ form_widget(justificativaForm.abonoParcial, {attr: {class: 'form-check-input'}}) }}
+                    {{ form_label(justificativaForm.abonoParcial, null, {label_attr: {class: 'form-check-label'}}) }}
+                    <div class="form-text">Marque se o funcionário saiu durante o expediente e retornou no mesmo dia.</div>
+                </div>
+
+                <div id="bloco-horario-abono" class="d-none mb-3 p-3 border rounded bg-light">
+                    <p class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Período de ausência parcial</p>
+                    <div class="row g-2">
+                        <div class="col">
+                            {{ form_label(justificativaForm.horaInicioAbono) }}
+                            {{ form_widget(justificativaForm.horaInicioAbono, {attr: {class: 'form-control', id: 'hora-inicio-abono'}}) }}
+                            {{ form_errors(justificativaForm.horaInicioAbono) }}
+                        </div>
+                        <div class="col">
+                            {{ form_label(justificativaForm.horaFimAbono) }}
+                            {{ form_widget(justificativaForm.horaFimAbono, {attr: {class: 'form-control', id: 'hora-fim-abono'}}) }}
+                            {{ form_errors(justificativaForm.horaFimAbono) }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
                     {{ form_label(justificativaForm.descricao) }}
                     {{ form_widget(justificativaForm.descricao, {attr: {class: 'form-control'}}) }}
                     {{ form_errors(justificativaForm.descricao) }}
@@ -219,17 +247,32 @@
         }
     });
 
+    const checkAbonoParcial = document.querySelector('input[name="justificativa_ponto[abonoParcial]"]');
+    const blocoHorario = document.getElementById('bloco-horario-abono');
+
     // Re-render quando o modal abrir
     document.getElementById('modalJustificativa').addEventListener('show.bs.modal', function() {
-        // Resetar para o mês atual ao abrir
         viewAno = hoje.getFullYear();
         viewMes = hoje.getMonth();
         selectedDates.clear();
         hiddenInput.value = '';
         calSelectedLabel.textContent = 'nenhum';
+        checkAbonoParcial.checked = false;
+        blocoHorario.classList.add('d-none');
         renderCalendar();
     });
 
     renderCalendar();
+
+    // Controle do bloco de horário de abono parcial
+    checkAbonoParcial.addEventListener('change', function() {
+        if (this.checked && selectedDates.size > 1) {
+            alert('Abono parcial só pode ser aplicado a uma única data. Desmarque as datas extras no calendário.');
+            this.checked = false;
+            blocoHorario.classList.add('d-none');
+            return;
+        }
+        blocoHorario.classList.toggle('d-none', !this.checked);
+    });
 })();
 </script>

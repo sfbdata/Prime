@@ -20,6 +20,7 @@
                 <thead>
                     <tr>
                         <th>Data(s)</th>
+                        <th>Tipo</th>
                         <th>Motivo</th>
                         <th>Status</th>
                         <th>Atestado</th>
@@ -34,6 +35,17 @@
                                 {% for j in batch %}
                                     <span class="badge text-bg-light border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
                                 {% endfor %}
+                            </td>
+                            <td class="small">
+                                {% if batch[0].labelTipo %}
+                                    <span class="badge text-bg-info text-dark">{{ batch[0].labelTipo }}</span>
+                                {% endif %}
+                                {% if batch[0].abonoParcial %}
+                                    <span class="badge text-bg-secondary ms-1" title="Abono parcial">Parcial</span>
+                                    {% if batch[0].horaInicioAbono and batch[0].horaFimAbono %}
+                                        <div class="small text-muted mt-1">{{ batch[0].horaInicioAbono|date('H:i') }}–{{ batch[0].horaFimAbono|date('H:i') }}</div>
+                                    {% endif %}
+                                {% endif %}
                             </td>
                             <td class="small">{{ batch[0].descricao }}</td>
                             <td>

@@ -183,10 +183,19 @@
                                             <span class="badge text-bg-success" title="{{ j.descricao }}">
                                                 <i class="bi bi-check-circle me-1"></i>Abonada
                                             </span>
+                                            {% if j.labelTipo %}
+                                                <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
+                                            {% endif %}
+                                            {% if j.abonoParcial and j.horaInicioAbono and j.horaFimAbono %}
+                                                <div class="small text-muted">{{ j.horaInicioAbono|date('H:i') }}–{{ j.horaFimAbono|date('H:i') }}</div>
+                                            {% endif %}
                                         {% elseif j.status == 'pendente' %}
                                             <span class="badge text-bg-warning text-dark" title="{{ j.descricao }}">
                                                 <i class="bi bi-hourglass-split me-1"></i>Pendente
                                             </span>
+                                            {% if j.labelTipo %}
+                                                <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
+                                            {% endif %}
                                         {% else %}
                                             <span class="badge text-bg-danger" title="{{ j.descricao }}">
                                                 <i class="bi bi-x-circle me-1"></i>Rejeitada

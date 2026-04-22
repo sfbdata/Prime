@@ -9,6 +9,15 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(fields: ['batchId'], name: 'IDX_JUST_BATCH')]
 class JustificativaPonto
 {
+    public const TIPOS = [
+        'Atestado Médico'                           => 'atestado_medico',
+        'Acompanhamento'                            => 'acompanhamento',
+        'Doação de Sangue'                          => 'doacao_sangue',
+        'Casamento (Licença-gala)'                  => 'licenca_gala',
+        'Nascimento de Filho (Licença-paternidade)' => 'licenca_paternidade',
+        'Falecimento de Familiar'                   => 'falecimento_familiar',
+        'Comparecimento em Juízo'                   => 'comparecimento_juizo',
+    ];
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -42,6 +51,18 @@ class JustificativaPonto
 
     #[ORM\Column(length: 36, nullable: true)]
     private ?string $batchId = null;
+
+    #[ORM\Column(length: 80, nullable: true)]
+    private ?string $tipo = null;
+
+    #[ORM\Column]
+    private bool $abonoParcial = false;
+
+    #[ORM\Column(type: 'time', nullable: true)]
+    private ?\DateTimeInterface $horaInicioAbono = null;
+
+    #[ORM\Column(type: 'time', nullable: true)]
+    private ?\DateTimeInterface $horaFimAbono = null;
 
     public function getId(): ?int
     {
@@ -145,5 +166,67 @@ class JustificativaPonto
     {
         $this->batchId = $batchId;
         return $this;
+    }
+
+    public function getTipo(): ?string
+    {
+        return $this->tipo;
+    }
+
+    public function setTipo(?string $tipo): static
+    {
+        $this->tipo = $tipo;
+        return $this;
+    }
+
+    public function getLabelTipo(): ?string
+    {
+        if ($this->tipo === null) {
+            return null;
+        }
+        $flip = array_flip(self::TIPOS);
+        return $flip[$this->tipo] ?? $this->tipo;
+    }
+
+    public function isAbonoParcial(): bool
+    {
+        return $this->abonoParcial;
+    }
+
+    public function setAbonoParcial(bool $abonoParcial): static
+    {
+        $this->abonoParcial = $abonoParcial;
+        return $this;
+    }
+
+    public function getHoraInicioAbono(): ?\DateTimeInterface
+    {
+        return $this->horaInicioAbono;
+    }
+
+    public function setHoraInicioAbono(?\DateTimeInterface $horaInicioAbono): static
+    {
+        $this->horaInicioAbono = $horaInicioAbono;
+        return $this;
+    }
+
+    public function getHoraFimAbono(): ?\DateTimeInterface
+    {
+        return $this->horaFimAbono;
+    }
+
+    public function setHoraFimAbono(?\DateTimeInterface $horaFimAbono): static
+    {
+        $this->horaFimAbono = $horaFimAbono;
+        return $this;
+    }
+
+    public function getMinutosAbonados(): int
+    {
+        if (!$this->abonoParcial || $this->horaInicioAbono === null || $this->horaFimAbono === null) {
+            return 0;
+        }
+        $diff = $this->horaInicioAbono->diff($this->horaFimAbono);
+        return max(0, ($diff->h * 60) + $diff->i);
     }
 }

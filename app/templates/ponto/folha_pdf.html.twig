@@ -40,7 +40,10 @@
         tbody tr.fim-semana td {
             background-color: #eaeaea;
         }
-        tbody tr:not(.fim-semana):nth-child(even) td {
+        tbody tr.justificada td {
+            background-color: #fff3cd;
+        }
+        tbody tr:not(.fim-semana):not(.justificada):nth-child(even) td {
             background-color: #f5f5f5;
         }
     </style>
@@ -58,17 +61,25 @@
                 <th>Repouso</th>
                 <th>Retorno</th>
                 <th>Saída</th>
+                <th>Justificativa</th>
             </tr>
         </thead>
         <tbody>
             {% for linha in folhaRows %}
-                <tr class="{{ linha.fimSemana ? 'fim-semana' : '' }}">
+                {% set classeRow = linha.justificadoDia ? 'justificada' : (linha.fimSemana ? 'fim-semana' : '') %}
+                <tr class="{{ classeRow }}">
                     <td>{{ linha.diaMes }}</td>
                     <td>{{ linha.diaSemana }}</td>
                     <td>{{ linha.entrada }}</td>
                     <td>{{ linha.repouso }}</td>
                     <td>{{ linha.retorno }}</td>
                     <td>{{ linha.saida }}</td>
+                    <td>
+                        {% if linha.justificativa is defined and linha.justificativa is not null and linha.justificativa.status == 'abonado' %}
+                            {% set j = linha.justificativa %}
+                            {{ j.labelTipo }}{% if j.abonoParcial and j.horaInicioAbono and j.horaFimAbono %} (Parcial: {{ j.horaInicioAbono|date('H:i') }}–{{ j.horaFimAbono|date('H:i') }}){% endif %}
+                        {% endif %}
+                    </td>
                 </tr>
             {% endfor %}
         </tbody>
