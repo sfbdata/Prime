@@ -2,29 +2,31 @@
 
 namespace App\Service\Ponto;
 
-use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Auth\User;
+use App\Entity\Ponto\JornadaTenant;
 
 class VerificadorAlertaPonto
 {
     private const TOLERANCIA_MINUTOS = 5;
 
+    public function __construct(
+        private readonly JornadaResolver $jornadaResolver,
+    ) {}
+
     /**
      * @return array{alertar: bool, mensagem: string, tipo: string, horario: string}
      */
-    public function verificar(EscalaTrabalho $escala, \DateTimeImmutable $agora): array
+    public function verificar(User $user, \DateTimeImmutable $agora, ?JornadaTenant $jornadaTenant = null): array
     {
-        if (!$escala->isAlertaHabilitado()) {
+        if (!$this->jornadaResolver->resolverAlertaHabilitado($user, $jornadaTenant)) {
             return ['alertar' => false, 'mensagem' => '', 'tipo' => '', 'horario' => ''];
         }
 
-        $diaSemana = (int) $agora->format('N'); // 1=Seg, ..., 7=Dom
-        if (!in_array($diaSemana, $escala->getDiasSemana(), true)) {
+        $batidas = $this->jornadaResolver->resolverBatidasEsperadasHoje($user, $agora, $jornadaTenant);
+
+        if (empty($batidas)) {
             return ['alertar' => false, 'mensagem' => '', 'tipo' => '', 'horario' => ''];
         }
-
-        $batidas  = $diaSemana === 6
-            ? $this->batidasSabado($escala)
-            : $this->batidasSemanais($escala);
 
         $agoraMin = (int) $agora->format('H') * 60 + (int) $agora->format('i');
 
@@ -39,29 +41,5 @@ class VerificadorAlertaPonto
         }
 
         return ['alertar' => false, 'mensagem' => '', 'tipo' => '', 'horario' => ''];
-    }
-
-    /**
-     * @return array<array{horario: string|null, tipo: string, mensagem: string}>
-     */
-    private function batidasSemanais(EscalaTrabalho $escala): array
-    {
-        return [
-            ['horario' => $escala->getEntrada1(), 'tipo' => 'entrada',  'mensagem' => 'Hora de registrar sua entrada!'],
-            ['horario' => $escala->getSaida1(),   'tipo' => 'repouso',  'mensagem' => 'Hora de registrar sua saída para o intervalo!'],
-            ['horario' => $escala->getEntrada2(), 'tipo' => 'retorno',  'mensagem' => 'Hora de registrar seu retorno do intervalo!'],
-            ['horario' => $escala->getSaida2(),   'tipo' => 'saida',    'mensagem' => 'Hora de registrar sua saída!'],
-        ];
-    }
-
-    /**
-     * @return array<array{horario: string|null, tipo: string, mensagem: string}>
-     */
-    private function batidasSabado(EscalaTrabalho $escala): array
-    {
-        return [
-            ['horario' => $escala->getEntradaSabado(), 'tipo' => 'entrada', 'mensagem' => 'Hora de registrar sua entrada!'],
-            ['horario' => $escala->getSaidaSabado(),   'tipo' => 'saida',   'mensagem' => 'Hora de registrar sua saída!'],
-        ];
     }
 }

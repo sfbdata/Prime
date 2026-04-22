@@ -56,6 +56,23 @@
                     </button>
                 </div>
             </div>
+
+            {% if jornadaInfo is not null %}
+                {% set horas = jornadaInfo.cargaHorariaSemanal // 60 %}
+                {% set mins  = jornadaInfo.cargaHorariaSemanal % 60 %}
+                <div class="card card-outline card-secondary mt-3">
+                    <div class="card-body py-2 px-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-calendar-week text-secondary"></i>
+                        <div class="small">
+                            <span class="text-muted">Jornada semanal:</span>
+                            <strong class="ms-1">{{ horas }}h{{ '%02d'|format(mins) }}m</strong>
+                            <span class="badge ms-2 {{ jornadaInfo.fonte == 'personalizada' ? 'text-bg-primary' : 'text-bg-secondary' }}">
+                                {{ jornadaInfo.fonte == 'personalizada' ? 'Personalizada' : 'Padrão do escritório' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </div>
 
         <div class="col-md-8">

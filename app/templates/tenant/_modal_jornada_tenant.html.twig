@@ -1,0 +1,351 @@
+<div class="modal fade" id="modalJornadaTenant" tabindex="-1" aria-labelledby="modalJornadaTenantLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalJornadaTenantLabel">
+                    <i class="bi bi-clock-history me-2"></i>Configurar Jornada do Escritório
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div id="jornadaLoadingMsg" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Carregando configurações...</p>
+                </div>
+                <div id="jornadaFormContainer" class="d-none">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Carga horária semanal</label>
+                            <input type="text" id="jornadaCargaSemanal" class="form-control" placeholder="40:00" maxlength="5">
+                            <div class="form-text">Formato HH:MM (ex.: 40:00 para 40 horas)</div>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-center">
+                            <div class="form-check mt-4">
+                                <input class="form-check-input" type="checkbox" id="jornadaAlertaHabilitado">
+                                <label class="form-check-label" for="jornadaAlertaHabilitado">
+                                    Habilitar alertas de ponto
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Blocos de horário</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="btnAdicionarBloco">
+                            <i class="bi bi-plus-lg me-1"></i>Adicionar bloco
+                        </button>
+                    </div>
+
+                    <div id="jornadaBlocos"></div>
+
+                    <div class="mt-3 p-3 rounded border bg-light d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold">Total acumulado:</span>
+                        <span id="jornadaTotalAcumulado" class="fw-bold fs-5">00:00 / 00:00</span>
+                    </div>
+
+                    <div id="jornadaErro" class="alert alert-danger mt-3 d-none"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnSalvarJornada" disabled>
+                    <i class="bi bi-save me-1"></i>Salvar Jornada
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# Template JS para um bloco de jornada #}
+<template id="tmplBlocoJornada">
+    <div class="bloco-jornada card mb-3" data-bloco-idx="">
+        <div class="card-body pb-2">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <span class="fw-semibold text-muted small">Bloco <span class="bloco-num"></span></span>
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remover-bloco">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Dias da semana</label>
+                <div class="d-flex flex-wrap gap-2 bloco-dias">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check" type="checkbox" value="1">
+                        <label class="form-check-label small">Seg</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check" type="checkbox" value="2">
+                        <label class="form-check-label small">Ter</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check" type="checkbox" value="3">
+                        <label class="form-check-label small">Qua</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check" type="checkbox" value="4">
+                        <label class="form-check-label small">Qui</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check" type="checkbox" value="5">
+                        <label class="form-check-label small">Sex</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check" type="checkbox" value="6">
+                        <label class="form-check-label small">Sáb</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check" type="checkbox" value="7">
+                        <label class="form-check-label small">Dom</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Entrada</label>
+                    <input type="time" class="form-control form-control-sm bloco-entrada" required>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Repouso</label>
+                    <input type="time" class="form-control form-control-sm bloco-repouso">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Retorno</label>
+                    <input type="time" class="form-control form-control-sm bloco-retorno">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Saída</label>
+                    <input type="time" class="form-control form-control-sm bloco-saida" required>
+                </div>
+            </div>
+            <div class="mt-2 text-end text-muted small">
+                Carga do bloco: <span class="bloco-carga-display fw-semibold">0:00</span>/dia
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+(function () {
+    'use strict';
+
+    const modalEl = document.getElementById('modalJornadaTenant');
+    if (!modalEl) return;
+
+    let tenantId = null;
+    let urlBase = null;
+
+    function parseHHMM(str) {
+        if (!str) return 0;
+        const parts = str.split(':');
+        return parseInt(parts[0] || '0', 10) * 60 + parseInt(parts[1] || '0', 10);
+    }
+
+    function toHHMM(minutos) {
+        if (minutos <= 0) return '0:00';
+        const h = Math.floor(minutos / 60);
+        const m = minutos % 60;
+        return h + ':' + String(m).padStart(2, '0');
+    }
+
+    function calcularMinutosBloco(el) {
+        const entrada  = parseHHMM(el.querySelector('.bloco-entrada').value);
+        const saida    = parseHHMM(el.querySelector('.bloco-saida').value);
+        const repouso  = parseHHMM(el.querySelector('.bloco-repouso').value);
+        const retorno  = parseHHMM(el.querySelector('.bloco-retorno').value);
+
+        let total = saida - entrada;
+        if (repouso > 0 && retorno > 0) {
+            total -= (retorno - repouso);
+        }
+        return Math.max(0, total);
+    }
+
+    function getDiasMarcados() {
+        const diasPorBloco = {};
+        document.querySelectorAll('#jornadaBlocos .bloco-jornada').forEach((el, idx) => {
+            diasPorBloco[idx] = [];
+            el.querySelectorAll('.dia-check:checked').forEach(cb => {
+                diasPorBloco[idx].push(parseInt(cb.value, 10));
+            });
+        });
+        return diasPorBloco;
+    }
+
+    function atualizarCheckboxesDisabled() {
+        const diasPorBloco = getDiasMarcados();
+        const todosOsBlocos = document.querySelectorAll('#jornadaBlocos .bloco-jornada');
+
+        todosOsBlocos.forEach((el, idx) => {
+            const meusDias = new Set(diasPorBloco[idx] || []);
+            const diasDosOutros = new Set();
+            Object.entries(diasPorBloco).forEach(([bIdx, dias]) => {
+                if (parseInt(bIdx, 10) !== idx) {
+                    dias.forEach(d => diasDosOutros.add(d));
+                }
+            });
+
+            el.querySelectorAll('.dia-check').forEach(cb => {
+                const dia = parseInt(cb.value, 10);
+                cb.disabled = diasDosOutros.has(dia) && !meusDias.has(dia);
+            });
+        });
+    }
+
+    function atualizarAcumulador() {
+        const cargaMeta = parseHHMM(document.getElementById('jornadaCargaSemanal').value);
+        let totalAcumulado = 0;
+
+        document.querySelectorAll('#jornadaBlocos .bloco-jornada').forEach(el => {
+            const minBloco = calcularMinutosBloco(el);
+            el.querySelector('.bloco-carga-display').textContent = toHHMM(minBloco) + '/dia';
+            const diasMarcados = el.querySelectorAll('.dia-check:checked').length;
+            totalAcumulado += minBloco * diasMarcados;
+        });
+
+        const acEl = document.getElementById('jornadaTotalAcumulado');
+        acEl.textContent = toHHMM(totalAcumulado) + ' / ' + (document.getElementById('jornadaCargaSemanal').value || '0:00');
+
+        const igual = cargaMeta > 0 && totalAcumulado === cargaMeta;
+        acEl.className = 'fw-bold fs-5 ' + (igual ? 'text-primary' : 'text-danger');
+
+        document.getElementById('btnSalvarJornada').disabled = !igual;
+    }
+
+    function criarBlocoEl(dados) {
+        const tmpl = document.getElementById('tmplBlocoJornada');
+        const clone = tmpl.content.cloneNode(true);
+        const el = clone.querySelector('.bloco-jornada');
+
+        if (dados) {
+            el.querySelector('.bloco-entrada').value  = dados.entrada  || '';
+            el.querySelector('.bloco-repouso').value  = dados.repouso  || '';
+            el.querySelector('.bloco-retorno').value  = dados.retorno  || '';
+            el.querySelector('.bloco-saida').value    = dados.saida    || '';
+            if (dados.diasSemana) {
+                dados.diasSemana.forEach(d => {
+                    const cb = el.querySelector(`.dia-check[value="${d}"]`);
+                    if (cb) cb.checked = true;
+                });
+            }
+        }
+
+        el.querySelector('.btn-remover-bloco').addEventListener('click', () => {
+            el.remove();
+            reindexarBlocos();
+            atualizarCheckboxesDisabled();
+            atualizarAcumulador();
+        });
+
+        el.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('change', () => { atualizarCheckboxesDisabled(); atualizarAcumulador(); });
+        });
+        el.querySelectorAll('.dia-check').forEach(cb => {
+            cb.addEventListener('change', () => { atualizarCheckboxesDisabled(); atualizarAcumulador(); });
+        });
+
+        return el;
+    }
+
+    function reindexarBlocos() {
+        document.querySelectorAll('#jornadaBlocos .bloco-jornada').forEach((el, idx) => {
+            el.dataset.blocoIdx = idx;
+            el.querySelector('.bloco-num').textContent = idx + 1;
+        });
+    }
+
+    function adicionarBloco(dados) {
+        const container = document.getElementById('jornadaBlocos');
+        const totalBlocos = container.querySelectorAll('.bloco-jornada').length;
+        if (totalBlocos >= 7) {
+            alert('Máximo de 7 blocos de jornada.');
+            return;
+        }
+        const el = criarBlocoEl(dados || null);
+        container.appendChild(el);
+        reindexarBlocos();
+        atualizarCheckboxesDisabled();
+        atualizarAcumulador();
+    }
+
+    document.getElementById('btnAdicionarBloco').addEventListener('click', () => adicionarBloco(null));
+
+    document.getElementById('jornadaCargaSemanal').addEventListener('input', atualizarAcumulador);
+
+    modalEl.addEventListener('show.bs.modal', async function (e) {
+        tenantId = e.relatedTarget?.dataset.tenantId;
+        urlBase = e.relatedTarget?.dataset.jornadaUrl;
+
+        document.getElementById('jornadaLoadingMsg').classList.remove('d-none');
+        document.getElementById('jornadaFormContainer').classList.add('d-none');
+        document.getElementById('jornadaErro').classList.add('d-none');
+        document.getElementById('jornadaBlocos').innerHTML = '';
+
+        try {
+            const resp = await fetch(urlBase, { headers: { 'Accept': 'application/json' } });
+            const dados = await resp.json();
+
+            const cargaMin = dados.cargaHorariaSemanal || 2400;
+            document.getElementById('jornadaCargaSemanal').value = toHHMM(cargaMin);
+            document.getElementById('jornadaAlertaHabilitado').checked = dados.alertaHabilitado !== false;
+
+            (dados.blocos || []).forEach(b => adicionarBloco(b));
+
+            document.getElementById('jornadaLoadingMsg').classList.add('d-none');
+            document.getElementById('jornadaFormContainer').classList.remove('d-none');
+            atualizarAcumulador();
+        } catch (err) {
+            document.getElementById('jornadaLoadingMsg').innerHTML =
+                '<p class="text-danger">Erro ao carregar configurações. Tente novamente.</p>';
+        }
+    });
+
+    document.getElementById('btnSalvarJornada').addEventListener('click', async function () {
+        const erroEl = document.getElementById('jornadaErro');
+        erroEl.classList.add('d-none');
+
+        const cargaMin = parseHHMM(document.getElementById('jornadaCargaSemanal').value);
+        const alerta   = document.getElementById('jornadaAlertaHabilitado').checked;
+
+        const blocos = [];
+        document.querySelectorAll('#jornadaBlocos .bloco-jornada').forEach(el => {
+            const dias = [];
+            el.querySelectorAll('.dia-check:checked').forEach(cb => dias.push(parseInt(cb.value, 10)));
+            blocos.push({
+                diasSemana:   dias,
+                entrada:      el.querySelector('.bloco-entrada').value,
+                repouso:      el.querySelector('.bloco-repouso').value || '',
+                retorno:      el.querySelector('.bloco-retorno').value || '',
+                saida:        el.querySelector('.bloco-saida').value,
+                minutosBloco: calcularMinutosBloco(el),
+            });
+        });
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvando...';
+
+        try {
+            const resp = await fetch(urlBase, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body:    JSON.stringify({ cargaHorariaSemanal: cargaMin, alertaHabilitado: alerta, blocos }),
+            });
+
+            const result = await resp.json();
+
+            if (!resp.ok) {
+                erroEl.textContent = result.erro || 'Erro ao salvar.';
+                erroEl.classList.remove('d-none');
+            } else {
+                bootstrap.Modal.getInstance(modalEl).hide();
+            }
+        } catch (err) {
+            erroEl.textContent = 'Falha na comunicação com o servidor.';
+            erroEl.classList.remove('d-none');
+        } finally {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Jornada';
+            atualizarAcumulador();
+        }
+    });
+})();
+</script>

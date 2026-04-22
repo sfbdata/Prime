@@ -3,6 +3,7 @@
 namespace App\Entity\Tenant;
 
 use App\Entity\Auth\User;
+use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Tenant\Sede;
 use App\Repository\TenantRepository;
 use Doctrine\Common\Collections\ArrayCollection;
@@ -43,6 +44,9 @@ class Tenant
      */
     #[ORM\OneToMany(targetEntity: Sede::class, mappedBy: 'tenant', cascade: ['persist', 'remove'])]
     private Collection $sedes;
+
+    #[ORM\OneToOne(mappedBy: 'tenant', targetEntity: JornadaTenant::class, cascade: ['persist', 'remove'], orphanRemoval: false)]
+    private ?JornadaTenant $jornadaTenant = null;
 
     public function __construct()
     {
@@ -145,6 +149,20 @@ class Tenant
             if ($sede->getTenant() === $this) {
                 $sede->setTenant(null);
             }
+        }
+        return $this;
+    }
+
+    public function getJornadaTenant(): ?JornadaTenant
+    {
+        return $this->jornadaTenant;
+    }
+
+    public function setJornadaTenant(?JornadaTenant $jornadaTenant): static
+    {
+        $this->jornadaTenant = $jornadaTenant;
+        if ($jornadaTenant !== null && $jornadaTenant->getTenant() !== $this) {
+            $jornadaTenant->setTenant($this);
         }
         return $this;
     }

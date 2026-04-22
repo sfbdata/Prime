@@ -3,8 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Ponto\RegistroPonto;
+use App\Service\Ponto\JornadaResolver;
 use App\Form\JustificativaPontoType;
 use App\Repository\Ponto\FeriadoRepository;
 use App\Repository\Ponto\JustificativaPontoRepository;
@@ -36,6 +38,7 @@ final class PontoController extends AbstractController
         private readonly string $justificativasUploadsDir,
         private readonly VerificadorAlertaPonto $verificadorAlerta,
         private readonly ArquivoStorageService $storage,
+        private readonly JornadaResolver $jornadaResolver,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -49,6 +52,7 @@ final class PontoController extends AbstractController
     ): Response {
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
+        $jornadaTenant = $user->getTenant()?->getJornadaTenant();
 
         if (!$permissionChecker->canAccessModule($user, 'ponto')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
@@ -97,7 +101,7 @@ final class PontoController extends AbstractController
         $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $escala, $feriados, $justificativasDoMes);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $escala, $feriados, $justificativasDoMes, $jornadaTenant);
 
         $hojeStr = $agora->format('Y-m-d');
         $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
@@ -117,7 +121,9 @@ final class PontoController extends AbstractController
         }
 
         $anoAtual = (int) $agora->format('Y');
-        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados);
+        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant);
+
+        $jornadaInfo = $this->resolverJornadaInfo($user, $jornadaTenant);
 
         $justificativaForm = $this->createForm(JustificativaPontoType::class);
 
@@ -129,6 +135,7 @@ final class PontoController extends AbstractController
             'competenciaSelecionada' => $competenciaSelecionada,
             'pontoHoje' => $pontoHoje,
             'saldoMes' => $saldoMes,
+            'jornadaInfo' => $jornadaInfo,
             'justificativas' => $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado),
             'justificativaForm' => $justificativaForm->createView(),
         ]);
@@ -274,12 +281,9 @@ final class PontoController extends AbstractController
             return $this->json(['alertar' => false]);
         }
 
-        $escala = $user->getEscalaTrabalho();
-        if ($escala === null) {
-            return $this->json(['alertar' => false]);
-        }
+        $jornadaTenant = $user->getTenant()?->getJornadaTenant();
 
-        return $this->json($this->verificadorAlerta->verificar($escala, new \DateTimeImmutable()));
+        return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant));
     }
 
     #[Route('/batida', name: 'ponto_batida', methods: ['POST'])]
@@ -354,24 +358,14 @@ final class PontoController extends AbstractController
             ], 422);
         }
 
-        $escala = $user->getEscalaTrabalho();
+        $jornadaTenantBatida = $user->getTenant()?->getJornadaTenant();
+        $metaDia = $this->jornadaResolver->resolverMetaDia($user, $hoje, $jornadaTenantBatida);
 
-        if ($diaSemanaHoje === 6) {
-            $trabalhaNoSabado = $escala !== null
-                && in_array(6, $escala->getDiasSemana(), true)
-                && $escala->getCargaHorariaSabado() !== null;
-
-            if (!$trabalhaNoSabado) {
-                return $this->json([
-                    'success' => false,
-                    'message' => 'Você não possui escala de trabalho configurada para sábados.',
-                ], 422);
-            }
-        } elseif ($escala !== null && !in_array($diaSemanaHoje, $escala->getDiasSemana(), true)) {
+        if ($metaDia === 0) {
             $nomeDia = ['', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'][$diaSemanaHoje];
             return $this->json([
                 'success' => false,
-                'message' => sprintf('%s-feira não está configurada na sua escala de trabalho.', $nomeDia),
+                'message' => sprintf('%s não está configurada na sua escala de trabalho.', $nomeDia),
             ], 422);
         }
 
@@ -483,6 +477,27 @@ final class PontoController extends AbstractController
         ]);
     }
 
+    /**
+     * @return array{cargaHorariaSemanal: int, fonte: string}|null
+     */
+    private function resolverJornadaInfo(\App\Entity\Auth\User $user, ?JornadaTenant $jornadaTenant): ?array
+    {
+        $escala = $user->getEscalaTrabalho();
+
+        if ($escala !== null && !$escala->getBlocos()->isEmpty()) {
+            $carga = $escala->getCargaHorariaSemanal()
+                ?? $jornadaTenant?->getCargaHorariaSemanal()
+                ?? 0;
+            return ['cargaHorariaSemanal' => $carga, 'fonte' => 'personalizada'];
+        }
+
+        if ($jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty()) {
+            return ['cargaHorariaSemanal' => $jornadaTenant->getCargaHorariaSemanal(), 'fonte' => 'escritorio'];
+        }
+
+        return null;
+    }
+
     private function calcularDistanciaMetros(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $raioTerra = 6371000;
@@ -542,10 +557,11 @@ final class PontoController extends AbstractController
         $escala  = $targetUser->getEscalaTrabalho();
         $feriados = $targetUser->getTenant() !== null ? $feriadoRepository->findByTenant($targetUser->getTenant()) : [];
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
+        $jornadaTenantPdf = $targetUser->getTenant()?->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $escala, $feriados, $justificativasDoMes);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $escala, $feriados, $justificativasDoMes, $jornadaTenantPdf);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -624,10 +640,11 @@ final class PontoController extends AbstractController
         $escala  = $targetUser->getEscalaTrabalho();
         $feriados = $targetUser->getTenant() !== null ? $feriadoRepository->findByTenant($targetUser->getTenant()) : [];
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
+        $jornadaTenantXlsx = $targetUser->getTenant()?->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $escala, $feriados, $justificativasDoMes);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $escala, $feriados, $justificativasDoMes, $jornadaTenantXlsx);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {

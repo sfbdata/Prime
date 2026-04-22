@@ -5,6 +5,7 @@ namespace App\Service\Ponto;
 use App\Entity\Auth\User;
 use App\Entity\Ponto\EscalaTrabalho;
 use App\Entity\Ponto\Feriado;
+use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Ponto\RegistroPonto;
 use App\Repository\Ponto\JustificativaPontoRepository;
@@ -32,7 +33,8 @@ class FolhaPontoBuilder
         bool $orderDesc = false,
         ?EscalaTrabalho $escala = null,
         array $feriados = [],
-        array $justificativasDoMes = []
+        array $justificativasDoMes = [],
+        ?JornadaTenant $jornadaTenant = null
     ): array {
         $registrosPorDia = [];
         foreach ($batidas as $batida) {
@@ -131,7 +133,7 @@ class FolhaPontoBuilder
                         $row['saldoAcumulado']        = null;
                     } else {
                         $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
-                        $saldoDia = $this->calculadora->calcularSaldoDia($escala->getUser(), $dia, $batidasDoDia, $escala, $feriados);
+                        $saldoDia = $this->calculadora->calcularSaldoDia($escala->getUser(), $dia, $batidasDoDia, $escala, $feriados, $jornadaTenant);
 
                         $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
                         $justificadoDia = false;
@@ -180,7 +182,7 @@ class FolhaPontoBuilder
      *
      * @param Feriado[] $feriados
      */
-    public function calcularSaldoAnual(User $user, int $ano, array $feriados): int
+    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null): int
     {
         $escala = $user->getEscalaTrabalho();
         if ($escala === null) {
@@ -229,7 +231,8 @@ class FolhaPontoBuilder
                 false,
                 $escala,
                 $feriados,
-                $justificativas
+                $justificativas,
+                $jornadaTenant
             );
 
             if (!empty($rows)) {

@@ -6,9 +6,19 @@
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0">Funcionários - {{ tenant.name }}</h1>
-        <a href="{{ path('app_tenant_show', {id: tenant.id}) }}" class="btn btn-secondary">
-            <i class="bi bi-arrow-left me-1"></i> Voltar
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button"
+                    class="btn btn-outline-secondary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modalJornadaTenant"
+                    data-tenant-id="{{ tenant.id }}"
+                    data-jornada-url="{{ path('app_jornada_tenant_get', {id: tenant.id}) }}">
+                <i class="bi bi-clock-history me-1"></i> Configurar Jornada
+            </button>
+            <a href="{{ path('app_tenant_show', {id: tenant.id}) }}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left me-1"></i> Voltar
+            </a>
+        </div>
     </div>
 </section>
 
@@ -111,4 +121,6 @@
         </div>
     </div>
 </section>
+
+{% include 'tenant/_modal_jornada_tenant.html.twig' %}
 {% endblock %}

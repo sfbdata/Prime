@@ -182,91 +182,11 @@
 
                     {# Aba: Escala de Trabalho #}
                     <div class="tab-pane fade" id="tab-escala" role="tabpanel">
-                        <div class="card card-outline card-warning mb-3">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-clock me-2"></i>Escala de Trabalho</h3>
-                            </div>
-                            {{ form_start(escalaForm, {action: path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id})}) }}
-                            <div class="card-body">
-
-                                {# Dias de trabalho (Seg-Sex) #}
-                                <div class="mb-3">
-                                    {{ form_label(escalaForm.diasSemana, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
-                                    <div class="d-flex flex-wrap gap-3 mt-1">
-                                        {% for child in escalaForm.diasSemana %}
-                                            <div class="form-check form-check-inline">
-                                                {{ form_widget(child, {attr: {class: 'form-check-input'}}) }}
-                                                {{ form_label(child, null, {label_attr: {class: 'form-check-label'}}) }}
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                    {{ form_errors(escalaForm.diasSemana) }}
-                                </div>
-
-                                <hr>
-
-                                {# Horários da jornada principal #}
-                                <p class="text-muted small mb-2">Horários aplicados nos dias selecionados acima.</p>
-                                <div class="row g-3 mb-3">
-                                    <div class="col-6">
-                                        {{ form_label(escalaForm.entrada1, null, {label_attr: {class: 'form-label'}}) }}
-                                        {{ form_widget(escalaForm.entrada1) }}
-                                        {{ form_errors(escalaForm.entrada1) }}
-                                    </div>
-                                    <div class="col-6">
-                                        {{ form_label(escalaForm.saida1, null, {label_attr: {class: 'form-label'}}) }}
-                                        {{ form_widget(escalaForm.saida1) }}
-                                        {{ form_errors(escalaForm.saida1) }}
-                                    </div>
-                                    <div class="col-6">
-                                        {{ form_label(escalaForm.entrada2, null, {label_attr: {class: 'form-label'}}) }}
-                                        {{ form_widget(escalaForm.entrada2) }}
-                                        {{ form_errors(escalaForm.entrada2) }}
-                                    </div>
-                                    <div class="col-6">
-                                        {{ form_label(escalaForm.saida2, null, {label_attr: {class: 'form-label'}}) }}
-                                        {{ form_widget(escalaForm.saida2) }}
-                                        {{ form_errors(escalaForm.saida2) }}
-                                    </div>
-                                </div>
-
-                                <hr>
-
-                                <div class="form-check form-switch mb-3">
-                                    {{ form_widget(escalaForm.alertaHabilitado, {attr: {class: 'form-check-input', id: 'alertaPontoSwitch'}}) }}
-                                    <label class="form-check-label" for="alertaPontoSwitch">Ativar alerta de registro de ponto</label>
-                                </div>
-
-                                <hr>
-
-                                <div class="form-check form-switch mb-3">
-                                    {{ form_widget(escalaForm.sabadoAtivado, {attr: {class: 'form-check-input', id: 'sabadoSwitch'}}) }}
-                                    <label class="form-check-label" for="sabadoSwitch">Trabalha aos sábados</label>
-                                </div>
-
-                                <div id="escala-sabado" class="{{ escalaForm.sabadoAtivado.vars.data ? '' : 'd-none' }}">
-                                    <p class="text-muted small mb-2">Jornada corrida (sem intervalo de almoço).</p>
-                                    <div class="row g-3">
-                                        <div class="col-6">
-                                            {{ form_label(escalaForm.entradaSabado, null, {label_attr: {class: 'form-label'}}) }}
-                                            {{ form_widget(escalaForm.entradaSabado) }}
-                                            {{ form_errors(escalaForm.entradaSabado) }}
-                                        </div>
-                                        <div class="col-6">
-                                            {{ form_label(escalaForm.saidaSabado, null, {label_attr: {class: 'form-label'}}) }}
-                                            {{ form_widget(escalaForm.saidaSabado) }}
-                                            {{ form_errors(escalaForm.saidaSabado) }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card-footer text-end">
-                                <button type="submit" class="btn btn-warning">
-                                    <i class="bi bi-save me-1"></i>Salvar Escala
-                                </button>
-                            </div>
-                            {{ form_end(escalaForm) }}
-                        </div>
+                        {% include 'tenant/_escala_usuario_tab.html.twig' with {
+                            tenantId: tenantId,
+                            user: user,
+                            userHasCustomEscala: userHasCustomEscala
+                        } only %}
                     </div>
 
                     {# Aba: Batidas de Ponto #}
@@ -289,7 +209,8 @@
                             editarBatidasRotaAdd: 'app_tenant_user_ponto_add',
                             editarBatidasRotaEdit: 'app_tenant_user_ponto_edit',
                             editarBatidasRotaDelete: 'app_tenant_user_ponto_delete',
-                            editarBatidasParametros: {tenantId: tenantId, id: user.id}
+                            editarBatidasParametros: {tenantId: tenantId, id: user.id},
+                            jornadaInfo: jornadaInfo
                         } only %}
                     </div>
 
@@ -379,14 +300,6 @@
 {% block javascripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Sábado toggle
-        var sabadoSwitch = document.getElementById('sabadoSwitch');
-        if (sabadoSwitch) {
-            sabadoSwitch.addEventListener('change', function () {
-                document.getElementById('escala-sabado').classList.toggle('d-none', !this.checked);
-            });
-        }
-
         // Ativa a aba correta com base no query param ?tab=
         var tabMap = {
             perfil:          'tab-perfil-btn',

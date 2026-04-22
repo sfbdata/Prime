@@ -8,7 +8,6 @@ use App\Entity\Ponto\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
-use App\Form\EscalaTrabalhoType;
 use App\Form\EditUserTenantRoleType;
 use App\Form\RegistroPontoManualType;
 use App\Form\SedeType;
@@ -339,6 +338,27 @@ final class TenantController extends AbstractController
         return $labels;
     }
 
+    /**
+     * @return array{cargaHorariaSemanal: int, fonte: string}|null
+     */
+    private function resolverJornadaInfoAdmin(User $user, ?\App\Entity\Ponto\JornadaTenant $jornadaTenant): ?array
+    {
+        $escala = $user->getEscalaTrabalho();
+
+        if ($escala !== null && !$escala->getBlocos()->isEmpty()) {
+            $carga = $escala->getCargaHorariaSemanal()
+                ?? $jornadaTenant?->getCargaHorariaSemanal()
+                ?? 0;
+            return ['cargaHorariaSemanal' => $carga, 'fonte' => 'personalizada'];
+        }
+
+        if ($jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty()) {
+            return ['cargaHorariaSemanal' => $jornadaTenant->getCargaHorariaSemanal(), 'fonte' => 'escritorio'];
+        }
+
+        return null;
+    }
+
     #[Route('/{tenantId}/user/{id}/edit-role', name: 'app_tenant_user_edit_role', methods: ['GET','POST'])]
     public function editUserRole(
         int $tenantId,
@@ -392,55 +412,8 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_users', ['id' => $tenantId]);
         }
 
-        // Escala de trabalho
-        $escala = $user->getEscalaTrabalho();
-        if ($escala === null) {
-            $escala = new EscalaTrabalho();
-            $escala->setUser($user);
-        }
-
-        $escalaForm = $this->createForm(EscalaTrabalhoType::class, $escala);
-
-        // Pré-popular campo virtual sabadoAtivado no GET
-        if (in_array(6, $escala->getDiasSemana())) {
-            $escalaForm->get('sabadoAtivado')->setData(true);
-        }
-
-        $escalaForm->handleRequest($request);
-
-        if ($escalaForm->isSubmitted() && $escalaForm->isValid()) {
-            $sabadoAtivado = (bool) $escalaForm->get('sabadoAtivado')->getData();
-
-            // Dias de Seg-Sex vêm do campo diasSemana (já mapeado na entidade)
-            $diasSemana = array_values((array) $escala->getDiasSemana());
-
-            if ($sabadoAtivado) {
-                if (!in_array(6, $diasSemana, true)) {
-                    $diasSemana[] = 6;
-                }
-                $entradaSab = $escala->getEntradaSabado();
-                $saidaSab   = $escala->getSaidaSabado();
-                if ($entradaSab !== null && $saidaSab !== null) {
-                    [$hE, $mE] = array_map('intval', explode(':', $entradaSab));
-                    [$hS, $mS] = array_map('intval', explode(':', $saidaSab));
-                    $escala->setCargaHorariaSabado(max(0, ($hS * 60 + $mS) - ($hE * 60 + $mE)));
-                }
-            } else {
-                $diasSemana = array_values(array_filter($diasSemana, fn($d) => $d !== 6));
-                $escala->setEntradaSabado(null);
-                $escala->setSaidaSabado(null);
-                $escala->setCargaHorariaSabado(null);
-            }
-
-            sort($diasSemana);
-            $escala->setDiasSemana($diasSemana);
-            $escala->setCargaHorariaDiaria($this->calcularCargaDiaria($escala));
-
-            $entityManager->persist($escala);
-            $entityManager->flush();
-            $this->addFlash('success', 'Escala de trabalho atualizada!');
-            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'escala']);
-        }
+        $escala              = $user->getEscalaTrabalho();
+        $userHasCustomEscala = $escala !== null && !$escala->getBlocos()->isEmpty();
 
         $userAccesses   = $resourceAccessRepository->findByUsers([$user])[(int) $user->getId()] ?? [];
         $resourceLabels = $this->resolveResourceLabels(
@@ -458,6 +431,8 @@ final class TenantController extends AbstractController
             $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
         }
 
+        $jornadaTenant = $user->getTenant()?->getJornadaTenant();
+
         $folhaRowsPonto = [];
         $mesCompetenciaPonto = null;
         $anoCompetenciaPonto = null;
@@ -469,19 +444,19 @@ final class TenantController extends AbstractController
             $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
             $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
             $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $escala, $feriados, $justificativasDoMes);
+            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $escala, $feriados, $justificativasDoMes, $jornadaTenant);
             $mesCompetenciaPonto = $mesSelecionado;
             $anoCompetenciaPonto = $anoSelecionado;
         }
 
+        $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);
         $justificativas = $justificativaRepository->findByTenantUser($user);
 
         return $this->render('tenant/edit_user_role.html.twig', [
             'form'                   => $form->createView(),
-            'escalaForm'             => $escalaForm->createView(),
-            'escala'                 => $escala,
             'user'                   => $user,
             'tenantId'               => $tenantId,
+            'userHasCustomEscala'    => $userHasCustomEscala,
             'userAccesses'           => $userAccesses,
             'resourceLabels'         => $resourceLabels,
             'competenciasPonto'      => $competenciasPonto,
@@ -489,6 +464,7 @@ final class TenantController extends AbstractController
             'folhaRowsPonto'         => $folhaRowsPonto,
             'mesCompetenciaPonto'    => $mesCompetenciaPonto,
             'anoCompetenciaPonto'    => $anoCompetenciaPonto,
+            'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
         ]);
     }

@@ -3,6 +3,8 @@
 namespace App\Entity\Ponto;
 
 use App\Entity\Auth\User;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Repository\Ponto\EscalaTrabalhoRepository::class)]
@@ -48,6 +50,20 @@ class EscalaTrabalho
 
     #[ORM\Column]
     private bool $alertaHabilitado = true;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $cargaHorariaSemanal = null; // em minutos; null = herda do tenant
+
+    /**
+     * @var Collection<int, BlocoEscalaUsuario>
+     */
+    #[ORM\OneToMany(targetEntity: BlocoEscalaUsuario::class, mappedBy: 'escalaTrabalho', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $blocos;
+
+    public function __construct()
+    {
+        $this->blocos = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -172,6 +188,40 @@ class EscalaTrabalho
     public function setAlertaHabilitado(bool $alertaHabilitado): static
     {
         $this->alertaHabilitado = $alertaHabilitado;
+        return $this;
+    }
+
+    public function getCargaHorariaSemanal(): ?int
+    {
+        return $this->cargaHorariaSemanal;
+    }
+
+    public function setCargaHorariaSemanal(?int $cargaHorariaSemanal): static
+    {
+        $this->cargaHorariaSemanal = $cargaHorariaSemanal;
+        return $this;
+    }
+
+    /**
+     * @return Collection<int, BlocoEscalaUsuario>
+     */
+    public function getBlocos(): Collection
+    {
+        return $this->blocos;
+    }
+
+    public function addBloco(BlocoEscalaUsuario $bloco): static
+    {
+        if (!$this->blocos->contains($bloco)) {
+            $this->blocos->add($bloco);
+            $bloco->setEscalaTrabalho($this);
+        }
+        return $this;
+    }
+
+    public function removeBloco(BlocoEscalaUsuario $bloco): static
+    {
+        $this->blocos->removeElement($bloco);
         return $this;
     }
 }

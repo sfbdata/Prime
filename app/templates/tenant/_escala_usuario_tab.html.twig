@@ -1,0 +1,419 @@
+<div class="card card-outline card-warning mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title mb-0"><i class="bi bi-clock me-2"></i>Escala de Trabalho</h3>
+        {% if userHasCustomEscala %}
+            <button type="button" class="btn btn-sm btn-outline-danger" id="btnLimparEscala">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Limpar escala personalizada
+            </button>
+        {% endif %}
+    </div>
+    <div class="card-body">
+
+        {# Aviso de escala legada #}
+        <div id="escalaAvisoLegado" class="alert alert-warning d-none">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            Sua escala usa formato legado. Configure blocos abaixo para usar o novo sistema.
+        </div>
+
+        {# Resumo somente leitura da jornada do tenant #}
+        <div id="escalaResumoTenant" class="alert alert-info mb-3 d-none">
+            <strong><i class="bi bi-building me-1"></i>Jornada padrão do escritório:</strong>
+            <span id="escalaResumoCargaTenant"></span>
+            <div id="escalaResumoBlocosTenant" class="mt-1 small text-muted"></div>
+        </div>
+
+        <div id="escalaLoadingMsg" class="text-center py-4">
+            <div class="spinner-border text-warning" role="status"></div>
+            <p class="mt-2 text-muted">Carregando escala...</p>
+        </div>
+
+        <div id="escalaFormContainer" class="d-none">
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Carga horária semanal</label>
+                    <input type="text" id="escalaCargaSemanal" class="form-control" placeholder="40:00" maxlength="5">
+                    <div class="form-text">Formato HH:MM (ex.: 40:00 para 40 horas)</div>
+                </div>
+                <div class="col-md-6 d-flex align-items-center">
+                    <div class="form-check mt-4">
+                        <input class="form-check-input" type="checkbox" id="escalaAlertaHabilitado">
+                        <label class="form-check-label" for="escalaAlertaHabilitado">
+                            Habilitar alertas de ponto
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Blocos de horário</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="btnAdicionarBlocoEscala">
+                    <i class="bi bi-plus-lg me-1"></i>Adicionar bloco
+                </button>
+            </div>
+
+            <div id="escalaBlocos"></div>
+
+            <div class="mt-3 p-3 rounded border bg-light d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Total acumulado:</span>
+                <span id="escalaTotalAcumulado" class="fw-bold fs-5">00:00 / 00:00</span>
+            </div>
+
+            <div id="escalaErro" class="alert alert-danger mt-3 d-none"></div>
+        </div>
+
+    </div>
+    <div class="card-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-warning" id="btnSalvarEscala" disabled>
+            <i class="bi bi-save me-1"></i>Salvar Escala
+        </button>
+    </div>
+</div>
+
+{# Template JS para um bloco de escala de usuário #}
+<template id="tmplBlocoEscala">
+    <div class="bloco-escala card mb-3" data-bloco-idx="">
+        <div class="card-body pb-2">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <span class="fw-semibold text-muted small">Bloco <span class="bloco-num"></span></span>
+                <button type="button" class="btn btn-sm btn-outline-danger btn-remover-bloco-escala">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Dias da semana</label>
+                <div class="d-flex flex-wrap gap-2 bloco-dias">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check-escala" type="checkbox" value="1">
+                        <label class="form-check-label small">Seg</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check-escala" type="checkbox" value="2">
+                        <label class="form-check-label small">Ter</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check-escala" type="checkbox" value="3">
+                        <label class="form-check-label small">Qua</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check-escala" type="checkbox" value="4">
+                        <label class="form-check-label small">Qui</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check-escala" type="checkbox" value="5">
+                        <label class="form-check-label small">Sex</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check-escala" type="checkbox" value="6">
+                        <label class="form-check-label small">Sáb</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input dia-check-escala" type="checkbox" value="7">
+                        <label class="form-check-label small">Dom</label>
+                    </div>
+                </div>
+            </div>
+            <div class="row g-2">
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Entrada</label>
+                    <input type="time" class="form-control form-control-sm bloco-entrada" required>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Repouso</label>
+                    <input type="time" class="form-control form-control-sm bloco-repouso">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Retorno</label>
+                    <input type="time" class="form-control form-control-sm bloco-retorno">
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label small">Saída</label>
+                    <input type="time" class="form-control form-control-sm bloco-saida" required>
+                </div>
+            </div>
+            <div class="mt-2 text-end text-muted small">
+                Carga do bloco: <span class="bloco-carga-display fw-semibold">0:00</span>/dia
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+(function () {
+    'use strict';
+
+    const escalaUrl = {{ path('app_escala_usuario_get', {tenantId: tenantId, id: user.id})|json_encode|raw }};
+
+    function parseHHMM(str) {
+        if (!str) return 0;
+        const parts = str.split(':');
+        return parseInt(parts[0] || '0', 10) * 60 + parseInt(parts[1] || '0', 10);
+    }
+
+    function toHHMM(minutos) {
+        if (minutos <= 0) return '0:00';
+        const h = Math.floor(minutos / 60);
+        const m = minutos % 60;
+        return h + ':' + String(m).padStart(2, '0');
+    }
+
+    function calcularMinutosBloco(el) {
+        const entrada = parseHHMM(el.querySelector('.bloco-entrada').value);
+        const saida   = parseHHMM(el.querySelector('.bloco-saida').value);
+        const repouso = parseHHMM(el.querySelector('.bloco-repouso').value);
+        const retorno = parseHHMM(el.querySelector('.bloco-retorno').value);
+        let total = saida - entrada;
+        if (repouso > 0 && retorno > 0) total -= (retorno - repouso);
+        return Math.max(0, total);
+    }
+
+    function getDiasMarcadosEscala() {
+        const diasPorBloco = {};
+        document.querySelectorAll('#escalaBlocos .bloco-escala').forEach((el, idx) => {
+            diasPorBloco[idx] = [];
+            el.querySelectorAll('.dia-check-escala:checked').forEach(cb => {
+                diasPorBloco[idx].push(parseInt(cb.value, 10));
+            });
+        });
+        return diasPorBloco;
+    }
+
+    function atualizarCheckboxesDisabledEscala() {
+        const diasPorBloco = getDiasMarcadosEscala();
+        document.querySelectorAll('#escalaBlocos .bloco-escala').forEach((el, idx) => {
+            const meusDias = new Set(diasPorBloco[idx] || []);
+            const diasDosOutros = new Set();
+            Object.entries(diasPorBloco).forEach(([bIdx, dias]) => {
+                if (parseInt(bIdx, 10) !== idx) dias.forEach(d => diasDosOutros.add(d));
+            });
+            el.querySelectorAll('.dia-check-escala').forEach(cb => {
+                const dia = parseInt(cb.value, 10);
+                cb.disabled = diasDosOutros.has(dia) && !meusDias.has(dia);
+            });
+        });
+    }
+
+    function atualizarAcumuladorEscala() {
+        const cargaMeta = parseHHMM(document.getElementById('escalaCargaSemanal').value);
+        let totalAcumulado = 0;
+
+        document.querySelectorAll('#escalaBlocos .bloco-escala').forEach(el => {
+            const minBloco = calcularMinutosBloco(el);
+            el.querySelector('.bloco-carga-display').textContent = toHHMM(minBloco) + '/dia';
+            const diasMarcados = el.querySelectorAll('.dia-check-escala:checked').length;
+            totalAcumulado += minBloco * diasMarcados;
+        });
+
+        const acEl = document.getElementById('escalaTotalAcumulado');
+        acEl.textContent = toHHMM(totalAcumulado) + ' / ' + (document.getElementById('escalaCargaSemanal').value || '0:00');
+        const igual = cargaMeta > 0 && totalAcumulado === cargaMeta;
+        acEl.className = 'fw-bold fs-5 ' + (igual ? 'text-primary' : 'text-danger');
+        document.getElementById('btnSalvarEscala').disabled = !igual;
+    }
+
+    function reindexarBlocosEscala() {
+        document.querySelectorAll('#escalaBlocos .bloco-escala').forEach((el, idx) => {
+            el.dataset.blocoIdx = idx;
+            el.querySelector('.bloco-num').textContent = idx + 1;
+        });
+    }
+
+    function criarBlocoEscalaEl(dados) {
+        const tmpl = document.getElementById('tmplBlocoEscala');
+        const clone = tmpl.content.cloneNode(true);
+        const el = clone.querySelector('.bloco-escala');
+
+        if (dados) {
+            el.querySelector('.bloco-entrada').value = dados.entrada || '';
+            el.querySelector('.bloco-repouso').value = dados.repouso || '';
+            el.querySelector('.bloco-retorno').value = dados.retorno || '';
+            el.querySelector('.bloco-saida').value   = dados.saida   || '';
+            if (dados.diasSemana) {
+                dados.diasSemana.forEach(d => {
+                    const cb = el.querySelector(`.dia-check-escala[value="${d}"]`);
+                    if (cb) cb.checked = true;
+                });
+            }
+        }
+
+        el.querySelector('.btn-remover-bloco-escala').addEventListener('click', () => {
+            el.remove();
+            reindexarBlocosEscala();
+            atualizarCheckboxesDisabledEscala();
+            atualizarAcumuladorEscala();
+        });
+
+        el.querySelectorAll('input').forEach(inp => {
+            inp.addEventListener('change', () => { atualizarCheckboxesDisabledEscala(); atualizarAcumuladorEscala(); });
+        });
+        el.querySelectorAll('.dia-check-escala').forEach(cb => {
+            cb.addEventListener('change', () => { atualizarCheckboxesDisabledEscala(); atualizarAcumuladorEscala(); });
+        });
+
+        return el;
+    }
+
+    function adicionarBlocoEscala(dados) {
+        const container = document.getElementById('escalaBlocos');
+        if (container.querySelectorAll('.bloco-escala').length >= 7) {
+            alert('Máximo de 7 blocos de jornada.');
+            return;
+        }
+        const el = criarBlocoEscalaEl(dados || null);
+        container.appendChild(el);
+        reindexarBlocosEscala();
+        atualizarCheckboxesDisabledEscala();
+        atualizarAcumuladorEscala();
+    }
+
+    function exibirResumoTenant(jornada) {
+        const resumoEl = document.getElementById('escalaResumoTenant');
+        if (!jornada || (!jornada.cargaHorariaSemanal && jornada.blocos.length === 0)) {
+            resumoEl.classList.add('d-none');
+            return;
+        }
+
+        document.getElementById('escalaResumoCargaTenant').textContent =
+            ' ' + toHHMM(jornada.cargaHorariaSemanal || 0) + ' semanais';
+
+        const diasNomes = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+        const linhas = jornada.blocos.map(b => {
+            const dias = (b.diasSemana || []).map(d => diasNomes[d] || d).join(', ');
+            const horario = b.repouso
+                ? `${b.entrada}–${b.repouso} / ${b.retorno}–${b.saida}`
+                : `${b.entrada}–${b.saida}`;
+            return `${dias}: ${horario} (${toHHMM(b.minutosBloco)}/dia)`;
+        });
+
+        document.getElementById('escalaResumoBlocosTenant').innerHTML =
+            linhas.map(l => `<div>${l}</div>`).join('');
+
+        resumoEl.classList.remove('d-none');
+    }
+
+    async function carregarEscala() {
+        document.getElementById('escalaLoadingMsg').classList.remove('d-none');
+        document.getElementById('escalaFormContainer').classList.add('d-none');
+        document.getElementById('escalaAvisoLegado').classList.add('d-none');
+        document.getElementById('escalaBlocos').innerHTML = '';
+
+        try {
+            const resp = await fetch(escalaUrl, { headers: { 'Accept': 'application/json' } });
+            const dados = await resp.json();
+
+            document.getElementById('escalaCargaSemanal').value = toHHMM(dados.cargaHorariaSemanal || 2400);
+            document.getElementById('escalaAlertaHabilitado').checked = dados.alertaHabilitado !== false;
+
+            if (dados.temCamposLegados && !dados.temBlocosUsuario) {
+                document.getElementById('escalaAvisoLegado').classList.remove('d-none');
+            }
+
+            exibirResumoTenant(dados.jornadaTenant);
+
+            (dados.blocos || []).forEach(b => adicionarBlocoEscala(b));
+
+            document.getElementById('escalaLoadingMsg').classList.add('d-none');
+            document.getElementById('escalaFormContainer').classList.remove('d-none');
+            atualizarAcumuladorEscala();
+        } catch (err) {
+            document.getElementById('escalaLoadingMsg').innerHTML =
+                '<p class="text-danger">Erro ao carregar escala. Tente novamente.</p>';
+        }
+    }
+
+    document.getElementById('btnAdicionarBlocoEscala').addEventListener('click', () => adicionarBlocoEscala(null));
+    document.getElementById('escalaCargaSemanal').addEventListener('input', atualizarAcumuladorEscala);
+
+    document.getElementById('btnSalvarEscala').addEventListener('click', async function () {
+        const erroEl = document.getElementById('escalaErro');
+        erroEl.classList.add('d-none');
+
+        const cargaMin = parseHHMM(document.getElementById('escalaCargaSemanal').value);
+        const alerta   = document.getElementById('escalaAlertaHabilitado').checked;
+
+        const blocos = [];
+        document.querySelectorAll('#escalaBlocos .bloco-escala').forEach(el => {
+            const dias = [];
+            el.querySelectorAll('.dia-check-escala:checked').forEach(cb => dias.push(parseInt(cb.value, 10)));
+            blocos.push({
+                diasSemana:   dias,
+                entrada:      el.querySelector('.bloco-entrada').value,
+                repouso:      el.querySelector('.bloco-repouso').value || '',
+                retorno:      el.querySelector('.bloco-retorno').value || '',
+                saida:        el.querySelector('.bloco-saida').value,
+                minutosBloco: calcularMinutosBloco(el),
+            });
+        });
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvando...';
+
+        try {
+            const resp = await fetch(escalaUrl, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body:    JSON.stringify({ cargaHorariaSemanal: cargaMin, alertaHabilitado: alerta, blocos }),
+            });
+
+            const result = await resp.json();
+
+            if (!resp.ok) {
+                erroEl.textContent = result.erro || 'Erro ao salvar.';
+                erroEl.classList.remove('d-none');
+            } else {
+                window.location.href = window.location.pathname + '?tab=escala';
+            }
+        } catch (err) {
+            erroEl.textContent = 'Falha na comunicação com o servidor.';
+            erroEl.classList.remove('d-none');
+        } finally {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Escala';
+            atualizarAcumuladorEscala();
+        }
+    });
+
+    const btnLimpar = document.getElementById('btnLimparEscala');
+    if (btnLimpar) {
+        btnLimpar.addEventListener('click', async function () {
+            if (!confirm('Limpar a escala personalizada deste usuário? Ele voltará a usar a jornada padrão do escritório.')) return;
+
+            this.disabled = true;
+
+            try {
+                const resp = await fetch(escalaUrl, {
+                    method:  'DELETE',
+                    headers: { 'Accept': 'application/json' },
+                });
+
+                if (resp.ok) {
+                    window.location.href = window.location.pathname + '?tab=escala';
+                } else {
+                    alert('Erro ao limpar escala.');
+                    this.disabled = false;
+                }
+            } catch (err) {
+                alert('Falha na comunicação com o servidor.');
+                this.disabled = false;
+            }
+        });
+    }
+
+    // Carrega ao entrar na aba
+    const tabEscalaBtn = document.getElementById('tab-escala-btn');
+    if (tabEscalaBtn) {
+        tabEscalaBtn.addEventListener('shown.bs.tab', carregarEscala);
+
+        // Se a aba já está ativa no carregamento (ex.: ?tab=escala), carrega imediatamente
+        if (tabEscalaBtn.classList.contains('active')) {
+            carregarEscala();
+        } else {
+            // Aguarda o DOMContentLoaded, pois o script do pai pode ativar a aba
+            document.addEventListener('DOMContentLoaded', function () {
+                if (tabEscalaBtn.classList.contains('active')) {
+                    carregarEscala();
+                }
+            });
+        }
+    }
+})();
+</script>
