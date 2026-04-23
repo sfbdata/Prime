@@ -8,7 +8,9 @@ class EntityLabelResolver
      * @var string[]
      */
     private const CANDIDATE_METHODS = [
+        'getFullName',
         'getNomeCompleto',
+        'getNome',
         'getRazaoSocial',
         'getNomeFantasia',
         'getNomeArquivo',

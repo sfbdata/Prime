@@ -262,7 +262,7 @@ class PastaTimelineAssembler
                     return [$titulo, 'bi-tag', 'text-bg-warning', $detalhe];
                 }
                 if ((string) $field === 'responsavel') {
-                    return ['Responsável alterado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
+                    return ['Responsável alterado', 'bi-person-check', 'text-bg-secondary', $this->extractResponsavelTransicao($changes)];
                 }
                 if ((string) $field === 'status') {
                     return ['Status da pasta alterado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
@@ -274,6 +274,53 @@ class PastaTimelineAssembler
         }
 
         return ['Pasta atualizada', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
+    }
+
+    private function extractResponsavelTransicao(?array $changes): ?string
+    {
+        $diff = $changes['diff']['changes']['responsavel'] ?? null;
+        if (!is_array($diff)) {
+            return null;
+        }
+
+        $para = $this->resolverNomeEntrada($diff['to'] ?? null);
+        $de   = $this->resolverNomeEntrada($diff['from'] ?? null);
+
+        if ($para === null && $de === null) {
+            return null;
+        }
+
+        if ($para !== null && $de !== null) {
+            return sprintf("Responsável atualizado para %s\nAntes: %s", $para, $de);
+        }
+
+        if ($para !== null) {
+            return sprintf('Responsável atualizado para %s', $para);
+        }
+
+        return sprintf('Responsável removido (era %s)', $de);
+    }
+
+    private function resolverNomeEntrada(mixed $entry): ?string
+    {
+        if (!is_array($entry)) {
+            return null;
+        }
+
+        $label = isset($entry['label']) && is_string($entry['label']) && $entry['label'] !== ''
+            ? $entry['label']
+            : null;
+
+        if ($label !== null) {
+            return $label;
+        }
+
+        $id = isset($entry['id']) ? (int) $entry['id'] : null;
+        if ($id === null || $id === 0) {
+            return null;
+        }
+
+        return $this->resolverNomeAtor($id);
     }
 
     /**
