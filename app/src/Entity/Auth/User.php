@@ -3,6 +3,8 @@
 namespace App\Entity\Auth;
 
 use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Tenant\Cargo;
+use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\UserRepository;
@@ -50,6 +52,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastLogin = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Cargo $cargo = null;
+
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Lotacao $lotacao = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?EscalaTrabalho $escalaTrabalho = null;
@@ -192,6 +202,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setTenantRole(?TenantRole $tenantRole): static
     {
         $this->tenantRole = $tenantRole;
+        return $this;
+    }
+
+    public function getCargo(): ?Cargo
+    {
+        return $this->cargo;
+    }
+
+    public function setCargo(?Cargo $cargo): static
+    {
+        $this->cargo = $cargo;
+        return $this;
+    }
+
+    public function getLotacao(): ?Lotacao
+    {
+        return $this->lotacao;
+    }
+
+    public function setLotacao(?Lotacao $lotacao): static
+    {
+        $this->lotacao = $lotacao;
         return $this;
     }
 

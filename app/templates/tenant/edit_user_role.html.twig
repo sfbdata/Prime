@@ -68,6 +68,20 @@
                                     </div>
 
                                     <div class="mb-4">
+                                        {{ form_label(form.cargo, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                                        {{ form_widget(form.cargo) }}
+                                        <div class="form-text text-muted">Usado na folha de ponto.</div>
+                                        {{ form_errors(form.cargo) }}
+                                    </div>
+
+                                    <div class="mb-4">
+                                        {{ form_label(form.lotacao, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                                        {{ form_widget(form.lotacao) }}
+                                        <div class="form-text text-muted">Usado na folha de ponto.</div>
+                                        {{ form_errors(form.lotacao) }}
+                                    </div>
+
+                                    <div class="mb-4">
                                         <label class="form-label fw-bold d-block">Status da conta</label>
                                         <div class="d-flex align-items-center gap-3">
                                             {% if user.isActive %}

@@ -12,28 +12,164 @@
 <section class="content">
     <div class="container-fluid">
         <div class="row justify-content-center">
-            <div class="col-lg-6 col-md-8">
-                <div class="card card-outline card-primary mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-building me-2"></i>Nome do Escritório</h3>
-                    </div>
-                    <div class="card-body">
+            <div class="col-lg-8 col-md-10">
+
+                {# Nav tabs #}
+                <ul class="nav nav-tabs mb-0" id="editTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="tab-dados-btn" data-bs-toggle="tab" data-bs-target="#tab-dados" type="button" role="tab">
+                            <i class="bi bi-building me-1"></i>Dados do Escritório
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-cargos-btn" data-bs-toggle="tab" data-bs-target="#tab-cargos" type="button" role="tab">
+                            <i class="bi bi-briefcase me-1"></i>Cargos
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-lotacoes-btn" data-bs-toggle="tab" data-bs-target="#tab-lotacoes" type="button" role="tab">
+                            <i class="bi bi-building-gear me-1"></i>Lotações
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-senha-btn" data-bs-toggle="tab" data-bs-target="#tab-senha" type="button" role="tab">
+                            <i class="bi bi-key me-1"></i>Alterar Senha
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content border border-top-0 rounded-bottom bg-white p-4 mb-4" id="editTabsContent">
+
+                    {# Aba: Dados do Escritório #}
+                    <div class="tab-pane fade show active" id="tab-dados" role="tabpanel">
                         {{ form_start(nameForm) }}
-                            {{ form_row(nameForm.name, {'attr': {'class': 'form-control'}}) }}
+                            <div class="mb-3">
+                                {{ form_label(nameForm.name, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                {{ form_widget(nameForm.name, {attr: {class: 'form-control' ~ (nameForm.name.vars.errors|length ? ' is-invalid' : '')}}) }}
+                                {% if nameForm.name.vars.errors|length %}
+                                    <div class="invalid-feedback">{% for e in nameForm.name.vars.errors %}{{ e.message }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                {{ form_label(nameForm.cnpj, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                {{ form_widget(nameForm.cnpj, {attr: {class: 'form-control' ~ (nameForm.cnpj.vars.errors|length ? ' is-invalid' : ''), 'data-cnpj': 'true', maxlength: '18', placeholder: '00.000.000/0000-00'}}) }}
+                                {% if nameForm.cnpj.vars.errors|length %}
+                                    <div class="invalid-feedback">{% for e in nameForm.cnpj.vars.errors %}{{ e.message }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+
+                            <hr class="my-3">
+                            <h6 class="mb-3"><i class="bi bi-geo-alt me-1"></i>Endereço</h6>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-4">
+                                    {{ form_label(nameForm.cep, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                    {{ form_widget(nameForm.cep, {attr: {class: 'form-control' ~ (nameForm.cep.vars.errors|length ? ' is-invalid' : ''), 'data-cep': 'true', maxlength: '9', placeholder: '00000-000', id: nameForm.cep.vars.id}}) }}
+                                    {% if nameForm.cep.vars.errors|length %}
+                                        <div class="invalid-feedback">{% for e in nameForm.cep.vars.errors %}{{ e.message }}{% endfor %}</div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-8">
+                                    {{ form_label(nameForm.logradouro, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                    {{ form_widget(nameForm.logradouro, {attr: {class: 'form-control' ~ (nameForm.logradouro.vars.errors|length ? ' is-invalid' : ''), id: nameForm.logradouro.vars.id}}) }}
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-3">
+                                    {{ form_label(nameForm.numero, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                    {{ form_widget(nameForm.numero, {attr: {class: 'form-control'}}) }}
+                                </div>
+                                <div class="col-md-5">
+                                    {{ form_label(nameForm.complemento, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                    {{ form_widget(nameForm.complemento, {attr: {class: 'form-control'}}) }}
+                                </div>
+                                <div class="col-md-4">
+                                    {{ form_label(nameForm.bairro, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                    {{ form_widget(nameForm.bairro, {attr: {class: 'form-control', id: nameForm.bairro.vars.id}}) }}
+                                </div>
+                            </div>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-9">
+                                    {{ form_label(nameForm.cidade, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                    {{ form_widget(nameForm.cidade, {attr: {class: 'form-control', id: nameForm.cidade.vars.id}}) }}
+                                </div>
+                                <div class="col-md-3">
+                                    {{ form_label(nameForm.estado, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                    {{ form_widget(nameForm.estado, {attr: {class: 'form-select', id: nameForm.estado.vars.id}}) }}
+                                </div>
+                            </div>
+
                             <div class="mt-3">
                                 <button class="btn btn-primary">
-                                    <i class="bi bi-check-lg me-1"></i>Salvar Nome
+                                    <i class="bi bi-check-lg me-1"></i>Salvar Dados
                                 </button>
                             </div>
                         {{ form_end(nameForm) }}
                     </div>
-                </div>
 
-                <div class="card card-outline card-secondary mb-3">
-                    <div class="card-header">
-                        <h3 class="card-title"><i class="bi bi-key me-2"></i>Alterar Senha</h3>
+                    {# Aba: Cargos #}
+                    <div class="tab-pane fade" id="tab-cargos" role="tabpanel">
+                        <p class="text-muted small mb-3">Defina os cargos disponíveis para os funcionários deste escritório.</p>
+
+                        {{ form_start(cargosForm) }}
+                            <div id="cargos-container"
+                                 data-prototype="{{ form_widget(cargosForm.cargos.vars.prototype)|e('html_attr') }}"
+                                 data-index="{{ cargosForm.cargos|length }}">
+                                {% for cargoForm in cargosForm.cargos %}
+                                    <div class="cargo-row input-group mb-2">
+                                        {{ form_widget(cargoForm.nome, {attr: {class: 'form-control'}}) }}
+                                        <button type="button" class="btn btn-outline-danger btn-remove-cargo" title="Remover">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <button type="button" id="btn-add-cargo" class="btn btn-sm btn-outline-success mb-4">
+                                <i class="bi bi-plus me-1"></i>Adicionar Cargo
+                            </button>
+
+                            <div class="mt-2">
+                                <button class="btn btn-success">
+                                    <i class="bi bi-check-lg me-1"></i>Salvar Cargos
+                                </button>
+                            </div>
+                        {{ form_end(cargosForm) }}
                     </div>
-                    <div class="card-body">
+
+                    {# Aba: Lotações #}
+                    <div class="tab-pane fade" id="tab-lotacoes" role="tabpanel">
+                        <p class="text-muted small mb-3">Defina as lotações (setores, filiais, departamentos) disponíveis para os funcionários.</p>
+
+                        {{ form_start(lotacoesForm) }}
+                            <div id="lotacoes-container"
+                                 data-prototype="{{ form_widget(lotacoesForm.lotacoes.vars.prototype)|e('html_attr') }}"
+                                 data-index="{{ lotacoesForm.lotacoes|length }}">
+                                {% for lotacaoForm in lotacoesForm.lotacoes %}
+                                    <div class="lotacao-row input-group mb-2">
+                                        {{ form_widget(lotacaoForm.nome, {attr: {class: 'form-control'}}) }}
+                                        <button type="button" class="btn btn-outline-danger btn-remove-lotacao" title="Remover">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <button type="button" id="btn-add-lotacao" class="btn btn-sm btn-outline-success mb-4">
+                                <i class="bi bi-plus me-1"></i>Adicionar Lotação
+                            </button>
+
+                            <div class="mt-2">
+                                <button class="btn btn-success">
+                                    <i class="bi bi-check-lg me-1"></i>Salvar Lotações
+                                </button>
+                            </div>
+                        {{ form_end(lotacoesForm) }}
+                    </div>
+
+                    {# Aba: Alterar Senha #}
+                    <div class="tab-pane fade" id="tab-senha" role="tabpanel">
                         {{ form_start(passwordForm) }}
                             {{ form_row(passwordForm.password) }}
                             {{ form_row(passwordForm.confirm_password) }}
@@ -44,15 +180,141 @@
                             </div>
                         {{ form_end(passwordForm) }}
                     </div>
-                </div>
 
-                <div class="d-flex gap-2 justify-content-between">
+                </div>{# /tab-content #}
+
+                <div class="d-flex gap-2 justify-content-between mb-4">
                     <a href="{{ path('app_tenant_show', {'id': tenant.id}) }}" class="btn btn-outline-secondary">
                         <i class="bi bi-arrow-left me-1"></i>Voltar
                     </a>
                 </div>
+
             </div>
         </div>
     </div>
 </section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // ---------- Restaurar aba ativa após redirect ----------
+    const hash = window.location.hash;
+    if (hash) {
+        const tabBtn = document.querySelector('[data-bs-target="' + hash + '"]');
+        if (tabBtn) {
+            new bootstrap.Tab(tabBtn).show();
+        }
+    }
+
+    // ---------- CNPJ mask ----------
+    const cnpjInput = document.querySelector('[data-cnpj]');
+
+    function aplicarMascaraCnpj(valor) {
+        let v = valor.replace(/\D/g, '').slice(0, 14);
+        v = v.replace(/^(\d{2})(\d)/, '$1.$2');
+        v = v.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+        v = v.replace(/\.(\d{3})(\d)/, '.$1/$2');
+        v = v.replace(/(\d{4})(\d)/, '$1-$2');
+        return v;
+    }
+
+    if (cnpjInput) {
+        if (cnpjInput.value.replace(/\D/g, '').length === 14) {
+            cnpjInput.value = aplicarMascaraCnpj(cnpjInput.value);
+        }
+
+        cnpjInput.addEventListener('input', function () {
+            this.value = aplicarMascaraCnpj(this.value);
+        });
+
+        cnpjInput.closest('form').addEventListener('submit', function () {
+            cnpjInput.value = cnpjInput.value.replace(/\D/g, '');
+        });
+    }
+
+    // ---------- CEP mask + ViaCEP ----------
+    const cepInput = document.querySelector('[data-cep]');
+    const idLogradouro = '{{ nameForm.logradouro.vars.id }}';
+    const idBairro     = '{{ nameForm.bairro.vars.id }}';
+    const idCidade     = '{{ nameForm.cidade.vars.id }}';
+    const idEstado     = '{{ nameForm.estado.vars.id }}';
+
+    if (cepInput) {
+        cepInput.addEventListener('input', function () {
+            let v = this.value.replace(/\D/g, '').slice(0, 8);
+            if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
+            this.value = v;
+        });
+
+        cepInput.addEventListener('blur', async function () {
+            const cepLimpo = this.value.replace(/\D/g, '');
+            if (cepLimpo.length !== 8) return;
+            try {
+                const res = await fetch('https://viacep.com.br/ws/' + cepLimpo + '/json/');
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.erro) return;
+                const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+                set(idLogradouro, data.logradouro);
+                set(idBairro,     data.bairro);
+                set(idCidade,     data.localidade);
+                set(idEstado,     data.uf);
+            } catch (_) {}
+        });
+    }
+
+    // ---------- CollectionType genérico ----------
+    function initCollection(containerId, btnAddId, rowClass, btnRemoveClass) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        let count = parseInt(container.dataset.index || '0', 10);
+
+        function updateRemoveButtons() {
+            const rows = container.querySelectorAll('.' + rowClass);
+            container.querySelectorAll('.' + btnRemoveClass).forEach(function (btn) {
+                btn.style.display = rows.length > 1 ? '' : 'none';
+            });
+        }
+
+        updateRemoveButtons();
+
+        document.getElementById(btnAddId).addEventListener('click', function () {
+            const proto = container.dataset.prototype;
+            const newHtml = proto.replace(/__name__/g, count);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = newHtml;
+            wrapper.querySelectorAll('input[type="text"]').forEach(function (inp) {
+                inp.classList.add('form-control');
+            });
+            const div = document.createElement('div');
+            div.classList.add(rowClass, 'input-group', 'mb-2');
+            div.appendChild(wrapper.firstElementChild || wrapper);
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-outline-danger ' + btnRemoveClass;
+            removeBtn.title = 'Remover';
+            removeBtn.innerHTML = '<i class="bi bi-trash"></i>';
+            div.appendChild(removeBtn);
+            container.appendChild(div);
+            count++;
+            updateRemoveButtons();
+        });
+
+        container.addEventListener('click', function (e) {
+            const btn = e.target.closest('.' + btnRemoveClass);
+            if (!btn) return;
+            btn.closest('.' + rowClass).remove();
+            updateRemoveButtons();
+        });
+    }
+
+    initCollection('cargos-container',   'btn-add-cargo',   'cargo-row',   'btn-remove-cargo');
+    initCollection('lotacoes-container', 'btn-add-lotacao', 'lotacao-row', 'btn-remove-lotacao');
+
+});
+</script>
 {% endblock %}

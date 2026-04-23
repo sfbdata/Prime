@@ -11,6 +11,9 @@ use App\Entity\Auth\User;
 use App\Form\EditUserTenantRoleType;
 use App\Form\RegistroPontoManualType;
 use App\Form\SedeType;
+use App\Form\TenantCargosLotacoesType;
+use App\Form\TenantCargosType;
+use App\Form\TenantLotacoesType;
 use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
@@ -22,6 +25,8 @@ use App\Repository\Ponto\RegistroPontoRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\SedeRepository;
+use App\Repository\CargoRepository;
+use App\Repository\LotacaoRepository;
 use App\Repository\TenantRepository;
 use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
@@ -227,10 +232,30 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_edit', ['id' => $tenant->getId()]);
         }
 
+        // Form para gerenciar cargos
+        $cargosForm = $this->createForm(TenantCargosType::class, $tenant);
+        $cargosForm->handleRequest($request);
+        if ($cargosForm->isSubmitted() && $cargosForm->isValid()) {
+            $entityManager->flush();
+            $this->addFlash('success', 'Cargos atualizados com sucesso!');
+            return $this->redirectToRoute('app_tenant_edit', ['id' => $tenant->getId(), '_fragment' => 'tab-cargos']);
+        }
+
+        // Form para gerenciar lotações
+        $lotacoesForm = $this->createForm(TenantLotacoesType::class, $tenant);
+        $lotacoesForm->handleRequest($request);
+        if ($lotacoesForm->isSubmitted() && $lotacoesForm->isValid()) {
+            $entityManager->flush();
+            $this->addFlash('success', 'Lotações atualizadas com sucesso!');
+            return $this->redirectToRoute('app_tenant_edit', ['id' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
+        }
+
         return $this->render('tenant/edit.html.twig', [
-            'tenant' => $tenant,
-            'nameForm' => $nameForm->createView(),
-            'passwordForm' => $passwordForm->createView(),
+            'tenant'        => $tenant,
+            'nameForm'      => $nameForm->createView(),
+            'passwordForm'  => $passwordForm->createView(),
+            'cargosForm'    => $cargosForm->createView(),
+            'lotacoesForm'  => $lotacoesForm->createView(),
         ]);
     }
 
@@ -384,7 +409,9 @@ final class TenantController extends AbstractController
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
-        FolhaPontoBuilder $folhaPontoBuilder
+        FolhaPontoBuilder $folhaPontoBuilder,
+        CargoRepository $cargoRepository,
+        LotacaoRepository $lotacaoRepository
     ): Response {
         $currentUser = $this->getUser();
 
@@ -403,9 +430,14 @@ final class TenantController extends AbstractController
         // Para admin normal, buscar roles do próprio tenant.
         $targetTenantId = $isSuperAdmin ? ($user->getTenant()?->getId() ?? $tenantId) : $tenantId;
         $tenantRoles    = $tenantRoleRepository->findByTenantId($targetTenantId);
+        $targetTenant   = $user->getTenant();
+        $cargos         = $targetTenant ? $cargoRepository->findBy(['tenant' => $targetTenant], ['nome' => 'ASC']) : [];
+        $lotacoes       = $targetTenant ? $lotacaoRepository->findBy(['tenant' => $targetTenant], ['nome' => 'ASC']) : [];
 
         $form = $this->createForm(EditUserTenantRoleType::class, $user, [
-            'tenant_roles' => $tenantRoles,
+            'tenant_roles'    => $tenantRoles,
+            'tenant_cargos'   => $cargos,
+            'tenant_lotacoes' => $lotacoes,
         ]);
         $form->handleRequest($request);
 
