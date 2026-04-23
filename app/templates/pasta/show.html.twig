@@ -2433,11 +2433,17 @@
 .anexo-item .anexo-nome {
     font-weight: 600;
     font-size: .92rem;
-    word-break: break-all;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
 }
 .anexo-item .anexo-tamanho {
     font-size: .8rem;
     color: #6c757d;
+}
+.anexo-item .min-w-0 {
+    min-width: 0;
 }
 
 /* Botão extra-pequeno */
@@ -2601,27 +2607,27 @@ document.addEventListener('DOMContentLoaded', function () {
         div._file = file; // arquivo associado diretamente ao elemento
 
         div.innerHTML = `
-            <div class="d-flex align-items-start gap-3">
+            <div class="d-flex align-items-start gap-2">
                 <i class="bi bi-file-earmark-text fs-4 text-primary flex-shrink-0 mt-1"></i>
 
-                <div class="flex-grow-1">
-                    <div class="anexo-nome">${file.name}</div>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="anexo-nome text-truncate">${file.name}</div>
                     <div class="anexo-tamanho mb-2">${formatarTamanho(file.size)}</div>
 
-                    <div class="row g-2">
-                        <div class="col-12 col-md-4">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-sm-5 col-lg-4">
                             <label class="form-label form-label-sm mb-1">Tipo de documento</label>
                             <select name="categorias[${idx}]" class="form-select form-select-sm" required>
                                 ${buildSelectOpcoes()}
                             </select>
                         </div>
-                        <div class="col-12 col-md-5">
+                        <div class="col-12 col-sm-7 col-lg-5">
                             <label class="form-label form-label-sm mb-1">Descrição</label>
                             <input type="text" name="descricoes[${idx}]" class="form-control form-control-sm"
                                    placeholder="Descrição (opcional)" maxlength="500">
                         </div>
-                        <div class="col-12 col-md-3">
-                            <label class="form-label form-label-sm mb-1">Número (opcional)</label>
+                        <div class="col-12 col-sm-12 col-lg-3">
+                            <label class="form-label form-label-sm mb-1">Número <span class="text-muted fw-normal">(opcional)</span></label>
                             <input type="text" name="numeros[${idx}]" class="form-control form-control-sm"
                                    placeholder="Número" maxlength="255">
                         </div>
