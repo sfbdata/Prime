@@ -1,15 +1,697 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Perfil{% endblock %}
+{% block title %}Meu Perfil{% endblock %}
+
+{% block stylesheets %}
+<style>
+/* ── Capa ── */
+.perfil-capa {
+    height: 200px;
+    background: linear-gradient(135deg, #1a3a5c 0%, #2563a8 60%, #3b82d4 100%);
+    border-radius: 0.5rem 0.5rem 0 0;
+    position: relative;
+}
+
+/* ── Card principal ── */
+.perfil-card {
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 16px rgba(0,0,0,.10);
+    overflow: visible;
+    background: #fff;
+    margin-bottom: 1.5rem;
+}
+
+/* ── Área da foto ── */
+.perfil-foto-wrap {
+    position: absolute;
+    bottom: -56px;
+    left: 2rem;
+}
+.perfil-foto-btn {
+    width: 112px;
+    height: 112px;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    overflow: hidden;
+    cursor: pointer;
+    background: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.8rem;
+    font-weight: 700;
+    color: #1a3a5c;
+    transition: filter .2s;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+.perfil-foto-btn img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.perfil-foto-btn:hover .perfil-foto-overlay {
+    opacity: 1;
+}
+.perfil-foto-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(0,0,0,.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .2s;
+}
+.perfil-foto-overlay i {
+    color: #fff;
+    font-size: 1.6rem;
+}
+
+/* ── Info linha abaixo da foto ── */
+.perfil-info-row {
+    padding: 70px 2rem 1.25rem 2rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.perfil-nome {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1a2b3c;
+    line-height: 1.2;
+}
+.perfil-cargo-lotacao {
+    font-size: .88rem;
+    color: #6c757d;
+    margin-top: .2rem;
+}
+
+/* ── Campo de status ── */
+.perfil-status-wrap {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    padding: 0 2rem 1.25rem 2rem;
+    border-bottom: 1px solid #eee;
+}
+.perfil-status-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: .95rem;
+    color: #495057;
+    padding: .3rem .1rem;
+    border-bottom: 2px solid transparent;
+    transition: border-color .2s;
+    max-width: 420px;
+}
+.perfil-status-input:focus {
+    border-bottom-color: #2563a8;
+}
+.perfil-status-input::placeholder {
+    color: #adb5bd;
+    font-style: italic;
+}
+.perfil-status-save-btn {
+    display: none;
+    padding: .25rem .75rem;
+    font-size: .82rem;
+}
+
+/* ── Grid de dados ── */
+.perfil-dados-grid {
+    padding: 1.25rem 2rem 1.5rem;
+}
+.perfil-dado-item {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    margin-bottom: .5rem;
+    font-size: .9rem;
+    color: #495057;
+}
+.perfil-dado-item i {
+    font-size: 1rem;
+    color: #2563a8;
+    width: 20px;
+    text-align: center;
+}
+.perfil-dado-label {
+    font-weight: 600;
+    color: #343a40;
+    min-width: 110px;
+}
+
+/* ── Modal de visualização de foto ── */
+.modal-foto-preview img {
+    max-height: 340px;
+    object-fit: contain;
+    border-radius: .5rem;
+}
+
+/* ── Modal de edição de imagem (Cropper) ── */
+#cropperWrap {
+    width: 100%;
+    height: 320px;
+    background: #1a1a1a;
+    border-radius: .5rem;
+    overflow: hidden;
+    position: relative;
+}
+#imgCropper {
+    max-width: 100%;
+    max-height: 100%;
+    display: block;
+}
+
+/* ── Slider zoom/rotação ── */
+.img-slider-wrap {
+    margin-top: .75rem;
+}
+.img-slider-label {
+    font-size: .82rem;
+    color: #6c757d;
+    margin-bottom: .25rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+.img-slider-label i {
+    font-size: .9rem;
+    color: #2563a8;
+}
+input[type="range"].img-slider {
+    width: 100%;
+    accent-color: #2563a8;
+    cursor: pointer;
+}
+
+/* ── Empty foto placeholder ── */
+.perfil-avatar-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #1a3a5c, #2563a8);
+    color: #fff;
+    font-size: 2.6rem;
+    font-weight: 700;
+}
+</style>
+{% endblock %}
 
 {% block body %}
-    <h1>Perfil do Usuário</h1>
-    <p><strong>Nome:</strong> {{ user.fullName }}</p>
-    <p><strong>Email:</strong> {{ user.email }}</p>
-    <p><strong>Criado em:</strong> {{ user.createdAt|date('d/m/Y H:i') }}</p>
-    <p><strong>Perfis:</strong> {{ user.roles|join(', ') }}</p>
+<div class="row justify-content-center">
+    <div class="col-12 col-xl-9">
 
-    <form action="{{ path('app_logout') }}" method="post" class="mt-3">
-        <button type="submit" class="btn btn-danger">Sair da conta</button>
-    </form>
+        {# ── Card principal ── #}
+        <div class="perfil-card">
+
+            {# Capa #}
+            <div class="perfil-capa">
+                <div class="perfil-foto-wrap">
+                    <button class="perfil-foto-btn" type="button"
+                            data-bs-toggle="modal" data-bs-target="#modalFotoVer"
+                            title="Clique para alterar a foto">
+                        {% if perfil.fotoUrl %}
+                            <img id="fotoPerfilAtual"
+                                 src="{{ path('app_profile_foto_serve', {nome: perfil.fotoUrl}) }}"
+                                 alt="Foto de perfil">
+                        {% else %}
+                            <div class="perfil-avatar-letter" id="fotoPerfilAtual">
+                                {{ user.fullName|slice(0,1)|upper }}
+                            </div>
+                        {% endif %}
+                        <span class="perfil-foto-overlay">
+                            <i class="bi bi-camera-fill"></i>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            {# Nome e botão editar #}
+            <div class="perfil-info-row">
+                <div>
+                    <div class="perfil-nome" id="perfilNomeExibido">
+                        {{ perfil.nomeCompleto ?? user.fullName }}
+                    </div>
+                    <div class="perfil-cargo-lotacao">
+                        {% if user.cargo %}
+                            <i class="bi bi-briefcase me-1"></i>{{ user.cargo.nome }}
+                        {% endif %}
+                        {% if user.lotacao %}
+                            <i class="bi bi-geo-alt ms-2 me-1"></i>{{ user.lotacao.nome }}
+                        {% endif %}
+                    </div>
+                </div>
+                <button class="btn btn-outline-primary btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#modalDadosPessoais">
+                    <i class="bi bi-pencil me-1"></i>Editar informações
+                </button>
+            </div>
+
+            {# Status editável #}
+            <div class="perfil-status-wrap">
+                <i class="bi bi-chat-quote text-muted" style="font-size:1.1rem"></i>
+                <input type="text"
+                       id="statusInput"
+                       class="perfil-status-input"
+                       maxlength="255"
+                       placeholder="Adicione um status..."
+                       value="{{ perfil.status ?? '' }}">
+                <button class="btn btn-primary btn-sm perfil-status-save-btn" id="btnSalvarStatus">
+                    Salvar
+                </button>
+                <button class="btn btn-link btn-sm perfil-status-save-btn text-muted" id="btnCancelarStatus">
+                    Cancelar
+                </button>
+            </div>
+
+            {# Dados pessoais exibidos #}
+            <div class="perfil-dados-grid">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="perfil-dado-item">
+                            <i class="bi bi-envelope"></i>
+                            <span class="perfil-dado-label">E-mail</span>
+                            <span>{{ user.email }}</span>
+                        </div>
+                        <div class="perfil-dado-item" id="dadoCpf" {% if not perfil.cpf %}style="display:none"{% endif %}>
+                            <i class="bi bi-person-vcard"></i>
+                            <span class="perfil-dado-label">CPF</span>
+                            <span id="exibirCpf">{{ perfil.cpf ?? '' }}</span>
+                        </div>
+                        <div class="perfil-dado-item" id="dadoNascimento" {% if not perfil.dataNascimento %}style="display:none"{% endif %}>
+                            <i class="bi bi-calendar3"></i>
+                            <span class="perfil-dado-label">Nascimento</span>
+                            <span>{{ perfil.dataNascimento ? perfil.dataNascimento|date('d/m/Y') : '' }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="perfil-dado-item" id="dadoCtps" {% if not perfil.ctps %}style="display:none"{% endif %}>
+                            <i class="bi bi-journal-bookmark"></i>
+                            <span class="perfil-dado-label">CTPS</span>
+                            <span id="exibirCtps">{{ perfil.ctps ?? '' }}</span>
+                        </div>
+                        <div class="perfil-dado-item" id="dadoSerie" {% if not perfil.serie %}style="display:none"{% endif %}>
+                            <i class="bi bi-hash"></i>
+                            <span class="perfil-dado-label">Série</span>
+                            <span id="exibirSerie">{{ perfil.serie ?? '' }}</span>
+                        </div>
+                        <div class="perfil-dado-item">
+                            <i class="bi bi-calendar-check"></i>
+                            <span class="perfil-dado-label">Membro desde</span>
+                            <span>{{ user.createdAt|date('d/m/Y') }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>{# /perfil-card #}
+
+    </div>
+</div>
+
+{# ══════════════════════════════════════════════
+   MODAL: Visualizar / Alterar foto
+══════════════════════════════════════════════ #}
+<div class="modal fade" id="modalFotoVer" tabindex="-1" aria-labelledby="modalFotoVerLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFotoVerLabel">
+                    <i class="bi bi-person-circle me-2"></i>Foto de perfil
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center modal-foto-preview py-4">
+                {% if perfil.fotoUrl %}
+                    <img id="modalFotoPreviewImg"
+                         src="{{ path('app_profile_foto_serve', {nome: perfil.fotoUrl}) }}"
+                         alt="Foto atual" class="img-fluid mb-3"
+                         style="max-height:260px;border-radius:.5rem;">
+                {% else %}
+                    <div id="modalFotoPreviewImg"
+                         class="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
+                         style="width:160px;height:160px;background:linear-gradient(135deg,#1a3a5c,#2563a8);font-size:4rem;font-weight:700;color:#fff;">
+                        {{ user.fullName|slice(0,1)|upper }}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer justify-content-center gap-2">
+                <label class="btn btn-primary" style="cursor:pointer">
+                    <i class="bi bi-upload me-1"></i>Alterar imagem
+                    <input type="file" id="inputFotoNova" accept="image/jpeg,image/png,image/webp" hidden>
+                </label>
+                <button type="button" class="btn btn-outline-secondary" id="btnEditarFotoExistente"
+                        {% if not perfil.fotoUrl %}style="display:none"{% endif %}>
+                    <i class="bi bi-crop me-1"></i>Editar imagem
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ══════════════════════════════════════════════
+   MODAL: Editar imagem (Cropper)
+══════════════════════════════════════════════ #}
+<div class="modal fade" id="modalFotoEditar" tabindex="-1" aria-labelledby="modalFotoEditarLabel" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFotoEditarLabel">
+                    <i class="bi bi-crop me-2"></i>Editar imagem
+                </h5>
+                <button type="button" class="btn-close" id="btnFecharCropper"></button>
+            </div>
+            <div class="modal-body">
+                <div id="cropperWrap">
+                    <img id="imgCropper" src="" alt="Editar foto">
+                </div>
+
+                <div class="img-slider-wrap mt-3">
+                    <div class="img-slider-label">
+                        <i class="bi bi-zoom-in"></i> Zoom
+                    </div>
+                    <input type="range" class="img-slider" id="sliderZoom"
+                           min="0.1" max="3" step="0.01" value="1">
+                </div>
+
+                <div class="img-slider-wrap">
+                    <div class="img-slider-label">
+                        <i class="bi bi-arrow-repeat"></i> Rotação
+                    </div>
+                    <input type="range" class="img-slider" id="sliderRotacao"
+                           min="-180" max="180" step="1" value="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelarCropper" type="button">Cancelar</button>
+                <button class="btn btn-primary" id="btnConfirmarFoto" type="button">
+                    <span class="spinner-border spinner-border-sm d-none me-1" id="spinnerFoto"></span>
+                    Salvar foto
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ══════════════════════════════════════════════
+   MODAL: Editar dados pessoais
+══════════════════════════════════════════════ #}
+<div class="modal fade" id="modalDadosPessoais" tabindex="-1" aria-labelledby="modalDadosPessoaisLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDadosPessoaisLabel">
+                    <i class="bi bi-person-lines-fill me-2"></i>Informações pessoais
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ path('app_profile_dados') }}" method="post" id="formDadosPessoais">
+                <div class="modal-body">
+                    {{ form_row(form_dados.nomeCompleto, {'attr': {'class': 'form-control'}}) }}
+                    {{ form_row(form_dados.cpf, {'attr': {'class': 'form-control', 'id': 'campoCpf'}}) }}
+                    {{ form_row(form_dados.dataNascimento, {'attr': {'class': 'form-control'}}) }}
+                    <div class="row">
+                        <div class="col-8">
+                            {{ form_row(form_dados.ctps, {'attr': {'class': 'form-control'}}) }}
+                        </div>
+                        <div class="col-4">
+                            {{ form_row(form_dados.serie, {'attr': {'class': 'form-control'}}) }}
+                        </div>
+                    </div>
+                    {{ form_rest(form_dados) }}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-1"></i>Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{# Cropper.js #}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" crossorigin="anonymous">
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js" crossorigin="anonymous"></script>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── CSRF tokens
+    const TOKEN_STATUS = '{{ csrf_token('profile_status') }}';
+    const TOKEN_FOTO   = '{{ csrf_token('profile_foto') }}';
+
+    // ── Status editável
+    const inputStatus   = document.getElementById('statusInput');
+    const btnSalvar     = document.getElementById('btnSalvarStatus');
+    const btnCancelar   = document.getElementById('btnCancelarStatus');
+    let statusOriginal  = inputStatus.value;
+
+    function mostrarBotoesStatus(show) {
+        btnSalvar.style.display  = show ? 'inline-block' : 'none';
+        btnCancelar.style.display = show ? 'inline-block' : 'none';
+    }
+
+    inputStatus.addEventListener('focus', () => mostrarBotoesStatus(true));
+    inputStatus.addEventListener('input', () => mostrarBotoesStatus(true));
+
+    btnCancelar.addEventListener('click', () => {
+        inputStatus.value = statusOriginal;
+        mostrarBotoesStatus(false);
+        inputStatus.blur();
+    });
+
+    btnSalvar.addEventListener('click', async () => {
+        const body = new FormData();
+        body.append('_token', TOKEN_STATUS);
+        body.append('status', inputStatus.value);
+
+        try {
+            const res  = await fetch('{{ path('app_profile_status') }}', { method: 'POST', body });
+            const data = await res.json();
+            if (data.ok) {
+                statusOriginal = data.status ?? '';
+                inputStatus.value = statusOriginal;
+                mostrarBotoesStatus(false);
+                inputStatus.blur();
+            } else {
+                alert(data.erro ?? 'Erro ao salvar status.');
+            }
+        } catch (e) {
+            alert('Erro de comunicação.');
+        }
+    });
+
+    // ── Foto: Cropper
+    let cropper = null;
+    let srcCropperAtual = null;
+
+    const inputFoto          = document.getElementById('inputFotoNova');
+    const imgCropper         = document.getElementById('imgCropper');
+    const sliderZoom         = document.getElementById('sliderZoom');
+    const sliderRotacao      = document.getElementById('sliderRotacao');
+    const btnConfirmar       = document.getElementById('btnConfirmarFoto');
+    const spinnerFoto        = document.getElementById('spinnerFoto');
+    const btnFechar          = document.getElementById('btnFecharCropper');
+    const btnCancelarCrop    = document.getElementById('btnCancelarCropper');
+    const btnEditarExistente = document.getElementById('btnEditarFotoExistente');
+
+    const modalVerEl    = document.getElementById('modalFotoVer');
+    const modalEditarEl = document.getElementById('modalFotoEditar');
+    const modalVer      = bootstrap.Modal.getOrCreate(modalVerEl);
+    const modalEditar   = new bootstrap.Modal(modalEditarEl);
+
+    function abrirCropper(src) {
+        srcCropperAtual     = src;
+        imgCropper.src      = src;
+        sliderZoom.value    = 1;
+        sliderRotacao.value = 0;
+
+        modalVer.hide();
+
+        modalVerEl.addEventListener('hidden.bs.modal', () => {
+            modalEditar.show();
+        }, { once: true });
+
+        modalEditarEl.addEventListener('shown.bs.modal', () => {
+            if (cropper) { cropper.destroy(); cropper = null; }
+            cropper = new Cropper(imgCropper, {
+                aspectRatio: 1,
+                viewMode: 1,
+                dragMode: 'move',
+                autoCropArea: 0.9,
+                movable: true,
+                zoomable: true,
+                rotatable: true,
+                scalable: false,
+                guides: false,
+                center: true,
+                highlight: true,
+                cropBoxMovable: false,
+                cropBoxResizable: false,
+                ready() { sliderZoom.value = 1; sliderRotacao.value = 0; },
+            });
+        }, { once: true });
+    }
+
+    inputFoto.addEventListener('change', function () {
+        const file = this.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => abrirCropper(e.target.result);
+        reader.readAsDataURL(file);
+        this.value = '';
+    });
+
+    // Editar foto existente já salva
+    if (btnEditarExistente) {
+        btnEditarExistente.addEventListener('click', () => {
+            const imgModal = document.getElementById('modalFotoPreviewImg');
+            if (imgModal && imgModal.tagName === 'IMG') {
+                abrirCropper(imgModal.src);
+            }
+        });
+    }
+
+    sliderZoom.addEventListener('input', function () {
+        if (!cropper) return;
+        cropper.zoomTo(parseFloat(this.value));
+    });
+
+    sliderRotacao.addEventListener('input', function () {
+        if (!cropper) return;
+        cropper.rotateTo(parseInt(this.value, 10));
+    });
+
+    function fecharCropper() {
+        modalEditar.hide();
+        if (cropper) { cropper.destroy(); cropper = null; }
+    }
+
+    btnFechar.addEventListener('click', fecharCropper);
+    btnCancelarCrop.addEventListener('click', fecharCropper);
+
+    btnConfirmar.addEventListener('click', async () => {
+        if (!cropper) return;
+
+        btnConfirmar.disabled = true;
+        spinnerFoto.classList.remove('d-none');
+
+        cropper.getCroppedCanvas({ width: 400, height: 400 }).toBlob(async (blob) => {
+            const form = new FormData();
+            form.append('_token', TOKEN_FOTO);
+            form.append('foto', blob, 'perfil.jpg');
+
+            try {
+                const res  = await fetch('{{ path('app_profile_foto') }}', { method: 'POST', body: form });
+                const data = await res.json();
+
+                if (data.ok) {
+                    const novaUrl = data.url + '?t=' + Date.now();
+
+                    // Atualiza avatar no botão da página
+                    const wrap = document.querySelector('.perfil-foto-btn');
+                    const overlay = wrap.querySelector('.perfil-foto-overlay');
+                    wrap.innerHTML = '';
+
+                    const imgEl = document.createElement('img');
+                    imgEl.id  = 'fotoPerfilAtual';
+                    imgEl.alt = 'Foto de perfil';
+                    imgEl.src = novaUrl;
+                    wrap.appendChild(imgEl);
+
+                    const ov = document.createElement('span');
+                    ov.className = 'perfil-foto-overlay';
+                    ov.innerHTML = '<i class="bi bi-camera-fill"></i>';
+                    wrap.appendChild(ov);
+
+                    // Atualiza preview no modal de visualização
+                    const previewEl = document.getElementById('modalFotoPreviewImg');
+                    if (previewEl) {
+                        if (previewEl.tagName === 'IMG') {
+                            previewEl.src = novaUrl;
+                        } else {
+                            const novoPreview = document.createElement('img');
+                            novoPreview.id        = 'modalFotoPreviewImg';
+                            novoPreview.alt       = 'Foto atual';
+                            novoPreview.className = 'img-fluid mb-3';
+                            novoPreview.style.cssText = 'max-height:260px;border-radius:.5rem;';
+                            novoPreview.src = novaUrl;
+                            previewEl.replaceWith(novoPreview);
+                        }
+                        // Exibe botão "Editar imagem" se estava oculto
+                        if (btnEditarExistente) btnEditarExistente.style.display = '';
+                    }
+
+                    fecharCropper();
+                } else {
+                    alert(data.erro ?? 'Erro ao salvar foto.');
+                }
+            } catch (e) {
+                alert('Erro de comunicação.');
+            } finally {
+                btnConfirmar.disabled = false;
+                spinnerFoto.classList.add('d-none');
+            }
+        }, 'image/jpeg', 0.90);
+    });
+
+    // ── CPF mask simples
+    const campoCpf = document.getElementById('campoCpf');
+    if (campoCpf) {
+        campoCpf.addEventListener('input', function () {
+            let v = this.value.replace(/\D/g, '').slice(0, 11);
+            if (v.length > 9)      v = v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+            else if (v.length > 6) v = v.replace(/(\d{3})(\d{3})(\d{3})/, '$1.$2.$3');
+            else if (v.length > 3) v = v.replace(/(\d{3})(\d{3})/, '$1.$2');
+            this.value = v;
+        });
+
+        campoCpf.addEventListener('blur', function () {
+            const digits = this.value.replace(/\D/g, '');
+            if (digits.length > 0 && !validarCpf(digits)) {
+                this.setCustomValidity('CPF inválido');
+                this.reportValidity();
+            } else {
+                this.setCustomValidity('');
+            }
+        });
+    }
+
+    function validarCpf(c) {
+        if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+        let s = 0;
+        for (let i = 0; i < 9; i++) s += parseInt(c[i]) * (10 - i);
+        let r = 11 - (s % 11);
+        if (r >= 10) r = 0;
+        if (r !== parseInt(c[9])) return false;
+        s = 0;
+        for (let i = 0; i < 10; i++) s += parseInt(c[i]) * (11 - i);
+        r = 11 - (s % 11);
+        if (r >= 10) r = 0;
+        return r === parseInt(c[10]);
+    }
+
+    // ── Abrir modal com erro flash (dados inválidos)
+    {% for msg in app.flashes('error') %}
+    (function () {
+        const m = bootstrap.Modal.getOrCreate(document.getElementById('modalDadosPessoais'));
+        m.show();
+    })();
+    {% endfor %}
+})();
+</script>
 {% endblock %}

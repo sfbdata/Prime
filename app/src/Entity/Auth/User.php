@@ -64,6 +64,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?EscalaTrabalho $escalaTrabalho = null;
 
+    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private ?UserProfile $profile = null;
+
     // -------------------------
     // Construtor
     // -------------------------
@@ -238,6 +241,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
             $escalaTrabalho->setUser($this);
         }
         $this->escalaTrabalho = $escalaTrabalho;
+        return $this;
+    }
+
+    public function getProfile(): ?UserProfile
+    {
+        return $this->profile;
+    }
+
+    public function setProfile(?UserProfile $profile): static
+    {
+        $this->profile = $profile;
         return $this;
     }
 }

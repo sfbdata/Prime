@@ -1,3 +1,7 @@
 controllers:
     resource: ../../src/Controller/
     type: attribute
+
+profile_controllers:
+    resource: ../../src/Profile/Controller/
+    type: attribute
