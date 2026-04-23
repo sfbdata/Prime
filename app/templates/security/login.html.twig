@@ -25,6 +25,12 @@
             </div>
 
             <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            <div class="mb-3 form-check">
+                <input type="checkbox" name="_remember_me" id="rememberMe" class="form-check-input">
+                <label for="rememberMe" class="form-check-label">Manter Conectado</label>
+            </div>
+
             <button class="btn-login" type="submit">Login</button>
         </form>
 

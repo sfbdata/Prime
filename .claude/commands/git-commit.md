@@ -16,3 +16,6 @@ Verbo imperativo em português: descrição curta
 ## Regras
 - Nunca adicionar `.env`, `build/`, `dist/`, `node_modules/`
 - Um commit = uma mudança lógica
+
+## Após o commit
+Explique a atualização na visão do usuário final: o que mudou na prática, sem jargão técnico. Use linguagem simples, como se estivesse descrevendo a um cliente o que ele vai encontrar de diferente no sistema.
