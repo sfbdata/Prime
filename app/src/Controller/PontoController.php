@@ -258,6 +258,76 @@ final class PontoController extends AbstractController
         return $this->redirectToRoute('ponto_index');
     }
 
+    #[Route('/justificativa/{id}/editar', name: 'ponto_justificativa_editar', methods: ['GET', 'POST'])]
+    public function editarJustificativa(
+        JustificativaPonto $justificativa,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        PermissionChecker $permissionChecker
+    ): Response {
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+
+        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if ($justificativa->getUser()->getId() !== $user->getId()) {
+            throw $this->createAccessDeniedException('Acesso negado a esta justificativa.');
+        }
+
+        if (!$this->isCsrfTokenValid('editar_justificativa_' . $justificativa->getId(), $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+            return $this->redirectToRoute('ponto_index');
+        }
+
+        $descricao = trim((string) $request->request->get('descricao', ''));
+        $tipo = $request->request->get('tipo');
+        $abonoParcial = (bool) $request->request->get('abonoParcial', false);
+        $horaInicioRaw = $request->request->get('horaInicioAbono');
+        $horaFimRaw = $request->request->get('horaFimAbono');
+
+        if ($descricao === '') {
+            $this->addFlash('warning', 'O campo motivo não pode estar vazio.');
+            return $this->redirectToRoute('ponto_index');
+        }
+
+        $tiposValidos = array_values(JustificativaPonto::TIPOS);
+        if ($tipo !== null && !in_array($tipo, $tiposValidos, true)) {
+            $tipo = null;
+        }
+
+        $horaInicio = null;
+        $horaFim = null;
+
+        if ($abonoParcial) {
+            $horaInicio = $horaInicioRaw !== null ? \DateTime::createFromFormat('H:i', $horaInicioRaw) ?: null : null;
+            $horaFim = $horaFimRaw !== null ? \DateTime::createFromFormat('H:i', $horaFimRaw) ?: null : null;
+
+            if ($horaInicio === null || $horaFim === null || $horaInicio >= $horaFim) {
+                $this->addFlash('warning', 'Informe os horários de saída e retorno corretamente para o abono parcial.');
+                return $this->redirectToRoute('ponto_index');
+            }
+        }
+
+        $justificativa->setDescricao($descricao);
+        $justificativa->setTipo($tipo ?: null);
+        $justificativa->setAbonoParcial($abonoParcial);
+        $justificativa->setHoraInicioAbono($abonoParcial ? $horaInicio : null);
+        $justificativa->setHoraFimAbono($abonoParcial ? $horaFim : null);
+
+        $anexoFile = $request->files->get('anexo');
+        if ($anexoFile !== null) {
+            $novoAnexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
+            $justificativa->setAnexoPath($novoAnexoPath);
+        }
+
+        $entityManager->flush();
+
+        $this->addFlash('success', 'Justificativa atualizada com sucesso.');
+        return $this->redirectToRoute('ponto_index');
+    }
+
     #[Route('/justificativa/{id}/anexo', name: 'ponto_justificativa_anexo', methods: ['GET'])]
     public function downloadAnexo(
         JustificativaPonto $justificativa,

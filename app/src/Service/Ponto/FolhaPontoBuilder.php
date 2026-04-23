@@ -159,6 +159,7 @@ class FolhaPontoBuilder
                 && $row['repouso'] === ''
                 && $row['retorno'] === ''
                 && $row['saida'] === ''
+                && $row['justificativa'] === null
             ) {
                 continue;
             }

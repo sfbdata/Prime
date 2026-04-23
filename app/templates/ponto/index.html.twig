@@ -96,6 +96,68 @@
 
 {% include 'ponto/_justificativa_form.html.twig' with {justificativaForm: justificativaForm, mesAtual: mesAtual, anoAtual: anoAtual} only %}
 
+{# Modal: Editar justificativa pendente #}
+<div class="modal fade" id="modalEditarJustificativa" tabindex="-1" aria-labelledby="modalEditarJustificativaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formEditarJustificativa" enctype="multipart/form-data">
+                <input type="hidden" name="_token" id="editarJustificativaToken">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditarJustificativaLabel">
+                        <i class="bi bi-pencil me-2"></i>Editar Justificativa
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tipo</label>
+                        <select name="tipo" id="editarJustificativaTipo" class="form-select">
+                            <option value="">Selecione...</option>
+                            {% for label, valor in constant('App\\Entity\\Ponto\\JustificativaPonto::TIPOS') %}
+                                <option value="{{ valor }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editarAbonoParcial" name="abonoParcial" value="1">
+                        <label class="form-check-label" for="editarAbonoParcial">Abono parcial (ausência dentro do expediente)</label>
+                    </div>
+
+                    <div id="editarBlocoHorario" class="d-none mb-3 p-3 border rounded bg-light">
+                        <p class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Período de ausência parcial</p>
+                        <div class="row g-2">
+                            <div class="col">
+                                <label class="form-label">Saída</label>
+                                <input type="time" name="horaInicioAbono" id="editarHoraInicio" class="form-control">
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Retorno</label>
+                                <input type="time" name="horaFimAbono" id="editarHoraFim" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Motivo <span class="text-danger">*</span></label>
+                        <textarea name="descricao" id="editarJustificativaDescricao" class="form-control" rows="3" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Substituir atestado <span class="text-muted small">(opcional)</span></label>
+                        <input type="file" name="anexo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                        <div class="form-text">PDF, JPEG ou PNG — máximo 10 MB</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Salvar alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <script>
     const GPS_PRECISAO_ACEITAVEL_METROS = 90;
 
@@ -231,6 +293,28 @@
             gpsStatus.className = 'alert alert-danger small mb-3';
         }
     }
+
+    // Modal de editar justificativa
+    window.abrirModalEditarJustificativa = function(btn) {
+        const form = document.getElementById('formEditarJustificativa');
+        form.action = btn.dataset.url;
+        document.getElementById('editarJustificativaToken').value = btn.dataset.csrf;
+        document.getElementById('editarJustificativaTipo').value = btn.dataset.tipo || '';
+        document.getElementById('editarJustificativaDescricao').value = btn.dataset.descricao || '';
+
+        const abonoParcial = btn.dataset.abonoParcial === '1';
+        const checkAbono = document.getElementById('editarAbonoParcial');
+        checkAbono.checked = abonoParcial;
+        document.getElementById('editarBlocoHorario').classList.toggle('d-none', !abonoParcial);
+        document.getElementById('editarHoraInicio').value = btn.dataset.horaInicio || '';
+        document.getElementById('editarHoraFim').value = btn.dataset.horaFim || '';
+
+        new bootstrap.Modal(document.getElementById('modalEditarJustificativa')).show();
+    };
+
+    document.getElementById('editarAbonoParcial').addEventListener('change', function() {
+        document.getElementById('editarBlocoHorario').classList.toggle('d-none', !this.checked);
+    });
 
     // Botão de Bater Ponto
     btnPonto.addEventListener('click', async function() {
