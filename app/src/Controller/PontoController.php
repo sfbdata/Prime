@@ -312,9 +312,7 @@ final class PontoController extends AbstractController
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
-        PermissionChecker $permissionChecker,
-        FeriadoRepository $feriadoRepository,
-        CalculadoraJornada $calculadora
+        PermissionChecker $permissionChecker
     ): JsonResponse {
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
@@ -360,9 +358,6 @@ final class PontoController extends AbstractController
         }
 
         $hoje = new \DateTimeImmutable();
-        $diaSemanaHoje = (int) $hoje->format('N');
-
-        $feriados = $feriadoRepository->findByTenant($user->getTenant());
 
         if ($latitude === null || $longitude === null) {
             return $this->json([

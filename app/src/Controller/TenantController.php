@@ -525,9 +525,7 @@ final class TenantController extends AbstractController
         User $user,
         Request $request,
         EntityManagerInterface $entityManager,
-        PermissionChecker $permissionChecker,
-        FeriadoRepository $feriadoRepository,
-        CalculadoraJornada $calculadora
+        PermissionChecker $permissionChecker
     ): Response {
         $currentUser = $this->getUser();
 
@@ -551,57 +549,21 @@ final class TenantController extends AbstractController
             /** @var \DateTime $hora */
             $hora = $form->get('hora')->getData();
 
-            $diaSemana = (int) $data->format('N');
+            $dataHora = new \DateTime(
+                $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
+            );
 
-            $feriados = $feriadoRepository->findByTenant($user->getTenant());
-            $feriadoDoDia = $calculadora->getFeriadoDoDia($data, $feriados);
+            $registro = new RegistroPonto();
+            $registro->setUser($user);
+            $registro->setDataHora($dataHora);
+            $registro->setTipo($form->get('tipo')->getData());
+            $registro->setObservacao($form->get('observacao')->getData());
+            $registro->setSedeNomeSnapshot('Lançamento manual');
 
-            if ($diaSemana === 7) {
-                $this->addFlash('danger', 'Não é permitido lançar batidas aos domingos.');
-            } elseif ($feriadoDoDia !== null) {
-                $this->addFlash('danger', sprintf('O dia %s é feriado (%s). Não é permitido lançar batidas.', $data->format('d/m/Y'), $feriadoDoDia->getNome()));
-            } elseif ($diaSemana === 6) {
-                $escala = $user->getEscalaTrabalho();
-                $trabalhaNoSabado = $escala !== null
-                    && in_array(6, $escala->getDiasSemana(), true)
-                    && $escala->getCargaHorariaSabado() !== null;
+            $entityManager->persist($registro);
+            $entityManager->flush();
 
-                if (!$trabalhaNoSabado) {
-                    $this->addFlash('danger', 'Este usuário não possui escala de trabalho configurada para sábados.');
-                } else {
-                    $dataHora = new \DateTime(
-                        $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
-                    );
-
-                    $registro = new RegistroPonto();
-                    $registro->setUser($user);
-                    $registro->setDataHora($dataHora);
-                    $registro->setTipo($form->get('tipo')->getData());
-                    $registro->setObservacao($form->get('observacao')->getData());
-                    $registro->setSedeNomeSnapshot('Lançamento manual');
-
-                    $entityManager->persist($registro);
-                    $entityManager->flush();
-
-                    $this->addFlash('success', 'Batida registrada com sucesso.');
-                }
-            } else {
-                $dataHora = new \DateTime(
-                    $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
-                );
-
-                $registro = new RegistroPonto();
-                $registro->setUser($user);
-                $registro->setDataHora($dataHora);
-                $registro->setTipo($form->get('tipo')->getData());
-                $registro->setObservacao($form->get('observacao')->getData());
-                $registro->setSedeNomeSnapshot('Lançamento manual');
-
-                $entityManager->persist($registro);
-                $entityManager->flush();
-
-                $this->addFlash('success', 'Batida registrada com sucesso.');
-            }
+            $this->addFlash('success', 'Batida registrada com sucesso.');
         } else {
             $this->addFlash('danger', 'Erro ao registrar batida. Verifique os campos.');
         }
@@ -624,9 +586,7 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         RegistroPontoRepository $registroPontoRepository,
-        PermissionChecker $permissionChecker,
-        FeriadoRepository $feriadoRepository,
-        CalculadoraJornada $calculadora
+        PermissionChecker $permissionChecker
     ): Response {
         $currentUser = $this->getUser();
 
@@ -668,65 +628,25 @@ final class TenantController extends AbstractController
             /** @var \DateTime $hora */
             $hora = $form->get('hora')->getData();
 
-            $diaSemana = (int) $data->format('N');
+            $dataHora = new \DateTime(
+                $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
+            );
 
-            $feriados = $feriadoRepository->findByTenant($user->getTenant());
-            $feriadoDoDia = $calculadora->getFeriadoDoDia($data, $feriados);
+            $registro->setDataHora($dataHora);
+            $registro->setTipo($form->get('tipo')->getData());
+            $registro->setObservacao($form->get('observacao')->getData());
+            $registro->setSedeNomeSnapshot('Lançamento manual');
 
-            if ($diaSemana === 7) {
-                $this->addFlash('danger', 'Não é permitido editar batidas em domingos.');
-            } elseif ($feriadoDoDia !== null) {
-                $this->addFlash('danger', sprintf('O dia %s é feriado (%s). Não é permitido editar batidas.', $data->format('d/m/Y'), $feriadoDoDia->getNome()));
-            } elseif ($diaSemana === 6) {
-                $escala = $user->getEscalaTrabalho();
-                $trabalhaNoSabado = $escala !== null
-                    && in_array(6, $escala->getDiasSemana(), true)
-                    && $escala->getCargaHorariaSabado() !== null;
+            $entityManager->flush();
 
-                if (!$trabalhaNoSabado) {
-                    $this->addFlash('danger', 'Este usuário não possui escala de trabalho configurada para sábados.');
-                } else {
-                    $dataHora = new \DateTime(
-                        $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
-                    );
+            $this->addFlash('success', 'Batida atualizada com sucesso.');
 
-                    $registro->setDataHora($dataHora);
-                    $registro->setTipo($form->get('tipo')->getData());
-                    $registro->setObservacao($form->get('observacao')->getData());
-                    $registro->setSedeNomeSnapshot('Lançamento manual');
-
-                    $entityManager->flush();
-
-                    $this->addFlash('success', 'Batida atualizada com sucesso.');
-
-                    return $this->redirectToRoute('app_tenant_user_edit_role', [
-                        'tenantId'    => $tenantId,
-                        'id'          => $user->getId(),
-                        'competencia' => $competencia,
-                        'tab'         => 'ponto',
-                    ]);
-                }
-            } else {
-                $dataHora = new \DateTime(
-                    $data->format('Y-m-d') . ' ' . $hora->format('H:i:s')
-                );
-
-                $registro->setDataHora($dataHora);
-                $registro->setTipo($form->get('tipo')->getData());
-                $registro->setObservacao($form->get('observacao')->getData());
-                $registro->setSedeNomeSnapshot('Lançamento manual');
-
-                $entityManager->flush();
-
-                $this->addFlash('success', 'Batida atualizada com sucesso.');
-
-                return $this->redirectToRoute('app_tenant_user_edit_role', [
-                    'tenantId'    => $tenantId,
-                    'id'          => $user->getId(),
-                    'competencia' => $competencia,
-                    'tab'         => 'ponto',
-                ]);
-            }
+            return $this->redirectToRoute('app_tenant_user_edit_role', [
+                'tenantId'    => $tenantId,
+                'id'          => $user->getId(),
+                'competencia' => $competencia,
+                'tab'         => 'ponto',
+            ]);
         }
 
         return $this->render('tenant/ponto_edit.html.twig', [

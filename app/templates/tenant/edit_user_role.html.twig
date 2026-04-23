@@ -340,20 +340,6 @@
             modal.show();
         };
 
-        // Bloquear adição de batida manual aos domingos
-        var formAddBatida = document.querySelector('#modalAddBatida form');
-        if (formAddBatida) {
-            formAddBatida.addEventListener('submit', function (e) {
-                var dataInput = document.getElementById('modalAddData');
-                if (!dataInput || !dataInput.value) return;
-                var partes = dataInput.value.split('-');
-                var dataSelecionada = new Date(parseInt(partes[0]), parseInt(partes[1]) - 1, parseInt(partes[2]));
-                if (dataSelecionada.getDay() === 0) {
-                    e.preventDefault();
-                    alert('Não é permitido adicionar batidas aos domingos.');
-                }
-            });
-        }
     });
 </script>
 {% endblock %}
