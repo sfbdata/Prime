@@ -1,75 +1,78 @@
-# JusPrime — Diretrizes IA
+# JusPrime — Contexto Geral
 
 SaaS jurídico multi-tenant. PHP 8.2+, Symfony 7.4, Doctrine ORM 3.x, PostgreSQL 15, Twig, Docker.
 
 ## Idioma
-Código, comentários e commits em **português brasileiro**. `camelCase` métodos/variáveis, `PascalCase` classes, `snake_case` rotas/templates. Aspas simples, `===`/`!==`.
 
-## Arquitetura — Obrigatório para código novo
-Cada domínio em `src/<Dominio>/` com: `Controller/` `UseCase/` `Domain/` `Entity/` `Repository/` `DTO/` `Form/`
+Código, comentários e commits em **português brasileiro**.
+`camelCase` métodos/variáveis · `PascalCase` classes · `snake_case` rotas/templates/colunas DB.
 
-- **Controller:** só HTTP — chama UseCase, retorna response. Nada de lógica.
-- **UseCase:** orquestra o fluxo (um por ação de negócio)
-- **Domain:** regras puras — sem `Symfony\`, sem Doctrine
-- **DTO:** entrada/saída de dados — nunca passar entidade Doctrine para a view ou form
-  - Fluxo: Form → DTO → UseCase → Entity → Repository persiste
-- **Repository:** estende `ServiceEntityRepository`
+## Arquitetura
 
-Domínios: Cliente, Processo, Ponto, Tarefa, Agenda, ServiceDesk, Tenant, Permission.
+Cada domínio em `app/src/<Dominio>/` com: `Controller/` `UseCase/` `Entity/` `Repository/` `DTO/` `Form/`
 
-Pastas globais `src/Controller/`, `src/Entity/`, `src/Service/` etc. são **legado** — não criar arquivos novos lá.
+Fluxo obrigatório: `Request → Controller → Form/DTO → UseCase → Entity → Repository → flush()`
 
-## Regras Críticas
+Pastas `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository/` são **legado** — não criar arquivos novos lá.
 
-**Multi-tenancy:** toda query filtra por `tenant`. Ao criar entidades: `$user->getTenant()`. Nunca buscar por ID sem validar posse do tenant.
+## Fluxo de desenvolvimento obrigatório
 
-**Permissões:** sempre `PermissionChecker`, nunca roles direto:
+Antes de implementar qualquer funcionalidade ou correção:
+1. Analise ou crie o(s) UseCase(s) envolvidos
+2. Escreva ou ajuste os testes (unit do UseCase + functional do controller)
+3. Só então implemente o restante (controller, template, form, etc.)
+
+## Regras que se aplicam em todo arquivo novo
+
+- `declare(strict_types=1);` · type hints em 100% de args/retornos · `private readonly` no construtor
+- Classes `final` por padrão — **exceto entidades Doctrine** (proxies via herança)
+- Atributos PHP (`#[Route]`, `#[ORM\...]`) — nunca anotações docblock
+- `===`/`!==` sempre · nunca `else`/`elseif` após `if` que retorna ou lança
+
+## Multi-tenancy (crítico)
+
+Toda query filtra por `tenant`. Nunca buscar por ID sem validar posse do tenant.
+
+## Permissões (crítico)
+
 ```php
-$checker->canAccessModule($user, 'clientes');   // correto
-in_array('ROLE_ADMIN', $user->getRoles());       // errado
+$checker->canAccessModule($user, 'clientes');  // correto
+in_array('ROLE_ADMIN', $user->getRoles());     // errado — não respeita hierarquia
 ```
+
 Padrão: `modules.<modulo>.view` · `admin.<area>.<acao>` · `resources.<tipo>.<acao>`
-Acesso granular a recursos: usar `ResourceAccessTrait` no controller.
 
-**Docker:** todos os comandos dentro do container, a partir de `/var/www/app`:
+## Docker — todos os comandos dentro do container
+
 ```bash
-docker exec -it jusprime_php_dev bash   # entrar no container
-# dentro: cd app && php bin/console <cmd>
-
-# ou direto:
 docker exec jusprime_php_dev bash -c 'cd app && php bin/console <cmd>'
 docker exec jusprime_php_dev bash -c 'cd app && composer <cmd>'
+docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'
 ```
 
-**Comandos — nunca criar/editar manualmente o que um comando já faz:**
-- Arquivos de código → `make:controller` `make:entity` `make:form` etc.
-- Dependências → `composer require`
-- Schema do banco → `doctrine:migrations:diff` + `doctrine:migrations:migrate`
-- Inspecionar container/rotas → `debug:container` · `debug:router` · `debug:autowiring`
-
-## Symfony
-- **Entidades:** usar constructor property promotion do PHP 8.x — nunca declarar propriedades separadas do construtor.
-- `#[Route(...)]` para rotas, `#[ORM\...]` para mapeamento
-- Controllers estendem `AbstractController`. Injeção via construtor `private readonly`. Nunca `$this->get()`.
-- Autowire + autoconfigure habilitados. Services explícitos só quando necessário.
-- Migration a cada alteração de schema: `doctrine:migrations:diff` → revisar SQL gerado → commitar junto com a entidade. Coluna `group`: `name: '"group"'`.
-
-## Twig
-- Templates em `templates/<modulo>/`, parciais em `_partials/`. Todo texto via `|trans`.
-- Permissões: `{{ can_access_module('clientes') }}` via `PermissionExtension`.
-
-## Testes
-- Unit → `tests/<Dominio>/Unit/` — PHPUnit (Services, Entities, UseCases isolados)
-- Functional → `tests/<Dominio>/Functional/` — `WebTestCase` (Controllers/endpoints)
-- Todo novo Service e endpoint precisa de teste
-- Rodar: `docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'`
-
-## Segurança
-- CSRF: `$this->isCsrfTokenValid()` em todo POST/DELETE sensível
-- Senhas: sempre `UserPasswordHasherInterface` — nunca plain-text
-- Validação: Symfony Validator no DTO — nunca na entidade ou controller
-- Queries: sempre parâmetros nomeados em DQL/SQL — nunca concatenação de string
-- Uploads: validar mimetype + extensão + tamanho antes de persistir
+Nunca rodar `php`, `composer` ou `bin/console` fora do container.
 
 ## Git
-Commits imperativos: "Adicionar X", "Corrigir Y" (máx. 72 chars, sem ponto). Branch: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`
+
+Commits imperativos em português: "Adicionar X", "Corrigir Y" (máx. 72 chars, sem ponto final).
+Branch: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`
+
+---
+
+## Guia de leitura dos CLAUDE.md por tarefa
+
+Leia apenas o(s) arquivo(s) relevantes para o que está fazendo. Não leia todos de uma vez.
+
+| Tarefa | Ler |
+|---|---|
+| Criar/editar controller | `app/src/_referencia/Controller/CLAUDE.md` |
+| Criar/editar entidade | `app/src/_referencia/Entity/CLAUDE.md` |
+| Criar/editar repository | `app/src/_referencia/Repository/CLAUDE.md` |
+| Criar/editar use case | `app/src/_referencia/UseCase/CLAUDE.md` |
+| Criar/editar DTO | `app/src/_referencia/DTO/CLAUDE.md` |
+| Criar/editar form type | `app/src/_referencia/Form/CLAUDE.md` |
+| Criar/editar template Twig | `app/templates/CLAUDE.md` |
+| Escrever testes | `app/tests/CLAUDE.md` |
+| Usar serviços compartilhados (storage, etc.) | `app/src/Shared/CLAUDE.md` |
+| Entender domínios ativos e estrutura geral de `src/` | `app/src/CLAUDE.md` |
+| Trabalhar num domínio específico | Ler também `app/src/<Dominio>/<Camada>/CLAUDE.md` se existir |

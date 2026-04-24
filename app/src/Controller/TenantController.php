@@ -245,6 +245,23 @@ final class TenantController extends AbstractController
         $lotacoesForm = $this->createForm(TenantLotacoesType::class, $tenant);
         $lotacoesForm->handleRequest($request);
         if ($lotacoesForm->isSubmitted() && $lotacoesForm->isValid()) {
+            $lotacoesNoForm = [];
+            foreach ($lotacoesForm->get('lotacoes')->all() as $childForm) {
+                /** @var \App\Entity\Tenant\Lotacao $lotacao */
+                $lotacao = $childForm->getData();
+                if ($lotacao->getId() === null) {
+                    $lotacao->setTenant($tenant);
+                    $entityManager->persist($lotacao);
+                }
+                if ($lotacao->getId() !== null) {
+                    $lotacoesNoForm[] = $lotacao->getId();
+                }
+            }
+            foreach ($tenant->getLotacoes() as $lotacaoExistente) {
+                if (!in_array($lotacaoExistente->getId(), $lotacoesNoForm, true)) {
+                    $entityManager->remove($lotacaoExistente);
+                }
+            }
             $entityManager->flush();
             $this->addFlash('success', 'Lotações atualizadas com sucesso!');
             return $this->redirectToRoute('app_tenant_edit', ['id' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
