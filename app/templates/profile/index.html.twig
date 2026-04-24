@@ -44,6 +44,7 @@
     transition: filter .2s;
     position: relative;
     box-shadow: 0 2px 8px rgba(0,0,0,.18);
+    padding: 0;
 }
 .perfil-foto-btn img {
     width: 100%;
@@ -63,6 +64,7 @@
     justify-content: center;
     opacity: 0;
     transition: opacity .2s;
+    pointer-events: none;
 }
 .perfil-foto-overlay i {
     color: #fff;
@@ -190,19 +192,6 @@ input[type="range"].img-slider {
     accent-color: #2563a8;
     cursor: pointer;
 }
-
-/* ── Empty foto placeholder ── */
-.perfil-avatar-letter {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, #1a3a5c, #2563a8);
-    color: #fff;
-    font-size: 2.6rem;
-    font-weight: 700;
-}
 </style>
 {% endblock %}
 
@@ -210,12 +199,20 @@ input[type="range"].img-slider {
 <div class="row justify-content-center">
     <div class="col-12 col-xl-9">
 
+        {% for msg in app.flashes('success') %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ msg }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+
         {# ── Card principal ── #}
         <div class="perfil-card">
 
-            {# Capa #}
+            {# Capa com botão de foto #}
             <div class="perfil-capa">
                 <div class="perfil-foto-wrap">
+                    {# O botão abre o modal de visualização/troca de foto #}
                     <button class="perfil-foto-btn" type="button"
                             data-bs-toggle="modal" data-bs-target="#modalFotoVer"
                             title="Clique para alterar a foto">
@@ -224,8 +221,8 @@ input[type="range"].img-slider {
                                  src="{{ path('app_profile_foto_serve', {nome: perfil.fotoUrl}) }}"
                                  alt="Foto de perfil">
                         {% else %}
-                            <div class="perfil-avatar-letter" id="fotoPerfilAtual">
-                                {{ user.fullName|slice(0,1)|upper }}
+                            <div id="fotoPerfilAtual" style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;font-size:2.6rem;font-weight:700;">
+                                {{ perfil.iniciais }}
                             </div>
                         {% endif %}
                         <span class="perfil-foto-overlay">
@@ -239,14 +236,14 @@ input[type="range"].img-slider {
             <div class="perfil-info-row">
                 <div>
                     <div class="perfil-nome" id="perfilNomeExibido">
-                        {{ perfil.nomeCompleto ?? user.fullName }}
+                        {{ perfil.nomeExibido }}
                     </div>
                     <div class="perfil-cargo-lotacao">
-                        {% if user.cargo %}
-                            <i class="bi bi-briefcase me-1"></i>{{ user.cargo.nome }}
+                        {% if perfil.cargo %}
+                            <i class="bi bi-briefcase me-1"></i>{{ perfil.cargo }}
                         {% endif %}
-                        {% if user.lotacao %}
-                            <i class="bi bi-geo-alt ms-2 me-1"></i>{{ user.lotacao.nome }}
+                        {% if perfil.lotacao %}
+                            <i class="bi bi-geo-alt ms-2 me-1"></i>{{ perfil.lotacao }}
                         {% endif %}
                     </div>
                 </div>
@@ -265,12 +262,8 @@ input[type="range"].img-slider {
                        maxlength="255"
                        placeholder="Adicione um status..."
                        value="{{ perfil.status ?? '' }}">
-                <button class="btn btn-primary btn-sm perfil-status-save-btn" id="btnSalvarStatus">
-                    Salvar
-                </button>
-                <button class="btn btn-link btn-sm perfil-status-save-btn text-muted" id="btnCancelarStatus">
-                    Cancelar
-                </button>
+                <button class="btn btn-primary btn-sm perfil-status-save-btn" id="btnSalvarStatus">Salvar</button>
+                <button class="btn btn-link btn-sm perfil-status-save-btn text-muted" id="btnCancelarStatus">Cancelar</button>
             </div>
 
             {# Dados pessoais exibidos #}
@@ -280,7 +273,7 @@ input[type="range"].img-slider {
                         <div class="perfil-dado-item">
                             <i class="bi bi-envelope"></i>
                             <span class="perfil-dado-label">E-mail</span>
-                            <span>{{ user.email }}</span>
+                            <span>{{ perfil.email }}</span>
                         </div>
                         <div class="perfil-dado-item" id="dadoCpf" {% if not perfil.cpf %}style="display:none"{% endif %}>
                             <i class="bi bi-person-vcard"></i>
@@ -307,7 +300,7 @@ input[type="range"].img-slider {
                         <div class="perfil-dado-item">
                             <i class="bi bi-calendar-check"></i>
                             <span class="perfil-dado-label">Membro desde</span>
-                            <span>{{ user.createdAt|date('d/m/Y') }}</span>
+                            <span>{{ perfil.membroDesde|date('d/m/Y') }}</span>
                         </div>
                     </div>
                 </div>
@@ -340,7 +333,7 @@ input[type="range"].img-slider {
                     <div id="modalFotoPreviewImg"
                          class="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
                          style="width:160px;height:160px;background:linear-gradient(135deg,#1a3a5c,#2563a8);font-size:4rem;font-weight:700;color:#fff;">
-                        {{ user.fullName|slice(0,1)|upper }}
+                        {{ perfil.iniciais }}
                     </div>
                 {% endif %}
             </div>
@@ -374,21 +367,17 @@ input[type="range"].img-slider {
                 <div id="cropperWrap">
                     <img id="imgCropper" src="" alt="Editar foto">
                 </div>
-
                 <div class="img-slider-wrap mt-3">
                     <div class="img-slider-label">
                         <i class="bi bi-zoom-in"></i> Zoom
                     </div>
-                    <input type="range" class="img-slider" id="sliderZoom"
-                           min="0.1" max="3" step="0.01" value="1">
+                    <input type="range" class="img-slider" id="sliderZoom" min="0.1" max="3" step="0.01" value="1">
                 </div>
-
                 <div class="img-slider-wrap">
                     <div class="img-slider-label">
                         <i class="bi bi-arrow-repeat"></i> Rotação
                     </div>
-                    <input type="range" class="img-slider" id="sliderRotacao"
-                           min="-180" max="180" step="1" value="0">
+                    <input type="range" class="img-slider" id="sliderRotacao" min="-180" max="180" step="1" value="0">
                 </div>
             </div>
             <div class="modal-footer">
@@ -442,7 +431,6 @@ input[type="range"].img-slider {
 {% endblock %}
 
 {% block javascripts %}
-{# Cropper.js #}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css" crossorigin="anonymous">
 <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js" crossorigin="anonymous"></script>
 
@@ -450,18 +438,17 @@ input[type="range"].img-slider {
 (function () {
     'use strict';
 
-    // ── CSRF tokens
     const TOKEN_STATUS = '{{ csrf_token('profile_status') }}';
     const TOKEN_FOTO   = '{{ csrf_token('profile_foto') }}';
 
-    // ── Status editável
-    const inputStatus   = document.getElementById('statusInput');
-    const btnSalvar     = document.getElementById('btnSalvarStatus');
-    const btnCancelar   = document.getElementById('btnCancelarStatus');
-    let statusOriginal  = inputStatus.value;
+    // ── Status editável ──
+    const inputStatus  = document.getElementById('statusInput');
+    const btnSalvar    = document.getElementById('btnSalvarStatus');
+    const btnCancelar  = document.getElementById('btnCancelarStatus');
+    let statusOriginal = inputStatus.value;
 
     function mostrarBotoesStatus(show) {
-        btnSalvar.style.display  = show ? 'inline-block' : 'none';
+        btnSalvar.style.display   = show ? 'inline-block' : 'none';
         btnCancelar.style.display = show ? 'inline-block' : 'none';
     }
 
@@ -490,14 +477,13 @@ input[type="range"].img-slider {
             } else {
                 alert(data.erro ?? 'Erro ao salvar status.');
             }
-        } catch (e) {
+        } catch {
             alert('Erro de comunicação.');
         }
     });
 
-    // ── Foto: Cropper
+    // ── Foto: Cropper ──
     let cropper = null;
-    let srcCropperAtual = null;
 
     const inputFoto          = document.getElementById('inputFotoNova');
     const imgCropper         = document.getElementById('imgCropper');
@@ -511,40 +497,42 @@ input[type="range"].img-slider {
 
     const modalVerEl    = document.getElementById('modalFotoVer');
     const modalEditarEl = document.getElementById('modalFotoEditar');
-    const modalVer      = bootstrap.Modal.getOrCreate(modalVerEl);
-    const modalEditar   = new bootstrap.Modal(modalEditarEl);
+    const modalVer    = bootstrap.Modal.getInstance(modalVerEl) ?? new bootstrap.Modal(modalVerEl);
+    const modalEditar = new bootstrap.Modal(modalEditarEl);
+
+    function iniciarCropper() {
+        if (cropper) { cropper.destroy(); cropper = null; }
+        cropper = new Cropper(imgCropper, {
+            aspectRatio: 1,
+            viewMode: 1,
+            dragMode: 'move',
+            autoCropArea: 0.9,
+            movable: true,
+            zoomable: true,
+            rotatable: true,
+            scalable: false,
+            guides: false,
+            center: true,
+            highlight: true,
+            cropBoxMovable: false,
+            cropBoxResizable: false,
+            ready() { sliderZoom.value = 1; sliderRotacao.value = 0; },
+        });
+    }
 
     function abrirCropper(src) {
-        srcCropperAtual     = src;
         imgCropper.src      = src;
         sliderZoom.value    = 1;
         sliderRotacao.value = 0;
 
-        modalVer.hide();
+        modalEditarEl.addEventListener('shown.bs.modal', iniciarCropper, { once: true });
 
-        modalVerEl.addEventListener('hidden.bs.modal', () => {
+        if (modalVerEl.classList.contains('show')) {
+            modalVerEl.addEventListener('hidden.bs.modal', () => modalEditar.show(), { once: true });
+            modalVer.hide();
+        } else {
             modalEditar.show();
-        }, { once: true });
-
-        modalEditarEl.addEventListener('shown.bs.modal', () => {
-            if (cropper) { cropper.destroy(); cropper = null; }
-            cropper = new Cropper(imgCropper, {
-                aspectRatio: 1,
-                viewMode: 1,
-                dragMode: 'move',
-                autoCropArea: 0.9,
-                movable: true,
-                zoomable: true,
-                rotatable: true,
-                scalable: false,
-                guides: false,
-                center: true,
-                highlight: true,
-                cropBoxMovable: false,
-                cropBoxResizable: false,
-                ready() { sliderZoom.value = 1; sliderRotacao.value = 0; },
-            });
-        }, { once: true });
+        }
     }
 
     inputFoto.addEventListener('change', function () {
@@ -556,7 +544,6 @@ input[type="range"].img-slider {
         this.value = '';
     });
 
-    // Editar foto existente já salva
     if (btnEditarExistente) {
         btnEditarExistente.addEventListener('click', () => {
             const imgModal = document.getElementById('modalFotoPreviewImg');
@@ -567,13 +554,11 @@ input[type="range"].img-slider {
     }
 
     sliderZoom.addEventListener('input', function () {
-        if (!cropper) return;
-        cropper.zoomTo(parseFloat(this.value));
+        if (cropper) cropper.zoomTo(parseFloat(this.value));
     });
 
     sliderRotacao.addEventListener('input', function () {
-        if (!cropper) return;
-        cropper.rotateTo(parseInt(this.value, 10));
+        if (cropper) cropper.rotateTo(parseInt(this.value, 10));
     });
 
     function fecharCropper() {
@@ -602,8 +587,7 @@ input[type="range"].img-slider {
                 if (data.ok) {
                     const novaUrl = data.url + '?t=' + Date.now();
 
-                    // Atualiza avatar no botão da página
-                    const wrap = document.querySelector('.perfil-foto-btn');
+                    const wrap    = document.querySelector('.perfil-foto-btn');
                     const overlay = wrap.querySelector('.perfil-foto-overlay');
                     wrap.innerHTML = '';
 
@@ -618,7 +602,6 @@ input[type="range"].img-slider {
                     ov.innerHTML = '<i class="bi bi-camera-fill"></i>';
                     wrap.appendChild(ov);
 
-                    // Atualiza preview no modal de visualização
                     const previewEl = document.getElementById('modalFotoPreviewImg');
                     if (previewEl) {
                         if (previewEl.tagName === 'IMG') {
@@ -632,15 +615,15 @@ input[type="range"].img-slider {
                             novoPreview.src = novaUrl;
                             previewEl.replaceWith(novoPreview);
                         }
-                        // Exibe botão "Editar imagem" se estava oculto
-                        if (btnEditarExistente) btnEditarExistente.style.display = '';
                     }
+
+                    if (btnEditarExistente) btnEditarExistente.style.display = '';
 
                     fecharCropper();
                 } else {
                     alert(data.erro ?? 'Erro ao salvar foto.');
                 }
-            } catch (e) {
+            } catch {
                 alert('Erro de comunicação.');
             } finally {
                 btnConfirmar.disabled = false;
@@ -649,7 +632,7 @@ input[type="range"].img-slider {
         }, 'image/jpeg', 0.90);
     });
 
-    // ── CPF mask simples
+    // ── Máscara CPF ──
     const campoCpf = document.getElementById('campoCpf');
     if (campoCpf) {
         campoCpf.addEventListener('input', function () {
@@ -659,33 +642,9 @@ input[type="range"].img-slider {
             else if (v.length > 3) v = v.replace(/(\d{3})(\d{3})/, '$1.$2');
             this.value = v;
         });
-
-        campoCpf.addEventListener('blur', function () {
-            const digits = this.value.replace(/\D/g, '');
-            if (digits.length > 0 && !validarCpf(digits)) {
-                this.setCustomValidity('CPF inválido');
-                this.reportValidity();
-            } else {
-                this.setCustomValidity('');
-            }
-        });
     }
 
-    function validarCpf(c) {
-        if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
-        let s = 0;
-        for (let i = 0; i < 9; i++) s += parseInt(c[i]) * (10 - i);
-        let r = 11 - (s % 11);
-        if (r >= 10) r = 0;
-        if (r !== parseInt(c[9])) return false;
-        s = 0;
-        for (let i = 0; i < 10; i++) s += parseInt(c[i]) * (11 - i);
-        r = 11 - (s % 11);
-        if (r >= 10) r = 0;
-        return r === parseInt(c[10]);
-    }
-
-    // ── Abrir modal com erro flash (dados inválidos)
+    // ── Reabrir modal de dados se houve erro de validação ──
     {% for msg in app.flashes('error') %}
     (function () {
         const m = bootstrap.Modal.getOrCreate(document.getElementById('modalDadosPessoais'));

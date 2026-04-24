@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
  * Responsabilidades: salvar, servir e excluir arquivos físicos.
  * Lógica de negócio (validação, categorização, permissões) fica nos domínios.
  */
-final class ArquivoStorageService
+final class ArquivoStorageService implements ArquivoStorageInterface
 {
     public function salvar(UploadedFile $arquivo, string $diretorio): string
     {

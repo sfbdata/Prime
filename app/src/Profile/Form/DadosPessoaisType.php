@@ -1,15 +1,15 @@
 <?php
-
+declare(strict_types=1);
 namespace App\Profile\Form;
 
-use App\Profile\DTO\DadosPessoaisDTO;
+use App\Profile\DTO\DadosPessoaisInput;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
-class DadosPessoaisType extends AbstractType
+final class DadosPessoaisType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
@@ -44,8 +44,8 @@ class DadosPessoaisType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
-            'data_class'      => DadosPessoaisDTO::class,
-            'csrf_token_id'   => 'dados_pessoais',
+            'data_class'    => DadosPessoaisInput::class,
+            'csrf_token_id' => 'profile_dados',
         ]);
     }
 }

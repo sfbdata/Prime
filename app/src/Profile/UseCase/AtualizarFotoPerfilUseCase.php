@@ -1,41 +1,42 @@
 <?php
-
+declare(strict_types=1);
 namespace App\Profile\UseCase;
 
-use App\Entity\Auth\UserProfile;
-use App\Shared\Service\ArquivoStorageService;
-use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\HttpFoundation\File\UploadedFile;
+use App\Profile\DTO\AtualizarFotoInput;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Repository\UserProfileRepository;
+use App\Shared\Service\ArquivoStorageInterface;
 
 final class AtualizarFotoPerfilUseCase
 {
     private const MIME_PERMITIDOS = ['image/jpeg', 'image/png', 'image/webp'];
-    private const TAMANHO_MAX = 3 * 1024 * 1024; // 3 MB
+    private const TAMANHO_MAX = 3 * 1024 * 1024;
 
     public function __construct(
-        private readonly EntityManagerInterface $em,
-        private readonly ArquivoStorageService $storage,
+        private readonly UserProfileRepository $repository,
+        private readonly ArquivoStorageInterface $storage,
         private readonly string $fotosPerfilDir,
-    ) {}
+    ) {
+    }
 
-    public function executar(UserProfile $perfil, UploadedFile $arquivo): void
+    public function executar(UserProfile $perfil, AtualizarFotoInput $input): void
     {
-        if (!in_array($arquivo->getMimeType(), self::MIME_PERMITIDOS, true)) {
+        if (!in_array($input->arquivo->getMimeType(), self::MIME_PERMITIDOS, true)) {
             throw new \InvalidArgumentException('Formato de imagem não permitido. Use JPG, PNG ou WebP.');
         }
 
-        if ($arquivo->getSize() > self::TAMANHO_MAX) {
+        if ($input->arquivo->getSize() > self::TAMANHO_MAX) {
             throw new \InvalidArgumentException('A imagem deve ter no máximo 3 MB.');
         }
 
-        // Remove foto anterior se existir
-        if ($perfil->getFotoUrl() !== null) {
-            $caminhoAntigo = $this->storage->caminho($this->fotosPerfilDir, $perfil->getFotoUrl());
-            $this->storage->excluir($caminhoAntigo);
-        }
+        $novoNome = $this->storage->salvar($input->arquivo, $this->fotosPerfilDir);
 
-        $nomeArquivo = $this->storage->salvar($arquivo, $this->fotosPerfilDir);
-        $perfil->setFotoUrl($nomeArquivo);
-        $this->em->flush();
+        $fotoAnterior = $perfil->getFotoUrl();
+        $perfil->setFotoUrl($novoNome);
+        $this->repository->salvar($perfil, flush: true);
+
+        if ($fotoAnterior !== null) {
+            $this->storage->excluir($this->storage->caminho($this->fotosPerfilDir, $fotoAnterior));
+        }
     }
 }

@@ -1,19 +1,29 @@
 <?php
-
+declare(strict_types=1);
 namespace App\Profile\UseCase;
 
-use App\Entity\Auth\UserProfile;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Profile\DTO\AtualizarStatusInput;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Repository\UserProfileRepository;
 
 final class AtualizarStatusUseCase
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-    ) {}
+        private readonly UserProfileRepository $repository,
+    ) {
+    }
 
-    public function executar(UserProfile $perfil, ?string $status): void
+    public function executar(UserProfile $perfil, AtualizarStatusInput $input): void
     {
-        $perfil->setStatus($status !== '' ? mb_substr($status ?? '', 0, 255) : null);
-        $this->em->flush();
+        $status = $input->status;
+
+        if ($status === null || $status === '') {
+            $status = null;
+        } else {
+            $status = mb_substr($status, 0, 255);
+        }
+
+        $perfil->setStatus($status);
+        $this->repository->salvar($perfil, flush: true);
     }
 }

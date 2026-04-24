@@ -7,6 +7,7 @@ use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Profile\Entity\UserProfile;
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;

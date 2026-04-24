@@ -1,24 +1,26 @@
 <?php
-
+declare(strict_types=1);
 namespace App\Profile\UseCase;
 
-use App\Entity\Auth\UserProfile;
-use App\Profile\DTO\DadosPessoaisDTO;
-use Doctrine\ORM\EntityManagerInterface;
+use App\Profile\DTO\DadosPessoaisInput;
+use App\Profile\Entity\UserProfile;
+use App\Profile\Repository\UserProfileRepository;
 
 final class AtualizarDadosPessoaisUseCase
 {
     public function __construct(
-        private readonly EntityManagerInterface $em,
-    ) {}
+        private readonly UserProfileRepository $repository,
+    ) {
+    }
 
-    public function executar(UserProfile $perfil, DadosPessoaisDTO $dto): void
+    public function executar(UserProfile $perfil, DadosPessoaisInput $input): void
     {
-        $perfil->setNomeCompleto($dto->nomeCompleto);
-        $perfil->setCpf($dto->cpf !== '' ? $dto->cpf : null);
-        $perfil->setDataNascimento($dto->dataNascimento);
-        $perfil->setCtps($dto->ctps !== '' ? $dto->ctps : null);
-        $perfil->setSerie($dto->serie !== '' ? $dto->serie : null);
-        $this->em->flush();
+        $perfil->setNomeCompleto($input->nomeCompleto);
+        $perfil->setCpf(($input->cpf !== '' && $input->cpf !== null) ? $input->cpf : null);
+        $perfil->setDataNascimento($input->dataNascimento);
+        $perfil->setCtps(($input->ctps !== '' && $input->ctps !== null) ? $input->ctps : null);
+        $perfil->setSerie(($input->serie !== '' && $input->serie !== null) ? $input->serie : null);
+
+        $this->repository->salvar($perfil, flush: true);
     }
 }

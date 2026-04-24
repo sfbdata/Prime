@@ -1,16 +1,16 @@
 <?php
-
+declare(strict_types=1);
 namespace App\Profile\DTO;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-class DadosPessoaisDTO
+final class DadosPessoaisInput
 {
-    #[Assert\NotBlank(message: 'Nome completo é obrigatório')]
+    #[Assert\NotBlank(message: 'Nome completo é obrigatório.')]
     #[Assert\Length(max: 255)]
     public ?string $nomeCompleto = null;
 
-    #[Assert\Length(max: 14, message: 'CPF inválido')]
+    #[Assert\Length(max: 14, maxMessage: 'CPF inválido.')]
     public ?string $cpf = null;
 
     public ?\DateTimeInterface $dataNascimento = null;
