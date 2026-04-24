@@ -646,11 +646,57 @@ final class PontoController extends AbstractController
             $nomeUsuario = (string) $targetUser->getUserIdentifier();
         }
 
+        $tenant  = $targetUser->getTenant();
+        $profile = $targetUser->getProfile();
+        $cargo   = $targetUser->getCargo();
+        $lotacao = $targetUser->getLotacao();
+
+        $inicioMesFormatado = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->format('d/m/Y');
+        $fimMesFormatado    = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->modify('last day of this month')->format('d/m/Y');
+
+        $cnpj = '';
+        if ($tenant?->getCnpj() !== null && $tenant->getCnpj() !== '') {
+            $raw = preg_replace('/\D/', '', $tenant->getCnpj()) ?? '';
+            if (strlen($raw) === 14) {
+                $cnpj = sprintf('%s.%s.%s/%s-%s', substr($raw, 0, 2), substr($raw, 2, 3), substr($raw, 5, 3), substr($raw, 8, 4), substr($raw, 12, 2));
+            } else {
+                $cnpj = $tenant->getCnpj();
+            }
+        }
+
+        $enderecoPartes = array_filter([
+            $tenant?->getLogradouro(),
+            $tenant?->getNumero() ? ', ' . $tenant->getNumero() : null,
+            $tenant?->getComplemento() ? ' - ' . $tenant->getComplemento() : null,
+        ]);
+        $enderecoLinha1 = implode('', $enderecoPartes);
+        $cidadeEstado   = trim(($tenant?->getBairro() ? $tenant->getBairro() . ' - ' : '') . ($tenant?->getCidade() ?? '') . ($tenant?->getEstado() ? ' - ' . $tenant->getEstado() : ''));
+        $cep            = $tenant?->getCep() ? ' CEP ' . $tenant->getCep() : '';
+        $enderecoLinha2 = trim($cidadeEstado . $cep);
+
+        $horarios = $this->resolverHorariosJornada($escala, $jornadaTenantPdf);
+
         $html = $twig->render('ponto/folha_pdf.html.twig', [
-            'folhaRows' => $folhaRows,
-            'mes' => $mes,
-            'ano' => $ano,
-            'nomeUsuario' => $nomeUsuario,
+            'folhaRows'         => $folhaRows,
+            'mes'               => $mes,
+            'ano'               => $ano,
+            'nomeUsuario'       => mb_strtoupper($nomeUsuario),
+            'nomeEmpresa'       => mb_strtoupper($tenant?->getName() ?? ''),
+            'inicioMes'         => $inicioMesFormatado,
+            'fimMes'            => $fimMesFormatado,
+            'numeroTrabalhador' => sprintf('%06d', (int) $targetUser->getId()),
+            'cargo'             => mb_strtoupper($cargo?->getNome() ?? ''),
+            'ctps'              => $profile?->getCtps() ?? '',
+            'serie'             => $profile?->getSerie() ?? '',
+            'descrJornada'      => $this->gerarDescrJornada($escala, $jornadaTenantPdf),
+            'lotacao'           => ($lotacao !== null ? sprintf('%04d', (int) $lotacao->getId()) . ' - ' . mb_strtoupper($lotacao->getNome()) : ''),
+            'cnpj'              => $cnpj,
+            'enderecoLinha1'    => $enderecoLinha1,
+            'enderecoLinha2'    => $enderecoLinha2,
+            'horaEntrada'       => $horarios['entrada'] . ' h',
+            'horaRepouso'       => $horarios['repouso'] . ' h',
+            'horaRetorno'       => $horarios['retorno'] . ' h',
+            'horaSaida'         => $horarios['saida'] . ' h',
         ]);
 
         $options = new Options();
@@ -736,6 +782,157 @@ final class PontoController extends AbstractController
 
         $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.xlsx', $nomeUsuario, $mes, $ano);
 
-        return $xlsxExporter->exportar($folhaRows, $nomeArquivo);
+        $tenant  = $targetUser->getTenant();
+        $profile = $targetUser->getProfile();
+        $cargo   = $targetUser->getCargo();
+        $lotacao = $targetUser->getLotacao();
+
+        $inicioMesFormatado = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->format('d/m/Y');
+        $fimMesFormatado    = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->modify('last day of this month')->format('d/m/Y');
+
+        $cnpj = '';
+        if ($tenant?->getCnpj() !== null && $tenant->getCnpj() !== '') {
+            $raw = preg_replace('/\D/', '', $tenant->getCnpj()) ?? '';
+            if (strlen($raw) === 14) {
+                $cnpj = sprintf('%s.%s.%s/%s-%s', substr($raw, 0, 2), substr($raw, 2, 3), substr($raw, 5, 3), substr($raw, 8, 4), substr($raw, 12, 2));
+            } else {
+                $cnpj = $tenant->getCnpj();
+            }
+        }
+
+        $nomeXlsx = trim((string) $targetUser->getFullName());
+        if ($nomeXlsx === '') {
+            $nomeXlsx = (string) $targetUser->getUserIdentifier();
+        }
+
+        $horarios = $this->resolverHorariosJornada($escala, $jornadaTenantXlsx);
+
+        $enderecoPartesXlsx = array_filter([
+            $tenant?->getLogradouro(),
+            $tenant?->getNumero() ? ', ' . $tenant->getNumero() : null,
+            $tenant?->getComplemento() ? ' - ' . $tenant->getComplemento() : null,
+        ]);
+        $cidadeEstadoXlsx = trim(($tenant?->getBairro() ? $tenant->getBairro() . ' - ' : '') . ($tenant?->getCidade() ?? '') . ($tenant?->getEstado() ? ' - ' . $tenant->getEstado() : ''));
+        $cepXlsx          = $tenant?->getCep() ? ' CEP ' . $tenant->getCep() : '';
+
+        $cabecalho = [
+            'nomeEmpresa'       => mb_strtoupper($tenant?->getName() ?? ''),
+            'cnpj'              => $cnpj,
+            'enderecoLinha1'    => implode('', $enderecoPartesXlsx),
+            'enderecoLinha2'    => trim($cidadeEstadoXlsx . $cepXlsx),
+            'inicioMes'         => $inicioMesFormatado,
+            'fimMes'            => $fimMesFormatado,
+            'nomeUsuario'       => mb_strtoupper($nomeXlsx),
+            'numeroTrabalhador' => sprintf('%06d', (int) $targetUser->getId()),
+            'cargo'             => mb_strtoupper($cargo?->getNome() ?? ''),
+            'ctps'              => $profile?->getCtps() ?? '',
+            'serie'             => $profile?->getSerie() ?? '',
+            'descrJornada'      => $this->gerarDescrJornada($escala, $jornadaTenantXlsx),
+            'lotacao'           => ($lotacao !== null ? sprintf('%04d', (int) $lotacao->getId()) . ' - ' . mb_strtoupper($lotacao->getNome()) : ''),
+            'horaEntrada'       => $horarios['entrada'] . ' h',
+            'horaRepouso'       => $horarios['repouso'] . ' h',
+            'horaRetorno'       => $horarios['retorno'] . ' h',
+            'horaSaida'         => $horarios['saida'] . ' h',
+        ];
+
+        return $xlsxExporter->exportar($folhaRows, $nomeArquivo, $cabecalho);
+    }
+
+    /**
+     * Resolve os horários de jornada usando a mesma hierarquia do JornadaResolver:
+     * 1. Blocos do usuário (primeiro dia útil encontrado)
+     * 2. Blocos do tenant (primeiro dia útil encontrado)
+     * 3. Campos planos da EscalaTrabalho (legado)
+     * 4. Defaults fixos
+     *
+     * @return array{entrada: string, repouso: string, retorno: string, saida: string}
+     */
+    private function resolverHorariosJornada(
+        ?\App\Entity\Ponto\EscalaTrabalho $escala,
+        ?\App\Entity\Ponto\JornadaTenant $jornadaTenant,
+    ): array {
+        $diasUteis = [1, 2, 3, 4, 5];
+
+        if ($escala !== null && !$escala->getBlocos()->isEmpty()) {
+            foreach ($escala->getBlocos() as $bloco) {
+                foreach ($diasUteis as $dia) {
+                    if (in_array($dia, $bloco->getDiasSemana(), true)) {
+                        return [
+                            'entrada' => $bloco->getEntrada(),
+                            'repouso' => $bloco->getRepouso() ?? '',
+                            'retorno' => $bloco->getRetorno() ?? '',
+                            'saida'   => $bloco->getSaida(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        if ($jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty()) {
+            foreach ($jornadaTenant->getBlocos() as $bloco) {
+                foreach ($diasUteis as $dia) {
+                    if (in_array($dia, $bloco->getDiasSemana(), true)) {
+                        return [
+                            'entrada' => $bloco->getEntrada(),
+                            'repouso' => $bloco->getRepouso() ?? '',
+                            'retorno' => $bloco->getRetorno() ?? '',
+                            'saida'   => $bloco->getSaida(),
+                        ];
+                    }
+                }
+            }
+        }
+
+        if ($escala !== null) {
+            return [
+                'entrada' => $escala->getEntrada1() ?? '08:00',
+                'repouso' => $escala->getSaida1()   ?? '12:00',
+                'retorno' => $escala->getEntrada2() ?? '13:00',
+                'saida'   => $escala->getSaida2()   ?? '17:00',
+            ];
+        }
+
+        return ['entrada' => '08:00', 'repouso' => '12:00', 'retorno' => '13:00', 'saida' => '17:00'];
+    }
+
+    /**
+     * Gera a descrição da jornada (ex: "STQQS") a partir dos dias de trabalho.
+     * Usa a mesma hierarquia do JornadaResolver: blocos do usuário > blocos do tenant > escala plana.
+     */
+    private function gerarDescrJornada(
+        ?\App\Entity\Ponto\EscalaTrabalho $escala,
+        ?\App\Entity\Ponto\JornadaTenant $jornadaTenant,
+    ): string {
+        $mapa = [1 => 'S', 2 => 'T', 3 => 'Q', 4 => 'Q', 5 => 'S', 6 => 'S', 7 => 'D'];
+
+        if ($escala !== null && !$escala->getBlocos()->isEmpty()) {
+            $dias = [];
+            foreach ($escala->getBlocos() as $bloco) {
+                foreach ($bloco->getDiasSemana() as $d) {
+                    $dias[$d] = true;
+                }
+            }
+            ksort($dias);
+            return implode('', array_map(static fn(int $d) => $mapa[$d] ?? '', array_keys($dias)));
+        }
+
+        if ($jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty()) {
+            $dias = [];
+            foreach ($jornadaTenant->getBlocos() as $bloco) {
+                foreach ($bloco->getDiasSemana() as $d) {
+                    $dias[$d] = true;
+                }
+            }
+            ksort($dias);
+            return implode('', array_map(static fn(int $d) => $mapa[$d] ?? '', array_keys($dias)));
+        }
+
+        if ($escala !== null) {
+            $dias = $escala->getDiasSemana();
+            sort($dias);
+            return implode('', array_map(static fn(int $d) => $mapa[$d] ?? '', $dias));
+        }
+
+        return '';
     }
 }
