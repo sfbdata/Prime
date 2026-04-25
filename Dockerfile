@@ -34,8 +34,8 @@ RUN echo "date.timezone = America/Sao_Paulo" > /usr/local/etc/php/conf.d/timezon
 
 RUN { \
     echo "max_input_vars = 5000"; \
-    echo "upload_max_filesize = 5M"; \
-    echo "post_max_size = 10M"; \
+    echo "upload_max_filesize = 15M"; \
+    echo "post_max_size = 20M"; \
 } > /usr/local/etc/php/conf.d/limits.ini
 
 # -----------------------------------------------
