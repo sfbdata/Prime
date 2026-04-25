@@ -176,11 +176,6 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="contrato-tab" data-bs-toggle="tab" data-bs-target="#contrato" type="button" role="tab" aria-controls="contrato" aria-selected="false">
-                                    <i class="bi bi-file-earmark-text me-1"></i> Contrato
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="financeiro-tab" data-bs-toggle="tab" data-bs-target="#financeiro" type="button" role="tab" aria-controls="financeiro" aria-selected="false">
                                     <i class="bi bi-cash-coin me-1"></i> Financeiro
                                 </button>
@@ -562,34 +557,13 @@
                                 </div><!-- /processoTabContent -->
                             </div>
 
-                            {# Tab: Contrato #}
-                            <div class="tab-pane fade" id="contrato" role="tabpanel" aria-labelledby="contrato-tab">
-                                <div class="d-flex flex-column align-items-start gap-3">
-                                    <p class="text-muted small mb-0">
-                                        <i class="bi bi-info-circle me-1"></i> Nenhum contrato vinculado a esta pasta.
-                                    </p>
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-primary"
-                                            disabled
-                                            title="Em breve">
-                                        <i class="bi bi-plus-lg me-1"></i> Adicionar Contrato
-                                    </button>
-                                </div>
-                            </div>
-
                             {# Tab: Financeiro #}
                             <div class="tab-pane fade" id="financeiro" role="tabpanel" aria-labelledby="financeiro-tab">
-                                <div class="d-flex flex-column align-items-start gap-3">
-                                    <p class="text-muted small mb-0">
-                                        <i class="bi bi-info-circle me-1"></i> Nenhum lançamento financeiro vinculado a esta pasta.
-                                    </p>
-                                    <button type="button"
-                                            class="btn btn-sm btn-outline-primary"
-                                            disabled
-                                            title="Em breve">
-                                        <i class="bi bi-plus-lg me-1"></i> Adicionar Lançamento
-                                    </button>
-                                </div>
+                                {% include 'pasta/_financeiro.html.twig' with {
+                                    pasta: pasta,
+                                    documentosContrato: documentosContrato,
+                                    observacoesFinanceiras: observacoesFinanceiras,
+                                } only %}
                             </div>
 
                             {# Tab: Tarefas #}
@@ -729,6 +703,11 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                {% include 'pasta/_detalhes_obs.html.twig' with {
+                                    pasta: pasta,
+                                    observacoesDetalhes: observacoesDetalhes,
+                                } only %}
                             </div>
 
                         </div>
@@ -742,31 +721,57 @@
                                 <h3 class="card-title"><i class="bi bi-check2-square me-1"></i> Documentação</h3>
                             </div>
                             <div class="card-body">
-                                {# Status #}
-                                {% set totalCategorias = documentTypeOptions|length %}
-                                {% set categoriasComDoc = 0 %}
-                                {% for tipo, label in documentTypeOptions %}
-                                    {% if (documentosPorTipo[tipo] ?? [])|length > 0 %}
-                                        {% set categoriasComDoc = categoriasComDoc + 1 %}
-                                    {% endif %}
-                                {% endfor %}
-
-                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                {# Checklist dinâmico #}
+                                <div class="d-flex justify-content-between align-items-center mb-2">
                                     <h6 class="text-muted mb-0"><i class="bi bi-check2-square me-1"></i> Checklist de Documentação</h6>
-                                    <span class="badge {{ categoriasComDoc == totalCategorias ? 'text-bg-success' : 'text-bg-warning' }}">
-                                        {{ categoriasComDoc == totalCategorias ? 'Completo' : 'Pendente de Documentação' }}
-                                    </span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span id="checklistBadge" class="badge {{ concluidosChecklist == totalChecklist and totalChecklist > 0 ? 'text-bg-success' : 'text-bg-warning' }}">
+                                            {{ concluidosChecklist }}/{{ totalChecklist }} itens
+                                        </span>
+                                        <button type="button" id="btnChecklistEditar" class="btn btn-sm btn-outline-secondary" title="Editar checklist">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button" id="btnChecklistAdicionar" class="btn btn-sm btn-outline-primary" title="Adicionar item">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
                                 </div>
 
-                                <ul class="list-unstyled mb-0">
-                                    {% for tipo, label in documentTypeOptions %}
-                                        {% set temDoc = (documentosPorTipo[tipo] ?? [])|length > 0 %}
-                                        <li class="mb-2">
-                                            <i class="bi {{ temDoc ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} me-2"></i>
-                                            {{ label }}
-                                        </li>
+                                <ul id="checklistLista" class="list-unstyled mb-2">
+                                    {% for item in checklistItens %}
+                                    <li class="checklist-item d-flex align-items-center gap-2 py-1 border-bottom"
+                                        data-item-id="{{ item.id }}"
+                                        data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}">
+                                        <button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle" title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
+                                            <i class="bi {{ item.concluido ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} fs-5"></i>
+                                        </button>
+                                        <span class="checklist-drag-handle d-none text-muted" style="cursor:grab" title="Arrastar para reordenar">
+                                            <i class="bi bi-grip-vertical"></i>
+                                        </span>
+                                        <span class="checklist-item-titulo flex-grow-1 {{ item.concluido ? 'text-decoration-line-through text-muted' : '' }}">
+                                            {{ item.titulo|e }}
+                                        </span>
+                                        <input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none"
+                                               value="{{ item.titulo|e('html_attr') }}" maxlength="255">
+                                        <button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir d-none" title="Excluir item">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </li>
+                                    {% else %}
+                                    <li id="checklistVazio" class="text-muted small py-2">
+                                        Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
+                                    </li>
                                     {% endfor %}
                                 </ul>
+
+                                <div id="checklistFormAdicionar" class="d-none mb-2">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="checklistNovoTitulo" class="form-control" placeholder="Descrição do item..." maxlength="255">
+                                        <button type="button" id="btnChecklistSalvarNovo" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
+                                        <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
+                                    </div>
+                                    <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
+                                </div>
 
                                 <hr>
 
@@ -2500,13 +2505,14 @@ document.addEventListener('DOMContentLoaded', function () {
     const previewDownload  = document.getElementById('previewDocDownload');
 
     previewModal.addEventListener('show.bs.modal', function (e) {
-        const btn  = e.relatedTarget;
-        const url  = btn.dataset.url;
-        const nome = btn.dataset.nome;
-        const mime = btn.dataset.mime;
+        const btn      = e.relatedTarget;
+        const url      = btn.dataset.url;
+        const nome     = btn.dataset.nome;
+        const mime     = btn.dataset.mime;
+        const urlDl    = btn.dataset.download || url.replace('/visualizar', '/download');
 
         previewNome.textContent = nome;
-        previewDownload.href = url.replace('/visualizar', '/download');
+        previewDownload.href = urlDl;
         previewConteudo.innerHTML = '';
 
         if (mime === 'application/pdf') {
@@ -3565,6 +3571,317 @@ document.addEventListener('DOMContentLoaded', function () {
             btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Tarefa';
         });
     });
+}());
+</script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
+<script>
+(function () {
+    'use strict';
+
+    var PASTA_ID      = {{ pasta.id }};
+    var CSRF_PASTA    = {{ csrf_token('checklist_pasta_' ~ pasta.id)|json_encode|raw }};
+    var URL_ADD       = '/pasta/' + PASTA_ID + '/checklist';
+    var URL_REORDER   = '/pasta/' + PASTA_ID + '/checklist/reordenar';
+    function URL_TOGGLE(id)  { return '/pasta/' + PASTA_ID + '/checklist/' + id + '/toggle'; }
+    function URL_EDIT(id)    { return '/pasta/' + PASTA_ID + '/checklist/' + id + '/editar'; }
+    function URL_DELETE(id)  { return '/pasta/' + PASTA_ID + '/checklist/' + id + '/excluir'; }
+
+    var lista           = document.getElementById('checklistLista');
+    var badge           = document.getElementById('checklistBadge');
+    var btnEditar       = document.getElementById('btnChecklistEditar');
+    var btnAdicionar    = document.getElementById('btnChecklistAdicionar');
+    var formAdicionar   = document.getElementById('checklistFormAdicionar');
+    var inputNovo       = document.getElementById('checklistNovoTitulo');
+    var btnSalvarNovo   = document.getElementById('btnChecklistSalvarNovo');
+    var btnCancelarNovo = document.getElementById('btnChecklistCancelarNovo');
+    var erroNovo        = document.getElementById('checklistErroNovo');
+
+    if (!lista) { return; }
+
+    var modoEdicao = false;
+    var sortable   = null;
+
+    function atualizarBadge() {
+        var itens      = lista.querySelectorAll('.checklist-item');
+        var total      = itens.length;
+        var concluidos = [].filter.call(itens, function (li) {
+            var icon = li.querySelector('.js-checklist-toggle i');
+            return icon && icon.classList.contains('text-success');
+        }).length;
+        badge.textContent = concluidos + '/' + total + ' itens';
+        badge.className   = 'badge ' + (total > 0 && concluidos === total ? 'text-bg-success' : 'text-bg-warning');
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    function escapeAttr(str) {
+        return String(str).replace(/"/g, '&quot;');
+    }
+
+    // ── Toggle ────────────────────────────────────────────────────────────────
+
+    lista.addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-checklist-toggle');
+        if (!btn) { return; }
+
+        var li     = btn.closest('.checklist-item');
+        var itemId = li.dataset.itemId;
+        var csrf   = li.dataset.csrfItem;
+        var icon   = btn.querySelector('i');
+
+        btn.disabled = true;
+
+        var fd = new FormData();
+        fd.append('_token', csrf);
+
+        fetch(URL_TOGGLE(itemId), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.ok) { throw new Error(data.erro || 'Erro'); }
+
+            var titulo = li.querySelector('.checklist-item-titulo');
+            if (data.concluido) {
+                icon.className = 'bi bi-check-circle-fill text-success fs-5';
+                btn.title = 'Marcar como pendente';
+                titulo.classList.add('text-decoration-line-through', 'text-muted');
+            } else {
+                icon.className = 'bi bi-x-circle-fill text-danger fs-5';
+                btn.title = 'Marcar como concluído';
+                titulo.classList.remove('text-decoration-line-through', 'text-muted');
+            }
+            atualizarBadge();
+        })
+        .catch(function (err) { console.error('Erro no toggle:', err); })
+        .finally(function () { btn.disabled = false; });
+    });
+
+    // ── Modo edição ────────────────────────────────────────────────────────────
+
+    btnEditar.addEventListener('click', function () {
+        modoEdicao = !modoEdicao;
+        btnEditar.classList.toggle('active', modoEdicao);
+
+        lista.querySelectorAll('.checklist-item').forEach(function (li) {
+            li.querySelector('.checklist-drag-handle').classList.toggle('d-none', !modoEdicao);
+            li.querySelector('.js-checklist-excluir').classList.toggle('d-none', !modoEdicao);
+            li.querySelector('.js-checklist-toggle').classList.toggle('d-none', modoEdicao);
+        });
+
+        if (modoEdicao) {
+            sortable = new Sortable(lista, {
+                handle: '.checklist-drag-handle',
+                animation: 150,
+                onEnd: function () {
+                    var ids = [].map.call(lista.querySelectorAll('.checklist-item'), function (li) {
+                        return parseInt(li.dataset.itemId, 10);
+                    });
+                    fetch(URL_REORDER, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                        },
+                        body: JSON.stringify({ ids: ids, _token: CSRF_PASTA }),
+                    })
+                    .catch(function (err) { console.error('Erro ao reordenar:', err); });
+                },
+            });
+        } else {
+            if (sortable) { sortable.destroy(); sortable = null; }
+        }
+    });
+
+    // ── Edição inline (dblclick no título) ────────────────────────────────────
+
+    lista.addEventListener('dblclick', function (e) {
+        if (!modoEdicao) { return; }
+        var li = e.target.closest('.checklist-item');
+        if (!li) { return; }
+
+        var titulo = li.querySelector('.checklist-item-titulo');
+        var input  = li.querySelector('.checklist-item-input');
+        titulo.classList.add('d-none');
+        input.classList.remove('d-none');
+        input.focus();
+        input.select();
+    });
+
+    lista.addEventListener('keydown', function (e) {
+        var input = e.target.closest('.checklist-item-input');
+        if (!input) { return; }
+        if (e.key === 'Enter')  { salvarEdicaoItem(input); }
+        if (e.key === 'Escape') { cancelarEdicaoItem(input); }
+    });
+
+    lista.addEventListener('blur', function (e) {
+        var input = e.target.closest ? e.target.closest('.checklist-item-input') : null;
+        if (input) { salvarEdicaoItem(input); }
+    }, true);
+
+    function salvarEdicaoItem(input) {
+        var li     = input.closest('.checklist-item');
+        var itemId = li.dataset.itemId;
+        var csrf   = li.dataset.csrfItem;
+        var titulo = input.value.trim();
+
+        if (titulo === '') { cancelarEdicaoItem(input); return; }
+
+        var fd = new FormData();
+        fd.append('titulo', titulo);
+        fd.append('_token', csrf);
+
+        fetch(URL_EDIT(itemId), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.ok) { throw new Error(data.erro || 'Erro'); }
+            li.querySelector('.checklist-item-titulo').textContent = data.titulo;
+            input.value = data.titulo;
+            cancelarEdicaoItem(input);
+        })
+        .catch(function (err) {
+            console.error('Erro ao editar item:', err);
+            cancelarEdicaoItem(input);
+        });
+    }
+
+    function cancelarEdicaoItem(input) {
+        var li = input.closest('.checklist-item');
+        input.classList.add('d-none');
+        li.querySelector('.checklist-item-titulo').classList.remove('d-none');
+    }
+
+    // ── Excluir ───────────────────────────────────────────────────────────────
+
+    lista.addEventListener('click', function (e) {
+        var btn = e.target.closest('.js-checklist-excluir');
+        if (!btn) { return; }
+
+        if (!confirm('Excluir este item do checklist?')) { return; }
+
+        var li     = btn.closest('.checklist-item');
+        var itemId = li.dataset.itemId;
+        var csrf   = li.dataset.csrfItem;
+
+        var fd = new FormData();
+        fd.append('_token', csrf);
+
+        fetch(URL_DELETE(itemId), {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.ok) { throw new Error(data.erro || 'Erro'); }
+            li.remove();
+            atualizarBadge();
+
+            if (!lista.querySelector('.checklist-item')) {
+                var vazio = document.createElement('li');
+                vazio.id = 'checklistVazio';
+                vazio.className = 'text-muted small py-2';
+                vazio.innerHTML = 'Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.';
+                lista.appendChild(vazio);
+            }
+        })
+        .catch(function (err) { console.error('Erro ao excluir item:', err); });
+    });
+
+    // ── Adicionar item ────────────────────────────────────────────────────────
+
+    btnAdicionar.addEventListener('click', function () {
+        formAdicionar.classList.toggle('d-none');
+        if (!formAdicionar.classList.contains('d-none')) {
+            inputNovo.focus();
+        }
+    });
+
+    btnCancelarNovo.addEventListener('click', function () {
+        formAdicionar.classList.add('d-none');
+        inputNovo.value = '';
+        erroNovo.classList.add('d-none');
+    });
+
+    btnSalvarNovo.addEventListener('click', salvarNovoItem);
+
+    inputNovo.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter')  { salvarNovoItem(); }
+        if (e.key === 'Escape') { btnCancelarNovo.click(); }
+    });
+
+    function salvarNovoItem() {
+        var titulo = inputNovo.value.trim();
+        if (titulo === '') {
+            erroNovo.textContent = 'O título não pode ser vazio.';
+            erroNovo.classList.remove('d-none');
+            return;
+        }
+
+        btnSalvarNovo.disabled = true;
+        erroNovo.classList.add('d-none');
+
+        var fd = new FormData();
+        fd.append('titulo', titulo);
+        fd.append('_token', CSRF_PASTA);
+
+        fetch(URL_ADD, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: fd,
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (!data.ok) { throw new Error(data.erro || 'Erro'); }
+
+            var vazio = document.getElementById('checklistVazio');
+            if (vazio) { vazio.remove(); }
+
+            lista.appendChild(criarItemLi(data));
+            inputNovo.value = '';
+            formAdicionar.classList.add('d-none');
+            atualizarBadge();
+        })
+        .catch(function (err) {
+            erroNovo.textContent = err.message || 'Erro ao adicionar item.';
+            erroNovo.classList.remove('d-none');
+        })
+        .finally(function () { btnSalvarNovo.disabled = false; });
+    }
+
+    function criarItemLi(data) {
+        var li = document.createElement('li');
+        li.className = 'checklist-item d-flex align-items-center gap-2 py-1 border-bottom';
+        li.dataset.itemId   = data.id;
+        li.dataset.csrfItem = data.csrfItem;
+
+        var toggleDisplay = modoEdicao ? 'd-none' : '';
+        var handleDisplay = modoEdicao ? '' : 'd-none';
+        var excluirDisplay = modoEdicao ? '' : 'd-none';
+
+        li.innerHTML =
+            '<button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle ' + toggleDisplay + '" title="Marcar como concluído">' +
+                '<i class="bi bi-x-circle-fill text-danger fs-5"></i>' +
+            '</button>' +
+            '<span class="checklist-drag-handle ' + handleDisplay + ' text-muted" style="cursor:grab" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>' +
+            '<span class="checklist-item-titulo flex-grow-1">' + escapeHtml(data.titulo) + '</span>' +
+            '<input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none" value="' + escapeAttr(data.titulo) + '" maxlength="255">' +
+            '<button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir ' + excluirDisplay + '" title="Excluir item"><i class="bi bi-trash"></i></button>';
+
+        return li;
+    }
+
 }());
 </script>
 {% endblock %}

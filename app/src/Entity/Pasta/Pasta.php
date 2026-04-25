@@ -104,6 +104,22 @@ class Pasta
     #[ORM\Column(length: 40)]
     private string $statusDocumentos = self::STATUS_DOCUMENTOS_PENDENTE;
 
+    #[ORM\Column(length: 20, options: ['default' => 'PENDENTE'])]
+    private string $situacaoContrato = 'PENDENTE';
+
+    #[ORM\Column(options: ['default' => false])]
+    private bool $proBono = false;
+
+    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaObservacaoFinanceira::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $observacoesFinanceiras;
+
+    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaObservacaoDetalhes::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    private Collection $observacoesDetalhes;
+
+    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaChecklistItem::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['ordem' => 'ASC'])]
+    private Collection $checklistItens;
+
     public function __construct()
     {
         $this->dataAbertura = new \DateTimeImmutable();
@@ -114,6 +130,9 @@ class Pasta
         $this->documentos = new ArrayCollection();
         $this->tarefas = new ArrayCollection();
         $this->marcadores = new ArrayCollection();
+        $this->observacoesFinanceiras = new ArrayCollection();
+        $this->observacoesDetalhes = new ArrayCollection();
+        $this->checklistItens = new ArrayCollection();
         $this->statusDocumentos = self::STATUS_DOCUMENTOS_PENDENTE;
     }
 
@@ -373,6 +392,49 @@ class Pasta
                 return true;
             }
         }
+
         return false;
+    }
+
+    public function getSituacaoContrato(): string
+    {
+        return $this->situacaoContrato;
+    }
+
+    public function setSituacaoContrato(string $situacao): self
+    {
+        $this->situacaoContrato = $situacao;
+
+        return $this;
+    }
+
+    public function isProBono(): bool
+    {
+        return $this->proBono;
+    }
+
+    public function setProBono(bool $proBono): self
+    {
+        $this->proBono = $proBono;
+
+        return $this;
+    }
+
+    /** @return Collection<int, PastaObservacaoFinanceira> */
+    public function getObservacoesFinanceiras(): Collection
+    {
+        return $this->observacoesFinanceiras;
+    }
+
+    /** @return Collection<int, PastaObservacaoDetalhes> */
+    public function getObservacoesDetalhes(): Collection
+    {
+        return $this->observacoesDetalhes;
+    }
+
+    /** @return Collection<int, PastaChecklistItem> */
+    public function getChecklistItens(): Collection
+    {
+        return $this->checklistItens;
     }
 }

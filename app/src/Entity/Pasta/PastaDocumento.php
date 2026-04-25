@@ -15,6 +15,7 @@ class PastaDocumento
     public const CATEGORIA_COMPROVANTE_RESIDENCIA = 'COMPROVANTE_RESIDENCIA';
     public const CATEGORIA_GRATUIDADE_JUSTICA = 'GRATUIDADE_JUSTICA';
     public const CATEGORIA_DEMAIS = 'DEMAIS';
+    public const CATEGORIA_CONTRATO = 'CONTRATO';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]

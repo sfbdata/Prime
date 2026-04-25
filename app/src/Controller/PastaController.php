@@ -26,10 +26,26 @@ use App\Repository\UserRepository;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Service\PermissionChecker;
 use App\Pasta\Service\PastaTimelineAssembler;
+use App\Entity\Pasta\PastaObservacaoDetalhes;
+use App\Entity\Pasta\PastaObservacaoFinanceira;
+use App\Entity\Pasta\PastaChecklistItem;
+use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
+use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
+use App\Pasta\UseCase\EditarChecklistItemUseCase;
+use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
+use App\Pasta\UseCase\EditarObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
+use App\Pasta\UseCase\EnviarObservacaoDetalhesUseCase;
+use App\Pasta\UseCase\EnviarObservacaoFinanceiraUseCase;
+use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
+use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
+use App\Pasta\UseCase\ToggleChecklistItemUseCase;
+use App\Repository\Pasta\PastaChecklistItemRepository;
+use App\Repository\Pasta\PastaObservacaoDetalhesRepository;
+use App\Repository\Pasta\PastaObservacaoFinanceiraRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use App\Shared\Service\ArquivoStorageService;
+use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -68,12 +84,25 @@ class PastaController extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly ValidatorInterface $validator,
         private readonly string $uploadsDir,
-        private readonly ArquivoStorageService $storage,
+        private readonly ArquivoStorageInterface $storage,
         private readonly PermissionChecker $permissionChecker,
         private readonly PastaTimelineAssembler $timelineAssembler,
         private readonly EnviarMensagemPastaUseCase $enviarMensagemUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly MarcadorRepository $marcadorRepository,
+        private readonly AlterarSituacaoContratoUseCase $alterarSituacaoContratoUseCase,
+        private readonly EnviarObservacaoFinanceiraUseCase $enviarObservacaoFinanceiraUseCase,
+        private readonly EditarObservacaoFinanceiraUseCase $editarObservacaoFinanceiraUseCase,
+        private readonly PastaObservacaoFinanceiraRepository $observacaoFinanceiraRepository,
+        private readonly EnviarObservacaoDetalhesUseCase $enviarObservacaoDetalhesUseCase,
+        private readonly EditarObservacaoDetalhesUseCase $editarObservacaoDetalhesUseCase,
+        private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
+        private readonly PastaChecklistItemRepository $checklistRepository,
+        private readonly AdicionarChecklistItemUseCase $adicionarChecklistItemUseCase,
+        private readonly ToggleChecklistItemUseCase $toggleChecklistItemUseCase,
+        private readonly EditarChecklistItemUseCase $editarChecklistItemUseCase,
+        private readonly ExcluirChecklistItemUseCase $excluirChecklistItemUseCase,
+        private readonly ReordenarChecklistItensUseCase $reordenarChecklistItensUseCase,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -137,6 +166,20 @@ class PastaController extends AbstractController
 
         $usuarios = $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
 
+        $documentosContrato      = $tenant !== null
+            ? $this->pastaDocumentoRepository->findByPastaECategoria($pasta, PastaDocumento::CATEGORIA_CONTRATO)
+            : [];
+        $observacoesFinanceiras  = $tenant !== null
+            ? $this->observacaoFinanceiraRepository->findByPasta($pasta, $tenant)
+            : [];
+        $observacoesDetalhes     = $tenant !== null
+            ? $this->observacaoDetalhesRepository->findByPasta($pasta, $tenant)
+            : [];
+
+        $checklistItens      = $tenant !== null ? $this->checklistRepository->findByPasta($pasta, $tenant) : [];
+        $totalChecklist      = count($checklistItens);
+        $concluidosChecklist = count(array_filter($checklistItens, fn($i) => $i->isConcluido()));
+
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
@@ -146,6 +189,12 @@ class PastaController extends AbstractController
             'timelineItems'               => $timelineItems,
             'todosMarcadores'             => $todosMarcadores,
             'usuarios'                    => $usuarios,
+            'documentosContrato'          => $documentosContrato,
+            'observacoesFinanceiras'      => $observacoesFinanceiras,
+            'observacoesDetalhes'         => $observacoesDetalhes,
+            'checklistItens'              => $checklistItens,
+            'totalChecklist'              => $totalChecklist,
+            'concluidosChecklist'         => $concluidosChecklist,
         ]);
     }
 
@@ -890,6 +939,14 @@ class PastaController extends AbstractController
         ClienteDocumento::CATEGORIA_DEMAIS                 => 'Demais documentos',
     ];
 
+    private const MIME_LIMITS_CONTRATO = [
+        'application/pdf'                                                                    => 10 * 1024 * 1024,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'           => 10 * 1024 * 1024,
+        'application/msword'                                                                 => 10 * 1024 * 1024,
+        'image/jpeg'                                                                         => 10 * 1024 * 1024,
+        'image/png'                                                                          => 10 * 1024 * 1024,
+    ];
+
     private const MIME_LIMITS = [
         // Imagens
         'image/png'                          => 3 * 1024 * 1024,
@@ -1132,6 +1189,590 @@ class PastaController extends AbstractController
         $this->addFlash('success', 'Documento removido com sucesso.');
 
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+    }
+
+    // ── Financeiro: Situação do Contrato ─────────────────────────────────────
+
+    #[Route('/{id}/situacao-contrato', name: 'pasta_alternar_situacao_contrato', methods: ['POST'])]
+    public function alternarSituacaoContrato(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_situacao_contrato_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $situacao = strtoupper(trim((string) $request->request->get('situacao', '')));
+
+        try {
+            $this->alterarSituacaoContratoUseCase->executar($pasta, $situacao);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['situacao' => $pasta->getSituacaoContrato()]);
+    }
+
+    // ── Financeiro: Pró-Bono ─────────────────────────────────────────────────
+
+    #[Route('/{id}/pro-bono', name: 'pasta_atualizar_pro_bono', methods: ['POST'])]
+    public function atualizarProBono(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_pro_bono_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $proBono = filter_var($request->request->get('pro_bono'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if ($proBono === null) {
+            return $this->json(['erro' => 'Valor inválido para pró-bono.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $pasta->setProBono($proBono);
+        $this->em->flush();
+
+        return $this->json(['proBono' => $pasta->isProBono()]);
+    }
+
+    // ── Financeiro: Upload de documento de contrato ──────────────────────────
+
+    #[Route('/{id}/financeiro/upload', name: 'pasta_financeiro_upload', methods: ['POST'])]
+    public function financeiroUpload(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_financeiro_upload_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $file = $request->files->get('arquivo');
+        if ($file === null) {
+            return $this->json(['erro' => 'Nenhum arquivo enviado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if (!$file->isValid()) {
+            return $this->json(['erro' => 'Arquivo inválido ou excede o limite de upload do servidor (máx. 15 MB).'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $mimeType = $file->getMimeType() ?? '';
+        if (!array_key_exists($mimeType, self::MIME_LIMITS_CONTRATO)) {
+            return $this->json(['erro' => 'Tipo de arquivo não permitido. Use PDF, DOCX ou imagem JPEG/PNG.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $tamanho = $file->getSize();
+        if ($tamanho === false || $tamanho > self::MIME_LIMITS_CONTRATO[$mimeType]) {
+            return $this->json(['erro' => 'Arquivo excede o limite de 10 MB.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
+
+        $doc = new PastaDocumento();
+        $doc->setPasta($pasta);
+        $doc->setTitulo($file->getClientOriginalName());
+        $doc->setCategoria(PastaDocumento::CATEGORIA_CONTRATO);
+        $doc->setCaminhoArquivo($nomeUnico);
+        $doc->setNomeOriginal($file->getClientOriginalName());
+        $doc->setMimeType($mimeType);
+        $doc->setTamanhoBytes($tamanho);
+
+        $this->em->persist($doc);
+        $this->em->flush();
+
+        return $this->json([
+            'id'           => $doc->getId(),
+            'titulo'       => $doc->getTitulo(),
+            'mimeType'     => $mimeType,
+            'urlVisualizar' => $this->generateUrl('pasta_financeiro_documento_view', ['id' => $pastaId, 'docId' => $doc->getId()]),
+            'urlDownload'   => $this->generateUrl('pasta_financeiro_documento_download', ['id' => $pastaId, 'docId' => $doc->getId()]),
+            'csrfRenomear' => $this->csrfTokenManager->getToken('pasta_financeiro_renomear_' . $doc->getId())->getValue(),
+            'csrfExcluir'  => $this->csrfTokenManager->getToken('pasta_financeiro_excluir_' . $doc->getId())->getValue(),
+        ], Response::HTTP_CREATED);
+    }
+
+    // ── Financeiro: Visualizar documento de contrato ─────────────────────────
+
+    #[Route('/{id}/financeiro/documento/{docId}/visualizar', name: 'pasta_financeiro_documento_view', methods: ['GET'])]
+    public function financeiroViewDocumento(Pasta $pasta, int $docId): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+            throw $this->createAccessDeniedException('Sem permissão.');
+        }
+
+        $doc = $this->pastaDocumentoRepository->find($docId);
+        if ($doc === null || $doc->getPasta()?->getId() !== $pastaId || $doc->getCategoria() !== PastaDocumento::CATEGORIA_CONTRATO) {
+            throw $this->createNotFoundException('Documento não encontrado.');
+        }
+
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+        if (!$this->storage->existe($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
+        }
+
+        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: true);
+    }
+
+    // ── Financeiro: Download documento de contrato ────────────────────────────
+
+    #[Route('/{id}/financeiro/documento/{docId}/download', name: 'pasta_financeiro_documento_download', methods: ['GET'])]
+    public function financeiroDownloadDocumento(Pasta $pasta, int $docId): Response
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+            throw $this->createAccessDeniedException('Sem permissão.');
+        }
+
+        $doc = $this->pastaDocumentoRepository->find($docId);
+        if ($doc === null || $doc->getPasta()?->getId() !== $pastaId || $doc->getCategoria() !== PastaDocumento::CATEGORIA_CONTRATO) {
+            throw $this->createNotFoundException('Documento não encontrado.');
+        }
+
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+        if (!$this->storage->existe($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado no servidor.');
+        }
+
+        return $this->storage->servir($caminho, $doc->getNomeOriginal(), inline: false);
+    }
+
+    // ── Financeiro: Renomear documento de contrato ───────────────────────────
+
+    #[Route('/{id}/financeiro/documento/{docId}/renomear', name: 'pasta_financeiro_documento_renomear', methods: ['POST'])]
+    public function financeiroRenomearDocumento(Pasta $pasta, int $docId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $doc = $this->pastaDocumentoRepository->find($docId);
+        if ($doc === null || $doc->getPasta()?->getId() !== $pastaId || $doc->getCategoria() !== PastaDocumento::CATEGORIA_CONTRATO) {
+            return $this->json(['erro' => 'Documento não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_financeiro_renomear_' . $docId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $novoTitulo = trim((string) $request->request->get('titulo', ''));
+        if ($novoTitulo === '') {
+            return $this->json(['erro' => 'O nome não pode ser vazio.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+        if (mb_strlen($novoTitulo) > 255) {
+            return $this->json(['erro' => 'Nome muito longo (máx. 255 caracteres).'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $doc->setTitulo($novoTitulo);
+        $this->em->flush();
+
+        return $this->json(['titulo' => $doc->getTitulo()]);
+    }
+
+    // ── Financeiro: Excluir documento de contrato ────────────────────────────
+
+    #[Route('/{id}/financeiro/documento/{docId}/excluir', name: 'pasta_financeiro_documento_excluir', methods: ['POST'])]
+    public function financeiroExcluirDocumento(Pasta $pasta, int $docId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $doc = $this->pastaDocumentoRepository->find($docId);
+        if ($doc === null || $doc->getPasta()?->getId() !== $pastaId || $doc->getCategoria() !== PastaDocumento::CATEGORIA_CONTRATO) {
+            return $this->json(['erro' => 'Documento não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_financeiro_excluir_' . $docId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
+        $this->em->remove($doc);
+        $this->em->flush();
+        $this->storage->excluir($caminho);
+
+        return $this->json(['sucesso' => true]);
+    }
+
+    // ── Financeiro: Enviar observação ─────────────────────────────────────────
+
+    #[Route('/{id}/financeiro/observacao', name: 'pasta_financeiro_observacao_enviar', methods: ['POST'])]
+    public function financeiroEnviarObservacao(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_financeiro_obs_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $conteudo = trim((string) $request->request->get('conteudo', ''));
+        if ($conteudo === '') {
+            return $this->json(['erro' => 'A observação não pode ser vazia.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $obs = $this->enviarObservacaoFinanceiraUseCase->executar($pasta, $currentUser, $conteudo);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'id'         => $obs->getId(),
+            'conteudo'   => $obs->getConteudo(),
+            'autorNome'  => $currentUser->getFullName(),
+            'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
+            'criadaEmTs' => $obs->getCriadaEm()->format(\DateTimeInterface::ATOM),
+            'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_financeiro_obs_editar_' . $obs->getId())->getValue(),
+            'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_financeiro_obs_excluir_' . $obs->getId())->getValue(),
+        ], Response::HTTP_CREATED);
+    }
+
+    // ── Financeiro: Editar observação ─────────────────────────────────────────
+
+    #[Route('/{id}/financeiro/observacao/{obsId}/editar', name: 'pasta_financeiro_observacao_editar', methods: ['POST'])]
+    public function financeiroEditarObservacao(Pasta $pasta, int $obsId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $obs = $this->em->find(PastaObservacaoFinanceira::class, $obsId);
+        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_financeiro_obs_editar_' . $obsId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $conteudo = trim((string) $request->request->get('conteudo', ''));
+
+        try {
+            $this->editarObservacaoFinanceiraUseCase->executar($obs, $conteudo);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'conteudo'  => $obs->getConteudo(),
+            'editadaEm' => $obs->getEditadaEm()?->format('d/m/Y H:i'),
+        ]);
+    }
+
+    // ── Financeiro: Excluir observação ────────────────────────────────────────
+
+    #[Route('/{id}/financeiro/observacao/{obsId}/excluir', name: 'pasta_financeiro_observacao_excluir', methods: ['POST'])]
+    public function financeiroExcluirObservacao(Pasta $pasta, int $obsId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $obs = $this->em->find(PastaObservacaoFinanceira::class, $obsId);
+        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_financeiro_obs_excluir_' . $obsId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $this->em->remove($obs);
+        $this->em->flush();
+
+        return $this->json(['sucesso' => true]);
+    }
+
+    // ── Detalhes: Enviar observação ───────────────────────────────────────────
+
+    #[Route('/{id}/detalhes/observacao', name: 'pasta_detalhes_observacao_enviar', methods: ['POST'])]
+    public function detalhesEnviarObservacao(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_detalhes_obs_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $conteudo = trim((string) $request->request->get('conteudo', ''));
+        if ($conteudo === '') {
+            return $this->json(['erro' => 'A observação não pode ser vazia.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $obs = $this->enviarObservacaoDetalhesUseCase->executar($pasta, $currentUser, $conteudo);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'id'         => $obs->getId(),
+            'conteudo'   => $obs->getConteudo(),
+            'autorNome'  => $currentUser->getFullName(),
+            'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
+            'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_detalhes_obs_editar_' . $obs->getId())->getValue(),
+            'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_detalhes_obs_excluir_' . $obs->getId())->getValue(),
+        ], Response::HTTP_CREATED);
+    }
+
+    // ── Detalhes: Editar observação ───────────────────────────────────────────
+
+    #[Route('/{id}/detalhes/observacao/{obsId}/editar', name: 'pasta_detalhes_observacao_editar', methods: ['POST'])]
+    public function detalhesEditarObservacao(Pasta $pasta, int $obsId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $obs = $this->em->find(PastaObservacaoDetalhes::class, $obsId);
+        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_detalhes_obs_editar_' . $obsId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $conteudo = trim((string) $request->request->get('conteudo', ''));
+
+        try {
+            $this->editarObservacaoDetalhesUseCase->executar($obs, $conteudo);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'conteudo'  => $obs->getConteudo(),
+            'editadaEm' => $obs->getEditadaEm()?->format('d/m/Y H:i'),
+        ]);
+    }
+
+    // ── Detalhes: Excluir observação ──────────────────────────────────────────
+
+    #[Route('/{id}/detalhes/observacao/{obsId}/excluir', name: 'pasta_detalhes_observacao_excluir', methods: ['POST'])]
+    public function detalhesExcluirObservacao(Pasta $pasta, int $obsId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $obs = $this->em->find(PastaObservacaoDetalhes::class, $obsId);
+        if ($obs === null || $obs->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Observação não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_detalhes_obs_excluir_' . $obsId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $this->em->remove($obs);
+        $this->em->flush();
+
+        return $this->json(['sucesso' => true]);
+    }
+
+    // ── Checklist dinâmico ────────────────────────────────────────────────────
+
+    #[Route('/{id}/checklist', name: 'pasta_checklist_adicionar', methods: ['POST'])]
+    public function checklistAdicionar(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('checklist_pasta_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $titulo = trim((string) $request->request->get('titulo', ''));
+
+        try {
+            $item = $this->adicionarChecklistItemUseCase->executar($pasta, $currentUser, $titulo);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'ok'       => true,
+            'id'       => $item->getId(),
+            'titulo'   => $item->getTitulo(),
+            'concluido' => $item->isConcluido(),
+            'csrfItem' => $this->csrfTokenManager->getToken('checklist_item_' . $item->getId())->getValue(),
+        ], Response::HTTP_CREATED);
+    }
+
+    #[Route('/{id}/checklist/{itemId}/toggle', name: 'pasta_checklist_toggle', methods: ['POST'])]
+    public function checklistToggle(Pasta $pasta, int $itemId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $item = $this->em->find(PastaChecklistItem::class, $itemId);
+        if ($item === null || $item->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Item não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('checklist_item_' . $itemId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $this->toggleChecklistItemUseCase->executar($item);
+
+        return $this->json(['ok' => true, 'concluido' => $item->isConcluido()]);
+    }
+
+    #[Route('/{id}/checklist/{itemId}/editar', name: 'pasta_checklist_editar', methods: ['POST'])]
+    public function checklistEditar(Pasta $pasta, int $itemId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $item = $this->em->find(PastaChecklistItem::class, $itemId);
+        if ($item === null || $item->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Item não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('checklist_item_' . $itemId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $titulo = trim((string) $request->request->get('titulo', ''));
+
+        try {
+            $this->editarChecklistItemUseCase->executar($item, $titulo);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json(['ok' => true, 'titulo' => $item->getTitulo()]);
+    }
+
+    #[Route('/{id}/checklist/{itemId}/excluir', name: 'pasta_checklist_excluir', methods: ['POST'])]
+    public function checklistExcluir(Pasta $pasta, int $itemId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $item = $this->em->find(PastaChecklistItem::class, $itemId);
+        if ($item === null || $item->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Item não encontrado.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('checklist_item_' . $itemId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $this->excluirChecklistItemUseCase->executar($item);
+
+        return $this->json(['ok' => true]);
+    }
+
+    #[Route('/{id}/checklist/reordenar', name: 'pasta_checklist_reordenar', methods: ['POST'])]
+    public function checklistReordenar(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $data  = json_decode((string) $request->getContent(), true);
+        $token = is_array($data) ? (string) ($data['_token'] ?? '') : '';
+        $ids   = is_array($data['ids'] ?? null) ? $data['ids'] : [];
+
+        if (!$this->isCsrfTokenValid('checklist_pasta_' . $pastaId, $token)) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $tenant = $currentUser->getTenant();
+        if ($tenant === null) {
+            return $this->json(['erro' => 'Usuário sem tenant.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $this->reordenarChecklistItensUseCase->executar($pasta, $tenant, $ids);
+
+        return $this->json(['ok' => true]);
     }
 
     private function markChecklistByCategoria(Pasta $pasta, string $categoria): void

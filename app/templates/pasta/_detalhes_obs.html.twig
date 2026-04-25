@@ -1,0 +1,300 @@
+{# ── Observações da Aba Detalhes ──────────────────────────────────────────── #}
+<div class="card mt-4">
+    <div class="card-header">
+        <span class="card-title mb-0 small fw-semibold"><i class="bi bi-chat-left-text me-1"></i> Observações</span>
+    </div>
+
+    <div class="card-body border-bottom pb-3">
+        <form id="formDetalhesObservacao">
+            <input type="hidden" name="_token" value="{{ csrf_token('pasta_detalhes_obs_' ~ pasta.id) }}">
+            <div class="d-flex gap-2 align-items-end">
+                <textarea name="conteudo"
+                          id="detalhesObsConteudo"
+                          class="form-control form-control-sm detalhes-obs-textarea"
+                          rows="2"
+                          maxlength="5000"
+                          placeholder="Adicionar observação… (Ctrl+Enter para enviar)"></textarea>
+                <button type="submit" class="btn btn-primary btn-sm flex-shrink-0" id="btnEnviarObsDetalhes">
+                    <i class="bi bi-send me-1"></i> Enviar
+                </button>
+            </div>
+            <div id="detalhesObsErro" class="text-danger small mt-1 d-none"></div>
+        </form>
+    </div>
+
+    <div class="card-body p-2">
+        <div id="detalhesObsLista"
+             style="max-height: 400px; overflow-y: auto; padding: 4px 8px;">
+            {% if observacoesDetalhes is empty %}
+                <div class="text-center text-muted py-4" id="detalhesObsVazio">
+                    <i class="bi bi-chat-left fs-2 d-block mb-2 opacity-25"></i>
+                    <span class="small">Nenhuma observação registrada.</span>
+                </div>
+            {% else %}
+                {% for obs in observacoesDetalhes %}
+                    <div class="detalhes-obs-item mb-2" id="detalhes-obs-{{ obs.id }}">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                            <div class="small text-muted">
+                                <i class="bi bi-person me-1"></i>{{ obs.autor.fullName ?? obs.autor.email }}
+                                <span class="ms-2"><i class="bi bi-clock me-1"></i>{{ obs.criadaEm|date('d/m/Y H:i') }}</span>
+                                {% if obs.editadaEm %}
+                                    <span class="ms-1 fst-italic">(editado)</span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-1 flex-shrink-0">
+                                <button type="button"
+                                        class="btn btn-link btn-sm p-0 text-secondary btn-editar-obs-det"
+                                        title="Editar observação"
+                                        data-obs-id="{{ obs.id }}"
+                                        data-conteudo="{{ obs.conteudo|e('html_attr') }}"
+                                        data-csrf="{{ csrf_token('pasta_detalhes_obs_editar_' ~ obs.id) }}"
+                                        data-url="{{ path('pasta_detalhes_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button"
+                                        class="btn btn-link btn-sm p-0 text-danger btn-excluir-obs-det"
+                                        title="Excluir observação"
+                                        data-obs-id="{{ obs.id }}"
+                                        data-csrf="{{ csrf_token('pasta_detalhes_obs_excluir_' ~ obs.id) }}"
+                                        data-url="{{ path('pasta_detalhes_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="obs-conteudo-det">{{ obs.conteudo|nl2br }}</div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.detalhes-obs-item {
+    border: 1px solid #e9ecef;
+    border-left: 3px solid #0dcaf0;
+    border-radius: 0 6px 6px 0;
+    padding: 8px 12px;
+    background: rgba(13, 202, 240, 0.04);
+}
+.obs-conteudo-det {
+    font-size: .875rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.detalhes-obs-textarea {
+    font-size: .875rem;
+    resize: vertical;
+}
+</style>
+
+<script>
+(function () {
+    'use strict';
+
+    function esc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    const formObs      = document.getElementById('formDetalhesObservacao');
+    const obsConteudo  = document.getElementById('detalhesObsConteudo');
+    const btnEnviarObs = document.getElementById('btnEnviarObsDetalhes');
+    const obsErro      = document.getElementById('detalhesObsErro');
+    const obsLista     = document.getElementById('detalhesObsLista');
+    const urlEnviar    = '{{ path("pasta_detalhes_observacao_enviar", {id: pasta.id}) }}';
+
+    if (formObs) {
+        obsConteudo.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { formObs.requestSubmit(); }
+        });
+
+        formObs.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const conteudo = obsConteudo.value.trim();
+            if (conteudo === '') { mostrarErro('A observação não pode ser vazia.'); return; }
+
+            btnEnviarObs.disabled = true;
+            btnEnviarObs.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
+            obsErro.classList.add('d-none');
+
+            try {
+                const resp = await fetch(urlEnviar, {
+                    method: 'POST',
+                    body: new FormData(formObs),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await resp.json();
+                if (!resp.ok) { mostrarErro(data.erro ?? 'Erro ao enviar.'); return; }
+
+                const vazioMsg = document.getElementById('detalhesObsVazio');
+                if (vazioMsg) { vazioMsg.remove(); }
+                obsLista.appendChild(criarItem(data));
+                obsLista.scrollTop = obsLista.scrollHeight;
+                obsConteudo.value = '';
+            } catch (_) {
+                mostrarErro('Erro de rede. Tente novamente.');
+            } finally {
+                btnEnviarObs.disabled = false;
+                btnEnviarObs.innerHTML = '<i class="bi bi-send me-1"></i> Enviar';
+            }
+        });
+    }
+
+    function mostrarErro(msg) {
+        obsErro.textContent = msg;
+        obsErro.classList.remove('d-none');
+    }
+
+    function criarItem(data) {
+        const div = document.createElement('div');
+        div.className = 'detalhes-obs-item mb-2';
+        div.id = 'detalhes-obs-' + data.id;
+
+        const urlEditar  = '{{ path("pasta_detalhes_observacao_editar", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
+        const urlExcluir = '{{ path("pasta_detalhes_observacao_excluir", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
+
+        div.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                <div class="small text-muted">
+                    <i class="bi bi-person me-1"></i>${esc(data.autorNome)}
+                    <span class="ms-2"><i class="bi bi-clock me-1"></i>${esc(data.criadaEm)}</span>
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0">
+                    <button type="button"
+                            class="btn btn-link btn-sm p-0 text-secondary btn-editar-obs-det"
+                            title="Editar observação"
+                            data-obs-id="${data.id}"
+                            data-conteudo="${esc(data.conteudo)}"
+                            data-csrf="${esc(data.csrfEditar)}"
+                            data-url="${esc(urlEditar)}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button"
+                            class="btn btn-link btn-sm p-0 text-danger btn-excluir-obs-det"
+                            title="Excluir observação"
+                            data-obs-id="${data.id}"
+                            data-csrf="${esc(data.csrfExcluir)}"
+                            data-url="${esc(urlExcluir)}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="obs-conteudo-det">${esc(data.conteudo).replace(/\n/g, '<br>')}</div>`;
+        return div;
+    }
+
+    if (obsLista) {
+        obsLista.addEventListener('click', async function (e) {
+            const btnEditar = e.target.closest('.btn-editar-obs-det');
+            if (btnEditar) {
+                const obsId        = btnEditar.dataset.obsId;
+                const item         = document.getElementById('detalhes-obs-' + obsId);
+                const conteudoDiv  = item.querySelector('.obs-conteudo-det');
+                const conteudoAtual = btnEditar.dataset.conteudo;
+
+                const textarea = document.createElement('textarea');
+                textarea.className = 'form-control form-control-sm detalhes-obs-textarea w-100 mb-2';
+                textarea.rows = 3;
+                textarea.maxLength = 5000;
+                textarea.value = conteudoAtual;
+
+                const btnConfirmar = document.createElement('button');
+                btnConfirmar.type = 'button';
+                btnConfirmar.className = 'btn btn-sm btn-success me-1';
+                btnConfirmar.textContent = 'Salvar';
+
+                const btnCancelar = document.createElement('button');
+                btnCancelar.type = 'button';
+                btnCancelar.className = 'btn btn-sm btn-outline-secondary';
+                btnCancelar.textContent = 'Cancelar';
+
+                const acoesBtns = document.createElement('div');
+                acoesBtns.className = 'mb-1';
+                acoesBtns.appendChild(btnConfirmar);
+                acoesBtns.appendChild(btnCancelar);
+
+                conteudoDiv.replaceWith(textarea);
+                textarea.after(acoesBtns);
+                textarea.focus();
+
+                btnCancelar.addEventListener('click', function () {
+                    acoesBtns.remove();
+                    const div = document.createElement('div');
+                    div.className = 'obs-conteudo-det';
+                    div.innerHTML = esc(conteudoAtual).replace(/\n/g, '<br>');
+                    textarea.replaceWith(div);
+                });
+
+                btnConfirmar.addEventListener('click', async function () {
+                    const novoConteudo = textarea.value.trim();
+                    if (novoConteudo === '') { alert('A observação não pode ser vazia.'); return; }
+
+                    const fd = new FormData();
+                    fd.append('_token', btnEditar.dataset.csrf);
+                    fd.append('conteudo', novoConteudo);
+
+                    try {
+                        const resp = await fetch(btnEditar.dataset.url, {
+                            method: 'POST',
+                            body: fd,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const data = await resp.json();
+                        acoesBtns.remove();
+                        const div = document.createElement('div');
+                        div.className = 'obs-conteudo-det';
+                        if (resp.ok) {
+                            div.innerHTML = esc(data.conteudo).replace(/\n/g, '<br>');
+                            btnEditar.dataset.conteudo = data.conteudo;
+                        } else {
+                            div.innerHTML = esc(conteudoAtual).replace(/\n/g, '<br>');
+                            alert(data.erro ?? 'Erro ao editar.');
+                        }
+                        textarea.replaceWith(div);
+                    } catch (_) {
+                        alert('Erro de rede.');
+                    }
+                });
+
+                return;
+            }
+
+            const btnExcluir = e.target.closest('.btn-excluir-obs-det');
+            if (btnExcluir) {
+                if (!confirm('Excluir esta observação? Esta ação não pode ser desfeita.')) return;
+
+                const obsId = btnExcluir.dataset.obsId;
+                const fd    = new FormData();
+                fd.append('_token', btnExcluir.dataset.csrf);
+
+                try {
+                    const resp = await fetch(btnExcluir.dataset.url, {
+                        method: 'POST',
+                        body: fd,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    if (resp.ok) {
+                        document.getElementById('detalhes-obs-' + obsId)?.remove();
+                        if (obsLista.querySelectorAll('.detalhes-obs-item').length === 0) {
+                            const div = document.createElement('div');
+                            div.className = 'text-center text-muted py-4';
+                            div.id = 'detalhesObsVazio';
+                            div.innerHTML = '<i class="bi bi-chat-left fs-2 d-block mb-2 opacity-25"></i><span class="small">Nenhuma observação registrada.</span>';
+                            obsLista.appendChild(div);
+                        }
+                    } else {
+                        const data = await resp.json();
+                        alert(data.erro ?? 'Erro ao excluir.');
+                    }
+                } catch (_) {
+                    alert('Erro de rede.');
+                }
+            }
+        });
+    }
+})();
+</script>

@@ -1,0 +1,725 @@
+<style>
+/* ── Aba Financeiro ─────────────────────────────────────── */
+#financeiro-situacao-btn.situacao-pendente {
+    color: #dc3545;
+    border-color: #dc3545;
+    background-color: rgba(220, 53, 69, 0.08);
+}
+#financeiro-situacao-btn.situacao-regular {
+    color: #198754;
+    border-color: #198754;
+    background-color: rgba(25, 135, 84, 0.08);
+}
+
+.financeiro-doc-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid #e9ecef;
+    border-radius: 5px;
+    background: #fafafa;
+    font-size: .82rem;
+}
+.financeiro-doc-item .doc-titulo {
+    flex-grow: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .875rem;
+}
+.financeiro-doc-item .doc-titulo-input {
+    flex-grow: 1;
+    min-width: 0;
+    font-size: .875rem;
+}
+
+.financeiro-obs-item {
+    border: 1px solid #e9ecef;
+    border-left: 3px solid #0dcaf0;
+    border-radius: 0 6px 6px 0;
+    padding: 8px 12px;
+    background: rgba(13, 202, 240, 0.04);
+}
+.financeiro-obs-item .obs-conteudo {
+    font-size: .875rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.financeiro-obs-textarea {
+    font-size: .875rem;
+    resize: vertical;
+}
+</style>
+
+{# ── Seção 1: Situação + Pró-Bono ─────────────────────────────────────────── #}
+<div class="d-flex flex-column gap-2 mb-4">
+    <div class="d-flex align-items-center gap-2">
+        <span class="fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;min-width:5rem;">CONTRATO</span>
+        <button type="button"
+                id="financeiro-situacao-btn"
+                class="btn btn-sm fw-semibold situacao-{{ pasta.situacaoContrato|lower }}"
+                data-pasta-id="{{ pasta.id }}"
+                data-situacao-atual="{{ pasta.situacaoContrato }}"
+                data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
+                data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
+            {{ pasta.situacaoContrato }}
+        </button>
+    </div>
+
+    <div class="d-flex align-items-center gap-2">
+        <span class="fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;min-width:5rem;">PRÓ-BONO</span>
+        <div class="form-check mb-0">
+            <input class="form-check-input"
+                   type="checkbox"
+                   id="financeiro-probono-check"
+                   {% if pasta.proBono %}checked{% endif %}
+                   data-pasta-id="{{ pasta.id }}"
+                   data-csrf="{{ csrf_token('pasta_pro_bono_' ~ pasta.id) }}"
+                   data-url="{{ path('pasta_atualizar_pro_bono', {id: pasta.id}) }}"
+                   style="width:1.2em;height:1.2em;cursor:pointer;">
+        </div>
+    </div>
+</div>
+
+{# ── Seção 2: Arquivos do Contrato ────────────────────────────────────────── #}
+<div class="mb-4" style="max-width:480px;">
+    <div class="d-flex align-items-center gap-3 mb-2">
+        <span class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.04em;"><i class="bi bi-file-earmark-text me-1"></i>Arquivos</span>
+        <label class="btn btn-sm btn-outline-secondary py-0 mb-0" style="cursor:pointer;font-size:.78rem;" title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
+            <i class="bi bi-plus-lg"></i> Adicionar
+            <input type="file"
+                   id="financeiro-upload-input"
+                   accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                   style="display:none;"
+                   data-pasta-id="{{ pasta.id }}"
+                   data-csrf="{{ csrf_token('pasta_financeiro_upload_' ~ pasta.id) }}"
+                   data-url="{{ path('pasta_financeiro_upload', {id: pasta.id}) }}"
+                   data-base-url-renomear="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                   data-base-url-excluir="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                   data-base-url-visualizar="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                   data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}">
+        </label>
+    </div>
+    <div id="financeiro-docs-lista" class="d-flex flex-column gap-1">
+        {% if documentosContrato is empty %}
+            <p class="text-muted small mb-0" id="financeiro-docs-vazio">Nenhum arquivo.</p>
+        {% else %}
+            {% for doc in documentosContrato %}
+                <div class="financeiro-doc-item" id="financeiro-doc-{{ doc.id }}">
+                    {% if doc.mimeType == 'application/pdf' %}
+                        <i class="bi bi-file-earmark-pdf text-danger flex-shrink-0"></i>
+                    {% elseif 'image/' in doc.mimeType %}
+                        <i class="bi bi-file-earmark-image text-primary flex-shrink-0"></i>
+                    {% else %}
+                        <i class="bi bi-file-earmark-word text-primary flex-shrink-0"></i>
+                    {% endif %}
+                    <span class="doc-titulo" title="{{ doc.titulo }}">{{ doc.titulo }}</span>
+                    <button type="button"
+                            class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
+                            title="Visualizar"
+                            data-bs-toggle="modal"
+                            data-bs-target="#previewDocModal"
+                            data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
+                            data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
+                            data-nome="{{ doc.titulo }}"
+                            data-mime="{{ doc.mimeType }}">
+                        <i class="bi bi-eye"></i>
+                    </button>
+                    <button type="button"
+                            class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
+                            title="Renomear"
+                            data-doc-id="{{ doc.id }}"
+                            data-titulo="{{ doc.titulo }}"
+                            data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
+                            data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button"
+                            class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
+                            title="Excluir"
+                            data-doc-id="{{ doc.id }}"
+                            data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
+                            data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+    <div id="financeiro-upload-erro" class="text-danger small mt-1 d-none"></div>
+    <div id="financeiro-upload-spinner" class="d-none mt-1">
+        <span class="spinner-border spinner-border-sm me-1"></span><span class="small">Enviando…</span>
+    </div>
+</div>
+
+{# ── Seção 3: Observações ─────────────────────────────────────────────────── #}
+<div class="card">
+    <div class="card-header">
+        <span class="card-title mb-0 small fw-semibold"><i class="bi bi-chat-left-text me-1"></i> Observações</span>
+    </div>
+
+    <div class="card-body border-bottom pb-3">
+        <form id="formFinanceiroObservacao">
+            <input type="hidden" name="_token" value="{{ csrf_token('pasta_financeiro_obs_' ~ pasta.id) }}">
+            <div class="d-flex gap-2 align-items-end">
+                <textarea name="conteudo"
+                          id="financeiroObsConteudo"
+                          class="form-control form-control-sm financeiro-obs-textarea"
+                          rows="2"
+                          maxlength="5000"
+                          placeholder="Adicionar observação, combinado ou anotação financeira… (Ctrl+Enter para enviar)"></textarea>
+                <button type="submit" class="btn btn-primary btn-sm flex-shrink-0" id="btnEnviarObsFinanceiro">
+                    <i class="bi bi-send me-1"></i> Enviar
+                </button>
+            </div>
+            <div id="financeiroObsErro" class="text-danger small mt-1 d-none"></div>
+        </form>
+    </div>
+
+    <div class="card-body p-2">
+        <div id="financeiroObsLista"
+             style="max-height: 400px; overflow-y: auto; padding: 4px 8px;">
+            {% if observacoesFinanceiras is empty %}
+                <div class="text-center text-muted py-4" id="financeiroObsVazio">
+                    <i class="bi bi-chat-left fs-2 d-block mb-2 opacity-25"></i>
+                    <span class="small">Nenhuma observação registrada.</span>
+                </div>
+            {% else %}
+                {% for obs in observacoesFinanceiras %}
+                    <div class="financeiro-obs-item mb-2" id="financeiro-obs-{{ obs.id }}">
+                        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                            <div class="small text-muted">
+                                <i class="bi bi-person me-1"></i>{{ obs.autor.fullName ?? obs.autor.email }}
+                                <span class="ms-2"><i class="bi bi-clock me-1"></i>{{ obs.criadaEm|date('d/m/Y H:i') }}</span>
+                                {% if obs.editadaEm %}
+                                    <span class="ms-1 fst-italic">(editado)</span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-1 flex-shrink-0">
+                                <button type="button"
+                                        class="btn btn-link btn-sm p-0 text-secondary btn-editar-obs"
+                                        title="Editar observação"
+                                        data-obs-id="{{ obs.id }}"
+                                        data-conteudo="{{ obs.conteudo|e('html_attr') }}"
+                                        data-csrf="{{ csrf_token('pasta_financeiro_obs_editar_' ~ obs.id) }}"
+                                        data-url="{{ path('pasta_financeiro_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button"
+                                        class="btn btn-link btn-sm p-0 text-danger btn-excluir-obs"
+                                        title="Excluir observação"
+                                        data-obs-id="{{ obs.id }}"
+                                        data-csrf="{{ csrf_token('pasta_financeiro_obs_excluir_' ~ obs.id) }}"
+                                        data-url="{{ path('pasta_financeiro_observacao_excluir', {id: pasta.id, obsId: obs.id}) }}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="obs-conteudo">{{ obs.conteudo|nl2br }}</div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    function esc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ── Situação do Contrato ──────────────────────────────────────────────────
+    const btnSituacao = document.getElementById('financeiro-situacao-btn');
+    if (btnSituacao) {
+        btnSituacao.addEventListener('click', async function () {
+            const pastaId   = this.dataset.pastaId;
+            const atual     = this.dataset.situacaoAtual;
+            const nova      = atual === 'PENDENTE' ? 'REGULAR' : 'PENDENTE';
+            const url       = this.dataset.url;
+            const csrf      = this.dataset.csrf;
+
+            const fd = new FormData();
+            fd.append('_token', csrf);
+            fd.append('situacao', nova);
+
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await resp.json();
+                if (!resp.ok) { alert(data.erro ?? 'Erro ao alterar situação.'); return; }
+
+                this.dataset.situacaoAtual = data.situacao;
+                this.textContent = data.situacao;
+                this.className = 'btn btn-sm fw-semibold situacao-' + data.situacao.toLowerCase();
+            } catch (_) {
+                alert('Erro de rede. Tente novamente.');
+            }
+        });
+    }
+
+    // ── Pró-Bono ─────────────────────────────────────────────────────────────
+    const checkProBono = document.getElementById('financeiro-probono-check');
+    if (checkProBono) {
+        checkProBono.addEventListener('change', async function () {
+            const url  = this.dataset.url;
+            const csrf = this.dataset.csrf;
+
+            const fd = new FormData();
+            fd.append('_token', csrf);
+            fd.append('pro_bono', this.checked ? '1' : '0');
+
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (!resp.ok) {
+                    this.checked = !this.checked;
+                    alert('Erro ao salvar pró-bono.');
+                }
+            } catch (_) {
+                this.checked = !this.checked;
+                alert('Erro de rede. Tente novamente.');
+            }
+        });
+    }
+
+    // ── Upload de arquivo ─────────────────────────────────────────────────────
+    const uploadInput  = document.getElementById('financeiro-upload-input');
+    const docLista     = document.getElementById('financeiro-docs-lista');
+    const uploadErro   = document.getElementById('financeiro-upload-erro');
+    const uploadSpinner = document.getElementById('financeiro-upload-spinner');
+
+    function iconeParaMime(mime) {
+        if (mime === 'application/pdf') return '<i class="bi bi-file-earmark-pdf text-danger fs-5 flex-shrink-0"></i>';
+        if (mime.startsWith('image/')) return '<i class="bi bi-file-earmark-image text-primary fs-5 flex-shrink-0"></i>';
+        return '<i class="bi bi-file-earmark-word text-primary fs-5 flex-shrink-0"></i>';
+    }
+
+    function criarItemDoc(id, titulo, mimeType, urlVisualizar, urlDownload, urlRenomear, csrfRenomear, urlExcluir, csrfExcluir) {
+        const div = document.createElement('div');
+        div.className = 'financeiro-doc-item';
+        div.id = 'financeiro-doc-' + id;
+        div.innerHTML = `
+            ${iconeParaMime(mimeType)}
+            <span class="doc-titulo" title="${esc(titulo)}">${esc(titulo)}</span>
+            <button type="button"
+                    class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
+                    title="Visualizar"
+                    data-bs-toggle="modal"
+                    data-bs-target="#previewDocModal"
+                    data-url="${esc(urlVisualizar)}"
+                    data-download="${esc(urlDownload)}"
+                    data-nome="${esc(titulo)}"
+                    data-mime="${esc(mimeType)}">
+                <i class="bi bi-eye"></i>
+            </button>
+            <button type="button"
+                    class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
+                    title="Renomear"
+                    data-doc-id="${id}"
+                    data-titulo="${esc(titulo)}"
+                    data-csrf="${esc(csrfRenomear)}"
+                    data-url="${esc(urlRenomear)}">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button type="button"
+                    class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
+                    title="Excluir"
+                    data-doc-id="${id}"
+                    data-csrf="${esc(csrfExcluir)}"
+                    data-url="${esc(urlExcluir)}">
+                <i class="bi bi-trash"></i>
+            </button>`;
+        return div;
+    }
+
+    if (uploadInput) {
+        uploadInput.addEventListener('change', async function () {
+            const file = this.files[0];
+            if (!file) return;
+
+            const url      = this.dataset.url;
+            const csrf     = this.dataset.csrf;
+            const baseRen  = this.dataset.baseUrlRenomear;
+            const baseExc  = this.dataset.baseUrlExcluir;
+            const baseVis  = this.dataset.baseUrlVisualizar;
+            const baseDl   = this.dataset.baseUrlDownload;
+
+            uploadErro.classList.add('d-none');
+            uploadSpinner.classList.remove('d-none');
+
+            const fd = new FormData();
+            fd.append('_token', csrf);
+            fd.append('arquivo', file);
+
+            try {
+                const resp = await fetch(url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await resp.json();
+
+                if (!resp.ok) {
+                    uploadErro.textContent = data.erro ?? 'Erro ao enviar arquivo.';
+                    uploadErro.classList.remove('d-none');
+                    return;
+                }
+
+                const vazioMsg = document.getElementById('financeiro-docs-vazio');
+                if (vazioMsg) { vazioMsg.remove(); }
+
+                const urlRen = baseRen.replace('__ID__', data.id);
+                const urlExc = baseExc.replace('__ID__', data.id);
+                const urlVis = baseVis ? baseVis.replace('__ID__', data.id) : data.urlVisualizar;
+                const urlDl  = baseDl  ? baseDl.replace('__ID__', data.id)  : data.urlDownload;
+                const item   = criarItemDoc(data.id, data.titulo, data.mimeType, urlVis, urlDl, urlRen, data.csrfRenomear, urlExc, data.csrfExcluir);
+                docLista.appendChild(item);
+            } catch (_) {
+                uploadErro.textContent = 'Erro de rede. Tente novamente.';
+                uploadErro.classList.remove('d-none');
+            } finally {
+                uploadSpinner.classList.add('d-none');
+                this.value = '';
+            }
+        });
+    }
+
+    // ── Renomear / Excluir ────────────────────────────────────────────────────
+    if (docLista) {
+        docLista.addEventListener('click', async function (e) {
+
+            const btnRen = e.target.closest('.btn-renomear-doc');
+            if (btnRen) {
+                const docId  = btnRen.dataset.docId;
+                const item   = document.getElementById('financeiro-doc-' + docId);
+                const spanTitulo = item.querySelector('.doc-titulo');
+                const tituloAtual = btnRen.dataset.titulo;
+
+                // Isola a extensão para protegê-la da edição
+                const pontoIdx = tituloAtual.lastIndexOf('.');
+                const nomeBase = pontoIdx > 0 ? tituloAtual.slice(0, pontoIdx) : tituloAtual;
+                const extensao = pontoIdx > 0 ? tituloAtual.slice(pontoIdx) : '';
+
+                const wrapper = document.createElement('span');
+                wrapper.className = 'd-flex align-items-center gap-1 flex-grow-1 min-width-0';
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-control form-control-sm doc-titulo-input';
+                input.value = nomeBase;
+                input.style.minWidth = '0';
+
+                wrapper.appendChild(input);
+                if (extensao) {
+                    const extSpan = document.createElement('span');
+                    extSpan.className = 'text-muted small flex-shrink-0';
+                    extSpan.textContent = extensao;
+                    wrapper.appendChild(extSpan);
+                }
+
+                spanTitulo.replaceWith(wrapper);
+                input.focus();
+                input.select();
+
+                function restaurarSpan(titulo) {
+                    const span = document.createElement('span');
+                    span.className = 'doc-titulo';
+                    span.title = titulo;
+                    span.textContent = titulo;
+                    wrapper.replaceWith(span);
+                    return span;
+                }
+
+                async function confirmarRenomear() {
+                    const novoBase   = input.value.trim();
+                    const novoTitulo = novoBase !== '' ? novoBase + extensao : tituloAtual;
+                    if (novoBase === '' || novoTitulo === tituloAtual) {
+                        restaurarSpan(tituloAtual);
+                        return;
+                    }
+
+                    const fd = new FormData();
+                    fd.append('_token', btnRen.dataset.csrf);
+                    fd.append('titulo', novoTitulo);
+
+                    try {
+                        const resp = await fetch(btnRen.dataset.url, {
+                            method: 'POST',
+                            body: fd,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const data = await resp.json();
+                        const titulo = resp.ok ? data.titulo : tituloAtual;
+                        if (!resp.ok) { alert(data.erro ?? 'Erro ao renomear.'); }
+                        restaurarSpan(titulo);
+                        btnRen.dataset.titulo = titulo;
+                        // Atualiza data-nome do botão de preview para manter consistência
+                        const btnPrevItem = item.querySelector('[data-bs-target="#previewDocModal"]');
+                        if (btnPrevItem) { btnPrevItem.dataset.nome = titulo; }
+                    } catch (_) {
+                        alert('Erro de rede.');
+                        restaurarSpan(tituloAtual);
+                    }
+                }
+
+                input.addEventListener('blur', confirmarRenomear);
+                input.addEventListener('keydown', function (ev) {
+                    if (ev.key === 'Enter') { ev.preventDefault(); confirmarRenomear(); }
+                    if (ev.key === 'Escape') { restaurarSpan(tituloAtual); }
+                });
+
+                return;
+            }
+
+            // ── Excluir documento ─────────────────────────────────────────────
+            const btnExc = e.target.closest('.btn-excluir-doc');
+            if (btnExc) {
+                if (!confirm('Excluir este arquivo? Esta ação não pode ser desfeita.')) return;
+
+                const docId = btnExc.dataset.docId;
+                const fd    = new FormData();
+                fd.append('_token', btnExc.dataset.csrf);
+
+                try {
+                    const resp = await fetch(btnExc.dataset.url, {
+                        method: 'POST',
+                        body: fd,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    if (resp.ok) {
+                        document.getElementById('financeiro-doc-' + docId)?.remove();
+                        if (docLista.children.length === 0) {
+                            const p = document.createElement('p');
+                            p.className = 'text-muted small mb-0 ps-1';
+                            p.id = 'financeiro-docs-vazio';
+                            p.textContent = 'Nenhum arquivo adicionado.';
+                            docLista.appendChild(p);
+                        }
+                    } else {
+                        const data = await resp.json();
+                        alert(data.erro ?? 'Erro ao excluir.');
+                    }
+                } catch (_) {
+                    alert('Erro de rede.');
+                }
+            }
+        });
+    }
+
+    // ── Enviar observação ─────────────────────────────────────────────────────
+    const formObs      = document.getElementById('formFinanceiroObservacao');
+    const obsConteudo  = document.getElementById('financeiroObsConteudo');
+    const btnEnviarObs = document.getElementById('btnEnviarObsFinanceiro');
+    const obsErro      = document.getElementById('financeiroObsErro');
+    const obsLista     = document.getElementById('financeiroObsLista');
+    const urlEnviarObs = '{{ path("pasta_financeiro_observacao_enviar", {id: pasta.id}) }}';
+
+    if (formObs) {
+        obsConteudo.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { formObs.requestSubmit(); }
+        });
+
+        formObs.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const conteudo = obsConteudo.value.trim();
+            if (conteudo === '') { mostrarObsErro('A observação não pode ser vazia.'); return; }
+
+            btnEnviarObs.disabled = true;
+            btnEnviarObs.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando…';
+            obsErro.classList.add('d-none');
+
+            try {
+                const resp = await fetch(urlEnviarObs, {
+                    method: 'POST',
+                    body: new FormData(formObs),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await resp.json();
+                if (!resp.ok) { mostrarObsErro(data.erro ?? 'Erro ao enviar.'); return; }
+
+                const vazioMsg = document.getElementById('financeiroObsVazio');
+                if (vazioMsg) { vazioMsg.remove(); }
+                obsLista.appendChild(criarItemObs(data));
+                obsLista.scrollTop = obsLista.scrollHeight;
+                obsConteudo.value = '';
+            } catch (_) {
+                mostrarObsErro('Erro de rede. Tente novamente.');
+            } finally {
+                btnEnviarObs.disabled = false;
+                btnEnviarObs.innerHTML = '<i class="bi bi-send me-1"></i> Enviar';
+            }
+        });
+    }
+
+    function mostrarObsErro(msg) {
+        obsErro.textContent = msg;
+        obsErro.classList.remove('d-none');
+    }
+
+    function criarItemObs(data) {
+        const div = document.createElement('div');
+        div.className = 'financeiro-obs-item mb-2';
+        div.id = 'financeiro-obs-' + data.id;
+
+        const urlEditar  = '{{ path("pasta_financeiro_observacao_editar", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
+        const urlExcluir = '{{ path("pasta_financeiro_observacao_excluir", {id: pasta.id, obsId: 0})|replace({"/0/": "/__ID__/"}) }}'.replace('__ID__', data.id);
+
+        div.innerHTML = `
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+                <div class="small text-muted">
+                    <i class="bi bi-person me-1"></i>${esc(data.autorNome)}
+                    <span class="ms-2"><i class="bi bi-clock me-1"></i>${esc(data.criadaEm)}</span>
+                </div>
+                <div class="d-flex gap-1 flex-shrink-0">
+                    <button type="button"
+                            class="btn btn-link btn-sm p-0 text-secondary btn-editar-obs"
+                            title="Editar observação"
+                            data-obs-id="${data.id}"
+                            data-conteudo="${esc(data.conteudo)}"
+                            data-csrf="${esc(data.csrfEditar)}"
+                            data-url="${esc(urlEditar)}">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button type="button"
+                            class="btn btn-link btn-sm p-0 text-danger btn-excluir-obs"
+                            title="Excluir observação"
+                            data-obs-id="${data.id}"
+                            data-csrf="${esc(data.csrfExcluir)}"
+                            data-url="${esc(urlExcluir)}">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="obs-conteudo">${esc(data.conteudo).replace(/\n/g, '<br>')}</div>`;
+        return div;
+    }
+
+    // ── Editar / Excluir observações ──────────────────────────────────────────
+    if (obsLista) {
+        obsLista.addEventListener('click', async function (e) {
+            // Editar
+            const btnEditar = e.target.closest('.btn-editar-obs');
+            if (btnEditar) {
+                const obsId      = btnEditar.dataset.obsId;
+                const item       = document.getElementById('financeiro-obs-' + obsId);
+                const conteudoDiv = item.querySelector('.obs-conteudo');
+                const conteudoAtual = btnEditar.dataset.conteudo;
+
+                const textarea = document.createElement('textarea');
+                textarea.className = 'form-control form-control-sm financeiro-obs-textarea w-100 mb-2';
+                textarea.rows = 3;
+                textarea.maxLength = 5000;
+                textarea.value = conteudoAtual;
+
+                const btnConfirmar = document.createElement('button');
+                btnConfirmar.type = 'button';
+                btnConfirmar.className = 'btn btn-sm btn-success me-1';
+                btnConfirmar.textContent = 'Salvar';
+
+                const btnCancelar = document.createElement('button');
+                btnCancelar.type = 'button';
+                btnCancelar.className = 'btn btn-sm btn-outline-secondary';
+                btnCancelar.textContent = 'Cancelar';
+
+                const acoesBtns = document.createElement('div');
+                acoesBtns.className = 'mb-1';
+                acoesBtns.appendChild(btnConfirmar);
+                acoesBtns.appendChild(btnCancelar);
+
+                conteudoDiv.replaceWith(textarea);
+                textarea.after(acoesBtns);
+                textarea.focus();
+
+                btnCancelar.addEventListener('click', function () {
+                    acoesBtns.remove();
+                    const div = document.createElement('div');
+                    div.className = 'obs-conteudo';
+                    div.innerHTML = esc(conteudoAtual).replace(/\n/g, '<br>');
+                    textarea.replaceWith(div);
+                });
+
+                btnConfirmar.addEventListener('click', async function () {
+                    const novoConteudo = textarea.value.trim();
+                    if (novoConteudo === '') { alert('A observação não pode ser vazia.'); return; }
+
+                    const fd = new FormData();
+                    fd.append('_token', btnEditar.dataset.csrf);
+                    fd.append('conteudo', novoConteudo);
+
+                    try {
+                        const resp = await fetch(btnEditar.dataset.url, {
+                            method: 'POST',
+                            body: fd,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const data = await resp.json();
+                        acoesBtns.remove();
+                        const div = document.createElement('div');
+                        div.className = 'obs-conteudo';
+                        if (resp.ok) {
+                            div.innerHTML = esc(data.conteudo).replace(/\n/g, '<br>');
+                            btnEditar.dataset.conteudo = data.conteudo;
+                        } else {
+                            div.innerHTML = esc(conteudoAtual).replace(/\n/g, '<br>');
+                            alert(data.erro ?? 'Erro ao editar.');
+                        }
+                        textarea.replaceWith(div);
+                    } catch (_) {
+                        alert('Erro de rede.');
+                    }
+                });
+
+                return;
+            }
+
+            // Excluir
+            const btnExcluir = e.target.closest('.btn-excluir-obs');
+            if (btnExcluir) {
+                if (!confirm('Excluir esta observação? Esta ação não pode ser desfeita.')) return;
+
+                const obsId = btnExcluir.dataset.obsId;
+                const fd    = new FormData();
+                fd.append('_token', btnExcluir.dataset.csrf);
+
+                try {
+                    const resp = await fetch(btnExcluir.dataset.url, {
+                        method: 'POST',
+                        body: fd,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    if (resp.ok) {
+                        document.getElementById('financeiro-obs-' + obsId)?.remove();
+                        if (obsLista.children.length === 0) {
+                            const div = document.createElement('div');
+                            div.className = 'text-center text-muted py-4';
+                            div.id = 'financeiroObsVazio';
+                            div.innerHTML = '<i class="bi bi-chat-left fs-2 d-block mb-2 opacity-25"></i><span class="small">Nenhuma observação registrada.</span>';
+                            obsLista.appendChild(div);
+                        }
+                    } else {
+                        const data = await resp.json();
+                        alert(data.erro ?? 'Erro ao excluir.');
+                    }
+                } catch (_) {
+                    alert('Erro de rede.');
+                }
+            }
+        });
+    }
+})();
+</script>
