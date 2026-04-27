@@ -162,17 +162,11 @@ class ProcessoController extends AbstractController
 
         foreach ($tarefaRepository->findByProcesso($processo) as $tarefa) {
             $usuariosAtribuidos = [];
-            $ultimaRevisao = null;
 
-            foreach ($tarefa->getAtribuicoes() as $atribuicao) {
-                $nomeUsuario = $atribuicao->getUsuario()?->getFullName();
+            foreach ($tarefa->getResponsaveis() as $usuario) {
+                $nomeUsuario = $usuario->getFullName();
                 if ($nomeUsuario !== null && $nomeUsuario !== '') {
                     $usuariosAtribuidos[] = $nomeUsuario;
-                }
-
-                $dataEnvioRevisao = $atribuicao->getDataEnvioRevisao();
-                if ($dataEnvioRevisao !== null && ($ultimaRevisao === null || $dataEnvioRevisao > $ultimaRevisao)) {
-                    $ultimaRevisao = $dataEnvioRevisao;
                 }
             }
 
@@ -186,9 +180,9 @@ class ProcessoController extends AbstractController
                 'usuarios' => $usuariosAtribuidos !== [] ? implode(', ', $usuariosAtribuidos) : '-',
                 'statusAtual' => $tarefa->getStatus(),
                 'dataCriacao' => $tarefa->getDataCriacao(),
-                'dataUltimaRevisao' => $ultimaRevisao,
+                'dataUltimaRevisao' => null,
                 'dataConclusaoFinal' => $tarefa->getDataConclusao(),
-                'tempoTotalSegundos' => $tarefa->getTempoTotalSegundos(),
+                'tempoTotalSegundos' => null,
             ];
         }
 
