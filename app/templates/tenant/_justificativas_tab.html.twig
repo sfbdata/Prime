@@ -1,6 +1,9 @@
 <div class="card card-outline card-warning mb-3">
-    <div class="card-header">
-        <h3 class="card-title"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta — {{ user.fullName }}</h3>
+    <div class="card-header d-flex align-items-center justify-content-between">
+        <h3 class="card-title mb-0"><i class="bi bi-calendar-x me-2"></i>Justificativas de Falta — {{ user.fullName }}</h3>
+        <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#modalAdminNovaJustificativa">
+            <i class="bi bi-plus-circle me-1"></i>Justificar Falta
+        </button>
     </div>
     <div class="card-body p-0">
         {% if justificativas is empty %}
@@ -149,3 +152,289 @@
         {% endif %}
     </div>
 </div>
+
+<div class="modal fade" id="modalAdminNovaJustificativa" tabindex="-1" aria-labelledby="modalAdminNovaJustificativaLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="post"
+                  action="{{ path('app_tenant_user_justificativa_nova', {tenantId: tenantId, id: user.id}) }}"
+                  enctype="multipart/form-data">
+                <input type="hidden" name="_token" value="{{ csrf_token('admin_nova_justificativa_' ~ user.id) }}">
+
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalAdminNovaJustificativaLabel">
+                        <i class="bi bi-calendar-x me-2"></i>Justificar Falta — {{ user.fullName }}
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" name="datas" id="admin-just-datas-hidden">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Selecione os dias da ausência</label>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="admin-cal-prev">
+                                <i class="bi bi-chevron-left"></i>
+                            </button>
+                            <span id="admin-cal-title" class="fw-semibold flex-grow-1 text-center"></span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="admin-cal-next">
+                                <i class="bi bi-chevron-right"></i>
+                            </button>
+                        </div>
+                        <div id="admin-just-calendar" class="border rounded p-2"></div>
+                        <div class="mt-2 small text-muted">
+                            Dias selecionados: <span id="admin-cal-selected-label" class="fw-semibold text-dark">nenhum</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tipo de Justificativa</label>
+                        <select name="tipo" id="admin-just-tipo" class="form-select" required>
+                            <option value="">Selecione o tipo</option>
+                            {% for label, value in tiposJustificativa %}
+                                <option value="{{ value }}">{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div id="admin-alerta-falta-nao-justificada" class="d-none alert alert-warning py-2 mb-3">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        Este tipo apenas registra que a falta não foi justificada. As horas faltantes <strong>não</strong> serão abonadas.
+                    </div>
+
+                    <div id="admin-bloco-abono-parcial" class="mb-3 form-check">
+                        <input type="checkbox" name="abonoParcial" id="admin-abono-parcial" class="form-check-input" value="1">
+                        <label for="admin-abono-parcial" class="form-check-label">Abono parcial (saída para consulta e retorno no mesmo dia)</label>
+                        <div class="form-text">Marque se o funcionário saiu durante o expediente e retornou no mesmo dia.</div>
+                    </div>
+
+                    <div id="admin-bloco-horario-abono" class="d-none mb-3 p-3 border rounded bg-light">
+                        <p class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Período de ausência parcial</p>
+                        <div class="row g-2">
+                            <div class="col">
+                                <label class="form-label">Saída para atestado</label>
+                                <input type="time" name="horaInicioAbono" id="admin-hora-inicio-abono" class="form-control">
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Retorno do atestado</label>
+                                <input type="time" name="horaFimAbono" id="admin-hora-fim-abono" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Motivo</label>
+                        <textarea name="descricao" class="form-control" rows="3"
+                                  placeholder="Descreva o motivo da ausência" required></textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Atestado <span class="text-muted fw-normal small">(opcional)</span></label>
+                        <input type="file" name="anexo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+                        <div class="form-text">PDF, JPEG ou PNG — máximo 10 MB</div>
+                    </div>
+
+                    <div class="alert alert-info py-2 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Justificativas lançadas pelo administrador são aprovadas automaticamente.
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-send me-1"></i>Lançar Justificativa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+#admin-just-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    user-select: none;
+}
+#admin-just-calendar .cal-header {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    padding: 4px 0;
+}
+#admin-just-calendar .cal-day {
+    text-align: center;
+    padding: 6px 4px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+#admin-just-calendar .cal-day:hover:not(.cal-empty):not(.cal-disabled) {
+    background: #fff3cd;
+    border-color: #ffc107;
+}
+#admin-just-calendar .cal-day.cal-selected {
+    background: #ffc107;
+    border-color: #e0a800;
+    font-weight: 600;
+}
+#admin-just-calendar .cal-day.cal-today {
+    border-color: #0d6efd;
+}
+#admin-just-calendar .cal-day.cal-disabled {
+    color: #ccc;
+    cursor: default;
+}
+#admin-just-calendar .cal-day.cal-weekend {
+    color: #dc3545;
+}
+#admin-just-calendar .cal-empty {
+    visibility: hidden;
+}
+</style>
+
+<script>
+(function() {
+    const hoje = new Date();
+    hoje.setHours(0,0,0,0);
+
+    let viewAno = hoje.getFullYear();
+    let viewMes = hoje.getMonth();
+
+    const selectedDates = new Set();
+    const hiddenInput        = document.getElementById('admin-just-datas-hidden');
+    const calTitle           = document.getElementById('admin-cal-title');
+    const calSelectedLabel   = document.getElementById('admin-cal-selected-label');
+    const calContainer       = document.getElementById('admin-just-calendar');
+    const checkAbonoParcial  = document.getElementById('admin-abono-parcial');
+    const blocoHorario       = document.getElementById('admin-bloco-horario-abono');
+    const tipoSelect         = document.getElementById('admin-just-tipo');
+    const alertaNaoJust      = document.getElementById('admin-alerta-falta-nao-justificada');
+    const blocoAbonoParcial  = document.getElementById('admin-bloco-abono-parcial');
+
+    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const diasSemana = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+    function toYMD(d) {
+        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    }
+
+    function formatDisplay(ymd) {
+        const [y,m,d] = ymd.split('-');
+        return d+'/'+m+'/'+y;
+    }
+
+    function renderCalendar() {
+        calTitle.textContent = meses[viewMes] + ' ' + viewAno;
+        calContainer.innerHTML = '';
+
+        diasSemana.forEach(function(d) {
+            const h = document.createElement('div');
+            h.className = 'cal-header';
+            h.textContent = d;
+            calContainer.appendChild(h);
+        });
+
+        const primeiroDia = new Date(viewAno, viewMes, 1);
+        const ultimoDia   = new Date(viewAno, viewMes + 1, 0);
+
+        for (let i = 0; i < primeiroDia.getDay(); i++) {
+            const empty = document.createElement('div');
+            empty.className = 'cal-day cal-empty';
+            calContainer.appendChild(empty);
+        }
+
+        for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
+            const d   = new Date(viewAno, viewMes, dia);
+            const ymd = toYMD(d);
+            const btn = document.createElement('div');
+            btn.className = 'cal-day';
+            btn.textContent = dia;
+
+            if (d > hoje || d.getDay() === 0) {
+                btn.classList.add('cal-disabled');
+            } else {
+                if (d.getDay() === 6) btn.classList.add('cal-weekend');
+                if (toYMD(hoje) === ymd) btn.classList.add('cal-today');
+                if (selectedDates.has(ymd)) btn.classList.add('cal-selected');
+
+                btn.addEventListener('click', function() {
+                    if (selectedDates.has(ymd)) {
+                        selectedDates.delete(ymd);
+                        btn.classList.remove('cal-selected');
+                    } else {
+                        selectedDates.add(ymd);
+                        btn.classList.add('cal-selected');
+                    }
+                    updateHiddenInput();
+                });
+            }
+            calContainer.appendChild(btn);
+        }
+    }
+
+    function updateHiddenInput() {
+        const sorted = Array.from(selectedDates).sort();
+        hiddenInput.value = sorted.join(',');
+        calSelectedLabel.textContent = sorted.length === 0 ? 'nenhum' : sorted.map(formatDisplay).join(', ');
+    }
+
+    function aplicarEstadoTipo() {
+        const isFaltaNaoJustificada = tipoSelect.value === 'falta_nao_justificada';
+        alertaNaoJust.classList.toggle('d-none', !isFaltaNaoJustificada);
+        blocoAbonoParcial.classList.toggle('d-none', isFaltaNaoJustificada);
+        if (isFaltaNaoJustificada) {
+            checkAbonoParcial.checked = false;
+            blocoHorario.classList.add('d-none');
+        }
+    }
+
+    tipoSelect.addEventListener('change', aplicarEstadoTipo);
+
+    document.getElementById('admin-cal-prev').addEventListener('click', function() {
+        viewMes--;
+        if (viewMes < 0) { viewMes = 11; viewAno--; }
+        renderCalendar();
+    });
+
+    document.getElementById('admin-cal-next').addEventListener('click', function() {
+        const mesHoje = hoje.getMonth();
+        const anoHoje = hoje.getFullYear();
+        if (viewAno < anoHoje || (viewAno === anoHoje && viewMes < mesHoje)) {
+            viewMes++;
+            if (viewMes > 11) { viewMes = 0; viewAno++; }
+            renderCalendar();
+        }
+    });
+
+    checkAbonoParcial.addEventListener('change', function() {
+        if (this.checked && selectedDates.size > 1) {
+            alert('Abono parcial só pode ser aplicado a uma única data. Desmarque as datas extras no calendário.');
+            this.checked = false;
+            blocoHorario.classList.add('d-none');
+            return;
+        }
+        blocoHorario.classList.toggle('d-none', !this.checked);
+    });
+
+    document.getElementById('modalAdminNovaJustificativa').addEventListener('show.bs.modal', function() {
+        viewAno = hoje.getFullYear();
+        viewMes = hoje.getMonth();
+        selectedDates.clear();
+        hiddenInput.value = '';
+        calSelectedLabel.textContent = 'nenhum';
+        checkAbonoParcial.checked = false;
+        blocoHorario.classList.add('d-none');
+        tipoSelect.value = '';
+        aplicarEstadoTipo();
+        renderCalendar();
+    });
+
+    renderCalendar();
+})();
+</script>

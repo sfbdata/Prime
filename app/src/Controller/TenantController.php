@@ -524,6 +524,7 @@ final class TenantController extends AbstractController
             'anoCompetenciaPonto'    => $anoCompetenciaPonto,
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
+            'tiposJustificativa'     => JustificativaPonto::TIPOS,
             'comSegundos'            => $this->deveMostrarSegundosBatida(),
         ]);
     }
@@ -874,6 +875,139 @@ final class TenantController extends AbstractController
         $notificacaoService->notificarJustificativaRejeitada($justificativa, $urlPonto);
 
         $this->addFlash('success', sprintf('Justificativa de %s rejeitada.', $justificativa->getData()?->format('d/m/Y')));
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
+            'tenantId' => $tenantId,
+            'id'       => $user->getId(),
+            'tab'      => 'justificativas',
+        ]);
+    }
+
+    #[Route('/{tenantId}/user/{id}/justificativa/nova', name: 'app_tenant_user_justificativa_nova', methods: ['POST'])]
+    public function novaJustificativaAdmin(
+        int $tenantId,
+        User $user,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        PermissionChecker $permissionChecker
+    ): Response {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para lançar justificativas.');
+        }
+
+        if (!$this->isCsrfTokenValid('admin_nova_justificativa_' . $user->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $redirect = fn () => $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+
+        $datasRaw   = trim((string) $request->request->get('datas', ''));
+        $tipo       = trim((string) $request->request->get('tipo', ''));
+        $descricao  = trim((string) $request->request->get('descricao', ''));
+        $abonoParcial = (bool) $request->request->get('abonoParcial', false);
+        $horaInicioStr = trim((string) $request->request->get('horaInicioAbono', ''));
+        $horaFimStr    = trim((string) $request->request->get('horaFimAbono', ''));
+
+        $datasArray = array_filter(array_map('trim', explode(',', $datasRaw)));
+
+        if (empty($datasArray)) {
+            $this->addFlash('danger', 'Selecione ao menos uma data.');
+            return $redirect();
+        }
+
+        if ($abonoParcial && count($datasArray) > 1) {
+            $this->addFlash('danger', 'Abono parcial só pode ser aplicado a uma única data.');
+            return $redirect();
+        }
+
+        $horaInicio = null;
+        $horaFim    = null;
+        if ($abonoParcial) {
+            $horaInicio = \DateTime::createFromFormat('H:i', $horaInicioStr) ?: null;
+            $horaFim    = \DateTime::createFromFormat('H:i', $horaFimStr) ?: null;
+            if ($horaInicio === null || $horaFim === null || $horaInicio >= $horaFim) {
+                $this->addFlash('danger', 'Informe os horários de saída e retorno corretamente para o abono parcial.');
+                return $redirect();
+            }
+        }
+
+        if (!in_array($tipo, array_values(JustificativaPonto::TIPOS), true)) {
+            $this->addFlash('danger', 'Tipo de justificativa inválido.');
+            return $redirect();
+        }
+
+        if ($descricao === '') {
+            $this->addFlash('danger', 'O motivo é obrigatório.');
+            return $redirect();
+        }
+
+        $hoje = new \DateTimeImmutable('today');
+        $datasValidas = [];
+
+        foreach ($datasArray as $dataStr) {
+            $dataObj = \DateTime::createFromFormat('Y-m-d', $dataStr);
+            if ($dataObj === false) {
+                continue;
+            }
+            if ($dataObj > $hoje) {
+                $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
+                continue;
+            }
+            if ((int) $dataObj->format('N') === 7) {
+                $this->addFlash('warning', sprintf('A data %s é domingo e foi ignorada.', $dataObj->format('d/m/Y')));
+                continue;
+            }
+            $datasValidas[] = $dataObj;
+        }
+
+        if (empty($datasValidas)) {
+            return $redirect();
+        }
+
+        $anexoPath = null;
+        $anexoFile = $request->files->get('anexo');
+        if ($anexoFile !== null) {
+            $anexoPath = $this->storage->salvar($anexoFile, $this->justificativasUploadsDir);
+        }
+
+        $batchId    = bin2hex(random_bytes(16));
+        $isFaltaNaoJustificada = $tipo === 'falta_nao_justificada';
+
+        foreach ($datasValidas as $dataObj) {
+            $justificativa = new JustificativaPonto();
+            $justificativa->setUser($user);
+            $justificativa->setData($dataObj);
+            $justificativa->setTipo($tipo);
+            $justificativa->setDescricao($descricao);
+            $justificativa->setAnexoPath($anexoPath);
+            $justificativa->setStatus('abonado');
+            $justificativa->setDataAnalise(new \DateTime());
+            $justificativa->setAnalisadoPor($currentUser);
+            $justificativa->setAbonoParcial($abonoParcial);
+            $justificativa->setBatchId($batchId);
+            if ($abonoParcial) {
+                $justificativa->setHoraInicioAbono($horaInicio);
+                $justificativa->setHoraFimAbono($horaFim);
+            }
+            $entityManager->persist($justificativa);
+        }
+
+        $entityManager->flush();
+
+        if ($isFaltaNaoJustificada) {
+            $this->addFlash('success', sprintf('Falta registrada como não justificada para %d dia(s).', count($datasValidas)));
+        } else {
+            $this->addFlash('success', sprintf('Justificativa lançada para %d dia(s).', count($datasValidas)));
+        }
 
         return $this->redirectToRoute('app_tenant_user_edit_role', [
             'tenantId' => $tenantId,
