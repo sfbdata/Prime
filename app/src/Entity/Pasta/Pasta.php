@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Entity\Pasta;
 
 use App\Entity\Auth\User;
@@ -17,8 +19,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\HasLifecycleCallbacks]
 class Pasta
 {
-    public const STATUS_ATIVO = 'ativo';
-    public const STATUS_ARQUIVADO = 'arquivado';
+    public const SITUACAO_ATIVA     = 'ativo';
+    public const SITUACAO_ARQUIVADA = 'arquivado';
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -30,9 +32,12 @@ class Pasta
     #[ORM\Column(length: 255, unique: true)]
     private ?string $nup = null;
 
-    #[Assert\Choice(choices: [self::STATUS_ATIVO, self::STATUS_ARQUIVADO])]
-    #[ORM\Column(length: 20, options: ['default' => self::STATUS_ATIVO])]
-    private string $status = self::STATUS_ATIVO;
+    #[Assert\Choice(choices: [self::SITUACAO_ATIVA, self::SITUACAO_ARQUIVADA])]
+    #[ORM\Column(length: 20, options: ['default' => self::SITUACAO_ATIVA])]
+    private string $situacao = self::SITUACAO_ATIVA;
+
+    #[ORM\Column(enumType: PrioridadePasta::class, options: ['default' => 'normal'])]
+    private PrioridadePasta $prioridade = PrioridadePasta::Normal;
 
     #[Assert\NotNull]
     #[ORM\Column(type: 'datetime_immutable')]
@@ -127,15 +132,46 @@ class Pasta
         return $this;
     }
 
-    public function getStatus(): string
+    public function getSituacao(): string
     {
-        return $this->status;
+        return $this->situacao;
     }
 
-    public function setStatus(string $status): self
+    public function setSituacao(string $situacao): self
     {
-        $this->status = $status;
+        $this->situacao = $situacao;
+
         return $this;
+    }
+
+    public function getPrioridade(): PrioridadePasta
+    {
+        return $this->prioridade;
+    }
+
+    public function setPrioridade(PrioridadePasta $prioridade): self
+    {
+        $this->prioridade = $prioridade;
+
+        return $this;
+    }
+
+    public function getPrioridadeBadgeClass(): string
+    {
+        return match ($this->prioridade) {
+            PrioridadePasta::Normal     => 'text-bg-secondary',
+            PrioridadePasta::Prioridade => 'text-bg-warning',
+            PrioridadePasta::Urgente    => 'text-bg-danger',
+        };
+    }
+
+    public function getPrioridadeLabel(): string
+    {
+        return match ($this->prioridade) {
+            PrioridadePasta::Normal     => 'Normal',
+            PrioridadePasta::Prioridade => 'Prioridade',
+            PrioridadePasta::Urgente    => 'Urgente',
+        };
     }
 
     public function getDataAbertura(): \DateTimeImmutable

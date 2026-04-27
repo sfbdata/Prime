@@ -33,7 +33,7 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['status'])) {
-            $qb->andWhere('p.status = :status')
+            $qb->andWhere('p.situacao = :status')
                ->setParameter('status', $filters['status']);
         }
 
@@ -105,7 +105,7 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['status'])) {
-            $qb->andWhere('p.status = :status')
+            $qb->andWhere('p.situacao = :status')
                ->setParameter('status', $filters['status']);
         }
 

@@ -29,7 +29,9 @@ use App\Pasta\Service\PastaTimelineAssembler;
 use App\Entity\Pasta\PastaObservacaoDetalhes;
 use App\Entity\Pasta\PastaObservacaoFinanceira;
 use App\Entity\Pasta\PastaChecklistItem;
+use App\Entity\Pasta\PrioridadePasta;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
+use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\EditarChecklistItemUseCase;
 use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
@@ -103,6 +105,7 @@ class PastaController extends AbstractController
         private readonly EditarChecklistItemUseCase $editarChecklistItemUseCase,
         private readonly ExcluirChecklistItemUseCase $excluirChecklistItemUseCase,
         private readonly ReordenarChecklistItensUseCase $reordenarChecklistItensUseCase,
+        private readonly AlterarPrioridadeUseCase $alterarPrioridadeUseCase,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -813,9 +816,9 @@ class PastaController extends AbstractController
         $pasta->setNomeCliente(($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null);
         $pasta->setNomeAcao(($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null);
 
-        $status = $request->request->get('status', Pasta::STATUS_ATIVO);
-        if (in_array($status, [Pasta::STATUS_ATIVO, Pasta::STATUS_ARQUIVADO], true)) {
-            $pasta->setStatus($status);
+        $situacao = $request->request->get('situacao', Pasta::SITUACAO_ATIVA);
+        if (in_array($situacao, [Pasta::SITUACAO_ATIVA, Pasta::SITUACAO_ARQUIVADA], true)) {
+            $pasta->setSituacao($situacao);
         }
 
         $this->em->flush();
@@ -862,8 +865,8 @@ class PastaController extends AbstractController
         ]);
     }
 
-    #[Route('/{id}/alternar-status', name: 'pasta_alternar_status', methods: ['POST'])]
-    public function alternarStatus(Pasta $pasta, Request $request): JsonResponse
+    #[Route('/{id}/alternar-situacao', name: 'pasta_alternar_situacao', methods: ['POST'])]
+    public function alternarSituacao(Pasta $pasta, Request $request): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -873,20 +876,49 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
-        if (!$this->isCsrfTokenValid('pasta_alternar_status_' . $pastaId, (string) $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('pasta_alternar_situacao_' . $pastaId, (string) $request->request->get('_token'))) {
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        $novoStatus = $pasta->getStatus() === Pasta::STATUS_ATIVO
-            ? Pasta::STATUS_ARQUIVADO
-            : Pasta::STATUS_ATIVO;
+        $novaSituacao = $pasta->getSituacao() === Pasta::SITUACAO_ATIVA
+            ? Pasta::SITUACAO_ARQUIVADA
+            : Pasta::SITUACAO_ATIVA;
 
-        $pasta->setStatus($novoStatus);
+        $pasta->setSituacao($novaSituacao);
         $this->em->flush();
 
         return $this->json([
-            'sucesso'    => true,
-            'novoStatus' => $novoStatus,
+            'sucesso'      => true,
+            'novaSituacao' => $novaSituacao,
+        ]);
+    }
+
+    #[Route('/{id}/prioridade', name: 'pasta_alterar_prioridade', methods: ['POST'])]
+    public function alterarPrioridade(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_prioridade_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $prioridade = PrioridadePasta::from((string) $request->request->get('prioridade', ''));
+        } catch (\ValueError) {
+            return $this->json(['erro' => 'Prioridade inválida.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $this->alterarPrioridadeUseCase->executar($pasta, $prioridade);
+
+        return $this->json([
+            'badgeClass' => $pasta->getPrioridadeBadgeClass(),
+            'label'      => $pasta->getPrioridadeLabel(),
         ]);
     }
 

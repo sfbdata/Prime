@@ -23,11 +23,11 @@ class PastaType extends AbstractType
                 'label' => 'NUP',
                 'required' => true,
             ])
-            ->add('status', ChoiceType::class, [
-                'label' => 'Status',
+            ->add('situacao', ChoiceType::class, [
+                'label' => 'Situação',
                 'required' => true,
                 'choices' => [
-                    'Ativo' => 'ativo',
+                    'Ativo'     => 'ativo',
                     'Arquivado' => 'arquivado',
                 ],
             ])

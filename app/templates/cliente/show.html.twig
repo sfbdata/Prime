@@ -270,8 +270,8 @@
                                                 <i class="bi bi-folder2-open me-1 text-warning"></i>
                                                 <span class="fw-semibold">{{ pasta.nup }}</span>
                                             </a>
-                                            <span class="badge ms-1 {% if pasta.status == 'ativo' %}text-bg-success{% else %}text-bg-secondary{% endif %} small">
-                                                {{ pasta.status|capitalize }}
+                                            <span class="badge ms-1 {% if pasta.situacao == 'ativo' %}text-bg-success{% else %}text-bg-secondary{% endif %} small">
+                                                {{ pasta.situacao|capitalize }}
                                             </span>
                                         </div>
                                     {% endfor %}

@@ -38,14 +38,14 @@
                     </button>
                     <button type="button"
                             id="btn-alternar-status"
-                            class="pasta-acao-btn {{ pasta.status == 'arquivado' ? 'pasta-acao-btn--arquivado' : '' }}"
-                            title="{{ pasta.status == 'ativo' ? 'Arquivar pasta' : 'Reativar pasta' }}"
+                            class="pasta-acao-btn {{ pasta.situacao == 'arquivado' ? 'pasta-acao-btn--arquivado' : '' }}"
+                            title="{{ pasta.situacao == 'ativo' ? 'Arquivar pasta' : 'Reativar pasta' }}"
                             data-pasta-id="{{ pasta.id }}"
-                            data-status-atual="{{ pasta.status }}"
-                            data-csrf="{{ csrf_token('pasta_alternar_status_' ~ pasta.id) }}"
-                            data-url="{{ path('pasta_alternar_status', {id: pasta.id}) }}">
-                        <i class="bi {{ pasta.status == 'ativo' ? 'bi-archive' : 'bi-archive-fill' }}"></i>
-                        <span class="pasta-acao-label">{{ pasta.status == 'ativo' ? 'Arquivar' : 'Ativar' }}</span>
+                            data-situacao-atual="{{ pasta.situacao }}"
+                            data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
+                            data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}">
+                        <i class="bi {{ pasta.situacao == 'ativo' ? 'bi-archive' : 'bi-archive-fill' }}"></i>
+                        <span class="pasta-acao-label">{{ pasta.situacao == 'ativo' ? 'Arquivar' : 'Ativar' }}</span>
                     </button>
                     <span class="pasta-acao-sep"></span>
                     <button type="button" class="pasta-acao-btn" title="Adiar">
@@ -68,6 +68,29 @@
                             data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}">
                         <i class="bi bi-tag"></i>
                     </button>
+                    <div class="dropdown" style="margin-right:4px;">
+                        <button type="button"
+                                class="btn btn-sm badge {{ pasta.prioridadeBadgeClass }} dropdown-toggle pasta-prioridade-btn"
+                                style="font-size:.78rem;font-weight:500;"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                                data-pasta-id="{{ pasta.id }}"
+                                data-csrf="{{ csrf_token('pasta_prioridade_' ~ pasta.id) }}"
+                                data-url="{{ path('pasta_alterar_prioridade', {id: pasta.id}) }}">
+                            <i class="bi bi-flag-fill me-1"></i>{{ pasta.prioridadeLabel }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="font-size:.85rem;min-width:150px;">
+                            <li><button class="dropdown-item prioridade-opt" data-valor="normal" type="button">
+                                <span class="badge text-bg-secondary me-2" style="font-size:.6rem;">●</span>Normal
+                            </button></li>
+                            <li><button class="dropdown-item prioridade-opt" data-valor="prioridade" type="button">
+                                <span class="badge text-bg-warning me-2" style="font-size:.6rem;">●</span>Prioridade
+                            </button></li>
+                            <li><button class="dropdown-item prioridade-opt" data-valor="urgente" type="button">
+                                <span class="badge text-bg-danger me-2" style="font-size:.6rem;">●</span>Urgente
+                            </button></li>
+                        </ul>
+                    </div>
                     <button type="button" class="pasta-acao-btn" title="Mais ações"
                             data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-three-dots-vertical"></i>
@@ -87,8 +110,8 @@
                 </div>
 
                 <div class="card-tools ms-auto">
-                    <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
-                        {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
+                    <span class="badge {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
+                        {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
                     </span>
                 </div>
             </div>
@@ -3333,10 +3356,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
 
                     <div class="mb-3">
-                        <label for="edit_status" class="form-label form-label-sm">Status</label>
-                        <select id="edit_status" name="status" class="form-select form-select-sm">
-                            <option value="ativo" {{ pasta.status == 'ativo' ? 'selected' : '' }}>Ativo</option>
-                            <option value="arquivado" {{ pasta.status == 'arquivado' ? 'selected' : '' }}>Arquivado</option>
+                        <label for="edit_situacao" class="form-label form-label-sm">Situação</label>
+                        <select id="edit_situacao" name="situacao" class="form-select form-select-sm">
+                            <option value="ativo" {{ pasta.situacao == 'ativo' ? 'selected' : '' }}>Ativo</option>
+                            <option value="arquivado" {{ pasta.situacao == 'arquivado' ? 'selected' : '' }}>Arquivado</option>
                         </select>
                     </div>
 
@@ -3373,15 +3396,15 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (!data.sucesso) {
-                alert(data.erro || 'Erro ao alterar status.');
+                alert(data.erro || 'Erro ao alterar situação.');
                 btn.disabled = false;
                 return;
             }
 
-            var novoStatus = data.novoStatus;
-            btn.dataset.statusAtual = novoStatus;
+            var novaSituacao = data.novaSituacao;
+            btn.dataset.situacaoAtual = novaSituacao;
 
-            var eAtivo = novoStatus === 'ativo';
+            var eAtivo = novaSituacao === 'ativo';
 
             /* ícone */
             var icone = btn.querySelector('i');
@@ -3397,7 +3420,7 @@ document.addEventListener('DOMContentLoaded', function () {
             /* cor do botão */
             btn.classList.toggle('pasta-acao-btn--arquivado', !eAtivo);
 
-            /* badge de status no card-tools */
+            /* badge de situação no card-tools */
             if (badgeEl) {
                 badgeEl.textContent = eAtivo ? 'Ativo' : 'Arquivado';
                 badgeEl.className = 'badge ' + (eAtivo ? 'text-bg-success' : 'text-bg-secondary');
@@ -3408,6 +3431,32 @@ document.addEventListener('DOMContentLoaded', function () {
         .catch(function () {
             alert('Erro de comunicação com o servidor.');
             btn.disabled = false;
+        });
+    });
+
+    /* ── Dropdown de prioridade ── */
+    document.querySelectorAll('.prioridade-opt').forEach(function (optBtn) {
+        optBtn.addEventListener('click', async function () {
+            var dd  = optBtn.closest('.dropdown');
+            var tog = dd.querySelector('.pasta-prioridade-btn');
+            var fd  = new FormData();
+            fd.append('prioridade', optBtn.dataset.valor);
+            fd.append('_token', tog.dataset.csrf);
+
+            try {
+                var res = await fetch(tog.dataset.url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                if (res.ok) {
+                    var json = await res.json();
+                    tog.className = 'btn btn-sm badge ' + json.badgeClass + ' dropdown-toggle pasta-prioridade-btn';
+                    tog.querySelector('i').nextSibling.textContent = json.label;
+                }
+            } catch (e) {
+                alert('Erro ao alterar prioridade.');
+            }
         });
     });
 }());
