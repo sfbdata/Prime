@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Cliente\Entity\Cliente;
 use App\Entity\Pasta\Pasta;
+use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -131,5 +132,27 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
+    }
+
+    /**
+     * @return array<int, int>  marcadorId => total
+     */
+    public function countPorMarcadores(Tenant $tenant): array
+    {
+        $rows = $this->createQueryBuilder('p')
+            ->select('m.id AS marcador_id, COUNT(p.id) AS total')
+            ->join('p.marcadores', 'm')
+            ->where('m.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('m.id')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['marcador_id']] = (int) $row['total'];
+        }
+
+        return $counts;
     }
 }

@@ -37,12 +37,14 @@ class ExpedienteController extends AbstractController
     {
         $usuario   = $this->getUser();
         $tenant    = $usuario->getTenant();
-        $marcadores = $this->marcadorRepository->findRaizPorTenant($tenant);
+        $marcadores      = $this->marcadorRepository->findRaizPorTenant($tenant);
         $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
+        $contagemPastas  = $this->pastaRepository->countPorMarcadores($tenant);
 
         return $this->render('expediente/index.html.twig', [
             'pastas'          => $marcadores,
             'todosMarcadores' => $todosMarcadores,
+            'contagemPastas'  => $contagemPastas,
         ]);
     }
 

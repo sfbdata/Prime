@@ -1394,11 +1394,54 @@ document.addEventListener('DOMContentLoaded', function () {
         }, true);
     })();
 
+    // ── Atualização em tempo real dos contadores da sidebar ──────────────────
+    function alterarContagemSidebar(marcadorId, delta) {
+        var item = document.getElementById('item-pasta-' + marcadorId);
+        if (!item) return;
+        var link  = item.querySelector('.expediente-menu-link, .expediente-submenu-link');
+        if (!link) return;
+        var badge = link.querySelector('.js-contagem-marcador');
+        var count = badge ? parseInt(badge.textContent, 10) : 0;
+        count += delta;
+        if (count <= 0) {
+            if (badge) badge.remove();
+            return;
+        }
+        if (badge) {
+            badge.textContent = count;
+            badge.title = count + ' pasta(s)';
+        } else {
+            var nomeSpan = link.querySelector('span:not(.marcador-cor-dot):not(.js-contagem-marcador)');
+            if (!nomeSpan) return;
+            var novoBadge = document.createElement('span');
+            novoBadge.className  = 'js-contagem-marcador ms-1';
+            novoBadge.title      = count + ' pasta(s)';
+            novoBadge.style.cssText = 'display:inline-block;font-size:.7em;font-weight:600;line-height:1.5;padding:0 5px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.15);border-radius:3px;vertical-align:middle;';
+            novoBadge.textContent = count;
+            nomeSpan.insertAdjacentElement('afterend', novoBadge);
+        }
+    }
+
+    function atualizarContadoresSidebar(oldIds, newIds) {
+        oldIds.forEach(function (id) {
+            if (newIds.indexOf(id) === -1) alterarContagemSidebar(id, -1);
+        });
+        newIds.forEach(function (id) {
+            if (oldIds.indexOf(id) === -1) alterarContagemSidebar(id, +1);
+        });
+    }
+
     // ── Callback pós-salvar do modal "Mover para": atualiza badges na tabela ──
     window.moverParaAtualizarBadgesTabela = function (data, escHtml) {
         var colMarcadores = document.querySelector('td.pasta-marcadores-col[data-pasta-id="' + data.pastaId + '"]');
         if (!colMarcadores) return;
         var btnMover  = colMarcadores.querySelector('.js-mover-para');
+
+        var oldIds = btnMover && btnMover.dataset.marcadoresAtivos
+            ? btnMover.dataset.marcadoresAtivos.split(',').filter(Boolean).map(Number)
+            : [];
+        var newIds = data.marcadores.map(function (m) { return m.id; });
+        atualizarContadoresSidebar(oldIds, newIds);
         var novosHtml = '';
         if (data.marcadores.length > 0) {
             var primeiro = data.marcadores[0];

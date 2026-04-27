@@ -8,6 +8,9 @@
         <i class="bi bi-tag expediente-icon"></i>
         {% if marcador.cor %}<span class="marcador-cor-dot" style="background:{{ marcador.cor }};" title="{{ marcador.nome }}"></span>{% endif %}
         <span>{{ marcador.nome }}</span>
+        {% if contagemPastas[marcador.id] is defined and contagemPastas[marcador.id] > 0 %}
+            <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[marcador.id] }} pasta(s)" style="display:inline-block;font-size:.7em;font-weight:600;line-height:1.5;padding:0 5px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.15);border-radius:3px;vertical-align:middle;">{{ contagemPastas[marcador.id] }}</span>
+        {% endif %}
         <button type="button"
                 class="expediente-btn-add-sub ms-auto"
                 data-pai-id="{{ marcador.id }}"
@@ -40,6 +43,9 @@
                    {% if estiloSub %}style="{{ estiloSub }}"{% endif %}>
                     <i class="bi bi-tag expediente-sub-icon"></i>
                     <span>{{ sub.nome }}</span>
+                    {% if contagemPastas[sub.id] is defined and contagemPastas[sub.id] > 0 %}
+                        <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[sub.id] }} pasta(s)" style="display:inline-block;font-size:.7em;font-weight:600;line-height:1.5;padding:0 5px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.15);border-radius:3px;vertical-align:middle;">{{ contagemPastas[sub.id] }}</span>
+                    {% endif %}
                     <button type="button"
                             class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"
                             data-id="{{ sub.id }}"
