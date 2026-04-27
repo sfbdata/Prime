@@ -26,22 +26,24 @@
     <div class="container-fluid">
         <div class="card">
             <div class="card-body table-responsive p-0">
-                <table class="table table-hover mb-0">
-                    <thead>
+                <table class="table table-hover mb-0" id="tabelaUsuarios">
+                    <thead class="table-light">
                         <tr>
-                            <th><i class="bi bi-person me-1"></i> Nome</th>
-                            <th><i class="bi bi-envelope me-1"></i> Email</th>
-                            <th><i class="bi bi-shield-check me-1"></i> Perfil</th>
-                            <th><i class="bi bi-key me-1"></i> Acessos específicos</th>
-                            <th><i class="bi bi-toggle-on me-1"></i> Status</th>
-                            <th><i class="bi bi-calendar-plus me-1"></i> Criado em</th>
-                            <th><i class="bi bi-gear me-1"></i> Ações</th>
+                            <th class="sortable ps-3" data-col="0" style="width:60px"><i class="bi bi-hash me-1"></i>ID <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Nome <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="2"><i class="bi bi-envelope me-1"></i>Email <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="3"><i class="bi bi-shield-check me-1"></i>Perfil <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th><i class="bi bi-key me-1"></i>Acessos específicos</th>
+                            <th class="sortable" data-col="5"><i class="bi bi-toggle-on me-1"></i>Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="6"><i class="bi bi-calendar-plus me-1"></i>Criado em <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th><i class="bi bi-gear me-1"></i>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for user in users %}
                             {% set userAccesses = accessByUser[user.id] ?? [] %}
                             <tr>
+                                <td class="align-middle ps-3 text-muted fw-semibold" style="font-size:.82rem;">{{ user.id }}</td>
                                 <td class="align-middle">{{ user.fullName }}</td>
                                 <td class="align-middle">{{ user.email }}</td>
                                 <td class="align-middle">
@@ -100,7 +102,7 @@
                                         <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Desativado</span>
                                     {% endif %}
                                 </td>
-                                <td class="align-middle">{{ user.createdAt|date('d/m/Y H:i') }}</td>
+                                <td class="align-middle text-muted" style="font-size:.82rem;">{{ user.createdAt|date('d/m/Y H:i') }}</td>
                                 <td class="align-middle">
                                     <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenant.id, id: user.id}) }}"
                                        class="btn btn-sm btn-outline-primary"
@@ -112,13 +114,83 @@
                             </tr>
                         {% else %}
                             <tr>
-                                <td colspan="7" class="text-center">Nenhum funcionário encontrado.</td>
+                                <td colspan="8" class="text-center">Nenhum funcionário encontrado.</td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
+
+<style>
+#tabelaUsuarios thead th {
+    white-space: nowrap;
+    vertical-align: middle;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    border-bottom: 2px solid #dee2e6;
+    padding: 10px 8px;
+}
+#tabelaUsuarios tbody td {
+    vertical-align: middle;
+    font-size: 0.85rem;
+    padding: 8px 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+#tabelaUsuarios tbody tr:last-child td { border-bottom: none; }
+#tabelaUsuarios tbody tr:hover { background: #f8f9ff; }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { background-color: rgba(0,0,0,0.04); }
+.sort-icon { font-size: 0.68em; opacity: 0.35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
+.sortable.asc .sort-icon, .sortable.desc .sort-icon { opacity: 1; color: #0d6efd; }
+.sortable.asc .sort-icon::before { content: "\F148"; }
+.sortable.desc .sort-icon::before { content: "\F128"; }
+</style>
+
+<script>
+(function () {
+    function iniciarOrdenacaoTabela() {
+        var table = document.getElementById('tabelaUsuarios');
+        if (!table) return;
+        var headers = table.querySelectorAll('th.sortable');
+        var tbody = table.querySelector('tbody');
+
+        function ordenarPorColuna(col, direcao) {
+            headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
+            var headerAtivo = table.querySelector('th.sortable[data-col="' + col + '"]');
+            if (headerAtivo) headerAtivo.classList.add(direcao);
+            var rows = Array.from(tbody.querySelectorAll('tr'));
+            rows.sort(function (a, b) {
+                var aVal = (a.cells[col] ? a.cells[col].textContent.trim() : '').toLowerCase();
+                var bVal = (b.cells[col] ? b.cells[col].textContent.trim() : '').toLowerCase();
+                return direcao === 'asc'
+                    ? aVal.localeCompare(bVal, 'pt-BR')
+                    : bVal.localeCompare(aVal, 'pt-BR');
+            });
+            rows.forEach(function (row) { tbody.appendChild(row); });
+        }
+
+        headers.forEach(function (header) {
+            header.addEventListener('click', function () {
+                var col = parseInt(this.dataset.col);
+                var isAsc = this.classList.contains('asc');
+                ordenarPorColuna(col, isAsc ? 'desc' : 'asc');
+            });
+        });
+
+        /* Ordenação padrão: Nome (coluna 1) crescente */
+        ordenarPorColuna(1, 'asc');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', iniciarOrdenacaoTabela);
+    } else {
+        iniciarOrdenacaoTabela();
+    }
+}());
+</script>
     </div>
 </section>
 
