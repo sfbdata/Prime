@@ -5,7 +5,7 @@
 {% set formAction = formAction ?? path('pasta_index') %}
 {% set limparUrl = limparUrl ?? path('pasta_index') %}
 
-{% set temFiltro = filters.nup or filters.status or filters.responsavel or filters.status_documentos %}
+{% set temFiltro = filters.nup or filters.status or filters.responsavel %}
 <div class="card card-outline card-primary mb-3">
     <div class="card-header py-2" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosPasta"
          aria-expanded="{{ temFiltro ? 'true' : 'false' }}">
@@ -45,14 +45,6 @@
                             {% for usuario in responsaveis %}
                                 <option value="{{ usuario.id }}" {% if filters.responsavel == usuario.id ~ '' %}selected{% endif %}>{{ usuario.fullName }}</option>
                             {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label for="filter_status_documentos" class="form-label form-label-sm">Documentação</label>
-                        <select id="filter_status_documentos" name="status_documentos" class="form-control form-control-sm select2-filter">
-                            <option value="">Todos</option>
-                            <option value="APTO_PARA_PROTOCOLAR" {% if filters.status_documentos == 'APTO_PARA_PROTOCOLAR' %}selected{% endif %}>Apto para Protocolar</option>
-                            <option value="PENDENTE_DE_DOCUMENTACAO" {% if filters.status_documentos == 'PENDENTE_DE_DOCUMENTACAO' %}selected{% endif %}>Pendente de Documentação</option>
                         </select>
                     </div>
                 </div>
@@ -97,12 +89,11 @@
                     <th class="sortable ps-3" data-col="0" style="width:90px"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-acao-tabela" data-col="2"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable col-doc-tabela" data-col="3" style="width:110px"><i class="bi bi-file-earmark-check me-1"></i>Doc. <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable" data-col="4" style="width:90px"><i class="bi bi-flag me-1"></i>Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable col-resp-tabela" data-col="5"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" data-col="3" style="width:90px"><i class="bi bi-flag me-1"></i>Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-resp-tabela" data-col="4"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Tarefas</th>
-                    <th class="sortable col-data-tabela" data-col="6" style="width:95px"><i class="bi bi-calendar-plus me-1"></i>Criado <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable col-data-tabela" data-col="7" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-data-tabela" data-col="5" style="width:95px"><i class="bi bi-calendar-plus me-1"></i>Criado <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-data-tabela" data-col="6" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="col-marc-tabela"><i class="bi bi-tags me-1"></i>Marcadores</th>
                 </tr>
             </thead>
@@ -139,13 +130,6 @@
                             <span class="text-muted">—</span>
                         {% endif %}
                         </span>
-                    </td>
-                    <td class="col-doc-tabela align-middle">
-                        {% if pasta.statusDocumentos == 'APTO_PARA_PROTOCOLAR' %}
-                            <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Regular</span>
-                        {% else %}
-                            <span class="badge text-bg-warning text-dark"><i class="bi bi-exclamation-circle me-1"></i>Pendente</span>
-                        {% endif %}
                     </td>
                     <td class="align-middle">
                         <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
@@ -233,11 +217,6 @@
                 <span class="badge {{ pasta.status == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}" style="font-size:.7rem;">
                     {{ pasta.status == 'ativo' ? 'Ativo' : 'Arquivado' }}
                 </span>
-                {% if pasta.statusDocumentos == 'APTO_PARA_PROTOCOLAR' %}
-                    <span class="badge text-bg-success" style="font-size:.7rem;"><i class="bi bi-check-circle"></i></span>
-                {% else %}
-                    <span class="badge text-bg-warning text-dark" style="font-size:.7rem;"><i class="bi bi-exclamation-circle"></i></span>
-                {% endif %}
             </div>
         </div>
 
@@ -342,7 +321,7 @@
 {% else %}
 <div class="alert alert-info mb-0">
     <i class="bi bi-info-circle me-1"></i>
-    {% if filters.nup or filters.status or filters.responsavel or filters.status_documentos %}
+    {% if filters.nup or filters.status or filters.responsavel %}
         Nenhuma pasta encontrada com os filtros aplicados.
     {% else %}
         Nenhuma pasta cadastrada.
@@ -380,7 +359,7 @@
 
 /* Ocultar colunas secundárias em telas médias */
 @media (max-width: 1100px) {
-    .col-data-tabela, .col-doc-tabela { display: none; }
+    .col-data-tabela { display: none; }
 }
 @media (max-width: 900px) {
     .col-acao-tabela, .col-resp-tabela, .col-tarefas-tabela { display: none; }

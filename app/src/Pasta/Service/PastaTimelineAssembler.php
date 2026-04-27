@@ -13,16 +13,6 @@ use App\Repository\UserRepository;
 
 class PastaTimelineAssembler
 {
-    private const CHECKLIST_FIELDS = [
-        'docPecaOk',
-        'docProcuracaoOk',
-        'docIdentificacaoOk',
-        'docComprovanteResidenciaOk',
-        'docGratuidadeJusticaOk',
-        'docDemaisOk',
-        'statusDocumentos',
-    ];
-
     private const FIELD_LABELS = [
         'nup'          => 'NUP',
         'status'       => 'Status',
@@ -385,10 +375,6 @@ class PastaTimelineAssembler
 
         $parts = [];
         foreach ($diff as $field => $change) {
-            if (in_array($field, self::CHECKLIST_FIELDS, true)) {
-                continue;
-            }
-
             $frase = $this->descreverMudanca($field, $change);
             if ($frase !== null) {
                 $parts[] = $frase;

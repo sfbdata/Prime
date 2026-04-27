@@ -147,10 +147,9 @@ class ExpedienteController extends AbstractController
         }
 
         $filters = [
-            'nup'               => $request->query->get('nup', ''),
-            'status'            => $request->query->get('status', ''),
-            'responsavel'       => $request->query->get('responsavel', ''),
-            'status_documentos' => $request->query->get('status_documentos', ''),
+            'nup'         => $request->query->get('nup', ''),
+            'status'      => $request->query->get('status', ''),
+            'responsavel' => $request->query->get('responsavel', ''),
         ];
         $hasFilters = array_filter($filters, fn($v) => $v !== '');
         $pastas = $hasFilters
@@ -209,10 +208,9 @@ class ExpedienteController extends AbstractController
         }
 
         $filters = [
-            'nup'               => $request->query->get('nup', ''),
-            'status'            => $request->query->get('status', ''),
-            'responsavel'       => $request->query->get('responsavel', ''),
-            'status_documentos' => $request->query->get('status_documentos', ''),
+            'nup'         => $request->query->get('nup', ''),
+            'status'      => $request->query->get('status', ''),
+            'responsavel' => $request->query->get('responsavel', ''),
         ];
 
         $hasFilters = array_filter($filters, fn($v) => $v !== '');

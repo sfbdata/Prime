@@ -43,14 +43,6 @@ class PastaRepository extends ServiceEntityRepository
                ->setParameter('responsavel', (int) $filters['responsavel']);
         }
 
-        if (!empty($filters['status_documentos'])) {
-            if ($filters['status_documentos'] === 'APTO_PARA_PROTOCOLAR') {
-                $qb->andWhere('p.docPecaOk = true AND p.docProcuracaoOk = true AND p.docIdentificacaoOk = true AND p.docComprovanteResidenciaOk = true AND p.docGratuidadeJusticaOk = true');
-            } else {
-                $qb->andWhere('p.docPecaOk = false OR p.docProcuracaoOk = false OR p.docIdentificacaoOk = false OR p.docComprovanteResidenciaOk = false OR p.docGratuidadeJusticaOk = false');
-            }
-        }
-
         return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
     }
 
@@ -121,14 +113,6 @@ class PastaRepository extends ServiceEntityRepository
             $qb->join('p.responsavel', 'r')
                ->andWhere('r.id = :responsavel')
                ->setParameter('responsavel', (int) $filters['responsavel']);
-        }
-
-        if (!empty($filters['status_documentos'])) {
-            if ($filters['status_documentos'] === 'APTO_PARA_PROTOCOLAR') {
-                $qb->andWhere('p.docPecaOk = true AND p.docProcuracaoOk = true AND p.docIdentificacaoOk = true AND p.docComprovanteResidenciaOk = true AND p.docGratuidadeJusticaOk = true');
-            } else {
-                $qb->andWhere('p.docPecaOk = false OR p.docProcuracaoOk = false OR p.docIdentificacaoOk = false OR p.docComprovanteResidenciaOk = false OR p.docGratuidadeJusticaOk = false');
-            }
         }
 
         return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
