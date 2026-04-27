@@ -17,6 +17,7 @@ class JustificativaPonto
         'Nascimento de Filho (Licença-paternidade)' => 'licenca_paternidade',
         'Falecimento de Familiar'                   => 'falecimento_familiar',
         'Comparecimento em Juízo'                   => 'comparecimento_juizo',
+        'Falta não justificada'                     => 'falta_nao_justificada',
     ];
     #[ORM\Id]
     #[ORM\GeneratedValue]

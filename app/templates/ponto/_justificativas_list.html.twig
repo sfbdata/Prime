@@ -51,7 +51,9 @@
                             <td class="small">{{ batch[0].descricao }}</td>
                             <td>
                                 {% set status = batch[0].status %}
-                                {% if status == 'abonado' %}
+                                {% if status == 'abonado' and batch[0].tipo == 'falta_nao_justificada' %}
+                                    <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Não abonado</span>
+                                {% elseif status == 'abonado' %}
                                     <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Abonado</span>
                                 {% elseif status == 'pendente' %}
                                     <span class="badge text-bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendente</span>

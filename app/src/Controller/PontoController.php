@@ -217,6 +217,8 @@ final class PontoController extends AbstractController
             }
 
             $batchId = bin2hex(random_bytes(16));
+            $isFaltaNaoJustificada = $tipo === 'falta_nao_justificada';
+            $statusInicial = $isFaltaNaoJustificada ? 'abonado' : 'pendente';
             $justificativasCriadas = [];
 
             foreach ($datasValidas as $dataObj) {
@@ -226,7 +228,7 @@ final class PontoController extends AbstractController
                 $justificativa->setDescricao($descricao);
                 $justificativa->setTipo($tipo);
                 $justificativa->setAnexoPath($anexoPath);
-                $justificativa->setStatus('pendente');
+                $justificativa->setStatus($statusInicial);
                 $justificativa->setBatchId($batchId);
                 $justificativa->setAbonoParcial($abonoParcial);
                 if ($abonoParcial) {
@@ -240,15 +242,24 @@ final class PontoController extends AbstractController
 
             $entityManager->flush();
 
-            $urlGestor = $this->generateUrl('app_tenant_users', ['id' => $user->getTenant()->getId()]);
-            foreach ($justificativasCriadas as $j) {
-                $notificacaoService->notificarJustificativaEnviada($j, $urlGestor);
+            if (!$isFaltaNaoJustificada) {
+                $urlGestor = $this->generateUrl('app_tenant_users', ['id' => $user->getTenant()->getId()]);
+                foreach ($justificativasCriadas as $j) {
+                    $notificacaoService->notificarJustificativaEnviada($j, $urlGestor);
+                }
             }
 
-            $this->addFlash('success', sprintf(
-                'Justificativa enviada para %d dia(s). Aguarde análise do administrador.',
-                count($datasValidas)
-            ));
+            if ($isFaltaNaoJustificada) {
+                $this->addFlash('success', sprintf(
+                    'Falta registrada como não justificada para %d dia(s).',
+                    count($datasValidas)
+                ));
+            } else {
+                $this->addFlash('success', sprintf(
+                    'Justificativa enviada para %d dia(s). Aguarde análise do administrador.',
+                    count($datasValidas)
+                ));
+            }
         } elseif ($form->isSubmitted() && !$form->isValid()) {
             foreach ($form->getErrors(true) as $error) {
                 $this->addFlash('danger', $error->getMessage());
