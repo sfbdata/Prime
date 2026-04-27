@@ -38,7 +38,7 @@
 
                 <div class="mb-3">
                     {{ form_label(justificativaForm.tipo) }}
-                    {{ form_widget(justificativaForm.tipo, {attr: {class: 'form-select', id: 'justificativa-tipo-select'}}) }}
+                    {{ form_widget(justificativaForm.tipo, {attr: {class: 'form-select'}}) }}
                     {{ form_errors(justificativaForm.tipo) }}
                 </div>
 
@@ -254,7 +254,7 @@
 
     const checkAbonoParcial = document.querySelector('input[name="justificativa_ponto[abonoParcial]"]');
     const blocoHorario = document.getElementById('bloco-horario-abono');
-    const tipoSelect = document.getElementById('justificativa-tipo-select');
+    const tipoSelect = document.querySelector('select[name="justificativa_ponto[tipo]"]');
     const alertaNaoJustificada = document.getElementById('alerta-falta-nao-justificada');
     const blocoAbonoParcial = document.getElementById('bloco-abono-parcial');
 
