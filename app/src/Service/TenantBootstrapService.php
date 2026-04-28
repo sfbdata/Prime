@@ -51,6 +51,8 @@ class TenantBootstrapService
         if ($creator !== null) {
             $creator->setTenantRole($adminRole);
             $this->entityManager->persist($creator);
+            $tenant->setCriadoPor($creator);
+            $this->entityManager->persist($tenant);
         }
 
         $this->seedFeriadosNacionais($tenant);

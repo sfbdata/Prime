@@ -15,6 +15,7 @@ use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
+use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\PermissionChecker;
 use App\Service\Ponto\FolhaPontoBuilder;
 use App\Service\Ponto\VerificadorAlertaPonto;
@@ -39,6 +40,7 @@ final class PontoController extends AbstractController
         private readonly VerificadorAlertaPonto $verificadorAlerta,
         private readonly ArquivoStorageService $storage,
         private readonly JornadaResolver $jornadaResolver,
+        private readonly GerarCodigoFuncionario $gerarCodigo,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -195,11 +197,6 @@ final class PontoController extends AbstractController
                 // Não permitir datas futuras
                 if ($dataObj > $hoje) {
                     $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
-                    continue;
-                }
-                // Não permitir domingo
-                if ((int) $dataObj->format('N') === 7) {
-                    $this->addFlash('warning', sprintf('A data %s é domingo e foi ignorada.', $dataObj->format('d/m/Y')));
                     continue;
                 }
                 $datasValidas[] = $dataObj;
@@ -695,7 +692,8 @@ final class PontoController extends AbstractController
             'nomeEmpresa'       => mb_strtoupper($tenant?->getName() ?? ''),
             'inicioMes'         => $inicioMesFormatado,
             'fimMes'            => $fimMesFormatado,
-            'numeroTrabalhador' => sprintf('%06d', (int) $targetUser->getId()),
+            'numeroTrabalhador' => $targetUser->getCodigoFuncionario()
+                ?? ($targetUser->getTenant() !== null ? $this->gerarCodigo->executar($targetUser->getTenant()) : ''),
             'cargo'             => mb_strtoupper($cargo?->getNome() ?? ''),
             'ctps'              => $profile?->getCtps() ?? '',
             'serie'             => $profile?->getSerie() ?? '',
@@ -834,7 +832,8 @@ final class PontoController extends AbstractController
             'inicioMes'         => $inicioMesFormatado,
             'fimMes'            => $fimMesFormatado,
             'nomeUsuario'       => mb_strtoupper($nomeXlsx),
-            'numeroTrabalhador' => sprintf('%06d', (int) $targetUser->getId()),
+            'numeroTrabalhador' => $targetUser->getCodigoFuncionario()
+                ?? ($targetUser->getTenant() !== null ? $this->gerarCodigo->executar($targetUser->getTenant()) : ''),
             'cargo'             => mb_strtoupper($cargo?->getNome() ?? ''),
             'ctps'              => $profile?->getCtps() ?? '',
             'serie'             => $profile?->getSerie() ?? '',

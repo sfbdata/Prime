@@ -42,11 +42,7 @@ class SedeType extends AbstractType
                     new Assert\Range(min: 10, max: 500, notInRangeMessage: 'Raio permitido deve estar entre 10 e 500 metros.'),
                 ],
             ])
-            ->add('timezone', TextType::class, [
-                'label' => 'Fuso Horário',
-                'required' => false,
-                'data' => 'America/Sao_Paulo',
-            ]);
+        ;
     }
 
     public function configureOptions(OptionsResolver $resolver): void

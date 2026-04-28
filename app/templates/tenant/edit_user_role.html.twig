@@ -62,6 +62,13 @@
                             <div class="card-body">
                                 {{ form_start(form) }}
                                     <div class="mb-4">
+                                        {{ form_label(form.codigoFuncionario, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
+                                        {{ form_widget(form.codigoFuncionario) }}
+                                        <div class="form-text text-muted">Gerado automaticamente. Pode ser editado (letras e números).</div>
+                                        {{ form_errors(form.codigoFuncionario) }}
+                                    </div>
+
+                                    <div class="mb-4">
                                         {{ form_label(form.tenantRole, null, {'label_attr': {'class': 'form-label fw-bold'}}) }}
                                         {{ form_widget(form.tenantRole) }}
                                         {{ form_errors(form.tenantRole) }}
@@ -116,10 +123,20 @@
                                     {{ form_errors(form.newPassword) }}
                             </div>
                             <div class="card-footer">
-                                <div class="d-flex gap-2 justify-content-between">
-                                    <a href="{{ path('app_tenant_users', {id: user.tenant.id}) }}" class="btn btn-outline-secondary">
-                                        <i class="bi bi-arrow-left me-1"></i>Voltar
-                                    </a>
+                                <div class="d-flex gap-2 justify-content-between align-items-center">
+                                    <div class="d-flex gap-2">
+                                        {% if user.isActive %}
+                                            <button type="button"
+                                                    class="btn btn-danger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalConfirmarDemissao">
+                                                <i class="bi bi-person-x me-1"></i>DEMITIR
+                                            </button>
+                                        {% endif %}
+                                        <a href="{{ path('app_tenant_users', {id: user.tenant.id}) }}" class="btn btn-outline-secondary">
+                                            <i class="bi bi-arrow-left me-1"></i>Voltar
+                                        </a>
+                                    </div>
                                     <button class="btn btn-primary">
                                         <i class="bi bi-check-lg me-1"></i>Salvar
                                     </button>
@@ -311,6 +328,57 @@
         </div>
     </div>
 </div>
+
+{% if user.isActive %}
+<div class="modal fade" id="modalConfirmarDemissao" tabindex="-1" aria-labelledby="labelModalDemissao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="labelModalDemissao">
+                    <i class="bi bi-person-x me-2"></i>Confirmar Demissão
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ path('app_tenant_user_demitir', {tenantId: tenantId, userId: user.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('demitir_' ~ user.id) }}">
+                <div class="modal-body">
+                    <div class="alert alert-warning d-flex gap-2 align-items-start mb-4">
+                        <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+                        <div>
+                            Ao demitir <strong>{{ user.fullName }}</strong>, ele será removido de todas as
+                            pastas, tarefas, chamados e eventos em que figura como responsável.
+                            O histórico de criação e participação será mantido.
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label for="substitutoSelect" class="form-label fw-bold">
+                            Transferir responsabilidades para
+                            <span class="text-muted fw-normal">(opcional)</span>
+                        </label>
+                        <select name="substituto_id" id="substitutoSelect" class="form-select">
+                            <option value="">— Deixar sem responsável —</option>
+                            {% for colega in colegas %}
+                                <option value="{{ colega.id }}">
+                                    {% if colega.codigoFuncionario %}[{{ colega.codigoFuncionario }}] {% endif %}{{ colega.fullName }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-muted">
+                            Se selecionado, esse funcionário assumirá todas as responsabilidades ativas do demitido.
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-person-x me-1"></i>Confirmar Demissão
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% endblock %}
 

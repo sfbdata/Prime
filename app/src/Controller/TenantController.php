@@ -29,6 +29,9 @@ use App\Repository\CargoRepository;
 use App\Repository\LotacaoRepository;
 use App\Repository\TenantRepository;
 use App\Repository\TenantRoleRepository;
+use App\Tenant\DTO\DemitirFuncionarioInput;
+use App\Tenant\UseCase\DemitirFuncionarioUseCase;
+use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\InvitationService;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
@@ -428,7 +431,8 @@ final class TenantController extends AbstractController
         PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder,
         CargoRepository $cargoRepository,
-        LotacaoRepository $lotacaoRepository
+        LotacaoRepository $lotacaoRepository,
+        GerarCodigoFuncionario $gerarCodigo
     ): Response {
         $currentUser = $this->getUser();
 
@@ -450,6 +454,11 @@ final class TenantController extends AbstractController
         $targetTenant   = $user->getTenant();
         $cargos         = $targetTenant ? $cargoRepository->findBy(['tenant' => $targetTenant], ['nome' => 'ASC']) : [];
         $lotacoes       = $targetTenant ? $lotacaoRepository->findBy(['tenant' => $targetTenant], ['nome' => 'ASC']) : [];
+
+        // Pré-preenche em memória sem flush — o flush ocorre apenas na submissão válida
+        if ($user->getCodigoFuncionario() === null && $targetTenant !== null) {
+            $user->setCodigoFuncionario($gerarCodigo->executar($targetTenant));
+        }
 
         $form = $this->createForm(EditUserTenantRoleType::class, $user, [
             'tenant_roles'    => $tenantRoles,
@@ -510,6 +519,13 @@ final class TenantController extends AbstractController
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);
         $justificativas = $justificativaRepository->findByTenantUser($user);
 
+        $colegas = $targetTenant
+            ? array_values(array_filter(
+                $targetTenant->getUsers()->toArray(),
+                static fn (User $u) => $u->isActive() && $u->getId() !== $user->getId()
+            ))
+            : [];
+
         return $this->render('tenant/edit_user_role.html.twig', [
             'form'                   => $form->createView(),
             'user'                   => $user,
@@ -526,6 +542,7 @@ final class TenantController extends AbstractController
             'justificativas'         => $justificativas,
             'tiposJustificativa'     => JustificativaPonto::TIPOS,
             'comSegundos'            => $this->deveMostrarSegundosBatida(),
+            'colegas'                => $colegas,
         ]);
     }
 
@@ -567,6 +584,51 @@ final class TenantController extends AbstractController
         $this->addFlash('success', 'Nome atualizado com sucesso!');
 
         return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId()]);
+    }
+
+    #[Route('/{tenantId}/user/{userId}/demitir', name: 'app_tenant_user_demitir', methods: ['POST'])]
+    public function demitirFuncionario(
+        int $tenantId,
+        int $userId,
+        Request $request,
+        DemitirFuncionarioUseCase $useCase,
+        PermissionChecker $permissionChecker,
+        EntityManagerInterface $em,
+    ): Response {
+        $executor = $this->getUser();
+
+        if (!$executor) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $executor->getRoles(), true);
+        $isOwnTenant  = $executor->getTenant()?->getId() === $tenantId;
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($executor, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if (!$this->isCsrfTokenValid('demitir_' . $userId, $request->request->getString('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $funcionario = $em->find(User::class, $userId);
+
+        if (!$funcionario) {
+            throw $this->createNotFoundException('Funcionário não encontrado.');
+        }
+
+        $substitutoId = $request->request->getInt('substituto_id') ?: null;
+        $substituto   = $substitutoId ? $em->find(User::class, $substitutoId) : null;
+
+        try {
+            $useCase->executar(new DemitirFuncionarioInput($executor, $funcionario, $substituto));
+            $this->addFlash('success', 'Funcionário demitido com sucesso.');
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_tenant_users', ['id' => $tenantId]);
     }
 
     #[Route('/{tenantId}/user/{id}/ponto/add', name: 'app_tenant_user_ponto_add', methods: ['POST'])]
@@ -960,10 +1022,6 @@ final class TenantController extends AbstractController
             }
             if ($dataObj > $hoje) {
                 $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
-                continue;
-            }
-            if ((int) $dataObj->format('N') === 7) {
-                $this->addFlash('warning', sprintf('A data %s é domingo e foi ignorada.', $dataObj->format('d/m/Y')));
                 continue;
             }
             $datasValidas[] = $dataObj;

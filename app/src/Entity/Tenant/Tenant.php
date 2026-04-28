@@ -86,6 +86,10 @@ class Tenant
     #[ORM\OneToOne(mappedBy: 'tenant', targetEntity: JornadaTenant::class, cascade: ['persist', 'remove'], orphanRemoval: false)]
     private ?JornadaTenant $jornadaTenant = null;
 
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $criadoPor = null;
+
     public function __construct()
     {
         $this->users = new ArrayCollection();
@@ -346,6 +350,17 @@ class Tenant
         if ($jornadaTenant !== null && $jornadaTenant->getTenant() !== $this) {
             $jornadaTenant->setTenant($this);
         }
+        return $this;
+    }
+
+    public function getCriadoPor(): ?User
+    {
+        return $this->criadoPor;
+    }
+
+    public function setCriadoPor(?User $criadoPor): static
+    {
+        $this->criadoPor = $criadoPor;
         return $this;
     }
 }

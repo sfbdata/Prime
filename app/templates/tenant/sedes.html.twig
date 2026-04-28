@@ -1,71 +1,468 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Sedes - {{ tenant.name }}{% endblock %}
+{% block title %}Sedes — {{ tenant.name }}{% endblock %}
 
 {% block stylesheets %}
     {{ parent() }}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
+        /* ── Base tipográfica ── */
+        .sedes-page {
+            font-family: 'DM Sans', sans-serif;
+        }
+
+        /* ── Cabeçalho ── */
+        .sedes-page-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem 0 1.25rem;
+            border-bottom: 2px solid #f0f0f0;
+            margin-bottom: 1.75rem;
+        }
+        .sedes-page-header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .sedes-page-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #1a56a4 0%, #0e3a72 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.2rem;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(26,86,164,.28);
+        }
+        .sedes-page-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.2;
+            margin: 0;
+        }
+        .sedes-page-subtitle {
+            font-size: .82rem;
+            color: #6b7280;
+            margin: 2px 0 0;
+        }
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .45rem .9rem;
+            border-radius: 8px;
+            font-size: .82rem;
+            font-weight: 600;
+            color: #374151;
+            background: #f3f4f6;
+            border: 1px solid #e5e7eb;
+            text-decoration: none;
+            transition: background .18s, border-color .18s, color .18s;
+            font-family: 'DM Sans', sans-serif;
+        }
+        .btn-back:hover {
+            background: #e5e7eb;
+            color: #111827;
+        }
+
+        /* ── Alertas refinados ── */
+        .sedes-flash {
+            border-radius: 10px;
+            border-left: 4px solid;
+            font-size: .88rem;
+            font-weight: 500;
+            padding: .75rem 1rem;
+            margin-bottom: 1rem;
+        }
+        .sedes-flash.alert-success  { border-left-color: #10b981; background: #f0fdf4; color: #065f46; }
+        .sedes-flash.alert-danger   { border-left-color: #ef4444; background: #fef2f2; color: #7f1d1d; }
+        .sedes-flash.alert-warning  { border-left-color: #f59e0b; background: #fffbeb; color: #78350f; }
+
+        /* ── Card base ── */
+        .sedes-card {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 1px 4px rgba(0,0,0,.05);
+            overflow: hidden;
+        }
+        .sedes-card-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sedes-card-header-title {
+            font-size: .95rem;
+            font-weight: 700;
+            color: #111827;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin: 0;
+        }
+        .sedes-card-header-title .card-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .85rem;
+        }
+        .card-icon-blue   { background: #eff6ff; color: #1a56a4; }
+        .card-icon-green  { background: #f0fdf4; color: #10b981; }
+
+        /* ── Formulário ── */
+        .sedes-form-body { padding: 1.25rem; }
+        .form-section {
+            padding: 1rem 1.125rem;
+            border-radius: 10px;
+            background: #f9fafb;
+            border: 1px solid #f0f0f0;
+            margin-bottom: 1rem;
+        }
+        .form-section-label {
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            color: #9ca3af;
+            margin-bottom: .75rem;
+        }
+        .sedes-label {
+            font-size: .82rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: .35rem;
+            display: block;
+        }
+        .sedes-input {
+            border-radius: 8px !important;
+            border: 1.5px solid #e5e7eb !important;
+            font-size: .88rem !important;
+            font-family: 'DM Sans', sans-serif !important;
+            transition: border-color .18s, box-shadow .18s !important;
+        }
+        .sedes-input:focus {
+            border-color: #1a56a4 !important;
+            box-shadow: 0 0 0 3px rgba(26,86,164,.12) !important;
+        }
+        .form-hint {
+            font-size: .76rem;
+            color: #9ca3af;
+            margin-top: .3rem;
+            display: flex;
+            align-items: center;
+            gap: .3rem;
+        }
+
+        /* ── Busca de endereço ── */
+        .address-search-row {
+            display: flex;
+            gap: .5rem;
+        }
+        .address-search-row input {
+            flex: 1;
+        }
+        .btn-search {
+            border-radius: 8px !important;
+            font-size: .82rem !important;
+            font-weight: 600 !important;
+            font-family: 'DM Sans', sans-serif !important;
+            padding: .42rem .75rem !important;
+            white-space: nowrap;
+        }
+        .btn-icon-only {
+            border-radius: 8px !important;
+            padding: .42rem .65rem !important;
+            font-size: .88rem !important;
+        }
+
+        .cep-feedback {
+            font-size: .77rem;
+            font-weight: 500;
+            padding: .45rem .7rem;
+            border-radius: 7px;
+            margin-top: .5rem;
+            display: none;
+        }
+        .cep-feedback.success { background: #f0fdf4; color: #065f46; border: 1px solid #bbf7d0; }
+        .cep-feedback.error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+        .cep-feedback.warning { background: #fffbeb; color: #78350f; border: 1px solid #fde68a; }
+
+        /* ── Mapa ── */
+        .map-wrapper {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1.5px solid #e5e7eb;
+            margin-top: .75rem;
+        }
         #sede-map {
-            height: 320px;
-            border-radius: .5rem;
-            border: 1px solid #dee2e6;
+            height: 280px;
         }
         .map-locate-btn {
             position: absolute;
-            top: 80px;
+            top: 10px;
             right: 10px;
             z-index: 1000;
             width: 34px;
             height: 34px;
-            border-radius: 4px;
+            border-radius: 8px;
             background: white;
-            border: 2px solid rgba(0,0,0,0.2);
+            border: 1.5px solid rgba(0,0,0,0.15);
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             padding: 0;
+            transition: background .18s;
+            color: #374151;
         }
-        .map-locate-btn:hover {
-            background: #f4f4f4;
+        .map-locate-btn:hover { background: #f3f4f6; }
+        .map-tip {
+            font-size: .74rem;
+            color: #9ca3af;
+            margin-top: .5rem;
+            display: flex;
+            align-items: center;
+            gap: .3rem;
+        }
+
+        /* ── Botões do formulário ── */
+        .form-actions {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            margin-top: 1.25rem;
+        }
+        .btn-submit {
+            border-radius: 9px !important;
+            font-weight: 700 !important;
+            font-size: .85rem !important;
+            font-family: 'DM Sans', sans-serif !important;
+            padding: .55rem 1.2rem !important;
+            background: linear-gradient(135deg, #1a56a4 0%, #0e3a72 100%) !important;
+            border: none !important;
+            box-shadow: 0 3px 10px rgba(26,86,164,.3) !important;
+            transition: transform .15s, box-shadow .15s !important;
+        }
+        .btn-submit:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 5px 16px rgba(26,86,164,.38) !important;
+        }
+        .btn-cancel-edit {
+            border-radius: 9px !important;
+            font-weight: 600 !important;
+            font-size: .85rem !important;
+            font-family: 'DM Sans', sans-serif !important;
+            padding: .55rem 1rem !important;
+            background: #f3f4f6 !important;
+            border: 1px solid #e5e7eb !important;
+            color: #374151 !important;
+            transition: background .18s !important;
+        }
+        .btn-cancel-edit:hover { background: #e5e7eb !important; }
+
+        /* ── Lista de sedes ── */
+        .sedes-list-body { padding: 1.25rem; }
+        .sede-card {
+            border: 1.5px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 1rem 1.1rem;
+            margin-bottom: .75rem;
+            background: #fff;
+            transition: border-color .2s, box-shadow .2s, transform .18s;
+            position: relative;
+            overflow: hidden;
+        }
+        .sede-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(180deg, #1a56a4 0%, #0e3a72 100%);
+            border-radius: 0 2px 2px 0;
+            opacity: 0;
+            transition: opacity .2s;
+        }
+        .sede-card:hover {
+            border-color: #bfdbfe;
+            box-shadow: 0 4px 16px rgba(26,86,164,.1);
+            transform: translateY(-1px);
+        }
+        .sede-card:hover::before { opacity: 1; }
+        .sede-card:last-child { margin-bottom: 0; }
+
+        .sede-card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: .75rem;
+        }
+        .sede-nome {
+            font-size: .97rem;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.3;
+            margin-bottom: .45rem;
+        }
+        .sede-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+        }
+        .sede-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .3rem;
+            padding: .25rem .55rem;
+            border-radius: 6px;
+            font-size: .73rem;
+            font-weight: 600;
+            font-family: 'DM Mono', monospace;
+        }
+        .sede-badge-coords {
+            background: #eff6ff;
+            color: #1a56a4;
+            border: 1px solid #bfdbfe;
+        }
+        .sede-badge-raio {
+            background: #f0fdf4;
+            color: #15803d;
+            border: 1px solid #bbf7d0;
+        }
+        .sede-badge-nocoords {
+            background: #f9fafb;
+            color: #9ca3af;
+            border: 1px solid #e5e7eb;
+        }
+        .sede-actions {
+            display: flex;
+            gap: .4rem;
+            flex-shrink: 0;
+        }
+        .btn-sede-edit, .btn-sede-del {
+            border-radius: 7px !important;
+            font-size: .82rem !important;
+            padding: .35rem .6rem !important;
+            font-family: 'DM Sans', sans-serif !important;
+            font-weight: 600 !important;
+            transition: transform .15s, box-shadow .15s !important;
+            border: none !important;
+        }
+        .btn-sede-edit {
+            background: #eff6ff !important;
+            color: #1a56a4 !important;
+        }
+        .btn-sede-edit:hover {
+            background: #dbeafe !important;
+            transform: translateY(-1px) !important;
+        }
+        .btn-sede-del {
+            background: #fef2f2 !important;
+            color: #dc2626 !important;
+        }
+        .btn-sede-del:hover {
+            background: #fee2e2 !important;
+            transform: translateY(-1px) !important;
+        }
+
+        /* ── Estado vazio ── */
+        .sedes-empty {
+            text-align: center;
+            padding: 2.5rem 1.5rem;
+        }
+        .sedes-empty-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #1a56a4;
+            margin: 0 auto .9rem;
+        }
+        .sedes-empty-title {
+            font-size: .95rem;
+            font-weight: 700;
+            color: #374151;
+            margin-bottom: .3rem;
+        }
+        .sedes-empty-sub {
+            font-size: .8rem;
+            color: #9ca3af;
+        }
+
+        /* ── Campos extras de endereço ── */
+        .address-extra-fields {
+            margin-top: .6rem;
+        }
+        .address-extra-fields .sedes-input {
+            font-size: .82rem !important;
         }
     </style>
 {% endblock %}
 
 {% block body %}
-<div class="container-fluid">
-    <div class="row mb-4">
-        <div class="col-sm-6">
-            <h1 class="m-0">Sedes: {{ tenant.name }}</h1>
+<div class="container-fluid sedes-page">
+
+    {# ── Cabeçalho ── #}
+    <div class="sedes-page-header">
+        <div class="sedes-page-header-left">
+            <div class="sedes-page-icon">
+                <i class="bi bi-building-fill"></i>
+            </div>
+            <div>
+                <div class="sedes-page-title">Sedes</div>
+                <div class="sedes-page-subtitle">{{ tenant.name }}</div>
+            </div>
         </div>
-        <div class="col-sm-6 text-end">
-            <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn btn-secondary btn-sm">
-                <i class="bi bi-arrow-left"></i> Voltar
-            </a>
-        </div>
+        <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn-back">
+            <i class="bi bi-arrow-left"></i> Voltar
+        </a>
     </div>
 
+    {# ── Flash messages ── #}
     {% for type, messages in app.flashes %}
         {% for message in messages %}
-            <div class="alert alert-{{ type == 'success' ? 'success' : (type == 'error' ? 'danger' : 'warning') }} alert-dismissible fade show" role="alert">
+            <div class="alert sedes-flash alert-{{ type == 'success' ? 'success' : (type == 'error' ? 'danger' : 'warning') }} alert-dismissible fade show" role="alert">
+                <i class="bi bi-{{ type == 'success' ? 'check-circle-fill' : (type == 'error' ? 'x-circle-fill' : 'exclamation-triangle-fill') }} me-2"></i>
                 {{ message }}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         {% endfor %}
     {% endfor %}
 
-    <div class="row">
+    <div class="row g-4">
+
+        {# ── Coluna esquerda: formulário ── #}
         <div class="col-md-5">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title" id="form-card-title">
+            <div class="sedes-card">
+                <div class="sedes-card-header">
+                    <h3 class="sedes-card-header-title" id="form-card-title">
+                        <span class="card-icon card-icon-blue">
+                            <i class="bi bi-{{ editSede is defined ? 'pencil-fill' : 'plus-lg' }}"></i>
+                        </span>
                         {{ editSede is defined ? 'Editar Sede' : 'Nova Sede' }}
                     </h3>
                 </div>
-                <div class="card-body">
 
+                <div class="sedes-form-body">
                     {% set activeForm = editSede is defined ? editForm : form %}
                     {% set formAction = editSede is defined
                         ? path('app_tenant_sede_edit', {'tenantId': tenant.id, 'sedeId': editSede.id})
@@ -73,86 +470,81 @@
 
                     {{ form_start(activeForm, {'action': formAction}) }}
 
-                    <div class="mb-3">
-                        {{ form_label(activeForm.nome, null, {'label_attr': {'class': 'form-label'}}) }}
-                        {{ form_widget(activeForm.nome, {'attr': {'class': 'form-control'}}) }}
+                    {# ── Seção: Identificação ── #}
+                    <div class="form-section">
+                        <div class="form-section-label"><i class="bi bi-tag me-1"></i>Identificação</div>
+                        <label class="sedes-label" for="{{ activeForm.nome.vars.id }}">
+                            Nome da Sede
+                        </label>
+                        {{ form_widget(activeForm.nome, {'attr': {'class': 'form-control sedes-input', 'placeholder': 'Ex: Escritório Centro'}}) }}
                         {{ form_errors(activeForm.nome) }}
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label">Ponto exato da sede no mapa</label>
+                    {# ── Seção: Localização ── #}
+                    <div class="form-section">
+                        <div class="form-section-label"><i class="bi bi-geo-alt me-1"></i>Localização no Mapa</div>
 
-                        <div class="row g-2 mb-2">
-                            <div class="col-12">
-                                <input type="text"
-                                       id="cep-search-input"
-                                       class="form-control form-control-sm"
-                                       placeholder="CEP (ex: 01310-100) ou endereço"
-                                       maxlength="9"
-                                       aria-label="CEP ou endereço">
-                            </div>
-                            <div class="col-12" id="address-extra-fields" style="display:none">
-                                <div class="row g-2">
-                                    <div class="col-8">
-                                        <input type="text"
-                                               id="search-logradouro"
-                                               class="form-control form-control-sm"
-                                               placeholder="Logradouro">
-                                    </div>
-                                    <div class="col-4">
-                                        <input type="text"
-                                               id="search-numero"
-                                               class="form-control form-control-sm"
-                                               placeholder="Número">
-                                    </div>
-                                    <div class="col-7">
-                                        <input type="text"
-                                               id="search-cidade"
-                                               class="form-control form-control-sm"
-                                               placeholder="Cidade">
-                                    </div>
-                                    <div class="col-5">
-                                        <select id="search-estado" class="form-select form-select-sm">
-                                            <option value="">Estado (UF)</option>
-                                            <option value="AC">AC</option><option value="AL">AL</option>
-                                            <option value="AP">AP</option><option value="AM">AM</option>
-                                            <option value="BA">BA</option><option value="CE">CE</option>
-                                            <option value="DF">DF</option><option value="ES">ES</option>
-                                            <option value="GO">GO</option><option value="MA">MA</option>
-                                            <option value="MT">MT</option><option value="MS">MS</option>
-                                            <option value="MG">MG</option><option value="PA">PA</option>
-                                            <option value="PB">PB</option><option value="PR">PR</option>
-                                            <option value="PE">PE</option><option value="PI">PI</option>
-                                            <option value="RJ">RJ</option><option value="RN">RN</option>
-                                            <option value="RS">RS</option><option value="RO">RO</option>
-                                            <option value="RR">RR</option><option value="SC">SC</option>
-                                            <option value="SP">SP</option><option value="SE">SE</option>
-                                            <option value="TO">TO</option>
-                                        </select>
-                                    </div>
+                        {# Busca de endereço #}
+                        <div class="address-search-row mb-2">
+                            <input type="text"
+                                   id="cep-search-input"
+                                   class="form-control sedes-input"
+                                   placeholder="CEP ou endereço"
+                                   maxlength="9"
+                                   aria-label="CEP ou endereço">
+                            <button class="btn btn-outline-secondary btn-search" type="button" id="btn-cep-search">
+                                <i class="bi bi-search"></i> Buscar
+                            </button>
+                            <button class="btn btn-outline-secondary btn-icon-only" type="button" id="btn-toggle-fields" title="Preencher manualmente">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                        </div>
+
+                        <div id="address-extra-fields" class="address-extra-fields" style="display:none">
+                            <div class="row g-2">
+                                <div class="col-8">
+                                    <input type="text" id="search-logradouro" class="form-control sedes-input" placeholder="Logradouro">
                                 </div>
-                            </div>
-                            <div class="col-12">
-                                <div class="d-flex gap-2">
-                                    <button class="btn btn-outline-secondary btn-sm flex-grow-1" type="button" id="btn-cep-search">
-                                        <i class="bi bi-search"></i> Buscar
-                                    </button>
-                                    <button class="btn btn-outline-secondary btn-sm" type="button" id="btn-toggle-fields" title="Preencher endereço manualmente">
-                                        <i class="bi bi-pencil-square"></i>
-                                    </button>
+                                <div class="col-4">
+                                    <input type="text" id="search-numero" class="form-control sedes-input" placeholder="Número">
+                                </div>
+                                <div class="col-7">
+                                    <input type="text" id="search-cidade" class="form-control sedes-input" placeholder="Cidade">
+                                </div>
+                                <div class="col-5">
+                                    <select id="search-estado" class="form-select sedes-input">
+                                        <option value="">UF</option>
+                                        <option value="AC">AC</option><option value="AL">AL</option>
+                                        <option value="AP">AP</option><option value="AM">AM</option>
+                                        <option value="BA">BA</option><option value="CE">CE</option>
+                                        <option value="DF">DF</option><option value="ES">ES</option>
+                                        <option value="GO">GO</option><option value="MA">MA</option>
+                                        <option value="MT">MT</option><option value="MS">MS</option>
+                                        <option value="MG">MG</option><option value="PA">PA</option>
+                                        <option value="PB">PB</option><option value="PR">PR</option>
+                                        <option value="PE">PE</option><option value="PI">PI</option>
+                                        <option value="RJ">RJ</option><option value="RN">RN</option>
+                                        <option value="RS">RS</option><option value="RO">RO</option>
+                                        <option value="RR">RR</option><option value="SC">SC</option>
+                                        <option value="SP">SP</option><option value="SE">SE</option>
+                                        <option value="TO">TO</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
-                        <div id="cep-search-feedback" class="form-text mb-1" style="display:none"></div>
 
-                        <div style="position: relative;">
-                            <div id="sede-map" class="mb-2"></div>
+                        <div id="cep-search-feedback" class="cep-feedback"></div>
+
+                        <div class="map-wrapper">
+                            <div id="sede-map"></div>
                             <button type="button" id="btn-gps-locate" class="map-locate-btn" title="Usar minha localização">
                                 <i class="bi bi-geo-alt-fill"></i>
                             </button>
                         </div>
-
-                        <div class="form-text mb-2">Clique no mapa para marcar a localização da sede.</div>
+                        <div class="map-tip">
+                            <i class="bi bi-cursor-fill" style="font-size:.7rem"></i>
+                            Clique no mapa para marcar a localização exata da sede.
+                        </div>
 
                         {{ form_widget(activeForm.latitude) }}
                         {{ form_widget(activeForm.longitude) }}
@@ -160,67 +552,85 @@
                         {{ form_errors(activeForm.longitude) }}
                     </div>
 
-                    <div class="mb-3">
-                        {{ form_label(activeForm.raioPermitido, null, {'label_attr': {'class': 'form-label'}}) }}
-                        {{ form_widget(activeForm.raioPermitido, {'attr': {'class': 'form-control'}}) }}
-                        <div class="form-text">Distância máxima da sede para validar GPS (metros).</div>
+                    {# ── Seção: Raio ── #}
+                    <div class="form-section" style="margin-bottom:0">
+                        <div class="form-section-label"><i class="bi bi-arrows-angle-expand me-1"></i>Raio de Validação</div>
+                        {{ form_widget(activeForm.raioPermitido, {'attr': {'class': 'form-control sedes-input'}}) }}
+                        <div class="form-hint">
+                            <i class="bi bi-info-circle" style="font-size:.74rem"></i>
+                            Distância máxima da sede para validar o ponto via GPS (metros).
+                        </div>
                     </div>
 
-                    {{ form_widget(activeForm.timezone, {'attr': {'type': 'hidden'}}) }}
-
-                    <button type="submit" class="btn btn-primary" id="btn-salvar">
-                        {% if editSede is defined %}
-                            <i class="bi bi-pencil"></i> Atualizar Sede
-                        {% else %}
-                            <i class="bi bi-plus-circle"></i> Salvar Sede
-                        {% endif %}
-                    </button>
-                    <button type="button" id="btn-cancelar-sede" class="btn btn-secondary ms-2"
-                            style="{{ editSede is defined ? '' : 'display:none' }}">
-                        Cancelar
-                    </button>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary btn-submit" id="btn-salvar">
+                            {% if editSede is defined %}
+                                <i class="bi bi-pencil me-1"></i> Atualizar Sede
+                            {% else %}
+                                <i class="bi bi-plus-lg me-1"></i> Salvar Sede
+                            {% endif %}
+                        </button>
+                        <button type="button" id="btn-cancelar-sede" class="btn btn-cancel-edit"
+                                style="{{ editSede is defined ? '' : 'display:none' }}">
+                            Cancelar
+                        </button>
+                    </div>
 
                     {{ form_end(activeForm) }}
                 </div>
             </div>
         </div>
 
+        {# ── Coluna direita: lista de sedes ── #}
         <div class="col-md-7">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Sedes Cadastradas</h3>
+            <div class="sedes-card">
+                <div class="sedes-card-header">
+                    <h3 class="sedes-card-header-title">
+                        <span class="card-icon card-icon-green">
+                            <i class="bi bi-building"></i>
+                        </span>
+                        Sedes Cadastradas
+                    </h3>
+                    {% if sedes|length > 0 %}
+                        <span class="badge rounded-pill" style="background:#eff6ff;color:#1a56a4;font-size:.75rem;font-weight:700;padding:.3rem .65rem;font-family:'DM Sans',sans-serif">
+                            {{ sedes|length }} {{ sedes|length == 1 ? 'sede' : 'sedes' }}
+                        </span>
+                    {% endif %}
                 </div>
-                <div class="card-body p-0">
-                    <table class="table table-striped mb-0">
-                        <thead>
-                            <tr>
-                                <th>Nome</th>
-                                <th>Coordenadas</th>
-                                <th>Raio</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        {% for sede in sedes %}
-                            <tr data-sede-id="{{ sede.id }}"
-                                data-sede-nome="{{ sede.nome }}"
-                                data-sede-lat="{{ sede.latitude }}"
-                                data-sede-lng="{{ sede.longitude }}"
-                                data-sede-raio="{{ sede.raioPermitido }}"
-                                data-sede-timezone="{{ sede.timezone }}"
-                                data-sede-edit-url="{{ path('app_tenant_sede_edit', {'tenantId': tenant.id, 'sedeId': sede.id}) }}">
-                                <td>{{ sede.nome }}</td>
-                                <td>
-                                    {% if sede.latitude and sede.longitude %}
-                                        <span class="small text-muted">{{ sede.latitude }}, {{ sede.longitude }}</span>
-                                    {% else %}
-                                        <span class="text-muted">Não informado</span>
-                                    {% endif %}
-                                </td>
-                                <td>{{ sede.raioPermitido }}m</td>
-                                <td>
+
+                <div class="sedes-list-body">
+                    {% for sede in sedes %}
+                        <div class="sede-card"
+                             data-sede-id="{{ sede.id }}"
+                             data-sede-nome="{{ sede.nome }}"
+                             data-sede-lat="{{ sede.latitude }}"
+                             data-sede-lng="{{ sede.longitude }}"
+                             data-sede-raio="{{ sede.raioPermitido }}"
+                             data-sede-edit-url="{{ path('app_tenant_sede_edit', {'tenantId': tenant.id, 'sedeId': sede.id}) }}">
+
+                            <div class="sede-card-top">
+                                <div style="flex:1;min-width:0">
+                                    <div class="sede-nome">{{ sede.nome }}</div>
+                                    <div class="sede-badges">
+                                        {% if sede.latitude and sede.longitude %}
+                                            <span class="sede-badge sede-badge-coords">
+                                                <i class="bi bi-geo-alt-fill"></i>
+                                                {{ sede.latitude|round(5) }}, {{ sede.longitude|round(5) }}
+                                            </span>
+                                        {% else %}
+                                            <span class="sede-badge sede-badge-nocoords">
+                                                <i class="bi bi-geo-alt"></i> Sem coordenadas
+                                            </span>
+                                        {% endif %}
+                                        <span class="sede-badge sede-badge-raio">
+                                            <i class="bi bi-arrows-angle-expand"></i>
+                                            {{ sede.raioPermitido }}m
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="sede-actions">
                                     <button type="button"
-                                            class="btn btn-sm btn-warning btn-editar-sede me-1"
+                                            class="btn btn-sede-edit btn-editar-sede"
                                             data-sede-id="{{ sede.id }}"
                                             title="Editar sede">
                                         <i class="bi bi-pencil"></i>
@@ -228,21 +638,24 @@
                                     <form method="post"
                                           action="{{ path('app_tenant_sede_delete', {'tenantId': tenant.id, 'sedeId': sede.id}) }}"
                                           class="d-inline-block"
-                                          onsubmit="return confirm('Excluir a sede \'{{ sede.nome }}\' permanentemente?');">
+                                          onsubmit="return confirm('Excluir a sede \'{{ sede.nome|e('js') }}\' permanentemente?');">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete_sede_' ~ sede.id) }}">
-                                        <button type="submit" class="btn btn-sm btn-danger">
+                                        <button type="submit" class="btn btn-sede-del" title="Excluir sede">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
-                                </td>
-                            </tr>
-                        {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted py-3">Nenhuma sede cadastrada.</td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="sedes-empty">
+                            <div class="sedes-empty-icon">
+                                <i class="bi bi-building-add"></i>
+                            </div>
+                            <div class="sedes-empty-title">Nenhuma sede cadastrada</div>
+                            <div class="sedes-empty-sub">Crie a primeira sede usando o formulário ao lado.</div>
+                        </div>
+                    {% endfor %}
                 </div>
             </div>
         </div>
@@ -261,7 +674,6 @@
             const lngInput     = document.getElementById('{{ activeForm.longitude.vars.id }}');
             const nomeInput    = document.getElementById('{{ activeForm.nome.vars.id }}');
             const raioInput    = document.getElementById('{{ activeForm.raioPermitido.vars.id }}');
-            const tzInput      = document.getElementById('{{ activeForm.timezone.vars.id }}');
             const sedeForm     = latInput?.closest('form');
             const CREATE_URL   = '{{ path('app_tenant_sedes', {'id': tenant.id}) }}';
             const cardTitle    = document.getElementById('form-card-title');
@@ -330,9 +742,9 @@
 
             // --- Busca de endereço ---
 
-            function showCepFeedback(msg, isError) {
+            function showCepFeedback(msg, type) {
                 cepFeedback.textContent = msg;
-                cepFeedback.className = 'form-text mb-1 ' + (isError !== false ? 'text-danger' : 'text-success');
+                cepFeedback.className   = 'cep-feedback ' + (type || 'warning');
                 cepFeedback.style.display = 'block';
             }
 
@@ -375,7 +787,6 @@
                         const cepLimpo = cepRaw.replace('-', '');
                         let found = false;
 
-                        // Passo 1: ViaCEP — obtém logradouro, bairro, cidade, UF
                         let vc = null;
                         try {
                             const vcRes = await fetch('https://viacep.com.br/ws/' + cepLimpo + '/json/');
@@ -392,13 +803,9 @@
                         } catch (_) {}
 
                         if (vc) {
-                            // Passo 2: tentar queries no Nominatim em ordem de precisão decrescente
                             const tentativas = [
-                                // logradouro + bairro + cidade + UF
                                 [vc.logradouro, vc.bairro, vc.localidade, vc.uf, 'Brasil'].filter(Boolean).join(', '),
-                                // só bairro + cidade + UF (mais cobertura no OSM)
                                 [vc.bairro, vc.localidade, vc.uf, 'Brasil'].filter(Boolean).join(', '),
-                                // cidade + UF
                                 [vc.localidade, vc.uf, 'Brasil'].filter(Boolean).join(', '),
                             ].filter(Boolean);
 
@@ -408,7 +815,7 @@
                                     panToResult(results[0].lat, results[0].lon);
                                     const precisao = tentativas.indexOf(q) === 0 ? '' :
                                         tentativas.indexOf(q) === 1 ? ' (aproximado — bairro)' : ' (aproximado — cidade)';
-                                    showCepFeedback('Localização encontrada: ' + (results[0].display_name || '') + precisao, false);
+                                    showCepFeedback('Localização encontrada: ' + (results[0].display_name || '') + precisao, 'success');
                                     found = true;
                                     break;
                                 }
@@ -416,12 +823,11 @@
                         }
 
                         if (!found) {
-                            showCepFeedback('Não foi possível localizar o endereço automaticamente. Ajuste o mapa manualmente ou preencha os campos abaixo.');
+                            showCepFeedback('Não foi possível localizar automaticamente. Ajuste o mapa ou preencha os campos abaixo.', 'warning');
                             addressExtra.style.display = '';
                         }
 
                     } else if (extraOpen) {
-                        // Busca estruturada com campos extras
                         const partes = [
                             cepRaw,
                             fieldLogradouro.value.trim(),
@@ -432,44 +838,42 @@
                         ].filter(Boolean);
 
                         if (partes.length < 2) {
-                            showCepFeedback('Informe pelo menos um endereço para buscar.');
+                            showCepFeedback('Informe pelo menos um endereço para buscar.', 'warning');
                             return;
                         }
 
                         const results = await searchByNominatim({ q: partes.join(', ') });
 
                         if (!results || results.length === 0) {
-                            showCepFeedback('Nenhum resultado encontrado. Tente adicionar mais detalhes.');
+                            showCepFeedback('Nenhum resultado encontrado. Tente adicionar mais detalhes.', 'error');
                             return;
                         }
                         panToResult(results[0].lat, results[0].lon);
-                        showCepFeedback('Localização encontrada: ' + (results[0].display_name || ''), false);
+                        showCepFeedback('Localização encontrada: ' + (results[0].display_name || ''), 'success');
 
                     } else {
-                        // Busca livre simples
                         if (!cepRaw) {
-                            showCepFeedback('Digite um CEP ou endereço para buscar.');
+                            showCepFeedback('Digite um CEP ou endereço para buscar.', 'warning');
                             return;
                         }
                         const results = await searchByNominatim({ q: cepRaw + ', Brasil' });
 
                         if (!results || results.length === 0) {
-                            showCepFeedback('Nenhum resultado. Clique em ✎ para preencher cidade e estado.');
+                            showCepFeedback('Nenhum resultado. Clique em ✎ para preencher cidade e estado.', 'warning');
                             addressExtra.style.display = '';
                             return;
                         }
                         panToResult(results[0].lat, results[0].lon);
-                        showCepFeedback('Localização encontrada: ' + (results[0].display_name || ''), false);
+                        showCepFeedback('Localização encontrada: ' + (results[0].display_name || ''), 'success');
                     }
 
                 } catch (e) {
-                    showCepFeedback('Erro ao buscar endereço. Verifique sua conexão e tente novamente.');
+                    showCepFeedback('Erro ao buscar endereço. Verifique sua conexão e tente novamente.', 'error');
                 } finally {
                     btnCepSearch.disabled = false;
                 }
             }
 
-            // Formatar CEP automaticamente enquanto digita
             cepInput.addEventListener('input', function () {
                 let v = this.value.replace(/\D/g, '').slice(0, 8);
                 if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
@@ -488,8 +892,7 @@
             btnToggleFields.addEventListener('click', function () {
                 const isOpen = addressExtra.style.display !== 'none';
                 addressExtra.style.display = isOpen ? 'none' : '';
-                this.classList.toggle('btn-secondary', !isOpen);
-                this.classList.toggle('btn-outline-secondary', isOpen);
+                this.classList.toggle('active', !isOpen);
             });
 
             // --- Botão GPS ---
@@ -536,14 +939,13 @@
                 if (!btn) return;
 
                 const sedeId = btn.dataset.sedeId;
-                const tr = document.querySelector('tr[data-sede-id="' + sedeId + '"]');
-                if (!tr) return;
+                const card = document.querySelector('[data-sede-id="' + sedeId + '"]');
+                if (!card) return;
 
-                const { sedeNome, sedeLat, sedeLng, sedeRaio, sedeTimezone, sedeEditUrl } = tr.dataset;
+                const { sedeNome, sedeLat, sedeLng, sedeRaio, sedeEditUrl } = card.dataset;
 
                 nomeInput.value  = sedeNome;
                 raioInput.value  = sedeRaio;
-                tzInput.value    = sedeTimezone;
                 latInput.value   = sedeLat;
                 lngInput.value   = sedeLng;
 
@@ -553,12 +955,12 @@
 
                 sedeForm.action = sedeEditUrl;
 
-                cardTitle.textContent      = 'Editar Sede';
-                btnSalvar.innerHTML        = '<i class="bi bi-pencil"></i> Atualizar Sede';
-                btnCancelar.style.display  = '';
+                cardTitle.innerHTML = '<span class="card-icon card-icon-blue"><i class="bi bi-pencil-fill"></i></span> Editar Sede';
+                btnSalvar.innerHTML = '<i class="bi bi-pencil me-1"></i> Atualizar Sede';
+                btnCancelar.style.display = '';
                 hideCepFeedback();
 
-                cardTitle.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                cardTitle.closest('.sedes-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
             });
 
             // --- Cancelar edição ---
@@ -572,9 +974,9 @@
                 map.setView([defaultLat, defaultLng], 13);
                 marker.setLatLng([defaultLat, defaultLng]);
 
-                cardTitle.textContent      = 'Nova Sede';
-                btnSalvar.innerHTML        = '<i class="bi bi-plus-circle"></i> Salvar Sede';
-                btnCancelar.style.display  = 'none';
+                cardTitle.innerHTML = '<span class="card-icon card-icon-blue"><i class="bi bi-plus-lg"></i></span> Nova Sede';
+                btnSalvar.innerHTML = '<i class="bi bi-plus-lg me-1"></i> Salvar Sede';
+                btnCancelar.style.display = 'none';
                 hideCepFeedback();
             });
         });

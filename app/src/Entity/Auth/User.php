@@ -68,6 +68,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?UserProfile $profile = null;
 
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $codigoFuncionario = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $demitidoEm = null;
+
     // -------------------------
     // Construtor
     // -------------------------
@@ -254,5 +260,27 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->profile = $profile;
         return $this;
+    }
+
+    public function getCodigoFuncionario(): ?string
+    {
+        return $this->codigoFuncionario;
+    }
+
+    public function setCodigoFuncionario(?string $codigoFuncionario): static
+    {
+        $this->codigoFuncionario = $codigoFuncionario;
+        return $this;
+    }
+
+    public function getDemitidoEm(): ?\DateTimeImmutable
+    {
+        return $this->demitidoEm;
+    }
+
+    public function demitir(): void
+    {
+        $this->isActive   = false;
+        $this->demitidoEm = new \DateTimeImmutable();
     }
 }
