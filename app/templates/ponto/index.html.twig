@@ -234,18 +234,7 @@
     const tipoRegistro = document.getElementById('tipo-registro');
     let currentLocation = null;
 
-    const ehDomingo = new Date().getDay() === 0;
-
-    if (ehDomingo) {
-        btnPonto.disabled = true;
-        btnPonto.innerHTML = '<i class="bi bi-slash-circle"></i> Registro indisponível aos domingos';
-        tipoRegistro.disabled = true;
-        gpsStatus.innerHTML = '<i class="bi bi-info-circle"></i> Não é permitido registrar ponto aos domingos.';
-        gpsStatus.className = 'alert alert-warning small mb-3';
-    }
-
     function updateButtonState() {
-        if (ehDomingo) return;
         btnPonto.disabled = !currentLocation || !tipoRegistro.value;
     }
 

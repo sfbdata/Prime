@@ -195,14 +195,13 @@
             const d = new Date(viewAno, viewMes, dia);
             const ymd = toYMD(d);
             const isFuturo = d > hoje;
-            const isDomingo = d.getDay() === 0;
             const isSabado = d.getDay() === 6;
 
             const btn = document.createElement('div');
             btn.className = 'cal-day';
             btn.textContent = dia;
 
-            if (isFuturo || isDomingo) {
+            if (isFuturo) {
                 btn.classList.add('cal-disabled');
             } else {
                 if (isSabado) btn.classList.add('cal-weekend');
