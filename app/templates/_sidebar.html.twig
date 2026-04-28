@@ -64,6 +64,14 @@
                     </li>
                 {% endif %}
 
+                <li class="pje-menu-item">
+                    <a href="{{ path('demandas_index') }}"
+                       class="pje-menu-link {{ currentRoute == 'demandas_index' ? 'active' : '' }}">
+                        <i class="bi bi-inbox pje-nav-icon"></i>
+                        <span>Demandas</span>
+                    </a>
+                </li>
+
                 {% if can_access_module('agenda') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('agenda_index') }}"

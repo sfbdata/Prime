@@ -218,9 +218,9 @@
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'expediente_' ? 'active' : '' }}">
                             Expediente
                         </a>
-                        <a href="{{ path('cliente_index') }}"
-                           class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'cliente_' ? 'active' : '' }}">
-                            Clientes
+                        <a href="{{ path('demandas_index') }}"
+                           class="navtop-subnav-link {{ app.request.attributes.get('_route') == 'demandas_index' ? 'active' : '' }}">
+                            Demandas
                         </a>
                         <a href="{{ path('processo_index') }}"
                            class="navtop-subnav-link {{ app.request.attributes.get('_route') starts with 'processo_' ? 'active' : '' }}">

@@ -1,0 +1,382 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Minhas Demandas{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0"><i class="bi bi-inbox-fill me-2"></i>Minhas Demandas</h1>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+
+        {# ── Filtros ─────────────────────────────────────────────────── #}
+        {% set temFiltro = filtros.cliente or filtros.prioridade %}
+        <div class="card card-outline card-primary mb-3">
+            <div class="card-header py-2" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosDemandas"
+                 aria-expanded="{{ temFiltro ? 'true' : 'false' }}">
+                <div class="d-flex align-items-center justify-content-between">
+                    <span class="fw-semibold" style="font-size:.88rem;">
+                        <i class="bi bi-funnel me-1 text-primary"></i>Filtros
+                        {% if temFiltro %}<span class="badge text-bg-primary ms-1" style="font-size:.65rem;">Ativos</span>{% endif %}
+                    </span>
+                    <i class="bi bi-chevron-down filtro-chevron" style="font-size:.78rem;color:#6c757d;transition:transform .2s;"></i>
+                </div>
+            </div>
+            <div class="collapse{% if temFiltro %} show{% endif %}" id="filtrosDemandas">
+                <div class="card-body py-3">
+                    <form method="GET" action="{{ path('demandas_index') }}" id="formFiltrosDemandas">
+                        <div class="row g-2">
+                            <div class="col-6 col-md-4">
+                                <label for="filter_cliente" class="form-label form-label-sm">Cliente</label>
+                                <input type="text"
+                                       id="filter_cliente"
+                                       name="cliente"
+                                       class="form-control form-control-sm"
+                                       placeholder="Buscar por nome do cliente"
+                                       value="{{ filtros.cliente }}">
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label for="filter_prioridade" class="form-label form-label-sm">Prioridade</label>
+                                <select id="filter_prioridade" name="prioridade" class="form-control form-control-sm select2-filter">
+                                    <option value="">Todas</option>
+                                    {% for p in prioridades %}
+                                        <option value="{{ p.value }}" {% if filtros.prioridade == p.value %}selected{% endif %}>
+                                            {{ p.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2 mt-3">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-search me-1"></i>Filtrar
+                            </button>
+                            <a href="{{ path('demandas_index') }}" class="btn btn-secondary btn-sm">
+                                <i class="bi bi-x-lg me-1"></i>Limpar
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {% if pastas|length > 0 %}
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="text-muted">
+                <i class="bi bi-list-ul me-1"></i> {{ pastas|length }} demanda(s) encontrada(s)
+            </span>
+        </div>
+
+        {# ── Tabela desktop ─────────────────────────────────────────── #}
+        <div class="card d-none d-md-block">
+            <div class="card-body table-responsive p-0">
+                <table class="table table-hover mb-0" id="tabelaDemandas">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="sortable ps-3" data-col="0" style="width:90px"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable col-acao-tabela" data-col="2"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade</th>
+                            <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Tarefas</th>
+                            <th class="sortable col-data-tabela" data-col="3" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pasta in pastas %}
+                        {% set dias = date().diff(pasta.dataAbertura).days %}
+                        <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}"
+                            style="cursor:pointer;"
+                            data-href="{{ path('pasta_show', {id: pasta.id}) }}">
+                            <td class="fw-semibold ps-3 align-middle">{{ pasta.nup }}</td>
+                            <td class="align-middle">
+                                {% if pasta.clientes|length > 0 %}
+                                    {% if pasta.clientes|length == 1 %}
+                                        <span class="text-truncate d-block" style="max-width:160px;">{{ pasta.clientes[0].nomeExibicao }}</span>
+                                    {% else %}
+                                        <span class="clientes-resumo text-truncate d-block" style="max-width:160px;"
+                                              data-bs-placement="right"
+                                              data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
+                                            {{ pasta.clientes[0].nomeExibicao }}&hellip;
+                                            <span class="badge text-bg-secondary ms-1" style="font-size:.65rem;">+{{ pasta.clientes|length - 1 }}</span>
+                                        </span>
+                                    {% endif %}
+                                {% elseif pasta.nomeCliente %}
+                                    <span class="text-truncate d-block" style="max-width:160px;">{{ pasta.nomeCliente }}</span>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="col-acao-tabela align-middle">
+                                <span class="text-truncate d-block" style="max-width:180px;">
+                                {% if pasta.processo %}
+                                    {{ pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso }}
+                                {% elseif pasta.nomeAcao %}
+                                    {{ pasta.nomeAcao }}
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                                </span>
+                            </td>
+                            <td class="align-middle">
+                                <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.72rem;">
+                                    {{ pasta.prioridadeLabel }}
+                                </span>
+                            </td>
+                            <td class="col-tarefas-tabela align-middle">
+                                {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
+                                {% set totalTarefas = pasta.tarefas|length %}
+                                {% if totalTarefas > 0 %}
+                                    {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
+                                    <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
+                                       class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                                       title="{{ totalTarefas }} tarefa(s) · {{ tarefasAtivas|length }} ativa(s)">
+                                        <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted" style="font-size:.8rem;">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
+                                {% if dias == 0 %}Hoje
+                                {% elseif dias == 1 %}1 dia atrás
+                                {% else %}{{ dias }}d atrás{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {# ── Cards mobile ───────────────────────────────────────────── #}
+        <div class="d-md-none pasta-cards-lista">
+            {% for pasta in pastas %}
+            {% set dias = date().diff(pasta.dataAbertura).days %}
+            <div class="pasta-card" style="cursor:pointer;" onclick="window.location.href='{{ path('pasta_show', {id: pasta.id}) }}'">
+                <div class="pasta-card-header">
+                    <div class="pasta-card-nup">
+                        <i class="bi bi-folder2 me-1 text-primary"></i>
+                        <span class="fw-bold">{{ pasta.nup }}</span>
+                    </div>
+                    <div class="d-flex gap-1 align-items-center">
+                        <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.7rem;">
+                            {{ pasta.prioridadeLabel }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="pasta-card-body">
+                    <div class="pasta-card-row">
+                        <span class="pasta-card-label"><i class="bi bi-person me-1"></i></span>
+                        <span class="pasta-card-value">
+                            {% if pasta.clientes|length > 0 %}
+                                {{ pasta.clientes[0].nomeExibicao }}{% if pasta.clientes|length > 1 %} <span class="text-muted">(+{{ pasta.clientes|length - 1 }})</span>{% endif %}
+                            {% elseif pasta.nomeCliente %}
+                                {{ pasta.nomeCliente }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% set acaoTexto = pasta.processo ? (pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso) : pasta.nomeAcao %}
+                    {% if acaoTexto %}
+                    <div class="pasta-card-row">
+                        <span class="pasta-card-label"><i class="bi bi-briefcase me-1"></i></span>
+                        <span class="pasta-card-value text-truncate">{{ acaoTexto }}</span>
+                    </div>
+                    {% endif %}
+
+                    <div class="pasta-card-row">
+                        <span class="pasta-card-label"><i class="bi bi-clock-history me-1"></i></span>
+                        <span class="pasta-card-value text-muted" style="font-size:.8rem;">
+                            {% if dias == 0 %}Hoje{% elseif dias == 1 %}1 dia atrás{% else %}{{ dias }}d atrás{% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="pasta-card-footer">
+                    <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation()">
+                        <i class="bi bi-eye me-1"></i>Ver
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% else %}
+        <div class="alert alert-info mb-0">
+            <i class="bi bi-info-circle me-1"></i>
+            {% if filtros.cliente or filtros.prioridade %}
+                Nenhuma demanda encontrada com os filtros aplicados.
+            {% else %}
+                Você não possui demandas ativas no momento.
+            {% endif %}
+        </div>
+        {% endif %}
+
+    </div>
+</section>
+{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+/* ── Tabela desktop ──────────────────────────────────────────── */
+#tabelaDemandas thead th {
+    white-space: nowrap;
+    vertical-align: middle;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #6c757d;
+    border-bottom: 2px solid #dee2e6;
+    padding: 10px 8px;
+}
+#tabelaDemandas tbody td {
+    vertical-align: middle;
+    font-size: 0.85rem;
+    padding: 8px 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+#tabelaDemandas tbody tr:last-child td { border-bottom: none; }
+#tabelaDemandas tbody tr:hover { background: #f8f9ff; }
+.clientes-resumo { cursor: default; white-space: nowrap; }
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { background-color: rgba(0,0,0,0.04); }
+.sort-icon { font-size: 0.68em; opacity: 0.35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
+.sortable.asc .sort-icon, .sortable.desc .sort-icon { opacity: 1; color: #0d6efd; }
+.sortable.asc .sort-icon::before { content: "\F148"; }
+.sortable.desc .sort-icon::before { content: "\F128"; }
+
+/* Urgente */
+.pasta-row-urgente {
+    outline: 2px solid var(--bs-danger);
+    outline-offset: -1px;
+}
+@keyframes urgente-pulso {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: .35; }
+}
+.badge-urgente-pulso {
+    animation: urgente-pulso 1.2s ease-in-out infinite;
+}
+
+/* Ocultar colunas secundárias em telas menores */
+@media (max-width: 1100px) { .col-data-tabela { display: none; } }
+@media (max-width: 900px)  { .col-acao-tabela, .col-tarefas-tabela { display: none; } }
+
+/* ── Cards mobile ────────────────────────────────────────────── */
+.pasta-cards-lista { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+
+.pasta-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    transition: box-shadow 0.15s;
+}
+.pasta-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.10); }
+
+.pasta-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px 8px;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.pasta-card-nup { font-size: 0.92rem; color: #212529; display: flex; align-items: center; gap: 4px; }
+
+.pasta-card-body { padding: 8px 14px 4px; display: flex; flex-direction: column; gap: 5px; }
+
+.pasta-card-row { display: flex; align-items: center; gap: 6px; font-size: 0.84rem; min-height: 24px; }
+
+.pasta-card-label { color: #6c757d; flex-shrink: 0; font-size: 0.8rem; width: 18px; text-align: center; }
+
+.pasta-card-value { color: #343a40; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.pasta-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-top: 1px solid #f0f0f0;
+    background: #fafafa;
+}
+
+/* Filtro */
+.filtro-chevron { transition: transform .2s; }
+</style>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    /* ── Rotaciona chevron do filtro ── */
+    var filtroCard = document.getElementById('filtrosDemandas');
+    if (filtroCard) {
+        var chevron = filtroCard.previousElementSibling && filtroCard.previousElementSibling.querySelector('.filtro-chevron');
+        if (chevron) {
+            filtroCard.addEventListener('show.bs.collapse', function () { chevron.style.transform = 'rotate(180deg)'; });
+            filtroCard.addEventListener('hide.bs.collapse', function () { chevron.style.transform = 'rotate(0deg)'; });
+            if (filtroCard.classList.contains('show')) chevron.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    /* ── Linhas clicáveis ── */
+    document.addEventListener('click', function (e) {
+        var tr = e.target.closest('tr.pasta-row-link');
+        if (!tr) return;
+        if (e.target.closest('button, a, form, input, select')) return;
+        window.location.href = tr.dataset.href;
+    });
+
+    /* ── Tooltips dos clientes ── */
+    document.querySelectorAll('.clientes-resumo[data-clientes]').forEach(function (el) {
+        var nomes = el.dataset.clientes.split('||');
+        var html  = nomes.map(function (n) { return '<div>' + n + '</div>'; }).join('');
+        new bootstrap.Tooltip(el, { html: true, trigger: 'hover', placement: el.dataset.bsPlacement || 'right', title: function () { return html; } });
+    });
+
+    /* ── Select2 nos filtros ── */
+    if (typeof $ !== 'undefined' && $.fn.select2) {
+        $('.select2-filter').select2({ placeholder: 'Todas', allowClear: true, width: '100%' });
+    }
+
+    /* ── Ordenação da tabela ── */
+    var table = document.getElementById('tabelaDemandas');
+    if (!table) return;
+    var headers = table.querySelectorAll('th.sortable');
+    var tbody   = table.querySelector('tbody');
+
+    function ordenar(col, direcao) {
+        headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
+        headers[col].classList.add(direcao);
+        var rows = Array.from(tbody.querySelectorAll('tr'));
+        rows.sort(function (a, b) {
+            var aVal = (a.cells[col] ? a.cells[col].textContent.trim() : '').toLowerCase();
+            var bVal = (b.cells[col] ? b.cells[col].textContent.trim() : '').toLowerCase();
+            return direcao === 'asc' ? aVal.localeCompare(bVal, 'pt-BR') : bVal.localeCompare(aVal, 'pt-BR');
+        });
+        rows.forEach(function (row) { tbody.appendChild(row); });
+    }
+
+    headers.forEach(function (header) {
+        header.addEventListener('click', function () {
+            var col   = parseInt(this.dataset.col);
+            var isAsc = this.classList.contains('asc');
+            ordenar(col, isAsc ? 'desc' : 'asc');
+        });
+    });
+
+    ordenar(0, 'desc');
+});
+</script>
+{% endblock %}

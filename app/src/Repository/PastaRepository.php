@@ -3,7 +3,9 @@
 namespace App\Repository;
 
 use App\Cliente\Entity\Cliente;
+use App\Entity\Auth\User;
 use App\Entity\Pasta\Pasta;
+use App\Entity\Pasta\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -116,6 +118,35 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
+    }
+
+    /**
+     * @return Pasta[]
+     */
+    public function findAtivasPorResponsavel(
+        User $responsavel,
+        ?string $cliente = null,
+        ?string $prioridade = null,
+    ): array {
+        $qb = $this->createQueryBuilder('p')
+            ->where('p.responsavel = :responsavel')
+            ->andWhere('p.situacao = :situacao')
+            ->setParameter('responsavel', $responsavel)
+            ->setParameter('situacao', Pasta::SITUACAO_ATIVA)
+            ->orderBy('p.prioridade', 'DESC')
+            ->addOrderBy('p.dataAbertura', 'DESC');
+
+        if ($cliente !== null && $cliente !== '') {
+            $qb->andWhere('p.nomeCliente LIKE :cliente')
+               ->setParameter('cliente', '%' . $cliente . '%');
+        }
+
+        if ($prioridade !== null && $prioridade !== '') {
+            $qb->andWhere('p.prioridade = :prioridade')
+               ->setParameter('prioridade', PrioridadePasta::from($prioridade));
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
