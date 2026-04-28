@@ -8,7 +8,8 @@
 
         {# Favicon #}
         <link rel="icon" href="/favicon.ico" sizes="any">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+        <link rel="manifest" href="/site.webmanifest">
 
         {# Fonts #}
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/source-sans-3@5.0.12/index.css" crossorigin="anonymous">
@@ -63,7 +64,7 @@
                                 <i class="bi bi-list"></i>
                             </button>
                             <a href="{{ path('expediente_index') }}" class="navtop-brand">
-                                <span class="navtop-brand-text">JusPrime</span>
+                                <span class="navtop-brand-text"><span style="color:#E9571E">Jus</span>Prime</span>
                             </a>
                             {# Separador + título da página atual #}
                             {% set pageTitle = '' %}
@@ -167,14 +168,26 @@
                                                 : 'não disponível' }}
                                         </span>
                                     </div>
-                                    <span class="navtop-avatar">
-                                        {{ app.user.fullName|slice(0,1)|upper }}
+                                    <span class="navtop-avatar" id="navtopAvatar">
+                                        {% if fotoPerfilUrl %}
+                                            <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
+                                                 alt="{{ app.user.fullName }}"
+                                                 style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                                        {% else %}
+                                            {{ app.user.fullName|slice(0,1)|upper }}
+                                        {% endif %}
                                     </span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end shadow usuario-dropdown">
                                     <li class="usuario-dropdown-header">
-                                        <span class="usuario-avatar-lg">
-                                            {{ app.user.fullName|slice(0,1)|upper }}
+                                        <span class="usuario-avatar-lg" id="usuarioAvatarLg">
+                                            {% if fotoPerfilUrl %}
+                                                <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
+                                                     alt="{{ app.user.fullName }}"
+                                                     style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                                            {% else %}
+                                                {{ app.user.fullName|slice(0,1)|upper }}
+                                            {% endif %}
                                         </span>
                                         <div class="usuario-info">
                                             <div class="usuario-name">{{ app.user.fullName }}</div>
