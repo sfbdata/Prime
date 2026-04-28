@@ -76,6 +76,7 @@ class Pasta
     private Collection $partesContrarias;
 
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaDocumento::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['ordem' => 'ASC'])]
     private Collection $documentos;
 
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: Tarefa::class)]
@@ -101,6 +102,10 @@ class Pasta
     #[ORM\OrderBy(['ordem' => 'ASC'])]
     private Collection $checklistItens;
 
+    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaSecao::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['ordem' => 'ASC'])]
+    private Collection $secoes;
+
     public function __construct()
     {
         $this->dataAbertura = new \DateTimeImmutable();
@@ -114,6 +119,7 @@ class Pasta
         $this->observacoesFinanceiras = new ArrayCollection();
         $this->observacoesDetalhes = new ArrayCollection();
         $this->checklistItens = new ArrayCollection();
+        $this->secoes = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -419,5 +425,32 @@ class Pasta
     public function getChecklistItens(): Collection
     {
         return $this->checklistItens;
+    }
+
+    /** @return Collection<int, PastaSecao> */
+    public function getSecoes(): Collection
+    {
+        return $this->secoes;
+    }
+
+    public function addSecao(PastaSecao $secao): self
+    {
+        if (!$this->secoes->contains($secao)) {
+            $this->secoes->add($secao);
+            $secao->setPasta($this);
+        }
+
+        return $this;
+    }
+
+    public function removeSecao(PastaSecao $secao): self
+    {
+        if ($this->secoes->removeElement($secao)) {
+            if ($secao->getPasta() === $this) {
+                $secao->setPasta(null);
+            }
+        }
+
+        return $this;
     }
 }

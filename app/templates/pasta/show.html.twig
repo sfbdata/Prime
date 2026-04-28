@@ -739,10 +739,16 @@
                     {# Right Column - Sidebar #}
                     <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
                         {# Card: Documentação #}
-                        <div class="card card-primary card-outline mb-3">
-                            <div class="card-header">
-                                <h3 class="card-title"><i class="bi bi-check2-square me-1"></i> Documentação</h3>
+                        <div class="card card-primary card-outline mb-3" data-secao-destino="geral">
+                            <div class="card-header d-flex align-items-center">
+                                <h3 class="card-title me-auto"><i class="bi bi-check2-square me-1"></i> Documentação</h3>
+                                <button type="button" class="btn btn-tool" data-bs-toggle="collapse"
+                                        data-bs-target="#documentacaoBody" aria-expanded="true"
+                                        id="btnDocumentacaoToggle">
+                                    <i class="bi bi-chevron-up"></i>
+                                </button>
                             </div>
+                            <div class="collapse show" id="documentacaoBody">
                             <div class="card-body">
                                 {# Checklist dinâmico #}
                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -806,6 +812,11 @@
                                       action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
                                     <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
 
+                                    <div id="geralDropArea" class="rounded p-2 mb-2 text-center text-muted small"
+                                         style="border:2px dashed #ced4da;min-height:52px;transition:background .15s;">
+                                        <i class="bi bi-cloud-upload me-1"></i> Arraste arquivos do computador aqui
+                                    </div>
+
                                     <div class="d-flex align-items-center gap-2 mb-3">
                                         <button type="button" id="btnAdicionarAnexo" class="btn btn-sm btn-primary">
                                             <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
@@ -833,14 +844,18 @@
                                     {% if docs|length > 0 %}{% set hasDocuments = true %}{% endif %}
                                 {% endfor %}
 
-                                {% if hasDocuments %}
-                                <hr>
-                                <div class="mb-3">
+                                {% if hasDocuments %}<hr>{% endif %}
+                                <div class="mb-3" id="documentosGerais" data-secao-destino="geral">
                                     {% for tipo, docs in documentosPorTipo %}
                                         {% if docs|length > 0 %}
                                             {% set label = documentTypeOptions[tipo] ?? tipo %}
                                             {% for doc in docs %}
-                                                <div class="d-flex align-items-center border rounded px-3 py-2 mb-2 gap-3">
+                                                <div class="d-flex align-items-center border rounded px-3 py-2 mb-2 gap-3 doc-item"
+                                                     data-doc-id="{{ doc.id }}"
+                                                     data-secao-id=""
+                                                     data-csrf-mover="{{ csrf_token('pasta_doc_mover_' ~ doc.id) }}"
+                                                     data-url-mover="{{ path('pasta_documento_mover_secao', {docId: doc.id}) }}">
+                                                    <i class="bi bi-grip-vertical text-muted flex-shrink-0 doc-grip" style="cursor:grab;"></i>
                                                     <i class="bi bi-file-earmark-text fs-5 text-primary flex-shrink-0"></i>
                                                     <div class="flex-grow-1 overflow-hidden">
                                                         <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="text-truncate d-block fw-semibold">
@@ -882,7 +897,129 @@
                                         {% endif %}
                                     {% endfor %}
                                 </div>
-                                {% endif %}
+                            </div>
+                            </div>{# /collapse show #}
+                        </div>
+
+                        {# Cards de seções de documentos #}
+                        {% for secao in secoes %}
+                        <div class="card card-outline card-secondary mb-3 pasta-secao-card"
+                             id="secaoCard{{ secao.id }}"
+                             data-secao-destino="{{ secao.id }}">
+                            <div class="card-header d-flex align-items-center py-2">
+                                <span class="pasta-secao-nome fw-semibold me-auto">{{ secao.nome|e }}</span>
+                                <div class="d-flex align-items-center gap-1 ms-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary js-secao-renomear-btn" title="Renomear seção"
+                                            data-secao-id="{{ secao.id }}"
+                                            data-nome-atual="{{ secao.nome|e('html_attr') }}"
+                                            data-csrf="{{ csrf_token('pasta_secao_renomear_' ~ secao.id) }}"
+                                            data-url="{{ path('pasta_secao_renomear', {secaoId: secao.id}) }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger js-secao-excluir-btn" title="Excluir seção"
+                                            data-secao-id="{{ secao.id }}"
+                                            data-csrf="{{ csrf_token('pasta_secao_excluir_' ~ secao.id) }}"
+                                            data-url="{{ path('pasta_secao_excluir', {secaoId: secao.id}) }}"
+                                            data-nome="{{ secao.nome|e('html_attr') }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-tool js-secao-toggle" data-bs-toggle="collapse"
+                                            data-bs-target="#secaoBody{{ secao.id }}" aria-expanded="false">
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="collapse" id="secaoBody{{ secao.id }}">
+                                <div class="card-body secao-dropzone p-2" data-secao-destino="{{ secao.id }}">
+                                    <div class="secao-drop-area rounded p-2 mb-2 text-center text-muted small"
+                                         data-secao-destino="{{ secao.id }}"
+                                         style="border: 2px dashed #ced4da; min-height: 52px; transition: background .15s;">
+                                        <i class="bi bi-cloud-upload me-1"></i> Arraste arquivos do computador aqui
+                                    </div>
+                                    <form class="secao-upload-form" method="post" enctype="multipart/form-data"
+                                          action="{{ path('pasta_documento_upload', {id: pasta.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('upload_documento_pasta_' ~ pasta.id) }}">
+                                        <input type="hidden" name="secao_id" value="{{ secao.id }}">
+                                        <div class="d-flex align-items-center gap-2 mb-2">
+                                            <button type="button" class="btn btn-sm btn-primary js-secao-add-file" data-secao="{{ secao.id }}">
+                                                <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary js-secao-limpar d-none" data-secao="{{ secao.id }}">
+                                                <i class="bi bi-x-circle me-1"></i> Limpar
+                                            </button>
+                                            <input type="file" class="js-secao-file-input d-none" multiple
+                                                   accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
+                                                   data-secao="{{ secao.id }}">
+                                        </div>
+                                        <div class="js-secao-lista-anexos" data-secao="{{ secao.id }}"></div>
+                                        <div class="js-secao-area-enviar d-none mt-2 text-end" data-secao="{{ secao.id }}">
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                                            </button>
+                                        </div>
+                                    </form>
+                                    <div class="js-secao-docs" data-secao-destino="{{ secao.id }}">
+                                        {% for doc in secao.documentos %}
+                                            {% set label = documentTypeOptions[doc.categoria] ?? doc.categoria %}
+                                            <div class="d-flex align-items-center border rounded px-2 py-2 mb-2 gap-2 doc-item"
+                                                 data-doc-id="{{ doc.id }}"
+                                                 data-secao-id="{{ secao.id }}"
+                                                 data-csrf-mover="{{ csrf_token('pasta_doc_mover_' ~ doc.id) }}"
+                                                 data-url-mover="{{ path('pasta_documento_mover_secao', {docId: doc.id}) }}">
+                                                <i class="bi bi-grip-vertical text-muted flex-shrink-0 doc-grip" style="cursor:grab;"></i>
+                                                <i class="bi bi-file-earmark-text fs-5 text-primary flex-shrink-0"></i>
+                                                <div class="flex-grow-1 overflow-hidden">
+                                                    <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="text-truncate d-block fw-semibold small">
+                                                        {{ doc.nomeOriginal }}
+                                                    </a>
+                                                    <small class="text-muted">
+                                                        {{ label }}{% if doc.descricao %} · {{ doc.descricao }}{% endif %}{% if doc.numero %} · Nº {{ doc.numero }}{% endif %} · {{ doc.uploadedAt|date('d/m/Y') }}
+                                                    </small>
+                                                </div>
+                                                <div class="d-flex gap-1 flex-shrink-0">
+                                                    <button type="button" class="btn btn-sm btn-outline-primary" title="Visualizar"
+                                                            data-bs-toggle="modal" data-bs-target="#previewDocModal"
+                                                            data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
+                                                            data-nome="{{ doc.nomeOriginal }}"
+                                                            data-mime="{{ doc.mimeType }}">
+                                                        <i class="bi bi-eye"></i>
+                                                    </button>
+                                                    <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Deseja excluir este documento?');">
+                                                        <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                            <i class="bi bi-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+
+                        {# Card "vazado" para criar nova seção #}
+                        <div class="card mb-3" id="cardNovaSecao"
+                             style="border: 2px dashed #ced4da; background: transparent;">
+                            <div class="card-body py-2">
+                                <div id="novaSecaoBotao" class="text-center">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" id="btnMostrarNovaSecao">
+                                        <i class="bi bi-folder-plus me-1"></i> Nova seção de documentos
+                                    </button>
+                                </div>
+                                <div id="novaSecaoForm" class="d-none">
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" id="novaSecaoNome" class="form-control" placeholder="Nome da seção..." maxlength="255">
+                                        <button type="button" id="btnSalvarNovaSecao" class="btn btn-primary">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                        <button type="button" id="btnCancelarNovaSecao" class="btn btn-outline-secondary">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    </div>
+                                    <div id="novaSecaoErro" class="text-danger small mt-1 d-none"></div>
+                                </div>
                             </div>
                         </div>
 
@@ -2732,6 +2869,26 @@ document.addEventListener('DOMContentLoaded', function () {
         inputOculto.files = dt.files;
     });
 
+    /* ── Drop zone desktop no card geral ── */
+    const geralDropArea = document.getElementById('geralDropArea');
+    if (geralDropArea) {
+        geralDropArea.addEventListener('dragover', function (e) {
+            if (!e.dataTransfer.types.includes('Files')) return;
+            e.preventDefault();
+            geralDropArea.style.background = '#e8f4fd';
+        });
+        geralDropArea.addEventListener('dragleave', function () {
+            geralDropArea.style.background = '';
+        });
+        geralDropArea.addEventListener('drop', function (e) {
+            e.preventDefault();
+            geralDropArea.style.background = '';
+            if (e.dataTransfer.files.length === 0) return;
+            Array.from(e.dataTransfer.files).forEach(function (f) { adicionarItem(f); });
+            atualizarVisibilidade();
+        });
+    }
+
     /* ── Upload inline de documentos do cliente ── */
     const docTypesCliente = {{ documentTypeOptionsCliente|json_encode|raw }};
 
@@ -3929,6 +4086,486 @@ document.addEventListener('DOMContentLoaded', function () {
             '<button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir ' + excluirDisplay + '" title="Excluir item"><i class="bi bi-trash"></i></button>';
 
         return li;
+    }
+
+}());
+</script>
+
+<script>
+(function () {
+    'use strict';
+
+    const PASTA_ID     = {{ pasta.id }};
+    const CSRF_CRIAR   = '{{ csrf_token('pasta_secao_criar_' ~ pasta.id) }}';
+    const TIPOS_DOC    = {{ documentTypeOptions|json_encode|raw }};
+    let   indiceSecao  = 0;
+    const URL_CRIAR  = '{{ path('pasta_secao_criar', {id: pasta.id}) }}';
+
+    // ── Criar nova seção ─────────────────────────────────────────────────────
+
+    const btnMostrar   = document.getElementById('btnMostrarNovaSecao');
+    const novaSecaoBotao = document.getElementById('novaSecaoBotao');
+    const novaSecaoForm  = document.getElementById('novaSecaoForm');
+    const novaSecaoNome  = document.getElementById('novaSecaoNome');
+    const btnSalvar    = document.getElementById('btnSalvarNovaSecao');
+    const btnCancelar  = document.getElementById('btnCancelarNovaSecao');
+    const novaSecaoErro = document.getElementById('novaSecaoErro');
+    const cardNovaSecao = document.getElementById('cardNovaSecao');
+
+    if (btnMostrar) {
+        btnMostrar.addEventListener('click', () => {
+            novaSecaoBotao.classList.add('d-none');
+            novaSecaoForm.classList.remove('d-none');
+            novaSecaoNome.focus();
+        });
+    }
+
+    if (btnCancelar) {
+        btnCancelar.addEventListener('click', () => {
+            novaSecaoForm.classList.add('d-none');
+            novaSecaoBotao.classList.remove('d-none');
+            novaSecaoNome.value = '';
+            novaSecaoErro.classList.add('d-none');
+        });
+    }
+
+    if (novaSecaoNome) {
+        novaSecaoNome.addEventListener('keydown', e => {
+            if (e.key === 'Enter') btnSalvar.click();
+            if (e.key === 'Escape') btnCancelar.click();
+        });
+    }
+
+    if (btnSalvar) {
+        btnSalvar.addEventListener('click', async () => {
+            const nome = novaSecaoNome.value.trim();
+            if (!nome) {
+                novaSecaoErro.textContent = 'Informe o nome da seção.';
+                novaSecaoErro.classList.remove('d-none');
+                return;
+            }
+            novaSecaoErro.classList.add('d-none');
+            btnSalvar.disabled = true;
+
+            try {
+                const resp = await fetch(URL_CRIAR, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ _token: CSRF_CRIAR, nome }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    novaSecaoErro.textContent = data.erro ?? 'Erro ao criar seção.';
+                    novaSecaoErro.classList.remove('d-none');
+                    return;
+                }
+                const novoCard = criarCardSecaoDom(data);
+                cardNovaSecao.parentNode.insertBefore(novoCard, cardNovaSecao);
+                inicializarSecaoCard(novoCard);
+                novaSecaoNome.value = '';
+                novaSecaoForm.classList.add('d-none');
+                novaSecaoBotao.classList.remove('d-none');
+            } catch (e) {
+                novaSecaoErro.textContent = 'Erro de comunicação.';
+                novaSecaoErro.classList.remove('d-none');
+            } finally {
+                btnSalvar.disabled = false;
+            }
+        });
+    }
+
+    function criarCardSecaoDom(data) {
+        const id = data.id;
+        const div = document.createElement('div');
+        div.innerHTML = `
+<div class="card card-outline card-secondary mb-3 pasta-secao-card"
+     id="secaoCard${id}" data-secao-destino="${id}">
+  <div class="card-header d-flex align-items-center py-2">
+    <span class="pasta-secao-nome fw-semibold me-auto">${escapeHtml(data.nome)}</span>
+    <div class="d-flex align-items-center gap-1 ms-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary js-secao-renomear-btn" title="Renomear seção"
+              data-secao-id="${id}" data-nome-atual="${escapeAttr(data.nome)}"
+              data-csrf="${escapeAttr(data.csrfRenomear)}"
+              data-url="/pasta/secao/${id}/renomear">
+        <i class="bi bi-pencil"></i>
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-danger js-secao-excluir-btn" title="Excluir seção"
+              data-secao-id="${id}" data-nome="${escapeAttr(data.nome)}"
+              data-csrf="${escapeAttr(data.csrfExcluir)}"
+              data-url="/pasta/secao/${id}/excluir">
+        <i class="bi bi-trash"></i>
+      </button>
+      <button type="button" class="btn btn-tool js-secao-toggle" data-bs-toggle="collapse"
+              data-bs-target="#secaoBody${id}" aria-expanded="false">
+        <i class="bi bi-chevron-down"></i>
+      </button>
+    </div>
+  </div>
+  <div class="collapse" id="secaoBody${id}">
+    <div class="card-body secao-dropzone p-2" data-secao-destino="${id}">
+      <div class="secao-drop-area rounded p-2 mb-2 text-center text-muted small"
+           data-secao-destino="${id}"
+           style="border:2px dashed #ced4da;min-height:52px;transition:background .15s;">
+        <i class="bi bi-cloud-upload me-1"></i> Arraste arquivos do computador aqui
+      </div>
+      <form class="secao-upload-form" method="post" enctype="multipart/form-data"
+            action="/pasta/${PASTA_ID}/documento/upload">
+        <input type="hidden" name="_token" value="${escapeAttr(data.csrfUpload)}">
+        <input type="hidden" name="secao_id" value="${id}">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <button type="button" class="btn btn-sm btn-primary js-secao-add-file" data-secao="${id}">
+            <i class="bi bi-plus-lg me-1"></i> Adicionar arquivo
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary js-secao-limpar d-none" data-secao="${id}">
+            <i class="bi bi-x-circle me-1"></i> Limpar
+          </button>
+          <input type="file" class="js-secao-file-input d-none" multiple
+                 accept=".pdf,.jpg,.jpeg,.png,.mp4,.mpeg,.mp3,.ogg,.opus,.wav,.wma,.mov,.kml,audio/*,video/*"
+                 data-secao="${id}">
+        </div>
+        <div class="js-secao-lista-anexos" data-secao="${id}"></div>
+        <div class="js-secao-area-enviar d-none mt-2 text-end" data-secao="${id}">
+          <button type="submit" class="btn btn-sm btn-success">
+            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+          </button>
+        </div>
+      </form>
+      <div class="js-secao-docs" data-secao-destino="${id}"></div>
+    </div>
+  </div>
+</div>`;
+        return div.firstElementChild;
+    }
+
+    // ── Renomear / Excluir seção ─────────────────────────────────────────────
+
+    function inicializarSecaoCard(card) {
+        const btnRenomear = card.querySelector('.js-secao-renomear-btn');
+        const btnExcluir  = card.querySelector('.js-secao-excluir-btn');
+        const toggleBtn   = card.querySelector('.js-secao-toggle');
+
+        if (btnRenomear) {
+            btnRenomear.addEventListener('click', () => iniciarRenomear(btnRenomear));
+        }
+        if (btnExcluir) {
+            btnExcluir.addEventListener('click', () => confirmarExcluir(btnExcluir));
+        }
+        if (toggleBtn) {
+            toggleBtn.addEventListener('shown.bs.collapse', () => toggleBtn.querySelector('i').className = 'bi bi-chevron-up');
+            toggleBtn.addEventListener('hidden.bs.collapse', () => toggleBtn.querySelector('i').className = 'bi bi-chevron-down');
+        }
+
+        inicializarUploadSecao(card);
+        inicializarDropZone(card);
+        inicializarSortableDocs(card.querySelector('.js-secao-docs'));
+    }
+
+    function iniciarRenomear(btn) {
+        const secaoId  = btn.dataset.secaoId;
+        const nomeAtual = btn.dataset.nomeAtual;
+        const card = document.getElementById('secaoCard' + secaoId);
+        const nomeSpan = card.querySelector('.pasta-secao-nome');
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'form-control form-control-sm';
+        input.value = nomeAtual;
+        input.maxLength = 255;
+        input.style.maxWidth = '200px';
+
+        nomeSpan.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const salvar = async () => {
+            const novo = input.value.trim();
+            if (!novo) { input.focus(); return; }
+
+            try {
+                const resp = await fetch(btn.dataset.url, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ _token: btn.dataset.csrf, nome: novo }),
+                });
+                const data = await resp.json();
+                if (!resp.ok) { alert(data.erro ?? 'Erro ao renomear.'); return; }
+
+                const span = document.createElement('span');
+                span.className = 'pasta-secao-nome fw-semibold me-auto';
+                span.textContent = data.nome;
+                input.replaceWith(span);
+                btn.dataset.nomeAtual = data.nome;
+            } catch (e) {
+                alert('Erro de comunicação.');
+            }
+        };
+
+        const cancelar = () => {
+            const span = document.createElement('span');
+            span.className = 'pasta-secao-nome fw-semibold me-auto';
+            span.textContent = nomeAtual;
+            input.replaceWith(span);
+        };
+
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') salvar();
+            if (e.key === 'Escape') cancelar();
+        });
+        input.addEventListener('blur', salvar);
+    }
+
+    async function confirmarExcluir(btn) {
+        const nome = btn.dataset.nome;
+        if (!confirm(`Excluir a seção "${nome}" e todos os seus documentos? Esta ação não pode ser desfeita.`)) return;
+
+        const secaoId = btn.dataset.secaoId;
+        const card = document.getElementById('secaoCard' + secaoId);
+        btn.disabled = true;
+
+        try {
+            const resp = await fetch(btn.dataset.url, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ _token: btn.dataset.csrf }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) { alert(data.erro ?? 'Erro ao excluir.'); btn.disabled = false; return; }
+            card.remove();
+        } catch (e) {
+            alert('Erro de comunicação.');
+            btn.disabled = false;
+        }
+    }
+
+    // ── Upload de arquivos na seção ──────────────────────────────────────────
+
+    function formatarTamanhoSecao(bytes) {
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+    }
+
+    function buildOpcoesSecao() {
+        let html = '<option value="">Selecione o tipo</option>';
+        for (const [v, t] of Object.entries(TIPOS_DOC)) {
+            html += `<option value="${v}">${escapeHtml(t)}</option>`;
+        }
+        return html;
+    }
+
+    function adicionarItemSecao(file, listaDiv, atualizarFn) {
+        const idx = indiceSecao++;
+        const div = document.createElement('div');
+        div.className = 'anexo-item';
+        div.dataset.idx = idx;
+        div._file = file;
+
+        div.innerHTML = `
+            <div class="d-flex align-items-start gap-2">
+                <i class="bi bi-file-earmark-text fs-4 text-primary flex-shrink-0 mt-1"></i>
+                <div class="flex-grow-1 min-w-0">
+                    <div class="anexo-nome text-truncate">${escapeHtml(file.name)}</div>
+                    <div class="anexo-tamanho mb-2">${formatarTamanhoSecao(file.size)}</div>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-12 col-sm-5 col-lg-4">
+                            <label class="form-label form-label-sm mb-1">Tipo de documento</label>
+                            <select name="categorias[${idx}]" class="form-select form-select-sm" required>
+                                ${buildOpcoesSecao()}
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-7 col-lg-5">
+                            <label class="form-label form-label-sm mb-1">Descrição</label>
+                            <input type="text" name="descricoes[${idx}]" class="form-control form-control-sm"
+                                   placeholder="Descrição (opcional)" maxlength="500">
+                        </div>
+                        <div class="col-12 col-sm-12 col-lg-3">
+                            <label class="form-label form-label-sm mb-1">Número <span class="text-muted fw-normal">(opcional)</span></label>
+                            <input type="text" name="numeros[${idx}]" class="form-control form-control-sm"
+                                   placeholder="Número" maxlength="255">
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 mt-1 btn-remover-anexo" title="Remover">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>`;
+
+        div.querySelector('.btn-remover-anexo').addEventListener('click', function () {
+            div.remove();
+            atualizarFn();
+        });
+
+        listaDiv.appendChild(div);
+    }
+
+    function inicializarUploadSecao(card) {
+        const btnAdd     = card.querySelector('.js-secao-add-file');
+        const fileInput  = card.querySelector('.js-secao-file-input');
+        const btnLimpar  = card.querySelector('.js-secao-limpar');
+        const listaDiv   = card.querySelector('.js-secao-lista-anexos');
+        const areaEnviar = card.querySelector('.js-secao-area-enviar');
+        const form       = card.querySelector('.secao-upload-form');
+
+        if (!btnAdd || !fileInput || !form) return;
+
+        function atualizar() {
+            const tem = listaDiv.querySelectorAll('.anexo-item').length > 0;
+            areaEnviar.classList.toggle('d-none', !tem);
+            btnLimpar.classList.toggle('d-none', !tem);
+        }
+
+        btnAdd.addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
+
+        fileInput.addEventListener('change', () => {
+            Array.from(fileInput.files).forEach(f => adicionarItemSecao(f, listaDiv, atualizar));
+            atualizar();
+        });
+
+        btnLimpar.addEventListener('click', () => {
+            listaDiv.innerHTML = '';
+            fileInput.value = '';
+            atualizar();
+        });
+
+        form.addEventListener('submit', function (e) {
+            const itens = Array.from(listaDiv.querySelectorAll('.anexo-item'));
+            if (itens.length === 0) { e.preventDefault(); return; }
+
+            itens.forEach(function (item, novoIdx) {
+                ['categorias', 'descricoes', 'numeros'].forEach(function (campo) {
+                    const el = item.querySelector(`[name^="${campo}["]`);
+                    if (el) el.name = `${campo}[${novoIdx}]`;
+                });
+            });
+
+            const dt = new DataTransfer();
+            itens.forEach(function (item) { if (item._file) dt.items.add(item._file); });
+            fileInput.name = 'arquivos[]';
+            fileInput.files = dt.files;
+        });
+    }
+
+    // ── Drop zone — upload de arquivos do desktop ─────────────────────────────
+
+    function inicializarDropZone(card) {
+        const dropArea   = card.querySelector('.secao-drop-area');
+        const fileInput  = card.querySelector('.js-secao-file-input');
+        const listaDiv   = card.querySelector('.js-secao-lista-anexos');
+        const btnLimpar  = card.querySelector('.js-secao-limpar');
+        const areaEnviar = card.querySelector('.js-secao-area-enviar');
+
+        if (!dropArea || !fileInput) return;
+
+        function atualizar() {
+            const tem = listaDiv.querySelectorAll('.anexo-item').length > 0;
+            areaEnviar.classList.toggle('d-none', !tem);
+            btnLimpar.classList.toggle('d-none', !tem);
+        }
+
+        dropArea.addEventListener('dragover', e => {
+            if (!e.dataTransfer.types.includes('Files')) return;
+            e.preventDefault();
+            dropArea.style.background = '#e8f4fd';
+        });
+
+        dropArea.addEventListener('dragleave', () => { dropArea.style.background = ''; });
+
+        dropArea.addEventListener('drop', e => {
+            e.preventDefault();
+            dropArea.style.background = '';
+
+            if (e.dataTransfer.files.length > 0) {
+                Array.from(e.dataTransfer.files).forEach(f => adicionarItemSecao(f, listaDiv, atualizar));
+                atualizar();
+            }
+        });
+    }
+
+    // ── Reordenação e movimento de documentos via SortableJS ─────────────────
+
+    const URL_REORDENAR_DOCS  = '/pasta/' + PASTA_ID + '/documentos/reordenar';
+    const CSRF_REORDENAR_DOCS = '{{ csrf_token('reordenar_docs_pasta_' ~ pasta.id) }}';
+
+    async function persistirOrdemDocumentos(container) {
+        const ids = Array.from(container.querySelectorAll('.doc-item'))
+            .map(el => parseInt(el.dataset.docId, 10));
+        try {
+            await fetch(URL_REORDENAR_DOCS, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: JSON.stringify({ ids, _token: CSRF_REORDENAR_DOCS }),
+            });
+        } catch (e) {
+            console.error('Erro ao reordenar documentos:', e);
+        }
+    }
+
+    async function persistirMoverDocumento(docEl, toContainer) {
+        const secaoDestinoRaw = toContainer.dataset.secaoDestino ?? '';
+        const secaoId   = secaoDestinoRaw === 'geral' ? '' : secaoDestinoRaw;
+        const urlMover  = docEl.dataset.urlMover;
+        const csrfMover = docEl.dataset.csrfMover;
+
+        try {
+            const resp = await fetch(urlMover, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ _token: csrfMover, secao_id: secaoId }),
+            });
+            const data = await resp.json();
+            if (!resp.ok) { alert(data.erro ?? 'Erro ao mover documento.'); return; }
+            docEl.dataset.secaoId = secaoId;
+        } catch (e) {
+            alert('Erro de comunicação.');
+        }
+    }
+
+    function inicializarSortableDocs(container) {
+        if (!container || container._sortableDoc) return;
+        container._sortableDoc = new Sortable(container, {
+            group: 'docs-pasta',
+            handle: '.doc-grip',
+            animation: 150,
+            onEnd: async function (evt) {
+                if (evt.from === evt.to) {
+                    await persistirOrdemDocumentos(evt.to);
+                } else {
+                    await persistirMoverDocumento(evt.item, evt.to);
+                    await persistirOrdemDocumentos(evt.to);
+                }
+            },
+        });
+    }
+
+    // ── Toggle do card geral "Documentação" ──────────────────────────────────
+
+    const btnDocumentacaoToggle = document.getElementById('btnDocumentacaoToggle');
+    if (btnDocumentacaoToggle) {
+        const targetId = btnDocumentacaoToggle.dataset.bsTarget;
+        const collapseEl = document.querySelector(targetId);
+        if (collapseEl) {
+            collapseEl.addEventListener('shown.bs.collapse', () => {
+                btnDocumentacaoToggle.querySelector('i').className = 'bi bi-chevron-up';
+                btnDocumentacaoToggle.setAttribute('aria-expanded', 'true');
+            });
+            collapseEl.addEventListener('hidden.bs.collapse', () => {
+                btnDocumentacaoToggle.querySelector('i').className = 'bi bi-chevron-down';
+                btnDocumentacaoToggle.setAttribute('aria-expanded', 'false');
+            });
+        }
+    }
+
+    // ── Inicializar cards existentes (seções sempre retraídas ao carregar) ────
+
+    document.querySelectorAll('.pasta-secao-card').forEach(card => inicializarSecaoCard(card));
+    inicializarSortableDocs(document.getElementById('documentosGerais'));
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    function escapeHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function escapeAttr(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     }
 
 }());

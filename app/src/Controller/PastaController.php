@@ -45,6 +45,8 @@ use App\Pasta\UseCase\ToggleChecklistItemUseCase;
 use App\Repository\Pasta\PastaChecklistItemRepository;
 use App\Repository\Pasta\PastaObservacaoDetalhesRepository;
 use App\Repository\Pasta\PastaObservacaoFinanceiraRepository;
+use App\Repository\Pasta\PastaSecaoRepository;
+use App\Entity\Pasta\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Service\ArquivoStorageInterface;
@@ -106,6 +108,7 @@ class PastaController extends AbstractController
         private readonly ExcluirChecklistItemUseCase $excluirChecklistItemUseCase,
         private readonly ReordenarChecklistItensUseCase $reordenarChecklistItensUseCase,
         private readonly AlterarPrioridadeUseCase $alterarPrioridadeUseCase,
+        private readonly PastaSecaoRepository $secaoRepository,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -183,6 +186,8 @@ class PastaController extends AbstractController
         $totalChecklist      = count($checklistItens);
         $concluidosChecklist = count(array_filter($checklistItens, fn($i) => $i->isConcluido()));
 
+        $secoes = $tenant !== null ? $this->secaoRepository->findByPasta($pasta, $tenant) : [];
+
         return $this->render('pasta/show.html.twig', [
             'pasta'                       => $pasta,
             'documentTypeOptions'         => self::DOCUMENT_TYPES,
@@ -198,6 +203,7 @@ class PastaController extends AbstractController
             'checklistItens'              => $checklistItens,
             'totalChecklist'              => $totalChecklist,
             'concluidosChecklist'         => $concluidosChecklist,
+            'secoes'                      => $secoes,
         ]);
     }
 
@@ -1036,6 +1042,15 @@ class PastaController extends AbstractController
         $descricoes  = $request->request->all('descricoes');
         $numeros     = $request->request->all('numeros');
 
+        $secaoIdRaw = $request->request->get('secao_id');
+        $secaoId    = null;
+        if ($secaoIdRaw !== null && $secaoIdRaw !== '') {
+            $secaoEncontrada = $this->em->find(PastaSecao::class, (int) $secaoIdRaw);
+            if ($secaoEncontrada !== null && $secaoEncontrada->getPasta()?->getId() === $pasta->getId()) {
+                $secaoId = $secaoEncontrada;
+            }
+        }
+
         $erros    = [];
         $salvos   = 0;
 
@@ -1081,8 +1096,11 @@ class PastaController extends AbstractController
             $doc->setMimeType($mimeType);
             $doc->setTamanhoBytes($tamanho);
 
+            if ($secaoId !== null) {
+                $doc->setSecao($secaoId);
+            }
+
             $this->em->persist($doc);
-            $this->markChecklistByCategoria($pasta, $categoria);
             ++$salvos;
         }
 
@@ -1177,12 +1195,6 @@ class PastaController extends AbstractController
             $doc->setNomeOriginal($nomeComExtensao);
         }
 
-        $pasta = $doc->getPasta();
-        if ($pasta !== null && $categoriaAnterior !== $categoria) {
-            $this->recalculateChecklistAfterDelete($pasta, $categoriaAnterior);
-            $this->markChecklistByCategoria($pasta, $categoria);
-        }
-
         $this->em->flush();
 
         $this->addFlash('success', 'Documento atualizado com sucesso.');
@@ -1208,14 +1220,7 @@ class PastaController extends AbstractController
 
         $this->storage->excluir($this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()));
 
-        $pasta = $doc->getPasta();
-        $categoria = $doc->getCategoria();
         $this->em->remove($doc);
-
-        if ($pasta !== null) {
-            $this->recalculateChecklistAfterDelete($pasta, $categoria);
-        }
-
         $this->em->flush();
 
         $this->addFlash('success', 'Documento removido com sucesso.');
@@ -1805,38 +1810,6 @@ class PastaController extends AbstractController
         $this->reordenarChecklistItensUseCase->executar($pasta, $tenant, $ids);
 
         return $this->json(['ok' => true]);
-    }
-
-    private function markChecklistByCategoria(Pasta $pasta, string $categoria): void
-    {
-        match ($categoria) {
-            PastaDocumento::CATEGORIA_PECA                   => $pasta->setDocPecaOk(true),
-            PastaDocumento::CATEGORIA_PROCURACAO             => $pasta->setDocProcuracaoOk(true),
-            PastaDocumento::CATEGORIA_IDENTIFICACAO          => $pasta->setDocIdentificacaoOk(true),
-            PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => $pasta->setDocComprovanteResidenciaOk(true),
-            PastaDocumento::CATEGORIA_GRATUIDADE_JUSTICA     => $pasta->setDocGratuidadeJusticaOk(true),
-            PastaDocumento::CATEGORIA_DEMAIS                 => $pasta->setDocDemaisOk(true),
-            default => null,
-        };
-    }
-
-    private function recalculateChecklistAfterDelete(Pasta $pasta, string $categoriaRemovida): void
-    {
-        $remaining = $pasta->getDocumentos()->filter(
-            fn(PastaDocumento $d) => $d->getCategoria() === $categoriaRemovida
-        );
-
-        if ($remaining->count() <= 1) {
-            match ($categoriaRemovida) {
-                PastaDocumento::CATEGORIA_PECA                   => $pasta->setDocPecaOk(false),
-                PastaDocumento::CATEGORIA_PROCURACAO             => $pasta->setDocProcuracaoOk(false),
-                PastaDocumento::CATEGORIA_IDENTIFICACAO          => $pasta->setDocIdentificacaoOk(false),
-                PastaDocumento::CATEGORIA_COMPROVANTE_RESIDENCIA => $pasta->setDocComprovanteResidenciaOk(false),
-                PastaDocumento::CATEGORIA_GRATUIDADE_JUSTICA     => $pasta->setDocGratuidadeJusticaOk(false),
-                PastaDocumento::CATEGORIA_DEMAIS                 => $pasta->setDocDemaisOk(false),
-                default => null,
-            };
-        }
     }
 
     /**

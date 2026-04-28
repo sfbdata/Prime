@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Entity\Pasta;
 
 use App\Repository\PastaDocumentoRepository;
@@ -55,6 +57,13 @@ class PastaDocumento
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Pasta $pasta = null;
+
+    #[ORM\ManyToOne(targetEntity: PastaSecao::class, inversedBy: 'documentos')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?PastaSecao $secao = null;
+
+    #[ORM\Column(options: ['default' => 0])]
+    private int $ordem = 0;
 
     public function __construct()
     {
@@ -177,5 +186,27 @@ class PastaDocumento
         $this->pasta = $pasta;
 
         return $this;
+    }
+
+    public function getSecao(): ?PastaSecao
+    {
+        return $this->secao;
+    }
+
+    public function setSecao(?PastaSecao $secao): self
+    {
+        $this->secao = $secao;
+
+        return $this;
+    }
+
+    public function getOrdem(): int
+    {
+        return $this->ordem;
+    }
+
+    public function setOrdem(int $ordem): void
+    {
+        $this->ordem = $ordem;
     }
 }

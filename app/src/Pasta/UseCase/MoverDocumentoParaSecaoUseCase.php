@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Pasta\UseCase;
+
+use App\Entity\Auth\User;
+use App\Entity\Pasta\PastaDocumento;
+use App\Entity\Pasta\PastaSecao;
+use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
+
+final class MoverDocumentoParaSecaoUseCase
+{
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+    ) {
+    }
+
+    public function executar(PastaDocumento $documento, ?PastaSecao $secaoDestino, User $autor): void
+    {
+        $tenant = $autor->getTenant();
+        if ($tenant === null) {
+            throw new \LogicException('Usuário sem tenant.');
+        }
+
+        $pastaDodocumento = $documento->getPasta();
+        if ($pastaDodocumento === null) {
+            throw new \LogicException('Documento sem pasta associada.');
+        }
+
+        if ($secaoDestino !== null && $secaoDestino->getTenant() !== $tenant) {
+            throw new AccessDeniedException('Seção de destino não pertence ao tenant do usuário.');
+        }
+
+        if ($secaoDestino !== null && $secaoDestino->getPasta() !== $pastaDodocumento) {
+            throw new \InvalidArgumentException('A seção de destino não pertence à mesma pasta do documento.');
+        }
+
+        $documento->setSecao($secaoDestino);
+
+        $this->em->flush();
+    }
+}
