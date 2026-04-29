@@ -260,7 +260,7 @@
             </div>{# /app-wrapper #}
 
             {# Alerta de ponto eletrônico #}
-            {% if app.user and can_access_module('ponto') and app.user.escalaTrabalho is not null %}
+            {% if app.user and can_access_module('ponto') and app.user.jornadaColaborador is not null %}
                 {% include 'ponto/_modal_alerta_ponto.html.twig' %}
             {% endif %}
 

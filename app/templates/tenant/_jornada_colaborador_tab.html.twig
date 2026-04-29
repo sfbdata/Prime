@@ -1,30 +1,30 @@
 <div class="card card-outline card-warning mb-3">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <h3 class="card-title mb-0"><i class="bi bi-clock me-2"></i>Escala de Trabalho</h3>
+        <h3 class="card-title mb-0"><i class="bi bi-clock me-2"></i>Jornada Personalizada</h3>
         {% if userHasCustomEscala %}
             <button type="button" class="btn btn-sm btn-outline-danger" id="btnLimparEscala">
-                <i class="bi bi-arrow-counterclockwise me-1"></i>Limpar escala personalizada
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Limpar jornada personalizada
             </button>
         {% endif %}
     </div>
     <div class="card-body">
 
-        {# Aviso de escala legada #}
+        {# Aviso de jornada legada #}
         <div id="escalaAvisoLegado" class="alert alert-warning d-none">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            Sua escala usa formato legado. Configure blocos abaixo para usar o novo sistema.
+            Sua jornada usa formato legado. Configure blocos abaixo para usar o novo sistema.
         </div>
 
-        {# Resumo somente leitura da jornada do tenant #}
+        {# Resumo somente leitura da jornada do escritório #}
         <div id="escalaResumoTenant" class="alert alert-info mb-3 d-none">
-            <strong><i class="bi bi-building me-1"></i>Jornada padrão do escritório:</strong>
+            <strong><i class="bi bi-building me-1"></i>Jornada do escritório:</strong>
             <span id="escalaResumoCargaTenant"></span>
             <div id="escalaResumoBlocosTenant" class="mt-1 small text-muted"></div>
         </div>
 
         <div id="escalaLoadingMsg" class="text-center py-4">
             <div class="spinner-border text-warning" role="status"></div>
-            <p class="mt-2 text-muted">Carregando escala...</p>
+            <p class="mt-2 text-muted">Carregando jornada...</p>
         </div>
 
         <div id="escalaFormContainer" class="d-none">
@@ -64,12 +64,12 @@
     </div>
     <div class="card-footer d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-warning" id="btnSalvarEscala" disabled>
-            <i class="bi bi-save me-1"></i>Salvar Escala
+            <i class="bi bi-save me-1"></i>Salvar Jornada
         </button>
     </div>
 </div>
 
-{# Template JS para um bloco de escala de usuário #}
+{# Template JS para um bloco de jornada do colaborador #}
 <template id="tmplBlocoEscala">
     <div class="bloco-escala card mb-3" data-bloco-idx="">
         <div class="card-body pb-2">
@@ -141,7 +141,7 @@
 (function () {
     'use strict';
 
-    const escalaUrl = {{ path('app_escala_usuario_get', {tenantId: tenantId, id: user.id})|json_encode|raw }};
+    const escalaUrl = {{ path('app_jornada_colaborador_get', {tenantId: tenantId, id: user.id})|json_encode|raw }};
 
     function parseHHMM(str) {
         if (!str) return 0;
@@ -316,7 +316,7 @@
             atualizarAcumuladorEscala();
         } catch (err) {
             document.getElementById('escalaLoadingMsg').innerHTML =
-                '<p class="text-danger">Erro ao carregar escala. Tente novamente.</p>';
+                '<p class="text-danger">Erro ao carregar jornada. Tente novamente.</p>';
         }
     }
 
@@ -367,7 +367,7 @@
             erroEl.classList.remove('d-none');
         } finally {
             this.disabled = false;
-            this.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Escala';
+            this.innerHTML = '<i class="bi bi-save me-1"></i>Salvar Jornada';
             atualizarAcumuladorEscala();
         }
     });
@@ -375,7 +375,7 @@
     const btnLimpar = document.getElementById('btnLimparEscala');
     if (btnLimpar) {
         btnLimpar.addEventListener('click', async function () {
-            if (!confirm('Limpar a escala personalizada deste usuário? Ele voltará a usar a jornada padrão do escritório.')) return;
+            if (!confirm('Limpar a jornada personalizada deste colaborador? Ele voltará a usar a jornada do escritório.')) return;
 
             this.disabled = true;
 
@@ -388,7 +388,7 @@
                 if (resp.ok) {
                     window.location.href = window.location.pathname + '?tab=escala';
                 } else {
-                    alert('Erro ao limpar escala.');
+                    alert('Erro ao limpar jornada personalizada.');
                     this.disabled = false;
                 }
             } catch (err) {

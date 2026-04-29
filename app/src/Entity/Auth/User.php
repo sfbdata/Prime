@@ -2,7 +2,7 @@
 
 namespace App\Entity\Auth;
 
-use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
@@ -63,7 +63,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?Lotacao $lotacao = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
-    private ?EscalaTrabalho $escalaTrabalho = null;
+    private ?JornadaColaborador $jornadaColaborador = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?UserProfile $profile = null;
@@ -237,17 +237,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getEscalaTrabalho(): ?EscalaTrabalho
+    public function getJornadaColaborador(): ?JornadaColaborador
     {
-        return $this->escalaTrabalho;
+        return $this->jornadaColaborador;
     }
 
-    public function setEscalaTrabalho(?EscalaTrabalho $escalaTrabalho): static
+    public function setJornadaColaborador(?JornadaColaborador $jornadaColaborador): static
     {
-        if ($escalaTrabalho !== null && $escalaTrabalho->getUser() !== $this) {
-            $escalaTrabalho->setUser($this);
+        if ($jornadaColaborador !== null && $jornadaColaborador->getUser() !== $this) {
+            $jornadaColaborador->setUser($this);
         }
-        $this->escalaTrabalho = $escalaTrabalho;
+        $this->jornadaColaborador = $jornadaColaborador;
         return $this;
     }
 

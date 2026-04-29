@@ -3,7 +3,7 @@
 namespace App\Service\Ponto;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Ponto\Feriado;
 use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Ponto\JustificativaPonto;
@@ -31,7 +31,7 @@ class FolhaPontoBuilder
         array $batidas,
         bool $includeEmptyDays = true,
         bool $orderDesc = false,
-        ?EscalaTrabalho $escala = null,
+        ?JornadaColaborador $jornada = null,
         array $feriados = [],
         array $justificativasDoMes = [],
         ?JornadaTenant $jornadaTenant = null
@@ -100,7 +100,7 @@ class FolhaPontoBuilder
                 'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
             ];
 
-            if ($escala !== null) {
+            if ($jornada !== null) {
                 $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriados);
                 if ($diaFuturo) {
                     // Dias futuros: não exibe saldo nem soma no banco
@@ -128,7 +128,7 @@ class FolhaPontoBuilder
                         $row['saldoAcumulado']        = null;
                     } else {
                         $minutos = $this->calculadora->calcularMinutosTrabalhados($batidasDoDia);
-                        $saldoDia = $this->calculadora->calcularSaldoDia($escala->getUser(), $dia, $batidasDoDia, $escala, $feriados, $jornadaTenant);
+                        $saldoDia = $this->calculadora->calcularSaldoDia($jornada->getUser(), $dia, $batidasDoDia, $jornada, $feriados, $jornadaTenant);
 
                         $justificativaDoDia = $justificativasDoMes[$chaveDia] ?? null;
                         $justificadoDia = false;
@@ -187,8 +187,8 @@ class FolhaPontoBuilder
      */
     public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null): int
     {
-        $escala = $user->getEscalaTrabalho();
-        if ($escala === null) {
+        $jornada = $user->getJornadaColaborador();
+        if ($jornada === null) {
             return 0;
         }
 
@@ -232,7 +232,7 @@ class FolhaPontoBuilder
                 $batidas,
                 true,
                 false,
-                $escala,
+                $jornada,
                 $feriados,
                 $justificativas,
                 $jornadaTenant

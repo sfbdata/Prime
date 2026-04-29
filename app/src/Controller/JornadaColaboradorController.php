@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
-use App\Entity\Ponto\BlocoEscalaUsuario;
-use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\BlocoJornadaColaborador;
+use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Auth\User;
-use App\Repository\Ponto\EscalaTrabalhoRepository;
+use App\Repository\Ponto\JornadaColaboradorRepository;
 use App\Service\PermissionChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -15,9 +17,9 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 
 #[Route('/tenant/{tenantId}/user/{id}')]
-final class EscalaUsuarioController extends AbstractController
+final class JornadaColaboradorController extends AbstractController
 {
-    #[Route('/escala', name: 'app_escala_usuario_get', methods: ['GET'])]
+    #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_get', methods: ['GET'])]
     public function get(
         int $tenantId,
         User $user,
@@ -33,14 +35,14 @@ final class EscalaUsuarioController extends AbstractController
         $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException('Sem permissão para gerenciar escalas.');
+            throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
         if ($user->getTenant()?->getId() !== $tenantId && !$isSuperAdmin) {
             throw $this->createAccessDeniedException('Usuário não pertence a este tenant.');
         }
 
-        $escala      = $user->getEscalaTrabalho();
+        $jornada       = $user->getJornadaColaborador();
         $jornadaTenant = $user->getTenant()?->getJornadaTenant();
 
         $blocosTenant = [];
@@ -57,17 +59,17 @@ final class EscalaUsuarioController extends AbstractController
             }
         }
 
-        $cargaUsuario = $escala?->getCargaHorariaSemanal();
+        $cargaUsuario = $jornada?->getCargaHorariaSemanal();
         $cargaEfetiva = $cargaUsuario ?? $jornadaTenant?->getCargaHorariaSemanal() ?? 2400;
 
-        $temBlocosUsuario = $escala !== null && !$escala->getBlocos()->isEmpty();
-        $temCamposLegados = $escala !== null && !$temBlocosUsuario && (
-            $escala->getEntrada1() !== null || $escala->getSaida1() !== null
+        $temBlocosUsuario = $jornada !== null && !$jornada->getBlocos()->isEmpty();
+        $temCamposLegados = $jornada !== null && !$temBlocosUsuario && (
+            $jornada->getEntrada1() !== null || $jornada->getSaida1() !== null
         );
 
         $blocosUsuario = [];
         if ($temBlocosUsuario) {
-            foreach ($escala->getBlocos() as $b) {
+            foreach ($jornada->getBlocos() as $b) {
                 $blocosUsuario[] = [
                     'diasSemana'   => $b->getDiasSemana(),
                     'entrada'      => $b->getEntrada(),
@@ -81,7 +83,7 @@ final class EscalaUsuarioController extends AbstractController
 
         return $this->json([
             'cargaHorariaSemanal'  => $cargaEfetiva,
-            'alertaHabilitado'     => $escala?->isAlertaHabilitado() ?? true,
+            'alertaHabilitado'     => $jornada?->isAlertaHabilitado() ?? true,
             'blocos'               => $blocosUsuario,
             'temBlocosUsuario'     => $temBlocosUsuario,
             'temCamposLegados'     => $temCamposLegados,
@@ -93,13 +95,13 @@ final class EscalaUsuarioController extends AbstractController
         ]);
     }
 
-    #[Route('/escala', name: 'app_escala_usuario_save', methods: ['POST'])]
+    #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_save', methods: ['POST'])]
     public function save(
         int $tenantId,
         User $user,
         Request $request,
         PermissionChecker $permissionChecker,
-        EscalaTrabalhoRepository $escalaTrabalhoRepository,
+        JornadaColaboradorRepository $jornadaColaboradorRepository,
         EntityManagerInterface $entityManager
     ): JsonResponse {
         $currentUser = $this->getUser();
@@ -112,7 +114,7 @@ final class EscalaUsuarioController extends AbstractController
         $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException('Sem permissão para gerenciar escalas.');
+            throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
         if ($user->getTenant()?->getId() !== $tenantId && !$isSuperAdmin) {
@@ -142,29 +144,29 @@ final class EscalaUsuarioController extends AbstractController
             return $this->json(['erro' => $erros], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $escala = $user->getEscalaTrabalho();
-        if ($escala === null) {
-            $escala = new EscalaTrabalho();
-            $escala->setUser($user);
-            $entityManager->persist($escala);
+        $jornada = $user->getJornadaColaborador();
+        if ($jornada === null) {
+            $jornada = new JornadaColaborador();
+            $jornada->setUser($user);
+            $entityManager->persist($jornada);
         }
 
-        $escala->setCargaHorariaSemanal($carga);
-        $escala->setAlertaHabilitado($alerta);
+        $jornada->setCargaHorariaSemanal($carga);
+        $jornada->setAlertaHabilitado($alerta);
 
-        foreach ($escala->getBlocos()->toArray() as $blocoAntigo) {
-            $escala->removeBloco($blocoAntigo);
+        foreach ($jornada->getBlocos()->toArray() as $blocoAntigo) {
+            $jornada->removeBloco($blocoAntigo);
         }
 
         foreach ($blocos as $blocoData) {
-            $bloco = new BlocoEscalaUsuario();
+            $bloco = new BlocoJornadaColaborador();
             $bloco->setDiasSemana(array_map('intval', (array) ($blocoData['diasSemana'] ?? [])));
             $bloco->setEntrada((string) ($blocoData['entrada'] ?? '09:00'));
             $bloco->setRepouso($blocoData['repouso'] !== '' ? (string) ($blocoData['repouso'] ?? null) : null);
             $bloco->setRetorno($blocoData['retorno'] !== '' ? (string) ($blocoData['retorno'] ?? null) : null);
             $bloco->setSaida((string) ($blocoData['saida'] ?? '18:00'));
             $bloco->setMinutosBloco($this->calcularMinutosBloco($bloco));
-            $escala->addBloco($bloco);
+            $jornada->addBloco($bloco);
         }
 
         $entityManager->flush();
@@ -172,7 +174,7 @@ final class EscalaUsuarioController extends AbstractController
         return $this->json(['ok' => true]);
     }
 
-    #[Route('/escala', name: 'app_escala_usuario_delete', methods: ['DELETE'])]
+    #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_delete', methods: ['DELETE'])]
     public function delete(
         int $tenantId,
         User $user,
@@ -190,23 +192,23 @@ final class EscalaUsuarioController extends AbstractController
         $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException('Sem permissão para gerenciar escalas.');
+            throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
         if ($user->getTenant()?->getId() !== $tenantId && !$isSuperAdmin) {
             throw $this->createAccessDeniedException('Usuário não pertence a este tenant.');
         }
 
-        $escala = $user->getEscalaTrabalho();
-        if ($escala === null) {
+        $jornada = $user->getJornadaColaborador();
+        if ($jornada === null) {
             return $this->json(['ok' => true]);
         }
 
-        foreach ($escala->getBlocos()->toArray() as $bloco) {
-            $escala->removeBloco($bloco);
+        foreach ($jornada->getBlocos()->toArray() as $bloco) {
+            $jornada->removeBloco($bloco);
         }
 
-        $escala->setCargaHorariaSemanal(null);
+        $jornada->setCargaHorariaSemanal(null);
         $entityManager->flush();
 
         return $this->json(['ok' => true]);
@@ -234,7 +236,7 @@ final class EscalaUsuarioController extends AbstractController
                 $diasUsados[] = $dia;
             }
 
-            $bloco = new BlocoEscalaUsuario();
+            $bloco = new BlocoJornadaColaborador();
             $bloco->setEntrada((string) ($b['entrada'] ?? '09:00'));
             $bloco->setRepouso($b['repouso'] !== '' ? (string) ($b['repouso'] ?? null) : null);
             $bloco->setRetorno($b['retorno'] !== '' ? (string) ($b['retorno'] ?? null) : null);
@@ -260,7 +262,7 @@ final class EscalaUsuarioController extends AbstractController
         return null;
     }
 
-    private function calcularMinutosBloco(BlocoEscalaUsuario $bloco): int
+    private function calcularMinutosBloco(BlocoJornadaColaborador $bloco): int
     {
         [$hE, $mE] = array_map('intval', explode(':', $bloco->getEntrada()));
         [$hS, $mS] = array_map('intval', explode(':', $bloco->getSaida()));

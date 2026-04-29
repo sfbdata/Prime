@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Ponto\RegistroPonto;
 use App\Entity\Tenant\Sede;
@@ -397,10 +397,10 @@ final class TenantController extends AbstractController
      */
     private function resolverJornadaInfoAdmin(User $user, ?\App\Entity\Ponto\JornadaTenant $jornadaTenant): ?array
     {
-        $escala = $user->getEscalaTrabalho();
+        $jornada = $user->getJornadaColaborador();
 
-        if ($escala !== null && !$escala->getBlocos()->isEmpty()) {
-            $carga = $escala->getCargaHorariaSemanal()
+        if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
+            $carga = $jornada->getCargaHorariaSemanal()
                 ?? $jornadaTenant?->getCargaHorariaSemanal()
                 ?? 0;
             return ['cargaHorariaSemanal' => $carga, 'fonte' => 'personalizada'];
@@ -479,8 +479,8 @@ final class TenantController extends AbstractController
             return $this->redirectToRoute('app_tenant_users', ['id' => $tenantId]);
         }
 
-        $escala              = $user->getEscalaTrabalho();
-        $userHasCustomEscala = $escala !== null && !$escala->getBlocos()->isEmpty();
+        $jornada                  = $user->getJornadaColaborador();
+        $userHasCustomEscala      = $jornada !== null && !$jornada->getBlocos()->isEmpty();
 
         $userAccesses   = $resourceAccessRepository->findByUsers([$user])[(int) $user->getId()] ?? [];
         $resourceLabels = $this->resolveResourceLabels(
@@ -1114,12 +1114,12 @@ final class TenantController extends AbstractController
         return $this->storage->servir($filePath, $justificativa->getAnexoPath(), inline: true);
     }
 
-    private function calcularCargaDiaria(EscalaTrabalho $escala): int
+    private function calcularCargaDiaria(JornadaColaborador $jornada): int
     {
-        [$hE1, $mE1] = array_map('intval', explode(':', $escala->getEntrada1() ?? '09:00'));
-        [$hS1, $mS1] = array_map('intval', explode(':', $escala->getSaida1()   ?? '12:00'));
-        [$hE2, $mE2] = array_map('intval', explode(':', $escala->getEntrada2() ?? '13:00'));
-        [$hS2, $mS2] = array_map('intval', explode(':', $escala->getSaida2()   ?? '18:00'));
+        [$hE1, $mE1] = array_map('intval', explode(':', $jornada->getEntrada1() ?? '09:00'));
+        [$hS1, $mS1] = array_map('intval', explode(':', $jornada->getSaida1()   ?? '12:00'));
+        [$hE2, $mE2] = array_map('intval', explode(':', $jornada->getEntrada2() ?? '13:00'));
+        [$hS2, $mS2] = array_map('intval', explode(':', $jornada->getSaida2()   ?? '18:00'));
 
         return max(0, (($hS1 * 60 + $mS1) - ($hE1 * 60 + $mE1))
                     + (($hS2 * 60 + $mS2) - ($hE2 * 60 + $mE2)));

@@ -27,7 +27,7 @@
                     </li>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-escala-btn" data-bs-toggle="tab" data-bs-target="#tab-escala" type="button" role="tab">
-                            <i class="bi bi-clock me-1"></i>Escala de Trabalho
+                            <i class="bi bi-clock me-1"></i>Jornada Personalizada
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
@@ -209,9 +209,9 @@
                         </div>
                     </div>
 
-                    {# Aba: Escala de Trabalho #}
+                    {# Aba: Jornada Personalizada #}
                     <div class="tab-pane fade" id="tab-escala" role="tabpanel">
-                        {% include 'tenant/_escala_usuario_tab.html.twig' with {
+                        {% include 'tenant/_jornada_colaborador_tab.html.twig' with {
                             tenantId: tenantId,
                             user: user,
                             userHasCustomEscala: userHasCustomEscala

@@ -3,7 +3,7 @@
 namespace App\Service\Ponto;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Ponto\Feriado;
 use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Ponto\RegistroPonto;
@@ -28,26 +28,26 @@ class CalculadoraJornada
      * @param RegistroPonto[] $batidas
      * @param Feriado[] $feriados
      */
-    public function calcularSaldoDia(User $user, \DateTimeInterface $data, array $batidas, ?EscalaTrabalho $escala, array $feriados, ?JornadaTenant $jornadaTenant = null): int
+    public function calcularSaldoDia(User $user, \DateTimeInterface $data, array $batidas, ?JornadaColaborador $jornada, array $feriados, ?JornadaTenant $jornadaTenant = null): int
     {
         $indiceDia = (int) $data->format('N');
         $isFeriado = $this->isFeriado($data, $feriados);
 
-        // Se o usuário tem blocos, JornadaResolver decide; 0 significa fora da escala
-        $escalaComBlocos = $escala !== null && !$escala->getBlocos()->isEmpty();
-        $tenantComBlocos = $jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty();
+        // Se o colaborador tem blocos, JornadaResolver decide; 0 significa fora da jornada
+        $jornadaComBlocos = $jornada !== null && !$jornada->getBlocos()->isEmpty();
+        $tenantComBlocos  = $jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty();
 
-        if ($escalaComBlocos || $tenantComBlocos) {
+        if ($jornadaComBlocos || $tenantComBlocos) {
             $cargaEsperada = $isFeriado ? 0 : $this->jornadaResolver->resolverMetaDia($user, $data, $jornadaTenant);
         } else {
-            // Lógica legada: usa campos planos de EscalaTrabalho
-            $isDiaTrabalho = $escala ? in_array($indiceDia, $escala->getDiasSemana(), true) : false;
+            // Lógica legada: usa campos planos de JornadaColaborador
+            $isDiaTrabalho = $jornada ? in_array($indiceDia, $jornada->getDiasSemana(), true) : false;
             $ehSabado = $indiceDia === 6;
 
-            if ($ehSabado && $escala && in_array(6, $escala->getDiasSemana(), true) && $escala->getCargaHorariaSabado() !== null) {
-                $cargaEsperada = $isFeriado ? 0 : $escala->getCargaHorariaSabado();
+            if ($ehSabado && $jornada && in_array(6, $jornada->getDiasSemana(), true) && $jornada->getCargaHorariaSabado() !== null) {
+                $cargaEsperada = $isFeriado ? 0 : $jornada->getCargaHorariaSabado();
             } else {
-                $cargaEsperada = ($isDiaTrabalho && !$isFeriado) ? ($escala?->getCargaHorariaDiaria() ?? 0) : 0;
+                $cargaEsperada = ($isDiaTrabalho && !$isFeriado) ? ($jornada?->getCargaHorariaDiaria() ?? 0) : 0;
             }
         }
 

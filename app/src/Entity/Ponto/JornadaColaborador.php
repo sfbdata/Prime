@@ -7,15 +7,16 @@ use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: \App\Repository\Ponto\EscalaTrabalhoRepository::class)]
-class EscalaTrabalho
+#[ORM\Entity(repositoryClass: \App\Repository\Ponto\JornadaColaboradorRepository::class)]
+#[ORM\Table(name: 'jornada_colaborador')]
+class JornadaColaborador
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\OneToOne(inversedBy: 'escalaTrabalho')]
+    #[ORM\OneToOne(inversedBy: 'jornadaColaborador')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
@@ -55,9 +56,9 @@ class EscalaTrabalho
     private ?int $cargaHorariaSemanal = null; // em minutos; null = herda do tenant
 
     /**
-     * @var Collection<int, BlocoEscalaUsuario>
+     * @var Collection<int, BlocoJornadaColaborador>
      */
-    #[ORM\OneToMany(targetEntity: BlocoEscalaUsuario::class, mappedBy: 'escalaTrabalho', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OneToMany(targetEntity: BlocoJornadaColaborador::class, mappedBy: 'jornadaColaborador', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $blocos;
 
     public function __construct()
@@ -203,23 +204,23 @@ class EscalaTrabalho
     }
 
     /**
-     * @return Collection<int, BlocoEscalaUsuario>
+     * @return Collection<int, BlocoJornadaColaborador>
      */
     public function getBlocos(): Collection
     {
         return $this->blocos;
     }
 
-    public function addBloco(BlocoEscalaUsuario $bloco): static
+    public function addBloco(BlocoJornadaColaborador $bloco): static
     {
         if (!$this->blocos->contains($bloco)) {
             $this->blocos->add($bloco);
-            $bloco->setEscalaTrabalho($this);
+            $bloco->setJornadaColaborador($this);
         }
         return $this;
     }
 
-    public function removeBloco(BlocoEscalaUsuario $bloco): static
+    public function removeBloco(BlocoJornadaColaborador $bloco): static
     {
         $this->blocos->removeElement($bloco);
         return $this;

@@ -2,7 +2,7 @@
 
 namespace App\Controller;
 
-use App\Entity\Ponto\EscalaTrabalho;
+use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Ponto\RegistroPonto;
@@ -95,15 +95,15 @@ final class PontoController extends AbstractController
 
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
-        $escala = $user->getEscalaTrabalho();
-        if ($escala === null) {
-            $escala = new EscalaTrabalho();
-            $escala->setUser($user);
+        $jornada = $user->getJornadaColaborador();
+        if ($jornada === null) {
+            $jornada = new JornadaColaborador();
+            $jornada->setUser($user);
         }
         $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $escala, $feriados, $justificativasDoMes, $jornadaTenant);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant);
 
         $hojeStr = $agora->format('Y-m-d');
         $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
@@ -594,10 +594,10 @@ final class PontoController extends AbstractController
      */
     private function resolverJornadaInfo(\App\Entity\Auth\User $user, ?JornadaTenant $jornadaTenant): ?array
     {
-        $escala = $user->getEscalaTrabalho();
+        $jornada = $user->getJornadaColaborador();
 
-        if ($escala !== null && !$escala->getBlocos()->isEmpty()) {
-            $carga = $escala->getCargaHorariaSemanal()
+        if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
+            $carga = $jornada->getCargaHorariaSemanal()
                 ?? $jornadaTenant?->getCargaHorariaSemanal()
                 ?? 0;
             return ['cargaHorariaSemanal' => $carga, 'fonte' => 'personalizada'];
@@ -666,14 +666,14 @@ final class PontoController extends AbstractController
 
         /** @var \App\Entity\Ponto\RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
-        $escala  = $targetUser->getEscalaTrabalho();
+        $jornada  = $targetUser->getJornadaColaborador();
         $feriados = $targetUser->getTenant() !== null ? $feriadoRepository->findByTenant($targetUser->getTenant()) : [];
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
         $jornadaTenantPdf = $targetUser->getTenant()?->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $escala, $feriados, $justificativasDoMes, $jornadaTenantPdf);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantPdf);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -796,14 +796,14 @@ final class PontoController extends AbstractController
 
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
-        $escala  = $targetUser->getEscalaTrabalho();
+        $jornada  = $targetUser->getJornadaColaborador();
         $feriados = $targetUser->getTenant() !== null ? $feriadoRepository->findByTenant($targetUser->getTenant()) : [];
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
         $jornadaTenantXlsx = $targetUser->getTenant()?->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $escala, $feriados, $justificativasDoMes, $jornadaTenantXlsx);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantXlsx);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -878,19 +878,19 @@ final class PontoController extends AbstractController
      * Resolve os horários de jornada usando a mesma hierarquia do JornadaResolver:
      * 1. Blocos do usuário (primeiro dia útil encontrado)
      * 2. Blocos do tenant (primeiro dia útil encontrado)
-     * 3. Campos planos da EscalaTrabalho (legado)
+     * 3. Campos planos da JornadaColaborador (legado)
      * 4. Defaults fixos
      *
      * @return array{entrada: string, repouso: string, retorno: string, saida: string}
      */
     private function resolverHorariosJornada(
-        ?\App\Entity\Ponto\EscalaTrabalho $escala,
+        ?\App\Entity\Ponto\JornadaColaborador $jornada,
         ?\App\Entity\Ponto\JornadaTenant $jornadaTenant,
     ): array {
         $diasUteis = [1, 2, 3, 4, 5];
 
-        if ($escala !== null && !$escala->getBlocos()->isEmpty()) {
-            foreach ($escala->getBlocos() as $bloco) {
+        if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
+            foreach ($jornada->getBlocos() as $bloco) {
                 foreach ($diasUteis as $dia) {
                     if (in_array($dia, $bloco->getDiasSemana(), true)) {
                         return [
@@ -919,12 +919,12 @@ final class PontoController extends AbstractController
             }
         }
 
-        if ($escala !== null) {
+        if ($jornada !== null) {
             return [
-                'entrada' => $escala->getEntrada1() ?? '08:00',
-                'repouso' => $escala->getSaida1()   ?? '12:00',
-                'retorno' => $escala->getEntrada2() ?? '13:00',
-                'saida'   => $escala->getSaida2()   ?? '17:00',
+                'entrada' => $jornada->getEntrada1() ?? '08:00',
+                'repouso' => $jornada->getSaida1()   ?? '12:00',
+                'retorno' => $jornada->getEntrada2() ?? '13:00',
+                'saida'   => $jornada->getSaida2()   ?? '17:00',
             ];
         }
 
@@ -933,17 +933,17 @@ final class PontoController extends AbstractController
 
     /**
      * Gera a descrição da jornada (ex: "STQQS") a partir dos dias de trabalho.
-     * Usa a mesma hierarquia do JornadaResolver: blocos do usuário > blocos do tenant > escala plana.
+     * Usa a mesma hierarquia do JornadaResolver: blocos do colaborador > blocos do tenant > jornada plana.
      */
     private function gerarDescrJornada(
-        ?\App\Entity\Ponto\EscalaTrabalho $escala,
+        ?\App\Entity\Ponto\JornadaColaborador $jornada,
         ?\App\Entity\Ponto\JornadaTenant $jornadaTenant,
     ): string {
         $mapa = [1 => 'S', 2 => 'T', 3 => 'Q', 4 => 'Q', 5 => 'S', 6 => 'S', 7 => 'D'];
 
-        if ($escala !== null && !$escala->getBlocos()->isEmpty()) {
+        if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
             $dias = [];
-            foreach ($escala->getBlocos() as $bloco) {
+            foreach ($jornada->getBlocos() as $bloco) {
                 foreach ($bloco->getDiasSemana() as $d) {
                     $dias[$d] = true;
                 }
@@ -963,8 +963,8 @@ final class PontoController extends AbstractController
             return implode('', array_map(static fn(int $d) => $mapa[$d] ?? '', array_keys($dias)));
         }
 
-        if ($escala !== null) {
-            $dias = $escala->getDiasSemana();
+        if ($jornada !== null) {
+            $dias = $jornada->getDiasSemana();
             sort($dias);
             return implode('', array_map(static fn(int $d) => $mapa[$d] ?? '', $dias));
         }

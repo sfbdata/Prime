@@ -2,11 +2,12 @@
 
 namespace App\Entity\Ponto;
 
-use App\Repository\Ponto\BlocoEscalaUsuarioRepository;
+use App\Repository\Ponto\BlocoJornadaColaboradorRepository;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity(repositoryClass: BlocoEscalaUsuarioRepository::class)]
-class BlocoEscalaUsuario
+#[ORM\Entity(repositoryClass: BlocoJornadaColaboradorRepository::class)]
+#[ORM\Table(name: 'bloco_jornada_colaborador')]
+class BlocoJornadaColaborador
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -15,7 +16,7 @@ class BlocoEscalaUsuario
 
     #[ORM\ManyToOne(inversedBy: 'blocos')]
     #[ORM\JoinColumn(nullable: false)]
-    private ?EscalaTrabalho $escalaTrabalho = null;
+    private ?JornadaColaborador $jornadaColaborador = null;
 
     #[ORM\Column(type: 'json')]
     private array $diasSemana = []; // [1-7], 1=Segunda ... 7=Domingo
@@ -40,14 +41,14 @@ class BlocoEscalaUsuario
         return $this->id;
     }
 
-    public function getEscalaTrabalho(): ?EscalaTrabalho
+    public function getJornadaColaborador(): ?JornadaColaborador
     {
-        return $this->escalaTrabalho;
+        return $this->jornadaColaborador;
     }
 
-    public function setEscalaTrabalho(?EscalaTrabalho $escalaTrabalho): static
+    public function setJornadaColaborador(?JornadaColaborador $jornadaColaborador): static
     {
-        $this->escalaTrabalho = $escalaTrabalho;
+        $this->jornadaColaborador = $jornadaColaborador;
         return $this;
     }
 
