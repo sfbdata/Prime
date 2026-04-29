@@ -267,20 +267,18 @@
         console.log('GPS não disponível:', error.message);
     }
 
-    if (!ehDomingo) {
-        if ("geolocation" in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                aplicarPosicao,
-                (error) => {
-                    // Fallback sem alta precisão caso o primeiro tente atingir timeout
-                    navigator.geolocation.getCurrentPosition(aplicarPosicao, erroGps, { timeout: 10000 });
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        } else {
-            gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
-            gpsStatus.className = 'alert alert-danger small mb-3';
-        }
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            aplicarPosicao,
+            (error) => {
+                // Fallback sem alta precisão caso o primeiro tente atingir timeout
+                navigator.geolocation.getCurrentPosition(aplicarPosicao, erroGps, { timeout: 10000 });
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+        );
+    } else {
+        gpsStatus.innerHTML = `<i class="bi bi-exclamation-triangle"></i> Seu navegador não suporta geolocalização.`;
+        gpsStatus.className = 'alert alert-danger small mb-3';
     }
 
     // Modal de editar justificativa
