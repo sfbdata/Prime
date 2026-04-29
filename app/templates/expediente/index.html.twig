@@ -205,7 +205,8 @@
 .expediente-sidebar {
     width: 260px;
     min-width: 260px;
-    border-right: 1px solid #dee2e6;
+    border-right: 1px solid #e2e8f0;
+    background: #f8f9fb;
     overflow: visible; /* visível para o botão de toggle não ser cortado */
     transition: width 0.22s cubic-bezier(.4,0,.2,1), min-width 0.22s cubic-bezier(.4,0,.2,1);
     position: relative;
@@ -229,13 +230,17 @@
     min-width: 52px;
 }
 
-.expediente-sidebar.sidebar-collapsed .expediente-menu-link span,
+.expediente-sidebar.sidebar-collapsed .expediente-menu-link span:not(.marcador-cor-dot),
 .expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo,
 .expediente-sidebar.sidebar-collapsed .expediente-btn-add-sub,
 .expediente-sidebar.sidebar-collapsed .expediente-btn-acao,
 .expediente-sidebar.sidebar-collapsed .expediente-chevron,
 .expediente-sidebar.sidebar-collapsed .expediente-submenu,
 .expediente-sidebar.sidebar-collapsed .expediente-icon--no-chevron ~ span {
+    display: none !important;
+}
+
+.expediente-sidebar.sidebar-collapsed .js-contagem-marcador {
     display: none !important;
 }
 
@@ -262,7 +267,7 @@
     margin-left: 0 !important;
 }
 
-/* Dot colorido no estado collapsed para marcadores com cor */
+/* Dot colorido no estado collapsed — reposicionado como círculo sobre o ícone */
 .expediente-sidebar.sidebar-collapsed .marcador-cor-dot {
     display: inline-block !important;
     width: 10px;
@@ -275,8 +280,6 @@
     top: -6px;
     left: 2px;
 }
-
-.marcador-cor-dot { display: none; }
 
 /* ── Botão de toggle da sidebar ───────────────────────────────── */
 .expediente-sidebar-toggle-btn {
@@ -384,14 +387,25 @@
     .expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo,
     .expediente-sidebar.sidebar-collapsed .expediente-btn-add-sub,
     .expediente-sidebar.sidebar-collapsed .expediente-btn-acao,
-    .expediente-sidebar.sidebar-collapsed .expediente-chevron {
+    .expediente-sidebar.sidebar-collapsed .expediente-chevron,
+    .expediente-sidebar.sidebar-collapsed .js-contagem-marcador {
         display: flex !important;
     }
     .expediente-sidebar.sidebar-collapsed .expediente-marcadores-titulo { display: inline !important; }
     .expediente-sidebar.sidebar-collapsed .expediente-menu-link span { display: inline !important; }
+    .expediente-sidebar.sidebar-collapsed .js-contagem-marcador { display: inline-flex !important; }
     .expediente-sidebar.sidebar-collapsed .expediente-menu-link {
         justify-content: flex-start;
-        padding: 8px 12px;
+        padding: 6px 8px;
+    }
+    /* Restaura o swatch como quadrado (não círculo) no drawer mobile */
+    .expediente-sidebar.sidebar-collapsed .marcador-cor-dot {
+        border-radius: 3px !important;
+        top: 0 !important;
+        left: 0 !important;
+        margin-top: 0 !important;
+        margin-left: 0 !important;
+        position: static !important;
     }
     .expediente-sidebar-toggle-btn { display: none !important; }
     .btn-expediente-pull-tab { display: flex !important; }
@@ -448,14 +462,10 @@
 .expediente-menu-list {
     list-style: none;
     margin: 0;
-    padding: 4px 0;
+    padding: 2px 8px 6px;
 }
 
 .expediente-menu-item {
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.expediente-menu-item:last-child {
     border-bottom: none;
 }
 
@@ -464,24 +474,30 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 8px 12px;
-    color: #454545;
+    padding: 6px 8px;
+    color: #374151;
     text-decoration: none;
     font-size: 0.82rem;
     font-weight: 500;
-    transition: background 0.12s;
+    border-radius: 6px;
+    transition: background 0.12s, color 0.12s;
     cursor: pointer;
 }
 
 .expediente-menu-link:hover {
-    background: #e9ecef;
-    color: #212529;
+    background: #eef2f7;
+    color: #111827;
 }
 
 .expediente-menu-link.active {
-    background: #e9ecef;
-    color: #212529;
+    background: #e8f0fe;
+    color: #1a56db;
     font-weight: 600;
+}
+
+.expediente-menu-link.active .expediente-icon,
+.expediente-menu-link.active .expediente-chevron {
+    color: #1a56db;
 }
 
 .expediente-chevron {
@@ -489,26 +505,48 @@
     width: 12px;
     flex-shrink: 0;
     transition: transform 0.2s;
-    color: #6c757d;
+    color: #9ca3af;
 }
 
 .expediente-icon {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     flex-shrink: 0;
-    color: #454545;
+    color: #6b7280;
 }
 
 .expediente-icon--no-chevron {
     margin-left: 18px;
 }
 
+/* ── Swatch de cor (visível apenas no estado colapsado) ──────── */
+.marcador-cor-dot {
+    display: none;
+}
+
+/* ── Badge de contagem ──────────────────────────────────────────── */
+.js-contagem-marcador {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.64rem !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    padding: 1px 6px !important;
+    background: rgba(0,0,0,0.06) !important;
+    border: 1px solid rgba(0,0,0,0.09) !important;
+    border-radius: 999px !important;
+    color: #6b7280 !important;
+    vertical-align: middle !important;
+}
+
 /* ── Submenus ─────────────────────────────────────────────────── */
 .expediente-submenu {
     list-style: none;
-    margin: 0;
-    padding: 0;
+    margin: 2px 8px 2px 26px;
+    padding: 0 0 0 8px;
     display: none;
-    border-top: 1px solid #dee2e6;
+    border-top: none;
+    border-left: 2px solid #e2e8f0;
 }
 
 .expediente-submenu.show {
@@ -516,10 +554,6 @@
 }
 
 .expediente-submenu li {
-    border-bottom: 1px solid #f0f0f0;
-}
-
-.expediente-submenu li:last-child {
     border-bottom: none;
 }
 
@@ -527,21 +561,28 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 12px 6px 48px;
-    color: #454545;
+    padding: 5px 8px;
+    color: #4b5563;
     text-decoration: none;
-    font-size: 0.8rem;
-    transition: background 0.12s;
+    font-size: 0.79rem;
+    border-radius: 5px;
+    transition: background 0.12s, color 0.12s;
 }
 
 .expediente-submenu-link:hover {
-    background: #e9ecef;
-    color: #212529;
+    background: #eef2f7;
+    color: #111827;
+}
+
+.expediente-submenu-link.active {
+    background: #e8f0fe;
+    color: #1a56db;
+    font-weight: 600;
 }
 
 .expediente-sub-icon {
-    font-size: 0.82rem;
-    color: #6c757d;
+    font-size: 0.78rem;
+    color: #9ca3af;
     flex-shrink: 0;
 }
 
@@ -549,7 +590,7 @@
 .expediente-btn-add-sub {
     background: none;
     border: none;
-    padding: 2px 4px;
+    padding: 2px 5px;
     color: transparent;
     font-size: 0.72rem;
     cursor: pointer;
@@ -561,12 +602,12 @@
 
 .expediente-menu-link:hover .expediente-btn-add-sub,
 .expediente-menu-link.active .expediente-btn-add-sub {
-    color: #6c757d;
+    color: #9ca3af;
 }
 
 .expediente-btn-add-sub:hover {
-    background: rgba(0,0,0,0.08);
-    color: #212529 !important;
+    background: rgba(0,0,0,0.07);
+    color: #374151 !important;
 }
 
 /* ── Modal "Mover para" — árvore hierárquica ──────────────────── */
@@ -713,7 +754,7 @@
 .expediente-btn-acao {
     background: none;
     border: none;
-    padding: 2px 4px;
+    padding: 2px 5px;
     color: transparent;
     font-size: 0.72rem;
     cursor: pointer;
@@ -725,16 +766,16 @@
 
 .expediente-menu-link:hover .expediente-btn-acao,
 .expediente-menu-link.active .expediente-btn-acao {
-    color: #adb5bd;
+    color: #9ca3af;
 }
 
 .expediente-btn-acao:hover {
-    background: rgba(0,0,0,0.08);
-    color: #212529 !important;
+    background: rgba(0,0,0,0.07);
+    color: #374151 !important;
 }
 
 .expediente-btn-acao.js-excluir-marcador:hover {
-    background: rgba(220,53,69,0.12);
+    background: rgba(220,53,69,0.10);
     color: #dc3545 !important;
 }
 
@@ -744,16 +785,16 @@
 }
 
 .expediente-submenu-link:hover .expediente-btn-acao-sub {
-    color: #adb5bd;
+    color: #9ca3af;
 }
 
 .expediente-btn-acao-sub:hover {
-    background: rgba(0,0,0,0.08);
-    color: #212529 !important;
+    background: rgba(0,0,0,0.07);
+    color: #374151 !important;
 }
 
 .expediente-btn-acao-sub.js-excluir-marcador:hover {
-    background: rgba(220,53,69,0.12);
+    background: rgba(220,53,69,0.10);
     color: #dc3545 !important;
 }
 
@@ -762,33 +803,45 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px 4px;
-    border-top: 1px solid #dee2e6;
+    padding: 14px 14px 5px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.expediente-nav > .expediente-marcadores-header:first-child {
+    border-top: none;
+    padding-top: 8px;
 }
 
 .expediente-marcadores-titulo {
-    font-size: 0.7rem;
+    font-size: 0.615rem;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #6c757d;
+    letter-spacing: 0.10em;
+    color: #94a3b8;
 }
 
 .expediente-marcadores-add {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
     background: none;
-    border: none;
-    padding: 2px 4px;
-    color: #6c757d;
-    font-size: 0.8rem;
+    border: 1.5px dashed #cbd5e1;
+    border-radius: 5px;
+    color: #94a3b8;
+    font-size: 0.7rem;
     cursor: pointer;
-    border-radius: 4px;
     line-height: 1;
-    transition: background 0.12s, color 0.12s;
+    padding: 0;
+    transition: border-color 0.15s, color 0.15s, background 0.15s, border-style 0.15s;
 }
 
 .expediente-marcadores-add:hover {
-    background: #e9ecef;
-    color: #212529;
+    border-color: #64748b;
+    border-style: solid;
+    color: #374151;
+    background: #eef2f7;
 }
 </style>
 {% endblock %}
@@ -1113,10 +1166,12 @@ document.addEventListener('DOMContentLoaded', function () {
     function aplicarCorNoLink(link, cor) {
         if (cor) {
             link.style.backgroundColor = cor;
-            link.style.borderLeft = '3px solid ' + escurecer(cor);
+            link.style.borderLeft = '3px solid rgba(0,0,0,0.15)';
+            link.classList.add('com-cor');
         } else {
             link.style.backgroundColor = '';
             link.style.borderLeft = '';
+            link.classList.remove('com-cor');
         }
     }
 
@@ -1239,11 +1294,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var csrfExcluir = marcador.csrfExcluir || '';
         var csrfEditar  = marcador.csrfEditar  || '';
         var cor         = marcador.cor         || '';
-        var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid ' + escurecer(cor) + ';"' : '';
+        var classeLink  = 'expediente-menu-link' + (cor ? ' com-cor' : '');
+        var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid rgba(0,0,0,0.15);"' : '';
         var dotCor = cor ? '<span class="marcador-cor-dot" style="background:' + escHtml(cor) + ';" title="' + escHtml(marcador.nome) + '"></span>' : '';
-        return '<a href="#" class="expediente-menu-link" data-grupo="' + grupoId + '" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
+        return '<a href="#" class="' + classeLink + '" data-grupo="' + grupoId + '" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
                '<i class="bi bi-chevron-right expediente-chevron"></i>' +
-               '<i class="bi bi-tag expediente-icon"></i>' +
+               '<i class="bi bi-folder2 expediente-icon"></i>' +
                dotCor +
                '<span>' + escHtml(marcador.nome) + '</span>' +
                '<button type="button" class="expediente-btn-add-sub ms-auto"' +
@@ -1264,9 +1320,12 @@ document.addEventListener('DOMContentLoaded', function () {
         var csrfExcluir = marcador.csrfExcluir || '';
         var csrfEditar  = marcador.csrfEditar  || '';
         var cor         = marcador.cor         || '';
-        var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid ' + escurecer(cor) + ';"' : '';
-        return '<a href="#" class="expediente-submenu-link" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
-               '<i class="bi bi-tag expediente-sub-icon"></i>' +
+        var classeLink  = 'expediente-submenu-link' + (cor ? ' com-cor' : '');
+        var estiloLink  = cor ? ' style="background:' + cor + ';border-left:3px solid rgba(0,0,0,0.15);"' : '';
+        var dotCor = cor ? '<span class="marcador-cor-dot" style="background:' + escHtml(cor) + ';"></span>' : '';
+        return '<a href="#" class="' + classeLink + '" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
+               '<i class="bi bi-folder2 expediente-sub-icon"></i>' +
+               dotCor +
                '<span>' + escHtml(marcador.nome) + '</span>' +
                '<button type="button" class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"' +
                ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '"' +
@@ -1322,12 +1381,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!submenu) return;
         var aberto = submenu.classList.contains('show');
+        var folderIcon = this.querySelector('.expediente-icon');
         if (aberto) {
             submenu.classList.remove('show');
             if (chevron) { chevron.classList.remove('bi-chevron-down'); chevron.classList.add('bi-chevron-right'); }
+            if (folderIcon) { folderIcon.classList.remove('bi-folder2-open'); folderIcon.classList.add('bi-folder2'); }
         } else {
             submenu.classList.add('show');
             if (chevron) { chevron.classList.remove('bi-chevron-right'); chevron.classList.add('bi-chevron-down'); }
+            if (folderIcon) { folderIcon.classList.remove('bi-folder2'); folderIcon.classList.add('bi-folder2-open'); }
         }
     }
 
@@ -1416,7 +1478,6 @@ document.addEventListener('DOMContentLoaded', function () {
             var novoBadge = document.createElement('span');
             novoBadge.className  = 'js-contagem-marcador ms-1';
             novoBadge.title      = count + ' pasta(s)';
-            novoBadge.style.cssText = 'display:inline-block;font-size:.7em;font-weight:600;line-height:1.5;padding:0 5px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.15);border-radius:3px;vertical-align:middle;';
             novoBadge.textContent = count;
             nomeSpan.insertAdjacentElement('afterend', novoBadge);
         }

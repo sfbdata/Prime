@@ -1,15 +1,16 @@
 {% set grupoId = 'pasta-' ~ marcador.id %}
-{% set estiloLink = marcador.cor ? 'background:' ~ marcador.cor ~ ';border-left:3px solid rgba(0,0,0,0.12);' : '' %}
+{% set estiloLink = marcador.cor ? 'background:' ~ marcador.cor ~ ';border-left:3px solid rgba(0,0,0,0.15);' : '' %}
 <li class="expediente-menu-item" id="item-pasta-{{ marcador.id }}">
-    <a href="#" class="expediente-menu-link" data-grupo="{{ grupoId }}" data-cor="{{ marcador.cor }}"
+    <a href="#" class="expediente-menu-link{{ marcador.cor ? ' com-cor' : '' }}"
+       data-grupo="{{ grupoId }}" data-cor="{{ marcador.cor }}"
        data-marcador-id="{{ marcador.id }}"
        {% if estiloLink %}style="{{ estiloLink }}"{% endif %}>
         <i class="bi bi-chevron-right expediente-chevron"></i>
-        <i class="bi bi-tag expediente-icon"></i>
+        <i class="bi bi-folder2 expediente-icon"></i>
         {% if marcador.cor %}<span class="marcador-cor-dot" style="background:{{ marcador.cor }};" title="{{ marcador.nome }}"></span>{% endif %}
         <span>{{ marcador.nome }}</span>
         {% if contagemPastas[marcador.id] is defined and contagemPastas[marcador.id] > 0 %}
-            <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[marcador.id] }} pasta(s)" style="display:inline-block;font-size:.7em;font-weight:600;line-height:1.5;padding:0 5px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.15);border-radius:3px;vertical-align:middle;">{{ contagemPastas[marcador.id] }}</span>
+            <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[marcador.id] }} pasta(s)">{{ contagemPastas[marcador.id] }}</span>
         {% endif %}
         <button type="button"
                 class="expediente-btn-add-sub ms-auto"
@@ -37,14 +38,16 @@
     </a>
     <ul class="expediente-submenu" id="grupo-{{ grupoId }}">
         {% for sub in marcador.filhos %}
-            {% set estiloSub = sub.cor ? 'background:' ~ sub.cor ~ ';border-left:3px solid rgba(0,0,0,0.12);' : '' %}
+            {% set estiloSub = sub.cor ? 'background:' ~ sub.cor ~ ';border-left:3px solid rgba(0,0,0,0.15);' : '' %}
             <li id="item-pasta-{{ sub.id }}">
-                <a href="#" class="expediente-submenu-link" data-cor="{{ sub.cor }}" data-marcador-id="{{ sub.id }}"
+                <a href="#" class="expediente-submenu-link{{ sub.cor ? ' com-cor' : '' }}"
+                   data-cor="{{ sub.cor }}" data-marcador-id="{{ sub.id }}"
                    {% if estiloSub %}style="{{ estiloSub }}"{% endif %}>
-                    <i class="bi bi-tag expediente-sub-icon"></i>
+                    <i class="bi bi-folder2 expediente-sub-icon"></i>
+                    {% if sub.cor %}<span class="marcador-cor-dot" style="background:{{ sub.cor }};"></span>{% endif %}
                     <span>{{ sub.nome }}</span>
                     {% if contagemPastas[sub.id] is defined and contagemPastas[sub.id] > 0 %}
-                        <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[sub.id] }} pasta(s)" style="display:inline-block;font-size:.7em;font-weight:600;line-height:1.5;padding:0 5px;background:rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.15);border-radius:3px;vertical-align:middle;">{{ contagemPastas[sub.id] }}</span>
+                        <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[sub.id] }} pasta(s)">{{ contagemPastas[sub.id] }}</span>
                     {% endif %}
                     <button type="button"
                             class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"
