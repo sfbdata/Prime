@@ -99,12 +99,12 @@
                     <th class="sortable ps-3" data-col="0" style="width:90px"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-acao-tabela" data-col="2"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade</th>
-                    <th class="sortable col-resp-tabela" data-col="3"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" data-col="3" style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-resp-tabela" data-col="4"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Tarefas</th>
-                    <th class="sortable col-data-tabela" data-col="4" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="col-marc-tabela"><i class="bi bi-tags me-1"></i>Marcadores</th>
-                    <th class="sortable" data-col="5" style="width:90px"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-data-tabela" data-col="6" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-marc-tabela" data-col="7"><i class="bi bi-tags me-1"></i>Marcadores <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" data-col="8" style="width:90px"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
                 </tr>
             </thead>
             <tbody>
@@ -141,7 +141,7 @@
                         {% endif %}
                         </span>
                     </td>
-                    <td class="align-middle">
+                    <td class="align-middle" data-sort="{{ pasta.prioridade.value == 'urgente' ? 3 : (pasta.prioridade.value == 'prioridade' ? 2 : 1) }}">
                         <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.72rem;">
                             {{ pasta.prioridadeLabel }}
                         </span>
@@ -177,7 +177,7 @@
                         {% elseif dias == 1 %}1 dia atrás
                         {% else %}{{ dias }}d atrás{% endif %}
                     </td>
-                    <td class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}">
+                    <td class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ pasta.marcadores|length > 0 ? (pasta.marcadores|first).nome : '' }}">
                         <div class="d-flex flex-wrap gap-1 align-items-center">
                             {% if pasta.marcadores|length > 0 %}
                                 {% set primeiro = pasta.marcadores|first %}
@@ -608,13 +608,22 @@
         var headers = table.querySelectorAll('th.sortable');
         var tbody = table.querySelector('tbody');
 
-        function ordenarPorColuna(col, direcao) {
+        function ordenarPorColuna(colIndex, direcao) {
             headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
-            headers[col].classList.add(direcao);
+            var activeHeader = table.querySelector('th.sortable[data-col="' + colIndex + '"]');
+            if (activeHeader) activeHeader.classList.add(direcao);
             var rows = Array.from(tbody.querySelectorAll('tr'));
             rows.sort(function (a, b) {
-                var aVal = (a.cells[col] ? a.cells[col].textContent.trim() : '').toLowerCase();
-                var bVal = (b.cells[col] ? b.cells[col].textContent.trim() : '').toLowerCase();
+                var cellA = a.cells[colIndex];
+                var cellB = b.cells[colIndex];
+                var aVal = cellA ? (cellA.hasAttribute('data-sort') ? cellA.dataset.sort : cellA.textContent.trim()) : '';
+                var bVal = cellB ? (cellB.hasAttribute('data-sort') ? cellB.dataset.sort : cellB.textContent.trim()) : '';
+                var aNum = parseFloat(aVal), bNum = parseFloat(bVal);
+                if (!isNaN(aNum) && !isNaN(bNum)) {
+                    return direcao === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                aVal = aVal.toLowerCase();
+                bVal = bVal.toLowerCase();
                 return direcao === 'asc'
                     ? aVal.localeCompare(bVal, 'pt-BR')
                     : bVal.localeCompare(aVal, 'pt-BR');
