@@ -9,9 +9,6 @@
         <i class="bi bi-folder2 expediente-icon"></i>
         {% if marcador.cor %}<span class="marcador-cor-dot" style="background:{{ marcador.cor }};" title="{{ marcador.nome }}"></span>{% endif %}
         <span class="expediente-item-nome" title="{{ marcador.nome }}">{{ marcador.nome }}</span>
-        {% if contagemPastas[marcador.id] is defined and contagemPastas[marcador.id] > 0 %}
-            <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[marcador.id] }} pasta(s)">{{ contagemPastas[marcador.id] }}</span>
-        {% endif %}
         <button type="button"
                 class="expediente-btn-add-sub ms-auto"
                 data-pai-id="{{ marcador.id }}"
@@ -28,6 +25,9 @@
                 title="Editar marcador">
             <i class="bi bi-pencil"></i>
         </button>
+        {% if contagemPastas[marcador.id] is defined and contagemPastas[marcador.id] > 0 %}
+            <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[marcador.id] }} pasta(s)">{{ contagemPastas[marcador.id] }}</span>
+        {% endif %}
     </a>
     <ul class="expediente-submenu" id="grupo-{{ grupoId }}">
         {% for sub in marcador.filhos %}
@@ -39,9 +39,6 @@
                     <i class="bi bi-folder2 expediente-sub-icon"></i>
                     {% if sub.cor %}<span class="marcador-cor-dot" style="background:{{ sub.cor }};"></span>{% endif %}
                     <span class="expediente-item-nome" title="{{ sub.nome }}">{{ sub.nome }}</span>
-                    {% if contagemPastas[sub.id] is defined and contagemPastas[sub.id] > 0 %}
-                        <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[sub.id] }} pasta(s)">{{ contagemPastas[sub.id] }}</span>
-                    {% endif %}
                     <button type="button"
                             class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"
                             data-id="{{ sub.id }}"
@@ -51,6 +48,9 @@
                             title="Editar sub-marcador">
                         <i class="bi bi-pencil"></i>
                     </button>
+                    {% if contagemPastas[sub.id] is defined and contagemPastas[sub.id] > 0 %}
+                        <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[sub.id] }} pasta(s)">{{ contagemPastas[sub.id] }}</span>
+                    {% endif %}
                 </a>
             </li>
         {% endfor %}

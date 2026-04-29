@@ -1489,13 +1489,11 @@ document.addEventListener('DOMContentLoaded', function () {
             badge.textContent = count;
             badge.title = count + ' pasta(s)';
         } else {
-            var nomeSpan = link.querySelector('.expediente-item-nome');
-            if (!nomeSpan) return;
             var novoBadge = document.createElement('span');
             novoBadge.className  = 'js-contagem-marcador ms-1';
             novoBadge.title      = count + ' pasta(s)';
             novoBadge.textContent = count;
-            nomeSpan.insertAdjacentElement('afterend', novoBadge);
+            link.appendChild(novoBadge);
         }
     }
 
