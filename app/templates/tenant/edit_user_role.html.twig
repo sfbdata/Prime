@@ -92,13 +92,13 @@
                                         <label class="form-label fw-bold d-block">Status da conta</label>
                                         <div class="d-flex align-items-center gap-3">
                                             {% if user.isActive %}
-                                                <span class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ativa</span>
+                                                <span id="badgeStatusConta" class="badge text-bg-success"><i class="bi bi-check-circle me-1"></i>Ativa</span>
                                             {% else %}
-                                                <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Inativa</span>
+                                                <span id="badgeStatusConta" class="badge text-bg-danger"><i class="bi bi-x-circle me-1"></i>Inativa</span>
                                             {% endif %}
                                             <div class="form-check form-switch mb-0">
                                                 {{ form_widget(form.isActive, {'attr': {'class': 'form-check-input', 'role': 'switch', 'id': 'isActiveSwitch'}}) }}
-                                                <label class="form-check-label" for="isActiveSwitch">Ativar / Desativar</label>
+                                                <label class="form-check-label" for="isActiveSwitch">Desativar / Ativar</label>
                                             </div>
                                         </div>
                                     </div>
@@ -125,14 +125,12 @@
                             <div class="card-footer">
                                 <div class="d-flex gap-2 justify-content-between align-items-center">
                                     <div class="d-flex gap-2">
-                                        {% if user.isActive %}
-                                            <button type="button"
-                                                    class="btn btn-danger"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#modalConfirmarDemissao">
-                                                <i class="bi bi-person-x me-1"></i>DEMITIR
-                                            </button>
-                                        {% endif %}
+                                        <button type="button"
+                                                class="btn btn-danger"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#modalConfirmarDemissao">
+                                            <i class="bi bi-person-x me-1"></i>DEMITIR
+                                        </button>
                                         <a href="{{ path('app_tenant_users', {id: user.tenant.id}) }}" class="btn btn-outline-secondary">
                                             <i class="bi bi-arrow-left me-1"></i>Voltar
                                         </a>
@@ -329,7 +327,6 @@
     </div>
 </div>
 
-{% if user.isActive %}
 <div class="modal fade" id="modalConfirmarDemissao" tabindex="-1" aria-labelledby="labelModalDemissao" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -364,7 +361,7 @@
                             {% endfor %}
                         </select>
                         <div class="form-text text-muted">
-                            Se selecionado, esse funcionário assumirá todas as responsabilidades ativas do demitido.
+                            Se selecionado, esse colaborador assumirá todas as responsabilidades ativas do demitido.
                         </div>
                     </div>
                 </div>
@@ -378,7 +375,6 @@
         </div>
     </div>
 </div>
-{% endif %}
 
 {% endblock %}
 
@@ -414,6 +410,21 @@
                 }
             });
         });
+
+        // Atualiza etiqueta de status da conta ao mudar o toggle
+        var switchAtivo = document.querySelector('[name="edit_user_tenant_role[isActive]"]');
+        var badgeStatus = document.getElementById('badgeStatusConta');
+        if (switchAtivo && badgeStatus) {
+            switchAtivo.addEventListener('change', function () {
+                if (this.checked) {
+                    badgeStatus.className = 'badge text-bg-success';
+                    badgeStatus.innerHTML = '<i class="bi bi-check-circle me-1"></i>Ativa';
+                } else {
+                    badgeStatus.className = 'badge text-bg-danger';
+                    badgeStatus.innerHTML = '<i class="bi bi-x-circle me-1"></i>Inativa';
+                }
+            });
+        }
 
         // Abre o modal de adicionar batida preenchendo data e tipo
         window.abrirModalAddBatida = function (tipo, chaveDia) {

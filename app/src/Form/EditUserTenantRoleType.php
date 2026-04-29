@@ -21,7 +21,7 @@ class EditUserTenantRoleType extends AbstractType
     {
         $builder
             ->add('codigoFuncionario', TextType::class, [
-                'label'    => 'Código do funcionário',
+                'label'    => 'Código do colaborador',
                 'required' => false,
                 'attr'     => ['maxlength' => 20, 'class' => 'form-control'],
             ])

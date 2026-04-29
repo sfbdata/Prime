@@ -53,23 +53,81 @@
 }
 </style>
 
-{# ── Seção 1: Situação + Pró-Bono ─────────────────────────────────────────── #}
-<div class="d-flex flex-column gap-2 mb-4">
-    <div class="d-flex align-items-center gap-2">
-        <span class="fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;min-width:5rem;">CONTRATO</span>
-        <button type="button"
-                id="financeiro-situacao-btn"
-                class="btn btn-sm fw-semibold situacao-{{ pasta.situacaoContrato|lower }}"
-                data-pasta-id="{{ pasta.id }}"
-                data-situacao-atual="{{ pasta.situacaoContrato }}"
-                data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
-                data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
-            {{ pasta.situacaoContrato }}
-        </button>
+{# ── Seção 1: Arquivos + Pró-Bono + Contrato ──────────────────────────────── #}
+<div class="row g-3 mb-4">
+
+    <div class="col-md-6">
+        <div class="d-flex align-items-center gap-3 mb-2">
+            <span class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.04em;"><i class="bi bi-file-earmark-text me-1"></i>Arquivos</span>
+            <label class="btn btn-sm btn-outline-secondary py-0 mb-0" style="cursor:pointer;font-size:.78rem;" title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
+                <i class="bi bi-plus-lg"></i> Adicionar
+                <input type="file"
+                       id="financeiro-upload-input"
+                       accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
+                       style="display:none;"
+                       data-pasta-id="{{ pasta.id }}"
+                       data-csrf="{{ csrf_token('pasta_financeiro_upload_' ~ pasta.id) }}"
+                       data-url="{{ path('pasta_financeiro_upload', {id: pasta.id}) }}"
+                       data-base-url-renomear="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                       data-base-url-excluir="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                       data-base-url-visualizar="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
+                       data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}">
+            </label>
+        </div>
+        <div id="financeiro-docs-lista" class="d-flex flex-column gap-1">
+            {% if documentosContrato is empty %}
+                <p class="text-muted small mb-0" id="financeiro-docs-vazio">Nenhum arquivo.</p>
+            {% else %}
+                {% for doc in documentosContrato %}
+                    <div class="financeiro-doc-item" id="financeiro-doc-{{ doc.id }}">
+                        {% if doc.mimeType == 'application/pdf' %}
+                            <i class="bi bi-file-earmark-pdf text-danger flex-shrink-0"></i>
+                        {% elseif 'image/' in doc.mimeType %}
+                            <i class="bi bi-file-earmark-image text-primary flex-shrink-0"></i>
+                        {% else %}
+                            <i class="bi bi-file-earmark-word text-primary flex-shrink-0"></i>
+                        {% endif %}
+                        <span class="doc-titulo" title="{{ doc.titulo }}">{{ doc.titulo }}</span>
+                        <button type="button"
+                                class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
+                                title="Visualizar"
+                                data-bs-toggle="modal"
+                                data-bs-target="#previewDocModal"
+                                data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
+                                data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
+                                data-nome="{{ doc.titulo }}"
+                                data-mime="{{ doc.mimeType }}">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button type="button"
+                                class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
+                                title="Renomear"
+                                data-doc-id="{{ doc.id }}"
+                                data-titulo="{{ doc.titulo }}"
+                                data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
+                                data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button"
+                                class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
+                                title="Excluir"
+                                data-doc-id="{{ doc.id }}"
+                                data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
+                                data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        </div>
+        <div id="financeiro-upload-erro" class="text-danger small mt-1 d-none"></div>
+        <div id="financeiro-upload-spinner" class="d-none mt-1">
+            <span class="spinner-border spinner-border-sm me-1"></span><span class="small">Enviando…</span>
+        </div>
     </div>
 
-    <div class="d-flex align-items-center gap-2">
-        <span class="fw-semibold small text-muted text-uppercase" style="letter-spacing:.04em;min-width:5rem;">PRÓ-BONO</span>
+    <div class="col-md-3">
+        <p class="fw-semibold small text-muted text-uppercase mb-2" style="letter-spacing:.04em;">PRÓ-BONO</p>
         <div class="form-check mb-0">
             <input class="form-check-input"
                    type="checkbox"
@@ -81,77 +139,20 @@
                    style="width:1.2em;height:1.2em;cursor:pointer;">
         </div>
     </div>
-</div>
 
-{# ── Seção 2: Arquivos do Contrato ────────────────────────────────────────── #}
-<div class="mb-4" style="max-width:480px;">
-    <div class="d-flex align-items-center gap-3 mb-2">
-        <span class="small fw-semibold text-muted text-uppercase" style="letter-spacing:.04em;"><i class="bi bi-file-earmark-text me-1"></i>Arquivos</span>
-        <label class="btn btn-sm btn-outline-secondary py-0 mb-0" style="cursor:pointer;font-size:.78rem;" title="Adicionar arquivo (PDF, DOCX, JPEG, PNG — máx. 10 MB)">
-            <i class="bi bi-plus-lg"></i> Adicionar
-            <input type="file"
-                   id="financeiro-upload-input"
-                   accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
-                   style="display:none;"
-                   data-pasta-id="{{ pasta.id }}"
-                   data-csrf="{{ csrf_token('pasta_financeiro_upload_' ~ pasta.id) }}"
-                   data-url="{{ path('pasta_financeiro_upload', {id: pasta.id}) }}"
-                   data-base-url-renomear="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
-                   data-base-url-excluir="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
-                   data-base-url-visualizar="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}"
-                   data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}">
-        </label>
+    <div class="col-md-3">
+        <p class="fw-semibold small text-muted text-uppercase mb-2" style="letter-spacing:.04em;">CONTRATO</p>
+        <button type="button"
+                id="financeiro-situacao-btn"
+                class="btn btn-sm fw-semibold situacao-{{ pasta.situacaoContrato|lower }}"
+                data-pasta-id="{{ pasta.id }}"
+                data-situacao-atual="{{ pasta.situacaoContrato }}"
+                data-csrf="{{ csrf_token('pasta_situacao_contrato_' ~ pasta.id) }}"
+                data-url="{{ path('pasta_alternar_situacao_contrato', {id: pasta.id}) }}">
+            {{ pasta.situacaoContrato }}
+        </button>
     </div>
-    <div id="financeiro-docs-lista" class="d-flex flex-column gap-1">
-        {% if documentosContrato is empty %}
-            <p class="text-muted small mb-0" id="financeiro-docs-vazio">Nenhum arquivo.</p>
-        {% else %}
-            {% for doc in documentosContrato %}
-                <div class="financeiro-doc-item" id="financeiro-doc-{{ doc.id }}">
-                    {% if doc.mimeType == 'application/pdf' %}
-                        <i class="bi bi-file-earmark-pdf text-danger flex-shrink-0"></i>
-                    {% elseif 'image/' in doc.mimeType %}
-                        <i class="bi bi-file-earmark-image text-primary flex-shrink-0"></i>
-                    {% else %}
-                        <i class="bi bi-file-earmark-word text-primary flex-shrink-0"></i>
-                    {% endif %}
-                    <span class="doc-titulo" title="{{ doc.titulo }}">{{ doc.titulo }}</span>
-                    <button type="button"
-                            class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
-                            title="Visualizar"
-                            data-bs-toggle="modal"
-                            data-bs-target="#previewDocModal"
-                            data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
-                            data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
-                            data-nome="{{ doc.titulo }}"
-                            data-mime="{{ doc.mimeType }}">
-                        <i class="bi bi-eye"></i>
-                    </button>
-                    <button type="button"
-                            class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
-                            title="Renomear"
-                            data-doc-id="{{ doc.id }}"
-                            data-titulo="{{ doc.titulo }}"
-                            data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
-                            data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
-                        <i class="bi bi-pencil"></i>
-                    </button>
-                    <button type="button"
-                            class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
-                            title="Excluir"
-                            data-doc-id="{{ doc.id }}"
-                            data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
-                            data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            {% endfor %}
-        {% endif %}
-    </div>
-    <div id="financeiro-upload-erro" class="text-danger small mt-1 d-none"></div>
-    <div id="financeiro-upload-spinner" class="d-none mt-1">
-        <span class="spinner-border spinner-border-sm me-1"></span><span class="small">Enviando…</span>
-    </div>
+
 </div>
 
 {# ── Seção 3: Observações ─────────────────────────────────────────────────── #}
