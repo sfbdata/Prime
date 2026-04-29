@@ -8,7 +8,7 @@
         <i class="bi bi-chevron-right expediente-chevron"></i>
         <i class="bi bi-folder2 expediente-icon"></i>
         {% if marcador.cor %}<span class="marcador-cor-dot" style="background:{{ marcador.cor }};" title="{{ marcador.nome }}"></span>{% endif %}
-        <span>{{ marcador.nome }}</span>
+        <span class="expediente-item-nome" title="{{ marcador.nome }}">{{ marcador.nome }}</span>
         {% if contagemPastas[marcador.id] is defined and contagemPastas[marcador.id] > 0 %}
             <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[marcador.id] }} pasta(s)">{{ contagemPastas[marcador.id] }}</span>
         {% endif %}
@@ -24,16 +24,9 @@
                 data-id="{{ marcador.id }}"
                 data-nome="{{ marcador.nome }}"
                 data-token="{{ csrf_token('editar_marcador_' ~ marcador.id) }}"
+                data-token-excluir="{{ csrf_token('excluir_marcador_' ~ marcador.id) }}"
                 title="Editar marcador">
             <i class="bi bi-pencil"></i>
-        </button>
-        <button type="button"
-                class="expediente-btn-acao js-excluir-marcador"
-                data-id="{{ marcador.id }}"
-                data-nome="{{ marcador.nome }}"
-                data-token="{{ csrf_token('excluir_marcador_' ~ marcador.id) }}"
-                title="Excluir marcador">
-            <i class="bi bi-trash3"></i>
         </button>
     </a>
     <ul class="expediente-submenu" id="grupo-{{ grupoId }}">
@@ -45,7 +38,7 @@
                    {% if estiloSub %}style="{{ estiloSub }}"{% endif %}>
                     <i class="bi bi-folder2 expediente-sub-icon"></i>
                     {% if sub.cor %}<span class="marcador-cor-dot" style="background:{{ sub.cor }};"></span>{% endif %}
-                    <span>{{ sub.nome }}</span>
+                    <span class="expediente-item-nome" title="{{ sub.nome }}">{{ sub.nome }}</span>
                     {% if contagemPastas[sub.id] is defined and contagemPastas[sub.id] > 0 %}
                         <span class="js-contagem-marcador ms-1" title="{{ contagemPastas[sub.id] }} pasta(s)">{{ contagemPastas[sub.id] }}</span>
                     {% endif %}
@@ -54,16 +47,9 @@
                             data-id="{{ sub.id }}"
                             data-nome="{{ sub.nome }}"
                             data-token="{{ csrf_token('editar_marcador_' ~ sub.id) }}"
+                            data-token-excluir="{{ csrf_token('excluir_marcador_' ~ sub.id) }}"
                             title="Editar sub-marcador">
                         <i class="bi bi-pencil"></i>
-                    </button>
-                    <button type="button"
-                            class="expediente-btn-acao expediente-btn-acao-sub js-excluir-marcador"
-                            data-id="{{ sub.id }}"
-                            data-nome="{{ sub.nome }}"
-                            data-token="{{ csrf_token('excluir_marcador_' ~ sub.id) }}"
-                            title="Excluir sub-marcador">
-                        <i class="bi bi-trash3"></i>
                     </button>
                 </a>
             </li>

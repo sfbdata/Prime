@@ -155,6 +155,7 @@
                         <div class="modal-body py-3">
                             <input type="hidden" id="editarMarcadorId">
                             <input type="hidden" id="editarMarcadorToken">
+                            <input type="hidden" id="editarMarcadorTokenExcluir">
 
                             <label for="editarNomeMarcador" class="form-label form-label-sm">Nome</label>
                             <input type="text" id="editarNomeMarcador" class="form-control form-control-sm mb-3"
@@ -165,11 +166,16 @@
 
                             <div id="editarMarcadorErro" class="text-danger small mt-2" style="display:none;"></div>
                         </div>
-                        <div class="modal-footer py-2">
-                            <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-primary btn-sm" id="btnSalvarEdicaoMarcador">
-                                <i class="bi bi-check-lg me-1"></i> Salvar
+                        <div class="modal-footer py-2 d-flex justify-content-between">
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="btnExcluirMarcadorModal">
+                                <i class="bi bi-trash3 me-1"></i> Excluir
                             </button>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                                <button type="button" class="btn btn-primary btn-sm" id="btnSalvarEdicaoMarcador">
+                                    <i class="bi bi-check-lg me-1"></i> Salvar
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -516,6 +522,15 @@
 
 .expediente-icon--no-chevron {
     margin-left: 18px;
+}
+
+/* ── Nome do item: truncamento com ellipsis ───────────────────── */
+.expediente-item-nome {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 /* ── Swatch de cor (visível apenas no estado colapsado) ──────── */
@@ -1074,17 +1089,19 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // ── Modal editar marcador ──
-    var modalEditar  = document.getElementById('modalEditarMarcador');
-    var editarId     = document.getElementById('editarMarcadorId');
-    var editarToken  = document.getElementById('editarMarcadorToken');
-    var editarNome   = document.getElementById('editarNomeMarcador');
-    var editarErro   = document.getElementById('editarMarcadorErro');
-    var paletaEditar = inicializarPaletaCores('editarCoresMarcador');
+    var modalEditar        = document.getElementById('modalEditarMarcador');
+    var editarId           = document.getElementById('editarMarcadorId');
+    var editarToken        = document.getElementById('editarMarcadorToken');
+    var editarTokenExcluir = document.getElementById('editarMarcadorTokenExcluir');
+    var editarNome         = document.getElementById('editarNomeMarcador');
+    var editarErro         = document.getElementById('editarMarcadorErro');
+    var paletaEditar       = inicializarPaletaCores('editarCoresMarcador');
 
-    function abrirModalEditar(id, nomeAtual, corAtual, token) {
-        editarId.value    = id;
-        editarToken.value = token;
-        editarNome.value  = nomeAtual;
+    function abrirModalEditar(id, nomeAtual, corAtual, token, tokenExcluir) {
+        editarId.value           = id;
+        editarToken.value        = token;
+        editarTokenExcluir.value = tokenExcluir || '';
+        editarNome.value         = nomeAtual;
         editarErro.style.display = 'none';
         paletaEditar.definir(corAtual);
 
@@ -1103,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var link = item ? item.querySelector('.expediente-menu-link, .expediente-submenu-link') : null;
         var corAtual = link ? (link.dataset.cor || '') : '';
 
-        abrirModalEditar(btn.dataset.id, btn.dataset.nome, corAtual, btn.dataset.token);
+        abrirModalEditar(btn.dataset.id, btn.dataset.nome, corAtual, btn.dataset.token, btn.dataset.tokenExcluir);
     });
 
     document.getElementById('btnSalvarEdicaoMarcador').addEventListener('click', function () {
@@ -1182,19 +1199,14 @@ document.addEventListener('DOMContentLoaded', function () {
         return 'rgb(' + Math.max(0,r) + ',' + Math.max(0,g) + ',' + Math.max(0,b) + ')';
     }
 
-    // Botão excluir (delegado)
-    document.getElementById('lista-marcadores').addEventListener('click', function (e) {
-        var btn = e.target.closest('.js-excluir-marcador');
-        if (!btn) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        var id    = btn.dataset.id;
-        var nome  = btn.dataset.nome;
-        var token = btn.dataset.token;
+    // Botão excluir dentro do modal de edição
+    document.getElementById('btnExcluirMarcadorModal').addEventListener('click', function () {
+        var id    = editarId.value;
+        var nome  = editarNome.value.trim() || '?';
+        var token = editarTokenExcluir.value;
         var item  = document.getElementById('item-pasta-' + id);
 
-        var temSubs = item && item.querySelector('.expediente-submenu li:not(:last-child)');
+        var temSubs = item && item.querySelector('.expediente-submenu li');
         var msg = temSubs
             ? 'Excluir o marcador "' + nome + '" removerá todos os seus sub-marcadores. Continuar?'
             : 'Excluir o marcador "' + nome + '"?';
@@ -1202,6 +1214,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!confirm(msg)) return;
 
         var url = urlExcluir.replace('/0', '/' + id);
+        var btnExcluir = this;
+        btnExcluir.disabled = true;
+        editarErro.style.display = 'none';
 
         fetch(url, {
             method: 'DELETE',
@@ -1210,13 +1225,20 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
+            btnExcluir.disabled = false;
             if (!res.ok) {
-                alert(res.data.erro || 'Erro ao excluir.');
+                editarErro.textContent   = res.data.erro || 'Erro ao excluir.';
+                editarErro.style.display = '';
                 return;
             }
+            bootstrap.Modal.getInstance(modalEditar).hide();
             if (item) item.remove();
         })
-        .catch(function () { alert('Erro de comunicação.'); });
+        .catch(function () {
+            btnExcluir.disabled = false;
+            editarErro.textContent   = 'Erro de comunicação.';
+            editarErro.style.display = '';
+        });
     });
 
     document.getElementById('btnSalvarMarcador').addEventListener('click', function () {
@@ -1301,16 +1323,13 @@ document.addEventListener('DOMContentLoaded', function () {
                '<i class="bi bi-chevron-right expediente-chevron"></i>' +
                '<i class="bi bi-folder2 expediente-icon"></i>' +
                dotCor +
-               '<span>' + escHtml(marcador.nome) + '</span>' +
+               '<span class="expediente-item-nome" title="' + escHtml(marcador.nome) + '">' + escHtml(marcador.nome) + '</span>' +
                '<button type="button" class="expediente-btn-add-sub ms-auto"' +
                ' data-pai-id="' + marcador.id + '" data-pai-nome="' + escHtml(marcador.nome) + '"' +
                ' title="Novo sub-marcador"><i class="bi bi-plus-lg"></i></button>' +
                '<button type="button" class="expediente-btn-acao js-editar-marcador"' +
-               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '"' +
+               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '" data-token-excluir="' + escHtml(csrfExcluir) + '"' +
                ' title="Editar marcador"><i class="bi bi-pencil"></i></button>' +
-               '<button type="button" class="expediente-btn-acao js-excluir-marcador"' +
-               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfExcluir) + '"' +
-               ' title="Excluir marcador"><i class="bi bi-trash3"></i></button>' +
                '</a>' +
                '<ul class="expediente-submenu" id="grupo-pasta-' + marcador.id + '">' +
                '</ul>';
@@ -1326,13 +1345,10 @@ document.addEventListener('DOMContentLoaded', function () {
         return '<a href="#" class="' + classeLink + '" data-cor="' + escHtml(cor) + '" data-marcador-id="' + marcador.id + '"' + estiloLink + '>' +
                '<i class="bi bi-folder2 expediente-sub-icon"></i>' +
                dotCor +
-               '<span>' + escHtml(marcador.nome) + '</span>' +
+               '<span class="expediente-item-nome" title="' + escHtml(marcador.nome) + '">' + escHtml(marcador.nome) + '</span>' +
                '<button type="button" class="expediente-btn-acao expediente-btn-acao-sub js-editar-marcador ms-auto"' +
-               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '"' +
+               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfEditar) + '" data-token-excluir="' + escHtml(csrfExcluir) + '"' +
                ' title="Editar sub-marcador"><i class="bi bi-pencil"></i></button>' +
-               '<button type="button" class="expediente-btn-acao expediente-btn-acao-sub js-excluir-marcador"' +
-               ' data-id="' + marcador.id + '" data-nome="' + escHtml(marcador.nome) + '" data-token="' + escHtml(csrfExcluir) + '"' +
-               ' title="Excluir sub-marcador"><i class="bi bi-trash3"></i></button>' +
                '</a>';
     }
 
@@ -1473,7 +1489,7 @@ document.addEventListener('DOMContentLoaded', function () {
             badge.textContent = count;
             badge.title = count + ' pasta(s)';
         } else {
-            var nomeSpan = link.querySelector('span:not(.marcador-cor-dot):not(.js-contagem-marcador)');
+            var nomeSpan = link.querySelector('.expediente-item-nome');
             if (!nomeSpan) return;
             var novoBadge = document.createElement('span');
             novoBadge.className  = 'js-contagem-marcador ms-1';
