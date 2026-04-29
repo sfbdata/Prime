@@ -26,6 +26,18 @@ class JornadaTenant
     #[ORM\Column]
     private bool $alertaHabilitado = true;
 
+    #[ORM\Column]
+    private bool $validacaoRepousoHabilitada = true;
+
+    #[ORM\Column]
+    private int $minimoMinutosRepouso = 60;
+
+    #[ORM\Column]
+    private bool $validacaoInterjornadaHabilitada = true;
+
+    #[ORM\Column]
+    private int $minimoMinutosInterjornada = 660;
+
     /**
      * @var Collection<int, BlocoJornada>
      */
@@ -72,6 +84,50 @@ class JornadaTenant
     public function setAlertaHabilitado(bool $alertaHabilitado): static
     {
         $this->alertaHabilitado = $alertaHabilitado;
+        return $this;
+    }
+
+    public function isValidacaoRepousoHabilitada(): bool
+    {
+        return $this->validacaoRepousoHabilitada;
+    }
+
+    public function setValidacaoRepousoHabilitada(bool $validacaoRepousoHabilitada): static
+    {
+        $this->validacaoRepousoHabilitada = $validacaoRepousoHabilitada;
+        return $this;
+    }
+
+    public function getMinimoMinutosRepouso(): int
+    {
+        return $this->minimoMinutosRepouso;
+    }
+
+    public function setMinimoMinutosRepouso(int $minimoMinutosRepouso): static
+    {
+        $this->minimoMinutosRepouso = $minimoMinutosRepouso;
+        return $this;
+    }
+
+    public function isValidacaoInterjornadaHabilitada(): bool
+    {
+        return $this->validacaoInterjornadaHabilitada;
+    }
+
+    public function setValidacaoInterjornadaHabilitada(bool $validacaoInterjornadaHabilitada): static
+    {
+        $this->validacaoInterjornadaHabilitada = $validacaoInterjornadaHabilitada;
+        return $this;
+    }
+
+    public function getMinimoMinutosInterjornada(): int
+    {
+        return $this->minimoMinutosInterjornada;
+    }
+
+    public function setMinimoMinutosInterjornada(int $minimoMinutosInterjornada): static
+    {
+        $this->minimoMinutosInterjornada = $minimoMinutosInterjornada;
         return $this;
     }
 

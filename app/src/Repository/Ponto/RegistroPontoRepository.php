@@ -87,6 +87,19 @@ SQL;
             ->getOneOrNullResult();
     }
 
+    public function findUltimaSaida(User $user): ?RegistroPonto
+    {
+        return $this->createQueryBuilder('r')
+            ->where('r.user = :user')
+            ->andWhere('r.tipo = :tipo')
+            ->setParameter('user', $user)
+            ->setParameter('tipo', RegistroPonto::TIPO_SAIDA)
+            ->orderBy('r.dataHora', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function desvincularSede(Sede $sede): int
     {
         $nomeSede = $sede->getNome();

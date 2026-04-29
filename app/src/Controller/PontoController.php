@@ -407,6 +407,8 @@ final class PontoController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Usuário sem tenant configurado.'], 403);
         }
 
+        $jornadaTenant = $user->getTenant()->getJornadaTenant();
+
         $data = json_decode($request->getContent(), true);
 
         if (!is_array($data)) {
@@ -518,18 +520,42 @@ final class PontoController extends AbstractController
             ], 403);
         }
 
-        if ($tipo === RegistroPonto::TIPO_RETORNO) {
+        if ($tipo === RegistroPonto::TIPO_RETORNO && ($jornadaTenant?->isValidacaoRepousoHabilitada() ?? true)) {
             $repousoDoDia = $registroRepository->findRepousoDoDia($user, $hoje);
             if ($repousoDoDia !== null) {
+                $minimoMin   = $jornadaTenant?->getMinimoMinutosRepouso() ?? 60;
                 $diffMinutos = (int) round(
                     ((new \DateTime())->getTimestamp() - $repousoDoDia->getDataHora()->getTimestamp()) / 60
                 );
-                if ($diffMinutos < 60) {
+                if ($diffMinutos < $minimoMin) {
                     return $this->json([
                         'success' => false,
                         'message' => sprintf(
-                            'Intervalo mínimo de repouso é de 1 hora. Aguarde mais %d minuto(s).',
-                            60 - $diffMinutos
+                            'Intervalo mínimo de repouso é de %d minuto(s). Aguarde mais %d minuto(s).',
+                            $minimoMin,
+                            $minimoMin - $diffMinutos
+                        ),
+                    ], 422);
+                }
+            }
+        }
+
+        if ($tipo === RegistroPonto::TIPO_ENTRADA && ($jornadaTenant?->isValidacaoInterjornadaHabilitada() ?? true)) {
+            $ultimaSaida = $registroRepository->findUltimaSaida($user);
+            if ($ultimaSaida !== null) {
+                $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada() ?? 660;
+                $diffMinutos = (int) round(
+                    ((new \DateTime())->getTimestamp() - $ultimaSaida->getDataHora()->getTimestamp()) / 60
+                );
+                if ($diffMinutos < $minimoInterjornada) {
+                    $minFalt = $minimoInterjornada - $diffMinutos;
+                    return $this->json([
+                        'success' => false,
+                        'message' => sprintf(
+                            'Interjornada mínima é de %dh. Aguarde mais %dh%02dm.',
+                            intdiv($minimoInterjornada, 60),
+                            intdiv($minFalt, 60),
+                            $minFalt % 60
                         ),
                     ], 422);
                 }

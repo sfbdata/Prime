@@ -29,6 +29,43 @@
                         </div>
                     </div>
 
+                    <hr class="my-3">
+                    <h6 class="mb-3">Validações de ponto</h6>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="jornadaValidacaoRepousoHabilitada">
+                            <label class="form-check-label fw-semibold" for="jornadaValidacaoRepousoHabilitada">
+                                Validar intervalo mínimo de repouso
+                            </label>
+                        </div>
+                        <div class="ms-4 mt-2" id="jornadaRepousoConfig">
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="form-label mb-0 small text-nowrap" for="jornadaMinimoMinutosRepouso">Tempo mínimo:</label>
+                                <input type="number" id="jornadaMinimoMinutosRepouso" class="form-control form-control-sm" style="width:90px" min="1" max="480" value="60">
+                                <span class="text-muted small">minutos</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="jornadaValidacaoInterjornadaHabilitada">
+                            <label class="form-check-label fw-semibold" for="jornadaValidacaoInterjornadaHabilitada">
+                                Validar interjornada mínima entre saída e próxima entrada
+                            </label>
+                        </div>
+                        <div class="ms-4 mt-2" id="jornadaInterjornadaConfig">
+                            <div class="d-flex align-items-center gap-2">
+                                <label class="form-label mb-0 small text-nowrap" for="jornadaMinimoHorasInterjornada">Tempo mínimo:</label>
+                                <input type="number" id="jornadaMinimoHorasInterjornada" class="form-control form-control-sm" style="width:90px" min="1" max="24" value="11" step="0.5">
+                                <span class="text-muted small">horas</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="mb-3">
+
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="mb-0">Blocos de horário</h6>
                         <button type="button" class="btn btn-sm btn-outline-primary" id="btnAdicionarBloco">
@@ -133,6 +170,16 @@
 
     let tenantId = null;
     let urlBase = null;
+
+    function atualizarCamposValidacao() {
+        document.getElementById('jornadaRepousoConfig').style.display =
+            document.getElementById('jornadaValidacaoRepousoHabilitada').checked ? '' : 'none';
+        document.getElementById('jornadaInterjornadaConfig').style.display =
+            document.getElementById('jornadaValidacaoInterjornadaHabilitada').checked ? '' : 'none';
+    }
+
+    document.getElementById('jornadaValidacaoRepousoHabilitada').addEventListener('change', atualizarCamposValidacao);
+    document.getElementById('jornadaValidacaoInterjornadaHabilitada').addEventListener('change', atualizarCamposValidacao);
 
     function parseHHMM(str) {
         if (!str) return 0;
@@ -288,6 +335,13 @@
             document.getElementById('jornadaCargaSemanal').value = toHHMM(cargaMin);
             document.getElementById('jornadaAlertaHabilitado').checked = dados.alertaHabilitado !== false;
 
+            document.getElementById('jornadaValidacaoRepousoHabilitada').checked = dados.validacaoRepousoHabilitada !== false;
+            document.getElementById('jornadaMinimoMinutosRepouso').value = dados.minimoMinutosRepouso ?? 60;
+            document.getElementById('jornadaValidacaoInterjornadaHabilitada').checked = dados.validacaoInterjornadaHabilitada !== false;
+            const horasInterjornada = ((dados.minimoMinutosInterjornada ?? 660) / 60);
+            document.getElementById('jornadaMinimoHorasInterjornada').value = Number.isInteger(horasInterjornada) ? horasInterjornada : horasInterjornada.toFixed(1);
+            atualizarCamposValidacao();
+
             (dados.blocos || []).forEach(b => adicionarBloco(b));
 
             document.getElementById('jornadaLoadingMsg').classList.add('d-none');
@@ -327,7 +381,15 @@
             const resp = await fetch(urlBase, {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body:    JSON.stringify({ cargaHorariaSemanal: cargaMin, alertaHabilitado: alerta, blocos }),
+                body:    JSON.stringify({
+                    cargaHorariaSemanal:             cargaMin,
+                    alertaHabilitado:                alerta,
+                    validacaoRepousoHabilitada:      document.getElementById('jornadaValidacaoRepousoHabilitada').checked,
+                    minimoMinutosRepouso:            parseInt(document.getElementById('jornadaMinimoMinutosRepouso').value, 10),
+                    validacaoInterjornadaHabilitada: document.getElementById('jornadaValidacaoInterjornadaHabilitada').checked,
+                    minimoMinutosInterjornada:       Math.round(parseFloat(document.getElementById('jornadaMinimoHorasInterjornada').value) * 60),
+                    blocos,
+                }),
             });
 
             const result = await resp.json();

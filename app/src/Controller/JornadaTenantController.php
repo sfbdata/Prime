@@ -40,16 +40,24 @@ final class JornadaTenantController extends AbstractController
 
         if ($jornada === null) {
             return $this->json([
-                'cargaHorariaSemanal' => 2400,
-                'alertaHabilitado'    => true,
-                'blocos'              => [],
+                'cargaHorariaSemanal'             => 2400,
+                'alertaHabilitado'                => true,
+                'validacaoRepousoHabilitada'      => true,
+                'minimoMinutosRepouso'            => 60,
+                'validacaoInterjornadaHabilitada' => true,
+                'minimoMinutosInterjornada'       => 660,
+                'blocos'                          => [],
             ]);
         }
 
         return $this->json([
-            'cargaHorariaSemanal' => $jornada->getCargaHorariaSemanal(),
-            'alertaHabilitado'    => $jornada->isAlertaHabilitado(),
-            'blocos'              => array_map(
+            'cargaHorariaSemanal'             => $jornada->getCargaHorariaSemanal(),
+            'alertaHabilitado'                => $jornada->isAlertaHabilitado(),
+            'validacaoRepousoHabilitada'      => $jornada->isValidacaoRepousoHabilitada(),
+            'minimoMinutosRepouso'            => $jornada->getMinimoMinutosRepouso(),
+            'validacaoInterjornadaHabilitada' => $jornada->isValidacaoInterjornadaHabilitada(),
+            'minimoMinutosInterjornada'       => $jornada->getMinimoMinutosInterjornada(),
+            'blocos'                          => array_map(
                 fn(BlocoJornada $b) => [
                     'diasSemana'   => $b->getDiasSemana(),
                     'entrada'      => $b->getEntrada(),
@@ -90,12 +98,24 @@ final class JornadaTenantController extends AbstractController
             return $this->json(['erro' => 'Payload inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        $carga = (int) ($data['cargaHorariaSemanal'] ?? 0);
-        $alerta = (bool) ($data['alertaHabilitado'] ?? true);
-        $blocos = $data['blocos'] ?? [];
+        $carga              = (int) ($data['cargaHorariaSemanal'] ?? 0);
+        $alerta             = (bool) ($data['alertaHabilitado'] ?? true);
+        $blocos             = $data['blocos'] ?? [];
+        $validaRepouso      = (bool) ($data['validacaoRepousoHabilitada'] ?? true);
+        $minimoRepouso      = (int) ($data['minimoMinutosRepouso'] ?? 60);
+        $validaInterjornada = (bool) ($data['validacaoInterjornadaHabilitada'] ?? true);
+        $minimoInterjornada = (int) ($data['minimoMinutosInterjornada'] ?? 660);
 
         if ($carga < 60 || $carga > 2640) {
             return $this->json(['erro' => 'Carga horária semanal deve estar entre 1h e 44h.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if ($minimoRepouso < 1 || $minimoRepouso > 480) {
+            return $this->json(['erro' => 'Intervalo mínimo de repouso deve estar entre 1 e 480 minutos.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if ($minimoInterjornada < 60 || $minimoInterjornada > 1440) {
+            return $this->json(['erro' => 'Interjornada mínima deve estar entre 1 e 24 horas.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         if (!is_array($blocos) || count($blocos) > 7) {
@@ -117,6 +137,10 @@ final class JornadaTenantController extends AbstractController
 
         $jornada->setCargaHorariaSemanal($carga);
         $jornada->setAlertaHabilitado($alerta);
+        $jornada->setValidacaoRepousoHabilitada($validaRepouso);
+        $jornada->setMinimoMinutosRepouso($minimoRepouso);
+        $jornada->setValidacaoInterjornadaHabilitada($validaInterjornada);
+        $jornada->setMinimoMinutosInterjornada($minimoInterjornada);
 
         // orphanRemoval cuida da deleção dos blocos antigos
         foreach ($jornada->getBlocos()->toArray() as $blocoAntigo) {
