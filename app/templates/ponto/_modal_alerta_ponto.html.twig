@@ -43,25 +43,25 @@
 
     // ── Storage ──────────────────────────────────────────────────────────────
 
-    function getChaveStorage(horario) {
+    function getChaveStorage(tipo) {
         var hoje = new Date();
         var data = hoje.getFullYear()
             + '-' + String(hoje.getMonth() + 1).padStart(2, '0')
             + '-' + String(hoje.getDate()).padStart(2, '0');
-        return STORAGE_PREFIX + data + '_' + horario;
+        return STORAGE_PREFIX + data + '_' + tipo;
     }
 
-    function jaFoiDispensado(horario) {
+    function jaFoiDispensado(tipo) {
         try {
-            return localStorage.getItem(getChaveStorage(horario)) === '1';
+            return localStorage.getItem(getChaveStorage(tipo)) === '1';
         } catch (e) {
             return false;
         }
     }
 
-    function marcarComoDispensado(horario) {
+    function marcarComoDispensado(tipo) {
         try {
-            localStorage.setItem(getChaveStorage(horario), '1');
+            localStorage.setItem(getChaveStorage(tipo), '1');
             limparChavesAntigas();
         } catch (e) {}
     }
@@ -141,14 +141,16 @@
 
     function exibirAlerta(dados) {
         if (!modalEl) return;
-        if (jaFoiDispensado(dados.horario)) return;
+        if (jaFoiDispensado(dados.tipo)) return;
 
         var elMensagem = document.getElementById('alertaPontoMensagem');
         var elHorario  = document.getElementById('alertaPontoHorario');
         if (elMensagem) elMensagem.textContent = dados.mensagem;
-        if (elHorario)  elHorario.textContent  = 'Horário configurado: ' + dados.horario;
+        if (elHorario) {
+            elHorario.textContent = dados.horario ? 'Horário configurado: ' + dados.horario : '';
+        }
 
-        modalEl._horarioAtual = dados.horario;
+        modalEl._tipoAtual = dados.tipo;
 
         // Notificação nativa (pisca ícone na barra de tarefas do SO)
         dispararNotificacaoNativa(dados);
@@ -162,17 +164,20 @@
             var btnIr = document.getElementById('btnIrParaPonto');
             if (btnIr) {
                 btnIr.addEventListener('click', function () {
-                    if (modalEl._horarioAtual) {
-                        marcarComoDispensado(modalEl._horarioAtual);
+                    if (modalEl._tipoAtual) {
+                        marcarComoDispensado(modalEl._tipoAtual);
                     }
                     pararPiscarTitulo();
                 });
             }
         }
 
-        // Para de piscar o título quando o modal fechar
+        // Para de piscar e marca como dispensado ao fechar (qualquer forma: X, ESC ou botão)
         modalEl.addEventListener('hidden.bs.modal', function () {
             pararPiscarTitulo();
+            if (modalEl._tipoAtual) {
+                marcarComoDispensado(modalEl._tipoAtual);
+            }
         }, { once: true });
 
         // Para de piscar se o usuário voltar para a aba

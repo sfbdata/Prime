@@ -26,10 +26,20 @@
                     {% endif %}
                 </div>
                 <div class="card-body text-center">
-                    <div class="d-flex align-items-center justify-content-center gap-3 mb-4">
+                    <div id="clock-label" class="text-muted small mb-1"></div>
+                    <div class="d-flex align-items-center justify-content-center gap-3 mb-2">
                         <div id="clock" class="h1 mb-0" title="Tempo trabalhado hoje">00:00:00</div>
                     </div>
-                    <div id="clock-label" class="text-muted small mb-2"></div>
+
+                    <div id="previsao-saida" class="text-muted small d-none mb-2" style="font-size:0.75rem;">
+                        Previsão de saída: <strong id="previsao-saida-horario"></strong>
+                    </div>
+
+                    <div id="contador-repouso" class="d-none alert small mb-3 py-2 text-center">
+                        <i class="bi bi-cup-hot me-1"></i>
+                        Repouso: <strong id="repouso-timer">00:00:00</strong>
+                        <div id="repouso-status" class="mt-1"></div>
+                    </div>
 
                     <div id="gps-status" class="alert alert-info small mb-3">
                         <i class="bi bi-geo-alt"></i> Aguardando geolocalização
@@ -179,6 +189,17 @@
         const tRetorno = parseHMS(pontoHoje.retorno);
         const tSaida   = parseHMS(pontoHoje.saida);
 
+        (function() {
+            const duracaoMinutos = {{ duracaoJornadaDiariaMinutos is not null ? duracaoJornadaDiariaMinutos : 'null' }};
+            if (!tEntrada || tSaida || duracaoMinutos === null) return;
+
+            const saidaPrevista = new Date(tEntrada.getTime() + duracaoMinutos * 60 * 1000);
+            const hh = String(saidaPrevista.getHours()).padStart(2, '0');
+            const mm = String(saidaPrevista.getMinutes()).padStart(2, '0');
+            document.getElementById('previsao-saida-horario').textContent = `${hh}:${mm}`;
+            document.getElementById('previsao-saida').classList.remove('d-none');
+        })();
+
         function calcSegundosTrabalhados(agora) {
             if (!tEntrada) return 0;
 
@@ -199,6 +220,42 @@
             const m = Math.floor((segundos % 3600) / 60);
             const s = segundos % 60;
             return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+
+        const contadorRepousoEl = document.getElementById('contador-repouso');
+        const repousoTimerEl    = document.getElementById('repouso-timer');
+        const repousoStatusEl   = document.getElementById('repouso-status');
+        const validacaoRepouso  = {{ validacaoRepousoHabilitada ? 'true' : 'false' }};
+        const minimoRepouso     = {{ minimoMinutosRepouso }};
+
+        function updateContadorRepouso() {
+            if (!tRepouso || tRetorno || tSaida) {
+                contadorRepousoEl.classList.add('d-none');
+                return;
+            }
+
+            const agora   = new Date();
+            const diffMs  = agora - tRepouso;
+            const totalSeg = Math.floor(diffMs / 1000);
+
+            repousoTimerEl.textContent = formatarTempo(totalSeg);
+            contadorRepousoEl.classList.remove('d-none');
+
+            if (validacaoRepouso) {
+                const diffMin  = Math.floor(diffMs / 60000);
+                const restante = minimoRepouso - diffMin;
+
+                if (restante > 0) {
+                    repousoStatusEl.textContent = `Retorno disponível em ${restante} min`;
+                    contadorRepousoEl.className = 'alert alert-warning small mb-3 py-2 text-center';
+                } else {
+                    repousoStatusEl.textContent = 'Retorno disponível';
+                    contadorRepousoEl.className = 'alert alert-success small mb-3 py-2 text-center';
+                }
+            } else {
+                repousoStatusEl.textContent = '';
+                contadorRepousoEl.className = 'alert alert-info small mb-3 py-2 text-center';
+            }
         }
 
         function updateClock() {
@@ -223,6 +280,7 @@
             }
 
             labelEl.textContent = label;
+            updateContadorRepouso();
         }
 
         setInterval(updateClock, 1000);

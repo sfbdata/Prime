@@ -127,6 +127,7 @@ final class PontoController extends AbstractController
         $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant);
 
         $jornadaInfo = $this->resolverJornadaInfo($user, $jornadaTenant);
+        $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($user, $agora, $jornadaTenant);
 
         $justificativaForm = $this->createForm(JustificativaPontoType::class);
 
@@ -139,6 +140,9 @@ final class PontoController extends AbstractController
             'pontoHoje' => $pontoHoje,
             'saldoMes' => $saldoMes,
             'jornadaInfo' => $jornadaInfo,
+            'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
+            'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,
+            'duracaoJornadaDiariaMinutos'    => $duracaoJornadaDiariaMinutos,
             'justificativas'     => $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado),
             'justificativaForm'  => $justificativaForm->createView(),
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
@@ -611,6 +615,34 @@ final class PontoController extends AbstractController
         return null;
     }
 
+    private function resolverDuracaoJornadaDiaria(
+        \App\Entity\Auth\User $user,
+        \DateTimeImmutable $data,
+        ?JornadaTenant $jornadaTenant,
+    ): ?int {
+        $batidas = $this->jornadaResolver->resolverBatidasEsperadasHoje($user, $data, $jornadaTenant);
+
+        $entradaHorario = null;
+        $saidaHorario   = null;
+        foreach ($batidas as $batida) {
+            if ($batida['tipo'] === 'entrada') {
+                $entradaHorario = $batida['horario'];
+            }
+            if ($batida['tipo'] === 'saida') {
+                $saidaHorario = $batida['horario'];
+            }
+        }
+
+        if ($entradaHorario === null || $saidaHorario === null) {
+            return null;
+        }
+
+        [$hEnt, $mEnt] = array_map('intval', explode(':', $entradaHorario));
+        [$hSai, $mSai] = array_map('intval', explode(':', $saidaHorario));
+
+        return ($hSai * 60 + $mSai) - ($hEnt * 60 + $mEnt);
+    }
+
     private function calcularDistanciaMetros(float $lat1, float $lon1, float $lat2, float $lon2): float
     {
         $raioTerra = 6371000;
@@ -975,7 +1007,9 @@ final class PontoController extends AbstractController
             'totalHorasExtras'        => $this->formatarMinutos($totalMinutosExtras ?: null),
             'saldoBancoAnterior'      => $this->formatarSaldo($saldoBancoAnteriorMinutos),
             'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualMinutos),
-            'horasACompensar'         => $this->formatarMinutos(abs($saldoBancoAtualMinutos ?? 0) ?: null),
+            'horasACompensar'         => ($saldoBancoAtualMinutos !== null && $saldoBancoAtualMinutos < 0)
+                ? $this->formatarMinutos(abs($saldoBancoAtualMinutos))
+                : '–',
             'feriadosTrabalhados'     => $feriadosTrabalhados,
             'finaisSemanasTrabalhados' => $finaisSemanasTrabalhados,
             'intrajornadaConforme'    => $intrajornadaConforme,

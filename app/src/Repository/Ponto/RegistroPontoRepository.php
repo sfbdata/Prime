@@ -68,6 +68,22 @@ SQL;
         }, $rows);
     }
 
+    /**
+     * @return RegistroPonto[]
+     */
+    public function findBatidasDoDia(User $user, \DateTimeImmutable $dia): array
+    {
+        return $this->createQueryBuilder('r')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.dataHora BETWEEN :inicio AND :fim')
+            ->setParameter('user', $user)
+            ->setParameter('inicio', $dia->setTime(0, 0, 0))
+            ->setParameter('fim', $dia->setTime(23, 59, 59))
+            ->orderBy('r.dataHora', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findRepousoDoDia(User $user, \DateTimeImmutable $dia): ?RegistroPonto
     {
         $inicio = $dia->setTime(0, 0, 0);
