@@ -37,6 +37,9 @@ class UserProfile
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $serie = null;
 
+    #[ORM\Column(type: 'date', nullable: true)]
+    private ?\DateTimeInterface $dataAdmissao = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 
@@ -147,6 +150,18 @@ class UserProfile
     public function setSerie(?string $serie): static
     {
         $this->serie = $serie;
+
+        return $this;
+    }
+
+    public function getDataAdmissao(): ?\DateTimeInterface
+    {
+        return $this->dataAdmissao;
+    }
+
+    public function setDataAdmissao(?\DateTimeInterface $dataAdmissao): static
+    {
+        $this->dataAdmissao = $dataAdmissao;
 
         return $this;
     }

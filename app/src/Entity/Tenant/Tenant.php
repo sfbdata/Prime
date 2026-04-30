@@ -90,6 +90,9 @@ class Tenant
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $criadoPor = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $responsavelAssinatura = null;
+
     public function __construct()
     {
         $this->users = new ArrayCollection();
@@ -361,6 +364,17 @@ class Tenant
     public function setCriadoPor(?User $criadoPor): static
     {
         $this->criadoPor = $criadoPor;
+        return $this;
+    }
+
+    public function getResponsavelAssinatura(): ?string
+    {
+        return $this->responsavelAssinatura;
+    }
+
+    public function setResponsavelAssinatura(?string $responsavelAssinatura): static
+    {
+        $this->responsavelAssinatura = $responsavelAssinatura;
         return $this;
     }
 }
