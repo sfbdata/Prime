@@ -45,6 +45,17 @@ class PastaRepository extends ServiceEntityRepository
                ->setParameter('responsavel', (int) $filters['responsavel']);
         }
 
+        if (!empty($filters['cliente'])) {
+            $qb->andWhere('p.nomeCliente LIKE :cliente')
+               ->setParameter('cliente', '%' . $filters['cliente'] . '%');
+        }
+
+        if (!empty($filters['acao'])) {
+            $qb->leftJoin('p.processo', 'proc')
+               ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
+               ->setParameter('acao', '%' . $filters['acao'] . '%');
+        }
+
         return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
     }
 
@@ -115,6 +126,17 @@ class PastaRepository extends ServiceEntityRepository
             $qb->join('p.responsavel', 'r')
                ->andWhere('r.id = :responsavel')
                ->setParameter('responsavel', (int) $filters['responsavel']);
+        }
+
+        if (!empty($filters['cliente'])) {
+            $qb->andWhere('p.nomeCliente LIKE :cliente')
+               ->setParameter('cliente', '%' . $filters['cliente'] . '%');
+        }
+
+        if (!empty($filters['acao'])) {
+            $qb->leftJoin('p.processo', 'proc')
+               ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
+               ->setParameter('acao', '%' . $filters['acao'] . '%');
         }
 
         return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
