@@ -9,7 +9,7 @@
             font-family: Arial, sans-serif;
             font-size: 9px;
             color: #000;
-            margin: 14px 16px 10px 16px;
+            margin: 12px 16px 10px 16px;
         }
 
         /* ── TÍTULO ──────────────────────────────────────────── */
@@ -59,7 +59,7 @@
             padding: 3px 5px; border: 1px solid #000;
             border-bottom: none;
         }
-        .dados-emp { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        .dados-emp { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
         .dados-emp td {
             border: 1px solid #000;
             font-size: 8.5px;
@@ -92,8 +92,9 @@
         td.feriado-text { color: #cc0000; font-weight: bold; font-size: 8px; }
 
         /* ── RESUMO / INTERVALOS / OBSERVAÇÕES ──────────────── */
-        .bloco-inferior { width: 100%; border-collapse: separate; border-spacing: 3px 0; margin-bottom: 4px; }
-        .bloco-inferior > tbody > tr > td { vertical-align: top; padding: 0; border: 1px solid #000; }
+        .bloco-inferior { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        .bloco-inferior td { vertical-align: top; padding: 0; border: 1px solid #000; }
+        .bloco-inferior td.bi-sep { width: 4px; border: none; padding: 0; }
         .bi-esq  { width: 32%; }
         .bi-ctr  { width: 36%; }
         .bi-dir  { width: 32%; }
@@ -267,7 +268,7 @@
     <tbody>
         <tr>
             {# RESUMO DO MÊS #}
-            <td class="bi-esq">
+            <td class="bi-esq" style="width:32%">
                 <div class="bi-titulo">RESUMO DO M&#202;S</div>
                 <div class="bi-corpo">
                     <span class="bi-linha"><span class="bi-label">Detalhe de Horas Trabalhadas no M&#234;s:</span> {{ totalHorasTrabalhadas }}</span>
@@ -277,8 +278,9 @@
                     <span class="bi-linha"><span class="bi-label">Horas a Compensar:</span> {{ horasACompensar }}</span>
                 </div>
             </td>
+            <td class="bi-sep"></td>
             {# CONTROLE DE INTERVALOS #}
-            <td class="bi-ctr">
+            <td class="bi-ctr" style="width:36%">
                 <div class="bi-titulo">CONTROLE DE INTERVALOS</div>
                 <div class="bi-corpo">
                     <span class="bi-linha">
@@ -305,8 +307,9 @@
                     <span class="bi-linha"><span class="bi-label">Trabalho em Finais de Semana:</span> {{ finaisSemanasTrabalhados }} dia{{ finaisSemanasTrabalhados != 1 ? 's' : '' }}</span>
                 </div>
             </td>
+            <td class="bi-sep"></td>
             {# OBSERVAÇÕES GERAIS #}
-            <td class="bi-dir">
+            <td class="bi-dir" style="width:32%">
                 <div class="bi-titulo">OBSERVA&#199;&#213;ES GERAIS</div>
                 <div class="bi-corpo">
                     <span class="bi-linha">&#8226; As horas extras foram autorizadas previamente pela gest&#227;o e ser&#227;o compensadas conforme acordo de banco de horas.</span>
