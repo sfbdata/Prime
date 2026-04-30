@@ -21,6 +21,11 @@
                         </button>
                     </li>
                     <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="tab-dados-pessoais-btn" data-bs-toggle="tab" data-bs-target="#tab-dados-pessoais" type="button" role="tab">
+                            <i class="bi bi-person-vcard me-1"></i>Dados Pessoais
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
                         <button class="nav-link" id="tab-acessos-btn" data-bs-toggle="tab" data-bs-target="#tab-acessos" type="button" role="tab">
                             <i class="bi bi-unlock me-1"></i>Acessos Específicos
                         </button>
@@ -148,6 +153,42 @@
                                 </div>
                             </div>
                             {{ form_end(form) }}
+                        </div>
+                    </div>
+
+                    {# Aba: Dados Pessoais #}
+                    <div class="tab-pane fade" id="tab-dados-pessoais" role="tabpanel">
+                        <div class="card card-outline card-info mb-3">
+                            <div class="card-header">
+                                <h3 class="card-title"><i class="bi bi-person-vcard me-2"></i>Dados Pessoais</h3>
+                            </div>
+                            {{ form_start(formDadosPessoais, {action: path('app_tenant_user_dados_pessoais', {tenantId: tenantId, id: user.id})}) }}
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-12">
+                                        {{ form_row(formDadosPessoais.nomeCompleto, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        {{ form_row(formDadosPessoais.cpf, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                    </div>
+                                    <div class="col-md-6">
+                                        {{ form_row(formDadosPessoais.dataNascimento, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                    </div>
+                                    <div class="col-8">
+                                        {{ form_row(formDadosPessoais.ctps, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                    </div>
+                                    <div class="col-4">
+                                        {{ form_row(formDadosPessoais.serie, {label_attr: {class: 'form-label fw-bold'}}) }}
+                                    </div>
+                                </div>
+                                {{ form_rest(formDadosPessoais) }}
+                            </div>
+                            <div class="card-footer d-flex justify-content-end">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-check-lg me-1"></i>Salvar Dados Pessoais
+                                </button>
+                            </div>
+                            {{ form_end(formDadosPessoais) }}
                         </div>
                     </div>
 
@@ -390,11 +431,12 @@
     document.addEventListener('DOMContentLoaded', function () {
         // Ativa a aba correta com base no query param ?tab=
         var tabMap = {
-            perfil:          'tab-perfil-btn',
-            acessos:         'tab-acessos-btn',
-            escala:          'tab-escala-btn',
-            ponto:           'tab-ponto-btn',
-            justificativas:  'tab-justificativas-btn',
+            perfil:           'tab-perfil-btn',
+            'dados-pessoais': 'tab-dados-pessoais-btn',
+            acessos:          'tab-acessos-btn',
+            escala:           'tab-escala-btn',
+            ponto:            'tab-ponto-btn',
+            justificativas:   'tab-justificativas-btn',
         };
         var params = new URLSearchParams(window.location.search);
         var tabParam = params.get('tab');

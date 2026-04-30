@@ -31,6 +31,9 @@ use App\Repository\CargoRepository;
 use App\Repository\LotacaoRepository;
 use App\Repository\TenantRepository;
 use App\Repository\TenantRoleRepository;
+use App\Profile\DTO\DadosPessoaisInput;
+use App\Profile\Form\DadosPessoaisType;
+use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Tenant\DTO\DemitirFuncionarioInput;
 use App\Tenant\UseCase\DemitirFuncionarioUseCase;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
@@ -434,7 +437,8 @@ final class TenantController extends AbstractController
         FolhaPontoBuilder $folhaPontoBuilder,
         CargoRepository $cargoRepository,
         LotacaoRepository $lotacaoRepository,
-        GerarCodigoFuncionario $gerarCodigo
+        GerarCodigoFuncionario $gerarCodigo,
+        ObterOuCriarPerfilUseCase $obterOuCriarPerfil
     ): Response {
         $currentUser = $this->getUser();
 
@@ -529,6 +533,15 @@ final class TenantController extends AbstractController
         $jornadaInfoUsuario = $this->resolverJornadaInfoAdmin($user, $jornadaTenant);
         $justificativas = $justificativaRepository->findByTenantUser($user);
 
+        $perfil            = $obterOuCriarPerfil->executar($user);
+        $inputDados        = new DadosPessoaisInput();
+        $inputDados->nomeCompleto    = $perfil->getNomeCompleto();
+        $inputDados->cpf             = $perfil->getCpf();
+        $inputDados->dataNascimento  = $perfil->getDataNascimento();
+        $inputDados->ctps            = $perfil->getCtps();
+        $inputDados->serie           = $perfil->getSerie();
+        $formDadosPessoais = $this->createForm(DadosPessoaisType::class, $inputDados);
+
         $colegas = $targetTenant
             ? array_values(array_filter(
                 $targetTenant->getUsers()->toArray(),
@@ -553,6 +566,7 @@ final class TenantController extends AbstractController
             'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
             'comSegundos'            => $this->deveMostrarSegundosBatida(),
             'colegas'                => $colegas,
+            'formDadosPessoais'      => $formDadosPessoais->createView(),
         ]);
     }
 
