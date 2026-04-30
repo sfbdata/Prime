@@ -19,6 +19,11 @@ class TenantNameType extends AbstractType
                 'label' => 'Nome do Escritório',
                 'attr'  => ['class' => 'form-control'],
             ])
+            ->add('responsavelAssinatura', TextType::class, [
+                'label'    => 'Responsável pela Assinatura',
+                'required' => false,
+                'attr'     => ['class' => 'form-control'],
+            ])
             ->add('cnpj', TextType::class, [
                 'label'       => 'CNPJ',
                 'required'    => false,

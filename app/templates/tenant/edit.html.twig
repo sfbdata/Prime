@@ -52,6 +52,14 @@
                             </div>
 
                             <div class="mb-3">
+                                {{ form_label(nameForm.responsavelAssinatura, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
+                                {{ form_widget(nameForm.responsavelAssinatura, {attr: {class: 'form-control' ~ (nameForm.responsavelAssinatura.vars.errors|length ? ' is-invalid' : '')}}) }}
+                                {% if nameForm.responsavelAssinatura.vars.errors|length %}
+                                    <div class="invalid-feedback">{% for e in nameForm.responsavelAssinatura.vars.errors %}{{ e.message }}{% endfor %}</div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
                                 {{ form_label(nameForm.cnpj, null, {label_attr: {class: 'form-label fw-semibold'}}) }}
                                 {{ form_widget(nameForm.cnpj, {attr: {class: 'form-control' ~ (nameForm.cnpj.vars.errors|length ? ' is-invalid' : ''), 'data-cnpj': 'true', maxlength: '18', placeholder: '00.000.000/0000-00'}}) }}
                                 {% if nameForm.cnpj.vars.errors|length %}
