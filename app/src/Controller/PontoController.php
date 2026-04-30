@@ -708,31 +708,9 @@ final class PontoController extends AbstractController
         $cep            = $tenant?->getCep() ? ' CEP ' . $tenant->getCep() : '';
         $enderecoLinha2 = trim($cidadeEstado . $cep);
 
-        $horarios = $this->resolverHorariosJornada($escala, $jornadaTenantPdf);
+        $dados = $this->montarDadosFolha($targetUser, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantPdf, $folhaPontoBuilder);
 
-        $html = $twig->render('ponto/folha_pdf.html.twig', [
-            'folhaRows'         => $folhaRows,
-            'mes'               => $mes,
-            'ano'               => $ano,
-            'nomeUsuario'       => mb_strtoupper($nomeUsuario),
-            'nomeEmpresa'       => mb_strtoupper($tenant?->getName() ?? ''),
-            'inicioMes'         => $inicioMesFormatado,
-            'fimMes'            => $fimMesFormatado,
-            'numeroTrabalhador' => $targetUser->getCodigoFuncionario()
-                ?? ($targetUser->getTenant() !== null ? $this->gerarCodigo->executar($targetUser->getTenant()) : ''),
-            'cargo'             => mb_strtoupper($cargo?->getNome() ?? ''),
-            'ctps'              => $profile?->getCtps() ?? '',
-            'serie'             => $profile?->getSerie() ?? '',
-            'descrJornada'      => $this->gerarDescrJornada($escala, $jornadaTenantPdf),
-            'lotacao'           => ($lotacao !== null ? sprintf('%04d', (int) $lotacao->getId()) . ' - ' . mb_strtoupper($lotacao->getNome()) : ''),
-            'cnpj'              => $cnpj,
-            'enderecoLinha1'    => $enderecoLinha1,
-            'enderecoLinha2'    => $enderecoLinha2,
-            'horaEntrada'       => $horarios['entrada'] . ' h',
-            'horaRepouso'       => $horarios['repouso'] . ' h',
-            'horaRetorno'       => $horarios['retorno'] . ' h',
-            'horaSaida'         => $horarios['saida'] . ' h',
-        ]);
+        $html = $twig->render('ponto/folha_pdf.html.twig', $dados);
 
         $options = new Options();
         $options->set('isHtml5ParserEnabled', true);
@@ -743,15 +721,20 @@ final class PontoController extends AbstractController
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        $nomeArquivoBase = preg_replace('/[^A-Za-z0-9]+/', '', $nomeUsuario) ?: 'Usuario';
+        $nomeArquivoBase = preg_replace('/[^A-Za-z0-9]+/', '', $dados['nomeUsuario']) ?: 'Usuario';
         $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.pdf', $nomeArquivoBase, $mes, $ano);
+
+        $inline = $request->query->getBoolean('inline', false);
+        $disposition = $inline
+            ? sprintf('inline; filename="%s"', $nomeArquivo)
+            : sprintf('attachment; filename="%s"', $nomeArquivo);
 
         return new Response(
             $dompdf->output(),
             200,
             [
                 'Content-Type' => 'application/pdf',
-                'Content-Disposition' => sprintf('attachment; filename="%s"', $nomeArquivo),
+                'Content-Disposition' => $disposition,
             ]
         );
     }
@@ -840,38 +823,291 @@ final class PontoController extends AbstractController
             $nomeXlsx = (string) $targetUser->getUserIdentifier();
         }
 
-        $horarios = $this->resolverHorariosJornada($escala, $jornadaTenantXlsx);
+        $dados = $this->montarDadosFolha($targetUser, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantXlsx, $folhaPontoBuilder);
 
-        $enderecoPartesXlsx = array_filter([
+        return $xlsxExporter->exportar($dados['folhaRows'], $nomeArquivo, $dados);
+    }
+
+    /**
+     * Monta o array completo de dados para os exportadores de PDF e XLSX.
+     *
+     * @param \App\Entity\Ponto\Feriado[] $feriados
+     * @param array<int, array<string, mixed>> $folhaRows
+     * @return array<string, mixed>
+     */
+    private function montarDadosFolha(
+        \App\Entity\Auth\User $targetUser,
+        int $ano,
+        int $mes,
+        array $folhaRows,
+        array $feriados,
+        ?\App\Entity\Ponto\JornadaColaborador $jornada,
+        ?\App\Entity\Ponto\JornadaTenant $jornadaTenant,
+        FolhaPontoBuilder $builder,
+    ): array {
+        $tenant  = $targetUser->getTenant();
+        $profile = $targetUser->getProfile();
+        $cargo   = $targetUser->getCargo();
+        $lotacao = $targetUser->getLotacao();
+
+        $nomeUsuario = trim((string) $targetUser->getFullName());
+        if ($nomeUsuario === '') {
+            $nomeUsuario = (string) $targetUser->getUserIdentifier();
+        }
+
+        $horarios = $this->resolverHorariosJornada($jornada, $jornadaTenant);
+
+        $minutosSemana = $jornada?->getCargaHorariaSemanal() ?? $jornadaTenant?->getCargaHorariaSemanal() ?? 0;
+        $horasSemana = (int) round($minutosSemana / 60);
+
+        $minimoRepouso      = $jornadaTenant?->getMinimoMinutosRepouso()      ?? 60;
+        $minimoInterjornada = $jornadaTenant?->getMinimoMinutosInterjornada()  ?? 660;
+
+        $rowsProcessados         = [];
+        $totalMinutosTrabalhados = 0;
+        $totalMinutosExtras      = 0;
+        $feriadosTrabalhados     = 0;
+        $finaisSemanasTrabalhados = 0;
+        $intrajornadaConforme    = true;
+        $interjornadaConforme    = true;
+        $ultimaSaidaTs           = null;
+        $saldoBancoAtualMinutos  = null;
+
+        foreach ($folhaRows as $row) {
+            $row['horasTrabalhadas'] = $this->formatarMinutos($row['minutosTrabalhadosDia'] ?? null);
+            $row['horasExtras']      = ($row['saldoDia'] ?? 0) > 0 ? $this->formatarMinutos($row['saldoDia']) : '–';
+            $row['bancoHoras']       = $this->formatarSaldo($row['saldoAcumulado'] ?? null);
+            $rowsProcessados[]       = $row;
+
+            $totalMinutosTrabalhados += ($row['minutosTrabalhadosDia'] ?? 0);
+
+            if (($row['saldoDia'] ?? 0) > 0) {
+                $totalMinutosExtras += $row['saldoDia'];
+            }
+
+            if (!empty($row['isFeriado']) && $row['entrada'] !== '') {
+                $feriadosTrabalhados++;
+            }
+
+            if (!empty($row['fimSemana']) && $row['entrada'] !== '') {
+                $finaisSemanasTrabalhados++;
+            }
+
+            if ($row['minutosIntervalo'] !== null && ($row['minutosTrabalhadosDia'] ?? 0) > 0) {
+                if ($row['minutosIntervalo'] < $minimoRepouso) {
+                    $intrajornadaConforme = false;
+                }
+            }
+
+            if ($row['entrada'] !== '' && $ultimaSaidaTs !== null) {
+                $entradaDt = new \DateTimeImmutable($row['chaveDia'] . ' ' . $row['entrada']);
+                $diffMin = (int)(($entradaDt->getTimestamp() - $ultimaSaidaTs) / 60);
+                if ($diffMin < $minimoInterjornada) {
+                    $interjornadaConforme = false;
+                }
+            }
+
+            if ($row['saida'] !== '') {
+                $saidaDt = new \DateTimeImmutable($row['chaveDia'] . ' ' . $row['saida']);
+                $ultimaSaidaTs = $saidaDt->getTimestamp();
+            }
+
+            if ($row['saldoAcumulado'] !== null) {
+                $saldoBancoAtualMinutos = $row['saldoAcumulado'];
+            }
+        }
+
+        $mesAnterior = $mes - 1;
+        $anoAnterior = $ano;
+        if ($mesAnterior < 1) {
+            $mesAnterior = 12;
+            $anoAnterior--;
+        }
+        $saldoBancoAnteriorMinutos = $jornada !== null
+            ? $builder->calcularSaldoAteMes($targetUser, $anoAnterior, $mesAnterior, $feriados, $jornadaTenant)
+            : 0;
+
+        $enderecoPartes = array_filter([
             $tenant?->getLogradouro(),
             $tenant?->getNumero() ? ', ' . $tenant->getNumero() : null,
-            $tenant?->getComplemento() ? ' - ' . $tenant->getComplemento() : null,
+            $tenant?->getComplemento() ? ' – ' . $tenant->getComplemento() : null,
         ]);
-        $cidadeEstadoXlsx = trim(($tenant?->getBairro() ? $tenant->getBairro() . ' - ' : '') . ($tenant?->getCidade() ?? '') . ($tenant?->getEstado() ? ' - ' . $tenant->getEstado() : ''));
-        $cepXlsx          = $tenant?->getCep() ? ' CEP ' . $tenant->getCep() : '';
+        $cidadeEstado = trim(
+            ($tenant?->getBairro() ? $tenant->getBairro() . ' – ' : '')
+            . ($tenant?->getCidade() ?? '')
+            . ($tenant?->getEstado() ? ' – ' . $tenant->getEstado() : '')
+        );
+        $cep = $tenant?->getCep() ? ' CEP ' . $tenant->getCep() : '';
 
-        $cabecalho = [
-            'nomeEmpresa'       => mb_strtoupper($tenant?->getName() ?? ''),
-            'cnpj'              => $cnpj,
-            'enderecoLinha1'    => implode('', $enderecoPartesXlsx),
-            'enderecoLinha2'    => trim($cidadeEstadoXlsx . $cepXlsx),
-            'inicioMes'         => $inicioMesFormatado,
-            'fimMes'            => $fimMesFormatado,
-            'nomeUsuario'       => mb_strtoupper($nomeXlsx),
+        $distribuicao = $this->gerarDescricaoDiasExtenso($jornada, $jornadaTenant);
+        $descrJornada = $this->gerarDescrJornada($jornada, $jornadaTenant);
+
+        return [
+            'folhaRows'               => $rowsProcessados,
+            'mes'                     => $mes,
+            'ano'                     => $ano,
+            'anoAssinatura'           => $ano,
+            'inicioMes'               => (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->format('d/m/Y'),
+            'fimMes'                  => (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->modify('last day of this month')->format('d/m/Y'),
+            'nomeUsuario'             => mb_strtoupper($nomeUsuario),
+            'nomeEmpresa'             => mb_strtoupper($tenant?->getName() ?? ''),
+            'cnpj'                    => $this->formatarCnpj($tenant?->getCnpj() ?? ''),
+            'enderecoLinha1'          => implode('', $enderecoPartes),
+            'enderecoLinha2'          => trim($cidadeEstado . $cep),
+            'codigoFuncionario'       => $targetUser->getCodigoFuncionario()
+                ?? ($tenant !== null ? $this->gerarCodigo->executar($tenant) : ''),
+            'cpf'                     => $this->formatarCpf($profile?->getCpf() ?? ''),
+            'cargo'                   => mb_strtoupper($cargo?->getNome() ?? ''),
+            'ctps'                    => $profile?->getCtps() ?? '',
+            'serie'                   => $profile?->getSerie() ?? '',
+            'lotacao'                 => ($lotacao !== null ? mb_strtoupper($lotacao->getNome()) : ''),
+            'dataAdmissao'            => $profile?->getDataAdmissao()?->format('d/m/Y') ?? '',
+            'jornadaSemanal'          => $horasSemana . 'h',
+            'jornadaSemanalTexto'     => $horasSemana . 'h semanais',
+            'horarioContratual'       => $horarios['entrada'] . ' às ' . $horarios['saida'],
+            'intervaloTexto'          => $horarios['repouso'] . ' às ' . $horarios['retorno'],
+            'distribuicaoJornada'     => $distribuicao,
+            'escalaDescricao'         => $distribuicao . ($descrJornada !== '' ? ' (' . $descrJornada . ')' : ''),
+            'minimoRepousoTexto'      => $this->formatarDuracaoHora($minimoRepouso),
+            'minimoInterjornadaTexto' => $this->formatarDuracaoHora($minimoInterjornada),
+            'totalHorasTrabalhadas'   => $this->formatarMinutos($totalMinutosTrabalhados ?: null),
+            'totalHorasExtras'        => $this->formatarMinutos($totalMinutosExtras ?: null),
+            'saldoBancoAnterior'      => $this->formatarSaldo($saldoBancoAnteriorMinutos),
+            'saldoBancoAtual'         => $this->formatarSaldo($saldoBancoAtualMinutos),
+            'horasACompensar'         => $this->formatarMinutos(abs($saldoBancoAtualMinutos ?? 0) ?: null),
+            'feriadosTrabalhados'     => $feriadosTrabalhados,
+            'finaisSemanasTrabalhados' => $finaisSemanasTrabalhados,
+            'intrajornadaConforme'    => $intrajornadaConforme,
+            'interjornadaConforme'    => $interjornadaConforme,
+            'responsavelAssinatura'   => $tenant?->getResponsavelAssinatura() ?? '',
+            // retrocompatibilidade com campos usados pela visualização da folha na tela
             'numeroTrabalhador' => $targetUser->getCodigoFuncionario()
-                ?? ($targetUser->getTenant() !== null ? $this->gerarCodigo->executar($targetUser->getTenant()) : ''),
-            'cargo'             => mb_strtoupper($cargo?->getNome() ?? ''),
-            'ctps'              => $profile?->getCtps() ?? '',
-            'serie'             => $profile?->getSerie() ?? '',
-            'descrJornada'      => $this->gerarDescrJornada($escala, $jornadaTenantXlsx),
-            'lotacao'           => ($lotacao !== null ? sprintf('%04d', (int) $lotacao->getId()) . ' - ' . mb_strtoupper($lotacao->getNome()) : ''),
-            'horaEntrada'       => $horarios['entrada'] . ' h',
-            'horaRepouso'       => $horarios['repouso'] . ' h',
-            'horaRetorno'       => $horarios['retorno'] . ' h',
-            'horaSaida'         => $horarios['saida'] . ' h',
+                ?? ($tenant !== null ? $this->gerarCodigo->executar($tenant) : ''),
+            'descrJornada'  => $descrJornada,
+            'horaEntrada'   => $horarios['entrada'] . ' h',
+            'horaRepouso'   => $horarios['repouso'] . ' h',
+            'horaRetorno'   => $horarios['retorno'] . ' h',
+            'horaSaida'     => $horarios['saida'] . ' h',
         ];
+    }
 
-        return $xlsxExporter->exportar($folhaRows, $nomeArquivo, $cabecalho);
+    private function formatarMinutos(int|null $minutos): string
+    {
+        if ($minutos === null || $minutos === 0) {
+            return '–';
+        }
+
+        $abs = abs($minutos);
+
+        return sprintf('%d:%02d', intdiv($abs, 60), $abs % 60);
+    }
+
+    private function formatarSaldo(int|null $minutos): string
+    {
+        if ($minutos === null) {
+            return '–';
+        }
+
+        $abs  = abs($minutos);
+        $hhmm = sprintf('%d:%02d', intdiv($abs, 60), $abs % 60);
+
+        return $minutos >= 0 ? '+' . $hhmm : '-' . $hhmm;
+    }
+
+    private function formatarCnpj(string $cnpj): string
+    {
+        $raw = preg_replace('/\D/', '', $cnpj) ?? '';
+        if (strlen($raw) === 14) {
+            return sprintf('%s.%s.%s/%s-%s', substr($raw, 0, 2), substr($raw, 2, 3), substr($raw, 5, 3), substr($raw, 8, 4), substr($raw, 12, 2));
+        }
+
+        return $cnpj;
+    }
+
+    private function formatarCpf(string $cpf): string
+    {
+        $raw = preg_replace('/\D/', '', $cpf) ?? '';
+        if (strlen($raw) === 11) {
+            return sprintf('%s.%s.%s-%s', substr($raw, 0, 3), substr($raw, 3, 3), substr($raw, 6, 3), substr($raw, 9, 2));
+        }
+
+        return $cpf;
+    }
+
+    private function formatarDuracaoHora(int $minutos): string
+    {
+        $horas = $minutos / 60;
+        if ($horas === floor($horas)) {
+            return ((int) $horas) . 'h';
+        }
+
+        return sprintf('%dh%02d', intdiv($minutos, 60), $minutos % 60);
+    }
+
+    private function gerarDescricaoDiasExtenso(
+        ?\App\Entity\Ponto\JornadaColaborador $jornada,
+        ?\App\Entity\Ponto\JornadaTenant $jornadaTenant,
+    ): string {
+        $mapa = [1 => 'Segunda', 2 => 'Terça', 3 => 'Quarta', 4 => 'Quinta', 5 => 'Sexta', 6 => 'Sábado', 7 => 'Domingo'];
+        $dias = $this->getDiasSemana($jornada, $jornadaTenant);
+
+        if (empty($dias)) {
+            return '';
+        }
+
+        sort($dias);
+
+        if (count($dias) === 1) {
+            return $mapa[$dias[0]] ?? '';
+        }
+
+        $isConsecutivo = true;
+        for ($i = 1; $i < count($dias); $i++) {
+            if ($dias[$i] - $dias[$i - 1] !== 1) {
+                $isConsecutivo = false;
+                break;
+            }
+        }
+
+        if ($isConsecutivo) {
+            return ($mapa[$dias[0]] ?? '') . ' a ' . ($mapa[$dias[count($dias) - 1]] ?? '');
+        }
+
+        return implode(', ', array_map(static fn(int $d) => $mapa[$d] ?? '', $dias));
+    }
+
+    /** @return int[] */
+    private function getDiasSemana(
+        ?\App\Entity\Ponto\JornadaColaborador $jornada,
+        ?\App\Entity\Ponto\JornadaTenant $jornadaTenant,
+    ): array {
+        if ($jornada !== null && !$jornada->getBlocos()->isEmpty()) {
+            $dias = [];
+            foreach ($jornada->getBlocos() as $bloco) {
+                foreach ($bloco->getDiasSemana() as $d) {
+                    $dias[$d] = true;
+                }
+            }
+
+            return array_keys($dias);
+        }
+
+        if ($jornadaTenant !== null && !$jornadaTenant->getBlocos()->isEmpty()) {
+            $dias = [];
+            foreach ($jornadaTenant->getBlocos() as $bloco) {
+                foreach ($bloco->getDiasSemana() as $d) {
+                    $dias[$d] = true;
+                }
+            }
+
+            return array_keys($dias);
+        }
+
+        if ($jornada !== null) {
+            return $jornada->getDiasSemana();
+        }
+
+        return [];
     }
 
     /**

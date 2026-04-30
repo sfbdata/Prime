@@ -511,7 +511,7 @@ final class TenantController extends AbstractController
             $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
             $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
             $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $escala, $feriados, $justificativasDoMes, $jornadaTenant);
+            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant);
             $mesCompetenciaPonto = $mesSelecionado;
             $anoCompetenciaPonto = $anoSelecionado;
         }

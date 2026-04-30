@@ -90,9 +90,11 @@ class FolhaPontoBuilder
                 'repousoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getId() : null,
                 'retornoId' => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]) ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getId() : null,
                 'saidaId'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA])   ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getId()   : null,
-                'fimSemana'  => $indiceDiaSemana >= 6,
-                'domingo'    => $indiceDiaSemana === 7,
-                'isFeriado'  => false,
+                'fimSemana'       => $indiceDiaSemana >= 6,
+                'domingo'         => $indiceDiaSemana === 7,
+                'isFeriado'       => false,
+                'nomeFeriado'     => null,
+                'minutosIntervalo'      => null,
                 'minutosTrabalhadosDia' => null,
                 'saldoDia'       => null,
                 'saldoAcumulado' => null,
@@ -109,8 +111,9 @@ class FolhaPontoBuilder
                     $row['saldoAcumulado']        = null;
                 } else {
                     if ($feriadoDoDia !== null) {
-                        $row['isFeriado'] = true;
-                        $row['diaSemana'] = 'FERIADO - ' . $row['diaSemana'];
+                        $row['isFeriado']   = true;
+                        $row['nomeFeriado'] = $feriadoDoDia->getNome();
+                        $row['diaSemana']   = 'FERIADO - ' . $row['diaSemana'];
                     }
 
                     $batidasDoDia = isset($registrosPorDia[$chaveDia])
@@ -119,6 +122,15 @@ class FolhaPontoBuilder
 
                     $temSaida = isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]);
                     $diaHoje  = $dia->format('Y-m-d') === $hoje->format('Y-m-d');
+
+                    // minutosIntervalo: diferença entre retorno e repouso do dia
+                    if (isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO])
+                        && isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO])) {
+                        $row['minutosIntervalo'] = $this->calculadora->diffMinutos(
+                            $registrosPorDia[$chaveDia][RegistroPonto::TIPO_REPOUSO]->getDataHora(),
+                            $registrosPorDia[$chaveDia][RegistroPonto::TIPO_RETORNO]->getDataHora()
+                        );
+                    }
 
                     // Dia atual sem saída: mostra horas trabalhadas mas não saldo nem banco
                     if ($diaHoje && !$temSaida) {
@@ -174,6 +186,85 @@ class FolhaPontoBuilder
         }
 
         return $rows;
+    }
+
+    /**
+     * Calcula o saldo acumulado do banco de horas até o último dia do mês informado.
+     * Útil para obter o "saldo anterior" antes da competência exportada.
+     *
+     * @param Feriado[] $feriados
+     */
+    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null): int
+    {
+        $jornada = $user->getJornadaColaborador();
+        if ($jornada === null) {
+            return 0;
+        }
+
+        $hoje = new \DateTimeImmutable('today');
+
+        $createdAt = $user->getCreatedAt();
+        if ($createdAt === null) {
+            return 0;
+        }
+        $inicioCadastro = \DateTimeImmutable::createFromInterface($createdAt)->setTime(0, 0, 0);
+
+        $inicioAno = new \DateTimeImmutable(sprintf('%04d-01-01', $ano));
+        $inicio = $inicioCadastro > $inicioAno ? $inicioCadastro : $inicioAno;
+
+        $limiteMax = new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes));
+        $limiteMax = $limiteMax->modify('last day of this month');
+        $fim = $hoje < $limiteMax ? $hoje : $limiteMax;
+
+        if ($inicio > $fim) {
+            return 0;
+        }
+
+        $saldoTotal = 0;
+        $mesAtual = (int) $inicio->format('m');
+        $anoAtual = (int) $inicio->format('Y');
+        $mesFim   = (int) $fim->format('m');
+        $anoFim   = (int) $fim->format('Y');
+
+        while ($anoAtual < $anoFim || ($anoAtual === $anoFim && $mesAtual <= $mesFim)) {
+            $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01', $anoAtual, $mesAtual));
+            $fimMes = $inicioMes->modify('last day of this month');
+
+            $inicioEfetivo = $inicio > $inicioMes ? $inicio : $inicioMes;
+            $fimEfetivo    = $fim < $fimMes ? $fim : $fimMes;
+
+            $batidas = $this->registroPontoRepository->findByUserAndCompetencia($user, $anoAtual, $mesAtual);
+            $justificativas = $this->justificativaPontoRepository->findByUserAndCompetenciaIndexed($user, $anoAtual, $mesAtual);
+
+            $rows = $this->buildRows(
+                $inicioEfetivo->setTime(0, 0, 0),
+                $fimEfetivo->setTime(23, 59, 59),
+                $batidas,
+                true,
+                false,
+                $jornada,
+                $feriados,
+                $justificativas,
+                $jornadaTenant
+            );
+
+            if (!empty($rows)) {
+                foreach (array_reverse($rows) as $row) {
+                    if ($row['saldoAcumulado'] !== null) {
+                        $saldoTotal += $row['saldoAcumulado'];
+                        break;
+                    }
+                }
+            }
+
+            $mesAtual++;
+            if ($mesAtual > 12) {
+                $mesAtual = 1;
+                $anoAtual++;
+            }
+        }
+
+        return $saldoTotal;
     }
 
     /**

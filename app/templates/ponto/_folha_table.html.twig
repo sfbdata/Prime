@@ -44,20 +44,35 @@
         {% endif %}
 
         {% if exportarFolhaHabilitado and exportarAnoResolved and exportarMesResolved %}
+            {% set urlPdf      = path('ponto_exportar_pdf',  exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) %}
+            {% set urlPdfInline = path('ponto_exportar_pdf', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved, inline: 1})) %}
+            {% set urlXlsx     = path('ponto_exportar_xlsx', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) %}
+            {% set nomePdf  = 'Folha de Ponto ' ~ ('%02d'|format(exportarMesResolved)) ~ '/' ~ exportarAnoResolved ~ '.pdf' %}
+            {% set nomeXlsx = 'Folha de Ponto ' ~ ('%02d'|format(exportarMesResolved)) ~ '/' ~ exportarAnoResolved ~ '.xlsx' %}
             <div class="btn-group ms-auto">
                 <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="bi bi-download me-1"></i>Exportar
+                    <i class="bi bi-eye me-1"></i>Visualizar / Exportar
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li>
-                        <a class="dropdown-item" href="{{ path('ponto_exportar_pdf', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}">
+                        <button type="button" class="dropdown-item"
+                                data-bs-toggle="modal" data-bs-target="#modalPreviewFolhaPonto"
+                                data-url="{{ urlPdfInline }}"
+                                data-download="{{ urlPdf }}"
+                                data-nome="{{ nomePdf }}"
+                                data-mime="application/pdf">
                             <i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDF
-                        </a>
+                        </button>
                     </li>
                     <li>
-                        <a class="dropdown-item" href="{{ path('ponto_exportar_xlsx', exportarFolhaParametros|merge({ano: exportarAnoResolved, mes: exportarMesResolved})) }}">
+                        <button type="button" class="dropdown-item"
+                                data-bs-toggle="modal" data-bs-target="#modalPreviewFolhaPonto"
+                                data-url=""
+                                data-download="{{ urlXlsx }}"
+                                data-nome="{{ nomeXlsx }}"
+                                data-mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
                             <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>XLSX
-                        </a>
+                        </button>
                     </li>
                 </ul>
             </div>
@@ -216,3 +231,64 @@
         {% endif %}
     </div>
 </div>
+
+{% if exportarFolhaHabilitado %}
+<div class="modal fade" id="modalPreviewFolhaPonto" tabindex="-1" aria-labelledby="modalPreviewFolhaPontoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h5 class="modal-title" id="modalPreviewFolhaPontoLabel">
+                    <i class="bi bi-eye me-1"></i> <span id="previewFolhaNome"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body p-0 d-flex align-items-center justify-content-center" style="min-height: 75vh;">
+                <div id="previewFolhaConteudo" class="w-100 h-100"></div>
+            </div>
+            <div class="modal-footer py-2">
+                <a id="previewFolhaDownload" href="#" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-download me-1"></i> Baixar
+                </a>
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var modal = document.getElementById('modalPreviewFolhaPonto');
+    if (!modal) { return; }
+
+    modal.addEventListener('show.bs.modal', function (e) {
+        var btn      = e.relatedTarget;
+        var url      = btn.dataset.url;
+        var download = btn.dataset.download;
+        var nome     = btn.dataset.nome;
+        var mime     = btn.dataset.mime;
+
+        document.getElementById('previewFolhaNome').textContent = nome;
+        document.getElementById('previewFolhaDownload').href = download;
+        document.getElementById('previewFolhaConteudo').innerHTML = '';
+
+        if (mime === 'application/pdf' && url) {
+            document.getElementById('previewFolhaConteudo').innerHTML =
+                '<iframe src="' + url + '" class="w-100 border-0" style="height:78vh;" title="' + nome + '"></iframe>';
+        } else {
+            document.getElementById('previewFolhaConteudo').innerHTML =
+                '<div class="p-5 text-center text-muted w-100">' +
+                '<i class="bi bi-file-earmark-spreadsheet display-1 d-block mb-3 text-success"></i>' +
+                '<p class="mb-1 fw-semibold">' + nome + '</p>' +
+                '<p class="small mb-4">Pré-visualização não disponível para planilhas.</p>' +
+                '<a href="' + download + '" class="btn btn-success">' +
+                '<i class="bi bi-download me-1"></i> Baixar XLSX' +
+                '</a></div>';
+        }
+    });
+
+    modal.addEventListener('hide.bs.modal', function () {
+        document.getElementById('previewFolhaConteudo').innerHTML = '';
+    });
+}());
+</script>
+{% endif %}

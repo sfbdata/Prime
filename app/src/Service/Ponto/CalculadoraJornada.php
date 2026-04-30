@@ -125,7 +125,7 @@ class CalculadoraJornada
         return 0;
     }
 
-    private function diffMinutos(\DateTimeInterface $inicio, \DateTimeInterface $fim): int
+    public function diffMinutos(\DateTimeInterface $inicio, \DateTimeInterface $fim): int
     {
         $diff = $inicio->diff($fim);
         return max(0, ($diff->days * 1440) + ($diff->h * 60) + $diff->i);

@@ -4,231 +4,348 @@
     <meta charset="UTF-8">
     <title>Folha de Ponto - {{ '%02d'|format(mes) }}/{{ ano }}</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: Arial, sans-serif;
-            font-size: 10px;
-            color: #000;
-            margin: 18px 20px 14px 20px;
-        }
-
-        /* ── Cabeçalho ─────────────────────────────────────── */
-        .cabecalho {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 8px;
-        }
-        .cabecalho > tbody > tr > td {
-            vertical-align: top;
-            padding: 0;
-        }
-        .col-esq {
-            width: 62%;
-            padding-right: 8px;
-        }
-        .col-dir {
-            width: 38%;
-            border: 1px solid #000;
-            padding: 5px 7px;
-            text-align: center;
-            vertical-align: middle;
-        }
-
-        .titulo-empresa {
-            font-size: 10px;
-            font-weight: bold;
-            text-decoration: underline;
-            text-transform: uppercase;
-            line-height: 1.3;
-        }
-        .titulo-lista {
-            font-size: 10px;
-            font-weight: bold;
-            text-decoration: underline;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-            line-height: 1.3;
-        }
-
-        .dados-trabalhador {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .dados-trabalhador td {
-            padding: 1px 0;
-            font-size: 10px;
-            vertical-align: top;
-            line-height: 1.35;
-        }
-        .dados-trabalhador .lbl {
-            font-weight: bold;
-            white-space: nowrap;
-            width: 1%;
-        }
-        .dados-trabalhador .sep {
-            white-space: nowrap;
-            width: 1%;
-            padding-right: 3px;
-        }
-
-        .dir-cnpj {
-            font-size: 10px;
-            font-weight: bold;
-            margin-bottom: 2px;
-        }
-        .dir-nome {
-            font-size: 10px;
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 2px;
-            line-height: 1.3;
-        }
-        .dir-end {
             font-size: 9px;
-            line-height: 1.4;
-        }
-
-        /* ── Tabela principal ───────────────────────────────── */
-        table.folha {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        table.folha th,
-        table.folha td {
-            border: 1px solid #000;
-            font-size: 10px;
-            text-align: center;
-        }
-        table.folha th {
-            padding: 3px 4px;
-            font-weight: bold;
-            line-height: 1.3;
-            vertical-align: middle;
-        }
-        table.folha td {
-            padding: 2px 4px;
-            height: 16px;
-            vertical-align: middle;
-        }
-        table.folha td.td-ass {
-            text-align: left;
-        }
-        table.folha th.th-ass {
-            text-align: left;
-        }
-        table.folha .col-dia   { width: 28px; }
-        table.folha .col-sem   { width: 60px; }
-        table.folha .col-hora  { width: 52px; }
-
-        tr.fim-semana td,
-        tr.feriado td {
-            background-color: #e8e8e8;
-        }
-
-        /* ── Rodapé ─────────────────────────────────────────── */
-        .rodape {
-            margin-top: 6px;
-            font-size: 8px;
             color: #000;
+            margin: 14px 16px 10px 16px;
+        }
+
+        /* ── TÍTULO ──────────────────────────────────────────── */
+        .titulo-bloco { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        .titulo-principal {
+            background-color: #1a3a5c;
+            color: #ffffff;
+            text-align: center;
+            font-weight: bold;
+            font-size: 13px;
+            padding: 5px 4px;
+            border: 1px solid #1a3a5c;
+        }
+        .titulo-periodo {
+            background-color: #e8f0fb;
+            text-align: center;
+            font-size: 9px;
+            padding: 3px 4px;
+            border: 1px solid #c0cfe8;
+        }
+
+        /* ── CABEÇALHO EMPRESA / REGIME ──────────────────────── */
+        .cabecalho { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        .cab-empresa { width: 60%; vertical-align: top; padding: 4px 6px 4px 0; }
+        .cab-regime  { width: 40%; vertical-align: top; padding: 0; }
+        .empresa-nome {
+            font-size: 13px; font-weight: bold;
+            text-decoration: underline; text-transform: uppercase;
+            line-height: 1.4; margin-bottom: 3px;
+        }
+        .empresa-linha { font-size: 11px; line-height: 1.6; }
+        .regime-box { border: 1px solid #000; }
+        .regime-titulo {
+            background-color: #d0dff0;
+            font-weight: bold; font-size: 9px;
+            text-align: center; padding: 3px 4px;
+            border-bottom: 1px solid #000;
+        }
+        .regime-corpo { padding: 4px 6px; }
+        .regime-linha { font-size: 8.5px; line-height: 1.6; }
+        .regime-label { font-weight: bold; }
+
+        /* ── DADOS DO EMPREGADO ──────────────────────────────── */
+        .secao-titulo {
+            background-color: #d0dff0;
+            font-weight: bold; font-size: 9px;
+            padding: 3px 5px; border: 1px solid #000;
+            border-bottom: none;
+        }
+        .dados-emp { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        .dados-emp td {
+            border: 1px solid #000;
+            font-size: 8.5px;
+            padding: 2px 5px;
+            vertical-align: middle;
+        }
+        .dados-emp .lbl { font-weight: bold; white-space: nowrap; }
+
+        /* ── TABELA PRINCIPAL ────────────────────────────────── */
+        table.folha { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        table.folha th, table.folha td {
+            border: 1px solid #000;
+            font-size: 8px;
+            text-align: center;
+            vertical-align: middle;
+            padding: 1px 2px;
+        }
+        table.folha th { font-weight: bold; background-color: #e8eef8; padding: 2px 2px; line-height: 1.3; }
+        table.folha td { height: 14px; }
+        table.folha td.just { text-align: left; font-size: 7.5px; padding-left: 3px; }
+        table.folha th.just { text-align: left; }
+        .col-dia  { width: 22px; }
+        .col-sem  { width: 52px; }
+        .col-hora { width: 44px; }
+        .col-htrab { width: 44px; }
+        .col-hex   { width: 40px; }
+        .col-banco { width: 44px; }
+
+        tr.fim-semana td, tr.feriado td { background-color: #e8e8e8; }
+        td.feriado-text { color: #cc0000; font-weight: bold; font-size: 8px; }
+
+        /* ── RESUMO / INTERVALOS / OBSERVAÇÕES ──────────────── */
+        .bloco-inferior { width: 100%; border-collapse: separate; border-spacing: 3px 0; margin-bottom: 4px; }
+        .bloco-inferior > tbody > tr > td { vertical-align: top; padding: 0; border: 1px solid #000; }
+        .bi-esq  { width: 32%; }
+        .bi-ctr  { width: 36%; }
+        .bi-dir  { width: 32%; }
+        .bi-titulo {
+            background-color: #d0dff0;
+            font-weight: bold; font-size: 8.5px;
+            text-align: center; padding: 3px;
+            border-bottom: 1px solid #000;
+        }
+        .bi-corpo { padding: 4px 5px; }
+        .bi-linha { font-size: 8px; line-height: 1.7; display: block; }
+        .bi-label { font-weight: bold; }
+        .bi-valor { }
+        .conforme    { color: #2e7d32; font-weight: bold; font-family: 'DejaVu Sans', Arial, sans-serif; }
+        .nao-conforme { color: #cc0000; font-weight: bold; font-family: 'DejaVu Sans', Arial, sans-serif; }
+
+        /* ── ASSINATURAS ─────────────────────────────────────── */
+        .assinaturas { width: 100%; border-collapse: collapse; margin-bottom: 4px; }
+        .ass-bloco {
+            border: 1px solid #000;
+            padding: 6px 8px 10px 8px;
+            margin-top: 14px;
+            margin-bottom: 20px;
+        }
+        .ass-declaracao { font-size: 8.5px; margin-bottom: 4px; }
+        .ass-localdata { font-size: 8.5px; margin-bottom: 24px; }
+        .ass-linha-assinatura { width: 100%; border-collapse: collapse; }
+        .ass-coluna { width: 50%; vertical-align: top; text-align: center; padding: 0 10px; }
+        .ass-linha-nome {
+            border-top: 1px solid #000;
+            font-size: 8.5px;
+            font-weight: bold;
+            padding-top: 2px;
+        }
+        .ass-sub { font-size: 8px; }
+
+        /* ── RODAPÉ ──────────────────────────────────────────── */
+        .rodape-box {
+            position: fixed;
+            bottom: 22px; left: 0; right: 0;
+            margin: 0 16px;
+            border: 1px solid #000; padding: 4px 6px;
+            font-size: 7.5px; line-height: 1.5;
+            background-color: #fff;
         }
     </style>
 </head>
 <body>
 
-    {# ── CABEÇALHO ─────────────────────────────────────────── #}
-    <table class="cabecalho">
-        <tbody>
-            <tr>
-                <td class="col-esq">
-                    <div class="titulo-empresa">{{ nomeEmpresa }}</div>
-                    <div class="titulo-lista">LISTA DE FREQUÊNCIA DE {{ inicioMes }} A {{ fimMes }}</div>
-                    <table class="dados-trabalhador">
-                        <tbody>
-                            <tr>
-                                <td class="lbl">Trabalhador</td>
-                                <td class="sep">&nbsp;:&nbsp;</td>
-                                <td>{{ numeroTrabalhador }} {{ nomeUsuario }}</td>
-                            </tr>
-                            <tr>
-                                <td class="lbl">Cargo</td>
-                                <td class="sep">&nbsp;:&nbsp;</td>
-                                <td>{{ cargo }}</td>
-                            </tr>
-                            <tr>
-                                <td class="lbl">CTPS</td>
-                                <td class="sep">&nbsp;:&nbsp;</td>
-                                <td>{{ ctps }}</td>
-                            </tr>
-                            <tr>
-                                <td class="lbl">Série</td>
-                                <td class="sep">&nbsp;:&nbsp;</td>
-                                <td>{{ serie }}</td>
-                            </tr>
-                            <tr>
-                                <td class="lbl">Descr. Jornada</td>
-                                <td class="sep">&nbsp;:&nbsp;</td>
-                                <td>{{ descrJornada }}</td>
-                            </tr>
-                            <tr>
-                                <td class="lbl">Lotação</td>
-                                <td class="sep">&nbsp;:&nbsp;</td>
-                                <td>{{ lotacao }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </td>
-                <td class="col-dir">
-                    <div class="dir-cnpj">CNPJ : {{ cnpj }}</div>
-                    <div class="dir-nome">{{ nomeEmpresa }}</div>
-                    <div class="dir-end">
-                        {{ enderecoLinha1 }}{% if enderecoLinha2 %}<br>{{ enderecoLinha2 }}{% endif %}
+{# ── TÍTULO ──────────────────────────────────────────────────── #}
+<table class="titulo-bloco">
+    <tr><td class="titulo-principal">FOLHA DE PONTO &#8211; {{ '%02d'|format(mes) }}/{{ ano }}</td></tr>
+    <tr><td class="titulo-periodo">Per&#237;odo: {{ inicioMes }} a {{ fimMes }}</td></tr>
+</table>
+
+{# ── CABEÇALHO EMPRESA / REGIME DE JORNADA ───────────────────── #}
+<table class="cabecalho">
+    <tbody>
+        <tr>
+            <td class="cab-empresa">
+                <div class="empresa-nome">{{ nomeEmpresa }}</div>
+                <div class="empresa-linha">CNPJ: {{ cnpj }}</div>
+                <div class="empresa-linha">{{ enderecoLinha1 }}</div>
+                {% if enderecoLinha2 %}<div class="empresa-linha">{{ enderecoLinha2 }}</div>{% endif %}
+            </td>
+            <td class="cab-regime">
+                <div class="regime-box">
+                    <div class="regime-titulo">REGIME DE JORNADA</div>
+                    <div class="regime-corpo">
+                        <div class="regime-linha"><span class="regime-label">Jornada:</span> {{ jornadaSemanalTexto }}</div>
+                        <div class="regime-linha"><span class="regime-label">Distribui&#231;&#227;o:</span> {{ distribuicaoJornada }}</div>
+                        <div class="regime-linha"><span class="regime-label">Banco de Horas:</span> Sim (acordo individual)</div>
+                        <div class="regime-linha"><span class="regime-label">Intervalo Intrajornada:</span> {{ minimoRepousoTexto }} (m&#237;nimo)</div>
+                        <div class="regime-linha"><span class="regime-label">Intervalo Interjornada:</span> m&#237;nimo {{ minimoInterjornadaTexto }}</div>
                     </div>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+{# ── DADOS DO EMPREGADO ──────────────────────────────────────── #}
+<div class="secao-titulo">DADOS DO EMPREGADO</div>
+<table class="dados-emp">
+    <tbody>
+        <tr>
+            <td><span class="lbl">C&#243;digo:</span> {{ codigoFuncionario }}</td>
+            <td colspan="2"><span class="lbl">Nome:</span> {{ nomeUsuario }}</td>
+            <td><span class="lbl">CPF:</span> {{ cpf }}</td>
+        </tr>
+        <tr>
+            <td><span class="lbl">Cargo:</span> {{ cargo }}</td>
+            <td><span class="lbl">CTPS:</span> {{ ctps }}</td>
+            <td><span class="lbl">S&#233;rie:</span> {{ serie }}</td>
+            <td><span class="lbl">Lota&#231;&#227;o:</span> {{ lotacao }}</td>
+        </tr>
+        <tr>
+            <td><span class="lbl">Jornada Semanal:</span> {{ jornadaSemanal }}</td>
+            <td><span class="lbl">Hor&#225;rio Contratual:</span> {{ horarioContratual }}</td>
+            <td><span class="lbl">Intervalo:</span> {{ intervaloTexto }}</td>
+            <td><span class="lbl">Tipo de Ponto:</span> Eletr&#244;nico</td>
+        </tr>
+        <tr>
+            <td colspan="2"><span class="lbl">Escala:</span> {{ escalaDescricao }}</td>
+            <td colspan="2"><span class="lbl">Data de admiss&#227;o:</span> {{ dataAdmissao }}</td>
+        </tr>
+    </tbody>
+</table>
+
+{# ── TABELA PRINCIPAL ────────────────────────────────────────── #}
+<table class="folha">
+    <thead>
+        <tr>
+            <th rowspan="2" class="col-dia">Dia</th>
+            <th rowspan="2" class="col-sem">Dia da<br>Semana</th>
+            <th colspan="4">Hor&#225;rios Registrados</th>
+            <th rowspan="2" class="col-htrab">Horas<br>Trabalhadas</th>
+            <th rowspan="2" class="col-hex">Horas<br>Extras</th>
+            <th rowspan="2" class="col-banco">Banco de<br>Horas</th>
+            <th rowspan="2" class="just">Justificativa / Observa&#231;&#245;es</th>
+        </tr>
+        <tr>
+            <th class="col-hora">Entrada</th>
+            <th class="col-hora">In&#237;cio<br>Intervalo</th>
+            <th class="col-hora">Fim<br>Intervalo</th>
+            <th class="col-hora">Sa&#237;da</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for linha in folhaRows %}
+            {% set classeRow = linha.fimSemana ? 'fim-semana' : (linha.isFeriado ? 'feriado' : '') %}
+            <tr class="{{ classeRow }}">
+                <td>{{ '%02d'|format(linha.diaMes) }}</td>
+                <td>
+                    {%- if linha.isFeriado -%}
+                        <span style="color:#cc0000;font-weight:bold;">FERIADO</span>
+                    {%- else -%}
+                        {{ linha.diaSemana }}
+                    {%- endif -%}
+                </td>
+                {% if linha.isFeriado %}
+                    <td colspan="4" class="feriado-text">FERIADO</td>
+                {% else %}
+                    <td>{{ linha.entrada ? linha.entrada|slice(0,5) : '&#8211;' }}</td>
+                    <td>{{ linha.repouso ? linha.repouso|slice(0,5) : '&#8211;' }}</td>
+                    <td>{{ linha.retorno ? linha.retorno|slice(0,5) : '&#8211;' }}</td>
+                    <td>{{ linha.saida ? linha.saida|slice(0,5) : '&#8211;' }}</td>
+                {% endif %}
+                <td>{{ linha.horasTrabalhadas }}</td>
+                <td>{{ linha.horasExtras }}</td>
+                <td>{{ linha.bancoHoras }}</td>
+                <td class="just">
+                    {%- if linha.isFeriado and linha.nomeFeriado -%}
+                        Feriado &#8211; {{ linha.nomeFeriado }}
+                    {%- elseif linha.justificativa is defined and linha.justificativa is not null -%}
+                        {%- set j = linha.justificativa -%}
+                        {%- if j.status == 'abonado' -%}
+                            {{ j.labelTipo }}{% if j.abonoParcial and j.horaInicioAbono and j.horaFimAbono %} (Parcial: {{ j.horaInicioAbono|date('H:i') }}&#8211;{{ j.horaFimAbono|date('H:i') }}){% endif %}
+                        {%- elseif j.status == 'pendente' -%}
+                            {{ j.labelTipo }} (pendente)
+                        {%- endif -%}
+                    {%- endif -%}
                 </td>
             </tr>
-        </tbody>
-    </table>
+        {% endfor %}
+    </tbody>
+</table>
 
-    {# ── TABELA DE PONTO ───────────────────────────────────── #}
-    <table class="folha">
-        <thead>
-            <tr>
-                <th class="col-dia">Dia<br>Mês</th>
-                <th class="col-sem">Dia da<br>Semana</th>
-                <th class="col-hora">{{ horaEntrada }}<br>Entrada</th>
-                <th class="col-hora">{{ horaRepouso }}<br>Repouso</th>
-                <th class="col-hora">{{ horaRetorno }}<br>Retorno</th>
-                <th class="col-hora">{{ horaSaida }}<br>Saída</th>
-                <th class="th-ass">Justificativa</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for linha in folhaRows %}
-                {% set classeRow = linha.fimSemana ? 'fim-semana' : (linha.isFeriado ? 'feriado' : '') %}
-                <tr class="{{ classeRow }}">
-                    <td>{{ '%02d'|format(linha.diaMes) }}</td>
-                    <td>{{ linha.diaSemana }}</td>
-                    <td>{{ linha.entrada }}</td>
-                    <td>{{ linha.repouso }}</td>
-                    <td>{{ linha.retorno }}</td>
-                    <td>{{ linha.saida }}</td>
-                    <td class="td-ass">
-                        {% if linha.justificativa is defined and linha.justificativa is not null and linha.justificativa.status == 'abonado' %}
-                            {% set j = linha.justificativa %}
-                            {{ j.labelTipo }}{% if j.abonoParcial and j.horaInicioAbono and j.horaFimAbono %} (Parcial: {{ j.horaInicioAbono|date('H:i') }}–{{ j.horaFimAbono|date('H:i') }}){% endif %}
+{# ── RESUMO / INTERVALOS / OBSERVAÇÕES ──────────────────────── #}
+<table class="bloco-inferior">
+    <tbody>
+        <tr>
+            {# RESUMO DO MÊS #}
+            <td class="bi-esq">
+                <div class="bi-titulo">RESUMO DO M&#202;S</div>
+                <div class="bi-corpo">
+                    <span class="bi-linha"><span class="bi-label">Detalhe de Horas Trabalhadas no M&#234;s:</span> {{ totalHorasTrabalhadas }}</span>
+                    <span class="bi-linha"><span class="bi-label">Total de Horas Extras no M&#234;s:</span> {{ totalHorasExtras }}</span>
+                    <span class="bi-linha"><span class="bi-label">Saldo do Banco de Horas Anterior:</span> {{ saldoBancoAnterior }}</span>
+                    <span class="bi-linha"><span class="bi-label">Saldo do Banco de Horas Atual:</span> {{ saldoBancoAtual }}</span>
+                    <span class="bi-linha"><span class="bi-label">Horas a Compensar:</span> {{ horasACompensar }}</span>
+                </div>
+            </td>
+            {# CONTROLE DE INTERVALOS #}
+            <td class="bi-ctr">
+                <div class="bi-titulo">CONTROLE DE INTERVALOS</div>
+                <div class="bi-corpo">
+                    <span class="bi-linha">
+                        Intervalo Intrajornada (m&#237;n. {{ minimoRepousoTexto }}):
+                        {% if intrajornadaConforme %}
+                            <span class="conforme">&#10003; Conforme</span>
+                        {% else %}
+                            <span class="nao-conforme">&#10007; N&#227;o Conforme</span>
                         {% endif %}
-                    </td>
-                </tr>
-            {% endfor %}
-            {# linha em branco extra para folhas com menos de 31 dias, preservando layout #}
-            <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
-        </tbody>
-    </table>
+                    </span>
+                    <span class="bi-linha">
+                        Intervalo Interjornada (m&#237;n. {{ minimoInterjornadaTexto }}):
+                        {% if interjornadaConforme %}
+                            <span class="conforme">&#10003; Conforme</span>
+                        {% else %}
+                            <span class="nao-conforme">&#10007; N&#227;o Conforme</span>
+                        {% endif %}
+                    </span>
+                    <span class="bi-linha">
+                        Descanso Semanal Remunerado:
+                        <span class="conforme">&#10003; Conforme</span>
+                    </span>
+                    <span class="bi-linha"><span class="bi-label">Trabalho em Feriados:</span> {{ feriadosTrabalhados }} dia{{ feriadosTrabalhados != 1 ? 's' : '' }}</span>
+                    <span class="bi-linha"><span class="bi-label">Trabalho em Finais de Semana:</span> {{ finaisSemanasTrabalhados }} dia{{ finaisSemanasTrabalhados != 1 ? 's' : '' }}</span>
+                </div>
+            </td>
+            {# OBSERVAÇÕES GERAIS #}
+            <td class="bi-dir">
+                <div class="bi-titulo">OBSERVA&#199;&#213;ES GERAIS</div>
+                <div class="bi-corpo">
+                    <span class="bi-linha">&#8226; As horas extras foram autorizadas previamente pela gest&#227;o e ser&#227;o compensadas conforme acordo de banco de horas.</span>
+                    <span class="bi-linha">&#8226; Feriados trabalhados ser&#227;o compensados.</span>
+                    <span class="bi-linha">&#8226; Registros realizados por sistema eletr&#244;nico de ponto em conformidade com a Portaria MTP n&#186; 671/2021.</span>
+                </div>
+            </td>
+        </tr>
+    </tbody>
+</table>
 
-    <p class="rodape">Conforme a Portaria nº 3.626, Artigo 13 de 13/11/91, esta folha substitui o Quadro de Horário de Trabalho, inclusive o de menores.</p>
+{# ── ASSINATURAS ─────────────────────────────────────────────── #}
+<div class="ass-bloco">
+    <div class="ass-declaracao">
+        Declaro que os registros acima representam fielmente minha jornada de trabalho.
+    </div>
+    <div class="ass-localdata">
+        Local: ___________________________________&nbsp;&nbsp;&nbsp;&nbsp;
+        Data: ____/____/{{ anoAssinatura }}
+    </div>
+    <table class="ass-linha-assinatura">
+        <tr>
+            <td class="ass-coluna">
+                <div class="ass-linha-nome">Assinatura do Empregado</div>
+                <div class="ass-sub">{{ nomeUsuario }}</div>
+            </td>
+            <td class="ass-coluna">
+                <div class="ass-linha-nome">Assinatura do Respons&#225;vel</div>
+                <div class="ass-sub">{{ responsavelAssinatura }}</div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+{# ── RODAPÉ ──────────────────────────────────────────────────── #}
+<div class="rodape-box">
+    <strong>Base Legal:</strong> Art. 74, &#167;2&#186; da CLT &nbsp;|&nbsp; Portaria MTP n&#186; 671/2021 &nbsp;|&nbsp; Art. 13 da Portaria n&#186; 3.626/91<br>
+    (Esta folha de ponto substitui o Quadro de Hor&#225;rio de Trabalho, inclusive o de menores.)
+</div>
 
 </body>
 </html>
