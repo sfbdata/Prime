@@ -64,7 +64,7 @@
                                 <i class="bi bi-list"></i>
                             </button>
                             <a href="{{ path('expediente_index') }}" class="navtop-brand">
-                                <span class="navtop-brand-text"><span style="color:#E9571E">Jus</span>Prime</span>
+                                <span class="navtop-brand-text"><span style="color:#DC8467">Jus</span>Prime</span>
                             </a>
                             {# Separador + título da página atual #}
                             {% set pageTitle = '' %}
@@ -76,7 +76,7 @@
                             {% elseif currentRoute starts with 'pasta_' %}
                                 {% set pageTitle = 'Pastas' %}
                             {% elseif currentRoute starts with 'tarefa_' %}
-                                {% set pageTitle = 'Tarefas' %}
+                                {% set pageTitle = 'Metas' %}
                             {% elseif currentRoute starts with 'agenda_' %}
                                 {% set pageTitle = 'Agenda' %}
                             {% elseif currentRoute starts with 'servicedesk_' %}

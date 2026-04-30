@@ -178,7 +178,7 @@
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="tarefas-tab" data-bs-toggle="tab" data-bs-target="#tarefas" type="button" role="tab" aria-controls="tarefas" aria-selected="false">
-                                    <i class="bi bi-check2-square me-1"></i> Tarefas
+                                    <i class="bi bi-check2-square me-1"></i> Metas
                                     {% if pasta.tarefas|length > 0 %}
                                         <span class="badge text-bg-secondary ms-1">{{ pasta.tarefas|length }}</span>
                                     {% endif %}
@@ -605,7 +605,7 @@
                                 <div class="d-flex justify-content-end mb-3">
                                     <button type="button" class="btn btn-sm btn-primary"
                                             data-bs-toggle="modal" data-bs-target="#modalCriarTarefa">
-                                        <i class="bi bi-plus-lg me-1"></i>Criar Tarefa
+                                        <i class="bi bi-plus-lg me-1"></i>Criar Meta
                                     </button>
                                 </div>
 
@@ -650,7 +650,7 @@
                                 {% else %}
                                     <div class="text-center py-5 text-muted">
                                         <i class="bi bi-check2-square fs-1 d-block mb-2 opacity-25"></i>
-                                        <span class="small">Nenhuma tarefa criada para esta pasta.</span>
+                                        <span class="small">Nenhuma meta criada para esta pasta.</span>
                                     </div>
                                 {% endif %}
 
@@ -3688,7 +3688,7 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="modal-content">
             <div class="modal-header">
                 <h6 class="modal-title" id="modalCriarTarefaLabel">
-                    <i class="bi bi-list-task me-2"></i>Nova Tarefa
+                    <i class="bi bi-list-task me-2"></i>Nova Meta
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
@@ -3703,7 +3703,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <label for="tarefaTitulo" class="form-label form-label-sm fw-semibold">Título <span class="text-danger">*</span></label>
                         <input type="text" id="tarefaTitulo" name="titulo"
                                class="form-control form-control-sm" maxlength="255" required
-                               placeholder="Resumo objetivo da tarefa">
+                               placeholder="Resumo objetivo da meta">
                     </div>
 
                     <div class="mb-3">
@@ -3768,10 +3768,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Redireciona para a tarefa criada
                 window.location.href = '/tarefas/' + res.data.id;
             } else {
-                erroBox.textContent = res.data.erro || 'Erro ao criar tarefa.';
+                erroBox.textContent = res.data.erro || 'Erro ao criar meta.';
                 erroBox.classList.remove('d-none');
                 btn.disabled = false;
-                btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Tarefa';
+                btn.innerHTML = '<i class="bi bi-send me-1"></i>Criar Meta';
             }
         })
         .catch(function () {

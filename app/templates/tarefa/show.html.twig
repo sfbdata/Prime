@@ -1,6 +1,6 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Tarefa #{{ tarefa.id }}{% endblock %}
+{% block title %}Meta #{{ tarefa.id }}{% endblock %}
 
 {% set statusBadge = {
     'pendente':    'text-bg-secondary',
@@ -15,7 +15,7 @@
         <div class="row mb-2">
             <div class="col-sm-6">
                 <h1 class="m-0">
-                    <i class="bi bi-list-task me-2"></i>Tarefa #{{ tarefa.id }}
+                    <i class="bi bi-list-task me-2"></i>Meta #{{ tarefa.id }}
                 </h1>
             </div>
             <div class="col-sm-6">
@@ -24,7 +24,7 @@
                     <li class="breadcrumb-item">
                         <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}">{{ tarefa.pasta.nup }}</a>
                     </li>
-                    <li class="breadcrumb-item active">Tarefa</li>
+                    <li class="breadcrumb-item active">Meta</li>
                 </ol>
             </div>
         </div>
@@ -310,10 +310,10 @@
                         {% if tarefa.status != 'concluida' %}
                         <div class="mb-3">
                             <form method="post" action="{{ path('tarefa_concluir', {id: tarefa.id}) }}"
-                                  onsubmit="return confirm('Confirma a conclusão desta tarefa?');">
+                                  onsubmit="return confirm('Confirma a conclusão desta meta?');">
                                 <input type="hidden" name="_token" value="{{ csrf_token('concluir_tarefa_' ~ tarefa.id) }}">
                                 <button type="submit" class="btn btn-success btn-sm w-100">
-                                    <i class="bi bi-check2-circle me-1"></i>Concluir Tarefa
+                                    <i class="bi bi-check2-circle me-1"></i>Concluir Meta
                                 </button>
                             </form>
                         </div>
@@ -343,7 +343,7 @@
             <div class="modal-header border-bottom-0 pb-0">
                 <div>
                     <h5 class="modal-title fw-semibold mb-0" id="modalEditarResponsaveisLabel">
-                        <i class="bi bi-people-fill me-2 text-primary"></i>Responsáveis pela Tarefa
+                        <i class="bi bi-people-fill me-2 text-primary"></i>Responsáveis pela Meta
                     </h5>
                     <p class="text-muted small mb-0 mt-1">Pesquise e selecione os membros da equipe</p>
                 </div>
