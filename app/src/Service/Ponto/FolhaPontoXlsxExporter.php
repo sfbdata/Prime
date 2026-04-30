@@ -328,6 +328,8 @@ final class FolhaPontoXlsxExporter
                     }
                 } elseif ($j->getStatus() === 'pendente') {
                     $justText = ($j->getLabelTipo() ?? '') . ' (pendente)';
+                } else {
+                    $justText = ($j->getLabelTipo() ?? '') . ' (rejeitada)';
                 }
             }
             $sheet->setCellValue("J{$lin}", $justText);

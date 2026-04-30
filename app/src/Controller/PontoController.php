@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Ponto\JustificativaPonto;
+use App\Ponto\Enum\TipoJustificativa;
 use App\Entity\Ponto\RegistroPonto;
 use App\Service\Ponto\JornadaResolver;
 use App\Form\JustificativaPontoType;
@@ -138,8 +139,9 @@ final class PontoController extends AbstractController
             'pontoHoje' => $pontoHoje,
             'saldoMes' => $saldoMes,
             'jornadaInfo' => $jornadaInfo,
-            'justificativas' => $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado),
-            'justificativaForm' => $justificativaForm->createView(),
+            'justificativas'     => $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado),
+            'justificativaForm'  => $justificativaForm->createView(),
+            'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
         ]);
     }
 
@@ -300,8 +302,7 @@ final class PontoController extends AbstractController
             return $this->redirectToRoute('ponto_index');
         }
 
-        $tiposValidos = array_values(JustificativaPonto::TIPOS);
-        if ($tipo !== null && !in_array($tipo, $tiposValidos, true)) {
+        if ($tipo !== null && !in_array($tipo, TipoJustificativa::valores(), true)) {
             $tipo = null;
         }
 

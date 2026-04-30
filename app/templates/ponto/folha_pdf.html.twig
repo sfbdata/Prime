@@ -255,6 +255,8 @@
                             {{ j.labelTipo }}{% if j.abonoParcial and j.horaInicioAbono and j.horaFimAbono %} (Parcial: {{ j.horaInicioAbono|date('H:i') }}&#8211;{{ j.horaFimAbono|date('H:i') }}){% endif %}
                         {%- elseif j.status == 'pendente' -%}
                             {{ j.labelTipo }} (pendente)
+                        {%- else -%}
+                            {{ j.labelTipo }} (rejeitada)
                         {%- endif -%}
                     {%- endif -%}
                 </td>

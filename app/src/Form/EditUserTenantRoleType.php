@@ -9,6 +9,7 @@ use App\Entity\Tenant\TenantRole;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
+use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
@@ -52,6 +53,15 @@ class EditUserTenantRoleType extends AbstractType
                 'required'     => false,
                 'attr'         => ['class' => 'form-select'],
             ])
+            ->add('dataAdmissao', DateType::class, [
+                'label'    => 'Data de admissão',
+                'required' => false,
+                'mapped'   => false,
+                'widget'   => 'single_text',
+                'html5'    => true,
+                'data'     => $options['data_admissao'],
+                'attr'     => ['class' => 'form-control'],
+            ])
             ->add('isActive', CheckboxType::class, [
                 'label'    => 'Conta ativa',
                 'required' => false,
@@ -73,10 +83,12 @@ class EditUserTenantRoleType extends AbstractType
             'tenant_roles'    => [],
             'tenant_cargos'   => [],
             'tenant_lotacoes' => [],
+            'data_admissao'   => null,
         ]);
 
         $resolver->setAllowedTypes('tenant_roles',    ['array']);
         $resolver->setAllowedTypes('tenant_cargos',   ['array']);
         $resolver->setAllowedTypes('tenant_lotacoes', ['array']);
+        $resolver->setAllowedTypes('data_admissao',   ['null', \DateTimeInterface::class]);
     }
 }

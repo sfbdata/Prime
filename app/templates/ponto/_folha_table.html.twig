@@ -220,6 +220,9 @@
                                             <span class="badge text-bg-danger" title="{{ j.descricao }}">
                                                 <i class="bi bi-x-circle me-1"></i>Rejeitada
                                             </span>
+                                            {% if j.labelTipo %}
+                                                <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
+                                            {% endif %}
                                         {% endif %}
                                     {% endif %}
                                 </td>

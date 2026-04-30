@@ -113,7 +113,7 @@
                         <label class="form-label fw-semibold">Tipo</label>
                         <select name="tipo" id="editarJustificativaTipo" class="form-select">
                             <option value="">Selecione...</option>
-                            {% for label, valor in constant('App\\Entity\\Ponto\\JustificativaPonto::TIPOS') %}
+                            {% for label, valor in tiposJustificativa %}
                                 <option value="{{ valor }}">{{ label }}</option>
                             {% endfor %}
                         </select>

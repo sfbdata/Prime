@@ -4,11 +4,13 @@ namespace App\Controller;
 
 use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Ponto\JustificativaPonto;
+use App\Ponto\Enum\TipoJustificativa;
 use App\Entity\Ponto\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
 use App\Form\EditUserTenantRoleType;
+use App\Profile\Entity\UserProfile;
 use App\Form\RegistroPontoManualType;
 use App\Form\SedeType;
 use App\Form\TenantCargosLotacoesType;
@@ -464,6 +466,7 @@ final class TenantController extends AbstractController
             'tenant_roles'    => $tenantRoles,
             'tenant_cargos'   => $cargos,
             'tenant_lotacoes' => $lotacoes,
+            'data_admissao'   => $user->getProfile()?->getDataAdmissao(),
         ]);
         $form->handleRequest($request);
 
@@ -473,6 +476,13 @@ final class TenantController extends AbstractController
             if (is_string($newPassword) && trim($newPassword) !== '') {
                 $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
             }
+
+            $profile = $user->getProfile();
+            if ($profile === null) {
+                $profile = new UserProfile($user);
+                $entityManager->persist($profile);
+            }
+            $profile->setDataAdmissao($form->get('dataAdmissao')->getData());
 
             $entityManager->flush();
             $this->addFlash('success', 'Usuário atualizado com sucesso!');
@@ -540,7 +550,7 @@ final class TenantController extends AbstractController
             'anoCompetenciaPonto'    => $anoCompetenciaPonto,
             'jornadaInfo'            => $jornadaInfoUsuario,
             'justificativas'         => $justificativas,
-            'tiposJustificativa'     => JustificativaPonto::TIPOS,
+            'tiposJustificativa'     => TipoJustificativa::asPlanarChoices(),
             'comSegundos'            => $this->deveMostrarSegundosBatida(),
             'colegas'                => $colegas,
         ]);
@@ -1002,7 +1012,7 @@ final class TenantController extends AbstractController
             }
         }
 
-        if (!in_array($tipo, array_values(JustificativaPonto::TIPOS), true)) {
+        if (!in_array($tipo, TipoJustificativa::valores(), true)) {
             $this->addFlash('danger', 'Tipo de justificativa inválido.');
             return $redirect();
         }

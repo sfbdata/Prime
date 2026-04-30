@@ -2,7 +2,7 @@
 
 namespace App\Form;
 
-use App\Entity\Ponto\JustificativaPonto;
+use App\Ponto\Enum\TipoJustificativa;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -29,7 +29,7 @@ class JustificativaPontoType extends AbstractType
             ->add('tipo', ChoiceType::class, [
                 'label'       => 'Tipo de Justificativa',
                 'mapped'      => false,
-                'choices'     => JustificativaPonto::TIPOS,
+                'choices'     => TipoJustificativa::asGroupedChoices(),
                 'placeholder' => 'Selecione o tipo',
                 'constraints' => [
                     new NotBlank(message: 'Selecione o tipo de justificativa.'),

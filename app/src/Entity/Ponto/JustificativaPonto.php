@@ -3,22 +3,13 @@
 namespace App\Entity\Ponto;
 
 use App\Entity\Auth\User;
+use App\Ponto\Enum\TipoJustificativa;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Repository\Ponto\JustificativaPontoRepository::class)]
 #[ORM\Index(fields: ['batchId'], name: 'IDX_JUST_BATCH')]
 class JustificativaPonto
 {
-    public const TIPOS = [
-        'Atestado Médico'                           => 'atestado_medico',
-        'Acompanhamento'                            => 'acompanhamento',
-        'Doação de Sangue'                          => 'doacao_sangue',
-        'Casamento (Licença-gala)'                  => 'licenca_gala',
-        'Nascimento de Filho (Licença-paternidade)' => 'licenca_paternidade',
-        'Falecimento de Familiar'                   => 'falecimento_familiar',
-        'Comparecimento em Juízo'                   => 'comparecimento_juizo',
-        'Falta não justificada'                     => 'falta_nao_justificada',
-    ];
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
@@ -185,8 +176,8 @@ class JustificativaPonto
         if ($this->tipo === null) {
             return null;
         }
-        $flip = array_flip(self::TIPOS);
-        return $flip[$this->tipo] ?? $this->tipo;
+
+        return TipoJustificativa::tryFrom($this->tipo)?->label() ?? $this->tipo;
     }
 
     public function isAbonoParcial(): bool
