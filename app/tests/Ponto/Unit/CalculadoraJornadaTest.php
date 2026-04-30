@@ -3,10 +3,10 @@
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\BlocoEscalaUsuario;
+use App\Entity\Ponto\BlocoJornadaColaborador;
 use App\Entity\Ponto\BlocoJornada;
-use App\Entity\Ponto\EscalaTrabalho;
 use App\Entity\Ponto\Feriado;
+use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Ponto\RegistroPonto;
 use App\Service\Ponto\CalculadoraJornada;
@@ -26,12 +26,12 @@ class CalculadoraJornadaTest extends TestCase
     // Helpers
     // ──────────────────────────────────────────────────────────────────
 
-    private function novoUsuario(?EscalaTrabalho $escala = null): User
+    private function novoUsuario(?JornadaColaborador $jornada = null): User
     {
         $user = new User();
         $user->setEmail('teste@jusprime.com')->setFullName('Teste');
-        if ($escala !== null) {
-            $user->setEscalaTrabalho($escala);
+        if ($jornada !== null) {
+            $user->setJornadaColaborador($jornada);
         }
         return $user;
     }
@@ -71,50 +71,50 @@ class CalculadoraJornadaTest extends TestCase
 
     public function testSaldoPositivoComBlocosUsuario(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480); // meta: 8h
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:30'), // 9h30 = 570 min → saldo +90
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
 
         $this->assertSame(90, $saldo);
     }
 
     public function testSaldoNegativoComBlocosUsuario(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480);
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
             $this->batida(RegistroPonto::TIPO_SAIDA, '16:00'), // 7h = 420 min → saldo -60
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
 
         $this->assertSame(-60, $saldo);
     }
 
     public function testSaldoZeroComBlocosTenantFallback(): void
     {
-        $escala = new EscalaTrabalho(); // sem blocos
-        $user = $this->novoUsuario($escala);
+        $jornada = new JornadaColaborador(); // sem blocos
+        $user = $this->novoUsuario($jornada);
 
         $blocoTenant = new BlocoJornada();
         $blocoTenant->setDiasSemana([1, 2, 3, 4, 5]);
@@ -128,21 +128,21 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:00'), // 8h = 480 min → saldo 0
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, [], $jornadaTenant);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, [], $jornadaTenant);
 
         $this->assertSame(0, $saldo);
     }
 
     public function testBatidasComIntervaloAlmocoContamCorretamente(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480); // meta 8h
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         // 09:00–12:00 (3h) + 13:00–18:00 (5h) = 8h = 480 min
         $batidas = [
@@ -152,7 +152,7 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '18:00'),
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
 
         $this->assertSame(0, $saldo);
     }
@@ -163,14 +163,14 @@ class CalculadoraJornadaTest extends TestCase
 
     public function testFeriadoComBlocosRetornaZeroSemHorasExtras(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480);
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
         $feriados = [$this->feriadoEm('2026-04-20')];
 
         // Feriado: meta fica 0; bateu 8h → saldo +480
@@ -179,43 +179,43 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:00'),
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, $feriados);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, $feriados);
 
         $this->assertSame(480, $saldo, 'Em feriado a meta é 0, então horas trabalhadas viram saldo positivo');
     }
 
     public function testFeriadoSemBatidasRetornaZero(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480);
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
         $feriados = [$this->feriadoEm('2026-04-20')];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), [], $escala, $feriados);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), [], $jornada, $feriados);
 
         $this->assertSame(0, $saldo);
     }
 
     public function testFeriadoRecorrenteEhDetectado(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480);
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         // Feriado recorrente em 04-20 (dia do mês) → deve casar com 2026-04-20
         $feriados = [$this->feriadoEm('2025-04-20', true)];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), [], $escala, $feriados);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), [], $jornada, $feriados);
 
         $this->assertSame(0, $saldo);
     }
@@ -226,14 +226,14 @@ class CalculadoraJornadaTest extends TestCase
 
     public function testToleranciaAtraso4MinutosRetornaZero(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480); // meta 8h = 480 min
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         // 476 min trabalhados → saldo -4 (dentro da tolerância de 5 min)
         $batidas = [
@@ -241,21 +241,21 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '16:56'),
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
 
         $this->assertSame(0, $saldo);
     }
 
     public function testAtraso5MinutosDescontaExato(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480);
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         // 475 min trabalhados → saldo -5 (exatamente no limite: desconta)
         $batidas = [
@@ -263,28 +263,28 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '16:55'),
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
 
         $this->assertSame(-5, $saldo);
     }
 
     public function testHoraExtra1MinutoContabiliza(): void
     {
-        $bloco = new BlocoEscalaUsuario();
+        $bloco = new BlocoJornadaColaborador();
         $bloco->setDiasSemana([1, 2, 3, 4, 5]);
         $bloco->setMinutosBloco(480);
 
-        $escala = new EscalaTrabalho();
-        $escala->addBloco($bloco);
+        $jornada = new JornadaColaborador();
+        $jornada->addBloco($bloco);
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:01'), // +1 min
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
 
         $this->assertSame(1, $saldo);
     }
@@ -295,15 +295,15 @@ class CalculadoraJornadaTest extends TestCase
 
     public function testDomingoSemMetaRetornaCreditoPositivo(): void
     {
-        $escala = new EscalaTrabalho();
-        $user = $this->novoUsuario($escala);
+        $jornada = new JornadaColaborador();
+        $user = $this->novoUsuario($jornada);
 
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-26'),
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:00', '2026-04-26'),
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->domingo(), $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->domingo(), $batidas, $jornada, []);
 
         // Domingo não tem meta: 8h trabalhadas = +480 min de crédito
         $this->assertSame(480, $saldo);
@@ -315,26 +315,26 @@ class CalculadoraJornadaTest extends TestCase
 
     public function testRetrocompatibilidadeCamposPlanosDiaUtil(): void
     {
-        $escala = new EscalaTrabalho(); // sem blocos; padrão 480 min, seg–sex
-        $user = $this->novoUsuario($escala);
+        $jornada = new JornadaColaborador(); // sem blocos; padrão 480 min, seg–sex
+        $user = $this->novoUsuario($jornada);
 
         $batidas = [
             $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00'),
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:00'), // 480 min exatos → saldo 0
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $this->segunda(), $batidas, $jornada, []);
 
         $this->assertSame(0, $saldo);
     }
 
     public function testRetrocompatibilidadeCamposPlanosSabado(): void
     {
-        $escala = new EscalaTrabalho();
-        $escala->setDiasSemana([1, 2, 3, 4, 5, 6]);
-        $escala->setCargaHorariaSabado(240); // 4h no sábado
+        $jornada = new JornadaColaborador();
+        $jornada->setDiasSemana([1, 2, 3, 4, 5, 6]);
+        $jornada->setCargaHorariaSabado(240); // 4h no sábado
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         $sabado = new \DateTimeImmutable('2026-04-25');
         $batidas = [
@@ -342,17 +342,17 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '13:00', '2026-04-25'), // 240 min → saldo 0
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $sabado, $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $sabado, $batidas, $jornada, []);
 
         $this->assertSame(0, $saldo);
     }
 
     public function testRetrocompatibilidadeDiaForaDaEscalaRetornaCreditoPositivo(): void
     {
-        $escala = new EscalaTrabalho();
-        $escala->setDiasSemana([1, 2, 3, 4]); // sem sexta
+        $jornada = new JornadaColaborador();
+        $jornada->setDiasSemana([1, 2, 3, 4]); // sem sexta
 
-        $user = $this->novoUsuario($escala);
+        $user = $this->novoUsuario($jornada);
 
         $sexta = new \DateTimeImmutable('2026-04-24');
         $batidas = [
@@ -360,7 +360,7 @@ class CalculadoraJornadaTest extends TestCase
             $this->batida(RegistroPonto::TIPO_SAIDA, '17:00', '2026-04-24'),
         ];
 
-        $saldo = $this->calculadora->calcularSaldoDia($user, $sexta, $batidas, $escala, []);
+        $saldo = $this->calculadora->calcularSaldoDia($user, $sexta, $batidas, $jornada, []);
 
         // Dia fora da escala não tem meta: 8h trabalhadas = +480 min de crédito
         $this->assertSame(480, $saldo);
