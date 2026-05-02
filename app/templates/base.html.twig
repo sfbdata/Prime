@@ -64,7 +64,7 @@
                                 <i class="bi bi-list"></i>
                             </button>
                             <a href="{{ path('expediente_index') }}" class="navtop-brand">
-                                <span class="navtop-brand-text"><span style="color:#DC8467">Jus</span>Prime</span>
+                                <span class="navtop-brand-text"><span style="color:#EA8A52">Jus</span>Prime</span>
                             </a>
                             {# Separador + título da página atual #}
                             {% set pageTitle = '' %}
@@ -147,6 +147,14 @@
                                 </div>
                             </div>
 
+                            {# Instalar App #}
+                            <button type="button" id="btnInstalarApp"
+                                    class="navtop-action-btn"
+                                    aria-label="Instalar aplicativo"
+                                    style="display:none; background:none; border:none; cursor:pointer;">
+                                <i class="bi bi-download"></i>
+                            </button>
+
                             {# Fullscreen #}
                             <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
                                aria-label="Tela cheia">
@@ -199,6 +207,15 @@
                                         <a href="{{ path('app_profile') }}" class="dropdown-item d-flex align-items-center gap-2">
                                             <i class="bi bi-person"></i> Meu Perfil
                                         </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider my-0"></li>
+                                    <li>
+                                        <button type="button" id="linkInstalarApp"
+                                                class="dropdown-item d-flex align-items-center gap-2"
+                                                style="background:none; border:none; width:100%; text-align:left;">
+                                            <i class="bi bi-download"></i>
+                                            <span id="linkInstalarAppTexto">Instalar aplicativo</span>
+                                        </button>
                                     </li>
                                     <li><hr class="dropdown-divider my-0"></li>
                                     <li>
@@ -319,6 +336,87 @@
                 }
             });
         </script>
+        {# Modal de instalação para iOS #}
+        <div class="modal fade" id="modalInstalarIOS" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-phone me-2"></i>Instalar JusPrime
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-3">Para instalar o JusPrime no seu iPhone ou iPad:</p>
+                        <ol class="mb-0">
+                            <li class="mb-2">Toque no botão <strong>Compartilhar</strong> <i class="bi bi-box-arrow-up"></i> na barra do Safari</li>
+                            <li class="mb-2">Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong></li>
+                            <li>Toque em <strong>Adicionar</strong> para confirmar</li>
+                        </ol>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            (function () {
+                const btnHeader   = document.getElementById('btnInstalarApp');
+                const linkDropdown = document.getElementById('linkInstalarApp');
+                const textoDropdown = document.getElementById('linkInstalarAppTexto');
+
+                const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+                    || window.navigator.standalone === true;
+
+                const isIOS    = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+                let deferredPrompt = null;
+
+                function marcarInstalado() {
+                    if (btnHeader)    btnHeader.style.display = 'none';
+                    if (textoDropdown) textoDropdown.textContent = 'App já instalado ✓';
+                    if (linkDropdown)  linkDropdown.classList.add('text-muted');
+                    deferredPrompt = null;
+                }
+
+                function executarInstalacao() {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        deferredPrompt.userChoice.then(function (result) {
+                            if (result.outcome === 'accepted') marcarInstalado();
+                            else deferredPrompt = null;
+                        });
+                        return;
+                    }
+                    if (isIOS && isSafari) {
+                        new bootstrap.Modal(document.getElementById('modalInstalarIOS')).show();
+                        return;
+                    }
+                    if (isStandalone) marcarInstalado();
+                }
+
+                if (isStandalone) {
+                    marcarInstalado();
+                } else if (isIOS && isSafari) {
+                    if (btnHeader) btnHeader.style.display = '';
+                }
+
+                window.addEventListener('beforeinstallprompt', function (e) {
+                    e.preventDefault();
+                    deferredPrompt = e;
+                    if (btnHeader) btnHeader.style.display = '';
+                });
+
+                window.addEventListener('appinstalled', marcarInstalado);
+
+                if (btnHeader)    btnHeader.addEventListener('click', executarInstalacao);
+                if (linkDropdown) linkDropdown.addEventListener('click', executarInstalacao);
+            })();
+        </script>
+
         {% block javascripts %}{% endblock %}
         {#
             SCRIPT CONFLITANTE REMOVIDO.
