@@ -115,7 +115,7 @@
                     <th class="sortable col-acao-tabela" data-col="2"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="3" style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-resp-tabela" data-col="4"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Tarefas</th>
+                    <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Metas</th>
                     <th class="sortable col-data-tabela" data-col="6" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-marc-tabela" data-col="7"><i class="bi bi-tags me-1"></i>Marcadores <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="8" style="width:90px"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
@@ -377,6 +377,7 @@
     font-size: 0.85rem;
     padding: 8px 8px;
     border-bottom: 1px solid #f0f0f0;
+    text-transform: uppercase;
 }
 #tabelaPastas tbody tr:last-child td { border-bottom: none; }
 #tabelaPastas tbody tr:hover { background: #f8f9ff; }
@@ -387,6 +388,8 @@
 .sortable.asc .sort-icon, .sortable.desc .sort-icon { opacity: 1; color: #0d6efd; }
 .sortable.asc .sort-icon::before { content: "\F148"; }
 .sortable.desc .sort-icon::before { content: "\F128"; }
+
+.col-tarefas-tabela { padding-left: 6px !important; padding-right: 6px !important; }
 
 /* Ocultar colunas secundárias em telas médias */
 @media (max-width: 1100px) {
@@ -432,6 +435,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
+    text-transform: uppercase;
 }
 
 .pasta-card-body {
@@ -464,6 +468,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-transform: uppercase;
 }
 
 .pasta-card-meta {
