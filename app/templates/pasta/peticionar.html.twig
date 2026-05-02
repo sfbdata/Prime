@@ -1,0 +1,405 @@
+{% extends 'layout_peticionar.html.twig' %}
+
+{% set pastaInfoNup = pasta.nup %}
+{% set pastaInfoCliente = nomeCliente %}
+
+{% block title %}Peticionar — {{ pasta.nup }}{% endblock %}
+
+{% block content %}
+
+{% set categoriaCorMap = {
+    'PECA':                    'text-bg-primary',
+    'PROCURACAO':              'text-bg-success',
+    'IDENTIFICACAO':           'text-bg-info',
+    'COMPROVANTE_RESIDENCIA':  'text-bg-warning',
+    'GRATUIDADE_JUSTICA':      'text-bg-secondary',
+    'DEMAIS':                  'text-bg-secondary',
+    'CONTRATO':                'text-bg-dark',
+} %}
+
+<div class="petic-layout">
+
+    {# ──────────────────────────────────────────────────────────
+       PAINEL ESQUERDO — Timeline
+       ────────────────────────────────────────────────────────── #}
+    <div class="petic-timeline">
+
+        <div class="petic-timeline-header">
+            <span class="petic-timeline-header-title">
+                <i class="bi bi-clock-history text-primary"></i>
+                Documentos
+                <span class="badge text-bg-secondary rounded-pill">{{ documentos|length }}</span>
+            </span>
+        </div>
+
+        <div class="petic-timeline-list" id="timelineList">
+            {% for doc in documentos %}
+
+                {% set catLabel = categoriaLabels[doc.categoria] ?? doc.categoria %}
+                {% set catCor   = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary' %}
+
+                <div class="petic-timeline-item"
+                     style="animation-delay: {{ loop.index0 * 45 }}ms"
+                     data-view-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
+                     data-download-url="{{ path('pasta_documento_download', {id: doc.id}) }}"
+                     data-mime-type="{{ doc.mimeType }}"
+                     data-titulo="{{ doc.titulo|e('html_attr') }}">
+                    <span class="petic-item-date">
+                        <i class="bi bi-calendar3 me-1"></i>{{ doc.uploadedAt|date('d/m/Y') }}
+                        <span class="ms-1 text-muted">{{ doc.uploadedAt|date('H:i') }}</span>
+                    </span>
+                    <span class="petic-item-titulo">{{ doc.titulo }}</span>
+                    <span>
+                        <span class="badge {{ catCor }} petic-item-cat">{{ catLabel }}</span>
+                    </span>
+                </div>
+
+                {% if not loop.last %}
+                    <div class="petic-item-sep"></div>
+                {% endif %}
+
+            {% else %}
+
+                <div class="petic-vazio">
+                    <i class="bi bi-folder2-open d-block mb-2" style="font-size:2rem;opacity:0.4;"></i>
+                    Nenhum documento na pasta.
+                </div>
+
+            {% endfor %}
+        </div>
+
+        <div class="petic-timeline-footer">
+            <button type="button"
+                    class="btn btn-primary w-100"
+                    id="btnAbrirUpload">
+                <i class="bi bi-file-earmark-plus me-1"></i> Adicionar Peça
+            </button>
+        </div>
+
+    </div>
+
+    {# ──────────────────────────────────────────────────────────
+       PAINEL DIREITO — Preview
+       ────────────────────────────────────────────────────────── #}
+    <div class="petic-preview" id="previewPanel">
+
+        <div class="petic-preview-placeholder" id="previewPlaceholder">
+            <i class="bi bi-file-earmark-text"></i>
+            <p>Selecione um documento na lista para visualizar</p>
+        </div>
+
+        <iframe id="previewIframe"
+                src=""
+                title="Visualizador de documento"
+                allowfullscreen></iframe>
+
+        <img id="previewImagem" src="" alt="" style="display:none; max-width:100%; max-height:100%; object-fit:contain;">
+
+        <audio id="previewAudio" controls style="display:none; width:80%; max-width:520px;">
+            <source id="previewAudioSrc" src="" type="">
+        </audio>
+
+        <video id="previewVideo" controls style="display:none; max-width:100%; max-height:100%;">
+            <source id="previewVideoSrc" src="" type="">
+        </video>
+
+        <div class="petic-download-panel" id="downloadPanel">
+            <i class="bi bi-file-earmark-arrow-down"></i>
+            <p class="text-muted mb-3 fs-6" id="downloadFileName"></p>
+            <a id="downloadLink" href="#" class="btn btn-outline-primary" download>
+                <i class="bi bi-download me-1"></i> Baixar arquivo
+            </a>
+        </div>
+
+    </div>
+</div>
+
+{# ────────────────────────────────────────────────────────────────
+   MODAL UPLOAD
+   ──────────────────────────────────────────────────────────────── #}
+<div class="petic-modal-overlay" id="modalUploadOverlay" role="dialog" aria-modal="true" aria-labelledby="modalUploadTitulo">
+    <div class="petic-modal">
+
+        <div class="petic-modal-title">
+            <span id="modalUploadTitulo"><i class="bi bi-file-earmark-plus me-2"></i> Adicionar Peça</span>
+            <button type="button" class="btn-close" id="btnFecharModal" aria-label="Fechar"></button>
+        </div>
+
+        <form id="formUpload" novalidate>
+
+            <div class="mb-3">
+                <label for="uploadArquivo" class="form-label fw-semibold">
+                    Arquivo <span class="text-danger">*</span>
+                </label>
+                <input type="file"
+                       class="form-control"
+                       id="uploadArquivo"
+                       name="arquivo"
+                       accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.xml,.kml"
+                       required>
+                <div class="form-text text-muted">PDF até 10 MB · Imagens até 3 MB · DOC/XLS até 10 MB</div>
+            </div>
+
+            <div class="mb-3">
+                <label for="uploadCategoria" class="form-label fw-semibold">Categoria</label>
+                <select class="form-select" id="uploadCategoria" name="categoria">
+                    {% for valor, rotulo in categoriaLabels %}
+                        <option value="{{ valor }}" {{ valor == 'PECA' ? 'selected' : '' }}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label for="uploadDescricao" class="form-label fw-semibold">Descrição <span class="text-muted fw-normal">(opcional)</span></label>
+                <textarea class="form-control" id="uploadDescricao" name="descricao" rows="2"
+                          maxlength="500" placeholder="Descreva brevemente o documento…"></textarea>
+            </div>
+
+            <div class="mb-4">
+                <label for="uploadNumero" class="form-label fw-semibold">Número <span class="text-muted fw-normal">(opcional)</span></label>
+                <input type="text" class="form-control" id="uploadNumero" name="numero"
+                       maxlength="100" placeholder="Ex.: 001/2026">
+            </div>
+
+            <div id="uploadErro" class="alert alert-danger py-2 d-none" role="alert"></div>
+
+            <div class="d-flex gap-2 justify-content-end">
+                <button type="button" class="btn btn-secondary" id="btnCancelarUpload">Cancelar</button>
+                <button type="submit" class="btn btn-primary d-flex align-items-center gap-2" id="btnEnviar">
+                    <span class="petic-spinner" id="uploadSpinner"></span>
+                    <i class="bi bi-upload" id="uploadIcon"></i>
+                    Enviar
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascripts %}
+<script>
+(function () {
+    'use strict';
+
+    const uploadUrl  = {{ path('pasta_peticionar_upload', {id: pasta.id})|json_encode|raw }};
+    const csrfToken  = {{ csrfToken|json_encode|raw }};
+
+    // ── Elementos ────────────────────────────────────────────────────────────
+
+    const placeholder   = document.getElementById('previewPlaceholder');
+    const iframe        = document.getElementById('previewIframe');
+    const imgPreview    = document.getElementById('previewImagem');
+    const audioEl       = document.getElementById('previewAudio');
+    const audioSrc      = document.getElementById('previewAudioSrc');
+    const videoEl       = document.getElementById('previewVideo');
+    const videoSrc      = document.getElementById('previewVideoSrc');
+    const dlPanel       = document.getElementById('downloadPanel');
+    const dlLink        = document.getElementById('downloadLink');
+    const dlFileName    = document.getElementById('downloadFileName');
+    const timelineList  = document.getElementById('timelineList');
+
+    const modalOverlay   = document.getElementById('modalUploadOverlay');
+    const btnAbrirUpload = document.getElementById('btnAbrirUpload');
+    const btnFechar      = document.getElementById('btnFecharModal');
+    const btnCancelar    = document.getElementById('btnCancelarUpload');
+    const formUpload     = document.getElementById('formUpload');
+    const uploadErro     = document.getElementById('uploadErro');
+    const uploadSpinner  = document.getElementById('uploadSpinner');
+    const uploadIcon     = document.getElementById('uploadIcon');
+    const btnEnviar      = document.getElementById('btnEnviar');
+
+    // ── Timeline — selecionar documento ──────────────────────────────────────
+
+    function ocultarTodosPaineis() {
+        placeholder.style.display  = 'none';
+        iframe.style.display       = 'none';
+        iframe.src                 = '';
+        imgPreview.style.display   = 'none';
+        imgPreview.src             = '';
+        audioEl.style.display      = 'none';
+        audioEl.pause();
+        audioSrc.src               = '';
+        audioSrc.type              = '';
+        videoEl.style.display      = 'none';
+        videoEl.pause();
+        videoSrc.src               = '';
+        videoSrc.type              = '';
+        dlPanel.style.display      = 'none';
+    }
+
+    function selecionarItem(item) {
+        document.querySelectorAll('.petic-timeline-item').forEach(el => el.classList.remove('ativo'));
+        item.classList.add('ativo');
+
+        const mime    = item.dataset.mimeType ?? '';
+        const viewUrl = item.dataset.viewUrl;
+        const dlUrl   = item.dataset.downloadUrl;
+        const titulo  = item.dataset.titulo;
+
+        ocultarTodosPaineis();
+
+        if (mime === 'application/pdf') {
+            iframe.src           = viewUrl;
+            iframe.style.display = 'block';
+        } else if (mime === 'image/jpeg' || mime === 'image/png') {
+            imgPreview.src           = viewUrl;
+            imgPreview.alt           = titulo;
+            imgPreview.style.display = 'block';
+        } else if (mime.startsWith('audio/')) {
+            audioSrc.src             = viewUrl;
+            audioSrc.type            = mime;
+            audioEl.load();
+            audioEl.style.display    = 'block';
+        } else if (mime.startsWith('video/')) {
+            videoSrc.src             = viewUrl;
+            videoSrc.type            = mime;
+            videoEl.load();
+            videoEl.style.display    = 'block';
+        } else {
+            dlFileName.textContent = titulo;
+            dlLink.href            = dlUrl;
+            dlPanel.style.display  = 'flex';
+        }
+    }
+
+    timelineList.addEventListener('click', function (e) {
+        const item = e.target.closest('.petic-timeline-item');
+        if (item) selecionarItem(item);
+    });
+
+    // Seleciona o primeiro item automaticamente
+    const primeiroItem = timelineList.querySelector('.petic-timeline-item');
+    if (primeiroItem) selecionarItem(primeiroItem);
+
+    // ── Modal upload ──────────────────────────────────────────────────────────
+
+    function abrirModal() {
+        formUpload.reset();
+        uploadErro.classList.add('d-none');
+        modalOverlay.classList.add('aberto');
+        document.getElementById('uploadArquivo').focus();
+    }
+
+    function fecharModal() {
+        modalOverlay.classList.remove('aberto');
+    }
+
+    btnAbrirUpload.addEventListener('click', abrirModal);
+    btnFechar.addEventListener('click', fecharModal);
+    btnCancelar.addEventListener('click', fecharModal);
+
+    modalOverlay.addEventListener('click', function (e) {
+        if (e.target === modalOverlay) fecharModal();
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') fecharModal();
+    });
+
+    // ── Upload via fetch ──────────────────────────────────────────────────────
+
+    const categoriaLabels = {{ categoriaLabels|json_encode|raw }};
+
+    const categoriaCorMap = {
+        'PECA':                   'text-bg-primary',
+        'PROCURACAO':             'text-bg-success',
+        'IDENTIFICACAO':          'text-bg-info',
+        'COMPROVANTE_RESIDENCIA': 'text-bg-warning',
+        'GRATUIDADE_JUSTICA':     'text-bg-secondary',
+        'DEMAIS':                 'text-bg-secondary',
+        'CONTRATO':               'text-bg-dark',
+    };
+
+    function setCarregando(sim) {
+        btnEnviar.disabled      = sim;
+        uploadSpinner.style.display = sim ? 'block' : 'none';
+        uploadIcon.style.display    = sim ? 'none' : '';
+    }
+
+    function injetarItemTimeline(doc) {
+        // Remove mensagem "nenhum documento" se existir
+        const vazio = timelineList.querySelector('.petic-vazio');
+        if (vazio) vazio.remove();
+
+        // Separador antes do novo item (se já houver itens)
+        const existentes = timelineList.querySelectorAll('.petic-timeline-item');
+        if (existentes.length > 0) {
+            const sep = document.createElement('div');
+            sep.className = 'petic-item-sep';
+            timelineList.appendChild(sep);
+        }
+
+        const catLabel = categoriaLabels[doc.categoria] ?? doc.categoria;
+        const catCor   = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary';
+
+        const item = document.createElement('div');
+        item.className       = 'petic-timeline-item';
+        item.dataset.viewUrl     = doc.viewUrl;
+        item.dataset.downloadUrl = doc.downloadUrl;
+        item.dataset.mimeType    = doc.mimeType;
+        item.dataset.titulo      = doc.titulo;
+        item.innerHTML = `
+            <span class="petic-item-date">
+                <i class="bi bi-calendar3 me-1"></i>${doc.uploadedAt}
+            </span>
+            <span class="petic-item-titulo">${escHtml(doc.titulo)}</span>
+            <span><span class="badge ${catCor} petic-item-cat">${escHtml(catLabel)}</span></span>
+        `;
+        timelineList.appendChild(item);
+
+        // Atualiza badge de contagem
+        const badge = document.querySelector('.petic-timeline-header-title .badge');
+        if (badge) badge.textContent = timelineList.querySelectorAll('.petic-timeline-item').length;
+
+        // Seleciona o item recém-adicionado
+        selecionarItem(item);
+    }
+
+    function escHtml(str) {
+        const d = document.createElement('div');
+        d.appendChild(document.createTextNode(str));
+        return d.innerHTML;
+    }
+
+    formUpload.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const fileInput = document.getElementById('uploadArquivo');
+        if (!fileInput.files.length) {
+            uploadErro.textContent = 'Selecione um arquivo antes de enviar.';
+            uploadErro.classList.remove('d-none');
+            return;
+        }
+
+        uploadErro.classList.add('d-none');
+        setCarregando(true);
+
+        const fd = new FormData(formUpload);
+        fd.set('_token', csrfToken);
+
+        try {
+            const resp = await fetch(uploadUrl, { method: 'POST', body: fd });
+            const data = await resp.json();
+
+            if (!data.success) {
+                uploadErro.textContent = data.error ?? 'Erro ao enviar o arquivo.';
+                uploadErro.classList.remove('d-none');
+                return;
+            }
+
+            fecharModal();
+            injetarItemTimeline(data.documento);
+
+        } catch (err) {
+            uploadErro.textContent = 'Erro de comunicação. Tente novamente.';
+            uploadErro.classList.remove('d-none');
+        } finally {
+            setCarregando(false);
+        }
+    });
+
+}());
+</script>
+{% endblock %}
