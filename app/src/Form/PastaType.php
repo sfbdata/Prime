@@ -9,7 +9,6 @@ use App\Processo\Entity\Processo;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
-use Symfony\Component\Form\Extension\Core\Type\CollectionType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -51,13 +50,7 @@ class PastaType extends AbstractType
                     return $cliente->getRazaoSocial() ?? $cliente->getEmail();
                 },
             ])
-            ->add('partesContrarias', CollectionType::class, [
-                'label' => 'Partes Contrárias',
-                'entry_type' => ParteContrariaType::class,
-                'allow_add' => true,
-                'allow_delete' => true,
-                'by_reference' => false,
-            ]);
+        ;
     }
 
     public function configureOptions(OptionsResolver $resolver): void

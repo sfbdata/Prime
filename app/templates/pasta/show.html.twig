@@ -185,15 +185,6 @@
                                 </button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="partes-tab" data-bs-toggle="tab" data-bs-target="#partes" type="button" role="tab" aria-controls="partes" aria-selected="false">
-                                    <i class="bi bi-people me-1"></i> Partes
-                                    {% set totalPartes = pasta.clientes|length + pasta.partesContrarias|length %}
-                                    {% if totalPartes > 0 %}
-                                        <span class="badge text-bg-secondary ms-1">{{ totalPartes }}</span>
-                                    {% endif %}
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="processo-tab" data-bs-toggle="tab" data-bs-target="#processo" type="button" role="tab" aria-controls="processo" aria-selected="false">
                                     <i class="bi bi-briefcase me-1"></i> Processo
                                 </button>
@@ -255,20 +246,12 @@
                                     </div>
                                 </div>
 
-                                {% include 'pasta/_timeline.html.twig' with {timelineItems: timelineItems, pasta: pasta} only %}
-
-                            </div>
-
-                            {# Tab: Partes #}
-                            <div class="tab-pane fade" id="partes" role="tabpanel" aria-labelledby="partes-tab">
-                                <div class="row g-4">
-
-                                    {# ── Clientes ── #}
-                                    <div class="col-12 col-md-6">
-                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="mb-0"><i class="bi bi-people me-1"></i> Clientes</h6>
+                                <div class="row mb-3 g-3">
+                                    <div class="col-12 col-md-6 col-lg-4">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <p class="text-sm text-muted mb-0"><i class="bi bi-people me-1"></i> Clientes</p>
                                             <button type="button"
-                                                    class="btn btn-sm btn-outline-primary"
+                                                    class="btn btn-xs btn-outline-primary"
                                                     title="Adicionar cliente"
                                                     data-bs-toggle="modal"
                                                     data-bs-target="#modalAdicionarCliente">
@@ -426,42 +409,10 @@
                                             {% endif %}
                                         </div>
                                     </div>
-
-                                    {# ── Partes Contrárias ── #}
-                                    <div class="col-md-6">
-                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="mb-0"><i class="bi bi-person-x me-1"></i> Partes Contrárias</h6>
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-primary"
-                                                    title="Adicionar parte contrária"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#modalAdicionarParteContraria">
-                                                <i class="bi bi-plus-lg"></i>
-                                            </button>
-                                        </div>
-                                        <div id="partesContrariasList">
-                                            {% if pasta.partesContrarias|length > 0 %}
-                                                {% for parte in pasta.partesContrarias %}
-                                                    <div class="parte-contraria-row d-flex align-items-center justify-content-between gap-2 mb-3 pb-3 border-bottom" data-parte-contraria-id="{{ parte.id }}">
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <i class="bi bi-person-dash text-muted"></i>
-                                                            <span>{{ parte.nome }}</span>
-                                                        </div>
-                                                        <form method="post" action="{{ path('pasta_parte_contraria_desvincular', {id: pasta.id, parteContraria: parte.id}) }}" class="js-ajax-desvincular-parte-contraria m-0">
-                                                            <input type="hidden" name="_token" value="{{ csrf_token('pasta_parte_contraria_desvincular_' ~ pasta.id ~ '_' ~ parte.id) }}">
-                                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular parte contrária da pasta">
-                                                                <i class="bi bi-trash"></i>
-                                                            </button>
-                                                        </form>
-                                                    </div>
-                                                {% endfor %}
-                                            {% else %}
-                                                <div id="partesContrariasPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte contrária registrada.</div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-
                                 </div>
+
+                                {% include 'pasta/_timeline.html.twig' with {timelineItems: timelineItems, pasta: pasta} only %}
+
                             </div>
 
                             {# Tab: Processo #}
@@ -552,6 +503,13 @@
                                         <a href="{{ path('processo_show', {id: pasta.processo.id}) }}" class="btn btn-sm btn-outline-primary">
                                             <i class="bi bi-box-arrow-up-right me-1"></i> Ver processo completo
                                         </a>
+                                        <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
+                                           target="_blank"
+                                           rel="noopener"
+                                           class="btn btn-sm btn-primary"
+                                           title="Peticionar na Pasta">
+                                            <i class="bi bi-file-earmark-plus me-1"></i> Peticionar na Pasta
+                                        </a>
                                         <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0">
                                             <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
                                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular processo da pasta">
@@ -569,12 +527,21 @@
                                                 Nenhum processo judicial vinculado a esta pasta.
                                             {% endif %}
                                         </p>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-primary"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#modalVincularProcesso">
-                                            <i class="bi bi-plus-lg me-1"></i> Vincular Processo
-                                        </button>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button type="button"
+                                                    class="btn btn-sm btn-outline-primary"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#modalVincularProcesso">
+                                                <i class="bi bi-plus-lg me-1"></i> Vincular Processo
+                                            </button>
+                                            <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
+                                               target="_blank"
+                                               rel="noopener"
+                                               class="btn btn-sm btn-primary"
+                                               title="Peticionar na Pasta">
+                                                <i class="bi bi-file-earmark-plus me-1"></i> Peticionar na Pasta
+                                            </a>
+                                        </div>
                                     </div>
                                 {% endif %}
                                 </div><!-- /processoTabContent -->
@@ -1427,7 +1394,6 @@
     const pastaId                 = '{{ pasta.id }}';
     const csrfDesvincularProcesso = '{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}';
     const clientesContainer       = document.getElementById('clientesList');
-    const partesContainer         = document.getElementById('partesContrariasList');
 
     /** @type {Array<{id: number, nome: string, documento: string, tipo: string}>} */
     let clientesSelecionados = [];
@@ -1579,79 +1545,6 @@
         }
     }
 
-    function criarParteContrariaRow(parte) {
-        const row = document.createElement('div');
-        row.className = 'parte-contraria-row d-flex align-items-center justify-content-between gap-2 mb-3 pb-3 border-bottom';
-        row.dataset.parteContrariaId = parte.id;
-
-        const label = document.createElement('div');
-        label.className = 'd-flex align-items-center gap-2';
-
-        const icon = document.createElement('i');
-        icon.className = 'bi bi-person-dash text-muted';
-
-        const nomeSpan = document.createElement('span');
-        nomeSpan.textContent = parte.nome;
-
-        label.appendChild(icon);
-        label.appendChild(nomeSpan);
-
-        const form = document.createElement('form');
-        form.method = 'post';
-        form.action = `/pasta/${pastaId}/parte-contraria/${parte.id}/desvincular`;
-        form.className = 'js-ajax-desvincular-parte-contraria m-0';
-
-        const tokenInput = document.createElement('input');
-        tokenInput.type = 'hidden';
-        tokenInput.name = '_token';
-        tokenInput.value = parte.csrfToken;
-
-        const button = document.createElement('button');
-        button.type = 'submit';
-        button.className = 'btn btn-sm btn-outline-danger';
-        button.title = 'Desvincular parte contrária da pasta';
-        button.innerHTML = '<i class="bi bi-trash"></i>';
-
-        form.appendChild(tokenInput);
-        form.appendChild(button);
-
-        row.appendChild(label);
-        row.appendChild(form);
-
-        return row;
-    }
-
-    function appendParteContrariaRow(parte) {
-        if (!partesContainer) {
-            return;
-        }
-        const placeholder = partesContainer.querySelector('#partesContrariasPlaceholder');
-        if (placeholder) {
-            placeholder.remove();
-        }
-        partesContainer.appendChild(criarParteContrariaRow(parte));
-    }
-
-    function removeParteContrariaRow(parteId, form = null) {
-        if (!partesContainer) {
-            return;
-        }
-
-        let row = null;
-        if (parteId) {
-            row = partesContainer.querySelector(`.parte-contraria-row[data-parte-contraria-id="${parteId}"]`);
-        }
-        if (!row && form) {
-            row = form.closest('.parte-contraria-row');
-        }
-
-        if (row) {
-            row.remove();
-        }
-        if (!partesContainer.querySelector('.parte-contraria-row')) {
-            partesContainer.insertAdjacentHTML('beforeend', '<div id="partesContrariasPlaceholder" class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhuma parte contrária registrada.</div>');
-        }
-    }
 
     function mostrarErro(msg) {
         alertaErro.textContent = msg;
@@ -1913,39 +1806,6 @@
             }
         }
 
-        if (form.matches('form.js-ajax-desvincular-parte-contraria')) {
-            event.preventDefault();
-            const button = form.querySelector('button[type="submit"]');
-            if (button) {
-                button.disabled = true;
-            }
-
-            try {
-                const resp = await fetch(form.action, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    body: new FormData(form),
-                });
-
-                if (!resp.ok) {
-                    const dados = await resp.json().catch(() => ({}));
-                    alert(dados.erro ?? 'Erro ao desvincular parte contrária.');
-                    return;
-                }
-
-                const dados = await resp.json().catch(() => ({}));
-                if (dados.sucesso) {
-                    removeParteContrariaRow(dados.parteContrariaId ?? '', form);
-                    return;
-                }
-
-                alert(dados.erro ?? 'Erro ao desvincular parte contrária.');
-            } finally {
-                if (button) {
-                    button.disabled = false;
-                }
-            }
-        }
 
         if (form.matches('form.js-ajax-desvincular-processo')) {
             event.preventDefault();
@@ -1992,41 +1852,6 @@
             }
         }
 
-        if (form.matches('form.js-ajax-parte-contraria-form')) {
-            event.preventDefault();
-            const button = form.querySelector('button[type="submit"]');
-            if (button) {
-                button.disabled = true;
-            }
-
-            try {
-                const resp = await fetch(form.action, {
-                    method: 'POST',
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                    body: new FormData(form),
-                });
-
-                if (!resp.ok) {
-                    const dados = await resp.json().catch(() => ({}));
-                    alert(dados.erro ?? 'Erro ao adicionar parte contrária.');
-                    return;
-                }
-
-                const dados = await resp.json();
-                if (dados.sucesso && dados.parte) {
-                    appendParteContrariaRow(dados.parte);
-                    bootstrap.Modal.getInstance(document.getElementById('modalAdicionarParteContraria'))?.hide();
-                    form.reset();
-                    return;
-                }
-
-                alert('Parte contrária adicionada, mas não foi possível atualizar a lista.');
-            } finally {
-                if (button) {
-                    button.disabled = false;
-                }
-            }
-        }
     });
 
     btnConfirmarVincular.addEventListener('click', async () => {
@@ -2094,43 +1919,6 @@
     modal.addEventListener('hidden.bs.modal', () => { voltar(); limparSelecao(); });
 }());
 </script>
-
-{# Modal: Adicionar Parte Contrária #}
-<div class="modal fade" id="modalAdicionarParteContraria" tabindex="-1" aria-labelledby="modalAdicionarParteContrariaLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
-        <div class="modal-content">
-            <div class="modal-header py-2">
-                <h6 class="modal-title" id="modalAdicionarParteContrariaLabel">
-                    <i class="bi bi-person-dash me-1"></i> Adicionar Parte Contrária
-                </h6>
-                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="post" action="{{ path('pasta_parte_contraria_nova', {id: pasta.id}) }}" class="js-ajax-parte-contraria-form">
-                <input type="hidden" name="_token" value="{{ csrf_token('pasta_parte_contraria_nova_' ~ pasta.id) }}">
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="nomeParteContraria" class="form-label form-label-sm mb-1">
-                            Nome <span class="text-danger">*</span>
-                        </label>
-                        <input type="text"
-                               id="nomeParteContraria"
-                               name="nome"
-                               class="form-control form-control-sm"
-                               placeholder="Nome completo ou razão social"
-                               required
-                               autofocus>
-                    </div>
-                </div>
-                <div class="modal-footer py-2">
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-check-lg me-1"></i> Salvar
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
 
 {# Modal: Vincular Processo #}
 <div class="modal fade" id="modalVincularProcesso" tabindex="-1" aria-labelledby="modalVincularProcessoLabel" aria-hidden="true">
@@ -3501,7 +3289,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     </span>
                                 {% endfor %}
                             </div>
-                            <div class="form-text text-muted">Para alterar clientes, use o painel de partes da pasta.</div>
+                            <div class="form-text text-muted">Para alterar clientes, use a seção de Clientes na aba Dados.</div>
                         {% else %}
                             <input type="text" id="edit_nome_cliente" name="nome_cliente"
                                    class="form-control form-control-sm"

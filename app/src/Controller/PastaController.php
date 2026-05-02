@@ -8,7 +8,6 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\ParteContraria;
 use App\Entity\Pasta\PastaDocumento;
 use App\Processo\Entity\Processo;
 use App\Processo\Entity\ParteProcesso;
@@ -205,52 +204,6 @@ class PastaController extends AbstractController
             'concluidosChecklist'         => $concluidosChecklist,
             'secoes'                      => $secoes,
         ]);
-    }
-
-    #[Route('/{id}/parte-contraria/nova', name: 'pasta_parte_contraria_nova', methods: ['POST'])]
-    public function novaParteContraria(Pasta $pasta, Request $request): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-
-        $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $redirect;
-        }
-
-        if (!$this->isCsrfTokenValid('pasta_parte_contraria_nova_' . $pasta->getId(), (string) $request->request->get('_token'))) {
-            $this->addFlash('error', 'Token de segurança inválido.');
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
-        }
-
-        $nome = trim((string) $request->request->get('nome', ''));
-
-        if ($nome === '') {
-            $this->addFlash('error', 'O nome da parte contrária é obrigatório.');
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
-        }
-
-        $parte = new ParteContraria();
-        $parte->setNome($nome);
-        $pasta->addParteContraria($parte);
-
-        $this->em->persist($parte);
-        $this->em->flush();
-
-        if ($request->isXmlHttpRequest()) {
-            return $this->json([
-                'sucesso' => true,
-                'parte' => [
-                    'id' => $parte->getId(),
-                    'nome' => $parte->getNome(),
-                    'csrfToken' => $this->csrfTokenManager->getToken('pasta_parte_contraria_desvincular_' . $pasta->getId() . '_' . $parte->getId())->getValue(),
-                ],
-            ]);
-        }
-
-        $this->addFlash('success', 'Parte contrária adicionada com sucesso.');
-
-        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
     }
 
     #[Route('/{id}/cliente/novo', name: 'pasta_cliente_novo', methods: ['POST'])]
@@ -495,44 +448,6 @@ class PastaController extends AbstractController
         }
 
         $this->addFlash('success', 'Cliente desvinculado da pasta com sucesso.');
-        return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
-    }
-
-    #[Route('/{id}/parte-contraria/{parteContraria}/desvincular', name: 'pasta_parte_contraria_desvincular', methods: ['POST'])]
-    public function desvincularParteContraria(Pasta $pasta, ParteContraria $parteContraria, Request $request): Response
-    {
-        /** @var User $currentUser */
-        $currentUser = $this->getUser();
-
-        $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
-            return $redirect;
-        }
-
-        if (!$this->isCsrfTokenValid('pasta_parte_contraria_desvincular_' . $pasta->getId() . '_' . $parteContraria->getId(), (string) $request->request->get('_token'))) {
-            if ($request->isXmlHttpRequest()) {
-                return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
-            }
-            $this->addFlash('error', 'Token de segurança inválido.');
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
-        }
-
-        if ($parteContraria->getPasta()?->getId() !== $pasta->getId()) {
-            if ($request->isXmlHttpRequest()) {
-                return $this->json(['erro' => 'Parte contrária não pertence a esta pasta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-            }
-            $this->addFlash('warning', 'Parte contrária não pertence a esta pasta.');
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
-        }
-
-        $pasta->removeParteContraria($parteContraria);
-        $this->em->flush();
-
-        if ($request->isXmlHttpRequest()) {
-            return $this->json(['sucesso' => true, 'parteContrariaId' => $parteContraria->getId()]);
-        }
-
-        $this->addFlash('success', 'Parte contrária desvinculada da pasta com sucesso.');
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
     }
 
@@ -1922,45 +1837,4 @@ class PastaController extends AbstractController
         }
     }
 
-    /**
-     * @param array<int, array<string, mixed>> $partesData
-     */
-    private function syncPartesContrarias(Pasta $pasta, array $partesData): void
-    {
-        $existingById = [];
-        foreach ($pasta->getPartesContrarias() as $parte) {
-            $id = $parte->getId();
-            if ($id !== null) {
-                $existingById[(string) $id] = $parte;
-            }
-        }
-
-        $kept = [];
-
-        foreach ($partesData as $parteData) {
-            $nome = trim((string) ($parteData['nome'] ?? ''));
-            if ($nome === '') {
-                continue;
-            }
-
-            $id = trim((string) ($parteData['id'] ?? ''));
-            $parte = ($id !== '' && isset($existingById[$id])) ? $existingById[$id] : new ParteContraria();
-
-            if (!$pasta->getPartesContrarias()->contains($parte)) {
-                $pasta->addParteContraria($parte);
-            }
-
-            if ($parte->getNome() !== $nome) {
-                $parte->setNome($nome);
-            }
-
-            $kept[spl_object_id($parte)] = true;
-        }
-
-        foreach ($pasta->getPartesContrarias()->toArray() as $parteExistente) {
-            if (!isset($kept[spl_object_id($parteExistente)])) {
-                $pasta->removeParteContraria($parteExistente);
-            }
-        }
-    }
 }

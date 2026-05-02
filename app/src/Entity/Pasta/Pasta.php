@@ -72,10 +72,7 @@ class Pasta
     #[ORM\JoinTable(name: 'pasta_cliente')]
     private Collection $clientes;
 
-    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: ParteContraria::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
-    private Collection $partesContrarias;
-
-    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaDocumento::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+#[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaDocumento::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
     #[ORM\OrderBy(['ordem' => 'ASC'])]
     private Collection $documentos;
 
@@ -112,8 +109,7 @@ class Pasta
         $this->createdAt = new \DateTimeImmutable();
         $this->modificadoEm = new \DateTimeImmutable();
         $this->clientes = new ArrayCollection();
-        $this->partesContrarias = new ArrayCollection();
-        $this->documentos = new ArrayCollection();
+$this->documentos = new ArrayCollection();
         $this->tarefas = new ArrayCollection();
         $this->marcadores = new ArrayCollection();
         $this->observacoesFinanceiras = new ArrayCollection();
@@ -284,34 +280,7 @@ class Pasta
         return $this;
     }
 
-    /**
-     * @return Collection<int, ParteContraria>
-     */
-    public function getPartesContrarias(): Collection
-    {
-        return $this->partesContrarias;
-    }
-
-    public function addParteContraria(ParteContraria $parteContraria): self
-    {
-        if (!$this->partesContrarias->contains($parteContraria)) {
-            $this->partesContrarias->add($parteContraria);
-            $parteContraria->setPasta($this);
-        }
-        return $this;
-    }
-
-    public function removeParteContraria(ParteContraria $parteContraria): self
-    {
-        if ($this->partesContrarias->removeElement($parteContraria)) {
-            if ($parteContraria->getPasta() === $this) {
-                $parteContraria->setPasta(null);
-            }
-        }
-        return $this;
-    }
-
-    /**
+/**
      * @return Collection<int, PastaDocumento>
      */
     public function getDocumentos(): Collection

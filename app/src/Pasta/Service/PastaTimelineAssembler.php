@@ -144,18 +144,6 @@ class PastaTimelineAssembler
                 'text-bg-secondary',
                 $this->extractChangeSummary($changes),
             ],
-            str_ends_with($entityClass, 'ParteContraria') && $action === 'create' => [
-                'Parte contrária adicionada',
-                'bi-person-dash',
-                'text-bg-warning',
-                $this->extractParteName($changes),
-            ],
-            str_ends_with($entityClass, 'ParteContraria') && $action === 'delete' => [
-                'Parte contrária removida',
-                'bi-person-x',
-                'text-bg-danger',
-                $this->extractParteName($changes),
-            ],
             str_ends_with($entityClass, '\Pasta') && $action === 'create' => [
                 'Pasta criada',
                 'bi-folder-plus',
@@ -190,13 +178,6 @@ class PastaTimelineAssembler
     {
         return $changes['diff']['after']['nomeOriginal']
             ?? $changes['diff']['before']['nomeOriginal']
-            ?? null;
-    }
-
-    private function extractParteName(?array $changes): ?string
-    {
-        return $changes['diff']['after']['nome']
-            ?? $changes['diff']['before']['nome']
             ?? null;
     }
 
