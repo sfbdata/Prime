@@ -8,6 +8,7 @@ use App\Entity\Ponto\Feriado;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Expediente\Entity\Marcador;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -32,6 +33,24 @@ class TenantBootstrapService
      *
      * @return TenantRole O perfil "Administrador do Escritório" criado (ou já existente).
      */
+    private const MARCADORES_PADRAO = [
+        ['nome' => 'Nova Pasta',   'ordem' => 1, 'filhos' => []],
+        ['nome' => 'Distribuídas', 'ordem' => 2, 'filhos' => [
+            ['nome' => 'Advogado 1',           'ordem' => 1],
+            ['nome' => 'Advogado 2',           'ordem' => 2],
+            ['nome' => 'Advogado 3',           'ordem' => 3],
+            ['nome' => 'Advogado 4',           'ordem' => 4],
+            ['nome' => 'Setor Administrativo', 'ordem' => 5],
+        ]],
+        ['nome' => 'Realizadas',   'ordem' => 3, 'filhos' => []],
+        ['nome' => 'Protocolar',   'ordem' => 4, 'filhos' => []],
+        ['nome' => 'Sem prazo',    'ordem' => 5, 'filhos' => []],
+        ['nome' => 'Acervo Geral', 'ordem' => 6, 'filhos' => [
+            ['nome' => 'Arquivadas', 'ordem' => 1],
+            ['nome' => 'Ativas',     'ordem' => 2],
+        ]],
+    ];
+
     private const FERIADOS_NACIONAIS = [
         ['nome' => 'Confraternização Universal (Ano Novo)', 'mes' => 1,  'dia' => 1],
         ['nome' => 'Tiradentes',                            'mes' => 4,  'dia' => 21],
@@ -57,6 +76,10 @@ class TenantBootstrapService
 
         $this->seedFeriadosNacionais($tenant);
 
+        if ($creator !== null) {
+            $this->seedMarcadoresPadrao($tenant, $creator);
+        }
+
         $this->entityManager->flush();
 
         return $adminRole;
@@ -72,6 +95,21 @@ class TenantBootstrapService
             $feriado->setTenant($tenant);
 
             $this->entityManager->persist($feriado);
+        }
+    }
+
+    private function seedMarcadoresPadrao(Tenant $tenant, User $criador): void
+    {
+        foreach (self::MARCADORES_PADRAO as $dado) {
+            $marcador = new Marcador($dado['nome'], $tenant, $criador);
+            $marcador->setOrdem($dado['ordem']);
+            $this->entityManager->persist($marcador);
+
+            foreach ($dado['filhos'] as $filhoDado) {
+                $filho = new Marcador($filhoDado['nome'], $tenant, $criador, $marcador);
+                $filho->setOrdem($filhoDado['ordem']);
+                $this->entityManager->persist($filho);
+            }
         }
     }
 
