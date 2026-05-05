@@ -82,7 +82,7 @@ class PastaDocumento
 
     public function setTitulo(string $titulo): self
     {
-        $this->titulo = $titulo;
+        $this->titulo = mb_strtoupper(trim($titulo));
 
         return $this;
     }
@@ -171,7 +171,7 @@ class PastaDocumento
 
     public function setNumero(?string $numero): self
     {
-        $this->numero = $numero;
+        $this->numero = $numero !== null ? mb_strtoupper(trim($numero)) : null;
 
         return $this;
     }

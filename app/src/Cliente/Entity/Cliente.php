@@ -126,7 +126,7 @@ abstract class Cliente
 
     public function setEndereco(string $endereco): self
     {
-        $this->endereco = $endereco;
+        $this->endereco = mb_strtoupper(trim($endereco));
         return $this;
     }
 
@@ -137,7 +137,7 @@ abstract class Cliente
 
     public function setCidade(string $cidade): self
     {
-        $this->cidade = $cidade;
+        $this->cidade = mb_strtoupper(trim($cidade));
         return $this;
     }
 
@@ -148,7 +148,7 @@ abstract class Cliente
 
     public function setEstado(string $estado): self
     {
-        $this->estado = $estado;
+        $this->estado = mb_strtoupper(trim($estado));
         return $this;
     }
 
@@ -159,7 +159,7 @@ abstract class Cliente
 
     public function setComplemento(?string $complemento): self
     {
-        $this->complemento = $complemento;
+        $this->complemento = $complemento !== null ? mb_strtoupper(trim($complemento)) : null;
         return $this;
     }
 

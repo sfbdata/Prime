@@ -52,7 +52,7 @@ class MovimentacaoProcesso
 
     public function setDescricao(string $descricao): self
     {
-        $this->descricao = $descricao;
+        $this->descricao = mb_strtoupper(trim($descricao));
         return $this;
     }
 
@@ -63,7 +63,7 @@ class MovimentacaoProcesso
 
     public function setTipo(?string $tipo): self
     {
-        $this->tipo = $tipo;
+        $this->tipo = $tipo !== null ? mb_strtoupper(trim($tipo)) : null;
         return $this;
     }
 
@@ -74,7 +74,7 @@ class MovimentacaoProcesso
 
     public function setOrgao(?string $orgao): self
     {
-        $this->orgao = $orgao;
+        $this->orgao = $orgao !== null ? mb_strtoupper(trim($orgao)) : null;
         return $this;
     }
 

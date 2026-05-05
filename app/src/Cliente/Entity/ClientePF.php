@@ -56,7 +56,7 @@ class ClientePF extends Cliente
 
     public function setRg(string $rg): self
     {
-        $this->rg = $rg;
+        $this->rg = mb_strtoupper(trim($rg));
         return $this;
     }
 
@@ -67,7 +67,7 @@ class ClientePF extends Cliente
 
     public function setRgOrgaoExpedidor(string $rgOrgaoExpedidor): self
     {
-        $this->rgOrgaoExpedidor = $rgOrgaoExpedidor;
+        $this->rgOrgaoExpedidor = mb_strtoupper(trim($rgOrgaoExpedidor));
         return $this;
     }
 
@@ -100,7 +100,7 @@ class ClientePF extends Cliente
 
     public function setNomeCompleto(string $nomeCompleto): self
     {
-        $this->nomeCompleto = $nomeCompleto;
+        $this->nomeCompleto = mb_strtoupper(trim($nomeCompleto));
         return $this;
     }
 
@@ -111,7 +111,7 @@ class ClientePF extends Cliente
 
     public function setEstadoCivil(?string $estadoCivil): self
     {
-        $this->estadoCivil = $estadoCivil;
+        $this->estadoCivil = $estadoCivil !== null ? mb_strtoupper(trim($estadoCivil)) : null;
         return $this;
     }
 
@@ -122,7 +122,7 @@ class ClientePF extends Cliente
 
     public function setProfissao(?string $profissao): self
     {
-        $this->profissao = $profissao;
+        $this->profissao = $profissao !== null ? mb_strtoupper(trim($profissao)) : null;
         return $this;
     }
 }

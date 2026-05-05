@@ -62,7 +62,7 @@ class ClientePJ extends Cliente
 
     public function setRazaoSocial(string $razaoSocial): self
     {
-        $this->razaoSocial = $razaoSocial;
+        $this->razaoSocial = mb_strtoupper(trim($razaoSocial));
         return $this;
     }
 
@@ -73,7 +73,7 @@ class ClientePJ extends Cliente
 
     public function setNomeFantasia(?string $nomeFantasia): self
     {
-        $this->nomeFantasia = $nomeFantasia;
+        $this->nomeFantasia = $nomeFantasia !== null ? mb_strtoupper(trim($nomeFantasia)) : null;
         return $this;
     }
 
@@ -84,7 +84,7 @@ class ClientePJ extends Cliente
 
     public function setInscricaoEstadual(?string $inscricaoEstadual): self
     {
-        $this->inscricaoEstadual = $inscricaoEstadual;
+        $this->inscricaoEstadual = $inscricaoEstadual !== null ? mb_strtoupper(trim($inscricaoEstadual)) : null;
         return $this;
     }
 
@@ -95,7 +95,7 @@ class ClientePJ extends Cliente
 
     public function setInscricaoMunicipal(?string $inscricaoMunicipal): self
     {
-        $this->inscricaoMunicipal = $inscricaoMunicipal;
+        $this->inscricaoMunicipal = $inscricaoMunicipal !== null ? mb_strtoupper(trim($inscricaoMunicipal)) : null;
         return $this;
     }
 
@@ -106,7 +106,7 @@ class ClientePJ extends Cliente
 
     public function setEnderecSede(string $enderecSede): self
     {
-        $this->enderecSede = $enderecSede;
+        $this->enderecSede = mb_strtoupper(trim($enderecSede));
         return $this;
     }
 
@@ -117,7 +117,7 @@ class ClientePJ extends Cliente
 
     public function setRepresentanteLegal(string $representanteLegal): self
     {
-        $this->representanteLegal = $representanteLegal;
+        $this->representanteLegal = mb_strtoupper(trim($representanteLegal));
         return $this;
     }
 
@@ -139,7 +139,7 @@ class ClientePJ extends Cliente
 
     public function setRepresentanteRg(string $representanteRg): self
     {
-        $this->representanteRg = $representanteRg;
+        $this->representanteRg = mb_strtoupper(trim($representanteRg));
         return $this;
     }
 
@@ -150,7 +150,7 @@ class ClientePJ extends Cliente
 
     public function setRepresentanteCargo(string $representanteCargo): self
     {
-        $this->representanteCargo = $representanteCargo;
+        $this->representanteCargo = mb_strtoupper(trim($representanteCargo));
         return $this;
     }
 }

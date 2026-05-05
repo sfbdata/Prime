@@ -130,7 +130,7 @@ $this->documentos = new ArrayCollection();
 
     public function setNup(string $nup): self
     {
-        $this->nup = $nup;
+        $this->nup = mb_strtoupper(trim($nup));
         return $this;
     }
 
@@ -194,7 +194,7 @@ $this->documentos = new ArrayCollection();
 
     public function setNomeCliente(?string $nomeCliente): self
     {
-        $this->nomeCliente = $nomeCliente;
+        $this->nomeCliente = $nomeCliente !== null ? mb_strtoupper(trim($nomeCliente)) : null;
         return $this;
     }
 
@@ -205,7 +205,7 @@ $this->documentos = new ArrayCollection();
 
     public function setNomeAcao(?string $nomeAcao): self
     {
-        $this->nomeAcao = $nomeAcao;
+        $this->nomeAcao = $nomeAcao !== null ? mb_strtoupper(trim($nomeAcao)) : null;
         return $this;
     }
 

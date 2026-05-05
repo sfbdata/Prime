@@ -41,7 +41,7 @@ class ParteProcesso
 
     public function setTipo(string $tipo): self
     {
-        $this->tipo = $tipo;
+        $this->tipo = mb_strtoupper(trim($tipo));
         return $this;
     }
 
@@ -52,7 +52,7 @@ class ParteProcesso
 
     public function setNome(string $nome): self
     {
-        $this->nome = $nome;
+        $this->nome = mb_strtoupper(trim($nome));
         return $this;
     }
 
@@ -74,7 +74,7 @@ class ParteProcesso
 
     public function setPapel(?string $papel): self
     {
-        $this->papel = $papel;
+        $this->papel = $papel !== null ? mb_strtoupper(trim($papel)) : null;
         return $this;
     }
 

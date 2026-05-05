@@ -139,7 +139,7 @@ class Processo
 
     public function setOrgaoJulgador(string $orgaoJulgador): self
     {
-        $this->orgaoJulgador = $orgaoJulgador;
+        $this->orgaoJulgador = mb_strtoupper(trim($orgaoJulgador));
         return $this;
     }
 
@@ -150,7 +150,7 @@ class Processo
 
     public function setSiglaTribunal(string $siglaTribunal): self
     {
-        $this->siglaTribunal = $siglaTribunal;
+        $this->siglaTribunal = mb_strtoupper(trim($siglaTribunal));
         return $this;
     }
 
@@ -161,7 +161,7 @@ class Processo
 
     public function setClasseProcessual(string $classeProcessual): self
     {
-        $this->classeProcessual = $classeProcessual;
+        $this->classeProcessual = mb_strtoupper(trim($classeProcessual));
         return $this;
     }
 
@@ -172,7 +172,7 @@ class Processo
 
     public function setAssuntoProcessual(string $assuntoProcessual): self
     {
-        $this->assuntoProcessual = $assuntoProcessual;
+        $this->assuntoProcessual = mb_strtoupper(trim($assuntoProcessual));
         return $this;
     }
 
@@ -263,7 +263,7 @@ class Processo
 
     public function setSituacaoProcesso(string $situacaoProcesso): self
     {
-        $this->situacaoProcesso = $situacaoProcesso;
+        $this->situacaoProcesso = mb_strtoupper(trim($situacaoProcesso));
         return $this;
     }
 
@@ -274,7 +274,7 @@ class Processo
 
     public function setInstancia(string $instancia): self
     {
-        $this->instancia = $instancia;
+        $this->instancia = mb_strtoupper(trim($instancia));
         return $this;
     }
 

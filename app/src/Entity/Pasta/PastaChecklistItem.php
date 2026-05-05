@@ -72,7 +72,7 @@ class PastaChecklistItem
 
     public function setTitulo(string $titulo): self
     {
-        $this->titulo = $titulo;
+        $this->titulo = mb_strtoupper(trim($titulo));
 
         return $this;
     }

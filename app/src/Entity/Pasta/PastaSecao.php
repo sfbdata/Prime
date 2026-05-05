@@ -83,7 +83,7 @@ class PastaSecao
 
     public function setNome(string $nome): self
     {
-        $this->nome = $nome;
+        $this->nome = mb_strtoupper(trim($nome));
 
         return $this;
     }
