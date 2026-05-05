@@ -94,9 +94,9 @@
                             <td class="align-middle">
                                 {% if pasta.clientes|length > 0 %}
                                     {% if pasta.clientes|length == 1 %}
-                                        <span class="text-truncate d-block" style="max-width:160px;">{{ pasta.clientes[0].nomeExibicao }}</span>
+                                        {{ pasta.clientes[0].nomeExibicao }}
                                     {% else %}
-                                        <span class="clientes-resumo text-truncate d-block" style="max-width:160px;"
+                                        <span class="clientes-resumo"
                                               data-bs-placement="right"
                                               data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
                                             {{ pasta.clientes[0].nomeExibicao }}&hellip;
@@ -104,13 +104,12 @@
                                         </span>
                                     {% endif %}
                                 {% elseif pasta.nomeCliente %}
-                                    <span class="text-truncate d-block" style="max-width:160px;">{{ pasta.nomeCliente }}</span>
+                                    {{ pasta.nomeCliente }}
                                 {% else %}
                                     <span class="text-muted">—</span>
                                 {% endif %}
                             </td>
                             <td class="col-acao-tabela align-middle">
-                                <span class="text-truncate d-block" style="max-width:180px;">
                                 {% if pasta.processo %}
                                     {{ pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso }}
                                 {% elseif pasta.nomeAcao %}
@@ -118,7 +117,6 @@
                                 {% else %}
                                     <span class="text-muted">—</span>
                                 {% endif %}
-                                </span>
                             </td>
                             <td class="align-middle">
                                 <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.72rem;">

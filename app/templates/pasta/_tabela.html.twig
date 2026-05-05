@@ -116,9 +116,8 @@
                     <th class="sortable" data-col="3" style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-resp-tabela" data-col="4"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Metas</th>
-                    <th class="sortable col-data-tabela" data-col="6" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable col-marc-tabela" data-col="7"><i class="bi bi-tags me-1"></i>Marcadores <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable" data-col="8" style="width:90px"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-marc-tabela" data-col="6"><i class="bi bi-tags me-1"></i>Marcadores <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" data-col="7" style="width:90px"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
                 </tr>
             </thead>
             <tbody>
@@ -185,11 +184,6 @@
                         {% else %}
                             <span class="text-muted" style="font-size:.8rem;">—</span>
                         {% endif %}
-                    </td>
-                    <td class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
-                        {% if dias == 0 %}Hoje
-                        {% elseif dias == 1 %}1 dia atrás
-                        {% else %}{{ dias }}d atrás{% endif %}
                     </td>
                     <td class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ pasta.marcadores|length > 0 ? (pasta.marcadores|first).nome : '' }}">
                         <div class="d-flex flex-wrap gap-1 align-items-center">
@@ -392,9 +386,6 @@
 .col-tarefas-tabela { padding-left: 6px !important; padding-right: 6px !important; }
 
 /* Ocultar colunas secundárias em telas médias */
-@media (max-width: 1100px) {
-    .col-data-tabela { display: none; }
-}
 @media (max-width: 900px) {
     .col-acao-tabela, .col-resp-tabela, .col-tarefas-tabela { display: none; }
 }
