@@ -21,7 +21,7 @@
        DESIGN TOKENS
        ═══════════════════════════════════════════════════════════════════════ */
     :root {
-        --h:    58px;
+        --h:    var(--header-height);
         --tl-w: 340px;
 
         /* Azul judicial — tom primário */
@@ -64,99 +64,129 @@
     /* ═══════════════════════════════════════════════════════════════════════
        CABEÇALHO — mantém o padrão JusPrime com fix do position:fixed
        ═══════════════════════════════════════════════════════════════════════ */
-    .app-header.navtop {
+    nav.app-header.navtop {
         position: relative !important;
         height: var(--h) !important;
         min-height: var(--h) !important;
         max-height: var(--h) !important;
     }
 
-    .petic-header-inner {
-        display: grid !important;
-        grid-template-columns: 1fr auto 1fr !important;
-        align-items: center !important;
-        height: var(--h) !important;
-        padding: 0 20px !important;
-        width: 100% !important;
-        gap: 16px;
+    .petic-navtop-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 1px;
+        min-width: 0;
     }
-
-    .petic-header-left   { justify-self: start;  min-width: 0; display: flex; flex-direction: column; gap: 1px; }
-    .petic-header-center { justify-self: center; }
-    .petic-header-right  { justify-self: end; }
-
-    .petic-pasta-nup {
-        font-size: 0.78rem;
-        font-weight: 600;
+    .petic-navtop-nup {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #fff;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 280px;
+        max-width: 420px;
+        line-height: 1.2;
     }
-
-    .petic-pasta-cliente {
+    .petic-navtop-sub {
         font-size: 0.72rem;
         font-weight: 400;
-        opacity: 0.65;
+        color: rgba(255,255,255,0.75);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 280px;
+        max-width: 420px;
+        line-height: 1.2;
     }
 
-    .navtop-avatar-btn {
-        display: flex !important;
-        align-items: center !important;
-        gap: 10px !important;
-        text-decoration: none !important;
-        padding: 5px 10px 5px 12px !important;
-        border-radius: 6px !important;
-        border: 1px solid transparent !important;
-        transition: background 0.15s !important;
+    /* ── Botão de processo na navbar ── */
+    .petic-processo-btn {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-radius: 4px;
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        cursor: pointer;
+        transition: background 0.15s;
+        white-space: nowrap;
     }
-    .navtop-avatar-btn:hover {
-        background: rgba(255,255,255,0.08) !important;
-        border-color: rgba(255,255,255,0.1) !important;
+    .petic-processo-btn:hover,
+    .petic-processo-btn[aria-expanded="true"] {
+        background: rgba(255,255,255,0.22);
     }
-
-    .navtop-username {
-        font-size: 0.75rem !important;
-        font-weight: 500 !important;
+    .petic-processo-btn::after { display: none !important; }
+    .petic-processo-btn .bi-chevron-down {
+        font-size: 10px;
+        opacity: 0.7;
+        transition: transform 0.2s;
     }
-
-    .navtop-avatar {
-        width: 28px !important;
-        height: 28px !important;
-        border-radius: 50% !important;
-        background: var(--coral) !important;
-        color: #fff !important;
-        font-size: 0.7rem !important;
-        font-weight: 700 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        flex-shrink: 0 !important;
+    .petic-processo-btn[aria-expanded="true"] .bi-chevron-down {
+        transform: rotate(180deg);
     }
 
-    .petic-header-right .dropdown-menu {
-        font-size: 0.82rem;
-        min-width: 160px;
-        border: 1px solid #ddd;
-        box-shadow: 0 2px 5px 0 rgba(0,0,0,0.16), 0 2px 10px 0 rgba(0,0,0,0.12);
-        border-radius: 3px;
-        padding: 4px;
+    /* ── Card do dropdown do processo ── */
+    .petic-processo-card {
+        min-width: 420px;
+        max-width: 520px;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 3px !important;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.22) !important;
+        overflow: hidden;
         margin-top: 6px !important;
     }
-    .petic-header-right .dropdown-item {
-        border-radius: 2px;
-        padding: 8px 12px;
-        font-size: 0.82rem;
-        color: #454545;
-        transition: background 0.15s, color 0.15s;
+
+    .petic-proc-header {
+        background: #0078AA;
+        padding: 10px 14px 12px;
     }
-    .petic-header-right .dropdown-item:hover {
-        background: #f3f3f3;
-        color: var(--blue);
+    .petic-proc-numero {
+        display: block;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: 0.2px;
+        margin-bottom: 4px;
+    }
+    .petic-proc-partes {
+        display: block;
+        font-size: 0.72rem;
+        color: rgba(255,255,255,0.82);
+        line-height: 1.35;
+        word-break: break-word;
+        white-space: normal;
+    }
+
+    .petic-proc-body {
+        background: #fff;
+        padding: 6px 0 4px;
+    }
+    .petic-proc-row {
+        display: flex;
+        align-items: baseline;
+        padding: 5px 14px;
+        gap: 10px;
+        border-bottom: 1px solid #f3f3f3;
+    }
+    .petic-proc-row:last-child { border-bottom: none; }
+    .petic-proc-label {
+        flex-shrink: 0;
+        width: 130px;
+        text-align: right;
+        font-size: 0.77rem;
+        font-weight: 600;
+        color: #555;
+    }
+    .petic-proc-value {
+        font-size: 0.77rem;
+        color: #222;
+        word-break: break-word;
+        white-space: normal;
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
@@ -186,14 +216,43 @@
     }
 
     .petic-timeline-header {
-        height: 40px;
-        padding: 0 14px;
+        padding: 8px 14px;
         border-bottom: 1px solid var(--tl-border);
         display: flex;
-        align-items: center;
-        justify-content: space-between;
+        flex-direction: column;
+        gap: 7px;
         flex-shrink: 0;
         background: var(--tl-surface);
+    }
+
+    .petic-search {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .petic-search-icon {
+        position: absolute;
+        left: 8px;
+        font-size: 12px;
+        color: #aaa;
+        pointer-events: none;
+    }
+    .petic-search-input {
+        width: 100%;
+        height: 28px;
+        padding: 0 8px 0 26px;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+        font-size: 12px;
+        color: #454545;
+        background: #fff;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .petic-search-input::placeholder { color: #bbb; }
+    .petic-search-input:focus {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 2px rgba(0,132,172,0.12);
     }
 
     .petic-timeline-header-title {
@@ -230,68 +289,114 @@
     .petic-timeline-list::-webkit-scrollbar-track  { background: transparent; }
     .petic-timeline-list::-webkit-scrollbar-thumb  { background: #ddd; border-radius: 2px; }
 
-    /* ── Item da timeline ── */
-    @keyframes itemReveal {
-        from { opacity: 0; transform: translateX(-8px); }
-        to   { opacity: 1; transform: translateX(0); }
+    /* ── Timeline vertical ── */
+    .petic-tl-inner {
+        padding: 4px 10px 16px 8px;
+        position: relative;
+    }
+    .petic-tl-inner::before {
+        content: '';
+        position: absolute;
+        left: 18px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e0e0e0;
+        z-index: 0;
     }
 
-    .petic-timeline-item {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        grid-template-rows: auto auto;
-        align-items: start;
-        gap: 3px 8px;
-        padding: 10px 14px;
-        cursor: pointer;
-        border-left: 3px solid transparent;
-        transition: background 0.15s, border-color 0.15s;
-        animation: itemReveal 0.32s ease both;
+    .petic-tl-datesep {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 0 6px;
+        position: relative;
+        z-index: 1;
     }
-
-    .petic-timeline-item:hover {
-        background: var(--tl-hover);
-        border-left-color: rgba(0,132,172,0.35);
-    }
-    .petic-timeline-item.ativo {
-        background: var(--tl-active-bg);
-        border-left-color: var(--tl-active-bd);
-    }
-
-    .petic-item-date {
-        grid-column: 1;
-        grid-row: 1;
+    .petic-tl-datesep span {
+        background: #e4e4e4;
+        border-radius: 20px;
+        padding: 3px 12px;
         font-size: 11px;
-        color: var(--tl-muted);
-        font-weight: 400;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        line-height: 1;
-    }
-    .petic-item-date i { font-size: 10px; }
-
-    .petic-item-titulo {
-        grid-column: 1 / -1;
-        grid-row: 2;
-        font-size: 13px;
-        font-weight: 500;
-        color: var(--tl-text);
+        font-weight: 600;
+        color: #666;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        line-height: 1.35;
     }
-    .petic-timeline-item.ativo .petic-item-titulo { color: var(--blue); }
 
-    .petic-timeline-item > span:last-child {
-        grid-column: 2;
-        grid-row: 1;
+    .petic-tl-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        position: relative;
+        z-index: 1;
+    }
+
+    .petic-tl-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        margin-top: 13px;
+        background: #aaa;
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 1.5px #aaa;
+        position: relative;
+        z-index: 2;
+    }
+    .petic-tl-dot--primary   { background: #0084AC; box-shadow: 0 0 0 1.5px #0084AC; }
+    .petic-tl-dot--success   { background: #198754; box-shadow: 0 0 0 1.5px #198754; }
+    .petic-tl-dot--info      { background: #0dcaf0; box-shadow: 0 0 0 1.5px #0dcaf0; }
+    .petic-tl-dot--warning   { background: #d08000; box-shadow: 0 0 0 1.5px #d08000; }
+    .petic-tl-dot--dark      { background: #333;    box-shadow: 0 0 0 1.5px #333; }
+    .petic-tl-dot--secondary { background: #6c757d; box-shadow: 0 0 0 1.5px #6c757d; }
+
+    .petic-tl-card {
+        flex: 1;
+        min-width: 0;
+        background: #fff;
+        border: 1px solid #e5e5e5;
+        border-left-width: 1px;
+        border-radius: 4px;
+        padding: 8px 10px 7px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .petic-tl-row:hover .petic-tl-card {
+        border-color: #aad1e0;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .petic-tl-row.ativo .petic-tl-card {
+        border-left: 3px solid #0084AC;
+        background: rgba(0,132,172,0.03);
+    }
+
+    .petic-tl-card-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+    }
+    .petic-tl-icon {
+        color: #0084AC;
+        font-size: 14px;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+    .petic-tl-titulo {
+        font-size: 12.5px;
+        font-weight: 500;
+        color: #333;
+        line-height: 1.4;
+        word-break: break-word;
+    }
+    .petic-tl-row.ativo .petic-tl-titulo { color: #0084AC; }
+
+    .petic-tl-card-bottom {
         display: flex;
         align-items: center;
-        justify-content: flex-end;
+        justify-content: space-between;
+        margin-top: 6px;
     }
-
     .petic-item-cat {
         font-size: 10px !important;
         font-weight: 600 !important;
@@ -300,21 +405,20 @@
         padding: 2px 6px !important;
         text-transform: uppercase;
     }
-
-    .petic-item-sep {
-        height: 1px;
-        background: var(--tl-sep);
-        margin: 0 14px;
+    .petic-tl-time {
+        font-size: 11px;
+        color: #aaa;
+        flex-shrink: 0;
     }
 
-    .petic-vazio {
+    .petic-tl-vazio {
         padding: 40px 20px;
         text-align: center;
         color: #aaa;
         font-size: 13px;
         line-height: 1.8;
     }
-    .petic-vazio i { color: #ccc !important; opacity: 1 !important; }
+    .petic-tl-vazio i { font-size: 2rem; opacity: 0.4; display: block; margin-bottom: 0.5rem; }
 
     /* Rodapé da timeline */
     .petic-timeline-footer {
@@ -566,40 +670,196 @@
 <body class="petic-body">
 
     {# ── Cabeçalho ── #}
-    <nav class="app-header navtop" style="position:relative; z-index:100;">
-        <div class="petic-header-inner">
+    <nav class="app-header navtop">
 
-            {# Esquerda: NUP + cliente #}
-            <div class="petic-header-left">
-                <span class="petic-pasta-nup">{{ pastaInfoNup }}</span>
-                {% if pastaInfoCliente %}
-                    <span class="petic-pasta-cliente">{{ pastaInfoCliente }}</span>
+        {# ── Barra principal azul ── #}
+        <div class="navtop-inner">
+
+            <div class="navtop-left">
+                <a href="{{ path('expediente_index') }}" class="navtop-brand">
+                    <span class="navtop-brand-text"><span style="color:#E86C50">Jus</span>Prime</span>
+                </a>
+                <span class="navtop-page-sep">|</span>
+                <div class="petic-navtop-info">
+                    <span class="petic-navtop-nup">Número da Pasta: {{ pastaInfoNup }}</span>
+                    {% set sub = [] %}
+                    {% if pastaInfoCliente %}{% set sub = sub|merge(['Cliente: ' ~ pastaInfoCliente]) %}{% endif %}
+                    {% if pasta.nomeAcao %}{% set sub = sub|merge([pasta.nomeAcao]) %}{% endif %}
+                    {% if sub %}
+                        <span class="petic-navtop-sub">{{ sub|join(' · ') }}</span>
+                    {% endif %}
+                </div>
+
+                {% if pasta.processo %}
+                    {% set proc = pasta.processo %}
+                    <span class="navtop-page-sep">|</span>
+                    <div class="dropdown">
+                        <button class="petic-processo-btn dropdown-toggle"
+                                type="button"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false">
+                            <i class="bi bi-journal-text"></i>
+                            {{ proc.siglaTribunal ? proc.siglaTribunal ~ ' ' : '' }}{{ proc.numeroProcesso }}
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-menu petic-processo-card">
+
+                            <div class="petic-proc-header">
+                                <span class="petic-proc-numero">
+                                    <i class="bi bi-journal-text me-1"></i>
+                                    {{ proc.siglaTribunal ? proc.siglaTribunal ~ ' ' : '' }}{{ proc.numeroProcesso }}
+                                </span>
+                                {% set poloAtivo   = proc.partes|filter(p => 'ATIVO'   in p.tipo) %}
+                                {% set poloPassivo = proc.partes|filter(p => 'PASSIVO' in p.tipo) %}
+                                {% if poloAtivo|length or poloPassivo|length %}
+                                    <span class="petic-proc-partes">
+                                        {% if poloAtivo|length %}{{ poloAtivo|first.nome }}{% endif %}
+                                        {% if poloAtivo|length and poloPassivo|length %} X {% endif %}
+                                        {% if poloPassivo|length %}{{ poloPassivo|first.nome }}{% endif %}
+                                    </span>
+                                {% endif %}
+                            </div>
+
+                            <div class="petic-proc-body">
+                                {% if proc.classeProcessual %}
+                                    <div class="petic-proc-row">
+                                        <span class="petic-proc-label">Classe judicial</span>
+                                        <span class="petic-proc-value">{{ proc.classeProcessual }}</span>
+                                    </div>
+                                {% endif %}
+                                {% if proc.assuntoProcessual %}
+                                    <div class="petic-proc-row">
+                                        <span class="petic-proc-label">Assunto</span>
+                                        <span class="petic-proc-value">{{ proc.assuntoProcessual }}</span>
+                                    </div>
+                                {% endif %}
+                                {% if proc.orgaoJulgador %}
+                                    <div class="petic-proc-row">
+                                        <span class="petic-proc-label">Jurisdição</span>
+                                        <span class="petic-proc-value">{{ proc.orgaoJulgador }}</span>
+                                    </div>
+                                {% endif %}
+                                {% if proc.dataDistribuicao %}
+                                    <div class="petic-proc-row">
+                                        <span class="petic-proc-label">Distribuição</span>
+                                        <span class="petic-proc-value">{{ proc.dataDistribuicao|date('d/m/Y') }}</span>
+                                    </div>
+                                {% endif %}
+                                {% if proc.instancia %}
+                                    <div class="petic-proc-row">
+                                        <span class="petic-proc-label">Instância</span>
+                                        <span class="petic-proc-value">{{ proc.instancia }}</span>
+                                    </div>
+                                {% endif %}
+                                {% if proc.situacaoProcesso %}
+                                    <div class="petic-proc-row">
+                                        <span class="petic-proc-label">Situação</span>
+                                        <span class="petic-proc-value">{{ proc.situacaoProcesso }}</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                        </div>
+                    </div>
                 {% endif %}
             </div>
 
-            {# Centro: brand #}
-            <div class="petic-header-center">
-                <a href="{{ path('expediente_index') }}" class="navtop-brand" target="_blank" rel="noopener">
-                    <span class="navtop-brand-text"><span style="color:#E86C50">Jus</span>Prime</span>
-                </a>
-            </div>
+            <div class="navtop-right">
 
-            {# Direita: usuário #}
-            <div class="petic-header-right">
+                {# Notificações #}
                 <div class="navtop-action dropdown">
+                    <a href="#" class="navtop-action-btn"
+                       data-bs-toggle="dropdown" id="notificacaoDropdownToggle"
+                       aria-label="Notificações">
+                        <i class="bi bi-bell-fill"></i>
+                        <span class="navtop-badge" id="notificacaoBadge"
+                              style="{% if notificacoesCount == 0 %}display:none;{% endif %}">
+                            {{ notificacoesCount > 9 ? '9+' : notificacoesCount }}
+                        </span>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end shadow notif-dropdown"
+                         id="notificacaoDropdownMenu">
+                        <div class="notif-header">
+                            <i class="bi bi-bell me-1"></i>
+                            <span id="notificacaoCountText">{{ notificacoesCount }}</span> notificação(ões)
+                        </div>
+                        <div class="dropdown-divider m-0"></div>
+                        <div id="notificacaoListContainer">
+                            {% if notificacoes|length > 0 %}
+                                {% for notif in notificacoes %}
+                                    <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
+                                       class="dropdown-item notif-item{% if not notif.lida %} notif-unread{% endif %}">
+                                        <i class="bi {{ notif.icone }} notif-icon"></i>
+                                        <div class="notif-body">
+                                            <div class="notif-title">{{ notif.titulo }}</div>
+                                            <div class="notif-msg">{{ notif.mensagem }}</div>
+                                            <div class="notif-time">{{ notif.tempoRelativo }}</div>
+                                        </div>
+                                    </a>
+                                    <div class="dropdown-divider m-0"></div>
+                                {% endfor %}
+                            {% else %}
+                                <a href="#" class="dropdown-item text-center text-muted py-3" id="notificacaoEmpty">
+                                    <i class="bi bi-check-circle me-2"></i> Nenhuma notificação
+                                </a>
+                            {% endif %}
+                        </div>
+                        <a href="{{ path('notificacao_index') }}" class="dropdown-item text-center notif-footer">
+                            <i class="bi bi-list-ul me-1"></i> Ver todas as notificações
+                        </a>
+                    </div>
+                </div>
+
+                {# Fullscreen #}
+                <a href="#" class="navtop-action-btn" data-lte-toggle="fullscreen"
+                   aria-label="Tela cheia">
+                    <i data-lte-icon="maximize" class="bi bi-arrows-fullscreen"></i>
+                    <i data-lte-icon="minimize" class="bi bi-fullscreen-exit" style="display:none"></i>
+                </a>
+
+                {# Usuário #}
+                <div class="navtop-action dropdown menu-usuario">
                     <a href="#" class="navtop-avatar-btn dropdown-toggle"
                        data-bs-toggle="dropdown" aria-expanded="false"
                        aria-label="Menu do usuário">
                         <div class="navtop-user-info d-none d-md-flex">
                             <span class="navtop-username">{{ app.user.fullName }}</span>
+                            <span class="navtop-last-access">
+                                Último Acesso Em:
+                                {{ app.user.lastLogin is defined and app.user.lastLogin
+                                    ? app.user.lastLogin|date('d/m/Y - H:i:s')
+                                    : 'não disponível' }}
+                            </span>
                         </div>
-                        <span class="navtop-avatar">
-                            {{ app.user.fullName|slice(0,1)|upper }}
+                        <span class="navtop-avatar" id="navtopAvatar">
+                            {% if fotoPerfilUrl %}
+                                <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
+                                     alt="{{ app.user.fullName }}"
+                                     style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                            {% else %}
+                                {{ app.user.fullName|slice(0,1)|upper }}
+                            {% endif %}
                         </span>
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                    <ul class="dropdown-menu dropdown-menu-end shadow usuario-dropdown">
+                        <li class="usuario-dropdown-header">
+                            <span class="usuario-avatar-lg" id="usuarioAvatarLg">
+                                {% if fotoPerfilUrl %}
+                                    <img src="{{ path('app_profile_foto_serve', {nome: fotoPerfilUrl}) }}"
+                                         alt="{{ app.user.fullName }}"
+                                         style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+                                {% else %}
+                                    {{ app.user.fullName|slice(0,1)|upper }}
+                                {% endif %}
+                            </span>
+                            <div class="usuario-info">
+                                <div class="usuario-name">{{ app.user.fullName }}</div>
+                                <div class="usuario-email">{{ app.user.email }}</div>
+                            </div>
+                        </li>
+                        <li><hr class="dropdown-divider my-0"></li>
                         <li>
-                            <a href="{{ path('app_profile') }}" class="dropdown-item d-flex align-items-center gap-2" target="_blank">
+                            <a href="{{ path('app_profile') }}" class="dropdown-item d-flex align-items-center gap-2">
                                 <i class="bi bi-person"></i> Meu Perfil
                             </a>
                         </li>
@@ -611,9 +871,10 @@
                         </li>
                     </ul>
                 </div>
-            </div>
 
-        </div>
+            </div>{# /navtop-right #}
+        </div>{# /navtop-inner #}
+
     </nav>
 
     {# ── Conteúdo principal ── #}

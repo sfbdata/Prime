@@ -17,6 +17,16 @@
     'CONTRATO':                'text-bg-dark',
 } %}
 
+{% set categoriaPointMap = {
+    'PECA':                    'petic-tl-dot--primary',
+    'PROCURACAO':              'petic-tl-dot--success',
+    'IDENTIFICACAO':           'petic-tl-dot--info',
+    'COMPROVANTE_RESIDENCIA':  'petic-tl-dot--warning',
+    'GRATUIDADE_JUSTICA':      'petic-tl-dot--secondary',
+    'DEMAIS':                  'petic-tl-dot--secondary',
+    'CONTRATO':                'petic-tl-dot--dark',
+} %}
+
 <div class="petic-layout">
 
     {# ──────────────────────────────────────────────────────────
@@ -28,52 +38,80 @@
             <span class="petic-timeline-header-title">
                 <i class="bi bi-clock-history text-primary"></i>
                 Documentos
-                <span class="badge text-bg-secondary rounded-pill">{{ documentos|length }}</span>
+                <span class="badge text-bg-secondary rounded-pill" id="badgeCount">{{ documentos|length }}</span>
             </span>
+            <div class="petic-search">
+                <i class="bi bi-search petic-search-icon"></i>
+                <input type="text"
+                       id="timelinePesquisa"
+                       class="petic-search-input"
+                       placeholder="Pesquisar documentos…"
+                       autocomplete="off">
+            </div>
         </div>
 
         <div class="petic-timeline-list" id="timelineList">
-            {% for doc in documentos %}
-
-                {% set catLabel = categoriaLabels[doc.categoria] ?? doc.categoria %}
-                {% set catCor   = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary' %}
-
-                <div class="petic-timeline-item"
-                     style="animation-delay: {{ loop.index0 * 45 }}ms"
-                     data-view-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
-                     data-download-url="{{ path('pasta_documento_download', {id: doc.id}) }}"
-                     data-mime-type="{{ doc.mimeType }}"
-                     data-titulo="{{ doc.titulo|e('html_attr') }}">
-                    <span class="petic-item-date">
-                        <i class="bi bi-calendar3 me-1"></i>{{ doc.uploadedAt|date('d/m/Y') }}
-                        <span class="ms-1 text-muted">{{ doc.uploadedAt|date('H:i') }}</span>
-                    </span>
-                    <span class="petic-item-titulo">{{ doc.titulo }}</span>
-                    <span>
-                        <span class="badge {{ catCor }} petic-item-cat">{{ catLabel }}</span>
-                    </span>
-                </div>
-
-                {% if not loop.last %}
-                    <div class="petic-item-sep"></div>
-                {% endif %}
-
-            {% else %}
-
-                <div class="petic-vazio">
-                    <i class="bi bi-folder2-open d-block mb-2" style="font-size:2rem;opacity:0.4;"></i>
-                    Nenhum documento na pasta.
-                </div>
-
-            {% endfor %}
+            <div class="petic-tl-inner" id="tlInner">
+                {% set lastDate = null %}
+                {% for doc in documentos %}
+                    {% set catLabel  = categoriaLabels[doc.categoria] ?? doc.categoria %}
+                    {% set catCor    = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary' %}
+                    {% set dotClass  = categoriaPointMap[doc.categoria] ?? 'petic-tl-dot--secondary' %}
+                    {% set docDate   = doc.uploadedAt|date('d/m/Y') %}
+                    {% if docDate != lastDate %}
+                        <div class="petic-tl-datesep" data-date="{{ docDate }}">
+                            <span>{{ docDate }}</span>
+                        </div>
+                        {% set lastDate = docDate %}
+                    {% endif %}
+                    <div class="petic-tl-row"
+                         data-view-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
+                         data-download-url="{{ path('pasta_documento_download', {id: doc.id}) }}"
+                         data-mime-type="{{ doc.mimeType }}"
+                         data-titulo="{{ doc.titulo|e('html_attr') }}">
+                        <div class="petic-tl-dot {{ dotClass }}"></div>
+                        <div class="petic-tl-card">
+                            <div class="petic-tl-card-top">
+                                <i class="bi bi-file-earmark-text petic-tl-icon"></i>
+                                <span class="petic-tl-titulo">{{ doc.titulo }}</span>
+                            </div>
+                            <div class="petic-tl-card-bottom">
+                                <span class="badge {{ catCor }} petic-item-cat">{{ catLabel }}</span>
+                                <span class="petic-tl-time">{{ doc.uploadedAt|date('H:i') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="petic-tl-vazio">
+                        <i class="bi bi-folder2-open"></i>
+                        Nenhum documento na pasta.
+                    </div>
+                {% endfor %}
+            </div>
         </div>
 
         <div class="petic-timeline-footer">
-            <button type="button"
-                    class="btn btn-primary w-100"
-                    id="btnAbrirUpload">
-                <i class="bi bi-file-earmark-plus me-1"></i> Adicionar Peça
-            </button>
+            <div class="dropup w-100">
+                <button type="button"
+                        class="btn btn-primary w-100 dropdown-toggle"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        id="btnAbrirUpload">
+                    <i class="bi bi-file-earmark-plus me-1"></i> Adicionar Peça
+                </button>
+                <ul class="dropdown-menu w-100">
+                    <li>
+                        <button type="button" class="dropdown-item" id="btnOpcaoAnexo">
+                            <i class="bi bi-paperclip me-2"></i> Anexo
+                        </button>
+                    </li>
+                    <li>
+                        <button type="button" class="dropdown-item" id="btnOpcaoTexto">
+                            <i class="bi bi-file-text me-2"></i> Texto
+                        </button>
+                    </li>
+                </ul>
+            </div>
         </div>
 
     </div>
@@ -199,6 +237,7 @@
     const dlLink        = document.getElementById('downloadLink');
     const dlFileName    = document.getElementById('downloadFileName');
     const timelineList  = document.getElementById('timelineList');
+    const tlInner       = document.getElementById('tlInner');
 
     const modalOverlay   = document.getElementById('modalUploadOverlay');
     const btnAbrirUpload = document.getElementById('btnAbrirUpload');
@@ -230,7 +269,7 @@
     }
 
     function selecionarItem(item) {
-        document.querySelectorAll('.petic-timeline-item').forEach(el => el.classList.remove('ativo'));
+        document.querySelectorAll('.petic-tl-row').forEach(el => el.classList.remove('ativo'));
         item.classList.add('ativo');
 
         const mime    = item.dataset.mimeType ?? '';
@@ -265,13 +304,46 @@
     }
 
     timelineList.addEventListener('click', function (e) {
-        const item = e.target.closest('.petic-timeline-item');
+        const item = e.target.closest('.petic-tl-row');
         if (item) selecionarItem(item);
     });
 
     // Seleciona o primeiro item automaticamente
-    const primeiroItem = timelineList.querySelector('.petic-timeline-item');
+    const primeiroItem = timelineList.querySelector('.petic-tl-row');
     if (primeiroItem) selecionarItem(primeiroItem);
+
+    // ── Pesquisa na timeline ──────────────────────────────────────────────────
+
+    document.getElementById('timelinePesquisa').addEventListener('input', function () {
+        const termo   = this.value.trim().toLowerCase();
+        const itens   = tlInner.querySelectorAll('.petic-tl-row');
+        const seps    = tlInner.querySelectorAll('.petic-tl-datesep');
+
+        // Esconde todos os seps; reexibe só os que têm ao menos um item visível abaixo
+        seps.forEach(s => s.style.display = 'none');
+
+        let visiveis = 0;
+        itens.forEach(item => {
+            const match = !termo || (item.dataset.titulo ?? '').toLowerCase().includes(termo);
+            item.style.display = match ? '' : 'none';
+            if (match) visiveis++;
+        });
+
+        // Reexibe separador de data se houver pelo menos um item visível no grupo
+        seps.forEach(sep => {
+            let node = sep.nextElementSibling;
+            while (node && !node.classList.contains('petic-tl-datesep')) {
+                if (node.classList.contains('petic-tl-row') && node.style.display !== 'none') {
+                    sep.style.display = '';
+                    break;
+                }
+                node = node.nextElementSibling;
+            }
+        });
+
+        const badge = document.getElementById('badgeCount');
+        if (badge) badge.textContent = visiveis;
+    });
 
     // ── Modal upload ──────────────────────────────────────────────────────────
 
@@ -286,7 +358,7 @@
         modalOverlay.classList.remove('aberto');
     }
 
-    btnAbrirUpload.addEventListener('click', abrirModal);
+    document.getElementById('btnOpcaoAnexo').addEventListener('click', abrirModal);
     btnFechar.addEventListener('click', fecharModal);
     btnCancelar.addEventListener('click', fecharModal);
 
@@ -312,6 +384,16 @@
         'CONTRATO':               'text-bg-dark',
     };
 
+    const categoriaPointMap = {
+        'PECA':                   'petic-tl-dot--primary',
+        'PROCURACAO':             'petic-tl-dot--success',
+        'IDENTIFICACAO':          'petic-tl-dot--info',
+        'COMPROVANTE_RESIDENCIA': 'petic-tl-dot--warning',
+        'GRATUIDADE_JUSTICA':     'petic-tl-dot--secondary',
+        'DEMAIS':                 'petic-tl-dot--secondary',
+        'CONTRATO':               'petic-tl-dot--dark',
+    };
+
     function setCarregando(sim) {
         btnEnviar.disabled      = sim;
         uploadSpinner.style.display = sim ? 'block' : 'none';
@@ -320,40 +402,53 @@
 
     function injetarItemTimeline(doc) {
         // Remove mensagem "nenhum documento" se existir
-        const vazio = timelineList.querySelector('.petic-vazio');
+        const vazio = tlInner.querySelector('.petic-tl-vazio');
         if (vazio) vazio.remove();
 
-        // Separador antes do novo item (se já houver itens)
-        const existentes = timelineList.querySelectorAll('.petic-timeline-item');
-        if (existentes.length > 0) {
+        const catLabel   = categoriaLabels[doc.categoria] ?? doc.categoria;
+        const catCor     = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary';
+        const dotClass   = categoriaPointMap[doc.categoria] ?? 'petic-tl-dot--secondary';
+
+        // Separa data e hora do uploadedAt ("dd/mm/YYYY HH:ii")
+        const partes   = doc.uploadedAt.split(' ');
+        const dateKey  = partes[0];
+        const timeStr  = partes[1] ?? '';
+
+        // Adiciona separador de data se ainda não existir
+        const sepExistente = tlInner.querySelector(`.petic-tl-datesep[data-date="${CSS.escape(dateKey)}"]`);
+        if (!sepExistente) {
             const sep = document.createElement('div');
-            sep.className = 'petic-item-sep';
-            timelineList.appendChild(sep);
+            sep.className    = 'petic-tl-datesep';
+            sep.dataset.date = dateKey;
+            sep.innerHTML    = `<span>${escHtml(dateKey)}</span>`;
+            tlInner.appendChild(sep);
         }
 
-        const catLabel = categoriaLabels[doc.categoria] ?? doc.categoria;
-        const catCor   = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary';
-
         const item = document.createElement('div');
-        item.className       = 'petic-timeline-item';
+        item.className           = 'petic-tl-row';
         item.dataset.viewUrl     = doc.viewUrl;
         item.dataset.downloadUrl = doc.downloadUrl;
         item.dataset.mimeType    = doc.mimeType;
         item.dataset.titulo      = doc.titulo;
         item.innerHTML = `
-            <span class="petic-item-date">
-                <i class="bi bi-calendar3 me-1"></i>${doc.uploadedAt}
-            </span>
-            <span class="petic-item-titulo">${escHtml(doc.titulo)}</span>
-            <span><span class="badge ${catCor} petic-item-cat">${escHtml(catLabel)}</span></span>
+            <div class="petic-tl-dot ${dotClass}"></div>
+            <div class="petic-tl-card">
+                <div class="petic-tl-card-top">
+                    <i class="bi bi-file-earmark-text petic-tl-icon"></i>
+                    <span class="petic-tl-titulo">${escHtml(doc.titulo)}</span>
+                </div>
+                <div class="petic-tl-card-bottom">
+                    <span class="badge ${catCor} petic-item-cat">${escHtml(catLabel)}</span>
+                    <span class="petic-tl-time">${escHtml(timeStr)}</span>
+                </div>
+            </div>
         `;
-        timelineList.appendChild(item);
+        tlInner.appendChild(item);
 
         // Atualiza badge de contagem
-        const badge = document.querySelector('.petic-timeline-header-title .badge');
-        if (badge) badge.textContent = timelineList.querySelectorAll('.petic-timeline-item').length;
+        const badge = document.getElementById('badgeCount');
+        if (badge) badge.textContent = tlInner.querySelectorAll('.petic-tl-row').length;
 
-        // Seleciona o item recém-adicionado
         selecionarItem(item);
     }
 
