@@ -998,7 +998,6 @@ final class TenantController extends AbstractController
 
         $datasRaw   = trim((string) $request->request->get('datas', ''));
         $tipo       = trim((string) $request->request->get('tipo', ''));
-        $descricao  = trim((string) $request->request->get('descricao', ''));
         $abonoParcial = (bool) $request->request->get('abonoParcial', false);
         $horaInicioStr = trim((string) $request->request->get('horaInicioAbono', ''));
         $horaFimStr    = trim((string) $request->request->get('horaFimAbono', ''));
@@ -1028,11 +1027,6 @@ final class TenantController extends AbstractController
 
         if (!in_array($tipo, TipoJustificativa::valores(), true)) {
             $this->addFlash('danger', 'Tipo de justificativa inválido.');
-            return $redirect();
-        }
-
-        if ($descricao === '') {
-            $this->addFlash('danger', 'O motivo é obrigatório.');
             return $redirect();
         }
 
@@ -1069,7 +1063,6 @@ final class TenantController extends AbstractController
             $justificativa->setUser($user);
             $justificativa->setData($dataObj);
             $justificativa->setTipo($tipo);
-            $justificativa->setDescricao($descricao);
             $justificativa->setAnexoPath($anexoPath);
             $justificativa->setStatus('abonado');
             $justificativa->setDataAnalise(new \DateTime());

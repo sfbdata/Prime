@@ -21,7 +21,6 @@
                     <tr>
                         <th>Data(s)</th>
                         <th>Tipo</th>
-                        <th>Motivo</th>
                         <th>Status</th>
                         <th>Atestado</th>
                         <th>Obs. da Análise</th>
@@ -48,7 +47,6 @@
                                     {% endif %}
                                 {% endif %}
                             </td>
-                            <td class="small">{{ batch[0].descricao }}</td>
                             <td>
                                 {% set status = batch[0].status %}
                                 {% if status == 'abonado' and batch[0].tipo == 'falta_nao_justificada' %}
@@ -87,7 +85,6 @@
                                             data-abono-parcial="{{ batch[0].abonoParcial ? '1' : '0' }}"
                                             data-hora-inicio="{{ batch[0].horaInicioAbono ? batch[0].horaInicioAbono|date('H:i') : '' }}"
                                             data-hora-fim="{{ batch[0].horaFimAbono ? batch[0].horaFimAbono|date('H:i') : '' }}"
-                                            data-descricao="{{ batch[0].descricao }}"
                                             data-csrf="{{ csrf_token('editar_justificativa_' ~ batch[0].id) }}"
                                             data-url="{{ path('ponto_justificativa_editar', {id: batch[0].id}) }}"
                                             onclick="abrirModalEditarJustificativa(this)">

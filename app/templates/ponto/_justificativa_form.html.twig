@@ -1,299 +1,37 @@
 <div class="modal fade" id="modalJustificativa" tabindex="-1" aria-labelledby="modalJustificativaLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            {{ form_start(justificativaForm, {
-                action: path('ponto_justificativa_nova'),
-                attr: {enctype: 'multipart/form-data', id: 'form-justificativa'}
-            }) }}
+            <form method="post" action="{{ path('ponto_justificativa_nova') }}" enctype="multipart/form-data" id="form-justificativa">
+                <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
 
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalJustificativaLabel">
-                    <i class="bi bi-calendar-x me-2"></i>Justificar Falta / Ausência
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-
-            <div class="modal-body">
-                {# Campo hidden que será populado pelo calendário JS #}
-                {{ form_widget(justificativaForm.datas, {attr: {id: 'justificativa-datas-hidden'}}) }}
-                {{ form_errors(justificativaForm.datas) }}
-
-                {# Calendário de seleção de dias #}
-                <div class="mb-3">
-                    <label class="form-label fw-semibold">Selecione os dias da ausência</label>
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="cal-prev">
-                            <i class="bi bi-chevron-left"></i>
-                        </button>
-                        <span id="cal-title" class="fw-semibold flex-grow-1 text-center"></span>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" id="cal-next">
-                            <i class="bi bi-chevron-right"></i>
-                        </button>
-                    </div>
-                    <div id="justificativa-calendar" class="border rounded p-2"></div>
-                    <div class="mt-2 small text-muted">
-                        Dias selecionados: <span id="cal-selected-label" class="fw-semibold text-dark">nenhum</span>
-                    </div>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalJustificativaLabel">
+                        <i class="bi bi-calendar-x me-2"></i>Justificar Falta / Ausência
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
 
-                <div class="mb-3">
-                    {{ form_label(justificativaForm.tipo) }}
-                    {{ form_widget(justificativaForm.tipo, {attr: {class: 'form-select'}}) }}
-                    {{ form_errors(justificativaForm.tipo) }}
+                <div class="modal-body">
+                    {% include 'ponto/_justificativa_calendario.html.twig' with {
+                        prefixo: '',
+                        nomePrefixo: 'justificativa_ponto',
+                        idModal: 'modalJustificativa'
+                    } only %}
+                    {% include 'ponto/_justificativa_campos.html.twig' with {
+                        prefixo: '',
+                        nomePrefixo: 'justificativa_ponto',
+                        idModal: 'modalJustificativa',
+                        tiposJustificativa: tiposJustificativa
+                    } only %}
                 </div>
 
-                <div id="alerta-falta-nao-justificada" class="d-none alert alert-warning py-2 mb-3">
-                    <i class="bi bi-exclamation-triangle me-1"></i>
-                    Este tipo apenas registra que a falta não foi justificada. As horas faltantes <strong>não</strong> serão abonadas.
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-send me-1"></i>Enviar Justificativa
+                    </button>
                 </div>
-
-                <div id="bloco-abono-parcial" class="mb-3 form-check">
-                    {{ form_widget(justificativaForm.abonoParcial, {attr: {class: 'form-check-input'}}) }}
-                    {{ form_label(justificativaForm.abonoParcial, null, {label_attr: {class: 'form-check-label'}}) }}
-                    <div class="form-text">Marque se o funcionário saiu durante o expediente e retornou no mesmo dia.</div>
-                </div>
-
-                <div id="bloco-horario-abono" class="d-none mb-3 p-3 border rounded bg-light">
-                    <p class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Período de ausência parcial</p>
-                    <div class="row g-2">
-                        <div class="col">
-                            {{ form_label(justificativaForm.horaInicioAbono) }}
-                            {{ form_widget(justificativaForm.horaInicioAbono, {attr: {class: 'form-control', id: 'hora-inicio-abono'}}) }}
-                            {{ form_errors(justificativaForm.horaInicioAbono) }}
-                        </div>
-                        <div class="col">
-                            {{ form_label(justificativaForm.horaFimAbono) }}
-                            {{ form_widget(justificativaForm.horaFimAbono, {attr: {class: 'form-control', id: 'hora-fim-abono'}}) }}
-                            {{ form_errors(justificativaForm.horaFimAbono) }}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mb-3">
-                    {{ form_label(justificativaForm.descricao) }}
-                    {{ form_widget(justificativaForm.descricao, {attr: {class: 'form-control'}}) }}
-                    {{ form_errors(justificativaForm.descricao) }}
-                </div>
-
-                <div class="mb-3">
-                    {{ form_label(justificativaForm.anexo) }}
-                    {{ form_widget(justificativaForm.anexo, {attr: {class: 'form-control', accept: '.pdf,.jpg,.jpeg,.png'}}) }}
-                    {{ form_errors(justificativaForm.anexo) }}
-                    <div class="form-text">PDF, JPEG ou PNG — máximo 10 MB (opcional)</div>
-                </div>
-
-
-            </div>
-
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-warning">
-                    <i class="bi bi-send me-1"></i>Enviar Justificativa
-                </button>
-            </div>
-
-            {{ form_end(justificativaForm) }}
+            </form>
         </div>
     </div>
 </div>
-
-<style>
-#justificativa-calendar {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 4px;
-    user-select: none;
-}
-#justificativa-calendar .cal-header {
-    text-align: center;
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: #6c757d;
-    padding: 4px 0;
-}
-#justificativa-calendar .cal-day {
-    text-align: center;
-    padding: 6px 4px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    border: 1px solid transparent;
-}
-#justificativa-calendar .cal-day:hover:not(.cal-empty):not(.cal-disabled) {
-    background: #fff3cd;
-    border-color: #ffc107;
-}
-#justificativa-calendar .cal-day.cal-selected {
-    background: #ffc107;
-    border-color: #e0a800;
-    font-weight: 600;
-}
-#justificativa-calendar .cal-day.cal-today {
-    border-color: #0d6efd;
-}
-#justificativa-calendar .cal-day.cal-disabled {
-    color: #ccc;
-    cursor: default;
-}
-#justificativa-calendar .cal-day.cal-weekend {
-    color: #dc3545;
-}
-#justificativa-calendar .cal-empty {
-    visibility: hidden;
-}
-</style>
-
-<script>
-(function() {
-    const hoje = new Date();
-    hoje.setHours(0,0,0,0);
-
-    let viewAno = {{ anoAtual }};
-    let viewMes = {{ mesAtual }} - 1; // JS months são 0-indexed
-
-    const selectedDates = new Set();
-    const hiddenInput = document.querySelector('input[name="justificativa_ponto[datas]"]');
-    const calTitle = document.getElementById('cal-title');
-    const calSelectedLabel = document.getElementById('cal-selected-label');
-    const calContainer = document.getElementById('justificativa-calendar');
-
-    const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    const diasSemana = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
-
-    function toYMD(d) {
-        return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    }
-
-    function formatDisplay(ymd) {
-        const [y,m,d] = ymd.split('-');
-        return d+'/'+m+'/'+y;
-    }
-
-    function renderCalendar() {
-        calTitle.textContent = meses[viewMes] + ' ' + viewAno;
-        calContainer.innerHTML = '';
-
-        // Cabeçalho dos dias da semana
-        diasSemana.forEach(function(d) {
-            const h = document.createElement('div');
-            h.className = 'cal-header';
-            h.textContent = d;
-            calContainer.appendChild(h);
-        });
-
-        const primeiroDia = new Date(viewAno, viewMes, 1);
-        const ultimoDia = new Date(viewAno, viewMes + 1, 0);
-
-        // Cells vazias antes do primeiro dia
-        for (let i = 0; i < primeiroDia.getDay(); i++) {
-            const empty = document.createElement('div');
-            empty.className = 'cal-day cal-empty';
-            calContainer.appendChild(empty);
-        }
-
-        for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
-            const d = new Date(viewAno, viewMes, dia);
-            const ymd = toYMD(d);
-            const isFuturo = d > hoje;
-            const isSabado = d.getDay() === 6;
-
-            const btn = document.createElement('div');
-            btn.className = 'cal-day';
-            btn.textContent = dia;
-
-            if (isFuturo) {
-                btn.classList.add('cal-disabled');
-            } else {
-                if (isSabado) btn.classList.add('cal-weekend');
-                if (toYMD(hoje) === ymd) btn.classList.add('cal-today');
-                if (selectedDates.has(ymd)) btn.classList.add('cal-selected');
-
-                btn.addEventListener('click', function() {
-                    if (selectedDates.has(ymd)) {
-                        selectedDates.delete(ymd);
-                        btn.classList.remove('cal-selected');
-                    } else {
-                        selectedDates.add(ymd);
-                        btn.classList.add('cal-selected');
-                    }
-                    updateHiddenInput();
-                });
-            }
-
-            calContainer.appendChild(btn);
-        }
-    }
-
-    function updateHiddenInput() {
-        const sorted = Array.from(selectedDates).sort();
-        hiddenInput.value = sorted.join(',');
-        if (sorted.length === 0) {
-            calSelectedLabel.textContent = 'nenhum';
-        } else {
-            calSelectedLabel.textContent = sorted.map(formatDisplay).join(', ');
-        }
-    }
-
-    document.getElementById('cal-prev').addEventListener('click', function() {
-        viewMes--;
-        if (viewMes < 0) { viewMes = 11; viewAno--; }
-        renderCalendar();
-    });
-
-    document.getElementById('cal-next').addEventListener('click', function() {
-        // Não avança além do mês atual
-        const mesAtual = hoje.getMonth();
-        const anoAtual = hoje.getFullYear();
-        if (viewAno < anoAtual || (viewAno === anoAtual && viewMes < mesAtual)) {
-            viewMes++;
-            if (viewMes > 11) { viewMes = 0; viewAno++; }
-            renderCalendar();
-        }
-    });
-
-    const checkAbonoParcial = document.querySelector('input[name="justificativa_ponto[abonoParcial]"]');
-    const blocoHorario = document.getElementById('bloco-horario-abono');
-    const tipoSelect = document.querySelector('select[name="justificativa_ponto[tipo]"]');
-    const alertaNaoJustificada = document.getElementById('alerta-falta-nao-justificada');
-    const blocoAbonoParcial = document.getElementById('bloco-abono-parcial');
-
-    function aplicarEstadoTipo() {
-        const isFaltaNaoJustificada = tipoSelect.value === 'falta_nao_justificada';
-        alertaNaoJustificada.classList.toggle('d-none', !isFaltaNaoJustificada);
-        blocoAbonoParcial.classList.toggle('d-none', isFaltaNaoJustificada);
-        if (isFaltaNaoJustificada) {
-            checkAbonoParcial.checked = false;
-            blocoHorario.classList.add('d-none');
-        }
-    }
-
-    tipoSelect.addEventListener('change', aplicarEstadoTipo);
-
-    // Re-render quando o modal abrir
-    document.getElementById('modalJustificativa').addEventListener('show.bs.modal', function() {
-        viewAno = hoje.getFullYear();
-        viewMes = hoje.getMonth();
-        selectedDates.clear();
-        hiddenInput.value = '';
-        calSelectedLabel.textContent = 'nenhum';
-        checkAbonoParcial.checked = false;
-        blocoHorario.classList.add('d-none');
-        tipoSelect.value = '';
-        aplicarEstadoTipo();
-        renderCalendar();
-    });
-
-    renderCalendar();
-
-    // Controle do bloco de horário de abono parcial
-    checkAbonoParcial.addEventListener('change', function() {
-        if (this.checked && selectedDates.size > 1) {
-            alert('Abono parcial só pode ser aplicado a uma única data. Desmarque as datas extras no calendário.');
-            this.checked = false;
-            blocoHorario.classList.add('d-none');
-            return;
-        }
-        blocoHorario.classList.toggle('d-none', !this.checked);
-    });
-})();
-</script>

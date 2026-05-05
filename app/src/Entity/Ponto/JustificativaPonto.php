@@ -22,9 +22,6 @@ class JustificativaPonto
     #[ORM\Column(type: 'date')]
     private ?\DateTimeInterface $data = null;
 
-    #[ORM\Column(type: 'text')]
-    private ?string $descricao = null;
-
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $anexoPath = null; // Caminho para o arquivo (PDF/Imagem)
 
@@ -80,17 +77,6 @@ class JustificativaPonto
     public function setData(\DateTimeInterface $data): static
     {
         $this->data = $data;
-        return $this;
-    }
-
-    public function getDescricao(): ?string
-    {
-        return $this->descricao;
-    }
-
-    public function setDescricao(string $descricao): static
-    {
-        $this->descricao = $descricao;
         return $this;
     }
 

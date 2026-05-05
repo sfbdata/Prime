@@ -1,0 +1,105 @@
+{#
+  Parâmetros:
+    prefixo             string       Namespace de IDs ('' = usuário, 'admin' = admin)
+    nomePrefixo         string       Prefixo dos nomes dos campos ('justificativa_ponto' ou '')
+    idModal             string       ID do elemento modal — usado para resetar ao abrir
+    tiposJustificativa  array        ['Label' => 'value']
+    textoInfoAdicional  string|null  Mensagem de info extra no rodapé (opcional)
+#}
+{% set p = prefixo ? prefixo ~ '-just' : 'just' %}
+{% set campoTipo       = nomePrefixo ? nomePrefixo ~ '[tipo]'            : 'tipo' %}
+{% set campoAbono      = nomePrefixo ? nomePrefixo ~ '[abonoParcial]'    : 'abonoParcial' %}
+{% set campoHoraInicio = nomePrefixo ? nomePrefixo ~ '[horaInicioAbono]' : 'horaInicioAbono' %}
+{% set campoHoraFim    = nomePrefixo ? nomePrefixo ~ '[horaFimAbono]'    : 'horaFimAbono' %}
+{% set campoAnexo      = nomePrefixo ? nomePrefixo ~ '[anexo]'           : 'anexo' %}
+
+<div class="mb-3">
+    <label for="{{ p }}-tipo" class="form-label fw-semibold">Tipo de Justificativa</label>
+    <select name="{{ campoTipo }}" id="{{ p }}-tipo" class="form-select" required>
+        <option value="">Selecione o tipo</option>
+        {% for label, value in tiposJustificativa %}
+            <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+    </select>
+</div>
+
+<div id="{{ p }}-alerta-nao-justificada" class="d-none alert alert-warning py-2 mb-3">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    Este tipo apenas registra que a falta não foi justificada. As horas faltantes <strong>não</strong> serão abonadas.
+</div>
+
+<div id="{{ p }}-bloco-abono-parcial" class="mb-3 form-check">
+    <input type="checkbox" name="{{ campoAbono }}" id="{{ p }}-abono-parcial" class="form-check-input" value="1">
+    <label for="{{ p }}-abono-parcial" class="form-check-label">Abono parcial (saída para consulta e retorno no mesmo dia)</label>
+    <div class="form-text">Marque se o funcionário saiu durante o expediente e retornou no mesmo dia.</div>
+</div>
+
+<div id="{{ p }}-bloco-horario-abono" class="d-none mb-3 p-3 border rounded bg-light">
+    <p class="small fw-semibold mb-2"><i class="bi bi-clock me-1"></i>Período de ausência parcial</p>
+    <div class="row g-2">
+        <div class="col">
+            <label for="{{ p }}-hora-inicio" class="form-label">Saída para atestado</label>
+            <input type="time" name="{{ campoHoraInicio }}" id="{{ p }}-hora-inicio" class="form-control">
+        </div>
+        <div class="col">
+            <label for="{{ p }}-hora-fim" class="form-label">Retorno do atestado</label>
+            <input type="time" name="{{ campoHoraFim }}" id="{{ p }}-hora-fim" class="form-control">
+        </div>
+    </div>
+</div>
+
+<div class="mb-3">
+    <label for="{{ p }}-anexo" class="form-label fw-semibold">
+        Atestado / Comprovante <span class="text-muted fw-normal small">(opcional)</span>
+    </label>
+    <input type="file" name="{{ campoAnexo }}" id="{{ p }}-anexo" class="form-control" accept=".pdf,.jpg,.jpeg,.png">
+    <div class="form-text">PDF, JPEG ou PNG — máximo 10 MB</div>
+</div>
+
+{% if textoInfoAdicional is defined and textoInfoAdicional %}
+    <div class="alert alert-info py-2 small">
+        <i class="bi bi-info-circle me-1"></i>
+        {{ textoInfoAdicional }}
+    </div>
+{% endif %}
+
+<script>
+(function() {
+    const tipoSelect        = document.getElementById('{{ p }}-tipo');
+    const alertaNaoJust     = document.getElementById('{{ p }}-alerta-nao-justificada');
+    const blocoAbonoParcial = document.getElementById('{{ p }}-bloco-abono-parcial');
+    const checkAbonoParcial = document.getElementById('{{ p }}-abono-parcial');
+    const blocoHorario      = document.getElementById('{{ p }}-bloco-horario-abono');
+    const hiddenDatas       = document.getElementById('{{ p }}-datas');
+
+    function aplicarEstadoTipo() {
+        const isFaltaNaoJustificada = tipoSelect.value === 'falta_nao_justificada';
+        alertaNaoJust.classList.toggle('d-none', !isFaltaNaoJustificada);
+        blocoAbonoParcial.classList.toggle('d-none', isFaltaNaoJustificada);
+        if (isFaltaNaoJustificada) {
+            checkAbonoParcial.checked = false;
+            blocoHorario.classList.add('d-none');
+        }
+    }
+
+    tipoSelect.addEventListener('change', aplicarEstadoTipo);
+
+    checkAbonoParcial.addEventListener('change', function() {
+        const numDatas = hiddenDatas.value ? hiddenDatas.value.split(',').filter(Boolean).length : 0;
+        if (this.checked && numDatas > 1) {
+            alert('Abono parcial só pode ser aplicado a uma única data. Desmarque as datas extras no calendário.');
+            this.checked = false;
+            blocoHorario.classList.add('d-none');
+            return;
+        }
+        blocoHorario.classList.toggle('d-none', !this.checked);
+    });
+
+    document.getElementById('{{ idModal }}').addEventListener('show.bs.modal', function() {
+        checkAbonoParcial.checked = false;
+        blocoHorario.classList.add('d-none');
+        tipoSelect.value = '';
+        aplicarEstadoTipo();
+    });
+})();
+</script>

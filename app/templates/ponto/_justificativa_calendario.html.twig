@@ -1,0 +1,181 @@
+{#
+  Parâmetros:
+    prefixo     string   Namespace de IDs ('' = usuário, 'admin' = admin)
+    nomePrefixo string   Prefixo dos nomes dos campos ('justificativa_ponto' ou '')
+    idModal     string   ID do elemento modal — usado para resetar ao abrir
+#}
+{% set p = prefixo ? prefixo ~ '-just' : 'just' %}
+{% set campoDatas = nomePrefixo ? nomePrefixo ~ '[datas]' : 'datas' %}
+
+<input type="hidden" name="{{ campoDatas }}" id="{{ p }}-datas">
+
+<div class="mb-3">
+    <label class="form-label fw-semibold">Selecione os dias da ausência</label>
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="{{ p }}-cal-prev">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <span id="{{ p }}-cal-title" class="fw-semibold flex-grow-1 text-center"></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="{{ p }}-cal-next">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+    </div>
+    <div id="{{ p }}-calendar" class="border rounded p-2"></div>
+    <div class="mt-2 small text-muted">
+        Dias selecionados: <span id="{{ p }}-cal-selected-label" class="fw-semibold text-dark">nenhum</span>
+    </div>
+</div>
+
+<style>
+#{{ p }}-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    user-select: none;
+}
+#{{ p }}-calendar .cal-header {
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    padding: 4px 0;
+}
+#{{ p }}-calendar .cal-day {
+    text-align: center;
+    padding: 6px 4px;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+#{{ p }}-calendar .cal-day:hover:not(.cal-empty):not(.cal-disabled) {
+    background: #fff3cd;
+    border-color: #ffc107;
+}
+#{{ p }}-calendar .cal-day.cal-selected {
+    background: #ffc107;
+    border-color: #e0a800;
+    font-weight: 600;
+}
+#{{ p }}-calendar .cal-day.cal-today {
+    border-color: #0d6efd;
+}
+#{{ p }}-calendar .cal-day.cal-disabled {
+    color: #ccc;
+    cursor: default;
+}
+#{{ p }}-calendar .cal-day.cal-weekend {
+    color: #dc3545;
+}
+#{{ p }}-calendar .cal-empty {
+    visibility: hidden;
+}
+</style>
+
+<script>
+(function() {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    const calContainer     = document.getElementById('{{ p }}-calendar');
+    const hiddenInput      = document.getElementById('{{ p }}-datas');
+    const calTitle            = document.getElementById('{{ p }}-cal-title');
+    const calSelectedLabel    = document.getElementById('{{ p }}-cal-selected-label');
+
+    let viewAno = hoje.getFullYear();
+    let viewMes = hoje.getMonth();
+    const selectedDates = new Set();
+
+    const meses      = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const diasSemana = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+
+    function toYMD(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    function formatDisplay(ymd) {
+        const [y, m, d] = ymd.split('-');
+        return d + '/' + m + '/' + y;
+    }
+
+    function renderCalendar() {
+        calTitle.textContent = meses[viewMes] + ' ' + viewAno;
+        calContainer.innerHTML = '';
+
+        diasSemana.forEach(function(d) {
+            const h = document.createElement('div');
+            h.className = 'cal-header';
+            h.textContent = d;
+            calContainer.appendChild(h);
+        });
+
+        const primeiroDia = new Date(viewAno, viewMes, 1);
+        const ultimoDia   = new Date(viewAno, viewMes + 1, 0);
+
+        for (let i = 0; i < primeiroDia.getDay(); i++) {
+            const empty = document.createElement('div');
+            empty.className = 'cal-day cal-empty';
+            calContainer.appendChild(empty);
+        }
+
+        for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
+            const d   = new Date(viewAno, viewMes, dia);
+            const ymd = toYMD(d);
+            const btn = document.createElement('div');
+            btn.className = 'cal-day';
+            btn.textContent = dia;
+
+            if (d > hoje) {
+                btn.classList.add('cal-disabled');
+            } else {
+                if (d.getDay() === 0 || d.getDay() === 6) btn.classList.add('cal-weekend');
+                if (toYMD(hoje) === ymd) btn.classList.add('cal-today');
+                if (selectedDates.has(ymd)) btn.classList.add('cal-selected');
+
+                btn.addEventListener('click', function() {
+                    if (selectedDates.has(ymd)) {
+                        selectedDates.delete(ymd);
+                        btn.classList.remove('cal-selected');
+                    } else {
+                        selectedDates.add(ymd);
+                        btn.classList.add('cal-selected');
+                    }
+                    updateHiddenInput();
+                });
+            }
+            calContainer.appendChild(btn);
+        }
+    }
+
+    function updateHiddenInput() {
+        const sorted = Array.from(selectedDates).sort();
+        hiddenInput.value = sorted.join(',');
+        calSelectedLabel.textContent = sorted.length === 0 ? 'nenhum' : sorted.map(formatDisplay).join(', ');
+    }
+
+    document.getElementById('{{ p }}-cal-prev').addEventListener('click', function() {
+        viewMes--;
+        if (viewMes < 0) { viewMes = 11; viewAno--; }
+        renderCalendar();
+    });
+
+    document.getElementById('{{ p }}-cal-next').addEventListener('click', function() {
+        if (viewAno < hoje.getFullYear() || (viewAno === hoje.getFullYear() && viewMes < hoje.getMonth())) {
+            viewMes++;
+            if (viewMes > 11) { viewMes = 0; viewAno++; }
+            renderCalendar();
+        }
+    });
+
+    document.getElementById('{{ idModal }}').addEventListener('show.bs.modal', function() {
+        viewAno = hoje.getFullYear();
+        viewMes = hoje.getMonth();
+        selectedDates.clear();
+        hiddenInput.value = '';
+        calSelectedLabel.textContent = 'nenhum';
+        renderCalendar();
+    });
+
+    renderCalendar();
+})();
+</script>

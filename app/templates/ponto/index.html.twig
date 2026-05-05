@@ -104,7 +104,7 @@
     </div>
 </div>
 
-{% include 'ponto/_justificativa_form.html.twig' with {justificativaForm: justificativaForm, mesAtual: mesAtual, anoAtual: anoAtual} only %}
+{% include 'ponto/_justificativa_form.html.twig' with {tiposJustificativa: tiposJustificativa} only %}
 
 {# Modal: Editar justificativa pendente #}
 <div class="modal fade" id="modalEditarJustificativa" tabindex="-1" aria-labelledby="modalEditarJustificativaLabel" aria-hidden="true">
@@ -146,11 +146,6 @@
                                 <input type="time" name="horaFimAbono" id="editarHoraFim" class="form-control">
                             </div>
                         </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Motivo <span class="text-danger">*</span></label>
-                        <textarea name="descricao" id="editarJustificativaDescricao" class="form-control" rows="3" required></textarea>
                     </div>
 
                     <div class="mb-3">
@@ -345,7 +340,6 @@
         form.action = btn.dataset.url;
         document.getElementById('editarJustificativaToken').value = btn.dataset.csrf;
         document.getElementById('editarJustificativaTipo').value = btn.dataset.tipo || '';
-        document.getElementById('editarJustificativaDescricao').value = btn.dataset.descricao || '';
 
         const abonoParcial = btn.dataset.abonoParcial === '1';
         const checkAbono = document.getElementById('editarAbonoParcial');

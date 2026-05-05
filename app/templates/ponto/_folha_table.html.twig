@@ -193,14 +193,14 @@
                                     {% if linha.justificativa is defined and linha.justificativa is not null %}
                                         {% set j = linha.justificativa %}
                                         {% if j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
-                                            <span class="badge text-bg-danger" title="{{ j.descricao }}">
+                                            <span class="badge text-bg-danger">
                                                 <i class="bi bi-x-circle me-1"></i>Não abonada
                                             </span>
                                             {% if j.labelTipo %}
                                                 <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
                                             {% endif %}
                                         {% elseif j.status == 'abonado' %}
-                                            <span class="badge text-bg-success" title="{{ j.descricao }}">
+                                            <span class="badge text-bg-success">
                                                 <i class="bi bi-check-circle me-1"></i>Abonada
                                             </span>
                                             {% if j.labelTipo %}
@@ -210,14 +210,14 @@
                                                 <div class="small text-muted">{{ j.horaInicioAbono|date('H:i') }}–{{ j.horaFimAbono|date('H:i') }}</div>
                                             {% endif %}
                                         {% elseif j.status == 'pendente' %}
-                                            <span class="badge text-bg-warning text-dark" title="{{ j.descricao }}">
+                                            <span class="badge text-bg-warning text-dark">
                                                 <i class="bi bi-hourglass-split me-1"></i>Pendente
                                             </span>
                                             {% if j.labelTipo %}
                                                 <div class="small text-muted mt-1">{{ j.labelTipo }}</div>
                                             {% endif %}
                                         {% else %}
-                                            <span class="badge text-bg-danger" title="{{ j.descricao }}">
+                                            <span class="badge text-bg-danger">
                                                 <i class="bi bi-x-circle me-1"></i>Rejeitada
                                             </span>
                                             {% if j.labelTipo %}

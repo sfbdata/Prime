@@ -169,7 +169,6 @@ final class PontoController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $datasRaw = trim((string) $form->get('datas')->getData());
-            $descricao = trim((string) $form->get('descricao')->getData());
             $tipo = $form->get('tipo')->getData();
             $abonoParcial = (bool) $form->get('abonoParcial')->getData();
             $horaInicio = $form->get('horaInicioAbono')->getData();
@@ -228,7 +227,6 @@ final class PontoController extends AbstractController
                 $justificativa = new JustificativaPonto();
                 $justificativa->setUser($user);
                 $justificativa->setData($dataObj);
-                $justificativa->setDescricao($descricao);
                 $justificativa->setTipo($tipo);
                 $justificativa->setAnexoPath($anexoPath);
                 $justificativa->setStatus($statusInicial);
@@ -295,16 +293,10 @@ final class PontoController extends AbstractController
             return $this->redirectToRoute('ponto_index');
         }
 
-        $descricao = trim((string) $request->request->get('descricao', ''));
         $tipo = $request->request->get('tipo');
         $abonoParcial = (bool) $request->request->get('abonoParcial', false);
         $horaInicioRaw = $request->request->get('horaInicioAbono');
         $horaFimRaw = $request->request->get('horaFimAbono');
-
-        if ($descricao === '') {
-            $this->addFlash('warning', 'O campo motivo não pode estar vazio.');
-            return $this->redirectToRoute('ponto_index');
-        }
 
         if ($tipo !== null && !in_array($tipo, TipoJustificativa::valores(), true)) {
             $tipo = null;
@@ -323,7 +315,6 @@ final class PontoController extends AbstractController
             }
         }
 
-        $justificativa->setDescricao($descricao);
         $justificativa->setTipo($tipo ?: null);
         $justificativa->setAbonoParcial($abonoParcial);
         $justificativa->setHoraInicioAbono($abonoParcial ? $horaInicio : null);
