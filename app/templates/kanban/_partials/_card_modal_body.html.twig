@@ -1,0 +1,300 @@
+{# card: CardDetalheOutput #}
+<div class="kb-modal-grid" data-card-id="{{ card.id }}">
+
+    {# ── Coluna principal (esquerda) ── #}
+    <div>
+
+        {# Localização #}
+        <div class="text-muted mb-3" style="font-size:.78rem;">
+            <i class="bi bi-kanban me-1"></i>
+            <a href="{{ path('kanban_board_view', {id: card.boardId}) }}" class="text-muted text-decoration-none hover-underline">{{ card.boardNome }}</a>
+            <span class="mx-1">/</span>
+            <span>{{ card.colunaNome }}</span>
+        </div>
+
+        {# Título editável #}
+        <div class="kb-modal-section">
+            <div class="d-flex align-items-start gap-2 mb-3">
+                <i class="bi bi-card-text text-secondary mt-1" style="font-size:1rem; flex-shrink:0;"></i>
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center gap-2">
+                        <h5 class="mb-0 fw-semibold" id="cardTituloDisplay" style="font-size:1rem;">{{ card.titulo }}</h5>
+                        <button class="btn btn-link btn-sm p-0 text-muted"
+                                onclick="editarTituloCard({{ card.id }}, {{ card.titulo|json_encode }})"
+                                title="Editar título">
+                            <i class="bi bi-pencil" style="font-size:.78rem;"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Descrição #}
+        <div class="kb-modal-section">
+            <div class="kb-modal-section-title">
+                <i class="bi bi-text-left"></i> Descrição
+            </div>
+            <div id="quillDescricao" style="min-height:80px;">{% if card.descricao %}{{ card.descricao|raw }}{% endif %}</div>
+        </div>
+
+        {# Checklists #}
+        {% if card.checklists %}
+        <div class="kb-modal-section" id="checklistsContainer">
+            <div class="kb-modal-section-title">
+                <i class="bi bi-check-square"></i> Checklists
+                {% set totalGlobal = 0 %}
+                {% set concluidosGlobal = 0 %}
+                {% for cl in card.checklists %}
+                    {% set totalGlobal = totalGlobal + cl.totalItens %}
+                    {% set concluidosGlobal = concluidosGlobal + cl.itensConcluidos %}
+                {% endfor %}
+                {% if totalGlobal > 0 %}
+                <span class="kb-checklist-global-pct text-muted fw-normal ms-1" style="font-size:.75rem;">
+                    {{ concluidosGlobal }}/{{ totalGlobal }}
+                </span>
+                {% endif %}
+            </div>
+
+            {% if totalGlobal > 0 %}
+            {% set pctGlobal = ((concluidosGlobal / totalGlobal) * 100)|round %}
+            <div class="kb-progress-bar mb-3" style="height:6px;">
+                <div class="kb-checklist-global-bar kb-progress-fill" style="width: {{ pctGlobal }}%;"></div>
+            </div>
+            {% endif %}
+
+            {% for checklist in card.checklists %}
+            <div class="mb-3" id="checklist-{{ checklist.id }}">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                    <strong class="small">{{ checklist.titulo }}</strong>
+                    <button class="btn btn-link btn-sm p-0 text-danger"
+                            onclick="excluirChecklist({{ checklist.id }}, {{ card.id }}, '{{ csrf_token('kanban_checklist_excluir_' ~ checklist.id) }}')"
+                            title="Excluir checklist">
+                        <i class="bi bi-trash" style="font-size:.8rem;"></i>
+                    </button>
+                </div>
+
+                <div id="checklistItens-{{ checklist.id }}">
+                    {% for item in checklist.itens %}
+                    <div class="kb-checklist-item d-flex align-items-start gap-2 py-1{{ item.concluido ? ' concluido' : '' }}"
+                         id="checklistItem-{{ item.id }}">
+                        <input type="checkbox" class="form-check-input mt-1 flex-shrink-0"
+                               id="checkItem-{{ item.id }}"
+                               {{ item.concluido ? 'checked' : '' }}
+                               onchange="toggleChecklistItem({{ item.id }}, {{ card.id }})">
+                        <label class="form-check-label flex-grow-1 small{{ item.concluido ? ' text-decoration-line-through text-muted' : '' }}"
+                               for="checkItem-{{ item.id }}">{{ item.texto }}</label>
+                        <button class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
+                                onclick="excluirItemChecklist({{ item.id }}, {{ card.id }}, '{{ csrf_token('kanban_item_excluir_' ~ item.id) }}')"
+                                title="Remover item">
+                            <i class="bi bi-x" style="font-size:.9rem;"></i>
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div id="formAddItem-{{ checklist.id }}" class="d-none mt-1">
+                    <div class="input-group input-group-sm">
+                        <input type="text" class="form-control form-control-sm"
+                               id="inputAddItem-{{ checklist.id }}"
+                               placeholder="Novo item..."
+                               onkeydown="if(event.key==='Enter'){adicionarItemChecklist({{ checklist.id }}, {{ card.id }});} if(event.key==='Escape'){cancelarFormItem({{ checklist.id }});}">
+                        <button class="btn btn-primary btn-sm" onclick="adicionarItemChecklist({{ checklist.id }}, {{ card.id }})">
+                            <i class="bi bi-plus"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="cancelarFormItem({{ checklist.id }})">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+                <button class="btn btn-link btn-sm p-0 text-secondary mt-1"
+                        onclick="mostrarFormItem({{ checklist.id }})"
+                        style="font-size:.8rem;">
+                    <i class="bi bi-plus me-1"></i>Adicionar item
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Comentários #}
+        <div class="kb-modal-section">
+            <div class="kb-modal-section-title">
+                <i class="bi bi-chat-text"></i> Comentários
+            </div>
+
+            <div id="comentariosLista">
+                {% for comentario in card.comentarios %}
+                    {% include 'kanban/_partials/_comentario.html.twig' with {comentario: comentario} %}
+                {% endfor %}
+                {% if card.comentarios is empty %}
+                <p class="text-muted small mb-3">Sem comentários ainda.</p>
+                {% endif %}
+            </div>
+
+            <div class="mt-2">
+                <div id="quillComentario" style="min-height:60px;"></div>
+                <div class="mt-2 d-flex justify-content-end">
+                    <button class="btn btn-primary btn-sm" onclick="enviarComentario({{ card.id }})">
+                        <i class="bi bi-send me-1"></i>Comentar
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    {# ── Sidebar direita ── #}
+    <div>
+
+        {# Responsáveis #}
+        <div class="kb-sidebar-section"
+             id="responsaveisContainer"
+             data-responsaveis-ids="{{ card.responsaveis|map(r => r.id)|json_encode|e('html_attr') }}">
+            <div class="kb-sidebar-label">Responsáveis</div>
+            <div class="d-flex flex-wrap gap-1 mb-2">
+                {% for resp in card.responsaveis %}
+                <span class="badge d-flex align-items-center gap-1"
+                      style="background: #e5e7eb; color: #374151; font-weight:500;"
+                      id="respBadge-{{ resp.id }}">
+                    <span class="kb-avatar" style="width:16px;height:16px;font-size:.55rem;flex-shrink:0;">{{ resp.iniciais }}</span>
+                    {{ resp.nome }}
+                </span>
+                {% endfor %}
+                {% if card.responsaveis is empty %}
+                <span class="text-muted small">Nenhum responsável</span>
+                {% endif %}
+            </div>
+            {% if card.participantesDisponiveis %}
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button"
+                        data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-person-plus"></i> Gerenciar
+                </button>
+                <ul class="dropdown-menu" style="min-width:220px;">
+                    {% for p in card.participantesDisponiveis %}
+                    <li>
+                        <button class="dropdown-item d-flex align-items-center gap-2 py-1"
+                                onclick="toggleResponsavelCard({{ card.id }}, {{ p.id }}, this)"
+                                data-user-id="{{ p.id }}">
+                            <span class="kb-avatar" style="width:20px;height:20px;font-size:.6rem;flex-shrink:0;">{{ p.iniciais }}</span>
+                            <span class="flex-grow-1">{{ p.nome }}</span>
+                            <i class="bi bi-check resp-check-{{ p.id }}{{ card.responsaveis|filter(r => r.id == p.id)|length > 0 ? '' : ' d-none' }}"></i>
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+
+        {# Marcadores #}
+        <div class="kb-sidebar-section">
+            <div class="kb-sidebar-label">Marcadores</div>
+            <div class="d-flex flex-wrap gap-1 mb-2">
+                {% for marcador in card.marcadoresDisponiveis %}
+                <button type="button"
+                        class="btn btn-sm kb-marcador-btn{{ card.marcadores|filter(m => m.id == marcador.id)|length > 0 ? ' ativo' : '' }}"
+                        style="background: {{ marcador.cor|e('html_attr') }}{{ card.marcadores|filter(m => m.id == marcador.id)|length == 0 ? '33' : '' }};
+                               color: {{ card.marcadores|filter(m => m.id == marcador.id)|length > 0 ? '#fff' : marcador.cor|e('html_attr') }};
+                               border: 1px solid {{ marcador.cor|e('html_attr') }};
+                               font-size:.75rem; padding:.2rem .6rem;"
+                        onclick="toggleMarcador({{ card.id }}, {{ marcador.id }}, this)">
+                    {{ marcador.nome }}
+                </button>
+                {% endfor %}
+                {% if card.marcadoresDisponiveis is empty %}
+                <span class="text-muted small">Sem marcadores criados</span>
+                {% endif %}
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" style="font-size:.78rem;"
+                    onclick="mostrarFormCriarMarcador({{ card.boardId }}, {{ card.id }})">
+                <i class="bi bi-plus me-1"></i>Criar marcador
+            </button>
+            <div id="formCriarMarcador" class="d-none mt-2">
+                <div class="input-group input-group-sm mb-1">
+                    <input type="text" id="novoMarcadorNome" class="form-control form-control-sm" placeholder="Nome...">
+                </div>
+                <div class="d-flex gap-1 flex-wrap mb-1" id="marcadorCores">
+                    {% for cor in ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#f97316'] %}
+                    <button type="button"
+                            class="kb-cor-btn"
+                            style="width:20px;height:20px;border-radius:50%;background:{{ cor }};border:2px solid transparent;cursor:pointer;"
+                            data-cor="{{ cor }}"
+                            onclick="selecionarCorMarcador(this)"></button>
+                    {% endfor %}
+                </div>
+                <input type="hidden" id="novoMarcadorCor" value="#3b82f6">
+                <div class="d-flex gap-1">
+                    <button class="btn btn-primary btn-sm" onclick="criarMarcador({{ card.boardId }}, {{ card.id }})">Criar</button>
+                    <button class="btn btn-outline-secondary btn-sm" onclick="document.getElementById('formCriarMarcador').classList.add('d-none')">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+        {# Data de vencimento #}
+        <div class="kb-sidebar-section">
+            <div class="kb-sidebar-label">Vencimento</div>
+            <input type="date" class="form-control form-control-sm"
+                   id="cardDataVencimento"
+                   value="{{ card.dataVencimento ? card.dataVencimento|date('Y-m-d') : '' }}"
+                   onchange="atualizarVencimento({{ card.id }}, this.value)"
+                   style="max-width:160px;">
+            {% if card.dataVencimento and card.estaVencido %}
+            <small class="text-danger d-block mt-1"><i class="bi bi-exclamation-triangle me-1"></i>Vencido</small>
+            {% endif %}
+        </div>
+
+        {# Anexos #}
+        <div class="kb-sidebar-section">
+            <div class="kb-sidebar-label">Anexos</div>
+            <div id="anexosLista">
+                {% for anexo in card.anexos %}
+                <div class="d-flex align-items-center gap-2 py-1" id="anexo-{{ anexo.id }}" style="border-bottom:1px solid #f3f4f6;">
+                    <i class="bi {{ anexo.isImagem ? 'bi-image' : 'bi-file-earmark' }} text-secondary flex-shrink-0"></i>
+                    <a href="{{ path('kanban_anexo_servir', {id: anexo.id}) }}"
+                       target="_blank"
+                       class="flex-grow-1 text-truncate small text-decoration-none"
+                       style="max-width:130px;"
+                       title="{{ anexo.nomeOriginal }}">{{ anexo.nomeOriginal }}</a>
+                    <span class="text-muted flex-shrink-0" style="font-size:.7rem;">{{ anexo.tamanhoFormatado }}</span>
+                    <button class="btn btn-link btn-sm p-0 text-danger flex-shrink-0"
+                            onclick="excluirAnexo({{ anexo.id }}, {{ card.id }}, '{{ csrf_token('kanban_anexo_excluir_' ~ anexo.id) }}')"
+                            title="Remover">
+                        <i class="bi bi-x" style="font-size:.9rem;"></i>
+                    </button>
+                </div>
+                {% endfor %}
+                {% if card.anexos is empty %}
+                <p class="text-muted small mb-2">Nenhum anexo</p>
+                {% endif %}
+            </div>
+
+            <label class="btn btn-outline-secondary btn-sm mt-1" style="font-size:.78rem; cursor:pointer;">
+                <i class="bi bi-paperclip me-1"></i>Adicionar arquivo
+                <input type="file" class="d-none" onchange="uploadAnexo({{ card.id }}, this)">
+            </label>
+        </div>
+
+        {# Criar checklist #}
+        <div class="kb-sidebar-section">
+            <div class="kb-sidebar-label">Checklist</div>
+            <button class="btn btn-outline-secondary btn-sm" style="font-size:.78rem;"
+                    onclick="criarChecklist({{ card.id }})">
+                <i class="bi bi-check-square me-1"></i>Adicionar checklist
+            </button>
+        </div>
+
+        {# Meta #}
+        <div class="kb-sidebar-section border-top pt-3 mt-2">
+            <div class="text-muted" style="font-size:.72rem;">
+                <div>Criado em {{ card.criadoEm|date('d/m/Y H:i') }}</div>
+                <button class="btn btn-link btn-sm p-0 text-danger mt-2"
+                        onclick="excluirCard({{ card.id }}, '{{ csrf_token('kanban_card_excluir_' ~ card.id) }}')"
+                        style="font-size:.78rem;">
+                    <i class="bi bi-trash me-1"></i>Excluir card
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>

@@ -1,0 +1,48 @@
+{# card: CardSummaryOutput #}
+<div class="kb-card" data-card-id="{{ card.id }}">
+    {% if card.marcadores %}
+    <div class="kb-card-tags">
+        {% for marcador in card.marcadores %}
+        <span class="kb-tag" style="background: {{ marcador.cor|e('html_attr') }};">{{ marcador.nome }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <p class="kb-card-title">{{ card.titulo }}</p>
+
+    {% if card.totalChecklists > 0 %}
+    <div class="kb-progress-bar">
+        <div class="kb-progress-fill" style="width: {{ card.progressoChecklists }}%;"></div>
+    </div>
+    {% endif %}
+
+    <div class="kb-card-footer">
+        <div class="kb-card-meta">
+            {% if card.dataVencimento %}
+            <span class="kb-card-meta-item {{ card.estaVencido ? 'vencido' : '' }}">
+                <i class="bi bi-calendar-event"></i>
+                {{ card.dataVencimento|date('d/m') }}
+            </span>
+            {% endif %}
+            {% if card.totalChecklists > 0 %}
+            <span class="kb-card-meta-item">
+                <i class="bi bi-check-square"></i>
+                {{ card.progressoChecklists }}%
+            </span>
+            {% endif %}
+            {% if card.totalAnexos > 0 %}
+            <span class="kb-card-meta-item">
+                <i class="bi bi-paperclip"></i>
+                {{ card.totalAnexos }}
+            </span>
+            {% endif %}
+        </div>
+        {% if card.responsaveis %}
+        <div class="kb-avatares">
+            {% for resp in card.responsaveis|slice(0, 3) %}
+            <span class="kb-avatar" title="{{ resp.nome|e('html_attr') }}">{{ resp.iniciais }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>

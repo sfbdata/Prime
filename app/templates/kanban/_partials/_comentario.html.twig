@@ -1,0 +1,33 @@
+{# comentario: ComentarioOutput #}
+<div class="kb-comentario py-2" id="comentario-{{ comentario.id }}">
+    <div class="d-flex gap-2 align-items-start">
+        <span class="kb-avatar" style="flex-shrink:0; width:28px; height:28px; font-size:.75rem;">
+            {{ comentario.autorNome|slice(0,2)|upper }}
+        </span>
+        <div class="flex-grow-1 min-width-0">
+            <div class="d-flex align-items-center justify-content-between gap-1 mb-1">
+                <div class="d-flex align-items-center gap-2">
+                    <strong class="small">{{ comentario.autorNome }}</strong>
+                    <span class="text-muted" style="font-size:.72rem;">
+                        {{ comentario.criadoEm|date('d/m/Y H:i') }}{% if comentario.atualizadoEm %} <em>(editado)</em>{% endif %}
+                    </span>
+                </div>
+                {% if comentario.podeEditar %}
+                <div class="d-flex gap-1 flex-shrink-0">
+                    <button class="btn btn-link btn-sm p-0 text-muted"
+                            onclick="editarComentarioModal({{ comentario.id }}, this)"
+                            title="Editar">
+                        <i class="bi bi-pencil" style="font-size:.8rem;"></i>
+                    </button>
+                    <button class="btn btn-link btn-sm p-0 text-danger"
+                            onclick="excluirComentario({{ comentario.id }}, '{{ csrf_token('kanban_comentario_excluir_' ~ comentario.id) }}')"
+                            title="Excluir">
+                        <i class="bi bi-trash" style="font-size:.8rem;"></i>
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            <div class="kb-comentario-conteudo small" id="comentarioConteudo-{{ comentario.id }}" style="line-height:1.5;">{{ comentario.conteudo|raw }}</div>
+        </div>
+    </div>
+</div>

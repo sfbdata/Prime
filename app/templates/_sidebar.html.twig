@@ -82,6 +82,16 @@
                     </li>
                 {% endif %}
 
+                {% if can_access_module('kanban') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('kanban_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'kanban_' ? 'active' : '' }}">
+                            <i class="bi bi-kanban pje-nav-icon"></i>
+                            <span>Kanban</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {% if can_access_module('servicedesk') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('servicedesk_meus_chamados') }}"

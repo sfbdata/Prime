@@ -1,0 +1,1023 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ board.nome }} — Kanban{% endblock %}
+
+{% block stylesheets %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" crossorigin="anonymous">
+<style>
+/* ── Layout de Board ── */
+.kb-board-layout {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 120px);
+}
+.kb-board-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: .75rem;
+}
+.kb-board-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+}
+.kb-board-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--kb-cor, #3b82f6);
+    flex-shrink: 0;
+}
+.kb-board-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin: 0;
+}
+.kb-board-breadcrumb {
+    font-size: .8rem;
+    color: #6c757d;
+}
+.kb-board-breadcrumb a { color: #6c757d; text-decoration: none; }
+.kb-board-breadcrumb a:hover { text-decoration: underline; }
+
+/* ── Colunas ── */
+.kb-columns-area {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    flex: 1;
+    align-items: flex-start;
+}
+.kb-columns-area::-webkit-scrollbar { height: 6px; }
+.kb-columns-area::-webkit-scrollbar-thumb { background: rgba(0,0,0,.2); border-radius: 3px; }
+
+.kb-column {
+    background: #f3f4f6;
+    border-radius: 12px;
+    width: 280px;
+    min-width: 280px;
+    max-height: calc(100vh - 200px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.kb-column-header {
+    padding: .75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(0,0,0,.06);
+    background: #f3f4f6;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+.kb-column-name {
+    font-size: .85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #374151;
+}
+.kb-column-count {
+    background: rgba(0,0,0,.08);
+    border-radius: 20px;
+    padding: .1rem .5rem;
+    font-size: .75rem;
+    font-weight: 600;
+    color: #374151;
+}
+.kb-cards-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: .75rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    min-height: 80px;
+}
+.kb-cards-list::-webkit-scrollbar { width: 4px; }
+.kb-cards-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 2px; }
+
+/* ── Cards ── */
+.kb-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: .75rem;
+    border: 1px solid rgba(0,0,0,.07);
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    cursor: pointer;
+    transition: box-shadow .15s, border-color .15s;
+    user-select: none;
+}
+.kb-card:hover {
+    box-shadow: 0 3px 8px rgba(0,0,0,.1);
+    border-color: rgba(59,130,246,.3);
+}
+.kb-card.sortable-ghost {
+    opacity: .3;
+    background: #e5e7eb;
+}
+.kb-card.sortable-drag {
+    opacity: .95;
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    transform: rotate(1.5deg);
+}
+.kb-card-title {
+    font-size: .88rem;
+    font-weight: 500;
+    color: #111827;
+    margin: 0 0 .5rem 0;
+    line-height: 1.35;
+}
+.kb-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .25rem;
+    margin-bottom: .4rem;
+}
+.kb-tag {
+    display: inline-block;
+    padding: .1rem .5rem;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 600;
+    color: #fff;
+}
+.kb-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: .75rem;
+    color: #6c757d;
+    margin-top: .35rem;
+}
+.kb-card-meta {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+}
+.kb-card-meta-item {
+    display: flex;
+    align-items: center;
+    gap: .2rem;
+}
+.kb-card-meta-item.vencido { color: #ef4444; }
+.kb-avatares {
+    display: flex;
+    gap: -4px;
+}
+.kb-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #3b82f6;
+    color: #fff;
+    font-size: .65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #fff;
+    margin-left: -4px;
+}
+.kb-avatar:first-child { margin-left: 0; }
+
+/* Adicionar card */
+.kb-add-card-btn {
+    padding: .5rem .75rem;
+    margin: 0 .5rem .5rem;
+    border: 1px dashed rgba(0,0,0,.15);
+    border-radius: 6px;
+    background: transparent;
+    color: #6c757d;
+    font-size: .82rem;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+    width: calc(100% - 1rem);
+    text-align: left;
+}
+.kb-add-card-btn:hover {
+    border-color: #3b82f6;
+    color: #3b82f6;
+    background: rgba(59,130,246,.04);
+}
+.kb-add-card-form {
+    padding: .5rem;
+    display: none;
+}
+.kb-add-card-form textarea {
+    width: 100%;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: .5rem;
+    font-size: .85rem;
+    resize: none;
+    outline: none;
+    min-height: 60px;
+}
+.kb-add-card-form textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.15); }
+.kb-add-card-actions { display: flex; gap: .4rem; margin-top: .4rem; }
+
+/* Progresso checklist */
+.kb-progress-bar {
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: .35rem;
+}
+.kb-progress-fill {
+    height: 100%;
+    background: #10b981;
+    border-radius: 2px;
+    transition: width .3s;
+}
+
+/* ── Modal de card ── */
+#kanbanCardModal .modal-header { border-bottom: 1px solid #e5e7eb; }
+.kb-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 1.5rem;
+}
+@media (max-width: 768px) { .kb-modal-grid { grid-template-columns: 1fr; } }
+
+.kb-modal-section { margin-bottom: 1.5rem; }
+.kb-modal-section-title {
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6c757d;
+    margin-bottom: .6rem;
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+}
+.kb-sidebar-section { margin-bottom: 1.25rem; }
+.kb-sidebar-label {
+    font-size: .78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6c757d;
+    margin-bottom: .5rem;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="kb-board-layout" style="--kb-cor: {{ board.cor ?? '#3b82f6' }};">
+
+    {# ── Topbar ── #}
+    <div class="kb-board-topbar">
+        <div class="kb-board-topbar-left">
+            <div class="kb-board-dot"></div>
+            <div>
+                <div class="kb-board-breadcrumb">
+                    <a href="{{ path('kanban_index') }}">Kanban</a> /
+                </div>
+                <h1 class="kb-board-title">{{ board.nome }}</h1>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            {# Participantes (avatares) #}
+            <div class="kb-avatares">
+                {% for p in board.participantes %}
+                    <span class="kb-avatar" title="{{ p.nome }}">{{ p.iniciais }}</span>
+                {% endfor %}
+            </div>
+            {% if board.podeAdministrar %}
+                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEditarBoard">
+                    <i class="bi bi-gear"></i>
+                </button>
+            {% endif %}
+        </div>
+    </div>
+
+    {# ── Área de colunas ── #}
+    <div class="kb-columns-area">
+        {% for coluna in board.colunas %}
+        <div class="kb-column" id="coluna-{{ coluna.id }}">
+            <div class="kb-column-header">
+                <span class="kb-column-name">{{ coluna.nome }}</span>
+                <span class="kb-column-count" data-coluna-count="{{ coluna.id }}">{{ coluna.totalCards }}</span>
+            </div>
+
+            <div class="kb-cards-list" data-coluna-id="{{ coluna.id }}" id="cards-{{ coluna.id }}">
+                {% for card in coluna.cards %}
+                    {% include 'kanban/_partials/_card_mini.html.twig' with {card: card} %}
+                {% endfor %}
+            </div>
+
+            {# Formulário inline "adicionar card" #}
+            <div class="kb-add-card-form" id="formAddCard-{{ coluna.id }}">
+                <textarea placeholder="Título do card..." rows="2" id="inputAddCard-{{ coluna.id }}"></textarea>
+                <div class="kb-add-card-actions">
+                    <button class="btn btn-primary btn-sm" onclick="adicionarCard({{ coluna.id }})">Adicionar</button>
+                    <button class="btn btn-secondary btn-sm" onclick="cancelarAdd({{ coluna.id }})">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+
+            <button class="kb-add-card-btn" onclick="mostrarFormAdd({{ coluna.id }})" id="btnAdd-{{ coluna.id }}">
+                <i class="bi bi-plus"></i> Adicionar card
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+{# ── Modal de detalhe do card ── #}
+<div class="modal fade" id="kanbanCardModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <div class="d-flex align-items-center gap-2 flex-grow-1 me-3">
+                    <i class="bi bi-card-text text-secondary"></i>
+                    <span id="kanbanCardModalTitulo" class="fw-semibold" style="font-size:.95rem;"></span>
+                </div>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3" id="kanbanCardModalBody">
+                {# conteúdo carregado via fetch #}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── Modal: editar board ── #}
+{# ── Modal: criar checklist ── #}
+<div class="modal fade" id="modalCriarChecklist" tabindex="-1" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:400px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-check-square me-1 text-primary"></i> Nova Checklist</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-3">
+                <label class="form-label form-label-sm fw-semibold" for="checklistTituloInput">Título</label>
+                <input type="text" class="form-control form-control-sm" id="checklistTituloInput"
+                       placeholder="Ex.: Documentos necessários"
+                       maxlength="255"
+                       autocomplete="off">
+                <div id="checklistTituloErro" class="text-danger small mt-1" style="display:none;"></div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btnConfirmarChecklist">
+                    <i class="bi bi-plus-lg me-1"></i> Criar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if board.podeAdministrar %}
+<div class="modal fade" id="modalEditarBoard" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title"><i class="bi bi-gear me-1"></i> Configurações do Mural</h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEditarBoard" method="post" action="{{ path('kanban_board_editar', {id: board.id}) }}">
+                <div class="modal-body py-3">
+                    {{ form_row(formEdit.nome, {attr: {class: 'form-control form-control-sm'}}) }}
+                    {{ form_row(formEdit.descricao, {attr: {class: 'form-control form-control-sm', rows: 2}}) }}
+
+                    <div class="mb-3">
+                        <label class="form-label form-label-sm fw-semibold">Participantes</label>
+                        <select id="editParticipantesSelect" name="participantesIds[]" multiple class="form-select form-select-sm" style="width:100%;">
+                            {% for usuario in usuarios %}
+                                <option value="{{ usuario.id }}"
+                                    {% if board.participantes|filter(p => p.id == usuario.id)|length > 0 %}selected{% endif %}>
+                                    {{ usuario.fullName ?? usuario.email }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <hr>
+                    <div>
+                        <p class="text-danger small mb-2"><i class="bi bi-exclamation-triangle me-1"></i> Zona de perigo</p>
+                        <button type="button" class="btn btn-outline-danger btn-sm"
+                                onclick="excluirBoard({{ board.id }}, '{{ csrf_token('kanban_board_excluir_' ~ board.id) }}')">
+                            <i class="bi bi-trash me-1"></i> Excluir mural
+                        </button>
+                    </div>
+
+                    {{ form_row(formEdit._token) }}
+                    <div id="editarBoardErro" class="text-danger small mt-2" style="display:none;"></div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-check-lg me-1"></i> Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block javascripts %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" crossorigin="anonymous"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // ── Drag-and-drop ──
+    document.querySelectorAll('.kb-cards-list').forEach(function (list) {
+        new Sortable(list, {
+            group: 'kanban-cards',
+            animation: 150,
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+            onEnd: function (evt) {
+                const cardId      = parseInt(evt.item.dataset.cardId, 10);
+                const novaColunaId = parseInt(evt.to.dataset.colunaId, 10);
+                const novaPosicao  = evt.newIndex;
+
+                // Atualizar contadores visuais
+                atualizarContador(parseInt(evt.from.dataset.colunaId, 10));
+                atualizarContador(novaColunaId);
+
+                fetch('/kanban/card/' + cardId + '/mover', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ novaColunaId: novaColunaId, novaPosicao: novaPosicao }),
+                }).catch(function () {
+                    console.error('Erro ao mover card.');
+                });
+            },
+        });
+    });
+
+    window.atualizarContador = function (colunaId) {
+        const lista    = document.getElementById('cards-' + colunaId);
+        const contador = document.querySelector('[data-coluna-count="' + colunaId + '"]');
+        if (lista && contador) {
+            contador.textContent = lista.querySelectorAll('.kb-card').length;
+        }
+    };
+
+    // ── Abrir modal de card ──
+    let _cardIdAberto = null;
+
+    document.addEventListener('click', function (e) {
+        const card = e.target.closest('.kb-card[data-card-id]');
+        if (!card) return;
+        e.stopPropagation();
+
+        const cardId = card.dataset.cardId;
+        _cardIdAberto = cardId;
+
+        const body   = document.getElementById('kanbanCardModalBody');
+        const titulo = document.getElementById('kanbanCardModalTitulo');
+
+        body.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+        titulo.textContent = '';
+
+        const modal = new bootstrap.Modal(document.getElementById('kanbanCardModal'));
+        modal.show();
+
+        fetch('/kanban/card/' + cardId)
+            .then(r => r.json())
+            .then(function (res) {
+                if (res.sucesso) {
+                    titulo.textContent = res.card.titulo;
+                    body.innerHTML = res.html;
+                    inicializarCardModal(cardId);
+                }
+            })
+            .catch(function () {
+                body.innerHTML = '<div class="alert alert-danger">Erro ao carregar o card.</div>';
+            });
+    });
+
+    // Ao fechar o modal, recarrega o board para refletir as alterações
+    document.getElementById('kanbanCardModal').addEventListener('hidden.bs.modal', function () {
+        if (_cardIdAberto) {
+            window.location.reload();
+        }
+    });
+
+    // ── Adicionar card inline ──
+    window.mostrarFormAdd = function (colunaId) {
+        document.getElementById('formAddCard-' + colunaId).style.display = 'block';
+        document.getElementById('btnAdd-' + colunaId).style.display = 'none';
+        document.getElementById('inputAddCard-' + colunaId).focus();
+    };
+
+    window.cancelarAdd = function (colunaId) {
+        document.getElementById('formAddCard-' + colunaId).style.display = 'none';
+        document.getElementById('btnAdd-' + colunaId).style.display = 'flex';
+        document.getElementById('inputAddCard-' + colunaId).value = '';
+    };
+
+    window.adicionarCard = function (colunaId) {
+        const input  = document.getElementById('inputAddCard-' + colunaId);
+        const titulo = input.value.trim();
+        if (titulo === '') { input.focus(); return; }
+
+        fetch('/kanban/coluna/' + colunaId + '/card', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ titulo: titulo }),
+        })
+            .then(r => r.json())
+            .then(function (res) {
+                if (res.sucesso) {
+                    window.location.reload();
+                }
+            });
+    };
+
+    // ── Tecla Enter no form de adicionar ──
+    document.querySelectorAll('[id^="inputAddCard-"]').forEach(function (inp) {
+        inp.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const colunaId = this.id.replace('inputAddCard-', '');
+                adicionarCard(parseInt(colunaId, 10));
+            }
+            if (e.key === 'Escape') {
+                cancelarAdd(this.id.replace('inputAddCard-', ''));
+            }
+        });
+    });
+
+    // ── Excluir board ──
+    window.excluirBoard = function (boardId, csrfToken) {
+        if (!confirm('Tem certeza que deseja excluir este mural? Todos os cards serão removidos permanentemente.')) return;
+
+        const data = new FormData();
+        data.append('_token', csrfToken);
+
+        fetch('/kanban/' + boardId + '/excluir', { method: 'POST', body: data })
+            .then(r => r.json())
+            .then(function (res) {
+                if (res.sucesso) { window.location.href = res.redirectUrl; }
+            });
+    };
+
+    // ── Form editar board ──
+    const formEditar = document.getElementById('formEditarBoard');
+    if (formEditar) {
+        if (typeof $.fn !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+            $('#editParticipantesSelect').select2({
+                placeholder: 'Selecionar participantes...',
+                allowClear: true,
+                width: '100%',
+                dropdownParent: $('#modalEditarBoard'),
+            });
+        }
+
+        formEditar.addEventListener('submit', function (e) {
+            e.preventDefault();
+            const erro = document.getElementById('editarBoardErro');
+            erro.style.display = 'none';
+
+            fetch(this.action, { method: 'POST', body: new FormData(this) })
+                .then(r => r.json())
+                .then(function (res) {
+                    if (res.sucesso) {
+                        window.location.reload();
+                    } else {
+                        erro.textContent = (res.erros || ['Erro ao salvar.']).join(', ');
+                        erro.style.display = 'block';
+                    }
+                });
+        });
+    }
+});
+
+// ── Inicializar Quill no modal de card ──
+function inicializarCardModal(cardId) {
+    // Quill para descrição
+    const descEl = document.getElementById('quillDescricao');
+    if (descEl && typeof Quill !== 'undefined') {
+        const quillDesc = new Quill('#quillDescricao', {
+            theme: 'snow',
+            placeholder: 'Adicionar descrição...',
+            modules: {
+                toolbar: [
+                    [{ header: [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['link', 'code-block'],
+                    ['clean'],
+                ],
+            },
+        });
+
+        let saveTimer;
+        quillDesc.on('text-change', function () {
+            clearTimeout(saveTimer);
+            saveTimer = setTimeout(function () {
+                salvarDescricao(cardId, quillDesc.root.innerHTML);
+            }, 800);
+        });
+    }
+
+    // Quill para comentário
+    const comentEl = document.getElementById('quillComentario');
+    if (comentEl && typeof Quill !== 'undefined') {
+        window.quillComentario = new Quill('#quillComentario', {
+            theme: 'snow',
+            placeholder: 'Escrever comentário...',
+            modules: {
+                toolbar: [
+                    ['bold', 'italic', 'underline'],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['link', 'code-block'],
+                ],
+            },
+        });
+    }
+}
+
+function salvarDescricao(cardId, html) {
+    fetch('/kanban/card/' + cardId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo: document.getElementById('kanbanCardModalTitulo').textContent, descricao: html }),
+    }).catch(function () { console.error('Erro ao salvar descrição.'); });
+}
+
+// ── Enviar comentário ──
+window.enviarComentario = function (cardId) {
+    if (!window.quillComentario) return;
+    const conteudo = window.quillComentario.root.innerHTML;
+    if (window.quillComentario.getText().trim() === '') return;
+
+    fetch('/kanban/card/' + cardId + '/comentario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conteudo: conteudo }),
+    })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) {
+                const lista = document.getElementById('comentariosLista');
+                if (lista) lista.insertAdjacentHTML('beforeend', res.html);
+                window.quillComentario.setContents([]);
+            }
+        });
+};
+
+// ── Toggle item de checklist ──
+window.toggleChecklistItem = function (itemId, cardId) {
+    fetch('/kanban/checklist/item/' + itemId + '/toggle', { method: 'POST' })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) {
+                const el = document.getElementById('checklistItem-' + itemId);
+                if (el) el.classList.toggle('concluido', res.concluido);
+                const check = document.getElementById('checkItem-' + itemId);
+                if (check) check.checked = res.concluido;
+                atualizarProgressoChecklist(cardId);
+            }
+        });
+};
+
+function atualizarProgressoChecklist(cardId) {
+    const total = document.querySelectorAll('.kb-checklist-item').length;
+    const done  = document.querySelectorAll('.kb-checklist-item.concluido').length;
+    const pct   = total === 0 ? 0 : Math.round((done / total) * 100);
+    const barra = document.querySelector('.kb-checklist-global-bar');
+    if (barra) barra.style.width = pct + '%';
+    const pctEl = document.querySelector('.kb-checklist-global-pct');
+    if (pctEl) pctEl.textContent = pct + '%';
+}
+
+// ── Toggle marcador no card ──
+window.toggleMarcador = function (cardId, marcadorId, btn) {
+    fetch('/kanban/card/' + cardId + '/marcador/' + marcadorId + '/toggle', { method: 'POST' })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) {
+                btn.classList.toggle('ativo', res.adicionado);
+                refreshMiniCard(cardId);
+            }
+        });
+};
+
+// ── Excluir comentário ──
+window.excluirComentario = function (comentarioId, csrfToken) {
+    if (!confirm('Excluir comentário?')) return;
+    const data = new FormData();
+    data.append('_token', csrfToken);
+    fetch('/kanban/comentario/' + comentarioId + '/excluir', { method: 'POST', body: data })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) {
+                const el = document.getElementById('comentario-' + comentarioId);
+                if (el) el.remove();
+            }
+        });
+};
+
+// ── Editar título inline ──
+window.editarTituloCard = function (cardId, titulo) {
+    const el = document.getElementById('kanbanCardModalTitulo');
+    el.setAttribute('contenteditable', 'true');
+    el.focus();
+
+    el.addEventListener('blur', function salvar() {
+        el.removeAttribute('contenteditable');
+        const novoTitulo = el.textContent.trim();
+        if (novoTitulo && novoTitulo !== titulo) {
+            fetch('/kanban/card/' + cardId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ titulo: novoTitulo }),
+            }).then(function() {
+                const display = document.getElementById('cardTituloDisplay');
+                if (display) display.textContent = novoTitulo;
+            });
+        }
+        el.removeEventListener('blur', salvar);
+    }, { once: true });
+};
+
+// ── Atualizar mini card no board ──
+function refreshMiniCard(cardId) {
+    fetch('/kanban/card/' + cardId + '/mini')
+        .then(r => r.json())
+        .then(function (res) {
+            if (!res.sucesso) return;
+            const el = document.querySelector('.kb-card[data-card-id="' + cardId + '"]');
+            if (!el) return;
+            const tmp = document.createElement('div');
+            tmp.innerHTML = res.html;
+            const novo = tmp.firstElementChild;
+            if (novo) el.replaceWith(novo);
+        });
+}
+
+// ── Recarregar corpo do modal de card ──
+function recarregarModalCard(cardId) {
+    fetch('/kanban/card/' + cardId)
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) {
+                document.getElementById('kanbanCardModalTitulo').textContent = res.card.titulo;
+                document.getElementById('kanbanCardModalBody').innerHTML = res.html;
+                inicializarCardModal(cardId);
+            }
+        });
+}
+
+// ── Checklist: mostrar/cancelar form de item ──
+window.mostrarFormItem = function (checklistId) {
+    const form = document.getElementById('formAddItem-' + checklistId);
+    if (form) { form.classList.remove('d-none'); document.getElementById('inputAddItem-' + checklistId).focus(); }
+};
+
+window.cancelarFormItem = function (checklistId) {
+    const form = document.getElementById('formAddItem-' + checklistId);
+    if (form) form.classList.add('d-none');
+};
+
+// ── Checklist: adicionar item ──
+window.adicionarItemChecklist = function (checklistId, cardId) {
+    const input = document.getElementById('inputAddItem-' + checklistId);
+    const texto = input ? input.value.trim() : '';
+    if (!texto) return;
+
+    fetch('/kanban/checklist/' + checklistId + '/item', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto: texto }),
+    }).then(r => r.json()).then(function (res) {
+        if (res.sucesso) { recarregarModalCard(cardId); }
+    });
+};
+
+// ── Checklist: excluir item ──
+window.excluirItemChecklist = function (itemId, cardId, csrfToken) {
+    const data = new FormData();
+    data.append('_token', csrfToken);
+    fetch('/kanban/checklist/item/' + itemId + '/excluir', { method: 'POST', body: data })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) {
+                const el = document.getElementById('checklistItem-' + itemId);
+                if (el) { el.remove(); atualizarProgressoChecklist(cardId); }
+            }
+        });
+};
+
+// ── Checklist: excluir checklist inteira ──
+window.excluirChecklist = function (checklistId, cardId, csrfToken) {
+    if (!confirm('Excluir esta checklist?')) return;
+    const data = new FormData();
+    data.append('_token', csrfToken);
+    fetch('/kanban/checklist/' + checklistId + '/excluir', { method: 'POST', body: data })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) { recarregarModalCard(cardId); }
+        });
+};
+
+// ── Checklist: criar nova (modal) ──
+window.criarChecklist = function (cardId) {
+    const modal    = new bootstrap.Modal(document.getElementById('modalCriarChecklist'));
+    const input    = document.getElementById('checklistTituloInput');
+    const erro     = document.getElementById('checklistTituloErro');
+    const btnConf  = document.getElementById('btnConfirmarChecklist');
+
+    input.value = '';
+    erro.style.display = 'none';
+    modal.show();
+
+    setTimeout(function () { input.focus(); }, 300);
+
+    function executar() {
+        const titulo = input.value.trim();
+        if (!titulo) {
+            erro.textContent = 'Informe um título para a checklist.';
+            erro.style.display = 'block';
+            input.focus();
+            return;
+        }
+
+        btnConf.disabled = true;
+        erro.style.display = 'none';
+
+        fetch('/kanban/card/' + cardId + '/checklist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ titulo: titulo }),
+        }).then(r => r.json()).then(function (res) {
+            btnConf.disabled = false;
+            if (res.sucesso) {
+                modal.hide();
+                recarregarModalCard(cardId);
+            }
+        }).catch(function () {
+            btnConf.disabled = false;
+            erro.textContent = 'Erro ao criar checklist. Tente novamente.';
+            erro.style.display = 'block';
+        });
+    }
+
+    // Limpar handlers anteriores clonando o botão
+    const btnNovo = btnConf.cloneNode(true);
+    btnConf.parentNode.replaceChild(btnNovo, btnConf);
+    btnNovo.addEventListener('click', executar);
+
+    input.onkeydown = function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); executar(); }
+    };
+};
+
+// ── Anexos: upload ──
+window.uploadAnexo = function (cardId, input) {
+    const arquivo = input.files[0];
+    if (!arquivo) return;
+    const data = new FormData();
+    data.append('arquivo', arquivo);
+    fetch('/kanban/card/' + cardId + '/anexo', { method: 'POST', body: data })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) { recarregarModalCard(cardId); }
+        });
+};
+
+// ── Anexos: excluir ──
+window.excluirAnexo = function (anexoId, cardId, csrfToken) {
+    if (!confirm('Excluir anexo?')) return;
+    const data = new FormData();
+    data.append('_token', csrfToken);
+    fetch('/kanban/anexo/' + anexoId + '/excluir', { method: 'POST', body: data })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) { recarregarModalCard(cardId); }
+        });
+};
+
+// ── Responsáveis: toggle ──
+window.toggleResponsavelCard = function (cardId, userId, btn) {
+    const container = document.getElementById('responsaveisContainer');
+    let ids = JSON.parse(container.dataset.responsaveisIds || '[]');
+
+    const idx = ids.indexOf(userId);
+    if (idx === -1) { ids.push(userId); } else { ids.splice(idx, 1); }
+    container.dataset.responsaveisIds = JSON.stringify(ids);
+
+    const titulo = document.getElementById('kanbanCardModalTitulo').textContent.trim();
+    fetch('/kanban/card/' + cardId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo: titulo, responsaveisIds: ids }),
+    }).then(r => r.json()).then(function (res) {
+        if (res.sucesso) { recarregarModalCard(cardId); }
+    });
+};
+
+// ── Vencimento: atualizar ──
+window.atualizarVencimento = function (cardId, valor) {
+    const titulo = document.getElementById('kanbanCardModalTitulo').textContent.trim();
+    fetch('/kanban/card/' + cardId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo: titulo, dataVencimento: valor || null }),
+    }).then(function () { refreshMiniCard(cardId); });
+};
+
+// ── Excluir card ──
+window.excluirCard = function (cardId, csrfToken) {
+    if (!confirm('Excluir este card permanentemente?')) return;
+    const data = new FormData();
+    data.append('_token', csrfToken);
+    fetch('/kanban/card/' + cardId + '/excluir', { method: 'POST', body: data })
+        .then(r => r.json())
+        .then(function (res) {
+            if (res.sucesso) {
+                bootstrap.Modal.getInstance(document.getElementById('kanbanCardModal')).hide();
+                const el = document.querySelector('[data-card-id="' + cardId + '"]');
+                if (el) {
+                    const colunaId = el.closest('.kb-cards-list')?.dataset.colunaId;
+                    el.remove();
+                    if (colunaId) atualizarContador(parseInt(colunaId, 10));
+                }
+            }
+        });
+};
+
+// ── Marcador: criar ──
+window.mostrarFormCriarMarcador = function (boardId, cardId) {
+    document.getElementById('formCriarMarcador').classList.remove('d-none');
+};
+
+window.selecionarCorMarcador = function (btn) {
+    document.querySelectorAll('#marcadorCores .kb-cor-btn').forEach(b => b.style.border = '2px solid transparent');
+    btn.style.border = '2px solid #111';
+    document.getElementById('novoMarcadorCor').value = btn.dataset.cor;
+};
+
+window.criarMarcador = function (boardId, cardId) {
+    const nome = document.getElementById('novoMarcadorNome').value.trim();
+    const cor  = document.getElementById('novoMarcadorCor').value;
+    if (!nome) return;
+    fetch('/kanban/board/' + boardId + '/marcador', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome: nome, cor: cor }),
+    }).then(r => r.json()).then(function (res) {
+        if (res.sucesso) { recarregarModalCard(cardId); }
+    });
+};
+
+// ── Comentário: editar inline ──
+window.editarComentarioModal = function (comentarioId, btn) {
+    const conteudoEl = document.getElementById('comentarioConteudo-' + comentarioId);
+    if (!conteudoEl) return;
+
+    const textoAtual = conteudoEl.textContent;
+    const input = document.createElement('textarea');
+    input.className = 'form-control form-control-sm';
+    input.style.fontSize = '.85rem';
+    input.value = textoAtual;
+    conteudoEl.replaceWith(input);
+    input.focus();
+
+    function salvar() {
+        const novo = input.value.trim();
+        fetch('/kanban/comentario/' + comentarioId, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ conteudo: novo }),
+        }).then(r => r.json()).then(function (res) {
+            if (res.sucesso) {
+                const div = document.createElement('div');
+                div.className = 'kb-comentario-conteudo small';
+                div.id = 'comentarioConteudo-' + comentarioId;
+                div.style.lineHeight = '1.5';
+                div.innerHTML = res.conteudo;
+                input.replaceWith(div);
+            }
+        });
+    }
+
+    input.addEventListener('blur', salvar);
+    input.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { input.removeEventListener('blur', salvar); const div = document.createElement('div'); div.className = 'kb-comentario-conteudo small'; div.id = 'comentarioConteudo-' + comentarioId; div.innerHTML = conteudoEl.innerHTML; input.replaceWith(div); }
+    });
+};
+</script>
+{% endblock %}

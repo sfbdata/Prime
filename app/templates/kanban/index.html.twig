@@ -1,0 +1,331 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Kanban — JusPrime{% endblock %}
+
+{% block stylesheets %}
+<style>
+/* ── Kanban Index ── */
+.kb-page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.kb-page-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--bs-body-color);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.kb-boards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+.kb-board-card {
+    border-radius: 12px;
+    border: 1px solid rgba(0,0,0,.08);
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    transition: box-shadow .2s, transform .15s;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    cursor: pointer;
+}
+.kb-board-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,.12);
+    transform: translateY(-2px);
+    color: inherit;
+    text-decoration: none;
+}
+.kb-board-banner {
+    height: 6px;
+    width: 100%;
+    background: var(--kb-cor, #3b82f6);
+}
+.kb-board-body {
+    padding: 1.25rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+.kb-board-name {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.3;
+}
+.kb-board-desc {
+    font-size: .8rem;
+    color: #6c757d;
+    margin: 0;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+.kb-board-footer {
+    padding: .75rem 1.25rem;
+    border-top: 1px solid rgba(0,0,0,.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: .78rem;
+    color: #6c757d;
+}
+.kb-board-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.kb-meta-item {
+    display: flex;
+    align-items: center;
+    gap: .3rem;
+}
+.kb-board-add {
+    border-radius: 12px;
+    border: 2px dashed rgba(0,0,0,.15);
+    background: transparent;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    min-height: 130px;
+    color: #6c757d;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    font-size: .9rem;
+    font-weight: 500;
+}
+.kb-board-add:hover {
+    border-color: #3b82f6;
+    background: rgba(59,130,246,.04);
+    color: #3b82f6;
+}
+.kb-empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #6c757d;
+}
+.kb-empty-icon {
+    font-size: 4rem;
+    color: #dee2e6;
+    margin-bottom: 1rem;
+}
+
+/* Skeleton */
+.kb-skeleton {
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,.06);
+    min-height: 130px;
+    background: #f8f9fa;
+    animation: kb-shimmer 1.5s infinite;
+}
+@keyframes kb-shimmer {
+    0% { opacity: 1; }
+    50% { opacity: .6; }
+    100% { opacity: 1; }
+}
+
+/* Color picker */
+.kb-cor-opcoes {
+    display: flex;
+    gap: .5rem;
+    flex-wrap: wrap;
+}
+.kb-cor-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform .15s, border-color .15s;
+}
+.kb-cor-btn:hover, .kb-cor-btn.ativa {
+    border-color: #fff;
+    box-shadow: 0 0 0 3px rgba(0,0,0,.3);
+    transform: scale(1.1);
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="kb-page-header">
+    <h1 class="kb-page-title">
+        <i class="bi bi-kanban" style="color:#3b82f6;"></i>
+        Kanban
+    </h1>
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCriarBoard">
+        <i class="bi bi-plus-lg me-1"></i> Criar Mural
+    </button>
+</div>
+
+{% if boards|length == 0 %}
+    <div class="kb-empty-state">
+        <div class="kb-empty-icon"><i class="bi bi-kanban"></i></div>
+        <h5 class="fw-semibold mb-2">Nenhum mural ainda</h5>
+        <p class="mb-3" style="max-width:360px; margin: 0 auto;">Crie seu primeiro mural para organizar tarefas em colunas e acompanhar o progresso do time.</p>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarBoard">
+            <i class="bi bi-plus-lg me-1"></i> Criar primeiro mural
+        </button>
+    </div>
+{% else %}
+    <div class="kb-boards-grid" id="kbBoardsGrid">
+        {% for board in boards %}
+        <a href="{{ path('kanban_board_view', {id: board.id}) }}" class="kb-board-card" style="--kb-cor: {{ board.cor ?? '#3b82f6' }};">
+            <div class="kb-board-banner"></div>
+            <div class="kb-board-body">
+                <h5 class="kb-board-name">{{ board.nome }}</h5>
+                {% if board.descricao %}
+                    <p class="kb-board-desc">{{ board.descricao }}</p>
+                {% endif %}
+            </div>
+            <div class="kb-board-footer">
+                <div class="kb-board-meta">
+                    <span class="kb-meta-item">
+                        <i class="bi bi-card-text"></i>
+                        {{ board.cardsCount }} card{{ board.cardsCount != 1 ? 's' : '' }}
+                    </span>
+                    <span class="kb-meta-item">
+                        <i class="bi bi-people"></i>
+                        {{ board.participantesCount }}
+                    </span>
+                </div>
+                <span class="kb-meta-item">{{ board.criadoEm|date('d/m/Y') }}</span>
+            </div>
+        </a>
+        {% endfor %}
+
+        <button class="kb-board-add" data-bs-toggle="modal" data-bs-target="#modalCriarBoard" type="button">
+            <i class="bi bi-plus-circle" style="font-size:1.5rem;"></i>
+            Novo mural
+        </button>
+    </div>
+{% endif %}
+
+{# ── Modal: criar mural ── #}
+<div class="modal fade" id="modalCriarBoard" tabindex="-1" aria-labelledby="modalCriarBoardLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+        <div class="modal-content">
+            <div class="modal-header py-2">
+                <h6 class="modal-title" id="modalCriarBoardLabel">
+                    <i class="bi bi-kanban me-1"></i> Novo Mural
+                </h6>
+                <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formCriarBoard" method="post" action="{{ path('kanban_board_criar') }}">
+                <div class="modal-body py-3">
+                    {{ form_row(form.nome, {attr: {class: 'form-control form-control-sm', id: 'boardNomeInput'}}) }}
+
+                    {{ form_row(form.descricao, {attr: {class: 'form-control form-control-sm', rows: 2}}) }}
+
+                    <div class="mb-3">
+                        <label class="form-label form-label-sm fw-semibold">Cor do mural</label>
+                        <div class="kb-cor-opcoes" id="corOpcoes">
+                            {% for cor in ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#64748b'] %}
+                                <button type="button" class="kb-cor-btn" style="background:{{ cor }};" data-cor="{{ cor }}" title="{{ cor }}"></button>
+                            {% endfor %}
+                        </div>
+                        {{ form_row(form.cor, {attr: {class: 'd-none', id: 'boardCorInput'}}) }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label form-label-sm fw-semibold">Participantes</label>
+                        <select id="participantesSelect" name="participantesIds[]" multiple class="form-select form-select-sm" style="width:100%;">
+                            {% for usuario in usuarios %}
+                                <option value="{{ usuario.id }}">{{ usuario.fullName ?? usuario.email }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Quem terá acesso a este mural.</div>
+                    </div>
+
+                    {{ form_row(form._token) }}
+                    <div id="criarBoardErro" class="text-danger small mt-1" style="display:none;"></div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm" id="btnCriarBoard">
+                        <i class="bi bi-check-lg me-1"></i> Criar Mural
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Color picker
+    const corOpcoes = document.querySelectorAll('.kb-cor-btn');
+    const corInput  = document.getElementById('boardCorInput');
+    let corSelecionada = '#3b82f6';
+
+    corOpcoes.forEach(btn => {
+        if (btn.dataset.cor === corSelecionada) btn.classList.add('ativa');
+        btn.addEventListener('click', function () {
+            corOpcoes.forEach(b => b.classList.remove('ativa'));
+            btn.classList.add('ativa');
+            corSelecionada = btn.dataset.cor;
+            corInput.value = corSelecionada;
+        });
+    });
+
+    // Select2 para participantes
+    if (typeof $.fn !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
+        $('#participantesSelect').select2({
+            placeholder: 'Selecionar participantes...',
+            allowClear: true,
+            width: '100%',
+            dropdownParent: $('#modalCriarBoard'),
+        });
+    }
+
+    // Submit via fetch
+    document.getElementById('formCriarBoard').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const btn  = document.getElementById('btnCriarBoard');
+        const erro = document.getElementById('criarBoardErro');
+        btn.disabled = true;
+        erro.style.display = 'none';
+
+        const data = new FormData(this);
+
+        fetch(this.action, { method: 'POST', body: data })
+            .then(r => r.json())
+            .then(res => {
+                if (res.sucesso) {
+                    window.location.href = res.redirectUrl;
+                } else {
+                    erro.textContent = (res.erros || ['Erro ao criar mural.']).join(', ');
+                    erro.style.display = 'block';
+                    btn.disabled = false;
+                }
+            })
+            .catch(() => {
+                erro.textContent = 'Erro de comunicação. Tente novamente.';
+                erro.style.display = 'block';
+                btn.disabled = false;
+            });
+    });
+
+    // Focus no nome ao abrir modal
+    document.getElementById('modalCriarBoard').addEventListener('shown.bs.modal', function () {
+        document.getElementById('boardNomeInput').focus();
+    });
+});
+</script>
+{% endblock %}
