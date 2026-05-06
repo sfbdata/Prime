@@ -65,10 +65,17 @@
                         {% set lastDate = docDate %}
                     {% endif %}
                     <div class="petic-tl-row"
+                         data-doc-id="{{ doc.id }}"
                          data-view-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
                          data-download-url="{{ path('pasta_documento_download', {id: doc.id}) }}"
                          data-mime-type="{{ doc.mimeType }}"
-                         data-titulo="{{ doc.titulo|e('html_attr') }}">
+                         data-titulo="{{ doc.titulo|e('html_attr') }}"
+                         data-categoria="{{ doc.categoria }}"
+                         data-categoria-label="{{ (categoriaLabels[doc.categoria] ?? doc.categoria)|e('html_attr') }}"
+                         {% if doc.mimeType == 'text/html' %}
+                         data-csrf-editar="{{ csrf_token('peticionar_editar_' ~ doc.id) }}"
+                         data-editar-url="{{ path('pasta_documento_editar_texto', {id: doc.id}) }}"
+                         {% endif %}>
                         <div class="petic-tl-dot {{ dotClass }}"></div>
                         <div class="petic-tl-card">
                             <div class="petic-tl-card-top">
@@ -150,6 +157,87 @@
         </div>
 
     </div>
+
+    {# ──────────────────────────────────────────────────────────
+       PAINEL EDITOR DE TEXTO
+       (grid-column: 2 coloca na mesma célula que o previewPanel)
+       ────────────────────────────────────────────────────────── #}
+    <div id="editorPanel" style="display:none; grid-column:2; grid-row:1; width:100%; height:100%; flex-direction:column; overflow:hidden;">
+        <div id="editorToolbar" style="flex-shrink:0; padding:8px 12px; background:#f8f8f8; border-bottom:1px solid #ddd; display:flex; align-items:center; position:relative; min-height:48px;">
+
+            <button type="button" id="btnSalvarNaPasta" class="btn btn-primary btn-sm d-flex align-items-center gap-2" style="flex-shrink:0;">
+                <span class="petic-spinner" id="editorSpinner"></span>
+                <i class="bi bi-floppy2-fill" id="editorSaveIcon"></i>
+                <span id="btnSalvarLabel">Salvar na pasta</span>
+            </button>
+
+            <div id="editorInfo" style="position:absolute; left:50%; transform:translateX(-50%); text-align:center; max-width:55%; pointer-events:none;">
+                <div style="pointer-events:auto; display:inline-flex; align-items:center; gap:4px;">
+                    <span id="editorTituloDisplay"
+                          style="font-size:0.875rem; font-weight:600; color:#333; padding:2px 6px; border-radius:3px; border:1px solid transparent; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:380px; display:inline-block; cursor:default;"
+                          title="">Novo documento</span>
+                </div>
+                <div style="margin-top:1px;">
+                    <span id="editorCategoriaBadge" style="font-size:0.7rem; color:#888; letter-spacing:.02em;"></span>
+                </div>
+            </div>
+
+        </div>
+        <div style="flex:1; overflow:hidden;">
+            <textarea id="editorConteudo"></textarea>
+        </div>
+    </div>
+
+</div>
+
+{# ────────────────────────────────────────────────────────────────
+   MODAL SALVAR PEÇA DE TEXTO
+   ──────────────────────────────────────────────────────────────── #}
+<div class="petic-modal-overlay" id="modalSalvarTextoOverlay" role="dialog" aria-modal="true" aria-labelledby="modalSalvarTextoTitulo">
+    <div class="petic-modal">
+
+        <div class="petic-modal-title">
+            <span id="modalSalvarTextoTitulo"><i class="bi bi-floppy2 me-2"></i> Salvar peça na pasta</span>
+            <button type="button" class="btn-close" id="btnFecharModalSalvarTexto" aria-label="Fechar"></button>
+        </div>
+
+        <form id="formSalvarTexto" novalidate>
+
+            <div class="mb-3">
+                <label for="textoTitulo" class="form-label fw-semibold">
+                    Título <span class="text-danger">*</span>
+                </label>
+                <input type="text"
+                       class="form-control"
+                       id="textoTitulo"
+                       name="titulo"
+                       maxlength="255"
+                       placeholder="Ex.: Petição Inicial, Recurso de Apelação…"
+                       required>
+            </div>
+
+            <div class="mb-4">
+                <label for="textoCategoria" class="form-label fw-semibold">Categoria</label>
+                <select class="form-select" id="textoCategoria" name="categoria">
+                    {% for valor, rotulo in categoriaLabels %}
+                        <option value="{{ valor }}" {{ valor == 'PECA' ? 'selected' : '' }}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div id="textoErro" class="alert alert-danger py-2 d-none" role="alert"></div>
+
+            <div class="d-flex gap-2 justify-content-end">
+                <button type="button" class="btn btn-secondary" id="btnCancelarSalvarTexto">Cancelar</button>
+                <button type="submit" class="btn btn-primary d-flex align-items-center gap-2" id="btnConfirmarSalvarTexto">
+                    <span class="petic-spinner" id="textoSpinner"></span>
+                    <i class="bi bi-floppy2-fill" id="textoSaveIcon"></i>
+                    Salvar
+                </button>
+            </div>
+
+        </form>
+    </div>
 </div>
 
 {# ────────────────────────────────────────────────────────────────
@@ -222,7 +310,7 @@
     'use strict';
 
     const uploadUrl  = {{ path('pasta_peticionar_upload', {id: pasta.id})|json_encode|raw }};
-    const csrfToken  = {{ csrfToken|json_encode|raw }};
+    const csrfToken  = {{ csrf_token('peticionar_upload_' ~ pasta.id)|json_encode|raw }};
 
     // ── Elementos ────────────────────────────────────────────────────────────
 
@@ -276,6 +364,12 @@
         const viewUrl = item.dataset.viewUrl;
         const dlUrl   = item.dataset.downloadUrl;
         const titulo  = item.dataset.titulo;
+
+        // Texto HTML: delegar ao módulo do editor (definido abaixo)
+        if (mime === 'text/html') {
+            if (typeof abrirEditorParaEditar === 'function') abrirEditorParaEditar(item);
+            return;
+        }
 
         ocultarTodosPaineis();
 
@@ -359,6 +453,11 @@
     }
 
     document.getElementById('btnOpcaoAnexo').addEventListener('click', abrirModal);
+
+    // ── Botão Texto — delegar para módulo do editor (definido abaixo) ────────
+    document.getElementById('btnOpcaoTexto').addEventListener('click', function () {
+        if (typeof abrirEditor === 'function') abrirEditor();
+    });
     btnFechar.addEventListener('click', fecharModal);
     btnCancelar.addEventListener('click', fecharModal);
 
@@ -495,6 +594,409 @@
         }
     });
 
+}());
+</script>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── URLs e tokens ─────────────────────────────────────────────────────────
+
+    const criarTextoUrl      = {{ path('pasta_peticionar_texto', {id: pasta.id})|json_encode|raw }};
+    const csrfTexto          = {{ csrf_token('peticionar_texto_' ~ pasta.id)|json_encode|raw }};
+    const exportarUrlTemplate = '/pasta/documento/__ID__/exportar/__FMT__';
+
+    // ── Estado do editor ──────────────────────────────────────────────────────
+
+    let editorInicializado = false;
+    let modoEdicao         = false;  // false = criar novo, true = editar existente
+    let currentDocId       = null;
+    let currentCsrfEditar  = null;
+    let editarTextoUrl     = null;
+
+    // ── Elementos DOM ─────────────────────────────────────────────────────────
+
+    const previewPanel         = document.getElementById('previewPanel');
+    const editorPanel          = document.getElementById('editorPanel');
+    const editorSpinner        = document.getElementById('editorSpinner');
+    const editorSaveIcon       = document.getElementById('editorSaveIcon');
+    const btnSalvarNaPasta     = document.getElementById('btnSalvarNaPasta');
+    const btnSalvarLabel       = document.getElementById('btnSalvarLabel');
+    const editorTituloDisplay  = document.getElementById('editorTituloDisplay');
+    const editorCategoriaBadge = document.getElementById('editorCategoriaBadge');
+
+    const modalSalvarTextoOverlay = document.getElementById('modalSalvarTextoOverlay');
+    const formSalvarTexto         = document.getElementById('formSalvarTexto');
+    const textoErro               = document.getElementById('textoErro');
+    const textoSpinner            = document.getElementById('textoSpinner');
+    const textoSaveIcon           = document.getElementById('textoSaveIcon');
+    const btnConfirmarSalvar      = document.getElementById('btnConfirmarSalvarTexto');
+
+    // ── TinyMCE — inicialização única ─────────────────────────────────────────
+
+    async function garantirEditorAberto() {
+        previewPanel.style.display = 'none';
+        editorPanel.style.display  = 'flex';
+
+        if (!editorInicializado) {
+            await tinymce.init({
+                selector: '#editorConteudo',
+                base_url: '/js/tinymce',
+                suffix: '.min',
+                promotion: false,
+                branding: false,
+                plugins: 'lists link image table pagebreak searchreplace wordcount anchor autosave insertdatetime charmap',
+                toolbar: [
+                    'undo redo | styles | fontfamily fontsize',
+                    'bold italic underline strikethrough | forecolor backcolor',
+                    'alignleft aligncenter alignright alignjustify',
+                    'bullist numlist outdent indent | table | link image | pagebreak hr',
+                ].join(' | '),
+                toolbar_mode: 'wrap',
+                menubar: 'file edit insert format',
+                menu: {
+                    file:   { title: 'Arquivo', items: 'salvarNaPasta | exportarDocx exportarPdf exportarOdt exportarTxt' },
+                    edit:   { title: 'Editar',  items: 'undo redo | cut copy paste pastetext | selectall | searchreplace' },
+                    insert: { title: 'Inserir', items: 'image link | table | hr pagebreak | charmap insertdatetime | anchor' },
+                },
+                language: 'pt_BR',
+                browser_spellcheck: true,
+                contextmenu: false,
+                autosave_interval: '30s',
+                autosave_restore_when_empty: true,
+                autosave_prefix: 'jusprime-pasta-{{ pasta.id }}-',
+                height: '100%',
+                resize: false,
+                statusbar: false,
+                object_resizing: 'img',
+                image_advtab: true,
+                image_dimensions: true,
+                images_upload_handler: async (blobInfo) => {
+                    const formData = new FormData();
+                    formData.append('imagem', blobInfo.blob(), blobInfo.filename());
+                    formData.append('_token', {{ csrf_token('upload_imagem_editor_' ~ pasta.id)|json_encode|raw }});
+                    const resp = await fetch({{ path('pasta_peticionar_upload_imagem', {id: pasta.id})|json_encode|raw }}, {
+                        method: 'POST',
+                        body: formData,
+                    });
+                    const data = await resp.json();
+                    if (!resp.ok) throw new Error(data.erro ?? 'Erro ao fazer upload da imagem.');
+                    return data.url;
+                },
+                content_style: [
+                    'html { background: #c0c0c0; padding: 1.5cm 0; }',
+                    'body { width: 21cm; min-height: 29.7cm; margin: 0 auto;',
+                    '       padding: 3cm 2cm 2cm 3cm;',
+                    '       box-sizing: border-box; background: white;',
+                    '       box-shadow: 0 2px 12px rgba(0,0,0,.35);',
+                    '       font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.5; }',
+                    'img { max-width: 100%; height: auto; }',
+                    '.paginacao-sep { display: block !important; height: 2cm !important;',
+                    '                margin: 0 -2cm 0 -3cm !important;',
+                    '                width: calc(100% + 5cm) !important;',
+                    '                background: #c0c0c0 !important;',
+                    '                border: none !important;',
+                    '                pointer-events: none !important; user-select: none !important;',
+                    '                box-shadow: inset 0 6px 8px -4px rgba(0,0,0,0.2),',
+                    '                            inset 0 -6px 8px -4px rgba(0,0,0,0.2) !important; }',
+                ].join(' '),
+                setup: function (editor) {
+                    editor.on('GetContent', function (e) {
+                        if (e.format !== 'html') return;
+                        const tmp = document.createElement('div');
+                        tmp.innerHTML = e.content;
+                        tmp.querySelectorAll('.paginacao-sep').forEach(function (el) { el.remove(); });
+                        e.content = tmp.innerHTML;
+                    });
+
+                    editor.ui.registry.addMenuItem('salvarNaPasta', {
+                        text: 'Salvar na pasta',
+                        icon: 'save',
+                        onAction: function () {
+                            if (modoEdicao) { salvarAlteracoes(); } else { abrirModalSalvar(); }
+                        },
+                    });
+
+                    ['Docx', 'Pdf', 'Odt', 'Txt'].forEach(function (fmt) {
+                        editor.ui.registry.addMenuItem('exportar' + fmt, {
+                            text: 'Exportar como ' + fmt.toUpperCase(),
+                            icon: 'export',
+                            onAction: function () {
+                                if (!currentDocId) {
+                                    alert('Salve o documento primeiro para exportar.');
+                                    return;
+                                }
+                                window.location.href = exportarUrlTemplate
+                                    .replace('__ID__', currentDocId)
+                                    .replace('__FMT__', fmt.toLowerCase());
+                            },
+                        });
+                    });
+                },
+                init_instance_callback: function (editor) {
+                    const PAGE_HEIGHT_PX = 29.7 * 96 / 2.54;
+
+                    function repaginar() {
+                        const body = editor.getBody();
+                        const doc  = editor.getDoc();
+
+                        body.querySelectorAll('.paginacao-sep').forEach(function (el) { el.remove(); });
+
+                        const blocos = Array.from(body.children).filter(function (el) {
+                            return !el.classList.contains('paginacao-sep');
+                        });
+
+                        // Passagem 1: ler todos os offsetTop ANTES de inserir qualquer separador
+                        // (evita drift acumulativo causado pelo separador empurrar blocos seguintes)
+                        const precisamSep = [];
+                        let limitePx = PAGE_HEIGHT_PX;
+                        blocos.forEach(function (bloco) {
+                            if (bloco.offsetTop >= limitePx) {
+                                precisamSep.push(bloco);
+                                limitePx += PAGE_HEIGHT_PX;
+                            }
+                        });
+
+                        // Passagem 2: inserir separadores após todas as leituras concluídas
+                        precisamSep.forEach(function (bloco) {
+                            const sep = doc.createElement('div');
+                            sep.className = 'paginacao-sep';
+                            sep.setAttribute('contenteditable', 'false');
+                            bloco.before(sep);
+                        });
+                    }
+
+                    let paginacaoTimer;
+                    editor.on('input Change NodeChange', function () {
+                        clearTimeout(paginacaoTimer);
+                        paginacaoTimer = setTimeout(repaginar, 250);
+                    });
+                    setTimeout(repaginar, 100);
+                },
+            });
+            editorInicializado = true;
+        }
+    }
+
+    // ── Abrir em modo criação (novo documento) ────────────────────────────────
+
+    async function abrirEditor() {
+        await garantirEditorAberto();
+    }
+
+    // ── Abrir em modo edição (documento text/html existente) ──────────────────
+
+    async function abrirEditorParaEditar(item) {
+        const viewUrl        = item.dataset.viewUrl;
+        const docId          = item.dataset.docId;
+        const csrfEditar     = item.dataset.csrfEditar;
+        const editarUrl      = item.dataset.editarUrl;
+        const titulo         = item.dataset.titulo || '';
+        const categoriaLabel = item.dataset.categoriaLabel || '';
+
+        setSalvando(true);
+
+        try {
+            const resp = await fetch(viewUrl);
+            if (!resp.ok) throw new Error('Falha ao carregar o documento');
+            const html = await resp.text();
+
+            await garantirEditorAberto();
+
+            modoEdicao        = true;
+            currentDocId      = parseInt(docId, 10);
+            currentCsrfEditar = csrfEditar;
+            editarTextoUrl    = editarUrl;
+            btnSalvarLabel.textContent = 'Salvar alterações';
+
+            // Preencher título e categoria na toolbar
+            editorTituloDisplay.textContent = titulo;
+            editorTituloDisplay.style.cursor = 'pointer';
+            editorTituloDisplay.title = 'Clique para editar o título';
+            editorCategoriaBadge.textContent = categoriaLabel;
+
+            const editor = tinymce.get('editorConteudo');
+            if (editor) editor.setContent(html);
+
+        } catch (e) {
+            console.error(e);
+            alert('Erro ao abrir o documento para edição.');
+            fecharEditor();
+        } finally {
+            setSalvando(false);
+        }
+    }
+
+    // ── Fechar editor e resetar estado ────────────────────────────────────────
+
+    function fecharEditor() {
+        editorPanel.style.display  = 'none';
+        previewPanel.style.display = '';
+
+        modoEdicao        = false;
+        currentDocId      = null;
+        currentCsrfEditar = null;
+        editarTextoUrl    = null;
+        btnSalvarLabel.textContent = 'Salvar na pasta';
+
+        // Resetar toolbar de título
+        editorTituloDisplay.textContent   = 'Novo documento';
+        editorTituloDisplay.contentEditable = 'false';
+        editorTituloDisplay.style.cursor  = 'default';
+        editorTituloDisplay.style.borderColor = 'transparent';
+        editorTituloDisplay.style.backgroundColor = '';
+        editorTituloDisplay.title = '';
+        editorCategoriaBadge.textContent  = '';
+
+        const editor = tinymce.get('editorConteudo');
+        if (editor) editor.setContent('');
+    }
+
+    // ── Modal salvar novo documento ───────────────────────────────────────────
+
+    function abrirModalSalvar() {
+        formSalvarTexto.reset();
+        textoErro.classList.add('d-none');
+        modalSalvarTextoOverlay.classList.add('aberto');
+        document.getElementById('textoTitulo').focus();
+    }
+
+    function fecharModalSalvar() {
+        modalSalvarTextoOverlay.classList.remove('aberto');
+    }
+
+    // ── Estado de carregamento ────────────────────────────────────────────────
+
+    function setSalvando(sim) {
+        btnConfirmarSalvar.disabled  = sim;
+        btnSalvarNaPasta.disabled    = sim;
+        textoSpinner.style.display   = sim ? 'block' : 'none';
+        textoSaveIcon.style.display  = sim ? 'none'  : '';
+        editorSpinner.style.display  = sim ? 'block' : 'none';
+        editorSaveIcon.style.display = sim ? 'none'  : '';
+    }
+
+    // ── Salvar alterações (modo edição) ───────────────────────────────────────
+
+    async function salvarAlteracoes() {
+        const editor   = tinymce.get('editorConteudo');
+        const conteudo = editor ? editor.getContent() : '';
+        const titulo   = editorTituloDisplay.textContent.trim();
+
+        setSalvando(true);
+
+        try {
+            const resp = await fetch(editarTextoUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ _token: currentCsrfEditar, conteudo, titulo }),
+            });
+            const data = await resp.json();
+
+            if (!data.success) {
+                alert(data.error ?? 'Erro ao salvar.');
+                return;
+            }
+
+            window.location.reload();
+
+        } catch (e) {
+            alert('Erro de comunicação. Tente novamente.');
+        } finally {
+            setSalvando(false);
+        }
+    }
+
+    // ── Handlers ──────────────────────────────────────────────────────────────
+
+    btnSalvarNaPasta.addEventListener('click', function () {
+        if (modoEdicao) { salvarAlteracoes(); } else { abrirModalSalvar(); }
+    });
+
+    // Edição inline do título (somente em modo edição)
+    editorTituloDisplay.addEventListener('click', function () {
+        if (!modoEdicao) return;
+        this.contentEditable = 'true';
+        this.style.borderColor = '#86b7fe';
+        this.style.backgroundColor = '#fff';
+        this.style.outline = 'none';
+        this.focus();
+        const range = document.createRange();
+        range.selectNodeContents(this);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    });
+
+    editorTituloDisplay.addEventListener('blur', function () {
+        this.contentEditable = 'false';
+        this.style.borderColor = 'transparent';
+        this.style.backgroundColor = '';
+        if (this.textContent.trim() === '') this.textContent = 'Sem título';
+    });
+
+    editorTituloDisplay.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+        if (e.key === 'Escape') { this.blur(); }
+    });
+
+    document.getElementById('btnFecharModalSalvarTexto').addEventListener('click', fecharModalSalvar);
+    document.getElementById('btnCancelarSalvarTexto').addEventListener('click', fecharModalSalvar);
+
+    modalSalvarTextoOverlay.addEventListener('click', function (e) {
+        if (e.target === modalSalvarTextoOverlay) fecharModalSalvar();
+    });
+
+    // ── Salvar novo documento (modo criação) ──────────────────────────────────
+
+    formSalvarTexto.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        const titulo = document.getElementById('textoTitulo').value.trim();
+        if (!titulo) {
+            textoErro.textContent = 'Informe um título para a peça.';
+            textoErro.classList.remove('d-none');
+            return;
+        }
+
+        const editor   = tinymce.get('editorConteudo');
+        const conteudo = editor ? editor.getContent() : '';
+        const categoria = document.getElementById('textoCategoria').value;
+
+        textoErro.classList.add('d-none');
+        setSalvando(true);
+
+        const fd = new FormData();
+        fd.append('_token',    csrfTexto);
+        fd.append('titulo',    titulo);
+        fd.append('categoria', categoria);
+        fd.append('conteudo',  conteudo);
+
+        try {
+            const resp = await fetch(criarTextoUrl, { method: 'POST', body: fd });
+            const data = await resp.json();
+
+            if (!data.success) {
+                textoErro.textContent = data.error ?? 'Erro ao salvar.';
+                textoErro.classList.remove('d-none');
+                return;
+            }
+
+            window.location.reload();
+
+        } catch (err) {
+            textoErro.textContent = 'Erro de comunicação. Tente novamente.';
+            textoErro.classList.remove('d-none');
+        } finally {
+            setSalvando(false);
+        }
+    });
+
+    // ── Exports globais ───────────────────────────────────────────────────────
+
+    window.abrirEditor           = abrirEditor;
+    window.abrirEditorParaEditar = abrirEditorParaEditar;
 }());
 </script>
 {% endblock %}

@@ -48,7 +48,7 @@ final class AdicionarChecklistItemUseCaseTest extends TestCase
 
         $item = $this->useCase->executar($this->pasta, $this->autor, 'Documento de identidade');
 
-        self::assertSame('Documento de identidade', $item->getTitulo());
+        self::assertSame('DOCUMENTO DE IDENTIDADE', $item->getTitulo());
         self::assertSame(1, $item->getOrdem());
         self::assertFalse($item->isConcluido());
         self::assertSame($this->pasta, $item->getPasta());
@@ -63,7 +63,7 @@ final class AdicionarChecklistItemUseCaseTest extends TestCase
 
         $item = $this->useCase->executar($this->pasta, $this->autor, '  Peça processual  ');
 
-        self::assertSame('Peça processual', $item->getTitulo());
+        self::assertSame('PEÇA PROCESSUAL', $item->getTitulo());
     }
 
     public function testTituloVazioLancaExcecao(): void

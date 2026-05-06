@@ -111,6 +111,11 @@ final class PastaFinanceiroControllerTest extends WebTestCase
                 return false;
             }
 
+            public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
+            {
+                return 'fake_' . uniqid() . '.' . $extensao;
+            }
+
             public function caminho(string $diretorio, string $nomeArquivo): string
             {
                 return $diretorio . '/' . $nomeArquivo;
@@ -300,7 +305,7 @@ final class PastaFinanceiroControllerTest extends WebTestCase
         self::assertResponseStatusCodeSame(201);
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertArrayHasKey('id', $data);
-        self::assertSame('contrato.pdf', $data['titulo']);
+        self::assertSame('CONTRATO.PDF', $data['titulo']);
         self::assertSame('application/pdf', $data['mimeType']);
         self::assertArrayHasKey('csrfRenomear', $data);
         self::assertArrayHasKey('csrfExcluir', $data);

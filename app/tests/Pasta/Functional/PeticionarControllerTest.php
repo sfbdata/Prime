@@ -15,10 +15,24 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
+use Symfony\Component\HttpFoundation\Response;
 
 #[CoversClass(PeticionarController::class)]
 final class PeticionarControllerTest extends WebTestCase
 {
+    /** @var string[] */
+    private array $arquivosParaLimpar = [];
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+        foreach ($this->arquivosParaLimpar as $arquivo) {
+            if (file_exists($arquivo)) {
+                @unlink($arquivo);
+            }
+        }
+    }
+
     private function criarUsuarioAdmin(): User
     {
         $container = static::getContainer();
@@ -51,6 +65,32 @@ final class PeticionarControllerTest extends WebTestCase
         $em->flush();
 
         return $pasta;
+    }
+
+    private function criarDocumentoHtml(Pasta $pasta): PastaDocumento
+    {
+        $container  = static::getContainer();
+        $em         = $container->get(EntityManagerInterface::class);
+        $uploadsDir = (string) $container->getParameter('uploads_dir');
+
+        $nomeArquivo = 'test_html_' . uniqid() . '.html';
+        $caminho     = $uploadsDir . '/' . $nomeArquivo;
+        $conteudo    = '<p>Conteúdo de teste com acentuação: ç, ã, é.</p>';
+        file_put_contents($caminho, $conteudo);
+        $this->arquivosParaLimpar[] = $caminho;
+
+        $doc = new PastaDocumento();
+        $doc->setPasta($pasta);
+        $doc->setTitulo('Peça de Texto Teste');
+        $doc->setCategoria(PastaDocumento::CATEGORIA_PECA);
+        $doc->setCaminhoArquivo($nomeArquivo);
+        $doc->setNomeOriginal('Peça de Texto Teste.html');
+        $doc->setMimeType('text/html');
+        $doc->setTamanhoBytes(strlen($conteudo));
+        $em->persist($doc);
+        $em->flush();
+
+        return $doc;
     }
 
     private function criarDocumento(Pasta $pasta): PastaDocumento
@@ -198,11 +238,324 @@ final class PeticionarControllerTest extends WebTestCase
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertTrue($data['success']);
         self::assertArrayHasKey('documento', $data);
-        self::assertSame('peticao.pdf', $data['documento']['titulo']);
+        self::assertSame('PETICAO.PDF', $data['documento']['titulo']);
         self::assertSame('PECA', $data['documento']['categoria']);
 
         if (isset($tmpFile) && file_exists($tmpFile)) {
             @unlink($tmpFile);
         }
+    }
+
+    // ── POST texto (criar) ─────────────────────────────────────────────────────
+
+    #[TestDox('POST texto sem autenticação redireciona para login')]
+    public function testCriarTextoSemAutenticacaoRedireciona(): void
+    {
+        $client = static::createClient();
+        $client->request('POST', '/pasta/1/peticionar/texto');
+
+        self::assertResponseRedirects();
+        self::assertStringContainsString('login', (string) $client->getResponse()->headers->get('Location'));
+    }
+
+    #[TestDox('POST texto com dados válidos retorna 200 com documento criado')]
+    public function testCriarTextoComDadosValidosRetorna200(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $this->instalarCsrfStorage();
+        $client->loginUser($user);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
+            '_token'    => $this->csrf('peticionar_texto_' . $pasta->getId()),
+            'titulo'    => 'Petição Inicial',
+            'categoria' => 'PECA',
+            'conteudo'  => '<p>Conteúdo da peça</p>',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($data['success']);
+        self::assertArrayHasKey('documento', $data);
+        self::assertSame('PETIÇÃO INICIAL', $data['documento']['titulo']);
+        self::assertSame('text/html', $data['documento']['mimeType']);
+    }
+
+    #[TestDox('POST texto com CSRF inválido retorna 403')]
+    public function testCriarTextoComCsrfInvalidoRetorna403(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $client->loginUser($user);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
+            '_token'   => 'token_invalido',
+            'titulo'   => 'Petição',
+            'conteudo' => '<p>HTML</p>',
+        ]);
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('POST texto com título vazio retorna 400')]
+    public function testCriarTextoComTituloVazioRetorna400(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $this->instalarCsrfStorage();
+        $client->loginUser($user);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
+            '_token'   => $this->csrf('peticionar_texto_' . $pasta->getId()),
+            'titulo'   => '',
+            'conteudo' => '<p>HTML</p>',
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+    }
+
+    // ── POST imagem (upload para editor) ───────────────────────────────────────
+
+    #[TestDox('POST imagem sem autenticação redireciona para login')]
+    public function testUploadImagemEditorSemAutenticacaoRedireciona(): void
+    {
+        $client = static::createClient();
+        $client->request('POST', '/pasta/1/peticionar/imagem');
+
+        self::assertResponseRedirects();
+        self::assertStringContainsString('login', (string) $client->getResponse()->headers->get('Location'));
+    }
+
+    #[TestDox('POST imagem com JPEG válido retorna 200 com URL')]
+    public function testUploadImagemEditorComJpegValidoRetorna200(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $this->instalarCsrfStorage();
+        $client->loginUser($user);
+
+        // Criar arquivo com magic bytes de JPEG para que getMimeType() retorne image/jpeg
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_jpg_');
+        file_put_contents($tmpFile, "\xFF\xD8\xFF\xE0\x00\x10JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00");
+        $uploadedFile = new UploadedFile($tmpFile, 'foto.jpg', 'image/jpeg', null, true);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/peticionar/imagem",
+            ['_token' => $this->csrf('upload_imagem_editor_' . $pasta->getId())],
+            ['imagem' => $uploadedFile],
+        );
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('url', $data);
+        self::assertStringStartsWith('/uploads/', $data['url']);
+
+        @unlink($tmpFile);
+    }
+
+    #[TestDox('POST imagem com MIME inválido retorna 422')]
+    public function testUploadImagemEditorComMimeInvalidoRetorna422(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $this->instalarCsrfStorage();
+        $client->loginUser($user);
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_txt_');
+        file_put_contents($tmpFile, 'Texto simples — não é imagem');
+        $uploadedFile = new UploadedFile($tmpFile, 'arquivo.txt', 'text/plain', null, true);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/peticionar/imagem",
+            ['_token' => $this->csrf('upload_imagem_editor_' . $pasta->getId())],
+            ['imagem' => $uploadedFile],
+        );
+
+        self::assertResponseStatusCodeSame(Response::HTTP_UNPROCESSABLE_ENTITY);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('erro', $data);
+
+        @unlink($tmpFile);
+    }
+
+    // ── PUT documento/texto (editar) ───────────────────────────────────────────
+
+    #[TestDox('PUT texto sem autenticação redireciona para login')]
+    public function testEditarTextoSemAutenticacaoRedireciona(): void
+    {
+        $client = static::createClient();
+        $client->request('PUT', '/pasta/documento/1/texto');
+
+        self::assertResponseRedirects();
+        self::assertStringContainsString('login', (string) $client->getResponse()->headers->get('Location'));
+    }
+
+    #[TestDox('PUT texto com dados válidos retorna 200')]
+    public function testEditarTextoComDadosValidosRetorna200(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $doc    = $this->criarDocumentoHtml($pasta);
+        $this->instalarCsrfStorage();
+        $client->loginUser($user);
+
+        $client->request(
+            'PUT',
+            "/pasta/documento/{$doc->getId()}/texto",
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode([
+                '_token'  => $this->csrf('peticionar_editar_' . $doc->getId()),
+                'conteudo' => '<p>Conteúdo editado com acentuação ã</p>',
+                'titulo'   => 'Novo Título',
+            ]),
+        );
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($data['success']);
+    }
+
+    #[TestDox('PUT texto com CSRF inválido retorna 403')]
+    public function testEditarTextoComCsrfInvalidoRetorna403(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $doc    = $this->criarDocumentoHtml($pasta);
+        $client->loginUser($user);
+
+        $client->request(
+            'PUT',
+            "/pasta/documento/{$doc->getId()}/texto",
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode([
+                '_token'  => 'token_invalido',
+                'conteudo' => '<p>HTML</p>',
+            ]),
+        );
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('PUT texto em documento não HTML retorna 400')]
+    public function testEditarTextoEmDocumentoNaoHtmlRetorna400(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $doc    = $this->criarDocumento($pasta); // MIME: application/pdf
+        $this->instalarCsrfStorage();
+        $client->loginUser($user);
+
+        $client->request(
+            'PUT',
+            "/pasta/documento/{$doc->getId()}/texto",
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode([
+                '_token'  => $this->csrf('peticionar_editar_' . $doc->getId()),
+                'conteudo' => '<p>HTML</p>',
+            ]),
+        );
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+    }
+
+    // ── GET documento/exportar (exportar) ──────────────────────────────────────
+
+    #[TestDox('GET exportar sem autenticação redireciona para login')]
+    public function testExportarTextoSemAutenticacaoRedireciona(): void
+    {
+        $client = static::createClient();
+        $client->request('GET', '/pasta/documento/1/exportar/docx');
+
+        self::assertResponseRedirects();
+        self::assertStringContainsString('login', (string) $client->getResponse()->headers->get('Location'));
+    }
+
+    #[TestDox('GET exportar DOCX retorna 200 com Content-Type correto')]
+    public function testExportarTextoEmDocxRetorna200ComHeaders(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $doc    = $this->criarDocumentoHtml($pasta);
+        $client->loginUser($user);
+
+        $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/docx");
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            (string) $client->getResponse()->headers->get('Content-Type'),
+        );
+        self::assertStringContainsString(
+            '.docx',
+            (string) $client->getResponse()->headers->get('Content-Disposition'),
+        );
+    }
+
+    #[TestDox('GET exportar PDF retorna 200 com Content-Type application/pdf')]
+    public function testExportarTextoEmPdfRetorna200ComHeaders(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $doc    = $this->criarDocumentoHtml($pasta);
+        $client->loginUser($user);
+
+        $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/pdf");
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            'application/pdf',
+            (string) $client->getResponse()->headers->get('Content-Type'),
+        );
+        self::assertStringStartsWith('%PDF-', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('GET exportar com formato inválido retorna 400')]
+    public function testExportarTextoComFormatoInvalidoRetorna400(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $doc    = $this->criarDocumentoHtml($pasta);
+        $client->loginUser($user);
+
+        $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/xml");
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+    }
+
+    #[TestDox('GET exportar em documento não HTML retorna 400')]
+    public function testExportarTextoEmDocumentoNaoHtmlRetorna400(): void
+    {
+        $client = static::createClient();
+        $user   = $this->criarUsuarioAdmin();
+        $pasta  = $this->criarPasta($user);
+        $doc    = $this->criarDocumento($pasta); // MIME: application/pdf
+        $client->loginUser($user);
+
+        $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/docx");
+
+        self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
     }
 }

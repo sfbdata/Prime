@@ -48,7 +48,7 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
 
         $secao = $this->useCase->executar($this->pasta, $this->autor, 'Petições');
 
-        self::assertSame('Petições', $secao->getNome());
+        self::assertSame('PETIÇÕES', $secao->getNome());
         self::assertSame(1, $secao->getOrdem());
         self::assertSame($this->pasta, $secao->getPasta());
         self::assertSame($this->autor->getTenant(), $secao->getTenant());
@@ -62,7 +62,7 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
 
         $secao = $this->useCase->executar($this->pasta, $this->autor, '  Contratos  ');
 
-        self::assertSame('Contratos', $secao->getNome());
+        self::assertSame('CONTRATOS', $secao->getNome());
     }
 
     public function testNomeVazioLancaExcecao(): void

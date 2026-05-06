@@ -33,7 +33,7 @@ final class EditarChecklistItemUseCaseTest extends TestCase
 
         $this->useCase->executar($this->item, 'Novo título');
 
-        self::assertSame('Novo título', $this->item->getTitulo());
+        self::assertSame('NOVO TÍTULO', $this->item->getTitulo());
     }
 
     public function testTituloComEspacosEhTrimado(): void
@@ -42,7 +42,7 @@ final class EditarChecklistItemUseCaseTest extends TestCase
 
         $this->useCase->executar($this->item, '  Procuração  ');
 
-        self::assertSame('Procuração', $this->item->getTitulo());
+        self::assertSame('PROCURAÇÃO', $this->item->getTitulo());
     }
 
     public function testTituloVazioLancaExcecao(): void
@@ -70,6 +70,6 @@ final class EditarChecklistItemUseCaseTest extends TestCase
         $titulo255 = str_repeat('a', 255);
         $this->useCase->executar($this->item, $titulo255);
 
-        self::assertSame($titulo255, $this->item->getTitulo());
+        self::assertSame(str_repeat('A', 255), $this->item->getTitulo());
     }
 }

@@ -48,7 +48,7 @@ final class UploadPecaUseCaseTest extends TestCase
         $resultado = $this->useCase->executar($this->pasta, $file, 'PECA', null, null);
 
         self::assertInstanceOf(PastaDocumento::class, $resultado);
-        self::assertSame('peticao.pdf', $resultado->getTitulo());
+        self::assertSame('PETICAO.PDF', $resultado->getTitulo());
         self::assertSame('PECA', $resultado->getCategoria());
         self::assertSame('application/pdf', $resultado->getMimeType());
         self::assertSame(1024, $resultado->getTamanhoBytes());

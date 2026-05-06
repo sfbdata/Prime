@@ -1,17 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Shared\Service;
 
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
-/**
- * Serviço de infraestrutura para operações de arquivo em disco.
- *
- * Responsabilidades: salvar, servir e excluir arquivos físicos.
- * Lógica de negócio (validação, categorização, permissões) fica nos domínios.
- */
 final class ArquivoStorageService implements ArquivoStorageInterface
 {
     public function salvar(UploadedFile $arquivo, string $diretorio): string
@@ -20,6 +16,16 @@ final class ArquivoStorageService implements ArquivoStorageInterface
 
         $nomeUnico = bin2hex(random_bytes(16)) . '.' . ($arquivo->guessExtension() ?? 'bin');
         $arquivo->move($diretorio, $nomeUnico);
+
+        return $nomeUnico;
+    }
+
+    public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
+    {
+        $this->garantirDiretorio($diretorio);
+
+        $nomeUnico = bin2hex(random_bytes(16)) . '.' . ltrim($extensao, '.');
+        file_put_contents($diretorio . '/' . $nomeUnico, $conteudo);
 
         return $nomeUnico;
     }

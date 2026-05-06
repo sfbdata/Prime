@@ -44,7 +44,7 @@ final class RenomearPastaSecaoUseCaseTest extends TestCase
 
         $this->useCase->executar($this->secao, $this->autor, 'Novo nome');
 
-        self::assertSame('Novo nome', $this->secao->getNome());
+        self::assertSame('NOVO NOME', $this->secao->getNome());
     }
 
     public function testNomeComEspacosEhTrimado(): void
@@ -53,7 +53,7 @@ final class RenomearPastaSecaoUseCaseTest extends TestCase
 
         $this->useCase->executar($this->secao, $this->autor, '  Contratos  ');
 
-        self::assertSame('Contratos', $this->secao->getNome());
+        self::assertSame('CONTRATOS', $this->secao->getNome());
     }
 
     public function testNomeVazioLancaExcecao(): void

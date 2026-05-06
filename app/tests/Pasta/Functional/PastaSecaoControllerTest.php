@@ -148,7 +148,7 @@ final class PastaSecaoControllerTest extends WebTestCase
 
         self::assertResponseStatusCodeSame(201);
         $data = json_decode((string) $client->getResponse()->getContent(), true);
-        self::assertSame('Petições', $data['nome']);
+        self::assertSame('PETIÇÕES', $data['nome']);
         self::assertArrayHasKey('id', $data);
         self::assertGreaterThan(0, $data['id']);
     }
@@ -173,7 +173,7 @@ final class PastaSecaoControllerTest extends WebTestCase
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertTrue($data['ok']);
-        self::assertSame('Contratos', $data['nome']);
+        self::assertSame('CONTRATOS', $data['nome']);
     }
 
     #[TestDox('POST renomear seção inexistente retorna 404')]
