@@ -302,6 +302,32 @@
     </div>
 </div>
 
+{# ────────────────────────────────────────────────────────────────
+   MODAL CONFIRMAR DESCARTE DE ALTERAÇÕES
+   ──────────────────────────────────────────────────────────────── #}
+<div class="petic-modal-overlay" id="modalConfirmarDescarteOverlay" role="dialog" aria-modal="true" aria-labelledby="modalConfirmarDescarteTitulo">
+    <div class="petic-modal" style="max-width:440px">
+
+        <div class="petic-modal-title">
+            <span id="modalConfirmarDescarteTitulo"><i class="bi bi-exclamation-triangle me-2 text-warning"></i> Salvar alterações?</span>
+        </div>
+
+        <p class="mb-4 text-body-secondary">
+            O documento contém alterações não salvas.<br>
+            Deseja salvar as alterações antes de continuar?
+        </p>
+
+        <div class="d-flex gap-2 justify-content-end">
+            <button type="button" class="btn btn-secondary" id="btnDescarteCancelar">Cancelar</button>
+            <button type="button" class="btn btn-outline-danger" id="btnDescarteNaoSalvar">Não salvar</button>
+            <button type="button" class="btn btn-primary" id="btnDescarteSalvar">
+                <i class="bi bi-floppy2-fill me-1"></i> Salvar
+            </button>
+        </div>
+
+    </div>
+</div>
+
 {% endblock %}
 
 {% block javascripts %}
@@ -626,12 +652,13 @@
     const editorTituloDisplay  = document.getElementById('editorTituloDisplay');
     const editorCategoriaBadge = document.getElementById('editorCategoriaBadge');
 
-    const modalSalvarTextoOverlay = document.getElementById('modalSalvarTextoOverlay');
-    const formSalvarTexto         = document.getElementById('formSalvarTexto');
-    const textoErro               = document.getElementById('textoErro');
-    const textoSpinner            = document.getElementById('textoSpinner');
-    const textoSaveIcon           = document.getElementById('textoSaveIcon');
-    const btnConfirmarSalvar      = document.getElementById('btnConfirmarSalvarTexto');
+    const modalSalvarTextoOverlay       = document.getElementById('modalSalvarTextoOverlay');
+    const formSalvarTexto               = document.getElementById('formSalvarTexto');
+    const textoErro                     = document.getElementById('textoErro');
+    const textoSpinner                  = document.getElementById('textoSpinner');
+    const textoSaveIcon                 = document.getElementById('textoSaveIcon');
+    const btnConfirmarSalvar            = document.getElementById('btnConfirmarSalvarTexto');
+    const modalConfirmarDescarteOverlay = document.getElementById('modalConfirmarDescarteOverlay');
 
     // ── TinyMCE — inicialização única ─────────────────────────────────────────
 
@@ -656,7 +683,7 @@
                 toolbar_mode: 'wrap',
                 menubar: 'file edit insert format',
                 menu: {
-                    file:   { title: 'Arquivo', items: 'salvarNaPasta | exportarDocx exportarPdf exportarOdt exportarTxt' },
+                    file:   { title: 'Arquivo', items: 'novoDocumento | salvarNaPasta | exportarDocx exportarPdf exportarOdt exportarTxt' },
                     edit:   { title: 'Editar',  items: 'undo redo | cut copy paste pastetext | selectall | searchreplace' },
                     insert: { title: 'Inserir', items: 'image link | table | hr pagebreak | charmap insertdatetime | anchor' },
                 },
@@ -708,6 +735,12 @@
                         tmp.innerHTML = e.content;
                         tmp.querySelectorAll('.paginacao-sep').forEach(function (el) { el.remove(); });
                         e.content = tmp.innerHTML;
+                    });
+
+                    editor.ui.registry.addMenuItem('novoDocumento', {
+                        text: 'Novo documento',
+                        icon: 'new-document',
+                        onAction: function () { abrirEditor(); },
                     });
 
                     editor.ui.registry.addMenuItem('salvarNaPasta', {
@@ -781,8 +814,40 @@
 
     // ── Abrir em modo criação (novo documento) ────────────────────────────────
 
-    async function abrirEditor() {
+    async function executarAbrirNovoDocumento() {
+        modoEdicao        = false;
+        currentDocId      = null;
+        currentCsrfEditar = null;
+        editarTextoUrl    = null;
+        btnSalvarLabel.textContent = 'Salvar na pasta';
+
+        editorTituloDisplay.textContent      = 'Novo documento';
+        editorTituloDisplay.contentEditable  = 'false';
+        editorTituloDisplay.style.cursor     = 'default';
+        editorTituloDisplay.style.borderColor     = 'transparent';
+        editorTituloDisplay.style.backgroundColor = '';
+        editorTituloDisplay.title = '';
+        editorCategoriaBadge.textContent = '';
+
         await garantirEditorAberto();
+
+        const editor = tinymce.get('editorConteudo');
+        if (editor) {
+            editor.setContent('');
+            editor.setDirty(false);
+        }
+    }
+
+    async function abrirEditor() {
+        const editor = tinymce.get('editorConteudo');
+        const dirty  = editor && editor.isDirty();
+
+        if (editorInicializado && editorPanel.style.display !== 'none' && dirty) {
+            abrirModalConfirmarDescarte();
+            return;
+        }
+
+        await executarAbrirNovoDocumento();
     }
 
     // ── Abrir em modo edição (documento text/html existente) ──────────────────
@@ -879,7 +944,7 @@
 
     // ── Salvar alterações (modo edição) ───────────────────────────────────────
 
-    async function salvarAlteracoes() {
+    async function salvarAlteracoes(callback) {
         const editor   = tinymce.get('editorConteudo');
         const conteudo = editor ? editor.getContent() : '';
         const titulo   = editorTituloDisplay.textContent.trim();
@@ -901,7 +966,12 @@
 
             const ed = tinymce.get('editorConteudo');
             if (ed) ed.setDirty(false);
-            window.location.reload();
+
+            if (typeof callback === 'function') {
+                callback();
+            } else {
+                window.location.reload();
+            }
 
         } catch (e) {
             alert('Erro de comunicação. Tente novamente.');
@@ -941,6 +1011,36 @@
     editorTituloDisplay.addEventListener('keydown', function (e) {
         if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
         if (e.key === 'Escape') { this.blur(); }
+    });
+
+    // ── Modal confirmar descarte ──────────────────────────────────────────────
+
+    function abrirModalConfirmarDescarte() {
+        modalConfirmarDescarteOverlay.classList.add('aberto');
+    }
+
+    function fecharModalConfirmarDescarte() {
+        modalConfirmarDescarteOverlay.classList.remove('aberto');
+    }
+
+    document.getElementById('btnDescarteCancelar').addEventListener('click', fecharModalConfirmarDescarte);
+
+    modalConfirmarDescarteOverlay.addEventListener('click', function (e) {
+        if (e.target === modalConfirmarDescarteOverlay) fecharModalConfirmarDescarte();
+    });
+
+    document.getElementById('btnDescarteNaoSalvar').addEventListener('click', function () {
+        fecharModalConfirmarDescarte();
+        executarAbrirNovoDocumento();
+    });
+
+    document.getElementById('btnDescarteSalvar').addEventListener('click', function () {
+        fecharModalConfirmarDescarte();
+        if (modoEdicao) {
+            salvarAlteracoes(executarAbrirNovoDocumento);
+        } else {
+            abrirModalSalvar();
+        }
     });
 
     document.getElementById('btnFecharModalSalvarTexto').addEventListener('click', fecharModalSalvar);
