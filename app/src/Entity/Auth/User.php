@@ -74,6 +74,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $demitidoEm = null;
 
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $oabNumero = null;
+
+    #[ORM\Column(length: 2, nullable: true)]
+    private ?string $oabUf = null;
+
     // -------------------------
     // Construtor
     // -------------------------
@@ -282,5 +288,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->isActive   = false;
         $this->demitidoEm = new \DateTimeImmutable();
+    }
+
+    public function getOabNumero(): ?string { return $this->oabNumero; }
+
+    public function setOabNumero(?string $oabNumero): static
+    {
+        $this->oabNumero = $oabNumero;
+
+        return $this;
+    }
+
+    public function getOabUf(): ?string { return $this->oabUf; }
+
+    public function setOabUf(?string $oabUf): static
+    {
+        $this->oabUf = $oabUf;
+
+        return $this;
     }
 }

@@ -52,6 +52,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/tenant')]
 final class TenantController extends AbstractController
@@ -85,6 +86,7 @@ final class TenantController extends AbstractController
         ]);
     }
 
+    #[IsGranted('ROLE_SUPER_ADMIN')]
     #[Route('/new', name: 'app_tenant_new', methods: ['GET', 'POST'])]
     public function new(
         Request $request,

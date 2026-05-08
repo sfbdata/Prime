@@ -33,10 +33,12 @@ security:
                 path: app_logout
 
     access_control:
-        # Público: criação de Tenant, login e confirmação de convite
-        - { path: ^/tenant/new, roles: PUBLIC_ACCESS }
-        - { path: ^/register/confirm, roles: PUBLIC_ACCESS }
-        - { path: ^/login, roles: PUBLIC_ACCESS }
+        # Criação de escritório: exclusivo para SuperAdmin (liberação manual por enquanto)
+        - { path: ^/tenant/new,       roles: ROLE_SUPER_ADMIN }
+        - { path: ^/register/confirm, roles: PUBLIC_ACCESS }  # redirect legado
+        - { path: ^/invite$,          roles: PUBLIC_ACCESS }  # redirect legado (TODO 5b.3b)
+        - { path: ^/convite,          roles: PUBLIC_ACCESS }  # aceite de convite
+        - { path: ^/login,            roles: PUBLIC_ACCESS }
 
         # A partir daqui: apenas usuário autenticado.
         # Autorização fina (o que pode fazer) é responsabilidade dos controllers
