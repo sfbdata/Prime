@@ -1,3 +1,4 @@
 node_modules/
 test-results/
 storage/auth.json
+scripts/.e2e-baseline.json

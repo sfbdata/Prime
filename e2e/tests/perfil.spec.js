@@ -1,4 +1,7 @@
 // @ts-check
+// ATENÇÃO: Estes testes escrevem em user_profiles (nome_completo, status, foto_url)
+// do usuário de testes (e2e@jusprime.local). Para restaurar o estado original após
+// rodar a suite completa: bash e2e/scripts/restore-e2e-user.sh
 const { test, expect } = require('@playwright/test');
 const path = require('path');
 
