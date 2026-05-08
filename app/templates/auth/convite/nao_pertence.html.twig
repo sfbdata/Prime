@@ -1,0 +1,21 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Convite de outra conta{% endblock %}
+
+{% block head_meta %}<meta name="referrer" content="no-referrer">{% endblock %}
+
+{% block body %}
+<div class="login-wrapper">
+    <div class="login-container">
+        <h1>Convite de outra conta</h1>
+        <p>
+            Este convite foi enviado para <strong>{{ convite.email }}</strong>.
+        </p>
+        <p>
+            Você está logado com uma conta diferente. Para aceitar este convite, saia e entre com o e-mail correto.
+        </p>
+
+        <a href="{{ path('app_logout') }}" class="btn-login d-block text-center">Sair desta conta</a>
+    </div>
+</div>
+{% endblock %}

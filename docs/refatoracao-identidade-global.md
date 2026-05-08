@@ -18,6 +18,63 @@ Separar `user` (identidade global, 1 conta por pessoa) de `user_tenant` (víncul
 
 ---
 
+## Modelo de produto consolidado (08/05/2026)
+
+Decisões finalizadas com Samuel + Dr. Farlei. Esta seção é fonte da verdade pra Etapa 5 em diante.
+
+### Cadastro de conta
+- Por convite apenas (já é assim hoje)
+- Confirmação por email obrigatória (já existe)
+- Login futuro: Google
+- Recuperação de senha: auto por email
+- Sem 2FA por enquanto
+
+### Criação de escritório
+- Só advogado com OAB pode criar
+- Validação via API do CFOAB (decisão técnica de fornecedor pendente: Infosimples, Escavador, ou outro)
+- HOJE: liberação manual (SuperAdmin aprova cada novo escritório)
+- FUTURO: liberação via pagamento de plano
+- Limite de escritórios: no grátis, 1 por advogado; quando virar pago, varia por plano
+
+### Admins do escritório
+- Pode ter múltiplos admins
+- Permissão de convidar é granular (admin + quem o admin liberar)
+
+### Convites
+- Convite Plataforma (criar conta no sistema): expira em 24h, criado por SuperAdmin
+- Convite Escritório (colaborar em escritório existente): expira em 1 semana, criado por admin do escritório, convidado aceita ou recusa
+
+### Demissão
+- Dados criados pelo demitido permanecem
+- Pastas sob responsabilidade dele transferem pro admin do escritório
+
+### Inadimplência (futuro)
+- 30 dias de tolerância com avisos incisivos
+- Após 30 dias: read-only em tudo (visualizar mas não criar/editar/excluir, ponto eletrônico também read-only)
+- Dados apagados após 1 ano sem pagamento
+
+### Cobrança (futuro)
+- Modelo a definir (Samuel vai pesquisar mercado: Astrea, Themis, ADVBox, Projuris)
+- Planos: básico, pro, enterprise (limites diferentes por plano)
+- Período de teste grátis: 2 anos pros escritórios que entrarem agora
+
+### LGPD
+- Cada escritório é responsável pelos dados dos seus clientes
+- Plataforma é processador, não controlador
+
+### SuperAdmin
+- Conta separada com ROLE_SUPER_ADMIN no campo roles JSON
+- Atualmente: apenas Samuel (jusprime.samuel@gmail.com)
+- Painel /admin/platform (stub criado na Etapa 4, implementação real pós-refatoração)
+- Gerenciamento de SuperAdmins: por enquanto via SQL ou CLI; tela no painel quando for desenvolvido
+- Boa prática: ter pelo menos 2 SuperAdmins assim que possível (promover Farlei quando apropriado)
+
+### Limites por escritório
+- Colaboradores: sem limite por enquanto
+- Espaço de arquivo: sem limite por enquanto
+
+---
+
 ## Plano de 6 etapas
 
 ### ✅ Etapa 1 — Criar tabela `user_tenant` (CONCLUÍDA)
@@ -74,7 +131,7 @@ Separar `user` (identidade global, 1 conta por pessoa) de `user_tenant` (víncul
 
 ---
 
-### ⏳ Etapa 5 — Refatorar controllers e implementar tela de seleção (PENDENTE)
+### ⏳ Etapa 5 — Refatorar controllers e implementar tela de seleção (EM ANDAMENTO)
 
 Levantamento original: 75+ arquivos, ~236 referências. Concentrações em:
 
@@ -87,6 +144,73 @@ Levantamento original: 75+ arquivos, ~236 referências. Concentrações em:
 
 Implementar `TenantSelecaoController` real com lista de escritórios do user e POST para selecionar.
 
+#### ✅ Sub-etapa 5a — Segurança imediata + entidade de convite (CONCLUÍDA)
+
+**Arquivos criados:**
+- `app/src/Entity/Auth/Invitation.php` — entidade com 14 campos, índices por `(email)`, `(status, expires_at)`, `(tenant_id, status)`, UNIQUE em `token`; métodos de domínio `aceitar()`, `recusar()`, `revogar()`, `expirar()`
+- `app/src/Repository/InvitationRepository.php`
+- `app/migrations/Version20260509000000.php` — cria tabela `invitation`, adiciona `oab_numero`/`oab_uf` em `user` com CHECK constraints, converte 1 `invitation_token` legado para registro `Invitation` com `status=expired`
+
+**Arquivos modificados:**
+- `app/config/packages/security.yaml` — `/tenant/new`: `PUBLIC_ACCESS` → `ROLE_SUPER_ADMIN`
+- `app/src/Controller/TenantController.php` — `#[IsGranted('ROLE_SUPER_ADMIN')]` no método `new()`
+- `app/src/Entity/Auth/User.php` — campos `oabNumero`, `oabUf` + getters/setters
+
+**Testes E2E:** `e2e/tests/etapa5a-tenant-new-acesso.spec.js` — 2/2 passando (anônimo → 302, SuperAdmin → 200), 1 skip documentado (user normal, pendente fixture)
+
+#### ✅ Sub-etapa 5b — Fluxos de convite — Fase 5b.1 Domain layer (CONCLUÍDA)
+
+**Arquivos criados:**
+- `app/src/Auth/DTO/` — 7 DTOs (`CriarConvitePlataformaInput`, `CriarConviteEscritorioInput`, `AceitarConvitePlataformaInput`, `AceitarConviteEscritorioSemContaInput`, `AceitarConviteEscritorioComContaInput`, `RecusarConviteEscritorioInput`, `RevogarConviteInput`)
+- `app/src/Auth/UseCase/` — 7 UseCases (`RevogarConviteUseCase`, `RecusarConviteEscritorioUseCase`, `CriarConvitePlataformaUseCase`, `CriarConviteEscritorioUseCase`, `AceitarConviteEscritorioComContaUseCase`, `AceitarConviteEscritorioSemContaUseCase`, `AceitarConvitePlataformaUseCase`)
+- `app/tests/Auth/Unit/` — 7 arquivos de teste (61 cenários, 155 assertions, 100% passando)
+
+**Arquivos modificados:**
+- `app/src/Repository/InvitationRepository.php` — `+encontrarPorToken`, `+encontrarPendentesPorEmail`, `final` removido
+- `app/src/Repository/UserTenantRepository.php` — `+existeVinculoAtivo`, `final` removido
+
+**Banco de teste:** migrations `Version20260508170000` e `Version20260509000000` aplicadas em `saas_test`. Suite total: 417 testes, 404 passando, 13 erros pré-existentes (Grupo A — UseCases Expediente de outra sprint).
+
+#### ✅ Sub-etapa 5b — Fase 5b.2 Templates de email + ConviteMailer (CONCLUÍDA)
+
+**Arquivos criados:**
+- `app/src/Auth/Service/ConviteMailer.php` — `final`, 2 métodos (`enviarConvitePlataforma`, `enviarConviteEscritorio`), captura `TransportExceptionInterface`
+- `app/templates/email/convite_plataforma.html.twig` — HTML inline, fallback de nome, expiração com hora
+- `app/templates/email/convite_escritorio.html.twig` — HTML inline, fallback de tenant/criador, expiração sem hora
+- `app/tests/Auth/Unit/ConviteMailerTest.php` — 8 testes, 44 assertions, 100% passando
+
+**Arquivos modificados:**
+- `app/.env` — `MAILER_FROM="JusPrime <naoresponda@jusprime.com.br>"` adicionado no bloco mailer
+- `app/.env.test` — `MAILER_DSN=null://null` adicionado (evita envio real em testes funcionais futuros)
+- `app/config/services.yaml` — parâmetro `mailer_from` + binding `string $mailerFrom`
+
+**Suite total:** 425 testes, 412 passando, 13 erros pré-existentes (Grupo A).
+
+#### ✅ Sub-etapa 5b — Fase 5b.3a Controllers de aceite de convite (CONCLUÍDA)
+
+**Arquivos criados:**
+- `app/src/Auth/DTO/ConviteOutput.php` — DTO de saída para templates (não passa entidade Doctrine)
+- `app/src/Auth/Controller/ConviteController.php` — 6 actions: `verConvite`, `aceitarPlataforma`, `aceitarSemConta`, `aceitarLogado`, `recusar`, `meusConvites`; rate limiter `convite_aceite` (20 req/min); CSRF manual
+- `app/templates/auth/convite/ver.html.twig` — formulário de criação de conta (plataforma com OAB, escritório sem OAB)
+- `app/templates/auth/convite/ver_logado.html.twig` — aceitar/recusar quando logado
+- `app/templates/auth/convite/erro.html.twig` — estados: não encontrado, expirado, já utilizado
+- `app/templates/auth/convite/nao_pertence.html.twig` — email do convite não bate com usuário logado
+- `app/templates/auth/meus_convites.html.twig` — lista de convites pendentes
+- `e2e/tests/etapa5b3a-aceite-convite.spec.js` — 13 testes E2E, todos passando
+
+**Arquivos modificados:**
+- `app/src/Controller/RegistrationController.php` — 302 redirect para `auth_aceite_convite` (aposentado)
+- `app/src/Controller/InvitationController.php` — 302 redirect para `homepage` (aposentado; TODO 5b.3b)
+- `app/config/packages/security.yaml` — `^/convite` e `^/invite$` → `PUBLIC_ACCESS`
+- `app/config/packages/framework.yaml` — limiter `convite_aceite` adicionado (sliding_window, 20/min)
+- `app/templates/base.html.twig` — bloco `{% block head_meta %}` + flash rendering no branch `{% else %}` (sem sidebar)
+
+**Suite:** 13/13 testes E2E passando; 69 testes PHPUnit Auth passando; 13 erros pré-existentes (Grupo A) inalterados.
+
+#### ⏳ Sub-etapa 5b — Fase 5b.3b Criação de convites (PENDENTE)
+
+#### ⏳ Sub-etapa 5c — Refatorar referências legadas + TenantSelecaoController real (PENDENTE)
+
 ---
 
 ### ⏳ Etapa 6 — Limpeza (PENDENTE)
@@ -98,6 +222,51 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 ---
 
 ## Histórico de operações em ambiente
+
+### 09/05/2026 (continuação) — Fase 5b.3a concluída
+
+- `ConviteController` com 6 actions: `verConvite` (dispatcher de 8 estados), `aceitarPlataforma`, `aceitarSemConta`, `aceitarLogado`, `recusar`, `meusConvites`
+- 5 templates Twig criados (`ver`, `ver_logado`, `erro`, `nao_pertence`, `meus_convites`); `<meta name="referrer" content="no-referrer">` nos templates com token na URL
+- Redirects 302 dos controllers legados: `RegistrationController` → `auth_aceite_convite`, `InvitationController` → `homepage`
+- Rate limiter `convite_aceite` (sliding_window, 20 req/min por IP) via `RateLimiterFactory`
+- 13 testes E2E + 69 testes PHPUnit Auth, todos passando
+- **2 bugs corrigidos durante execução:** (1) OPcache do PHP-FPM retinha container antigo — corrigido com `kill -USR2`; (2) flash messages não renderizavam no branch `{% else %}` (sem sidebar) do `base.html.twig` — corrigido adicionando loop `app.flashes` no branch público
+
+### 09/05/2026 — Fase 5b.2 concluída (continuação)
+
+- Service `App\Auth\Service\ConviteMailer` criado com 2 métodos (`enviarConvitePlataforma`, `enviarConviteEscritorio`); captura `TransportExceptionInterface` e relança como `\RuntimeException`
+- Templates HTML inline criados em `templates/email/` (`convite_plataforma.html.twig`, `convite_escritorio.html.twig`) — fallbacks para nome, tenant e criador nulos
+- `MAILER_FROM` parametrizado via `.env` (`"JusPrime <naoresponda@jusprime.com.br>"`) e injetado por binding em `services.yaml`; não hardcoded
+- `MAILER_DSN=null://null` adicionado em `.env.test` — protege testes funcionais futuros de envio real pelo Gmail
+- `ConviteMailerTest` com 8 testes, 44 assertions, 100% passando
+- Suite total: 425 testes, 412 passando, 13 erros pré-existentes do Grupo A
+
+### 09/05/2026 — Fase 5b.1 concluída (continuação)
+
+- Domain layer de convites implementado: 7 DTOs + 7 UseCases + 7 arquivos de teste unitário (61 cenários, 155 assertions)
+- 2 métodos novos em `InvitationRepository` (`encontrarPorToken`, `encontrarPendentesPorEmail`), 1 em `UserTenantRepository` (`existeVinculoAtivo`)
+- `final` removido de `InvitationRepository` e `UserTenantRepository` (necessário para mock em testes unitários; padrão do projeto não usa `final` em repositórios)
+- Migrations `Version20260508170000` e `Version20260509000000` aplicadas no banco de teste (`saas_test`) — 45 erros funcionais desbloqueados
+- Suite total: 417 testes, 404 passando, 13 erros pré-existentes do Grupo A (`MoverPastaMarcadoresUseCase` e `RemoverMarcadorDaPastaUseCase` — UseCases Expediente de outra sprint)
+
+### 09/05/2026 — Sub-etapa 5a concluída
+
+- Entidade `Invitation` criada em `app/src/Entity/Auth/` com 14 campos, índices e métodos de domínio
+- `/tenant/new` fechada: `PUBLIC_ACCESS` → `ROLE_SUPER_ADMIN` no security.yaml + `#[IsGranted]` no controller
+- Campos `oab_numero` / `oab_uf` adicionados em `user` com CHECK constraints PostgreSQL
+- 1 token legado (`user.invitation_token`) convertido para registro `invitation` com `status=expired`, `created_by_id` preenchido (0 sem rastreabilidade)
+- Migration `Version20260509000000` aplicada — correção de `SERIAL` → `IDENTITY` e operador `?` → `@>` para compatibilidade DBAL
+
+### 08/05/2026 — Etapa 4 concluída
+
+- `PermissionChecker` refatorado: nova assinatura pública com `?Tenant` explícito; bypass de `ROLE_SUPER_ADMIN` antes do null-check de tenant
+- `AuditLogSubscriber` refatorado: usa `TenantContext::getCurrentTenant()` em vez de `$user->getTenant()`
+- `UserAuthenticator` refatorado: auto-seleciona tenant único no login; redireciona SuperAdmin sem tenant para `/admin/platform`
+- `TenantContextValidatorListener` corrigido: passa SUPER_ADMIN sem tenant; redireciona demais para `tenant_selecionar`; limpa sessão quando vínculo inativo detectado
+- `ROLE_SUPER_ADMIN` atribuído ao user `jusprime.samuel@gmail.com` via migration
+- `PlatformDashboardController` stub criado em `/admin/platform`
+- **User de E2E criado:** `e2e@jusprime.local` com `ROLE_SUPER_ADMIN`, via `Version20260508170000.php` com guard `APP_ENV=prod` (no-op em produção — user nunca existe em prod)
+- **Testes E2E:** 9/9 passando — 5 testes da Etapa 4 + auth.setup + 4 cenários do PermissionChecker
 
 ### 07/05/2026 — Carga de dados reais em DEV
 
@@ -139,3 +308,50 @@ Tratar após a refatoração de identidade global:
 - 2 migrations não aplicadas em produção mas presentes no código (`Version20260401000000` e `Version20260408180237`) — limpar
 - Revisar bypass total de `ROLE_SUPER_ADMIN` no `PermissionChecker` — implementar modelo de impersonate com motivo registrado + audit log para acessos cross-tenant (LGPD/sigilo profissional)
 - Performance: `PermissionChecker` faz query de `UserTenant` a cada chamada — cachear por request quando virar gargalo
+- Decidir fornecedor de validação de OAB (Infosimples, Escavador, scraping próprio, ou validação manual com upload de carteira)
+- Pesquisar modelos de cobrança no mercado jurídico (Astrea, Themis, ADVBox, Projuris) antes de definir cobrança final
+- Promover segundo SuperAdmin assim que possível — risco de single point of failure se Samuel perder acesso
+- Refatorar fixtures pra criarem UserTenant (advogado1, etc. estão sem vínculo após Etapa 4)
+- 6 testes E2E em `perfil.spec.js` falhando (cropper de foto / modal `#modalFotoEditar`) desde a troca do user de testes — investigar antes de fechar Etapa 5
+- Padronizar política de `final` em repositórios — alguns têm (`InvitationRepository`, `UserTenantRepository` tinham até a 5b.1), outros não; definir regra única e aplicar consistentemente
+- Implementar UseCases pendentes com testes já escritos: `MoverPastaMarcadoresUseCase` e `RemoverMarcadorDaPastaUseCase` (13 testes em erro no Grupo A)
+- Garantir que migrations sejam aplicadas no banco de teste (`saas_test`) sempre que houver mudança de schema — investigar se há automação (hook de CI, script pré-teste) ou se depende de execução manual
+- Templates de email recebem entidade `Invitation` diretamente — viola padrão `templates/CLAUDE.md` (que exige DTOs). Decisão: aceitável pra emails internos, mas avaliar criar `InvitationEmailDTO` se complexidade crescer
+- `ConviteMailer` chama rota `auth_aceite_convite` que será criada na Fase 5b.3a — não chamar `ConviteMailer` até a rota existir, ou vai quebrar em runtime
+- OPcache do PHP-FPM: criar procedimento documentado de reload após mudanças em rotas (`kill -USR2` no processo ou outro mecanismo) — evita 404 em rotas que existem no `debug:router` mas não são encontradas via HTTP
+
+**Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
+
+- `app/templates/_sidebar.html.twig` linhas 152, 162, 172, 203, 213: usam `app.user.tenant.id` para construir URLs de navegação — migrar para `TenantContext` exposto via Twig global antes de remover `user.tenant_id`
+- `app/templates/tenant/index.html.twig:34`: usa `app.user.tenant.id == tenant.id` — mesmo padrão legado, migrar junto
+- `app/migrations/Version20260508170000.php`: faz `UPDATE user SET tenant_id=1` no E2E user para compensar o template legado — remover quando os templates forem refatorados
+- `app/src/Expediente/Controller/ExpedienteController.php:39`: usa `$usuario->getTenant()` — refatorar para `TenantContext`
+- Fixtures de testes E2E (`advogado1@escritorio.com.br` e demais users carregados do dump): não têm `user_tenant` após a Etapa 4 — adicionar registros de UserTenant nas fixtures antes de rodar a suite completa
+
+---
+
+## Como retomar em chat novo do Claude Code
+
+Este chat foi encerrado após a Etapa 4 para iniciar a Etapa 5 com contexto limpo.
+
+No próximo chat, primeira mensagem deve ser:
+
+> Estou retomando a refatoração descrita em `docs/refatoracao-identidade-global.md`.
+> Leia o documento e me confirme em qual etapa vamos continuar.
+> Próxima etapa: 5 (refatorar controllers e implementar tela de seleção).
+> **Não execute nada ainda — só confirme que entendeu o contexto.**
+
+### Status atual ao iniciar chat novo
+- Etapas 1, 2, 3, 4 concluídas
+- Banco de dev local com dados reais de produção (restaurados em 07/05/2026)
+- User dedicado de E2E (`e2e@jusprime.local`) funcional
+- 9/9 testes E2E passando
+- Documento mestre `docs/refatoracao-identidade-global.md` atualizado e completo
+
+### Pré-requisitos identificados que precisam ser tratados ANTES da Etapa 6
+Ver seção "Pontos de auditoria identificados mas NÃO tratados" no início do documento.
+
+### Modo de trabalho preferido
+- Plan mode por padrão (revisar antes de executar)
+- Edit automatically apenas para alterações pequenas, isoladas, ou atualização de docs
+- Ask before edits raramente

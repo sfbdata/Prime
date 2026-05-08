@@ -1,0 +1,24 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Convite inválido{% endblock %}
+
+{% block head_meta %}<meta name="referrer" content="no-referrer">{% endblock %}
+
+{% block body %}
+<div class="login-wrapper">
+    <div class="login-container">
+        {% if motivo == 'expirado' %}
+            <h1>Convite expirado</h1>
+            <p>Este convite não é mais válido — o prazo encerrou. Solicite um novo convite ao administrador do escritório.</p>
+        {% elseif motivo == 'ja_utilizado' %}
+            <h1>Convite já utilizado</h1>
+            <p>Este convite já foi aceito, recusado ou revogado e não pode ser usado novamente.</p>
+        {% else %}
+            <h1>Convite não encontrado</h1>
+            <p>O link que você usou é inválido ou não existe. Verifique se copiou o link completo do e-mail.</p>
+        {% endif %}
+
+        <a href="{{ path('app_login') }}" class="btn-login d-block text-center mt-3">Ir para o login</a>
+    </div>
+</div>
+{% endblock %}

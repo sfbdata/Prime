@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Meus Convites{% endblock %}
+
+{% block body %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">Meus Convites Pendentes</h2>
+
+        {% if convites is empty %}
+            <div class="alert alert-info">
+                <i class="bi bi-envelope me-2"></i> Nenhum convite pendente.
+            </div>
+        {% else %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Escritório</th>
+                            <th>Convidado por</th>
+                            <th>Expira em</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for convite in convites %}
+                            <tr>
+                                <td>{{ convite.tenantNome ?? '—' }}</td>
+                                <td>{{ convite.criadorNome ?? '—' }}</td>
+                                <td>{{ convite.expiresAt|date('d/m/Y') }}</td>
+                                <td>
+                                    <a href="{{ path('auth_aceite_convite', {token: convite.token}) }}"
+                                       class="btn btn-sm btn-primary">
+                                        Ver convite
+                                    </a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

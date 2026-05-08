@@ -4,6 +4,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
         <meta name="color-scheme" content="light dark">
+        {% block head_meta %}{% endblock %}
         <title>{% block title %}JusPrime{% endblock %}</title>
 
         {# Favicon #}
@@ -283,6 +284,13 @@
 
         {% else %}
             <div class="no-sidebar">
+                {% for label, messages in app.flashes %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ label == 'error' ? 'danger' : label }} m-3">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endfor %}
                 {{ block('body') }}
             </div>
         {% endif %}

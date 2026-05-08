@@ -15,6 +15,10 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '15 minutes'
+        convite_aceite:
+            policy: sliding_window
+            limit: 20
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true

@@ -1,0 +1,62 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Aceitar Convite{% endblock %}
+
+{% block head_meta %}<meta name="referrer" content="no-referrer">{% endblock %}
+
+{% block body %}
+<div class="login-wrapper">
+    <div class="login-container">
+        <h1>
+            {% if convite.tenantNome %}
+                Convite para {{ convite.tenantNome }}
+            {% else %}
+                Convite para o JusPrime
+            {% endif %}
+        </h1>
+
+        {% if convite.criadorNome %}
+            <p>{{ convite.criadorNome }} te convidou para colaborar{% if convite.tenantNome %} em <strong>{{ convite.tenantNome }}</strong>{% endif %}.</p>
+        {% endif %}
+
+        <p class="text-muted small">
+            Convite expira em {{ convite.expiresAt|date('d/m/Y') }} às {{ convite.expiresAt|date('H:i') }}
+        </p>
+
+        {% for message in app.flashes('erro') %}
+            <div class="alert alert-danger">{{ message }}</div>
+        {% endfor %}
+
+        <form method="post" action="{% if tipo_form == 'plataforma' %}{{ path('auth_aceite_convite_plataforma', {token: convite.token}) }}{% else %}{{ path('auth_aceite_convite_criar_conta', {token: convite.token}) }}{% endif %}">
+
+            <div class="mb-3">
+                <label for="full_name" class="form-label">Nome completo</label>
+                <input type="text" id="full_name" name="full_name" class="form-control"
+                       value="{{ convite.nomeConvidado is not null ? convite.nomeConvidado|e('html_attr') : '' }}"
+                       required autocomplete="name">
+            </div>
+
+            <div class="mb-3">
+                <label for="senha" class="form-label">Senha</label>
+                <input type="password" id="senha" name="senha" class="form-control" required autocomplete="new-password">
+            </div>
+
+            {% if tipo_form == 'plataforma' %}
+                <div class="mb-3">
+                    <label for="oab_numero" class="form-label">Número da OAB</label>
+                    <input type="text" id="oab_numero" name="oab_numero" class="form-control"
+                           placeholder="Ex: 123456" inputmode="numeric" required>
+                </div>
+                <div class="mb-3">
+                    <label for="oab_uf" class="form-label">UF da OAB</label>
+                    <input type="text" id="oab_uf" name="oab_uf" class="form-control"
+                           placeholder="Ex: SP" maxlength="2" style="text-transform:uppercase" required>
+                </div>
+            {% endif %}
+
+            <input type="hidden" name="_token" value="{{ csrf_token('convite_' ~ convite.token) }}">
+            <button class="btn-login" type="submit">Criar conta e aceitar</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
