@@ -11,6 +11,7 @@ use App\Repository\LegendaCorRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -41,6 +42,7 @@ class AgendaController extends AbstractController
         private readonly UserRepository $userRepository,
         private readonly LegendaCorRepository $legendaCorRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
     ) {
     }
 
@@ -52,7 +54,8 @@ class AgendaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'agenda')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'agenda')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
             return $this->redirectToRoute('homepage');
         }
@@ -74,7 +77,8 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($user, 'agenda')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
             return $this->redirectToRoute('homepage');
         }
@@ -96,7 +100,8 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($user, 'agenda')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
             return $this->json(['error' => 'Sem permissão'], 403);
         }
 
@@ -131,7 +136,8 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($user, 'agenda')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
             return $this->json(['success' => false, 'error' => 'Sem permissão'], 403);
         }
 
@@ -209,7 +215,8 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($user, 'agenda')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
             return $this->redirectToRoute('homepage');
         }
@@ -269,7 +276,8 @@ class AgendaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'agenda')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'agenda')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de agenda.');
             return $this->redirectToRoute('homepage');
         }
@@ -287,9 +295,10 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         // Apenas admin ou criador pode editar
-        if (!$permissionChecker->canAdminister($user, 'admin.users.manage') && $evento->getCriador() !== $user) {
+        if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
             $this->addFlash('danger', 'Você não tem permissão para editar este evento.');
             return $this->redirectToRoute('agenda_index');
         }
@@ -332,9 +341,10 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         // Apenas admin ou criador pode excluir
-        if (!$permissionChecker->canAdminister($user, 'admin.users.manage') && $evento->getCriador() !== $user) {
+        if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
             $this->addFlash('danger', 'Você não tem permissão para excluir este evento.');
             return $this->redirectToRoute('agenda_index');
         }
@@ -356,9 +366,10 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         // Apenas admin ou criador pode cancelar
-        if (!$permissionChecker->canAdminister($user, 'admin.users.manage') && $evento->getCriador() !== $user) {
+        if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
             $this->addFlash('danger', 'Você não tem permissão para cancelar este evento.');
             return $this->redirectToRoute('agenda_index');
         }
@@ -391,9 +402,10 @@ class AgendaController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         // Apenas admin ou criador pode atualizar
-        if (!$permissionChecker->canAdminister($user, 'admin.users.manage') && $evento->getCriador() !== $user) {
+        if (!$permissionChecker->canAdminister($user, $tenant, 'admin.users.manage') && $evento->getCriador() !== $user) {
             return $this->json(['success' => false, 'message' => 'Sem permissão'], 403);
         }
 
@@ -422,7 +434,8 @@ class AgendaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'agenda')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'agenda')) {
             return $this->json(['success' => false, 'error' => 'Sem permissão'], 403);
         }
 

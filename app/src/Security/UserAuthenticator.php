@@ -1,8 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Security;
 
 use App\Entity\Auth\User;
+use App\Repository\UserTenantRepository;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,16 +20,14 @@ use Symfony\Component\Security\Http\Authenticator\Passport\Credentials\PasswordC
 use Symfony\Component\Security\Http\Authenticator\Passport\Passport;
 use Symfony\Component\HttpFoundation\Response;
 
-class UserAuthenticator extends AbstractLoginFormAuthenticator
+final class UserAuthenticator extends AbstractLoginFormAuthenticator
 {
-    private RouterInterface $router;
-    private EntityManagerInterface $em;
-
-    public function __construct(RouterInterface $router, EntityManagerInterface $em)
-    {
-        $this->router = $router;
-        $this->em = $em;
-    }
+    public function __construct(
+        private readonly RouterInterface $router,
+        private readonly EntityManagerInterface $em,
+        private readonly UserTenantRepository $userTenantRepository,
+        private readonly TenantContext $tenantContext,
+    ) {}
 
     public function authenticate(Request $request): Passport
     {
@@ -49,13 +51,30 @@ class UserAuthenticator extends AbstractLoginFormAuthenticator
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
         $user = $token->getUser();
-        if ($user instanceof User) {
-            $user->setLastLogin(new \DateTimeImmutable());
-            $this->em->flush();
+
+        if (!$user instanceof User) {
+            return new RedirectResponse($this->router->generate('expediente_index'));
         }
 
-        return new RedirectResponse($this->router->generate('expediente_index'));
+        $user->setLastLogin(new \DateTimeImmutable());
+
+        $tenants = $this->userTenantRepository->findActiveByUser($user);
+
+        if (count($tenants) === 1) {
+            $userTenant = $tenants[0];
+            $this->tenantContext->setCurrentTenant($userTenant->getTenant()->getId());
+            $userTenant->setLastLoginAt(new \DateTimeImmutable());
+            $this->em->flush();
+
+            return new RedirectResponse($this->router->generate('expediente_index'));
+        }
+
+        $this->em->flush();
+
+        if (count($tenants) === 0 && in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
+            return new RedirectResponse($this->router->generate('admin_platform_dashboard'));
+        }
+
+        return new RedirectResponse($this->router->generate('tenant_selecionar'));
     }
-
-
 }

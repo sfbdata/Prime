@@ -7,6 +7,7 @@ use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Tenant\Tenant;
 use App\Repository\Ponto\JornadaTenantRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,6 +18,10 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/tenant')]
 final class JornadaTenantController extends AbstractController
 {
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     #[Route('/{id}/jornada', name: 'app_jornada_tenant_get', methods: ['GET'])]
     public function get(
         Tenant $tenant,
@@ -32,7 +37,8 @@ final class JornadaTenantController extends AbstractController
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
         $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
 
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, 'admin.users.manage'))) {
+        $tenantCtx = $this->tenantContext->getCurrentTenant();
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenantCtx, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para configurar jornada.');
         }
 
@@ -88,7 +94,8 @@ final class JornadaTenantController extends AbstractController
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
         $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
 
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, 'admin.users.manage'))) {
+        $tenantCtx = $this->tenantContext->getCurrentTenant();
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenantCtx, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para configurar jornada.');
         }
 

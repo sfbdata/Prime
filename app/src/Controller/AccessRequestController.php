@@ -7,6 +7,7 @@ use App\Entity\Permission\ResourceAccess;
 use App\Repository\AccessRequestRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,6 +25,10 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/access-requests')]
 final class AccessRequestController extends AbstractController
 {
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     /**
      * Garante que o usuário autenticado tem admin.access_requests.approve
      * e que pertence a um tenant válido.
@@ -36,7 +41,8 @@ final class AccessRequestController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if (!$checker->canAdminister($user, 'admin.access_requests.approve')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$checker->canAdminister($user, $tenant, 'admin.access_requests.approve')) {
             throw $this->createAccessDeniedException('Você não tem permissão para aprovar solicitações de acesso.');
         }
 
@@ -96,7 +102,8 @@ final class AccessRequestController extends AbstractController
         }
 
         // Verifica se já tem acesso
-        if ($checker->canAccessResource($user, $resourceType, $resourceId, $action)) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($checker->canAccessResource($user, $tenant, $resourceType, $resourceId, $action)) {
             return $this->json(['error' => 'Você já tem acesso a este recurso.'], 400);
         }
 

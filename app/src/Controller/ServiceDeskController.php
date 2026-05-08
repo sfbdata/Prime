@@ -12,6 +12,7 @@ use App\Repository\ChamadoRepository;
 use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -57,6 +58,7 @@ class ServiceDeskController extends AbstractController
         private readonly string $chamadosUploadsDir,
         private readonly NotificacaoService $notificacaoService,
         private readonly ArquivoStorageService $storage,
+        private readonly TenantContext $tenantContext,
     ) {
     }
 
@@ -68,7 +70,8 @@ class ServiceDeskController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar o painel do Service Desk.');
         }
 
@@ -127,7 +130,8 @@ class ServiceDeskController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAccessModule($usuario, 'servicedesk')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($usuario, $tenant, 'servicedesk')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de service desk.');
             return $this->redirectToRoute('homepage');
         }
@@ -147,7 +151,8 @@ class ServiceDeskController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAccessModule($usuario, 'servicedesk')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($usuario, $tenant, 'servicedesk')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de service desk.');
             return $this->redirectToRoute('homepage');
         }
@@ -200,7 +205,8 @@ class ServiceDeskController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $isAdmin = $permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage');
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $isAdmin = $permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage');
 
         // Verificar permissão
         if (!$isAdmin && $chamado->getSolicitante() !== $usuario) {
@@ -236,7 +242,8 @@ class ServiceDeskController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $isAdmin = $permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage');
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $isAdmin = $permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage');
 
         // Verificar permissão
         if (!$isAdmin && $chamado->getSolicitante() !== $usuario) {
@@ -275,7 +282,8 @@ class ServiceDeskController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para atribuir chamados.');
         }
 
@@ -321,7 +329,8 @@ class ServiceDeskController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAdminister($usuario, 'admin.servicedesk.manage')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para alterar o status de chamados.');
         }
 

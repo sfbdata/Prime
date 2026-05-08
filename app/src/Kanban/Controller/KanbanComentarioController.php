@@ -12,6 +12,7 @@ use App\Kanban\UseCase\AtualizarComentarioUseCase;
 use App\Kanban\UseCase\CriarComentarioUseCase;
 use App\Kanban\UseCase\ExcluirComentarioUseCase;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -27,6 +28,7 @@ final class KanbanComentarioController extends AbstractController
         private readonly KanbanCardRepository $cardRepository,
         private readonly KanbanComentarioRepository $comentarioRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
     ) {
     }
 
@@ -98,7 +100,8 @@ final class KanbanComentarioController extends AbstractController
 
     private function assertAccess(User $user): void
     {
-        if (!$this->permissionChecker->canAccessModule($user, 'kanban')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
     }

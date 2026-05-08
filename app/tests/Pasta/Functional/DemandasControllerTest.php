@@ -5,19 +5,21 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\DemandasController;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[CoversClass(DemandasController::class)]
 final class DemandasControllerTest extends WebTestCase
 {
-    private function criarUsuario(): User
+    private function criarUsuarioComTenant(KernelBrowser $client): array
     {
         $container = static::getContainer();
         $em        = $container->get(EntityManagerInterface::class);
@@ -35,9 +37,18 @@ final class DemandasControllerTest extends WebTestCase
         $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
+
+        $userTenant = new UserTenant($user, $tenant);
+        $em->persist($userTenant);
+
         $em->flush();
 
-        return $user;
+        $client->loginUser($user);
+        $session = $client->getSession();
+        $session->set('current_tenant_id', $tenant->getId());
+        $session->save();
+
+        return [$user, $tenant];
     }
 
     private function criarPastaParaResponsavel(User $responsavel): Pasta
@@ -66,9 +77,8 @@ final class DemandasControllerTest extends WebTestCase
     #[TestDox('GET /demandas autenticado retorna 200')]
     public function testAutenticadoRetorna200(): void
     {
-        $client  = static::createClient();
-        $usuario = $this->criarUsuario();
-        $client->loginUser($usuario);
+        $client = static::createClient();
+        $this->criarUsuarioComTenant($client);
 
         $client->request('GET', '/demandas');
 
@@ -78,10 +88,9 @@ final class DemandasControllerTest extends WebTestCase
     #[TestDox('GET /demandas exibe pasta onde usuário é responsável')]
     public function testExibePastaDoResponsavel(): void
     {
-        $client  = static::createClient();
-        $usuario = $this->criarUsuario();
-        $pasta   = $this->criarPastaParaResponsavel($usuario);
-        $client->loginUser($usuario);
+        $client           = static::createClient();
+        [$usuario]        = $this->criarUsuarioComTenant($client);
+        $pasta            = $this->criarPastaParaResponsavel($usuario);
 
         $client->request('GET', '/demandas');
 
@@ -92,9 +101,8 @@ final class DemandasControllerTest extends WebTestCase
     #[TestDox('GET /demandas com filtro de cliente retorna 200')]
     public function testComFiltroClienteRetorna200(): void
     {
-        $client  = static::createClient();
-        $usuario = $this->criarUsuario();
-        $client->loginUser($usuario);
+        $client = static::createClient();
+        $this->criarUsuarioComTenant($client);
 
         $client->request('GET', '/demandas', ['cliente' => 'João']);
 
@@ -104,9 +112,8 @@ final class DemandasControllerTest extends WebTestCase
     #[TestDox('GET /demandas com filtro de prioridade retorna 200')]
     public function testComFiltroPrioridadeRetorna200(): void
     {
-        $client  = static::createClient();
-        $usuario = $this->criarUsuario();
-        $client->loginUser($usuario);
+        $client = static::createClient();
+        $this->criarUsuarioComTenant($client);
 
         $client->request('GET', '/demandas', ['prioridade' => 'urgente']);
 

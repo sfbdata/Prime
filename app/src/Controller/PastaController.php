@@ -24,6 +24,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use App\Pasta\Service\PastaTimelineAssembler;
 use App\Entity\Pasta\PastaObservacaoDetalhes;
 use App\Entity\Pasta\PastaObservacaoFinanceira;
@@ -89,6 +90,7 @@ class PastaController extends AbstractController
         private readonly string $uploadsDir,
         private readonly ArquivoStorageInterface $storage,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
         private readonly PastaTimelineAssembler $timelineAssembler,
         private readonly EnviarMensagemPastaUseCase $enviarMensagemUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
@@ -121,7 +123,7 @@ class PastaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'pastas')) {
+        if (!$this->permissionChecker->canAccessModule($currentUser, $this->tenantContext->getCurrentTenant(), 'pastas')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pastas.');
             return $this->redirectToRoute('expediente_index');
         }
@@ -158,7 +160,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -213,7 +215,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -420,7 +422,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -458,7 +460,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -510,7 +512,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -552,7 +554,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -588,7 +590,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -673,7 +675,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -713,7 +715,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_show', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_show', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -755,7 +757,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -793,7 +795,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -821,7 +823,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -850,7 +852,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_DELETE, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $redirect;
         }
 
@@ -936,7 +938,7 @@ class PastaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', (int) $pasta->getId(), 'edit')) {
             throw $this->createAccessDeniedException('Você não tem permissão para enviar documentos nesta pasta.');
         }
 
@@ -1045,7 +1047,7 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $doc->getPasta()?->getId();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'view')) {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
@@ -1064,7 +1066,7 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $doc->getPasta()?->getId();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'view')) {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos desta pasta.');
         }
 
@@ -1085,7 +1087,7 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaForCheck = $doc->getPasta();
-        if ($pastaForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pastaForCheck->getId(), 'edit')) {
+        if ($pastaForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', (int) $pastaForCheck->getId(), 'edit')) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar documentos desta pasta.');
         }
 
@@ -1123,7 +1125,7 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaForCheck = $doc->getPasta();
-        if ($pastaForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pastaForCheck->getId(), 'edit')) {
+        if ($pastaForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', (int) $pastaForCheck->getId(), 'edit')) {
             throw $this->createAccessDeniedException('Você não tem permissão para remover documentos desta pasta.');
         }
 
@@ -1152,7 +1154,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1180,7 +1182,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1208,7 +1210,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1269,7 +1271,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'view')) {
             throw $this->createAccessDeniedException('Sem permissão.');
         }
 
@@ -1295,7 +1297,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'view')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'view')) {
             throw $this->createAccessDeniedException('Sem permissão.');
         }
 
@@ -1321,7 +1323,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1357,7 +1359,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1387,7 +1389,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1426,7 +1428,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1462,7 +1464,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1490,7 +1492,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1528,7 +1530,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1564,7 +1566,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1592,7 +1594,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1624,7 +1626,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1649,7 +1651,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1680,7 +1682,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1705,7 +1707,7 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 

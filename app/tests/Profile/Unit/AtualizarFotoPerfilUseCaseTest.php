@@ -200,6 +200,11 @@ final class ArquivoStorageStub implements ArquivoStorageInterface
         return false;
     }
 
+    public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
+    {
+        throw new \LogicException('Não deve ser chamado nos testes de unidade.');
+    }
+
     public function caminho(string $diretorio, string $nomeArquivo): string
     {
         return $diretorio . '/' . $nomeArquivo;

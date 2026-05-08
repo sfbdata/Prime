@@ -20,7 +20,8 @@ final class ExcluirBoardUseCase
     public function executar(KanbanBoard $board, User $usuarioAtual): void
     {
         $eCriador = $board->getCriadoPor() === $usuarioAtual;
-        $eAdmin   = $this->permissionChecker->canAdminister($usuarioAtual, 'kanban');
+        $tenant   = $board->getTenant();
+        $eAdmin   = $tenant !== null && $this->permissionChecker->canAdminister($usuarioAtual, $tenant, 'kanban');
 
         if (!$eCriador && !$eAdmin) {
             throw new \RuntimeException('Apenas o criador ou administrador pode excluir o mural.');

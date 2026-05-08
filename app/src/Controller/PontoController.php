@@ -18,6 +18,7 @@ use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use App\Service\Ponto\FolhaPontoBuilder;
 use App\Service\Ponto\VerificadorAlertaPonto;
 use Doctrine\ORM\EntityManagerInterface;
@@ -42,6 +43,7 @@ final class PontoController extends AbstractController
         private readonly ArquivoStorageService $storage,
         private readonly JornadaResolver $jornadaResolver,
         private readonly GerarCodigoFuncionario $gerarCodigo,
+        private readonly TenantContext $tenantContext,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -57,7 +59,8 @@ final class PontoController extends AbstractController
         $user = $this->getUser();
         $jornadaTenant = $user->getTenant()?->getJornadaTenant();
 
-        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
         }
 
@@ -160,7 +163,8 @@ final class PontoController extends AbstractController
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
 
-        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
         }
 
@@ -280,7 +284,8 @@ final class PontoController extends AbstractController
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
 
-        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             throw $this->createAccessDeniedException();
         }
 
@@ -340,7 +345,8 @@ final class PontoController extends AbstractController
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
 
-        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             throw $this->createAccessDeniedException();
         }
 
@@ -371,7 +377,8 @@ final class PontoController extends AbstractController
             return $this->json(['alertar' => false], 401);
         }
 
-        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             return $this->json(['alertar' => false]);
         }
 
@@ -395,7 +402,8 @@ final class PontoController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Usuário não autenticado.'], 401);
         }
 
-        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             return $this->json(['success' => false, 'message' => 'Sem permissão para registrar ponto.'], 403);
         }
 
@@ -664,7 +672,8 @@ final class PontoController extends AbstractController
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
 
-        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             throw $this->createAccessDeniedException();
         }
 
@@ -680,7 +689,7 @@ final class PontoController extends AbstractController
             $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
             $isSameTenant = $targetUser->getTenant()?->getId() === $user->getTenant()?->getId();
 
-            if (!$isSuperAdmin && !($isSameTenant && $permissionChecker->canAdminister($user, 'admin.users.manage'))) {
+            if (!$isSuperAdmin && !($isSameTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.users.manage'))) {
                 throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
             }
         }
@@ -777,7 +786,8 @@ final class PontoController extends AbstractController
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
 
-        if (!$permissionChecker->canAccessModule($user, 'ponto')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             throw $this->createAccessDeniedException();
         }
 
@@ -793,7 +803,7 @@ final class PontoController extends AbstractController
             $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
             $isSameTenant = $targetUser->getTenant()?->getId() === $user->getTenant()?->getId();
 
-            if (!$isSuperAdmin && !($isSameTenant && $permissionChecker->canAdminister($user, 'admin.users.manage'))) {
+            if (!$isSuperAdmin && !($isSameTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.users.manage'))) {
                 throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
             }
         }

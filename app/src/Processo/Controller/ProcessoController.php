@@ -13,6 +13,7 @@ use App\Repository\TarefaRepository;
 use App\Processo\Service\DatajudClient;
 use App\Processo\Service\DatajudProcessoMapper;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -43,12 +44,18 @@ use Symfony\Component\Routing\Attribute\Route;
 class ProcessoController extends AbstractController
 {
     use ResourceAccessTrait;
+
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     #[Route('/', name: 'processo_index', methods: ['GET'])]
     public function index(Request $request, ProcessoRepository $repo, PermissionChecker $permissionChecker): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$permissionChecker->canAccessModule($currentUser, 'processos')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($currentUser, $tenant, 'processos')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de processos.');
             return $this->redirectToRoute('homepage');
         }
@@ -78,7 +85,8 @@ class ProcessoController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$permissionChecker->canAccessModule($currentUser, 'processos')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($currentUser, $tenant, 'processos')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de processos.');
             return $this->redirectToRoute('homepage');
         }
@@ -125,8 +133,9 @@ class ProcessoController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
+        $tenant = $this->tenantContext->getCurrentTenant();
         $processoId = (int) $processo->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_EDIT, 'processo_index', $processo->getNumeroProcesso())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, $tenant, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_EDIT, 'processo_index', $processo->getNumeroProcesso())) {
             return $redirect;
         }
 
@@ -153,8 +162,9 @@ class ProcessoController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
+        $tenant = $this->tenantContext->getCurrentTenant();
         $processoId = (int) $processo->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW, 'processo_index', $processo->getNumeroProcesso())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, $tenant, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_VIEW, 'processo_index', $processo->getNumeroProcesso())) {
             return $redirect;
         }
 
@@ -203,8 +213,9 @@ class ProcessoController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
 
+        $tenant = $this->tenantContext->getCurrentTenant();
         $processoId = (int) $processo->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_DELETE, 'processo_index', $processo->getNumeroProcesso())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($permissionChecker, $tenant, AccessRequest::RESOURCE_PROCESSO, $processoId, AccessRequest::ACTION_DELETE, 'processo_index', $processo->getNumeroProcesso())) {
             return $redirect;
         }
 

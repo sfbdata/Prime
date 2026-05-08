@@ -14,6 +14,7 @@ use App\Pasta\UseCase\MoverDocumentoParaSecaoUseCase;
 use App\Pasta\UseCase\ReordenarDocumentosUseCase;
 use App\Pasta\UseCase\RenomearPastaSecaoUseCase;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -30,6 +31,7 @@ final class PastaSecaoController extends AbstractController
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
         private readonly ArquivoStorageInterface $storage,
         private readonly string $uploadsDir,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
@@ -46,9 +48,10 @@ final class PastaSecaoController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -79,6 +82,7 @@ final class PastaSecaoController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         $secao = $this->em->find(PastaSecao::class, $secaoId);
         if ($secao === null) {
@@ -86,7 +90,7 @@ final class PastaSecaoController extends AbstractController
         }
 
         $pastaId = (int) $secao->getPasta()?->getId();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -112,6 +116,7 @@ final class PastaSecaoController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         $secao = $this->em->find(PastaSecao::class, $secaoId);
         if ($secao === null) {
@@ -119,7 +124,7 @@ final class PastaSecaoController extends AbstractController
         }
 
         $pastaId = (int) $secao->getPasta()?->getId();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -148,6 +153,7 @@ final class PastaSecaoController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         $documento = $this->em->find(PastaDocumento::class, $docId);
         if ($documento === null) {
@@ -155,7 +161,7 @@ final class PastaSecaoController extends AbstractController
         }
 
         $pastaId = (int) $documento->getPasta()?->getId();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão para editar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -189,9 +195,10 @@ final class PastaSecaoController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
         $pastaId = (int) $pasta->getId();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 

@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Repository\UserRepository;
 use App\Repository\AuditLogRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,6 +16,10 @@ use Symfony\Component\Routing\Attribute\Route;
 class AuditLogController extends AbstractController
 {
     private const PER_PAGE = 50;
+
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
 
     #[Route('', name: 'audit_log_index', methods: ['GET'])]
     public function index(
@@ -27,8 +32,9 @@ class AuditLogController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$permissionChecker->canAdminister($currentUser, 'admin.audit.view')) {
+        if (!$permissionChecker->canAdminister($currentUser, $tenant, 'admin.audit.view')) {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar a trilha de auditoria.');
         }
 

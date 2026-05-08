@@ -109,8 +109,8 @@ class NotificacaoService
             ->getQuery()
             ->getResult();
 
-        $admins = array_filter($usuarios, function(User $user) {
-            return $this->permissionChecker->canAdminister($user, 'admin.tarefas.manage');
+        $admins = array_filter($usuarios, function(User $user) use ($tenant) {
+            return $this->permissionChecker->canAdminister($user, $tenant, 'admin.tarefas.manage');
         });
 
         foreach ($admins as $admin) {
@@ -228,7 +228,7 @@ class NotificacaoService
             ->getResult();
 
         $gestores = array_filter($usuarios, fn(User $u) =>
-            $this->permissionChecker->canAdminister($u, 'admin.users.manage')
+            $this->permissionChecker->canAdminister($u, $tenant, 'admin.users.manage')
         );
 
         $data = $justificativa->getData()?->format('d/m/Y') ?? '';

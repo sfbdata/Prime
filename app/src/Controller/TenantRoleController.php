@@ -8,6 +8,7 @@ use App\Form\TenantRoleType;
 use App\Repository\TenantRoleRepository;
 use App\Repository\PermissionRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,6 +18,10 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/tenant/{tenantId}/roles')]
 final class TenantRoleController extends AbstractController
 {
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     /**
      * Garante que o usuário autenticado tem admin.roles.manage
      * e que o tenantId bate com o tenant do usuário.
@@ -33,7 +38,8 @@ final class TenantRoleController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem acesso aos perfis deste escritório.');
         }
 
-        if (!$checker->canAdminister($user, 'admin.roles.manage')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$checker->canAdminister($user, $tenant, 'admin.roles.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para gerenciar perfis.');
         }
     }

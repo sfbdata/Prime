@@ -6,6 +6,7 @@ use App\Entity\Comercial\PreCadastro;
 use App\Form\PreCadastroType;
 use App\Repository\PreCadastroRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,12 +15,17 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/pre-cadastro')]
 class PreCadastroController extends AbstractController
 {
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     #[Route('/', name: 'pre_cadastro_index', methods: ['GET'])]
     public function index(PreCadastroRepository $repo, PermissionChecker $permissionChecker): Response
     {
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAccessModule($usuario, 'precadastros')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($usuario, $tenant, 'precadastros')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
             return $this->redirectToRoute('homepage');
         }
@@ -34,7 +40,8 @@ class PreCadastroController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAccessModule($usuario, 'precadastros')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($usuario, $tenant, 'precadastros')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
             return $this->redirectToRoute('homepage');
         }
@@ -58,7 +65,8 @@ class PreCadastroController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAccessModule($usuario, 'precadastros')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($usuario, $tenant, 'precadastros')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
             return $this->redirectToRoute('homepage');
         }
@@ -82,7 +90,8 @@ class PreCadastroController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $usuario */
         $usuario = $this->getUser();
-        if (!$permissionChecker->canAccessModule($usuario, 'precadastros')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$permissionChecker->canAccessModule($usuario, $tenant, 'precadastros')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
             return $this->redirectToRoute('homepage');
         }
@@ -106,13 +115,14 @@ class PreCadastroController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$permissionChecker->canAccessModule($currentUser, 'precadastros')) {
+        if (!$permissionChecker->canAccessModule($currentUser, $tenant, 'precadastros')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pré-cadastros.');
             return $this->redirectToRoute('homepage');
         }
 
-        if (!$permissionChecker->canAdminister($currentUser, 'admin.users.manage')) {
+        if (!$permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage')) {
             throw $this->createAccessDeniedException('Apenas administradores podem excluir pré-cadastros.');
         }
 

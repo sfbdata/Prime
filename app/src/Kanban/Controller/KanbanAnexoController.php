@@ -10,6 +10,7 @@ use App\Kanban\Repository\KanbanCardRepository;
 use App\Kanban\UseCase\AdicionarAnexoUseCase;
 use App\Kanban\UseCase\ExcluirAnexoUseCase;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,6 +28,7 @@ final class KanbanAnexoController extends AbstractController
         private readonly KanbanAnexoRepository $anexoRepository,
         private readonly ArquivoStorageInterface $storage,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
     ) {
     }
 
@@ -99,7 +101,8 @@ final class KanbanAnexoController extends AbstractController
 
     private function assertAccess(User $user): void
     {
-        if (!$this->permissionChecker->canAccessModule($user, 'kanban')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
     }

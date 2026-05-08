@@ -6,6 +6,7 @@ use App\Entity\Ponto\Feriado;
 use App\Form\FeriadoType;
 use App\Repository\Ponto\FeriadoRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,6 +16,10 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/tenant/{tenantId}/feriados')]
 final class FeriadoController extends AbstractController
 {
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     private function assertAccess(int $tenantId, PermissionChecker $checker): void
     {
         $user = $this->getUser();
@@ -27,7 +32,8 @@ final class FeriadoController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem acesso aos feriados deste escritório.');
         }
 
-        if (!$checker->canAdminister($user, 'admin.tenant.settings.manage')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$checker->canAdminister($user, $tenant, 'admin.tenant.settings.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para gerenciar feriados.');
         }
     }

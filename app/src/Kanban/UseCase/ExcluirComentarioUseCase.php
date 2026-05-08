@@ -20,8 +20,9 @@ final class ExcluirComentarioUseCase
 
     public function executar(KanbanComentario $comentario, User $usuarioAtual): void
     {
-        $podeExcluir = $comentario->pertenceAo($usuarioAtual)
-            || $this->permissionChecker->canAdminister($usuarioAtual, 'kanban');
+        $tenant    = $comentario->getCard()?->getBoard()?->getTenant();
+        $eAdmin    = $tenant !== null && $this->permissionChecker->canAdminister($usuarioAtual, $tenant, 'kanban');
+        $podeExcluir = $comentario->pertenceAo($usuarioAtual) || $eAdmin;
 
         if (!$podeExcluir) {
             throw new AccessDeniedException('Você só pode excluir seus próprios comentários.');

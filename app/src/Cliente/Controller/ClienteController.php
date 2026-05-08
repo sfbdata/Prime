@@ -18,6 +18,7 @@ use App\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\PreCadastroRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageService;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
@@ -93,6 +94,7 @@ class ClienteController extends AbstractController
         private readonly ClienteDocumentoRepository $clienteDocumentoRepository,
         private readonly PastaRepository $pastaRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
         private readonly ArquivoStorageService $storage,
         private readonly string $clientesUploadsDir,
     ) {}
@@ -102,7 +104,8 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'clientes')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'clientes')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
             return $this->redirectToRoute('homepage');
         }
@@ -130,7 +133,8 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'clientes')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'clientes')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
             return $this->redirectToRoute('homepage');
         }
@@ -155,7 +159,8 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'clientes')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'clientes')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
             return $this->redirectToRoute('homepage');
         }
@@ -180,7 +185,8 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, 'clientes')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'clientes')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
             return $this->redirectToRoute('homepage');
         }
@@ -251,8 +257,9 @@ class ClienteController extends AbstractController
 
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW, 'cliente_index', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_VIEW, 'cliente_index', $cliente->getNomeExibicao())) {
             return $redirect;
         }
 
@@ -275,8 +282,9 @@ class ClienteController extends AbstractController
 
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT, 'cliente_index', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_EDIT, 'cliente_index', $cliente->getNomeExibicao())) {
             return $redirect;
         }
 
@@ -311,6 +319,7 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         $cliente = $this->clienteRepository->find($id);
 
@@ -318,7 +327,7 @@ class ClienteController extends AbstractController
             throw $this->createNotFoundException('Cliente não encontrado');
         }
 
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_DELETE, 'cliente_index', $cliente->getNomeExibicao())) {
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_CLIENTE, $id, AccessRequest::ACTION_DELETE, 'cliente_index', $cliente->getNomeExibicao())) {
             return $redirect;
         }
 
@@ -347,7 +356,8 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'cliente', (int) $cliente->getId(), 'edit')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', (int) $cliente->getId(), 'edit')) {
             throw $this->createAccessDeniedException('Você não tem permissão para enviar documentos neste cliente.');
         }
 
@@ -439,8 +449,9 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
         $clienteId = (int) $doc->getCliente()?->getId();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'cliente', $clienteId, 'view')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', $clienteId, 'view')) {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos deste cliente.');
         }
 
@@ -458,8 +469,9 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
         $clienteId = (int) $doc->getCliente()?->getId();
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'cliente', $clienteId, 'view')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', $clienteId, 'view')) {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar documentos deste cliente.');
         }
 
@@ -478,8 +490,9 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
         $clienteForCheck = $doc->getCliente();
-        if ($clienteForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, 'cliente', (int) $clienteForCheck->getId(), 'edit')) {
+        if ($clienteForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', (int) $clienteForCheck->getId(), 'edit')) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar documentos deste cliente.');
         }
 
@@ -515,8 +528,9 @@ class ClienteController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
         $clienteForCheck = $doc->getCliente();
-        if ($clienteForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, 'cliente', (int) $clienteForCheck->getId(), 'edit')) {
+        if ($clienteForCheck !== null && !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'cliente', (int) $clienteForCheck->getId(), 'edit')) {
             throw $this->createAccessDeniedException('Você não tem permissão para remover documentos deste cliente.');
         }
 

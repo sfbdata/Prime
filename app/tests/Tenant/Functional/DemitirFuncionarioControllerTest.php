@@ -6,6 +6,7 @@ namespace App\Tests\Tenant\Functional;
 
 use App\Controller\TenantController;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -182,12 +183,21 @@ final class DemitirFuncionarioControllerTest extends WebTestCase
     public function testNaoPermiteAcessoSemPermissao(): void
     {
         $client      = static::createClient();
+        $em          = static::getContainer()->get(EntityManagerInterface::class);
         $tenant      = $this->criarTenant();
         $semPermissao = $this->criarFuncionario($tenant);
         $alvo        = $this->criarFuncionario($tenant);
 
+        $userTenant = new UserTenant($semPermissao, $tenant);
+        $em->persist($userTenant);
+        $em->flush();
+
         $this->instalarCsrfStorage();
         $client->loginUser($semPermissao);
+        $session = $client->getSession();
+        $session->set('current_tenant_id', $tenant->getId());
+        $session->save();
+
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/demitir", [
             '_token' => $this->gerarCsrf('demitir_' . $alvo->getId()),
         ]);

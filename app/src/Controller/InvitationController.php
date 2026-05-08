@@ -7,6 +7,7 @@ use App\Form\InvitationType;
 use App\Repository\TenantRoleRepository;
 use App\Service\InvitationService;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -16,6 +17,10 @@ use Symfony\Component\Routing\Annotation\Route;
 
 class InvitationController extends AbstractController
 {
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     #[Route('/invite', name: 'invite_user')]
     public function invite(
         Request $request,
@@ -25,8 +30,9 @@ class InvitationController extends AbstractController
         TenantRoleRepository $tenantRoleRepository
     ): Response {
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$permissionChecker->canAdminister($currentUser, 'admin.users.invite')) {
+        if (!$permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.invite')) {
             throw $this->createAccessDeniedException('Você não tem permissão para convidar usuários.');
         }
 

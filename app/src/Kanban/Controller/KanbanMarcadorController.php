@@ -14,6 +14,7 @@ use App\Kanban\UseCase\CriarMarcadorUseCase;
 use App\Kanban\UseCase\ExcluirMarcadorUseCase;
 use App\Kanban\UseCase\ToggleMarcadorNoCardUseCase;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,6 +32,7 @@ final class KanbanMarcadorController extends AbstractController
         private readonly KanbanMarcadorRepository $marcadorRepository,
         private readonly KanbanCardRepository $cardRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
     ) {
     }
 
@@ -126,7 +128,8 @@ final class KanbanMarcadorController extends AbstractController
 
     private function assertAccess(User $user): void
     {
-        if (!$this->permissionChecker->canAccessModule($user, 'kanban')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
     }

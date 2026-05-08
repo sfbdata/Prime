@@ -95,6 +95,11 @@ final class SalvarFotoPerfilControllerTest extends WebTestCase
                 return false;
             }
 
+            public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string
+            {
+                throw new \LogicException('não utilizado neste teste');
+            }
+
             public function caminho(string $diretorio, string $nomeArquivo): string
             {
                 return $diretorio . '/' . $nomeArquivo;

@@ -11,6 +11,7 @@ use Doctrine\ORM\Event\OnFlushEventArgs;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\PersistentCollection;
 use Doctrine\ORM\UnitOfWork;
+use App\Service\Tenant\TenantContext;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
@@ -32,6 +33,7 @@ class AuditLogSubscriber
         private readonly Security $security,
         private readonly RequestStack $requestStack,
         private readonly EntityLabelResolver $entityLabelResolver,
+        private readonly TenantContext $tenantContext,
         #[Autowire(service: 'monolog.logger.audit')]
         private readonly LoggerInterface $auditLogger
     ) {
@@ -308,11 +310,7 @@ class AuditLogSubscriber
 
         $actorUserId = ($user && method_exists($user, 'getId')) ? $user->getId() : null;
         $actorEmail = ($user && method_exists($user, 'getUserIdentifier')) ? $user->getUserIdentifier() : null;
-        $tenantId = null;
-
-        if ($user && method_exists($user, 'getTenant') && $user->getTenant() && method_exists($user->getTenant(), 'getId')) {
-            $tenantId = $user->getTenant()->getId();
-        }
+        $tenantId = $this->tenantContext->getCurrentTenant()?->getId();
 
         return (new AuditLog())
             ->setAction($action)

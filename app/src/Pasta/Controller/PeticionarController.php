@@ -15,6 +15,7 @@ use App\Pasta\UseCase\SalvarPecaTextoUseCase;
 use App\Pasta\UseCase\UploadImagemEditorUseCase;
 use App\Pasta\UseCase\UploadPecaUseCase;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +27,7 @@ final class PeticionarController extends AbstractController
 {
     public function __construct(
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
         private readonly UploadPecaUseCase $uploadPecaUseCase,
         private readonly SalvarPecaTextoUseCase $salvarPecaTextoUseCase,
         private readonly EditarPecaTextoUseCase $editarPecaTextoUseCase,
@@ -39,8 +41,9 @@ final class PeticionarController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'view')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
             throw $this->createAccessDeniedException();
         }
 
@@ -74,8 +77,9 @@ final class PeticionarController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
             return new JsonResponse(['success' => false, 'error' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -128,8 +132,9 @@ final class PeticionarController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
             return new JsonResponse(['success' => false, 'error' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -177,8 +182,9 @@ final class PeticionarController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
             return new JsonResponse(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -207,9 +213,10 @@ final class PeticionarController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         $pasta = $doc->getPasta();
-        if ($pasta === null || !$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'edit')) {
+        if ($pasta === null || !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
             return new JsonResponse(['success' => false, 'error' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -236,9 +243,10 @@ final class PeticionarController extends AbstractController
     {
         /** @var User $currentUser */
         $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         $pasta = $doc->getPasta();
-        if ($pasta === null || !$this->permissionChecker->canAccessResource($currentUser, 'pasta', (int) $pasta->getId(), 'view')) {
+        if ($pasta === null || !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'view')) {
             throw $this->createAccessDeniedException();
         }
 

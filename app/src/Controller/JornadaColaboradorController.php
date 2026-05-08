@@ -9,6 +9,7 @@ use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Auth\User;
 use App\Repository\Ponto\JornadaColaboradorRepository;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,6 +20,10 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/tenant/{tenantId}/user/{id}')]
 final class JornadaColaboradorController extends AbstractController
 {
+    public function __construct(
+        private readonly TenantContext $tenantContext,
+    ) {}
+
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_get', methods: ['GET'])]
     public function get(
         int $tenantId,
@@ -34,7 +39,8 @@ final class JornadaColaboradorController extends AbstractController
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
@@ -113,7 +119,8 @@ final class JornadaColaboradorController extends AbstractController
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
@@ -191,7 +198,8 @@ final class JornadaColaboradorController extends AbstractController
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
         $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, 'admin.users.manage'))) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 

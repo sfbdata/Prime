@@ -16,6 +16,7 @@ use App\Kanban\UseCase\ExcluirChecklistUseCase;
 use App\Kanban\UseCase\MarcarItemChecklistUseCase;
 use App\Kanban\UseCase\RemoverItemChecklistUseCase;
 use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,6 +35,7 @@ final class KanbanChecklistController extends AbstractController
         private readonly KanbanChecklistRepository $checklistRepository,
         private readonly KanbanChecklistItemRepository $itemRepository,
         private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
     ) {
     }
 
@@ -136,7 +138,8 @@ final class KanbanChecklistController extends AbstractController
 
     private function assertAccess(User $user): void
     {
-        if (!$this->permissionChecker->canAccessModule($user, 'kanban')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
     }
