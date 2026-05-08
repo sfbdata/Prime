@@ -7,6 +7,7 @@
 # Put parameters here that don't need to change on each machine where the app is deployed
 # https://symfony.com/doc/current/best_practices.html#use-parameters-for-application-configuration
 parameters:
+    mailer_from: '%env(MAILER_FROM)%'
     uploads_dir: '%kernel.project_dir%/public/uploads/pastas'
     justificativas_uploads_dir: '%kernel.project_dir%/public/uploads/justificativas'
     chamados_uploads_dir: '%kernel.project_dir%/public/uploads/chamados'
@@ -19,6 +20,7 @@ services:
         autowire: true      # Automatically injects dependencies in your services.
         autoconfigure: true # Automatically registers your services as commands, event subscribers, etc.
         bind:
+            string $mailerFrom: '%mailer_from%'
             string $datajudApiKey: '%env(DATAJUD_API_KEY)%'
             string $datajudBaseUrl: '%env(DATAJUD_BASE_URL)%'
             string $uploadsDir: '%uploads_dir%'

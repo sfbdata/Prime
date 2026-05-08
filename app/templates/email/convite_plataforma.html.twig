@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Convite para o JusPrime</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4;padding:32px 0;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;overflow:hidden;max-width:600px;width:100%;">
+                    <tr>
+                        <td style="background-color:#1a56db;padding:24px 32px;">
+                            <p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">JusPrime</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:32px;">
+                            <p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#1a1a2e;">
+                                {{ invitation.fullName ? 'Olá, ' ~ invitation.fullName ~ '!' : 'Olá!' }}
+                            </p>
+
+                            <p style="margin:0 0 16px;font-size:15px;color:#444444;line-height:1.6;">
+                                Você foi convidado para criar sua conta no <strong>JusPrime</strong>, a plataforma de gestão jurídica para advogados e escritórios.
+                            </p>
+
+                            <p style="margin:0 0 24px;font-size:15px;color:#444444;line-height:1.6;">
+                                Para concluir seu cadastro, você precisará informar seu número de inscrição na OAB.
+                            </p>
+
+                            <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                                <tr>
+                                    <td style="border-radius:6px;background-color:#1a56db;">
+                                        <a href="{{ link }}" style="display:inline-block;padding:14px 28px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:6px;">
+                                            Criar minha conta
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <p style="margin:0 0 8px;font-size:13px;color:#888888;">
+                                Este convite expira em <strong>{{ invitation.expiresAt|date('d/m/Y') }} às {{ invitation.expiresAt|date('H:i') }}</strong>.
+                            </p>
+
+                            <p style="margin:0;font-size:13px;color:#888888;">
+                                Se o botão não funcionar, copie e cole este link no seu navegador:
+                            </p>
+                            <p style="margin:4px 0 0;font-size:12px;color:#1a56db;word-break:break-all;">
+                                {{ link }}
+                            </p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding:16px 32px;background-color:#f9f9f9;border-top:1px solid #eeeeee;">
+                            <p style="margin:0;font-size:12px;color:#aaaaaa;line-height:1.5;">
+                                Se você não solicitou este convite, ignore este e-mail. Nenhuma conta será criada sem que você clique no link acima.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
