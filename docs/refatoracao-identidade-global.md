@@ -200,14 +200,40 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 
 **Arquivos modificados:**
 - `app/src/Controller/RegistrationController.php` — 302 redirect para `auth_aceite_convite` (aposentado)
-- `app/src/Controller/InvitationController.php` — 302 redirect para `homepage` (aposentado; TODO 5b.3b)
+- `app/src/Controller/InvitationController.php` — 302 redirect para `homepage` (aposentado; corrigido em 5b.3b → `auth_gerenciar_convites`)
 - `app/config/packages/security.yaml` — `^/convite` e `^/invite$` → `PUBLIC_ACCESS`
 - `app/config/packages/framework.yaml` — limiter `convite_aceite` adicionado (sliding_window, 20/min)
 - `app/templates/base.html.twig` — bloco `{% block head_meta %}` + flash rendering no branch `{% else %}` (sem sidebar)
 
 **Suite:** 13/13 testes E2E passando; 69 testes PHPUnit Auth passando; 13 erros pré-existentes (Grupo A) inalterados.
 
-#### ⏳ Sub-etapa 5b — Fase 5b.3b Criação de convites (PENDENTE)
+#### ✅ Sub-etapa 5b — Fase 5b.3b Criação de convites (CONCLUÍDA)
+
+**Arquivos criados:**
+- `app/src/Auth/Controller/AdminConviteController.php` — `ROLE_SUPER_ADMIN`, 4 actions em `/admin/platform/convites`; type guard `platform` na revogação; rate limiter por user ID
+- `app/src/Auth/Controller/GerenciarConvitesController.php` — `admin.users.invite`, 4 actions em `/escritorio/convites`; isolamento por tenant na revogação/reenvio; rate limiter por user ID
+- `app/src/Auth/UseCase/ReenviarConviteUseCase.php` — limite de 3 reenvios; valida pending + não expirado + `podeReenviar()`
+- `app/src/Auth/DTO/ReenviarConviteInput.php` — DTO de input
+- `app/src/Auth/DTO/ConviteAdminOutput.php` — DTO de saída para views admin (não passa entidade Doctrine)
+- `app/templates/admin/platform/convites.html.twig` — formulário + tabela; confirmação JS em revogar/reenviar
+- `app/templates/auth/convites/gerenciar.html.twig` — idem + campo `tenant_role_id` no form
+- `app/tests/Auth/Unit/ReenviarConviteUseCaseTest.php` — 7 cenários unit
+- `app/tests/Auth/Functional/AdminConviteControllerTest.php` — 9 cenários funcionais
+- `app/tests/Auth/Functional/GerenciarConvitesControllerTest.php` — 7 cenários funcionais
+- `app/migrations/Version20260509145321.php` — `ALTER TABLE invitation ADD reenvio_count SMALLINT NOT NULL DEFAULT 0`
+
+**Arquivos modificados:**
+- `app/src/Entity/Auth/Invitation.php` — +`reenvioCount`, +`getReenvioCount()`, +`podeReenviar()`, +`incrementarReenvio()`
+- `app/src/Repository/InvitationRepository.php` — +`listarDePlataforma()`, +`listarPorTenant()`
+- `app/config/packages/framework.yaml` — limiter `convite_criar` adicionado (sliding_window, 10/min por user ID)
+- `app/src/Controller/InvitationController.php` — redirect: `homepage` → `auth_gerenciar_convites`
+- `app/config/packages/security.yaml` — `/invite`: `PUBLIC_ACCESS` → `ROLE_USER`
+
+**Suite Auth:** 92/92 testes passando.
+
+---
+
+#### ✅ Sub-etapa 5b — COMPLETA (5b.1 + 5b.2 + 5b.3a + 5b.3b)
 
 #### ⏳ Sub-etapa 5c — Refatorar referências legadas + TenantSelecaoController real (PENDENTE)
 
@@ -222,6 +248,10 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 ---
 
 ## Histórico de operações em ambiente
+
+### 09/05/2026 (continuação) — Fase 5b.3b concluída — Criação de convites
+
+- `AdminConviteController` (4 actions em `/admin/platform/convites`) e `GerenciarConvitesController` (4 actions em `/escritorio/convites`). `ReenviarConviteUseCase` + campo `reenvio_count` (limite 3 por convite) na entidade `Invitation`. Rate limiter `convite_criar` (10/min por user). Reaproveitada permissão `admin.users.invite`. Migration `Version20260509145321`. 92 testes Auth passando. 7 erros corrigidos durante execução (3 problemas raiz: listener de tenant, seletor CSS `alert-erro` vs `alert-danger`, identity map Doctrine em associação bidirecional).
 
 ### 09/05/2026 (continuação) — Fase 5b.3a concluída
 
@@ -316,6 +346,8 @@ Tratar após a refatoração de identidade global:
 - Padronizar política de `final` em repositórios — alguns têm (`InvitationRepository`, `UserTenantRepository` tinham até a 5b.1), outros não; definir regra única e aplicar consistentemente
 - Implementar UseCases pendentes com testes já escritos: `MoverPastaMarcadoresUseCase` e `RemoverMarcadorDaPastaUseCase` (13 testes em erro no Grupo A)
 - Garantir que migrations sejam aplicadas no banco de teste (`saas_test`) sempre que houver mudança de schema — investigar se há automação (hook de CI, script pré-teste) ou se depende de execução manual
+- Padrão de WebTestCase: documentar regra de sempre popular ambos os lados de associações bidirecionais após `persist` (lição da 5b.3b — falta do `$role->getTenantRolePermissions()->add($trp)` causou 3 falsos-negativos de permissão)
+- Outros tenants além do tenant 1 não têm role com permissão `admin.users.invite` — quando outros escritórios entrarem em produção, garantir que o role inicial criado já tenha essa permissão (sem ela, `/escritorio/convites` fica inacessível para todos no tenant)
 - Templates de email recebem entidade `Invitation` diretamente — viola padrão `templates/CLAUDE.md` (que exige DTOs). Decisão: aceitável pra emails internos, mas avaliar criar `InvitationEmailDTO` se complexidade crescer
 - `ConviteMailer` chama rota `auth_aceite_convite` que será criada na Fase 5b.3a — não chamar `ConviteMailer` até a rota existir, ou vai quebrar em runtime
 - OPcache do PHP-FPM: criar procedimento documentado de reload após mudanças em rotas (`kill -USR2` no processo ou outro mecanismo) — evita 404 em rotas que existem no `debug:router` mas não são encontradas via HTTP

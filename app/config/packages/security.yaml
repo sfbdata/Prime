@@ -36,7 +36,7 @@ security:
         # Criação de escritório: exclusivo para SuperAdmin (liberação manual por enquanto)
         - { path: ^/tenant/new,       roles: ROLE_SUPER_ADMIN }
         - { path: ^/register/confirm, roles: PUBLIC_ACCESS }  # redirect legado
-        - { path: ^/invite$,          roles: PUBLIC_ACCESS }  # redirect legado (TODO 5b.3b)
+        - { path: ^/invite$,          roles: ROLE_USER }       # redirect legado para auth_gerenciar_convites
         - { path: ^/convite,          roles: PUBLIC_ACCESS }  # aceite de convite
         - { path: ^/login,            roles: PUBLIC_ACCESS }
 

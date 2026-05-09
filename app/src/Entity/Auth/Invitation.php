@@ -49,6 +49,9 @@ class Invitation
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?Lotacao $lotacao = null;
 
+    #[ORM\Column(type: 'smallint', options: ['default' => 0])]
+    private int $reenvioCount = 0;
+
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $createdBy = null;
@@ -181,4 +184,10 @@ class Invitation
     {
         $this->status = 'expired';
     }
+
+    public function getReenvioCount(): int { return $this->reenvioCount; }
+
+    public function podeReenviar(): bool { return $this->reenvioCount < 3; }
+
+    public function incrementarReenvio(): void { ++$this->reenvioCount; }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repository;
 
 use App\Entity\Auth\Invitation;
+use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -33,6 +34,28 @@ class InvitationRepository extends ServiceEntityRepository
             ->setParameter('email', $email)
             ->setParameter('status', 'pending')
             ->setParameter('now', new \DateTimeImmutable())
+            ->orderBy('i.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return Invitation[] */
+    public function listarDePlataforma(): array
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.type = :type')
+            ->setParameter('type', 'platform')
+            ->orderBy('i.createdAt', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @return Invitation[] */
+    public function listarPorTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('i')
+            ->andWhere('i.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
             ->orderBy('i.createdAt', 'DESC')
             ->getQuery()
             ->getResult();

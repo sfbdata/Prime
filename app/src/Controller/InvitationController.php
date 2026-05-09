@@ -6,12 +6,12 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\Routing\Annotation\Route;
 
-// Rota legada — TODO 5b.3b: atualizar destino para a nova rota de criação de convites
+// Rota legada — redireciona para a tela de gerenciamento de convites do escritório
 class InvitationController extends AbstractController
 {
     #[Route('/invite', name: 'invite_user')]
     public function invite(): RedirectResponse
     {
-        return $this->redirectToRoute('homepage', [], 302);
+        return $this->redirectToRoute('auth_gerenciar_convites', [], 302);
     }
 }

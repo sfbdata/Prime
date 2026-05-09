@@ -1,0 +1,120 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Gerenciar Convites{% endblock %}
+
+{% block body %}
+<div class="container py-4">
+    <h1 class="h3 mb-4">Gerenciar Convites</h1>
+
+    {% for type, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ type == 'sucesso' ? 'success' : (type == 'erro' ? 'danger' : 'info') }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Novo convite</div>
+        <div class="card-body">
+            <form method="post" action="{{ path('auth_gerenciar_convites_criar') }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('convite_novo') }}">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label" for="email">E-mail <span class="text-danger">*</span></label>
+                        <input type="email" id="email" name="email" class="form-control" required maxlength="180">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="full_name">Nome (opcional)</label>
+                        <input type="text" id="full_name" name="full_name" class="form-control" maxlength="255">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label" for="tenant_role_id">Perfil <span class="text-danger">*</span></label>
+                        <select id="tenant_role_id" name="tenant_role_id" class="form-select" required>
+                            <option value="">Selecione...</option>
+                            {% for role in roles %}
+                                <option value="{{ role.id }}">{{ role.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">Convidar</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header fw-semibold">Convites enviados</div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>E-mail</th>
+                        <th>Nome</th>
+                        <th>Perfil</th>
+                        <th>Status</th>
+                        <th>Enviado em</th>
+                        <th>Expira em</th>
+                        <th>Reenvios</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for convite in convites %}
+                    <tr>
+                        <td>{{ convite.email }}</td>
+                        <td>{{ convite.nomeConvidado ?? '—' }}</td>
+                        <td>{{ convite.roleName ?? '—' }}</td>
+                        <td>
+                            {% if convite.status == 'pending' %}
+                                <span class="badge bg-warning text-dark">Pendente</span>
+                            {% elseif convite.status == 'accepted' %}
+                                <span class="badge bg-success">Aceito</span>
+                            {% elseif convite.status == 'rejected' %}
+                                <span class="badge bg-danger">Recusado</span>
+                            {% elseif convite.status == 'revoked' %}
+                                <span class="badge bg-secondary">Revogado</span>
+                            {% elseif convite.status == 'expired' %}
+                                <span class="badge bg-dark">Expirado</span>
+                            {% else %}
+                                <span class="badge bg-light text-dark">{{ convite.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ convite.createdAt|date('d/m/Y H:i') }}</td>
+                        <td>{{ convite.expiresAt|date('d/m/Y') }}</td>
+                        <td>{{ convite.reenvioCount }}/3</td>
+                        <td class="text-end">
+                            {% if convite.status == 'pending' %}
+                                {% if convite.podeReenviar %}
+                                    <form method="post" action="{{ path('auth_gerenciar_convites_reenviar', {token: convite.token}) }}" class="d-inline">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('convite_reenviar_' ~ convite.token) }}">
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary me-1"
+                                                onclick="return confirm('Reenviar convite para {{ convite.email|e('html_attr') }}?')">
+                                            Reenviar
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                <form method="post" action="{{ path('auth_gerenciar_convites_revogar', {token: convite.token}) }}" class="d-inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('convite_revogar_' ~ convite.token) }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"
+                                            onclick="return confirm('Revogar convite de {{ convite.email|e('html_attr') }}?')">
+                                        Revogar
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">Nenhum convite enviado ainda.</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

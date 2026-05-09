@@ -19,6 +19,10 @@ framework:
             policy: sliding_window
             limit: 20
             interval: '1 minute'
+        convite_criar:
+            policy: sliding_window
+            limit: 10
+            interval: '1 minute'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
