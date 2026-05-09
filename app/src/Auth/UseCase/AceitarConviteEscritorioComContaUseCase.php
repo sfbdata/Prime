@@ -52,6 +52,16 @@ final class AceitarConviteEscritorioComContaUseCase
             $userTenant->setTenantRole($invitation->getTenantRole());
         }
 
+        // TODO Etapa 6: remover após refatoração das referências legadas a $user->getTenant().
+        // Mantemos user.tenant_id em sincronia com UserTenant durante a transição.
+        // Não sobrescrever se o user já tem tenant principal (preserva vínculo original).
+        if ($input->usuarioAtual->getTenant() === null) {
+            $input->usuarioAtual->setTenant($tenant);
+        }
+        if ($invitation->getTenantRole() !== null && $input->usuarioAtual->getTenantRole() === null) {
+            $input->usuarioAtual->setTenantRole($invitation->getTenantRole());
+        }
+
         $invitation->aceitar($input->usuarioAtual);
 
         $this->em->persist($userTenant);

@@ -86,6 +86,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($resultado, $invitation->getAcceptedAsUser());
         self::assertCount(2, $persistidos);
+        self::assertSame($this->tenant, $resultado->getTenant());
     }
 
     public function testFullNameVazioUsaNomeDaInvitation(): void

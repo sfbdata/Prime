@@ -80,6 +80,25 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         self::assertInstanceOf(UserTenant::class, $resultado);
         self::assertSame('accepted', $invitation->getStatus());
         self::assertSame($this->usuario, $invitation->getAcceptedAsUser());
+        self::assertSame($this->tenant, $this->usuario->getTenant());
+    }
+
+    public function testNaoSobrescreverTenantJaPreenchido(): void
+    {
+        $tenantExistente = new Tenant();
+        $this->usuario->setTenant($tenantExistente);
+
+        $invitation = $this->makePendingOfficeInvitation('usuario@example.com');
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userTenantRepo->method('existeVinculoAtivo')->willReturn(false);
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $this->useCase->executar(
+            new AceitarConviteEscritorioComContaInput('tok123', $this->usuario)
+        );
+
+        self::assertSame($tenantExistente, $this->usuario->getTenant());
     }
 
     public function testTenantRoleNaInvitationPropagadoParaUserTenant(): void
