@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\AtualizarBoardInput;
 use App\Kanban\DTO\BoardDetalheOutput;
 use App\Kanban\DTO\CriarBoardInput;
@@ -45,12 +46,12 @@ final class KanbanBoardController extends AbstractController
     public function index(): Response
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $boards    = $this->listarBoards->executar($user);
-        $form      = $this->createForm(KanbanBoardType::class, new CriarBoardInput());
-        $usuarios  = $this->userRepository->findBy(['tenant' => $user->getTenant()]);
+        $boards   = $this->listarBoards->executar($user, $tenant);
+        $form     = $this->createForm(KanbanBoardType::class, new CriarBoardInput());
+        $usuarios = $this->userRepository->findBy(['tenant' => $tenant]);
 
         return $this->render('kanban/index.html.twig', [
             'boards'   => $boards,
@@ -63,8 +64,8 @@ final class KanbanBoardController extends AbstractController
     public function criar(Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         $input = new CriarBoardInput();
         $form  = $this->createForm(KanbanBoardType::class, $input);
@@ -76,7 +77,7 @@ final class KanbanBoardController extends AbstractController
 
         $input->participantesIds = array_map('intval', (array) $request->request->all('participantesIds'));
 
-        $id = $this->criarBoard->executar($input, $user);
+        $id = $this->criarBoard->executar($input, $user, $tenant);
 
         return $this->json([
             'sucesso'     => true,
@@ -88,10 +89,10 @@ final class KanbanBoardController extends AbstractController
     public function view(int $id): Response
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $board = $this->boardRepository->findPorTenantEId($id, $user->getTenant());
+        $board = $this->boardRepository->findPorTenantEId($id, $tenant);
         if ($board === null || !$board->temAcesso($user)) {
             throw $this->createNotFoundException('Mural não encontrado.');
         }
@@ -103,7 +104,7 @@ final class KanbanBoardController extends AbstractController
         $editInput->descricao = $board->getDescricao();
         $editInput->cor       = $board->getCor();
         $formEdit     = $this->createForm(KanbanBoardEditType::class, $editInput);
-        $usuarios     = $this->userRepository->findBy(['tenant' => $user->getTenant()]);
+        $usuarios     = $this->userRepository->findBy(['tenant' => $tenant]);
 
         return $this->render('kanban/board.html.twig', [
             'board'      => $output,
@@ -117,10 +118,10 @@ final class KanbanBoardController extends AbstractController
     public function editar(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $board = $this->boardRepository->findPorTenantEId($id, $user->getTenant());
+        $board = $this->boardRepository->findPorTenantEId($id, $tenant);
         if ($board === null || !$board->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Mural não encontrado.'], 404);
         }
@@ -135,7 +136,7 @@ final class KanbanBoardController extends AbstractController
 
         $input->participantesIds = array_map('intval', (array) $request->request->all('participantesIds'));
 
-        $this->atualizarBoard->executar($board, $input, $user);
+        $this->atualizarBoard->executar($board, $input, $user, $tenant);
 
         return $this->json(['sucesso' => true]);
     }
@@ -144,14 +145,14 @@ final class KanbanBoardController extends AbstractController
     public function excluir(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         if (!$this->isCsrfTokenValid('kanban_board_excluir_' . $id, (string) $request->request->get('_token'))) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Token inválido.'], 403);
         }
 
-        $board = $this->boardRepository->findPorTenantEId($id, $user->getTenant());
+        $board = $this->boardRepository->findPorTenantEId($id, $tenant);
         if ($board === null) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Mural não encontrado.'], 404);
         }
@@ -161,12 +162,14 @@ final class KanbanBoardController extends AbstractController
         return $this->json(['sucesso' => true, 'redirectUrl' => $this->generateUrl('kanban_index')]);
     }
 
-    private function assertAccess(User $user): void
+    private function assertAccess(User $user): Tenant
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
+
+        return $tenant;
     }
 
     private function getFormErrors(\Symfony\Component\Form\FormInterface $form): array

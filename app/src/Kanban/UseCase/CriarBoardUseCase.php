@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\CriarBoardInput;
 use App\Kanban\Entity\KanbanBoard;
 use App\Kanban\Entity\KanbanColuna;
@@ -23,10 +24,8 @@ final class CriarBoardUseCase
     ) {
     }
 
-    public function executar(CriarBoardInput $input, User $criador): int
+    public function executar(CriarBoardInput $input, User $criador, Tenant $tenant): int
     {
-        $tenant = $criador->getTenant();
-
         $board = new KanbanBoard($input->nome, $tenant, $criador);
         $board->setDescricao($input->descricao);
         $board->setCor($input->cor);

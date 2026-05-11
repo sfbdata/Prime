@@ -254,7 +254,28 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 
 **Suite:** 449 testes, 1039 assertions, 13 erros pré-existentes (Grupo A) inalterados. Smoke test manual validado em 4 cenários.
 
-##### ⏳ Fase 5c.3+ — Refatorar referências PHP legadas (PENDENTE)
+##### ✅ Fase 5c.3a — Refatorar módulo Kanban (CONCLUÍDA)
+
+**Arquivos modificados (10 de 12 do levantamento):**
+- `app/src/Kanban/UseCase/ListarBoardsUseCase.php` — `executar(User, Tenant)`: Tenant como parâmetro explícito
+- `app/src/Kanban/UseCase/CriarBoardUseCase.php` — `executar(CriarBoardInput, User, Tenant)`
+- `app/src/Kanban/UseCase/AtualizarBoardUseCase.php` — `executar(KanbanBoard, AtualizarBoardInput, User, Tenant)`
+- `app/src/Kanban/UseCase/AtualizarCardUseCase.php` — `executar(KanbanCard, AtualizarCardInput, User, Tenant)`
+- `app/src/Kanban/Controller/KanbanBoardController.php` — `assertAccess()` retorna `Tenant`; 5 actions refatoradas
+- `app/src/Kanban/Controller/KanbanCardController.php` — 6 actions refatoradas
+- `app/src/Kanban/Controller/KanbanComentarioController.php` — 3 actions refatoradas
+- `app/src/Kanban/Controller/KanbanAnexoController.php` — 3 actions refatoradas
+- `app/src/Kanban/Controller/KanbanMarcadorController.php` — 4 actions refatoradas
+- `app/src/Kanban/Controller/KanbanChecklistController.php` — 5 actions refatoradas
+- `app/tests/Kanban/Unit/CriarBoardUseCaseTest.php` — atualizado para nova assinatura
+
+**Não modificados (2):** `ExcluirBoardUseCase` e `ExcluirComentarioUseCase` — usam `$board->getTenant()` via relação ORM da entidade `KanbanBoard`, não `User::getTenant()`.
+
+**Padrão aplicado:** Controllers obtêm `$tenant = $this->assertAccess($user)` (retorno do método privado que já garante tenant não-nulo); UseCases recebem `Tenant` como parâmetro explícito em vez de extrair de `User::getTenant()`. Zero referências a `$user->getTenant()` no módulo.
+
+**Suite:** 449 testes, 1039 assertions, 13 erros pré-existentes (Grupo A) inalterados.
+
+##### ⏳ Fase 5c.3b+ — Refatorar demais módulos com referências PHP legadas (PENDENTE)
 
 ---
 
@@ -267,6 +288,15 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 ---
 
 ## Histórico de operações em ambiente
+
+### 11/05/2026 — Fase 5c.3a concluída — Refatoração do módulo Kanban
+
+- 4 UseCases refatorados: `ListarBoards`, `CriarBoard`, `AtualizarBoard`, `AtualizarCard` — `Tenant` adicionado como parâmetro explícito, `$user->getTenant()` removido
+- 6 controllers refatorados: `assertAccess()` modificado para retornar `Tenant`; todas as actions obtêm `$tenant = $this->assertAccess($user)` e passam ao repositório / UseCase
+- `CriarBoardUseCaseTest` atualizado para nova assinatura de `executar()`
+- 2 UseCases não modificados (`ExcluirBoard`, `ExcluirComentario`): usam relação ORM `KanbanBoard::getTenant()`, sem dependência de `User::getTenant()`
+- Zero referências a `$user->getTenant()` restantes no módulo Kanban
+- 449 testes, 1039 assertions, 13 erros pré-existentes (Grupo A) inalterados
 
 ### 11/05/2026 — Fases 5c.1 e 5c.2 concluídas — Refatoração de templates Twig + TenantSelecaoController real
 
@@ -379,6 +409,7 @@ Tratar após a refatoração de identidade global:
 - OPcache do PHP-FPM: criar procedimento documentado de reload após mudanças em rotas (`kill -USR2` no processo ou outro mecanismo) — evita 404 em rotas que existem no `debug:router` mas não são encontradas via HTTP
 - Padronizar chave de flash messages no projeto: `'erro'` gera `alert-erro` (classe Bootstrap inválida — sem estilização de cor). Mapear para `'danger'` ou ajustar `base.html.twig` para mapear `'erro' → 'danger'`. Afeta principalmente os controllers das fases 5b.3a e 5b.3b
 - Validação visual da regra `current_tenant().id == tenant.id` em `/tenant` impossível com apenas 1 tenant no banco de dev. Quando segundo tenant entrar (5c.3+), revalidar que botão "Editar" só aparece no card do tenant atualmente selecionado
+- `AtualizarBoardUseCase` (`app/src/Kanban/UseCase/AtualizarBoardUseCase.php`) não possui `KanbanBoardRepository` injetado e não chama flush explícito — depende do unit-of-work do Doctrine para persistir as mudanças no board. Comportamento atual e funcional, mas inconsistente com outros UseCases que chamam `$repository->salvar()` explicitamente. Revisar numa sprint futura.
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 

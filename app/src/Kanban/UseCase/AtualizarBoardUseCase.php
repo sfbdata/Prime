@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\AtualizarBoardInput;
 use App\Kanban\Entity\KanbanBoard;
 use App\Repository\UserRepository;
@@ -16,13 +17,11 @@ final class AtualizarBoardUseCase
     ) {
     }
 
-    public function executar(KanbanBoard $board, AtualizarBoardInput $input, User $usuarioAtual): void
+    public function executar(KanbanBoard $board, AtualizarBoardInput $input, User $usuarioAtual, Tenant $tenant): void
     {
         if (!$board->temAcesso($usuarioAtual) && $board->getCriadoPor() !== $usuarioAtual) {
             throw new \RuntimeException('Apenas o criador pode editar o mural.');
         }
-
-        $tenant = $usuarioAtual->getTenant();
 
         $board->setNome($input->nome);
         $board->setDescricao($input->descricao);

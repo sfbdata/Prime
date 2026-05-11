@@ -24,7 +24,6 @@ final class CriarBoardUseCaseTest extends TestCase
     {
         $tenant  = $this->createStub(Tenant::class);
         $criador = $this->createStub(User::class);
-        $criador->method('getTenant')->willReturn($tenant);
 
         $boardSalvos  = [];
         $colunasSalvas = [];
@@ -52,7 +51,7 @@ final class CriarBoardUseCaseTest extends TestCase
         $input->nome  = 'Projetos 2026';
 
         $useCase = new CriarBoardUseCase($boardRepo, $colunaRepo, $userRepo, $em);
-        $useCase->executar($input, $criador);
+        $useCase->executar($input, $criador, $tenant);
 
         self::assertCount(4, $colunasSalvas);
 
@@ -67,7 +66,6 @@ final class CriarBoardUseCaseTest extends TestCase
     {
         $tenant  = $this->createStub(Tenant::class);
         $criador = $this->createStub(User::class);
-        $criador->method('getTenant')->willReturn($tenant);
 
         $boardCapturado = null;
 
@@ -89,7 +87,7 @@ final class CriarBoardUseCaseTest extends TestCase
         $input->cor  = '#3b82f6';
 
         $useCase = new CriarBoardUseCase($boardRepo, $colunaRepo, $userRepo, $em);
-        $useCase->executar($input, $criador);
+        $useCase->executar($input, $criador, $tenant);
 
         self::assertNotNull($boardCapturado);
         self::assertSame('Mural de Tarefas', $boardCapturado->getNome());

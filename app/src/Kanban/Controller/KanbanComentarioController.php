@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\CriarComentarioInput;
 use App\Kanban\Repository\KanbanCardRepository;
 use App\Kanban\Repository\KanbanComentarioRepository;
@@ -36,10 +37,10 @@ final class KanbanComentarioController extends AbstractController
     public function criar(int $cardId, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $card = $this->cardRepository->findPorTenantEId($cardId, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($cardId, $tenant);
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
@@ -61,10 +62,10 @@ final class KanbanComentarioController extends AbstractController
     public function editar(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $comentario = $this->comentarioRepository->findPorTenantEId($id, $user->getTenant());
+        $comentario = $this->comentarioRepository->findPorTenantEId($id, $tenant);
         if ($comentario === null) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Comentário não encontrado.'], 404);
         }
@@ -81,14 +82,14 @@ final class KanbanComentarioController extends AbstractController
     public function excluir(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         if (!$this->isCsrfTokenValid('kanban_comentario_excluir_' . $id, (string) $request->request->get('_token'))) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Token inválido.'], 403);
         }
 
-        $comentario = $this->comentarioRepository->findPorTenantEId($id, $user->getTenant());
+        $comentario = $this->comentarioRepository->findPorTenantEId($id, $tenant);
         if ($comentario === null) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Comentário não encontrado.'], 404);
         }
@@ -98,11 +99,13 @@ final class KanbanComentarioController extends AbstractController
         return $this->json(['sucesso' => true]);
     }
 
-    private function assertAccess(User $user): void
+    private function assertAccess(User $user): Tenant
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
+
+        return $tenant;
     }
 }

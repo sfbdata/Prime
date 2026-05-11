@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\AdicionarItemChecklistInput;
 use App\Kanban\DTO\CriarChecklistInput;
 use App\Kanban\Repository\KanbanCardRepository;
@@ -43,16 +44,16 @@ final class KanbanChecklistController extends AbstractController
     public function criar(int $cardId, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $card = $this->cardRepository->findPorTenantEId($cardId, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($cardId, $tenant);
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
 
-        $data  = $request->toArray();
-        $input = new CriarChecklistInput(titulo: trim((string) ($data['titulo'] ?? 'Checklist')));
+        $data   = $request->toArray();
+        $input  = new CriarChecklistInput(titulo: trim((string) ($data['titulo'] ?? 'Checklist')));
         $output = $this->criarChecklist->executar($input, $card);
 
         return $this->json(['sucesso' => true, 'checklist' => ['id' => $output->id, 'titulo' => $output->titulo]]);
@@ -62,15 +63,15 @@ final class KanbanChecklistController extends AbstractController
     public function excluir(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         if (!$this->isCsrfTokenValid('kanban_checklist_excluir_' . $id, (string) $request->request->get('_token'))) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Token inválido.'], 403);
         }
 
         $checklist = $this->checklistRepository->find($id);
-        if ($checklist === null || $checklist->getCard()->getBoard()->getTenant() !== $user->getTenant()) {
+        if ($checklist === null || $checklist->getCard()->getBoard()->getTenant() !== $tenant) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Checklist não encontrada.'], 404);
         }
 
@@ -83,11 +84,11 @@ final class KanbanChecklistController extends AbstractController
     public function adicionarItem(int $checklistId, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         $checklist = $this->checklistRepository->find($checklistId);
-        if ($checklist === null || $checklist->getCard()->getBoard()->getTenant() !== $user->getTenant()) {
+        if ($checklist === null || $checklist->getCard()->getBoard()->getTenant() !== $tenant) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Checklist não encontrada.'], 404);
         }
 
@@ -102,11 +103,11 @@ final class KanbanChecklistController extends AbstractController
     public function toggleItem(int $id): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         $item = $this->itemRepository->find($id);
-        if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $user->getTenant()) {
+        if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $tenant) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Item não encontrado.'], 404);
         }
 
@@ -119,15 +120,15 @@ final class KanbanChecklistController extends AbstractController
     public function excluirItem(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         if (!$this->isCsrfTokenValid('kanban_item_excluir_' . $id, (string) $request->request->get('_token'))) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Token inválido.'], 403);
         }
 
         $item = $this->itemRepository->find($id);
-        if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $user->getTenant()) {
+        if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $tenant) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Item não encontrado.'], 404);
         }
 
@@ -136,11 +137,13 @@ final class KanbanChecklistController extends AbstractController
         return $this->json(['sucesso' => true]);
     }
 
-    private function assertAccess(User $user): void
+    private function assertAccess(User $user): Tenant
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
+
+        return $tenant;
     }
 }

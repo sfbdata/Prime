@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\AtualizarCardInput;
 use App\Kanban\DTO\CardDetalheOutput;
 use App\Kanban\Entity\KanbanCard;
@@ -19,9 +20,8 @@ final class AtualizarCardUseCase
     ) {
     }
 
-    public function executar(KanbanCard $card, AtualizarCardInput $input, User $usuarioAtual): CardDetalheOutput
+    public function executar(KanbanCard $card, AtualizarCardInput $input, User $usuarioAtual, Tenant $tenant): CardDetalheOutput
     {
-        $tenant = $usuarioAtual->getTenant();
 
         $card->setTitulo($input->titulo);
         $card->setDescricao($input->descricao);

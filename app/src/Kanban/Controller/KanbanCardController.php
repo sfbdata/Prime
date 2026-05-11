@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\AtualizarCardInput;
 use App\Kanban\DTO\CardDetalheOutput;
 use App\Kanban\DTO\CardSummaryOutput;
@@ -45,10 +46,8 @@ final class KanbanCardController extends AbstractController
     public function criar(int $colunaId, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
-
-        $tenant = $user->getTenant();
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         $data   = $request->toArray();
         $titulo = trim((string) ($data['titulo'] ?? ''));
@@ -78,10 +77,10 @@ final class KanbanCardController extends AbstractController
     public function mini(int $id): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $card = $this->cardRepository->findPorTenantEId($id, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($id, $tenant);
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false], 404);
         }
@@ -96,10 +95,10 @@ final class KanbanCardController extends AbstractController
     public function detalhes(int $id): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $card = $this->cardRepository->findPorTenantEId($id, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($id, $tenant);
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
@@ -121,10 +120,10 @@ final class KanbanCardController extends AbstractController
     public function atualizar(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $card = $this->cardRepository->findPorTenantEId($id, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($id, $tenant);
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
@@ -141,7 +140,7 @@ final class KanbanCardController extends AbstractController
             return $this->json(['sucesso' => false, 'mensagem' => 'Título é obrigatório.'], 422);
         }
 
-        $output = $this->atualizarCard->executar($card, $input, $user);
+        $output = $this->atualizarCard->executar($card, $input, $user, $tenant);
 
         return $this->json(['sucesso' => true, 'titulo' => $output->titulo]);
     }
@@ -150,10 +149,10 @@ final class KanbanCardController extends AbstractController
     public function mover(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $card = $this->cardRepository->findPorTenantEId($id, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($id, $tenant);
         if ($card === null) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
@@ -174,14 +173,14 @@ final class KanbanCardController extends AbstractController
     public function excluir(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         if (!$this->isCsrfTokenValid('kanban_card_excluir_' . $id, (string) $request->request->get('_token'))) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Token inválido.'], 403);
         }
 
-        $card = $this->cardRepository->findPorTenantEId($id, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($id, $tenant);
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
@@ -192,12 +191,13 @@ final class KanbanCardController extends AbstractController
         return $this->json(['sucesso' => true, 'colunaId' => $colunaId]);
     }
 
-    private function assertAccess(User $user): void
+    private function assertAccess(User $user): Tenant
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
-    }
 
+        return $tenant;
+    }
 }

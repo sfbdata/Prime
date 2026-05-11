@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\BoardOutput;
 use App\Kanban\Repository\KanbanBoardRepository;
 
@@ -16,9 +17,8 @@ final class ListarBoardsUseCase
     }
 
     /** @return BoardOutput[] */
-    public function executar(User $user): array
+    public function executar(User $user, Tenant $tenant): array
     {
-        $tenant = $user->getTenant();
         $boards = $this->boardRepository->findAcessiveisPorUsuario($user, $tenant);
 
         return array_map(fn($b) => BoardOutput::fromEntity($b), $boards);

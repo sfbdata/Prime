@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\Repository\KanbanAnexoRepository;
 use App\Kanban\Repository\KanbanCardRepository;
 use App\Kanban\UseCase\AdicionarAnexoUseCase;
@@ -36,10 +37,10 @@ final class KanbanAnexoController extends AbstractController
     public function upload(int $cardId, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $card = $this->cardRepository->findPorTenantEId($cardId, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($cardId, $tenant);
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
@@ -67,10 +68,10 @@ final class KanbanAnexoController extends AbstractController
     public function servir(int $id): Response
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $anexo = $this->anexoRepository->findPorTenantEId($id, $user->getTenant());
+        $anexo = $this->anexoRepository->findPorTenantEId($id, $tenant);
         if ($anexo === null) {
             throw $this->createNotFoundException('Anexo não encontrado.');
         }
@@ -82,14 +83,14 @@ final class KanbanAnexoController extends AbstractController
     public function excluir(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         if (!$this->isCsrfTokenValid('kanban_anexo_excluir_' . $id, (string) $request->request->get('_token'))) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Token inválido.'], 403);
         }
 
-        $anexo = $this->anexoRepository->findPorTenantEId($id, $user->getTenant());
+        $anexo = $this->anexoRepository->findPorTenantEId($id, $tenant);
         if ($anexo === null) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Anexo não encontrado.'], 404);
         }
@@ -99,11 +100,13 @@ final class KanbanAnexoController extends AbstractController
         return $this->json(['sucesso' => true]);
     }
 
-    private function assertAccess(User $user): void
+    private function assertAccess(User $user): Tenant
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
+
+        return $tenant;
     }
 }

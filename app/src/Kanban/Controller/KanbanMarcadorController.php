@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Kanban\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Kanban\DTO\CriarMarcadorInput;
 use App\Kanban\Repository\KanbanBoardRepository;
 use App\Kanban\Repository\KanbanCardRepository;
@@ -40,10 +41,10 @@ final class KanbanMarcadorController extends AbstractController
     public function criar(int $boardId, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $board = $this->boardRepository->findPorTenantEId($boardId, $user->getTenant());
+        $board = $this->boardRepository->findPorTenantEId($boardId, $tenant);
         if ($board === null || !$board->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Mural não encontrado.'], 404);
         }
@@ -63,11 +64,11 @@ final class KanbanMarcadorController extends AbstractController
     public function editar(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         $marcador = $this->marcadorRepository->find($id);
-        if ($marcador === null || $marcador->getBoard()->getTenant() !== $user->getTenant()) {
+        if ($marcador === null || $marcador->getBoard()->getTenant() !== $tenant) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Marcador não encontrado.'], 404);
         }
 
@@ -86,15 +87,15 @@ final class KanbanMarcadorController extends AbstractController
     public function excluir(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
         if (!$this->isCsrfTokenValid('kanban_marcador_excluir_' . $id, (string) $request->request->get('_token'))) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Token inválido.'], 403);
         }
 
         $marcador = $this->marcadorRepository->find($id);
-        if ($marcador === null || $marcador->getBoard()->getTenant() !== $user->getTenant()) {
+        if ($marcador === null || $marcador->getBoard()->getTenant() !== $tenant) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Marcador não encontrado.'], 404);
         }
 
@@ -107,10 +108,10 @@ final class KanbanMarcadorController extends AbstractController
     public function toggle(int $cardId, int $marcadorId, Request $request): JsonResponse
     {
         /** @var User $user */
-        $user  = $this->getUser();
-        $this->assertAccess($user);
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
 
-        $card = $this->cardRepository->findPorTenantEId($cardId, $user->getTenant());
+        $card = $this->cardRepository->findPorTenantEId($cardId, $tenant);
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
@@ -126,11 +127,13 @@ final class KanbanMarcadorController extends AbstractController
         return $this->json(['sucesso' => true, 'adicionado' => $adicionado]);
     }
 
-    private function assertAccess(User $user): void
+    private function assertAccess(User $user): Tenant
     {
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'kanban')) {
             throw $this->createAccessDeniedException('Sem acesso ao módulo Kanban.');
         }
+
+        return $tenant;
     }
 }
