@@ -1,15 +1,21 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Expediente\Controller;
 
+use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Expediente\DTO\CriarMarcadorDTO;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Expediente\UseCase\CriarMarcadorUseCase;
-use App\Expediente\UseCase\ExcluirMarcadorUseCase;
 use App\Expediente\UseCase\EditarMarcadorUseCase;
+use App\Expediente\UseCase\ExcluirMarcadorUseCase;
 use App\Expediente\UseCase\SincronizarMarcadoresDaPastaUseCase;
 use App\Repository\PastaRepository;
 use App\Repository\UserRepository;
+use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -18,7 +24,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-class ExpedienteController extends AbstractController
+final class ExpedienteController extends AbstractController
 {
     public function __construct(
         private readonly PastaRepository $pastaRepository,
@@ -30,13 +36,18 @@ class ExpedienteController extends AbstractController
         private readonly SincronizarMarcadoresDaPastaUseCase $sincronizarMarcadoresUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly ValidatorInterface $validator,
-    ) {}
+        private readonly PermissionChecker $permissionChecker,
+        private readonly TenantContext $tenantContext,
+    ) {
+    }
 
     #[Route('/expediente', name: 'expediente_index')]
     public function index(): Response
     {
-        $usuario   = $this->getUser();
-        $tenant    = $usuario->getTenant();
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
         $marcadores      = $this->marcadorRepository->findRaizPorTenant($tenant);
         $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
         $contagemPastas  = $this->pastaRepository->countPorMarcadores($tenant);
@@ -51,6 +62,10 @@ class ExpedienteController extends AbstractController
     #[Route('/expediente/marcador', name: 'expediente_marcador_criar', methods: ['POST'])]
     public function criarMarcador(Request $request): JsonResponse
     {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
         if (!$this->isCsrfTokenValid('marcador', $request->request->get('_token'))) {
             return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
         }
@@ -70,7 +85,7 @@ class ExpedienteController extends AbstractController
             return $this->json(['erro' => (string) $erros->get(0)->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $marcador = $this->criarMarcadorUseCase->executar($dto, $this->getUser());
+        $marcador = $this->criarMarcadorUseCase->executar($dto, $user, $tenant);
 
         return $this->json([
             'id'          => $marcador->getId(),
@@ -85,6 +100,10 @@ class ExpedienteController extends AbstractController
     #[Route('/expediente/marcador/{id}', name: 'expediente_marcador_editar', methods: ['PATCH'])]
     public function editarMarcador(int $id, Request $request): JsonResponse
     {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
         if (!$this->isCsrfTokenValid('editar_marcador_' . $id, $request->request->get('_token'))) {
             return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
         }
@@ -98,7 +117,7 @@ class ExpedienteController extends AbstractController
         $cor = ($cor === '' || $cor === null) ? null : (string) $cor;
 
         try {
-            $marcador = $this->editarMarcadorUseCase->executar($id, $nome, $cor, $this->getUser());
+            $marcador = $this->editarMarcadorUseCase->executar($id, $nome, $cor, $tenant);
         } catch (\DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -113,12 +132,16 @@ class ExpedienteController extends AbstractController
     #[Route('/expediente/marcador/{id}', name: 'expediente_marcador_excluir', methods: ['DELETE'])]
     public function excluirMarcador(int $id, Request $request): JsonResponse
     {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
         if (!$this->isCsrfTokenValid('excluir_marcador_' . $id, $request->request->get('_token'))) {
             return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
         }
 
         try {
-            $marcador = $this->excluirMarcadorUseCase->executar($id, $this->getUser());
+            $marcador = $this->excluirMarcadorUseCase->executar($id, $tenant);
         } catch (\DomainException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         }
@@ -129,18 +152,18 @@ class ExpedienteController extends AbstractController
         ]);
     }
 
-    /**
-     * Retorna o painel de pastas de um marcador (AJAX).
-     */
     #[Route('/expediente/marcador/{id}/pastas', name: 'expediente_marcador_pastas', methods: ['GET'])]
     public function pastasPorMarcador(int $id, Request $request): Response
     {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
         if (!$request->isXmlHttpRequest()) {
             return $this->redirectToRoute('expediente_index');
         }
 
-        $usuario  = $this->getUser();
-        $marcador = $this->marcadorRepository->findPorTenant($id, $usuario->getTenant());
+        $marcador = $this->marcadorRepository->findPorTenant($id, $tenant);
 
         if ($marcador === null) {
             return $this->json(['erro' => 'Marcador não encontrado.'], Response::HTTP_NOT_FOUND);
@@ -154,30 +177,30 @@ class ExpedienteController extends AbstractController
             'acao'        => $request->query->get('acao', ''),
         ];
         $hasFilters = array_filter($filters, fn($v) => $v !== '');
-        $pastas = $hasFilters
+        $pastas     = $hasFilters
             ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador)
             : $this->pastaRepository->findPorMarcador($marcador);
 
         $urlPainel = $this->generateUrl('expediente_marcador_pastas', ['id' => $id]);
 
         return $this->render('expediente/_painel_marcador.html.twig', [
-            'marcador'    => $marcador,
-            'pastas'      => $pastas,
-            'filters'     => $filters,
-            'nups'        => $this->pastaRepository->findAllNups(),
+            'marcador'     => $marcador,
+            'pastas'       => $pastas,
+            'filters'      => $filters,
+            'nups'         => $this->pastaRepository->findAllNups(),
             'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
-            'formAction'  => $urlPainel,
-            'limparUrl'   => $urlPainel,
+            'formAction'   => $urlPainel,
+            'limparUrl'    => $urlPainel,
         ]);
     }
 
-    /**
-     * Atualiza os marcadores de uma pasta (multi-select, AJAX).
-     * Body: marcadores[] = id1, id2, … (pode ser vazio para remover todos)
-     */
     #[Route('/expediente/pasta/{id}/marcadores', name: 'expediente_pasta_marcadores', methods: ['POST'])]
     public function atualizarMarcadoresDaPasta(int $id, Request $request): JsonResponse
     {
+        /** @var User $user */
+        $user   = $this->getUser();
+        $tenant = $this->assertAccess($user);
+
         if (!$this->isCsrfTokenValid('pasta_marcadores_' . $id, $request->request->get('_token'))) {
             return $this->json(['erro' => 'Token inválido.'], Response::HTTP_FORBIDDEN);
         }
@@ -186,7 +209,7 @@ class ExpedienteController extends AbstractController
         $marcadorIds = array_map('intval', array_filter($marcadorIds, fn($v) => $v !== '' && $v !== null));
 
         try {
-            $pasta = $this->sincronizarMarcadoresUseCase->executar($id, $marcadorIds, $this->getUser());
+            $pasta = $this->sincronizarMarcadoresUseCase->executar($id, $marcadorIds, $tenant);
         } catch (\Symfony\Component\HttpKernel\Exception\NotFoundHttpException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_NOT_FOUND);
         } catch (\Throwable $e) {
@@ -205,6 +228,10 @@ class ExpedienteController extends AbstractController
     #[Route('/expediente/painel/acervo-geral', name: 'expediente_acervo_geral')]
     public function acervoGeral(Request $request): Response
     {
+        /** @var User $user */
+        $user = $this->getUser();
+        $this->assertAccess($user);
+
         if (!$request->isXmlHttpRequest()) {
             return $this->redirectToRoute('expediente_index');
         }
@@ -220,12 +247,22 @@ class ExpedienteController extends AbstractController
         $hasFilters = array_filter($filters, fn($v) => $v !== '');
 
         return $this->render('expediente/_acervo_geral.html.twig', [
-            'pastas'      => $hasFilters ? $this->pastaRepository->findByFilters($filters) : $this->pastaRepository->findAll(),
-            'filters'     => $filters,
-            'nups'        => $this->pastaRepository->findAllNups(),
+            'pastas'       => $hasFilters ? $this->pastaRepository->findByFilters($filters) : $this->pastaRepository->findAll(),
+            'filters'      => $filters,
+            'nups'         => $this->pastaRepository->findAllNups(),
             'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
-            'formAction'  => $this->generateUrl('expediente_acervo_geral'),
-            'limparUrl'   => $this->generateUrl('expediente_acervo_geral'),
+            'formAction'   => $this->generateUrl('expediente_acervo_geral'),
+            'limparUrl'    => $this->generateUrl('expediente_acervo_geral'),
         ]);
+    }
+
+    private function assertAccess(User $user): Tenant
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null || !$this->permissionChecker->canAccessModule($user, $tenant, 'expediente')) {
+            throw $this->createAccessDeniedException('Sem acesso ao módulo Expediente.');
+        }
+
+        return $tenant;
     }
 }
