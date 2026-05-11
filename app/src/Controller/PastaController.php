@@ -164,7 +164,7 @@ class PastaController extends AbstractController
             return $redirect;
         }
 
-        $tenant    = $currentUser->getTenant();
+        $tenant    = $this->tenantContext->getCurrentTenant();
         $tenantId  = $tenant?->getId() ?? 0;
         $processoId = $pasta->getProcesso()?->getId();
 
@@ -554,7 +554,8 @@ class PastaController extends AbstractController
         $currentUser = $this->getUser();
 
         $pastaId = (int) $pasta->getId();
-        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+        $tenant  = $this->tenantContext->getCurrentTenant();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
             return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -569,7 +570,7 @@ class PastaController extends AbstractController
         }
 
         try {
-            $mensagem = $this->enviarMensagemUseCase->executar($pasta, $currentUser, $conteudo);
+            $mensagem = $this->enviarMensagemUseCase->executar($pasta, $currentUser, $conteudo, $tenant);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -771,7 +772,7 @@ class PastaController extends AbstractController
             $pasta->setResponsavel(null);
         } else {
             $responsavel = $this->userRepository->find((int) $responsavelId);
-            if ($responsavel === null || $responsavel->getTenant()?->getId() !== $currentUser->getTenant()?->getId()) {
+            if ($responsavel === null || $responsavel->getTenant()?->getId() !== $this->tenantContext->getCurrentTenant()?->getId()) {
                 return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
             }
             $pasta->setResponsavel($responsavel);
@@ -1388,8 +1389,9 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1403,7 +1405,7 @@ class PastaController extends AbstractController
         }
 
         try {
-            $obs = $this->enviarObservacaoFinanceiraUseCase->executar($pasta, $currentUser, $conteudo);
+            $obs = $this->enviarObservacaoFinanceiraUseCase->executar($pasta, $currentUser, $conteudo, $tenant);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -1491,8 +1493,9 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1506,7 +1509,7 @@ class PastaController extends AbstractController
         }
 
         try {
-            $obs = $this->enviarObservacaoDetalhesUseCase->executar($pasta, $currentUser, $conteudo);
+            $obs = $this->enviarObservacaoDetalhesUseCase->executar($pasta, $currentUser, $conteudo, $tenant);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -1593,8 +1596,9 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1605,7 +1609,7 @@ class PastaController extends AbstractController
         $titulo = trim((string) $request->request->get('titulo', ''));
 
         try {
-            $item = $this->adicionarChecklistItemUseCase->executar($pasta, $currentUser, $titulo);
+            $item = $this->adicionarChecklistItemUseCase->executar($pasta, $currentUser, $titulo, $tenant);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -1719,7 +1723,7 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $tenant = $currentUser->getTenant();
+        $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null) {
             return $this->json(['erro' => 'Usuário sem tenant.'], Response::HTTP_FORBIDDEN);
         }

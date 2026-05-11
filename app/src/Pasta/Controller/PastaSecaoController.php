@@ -62,7 +62,7 @@ final class PastaSecaoController extends AbstractController
         $nome = trim((string) $request->request->get('nome', ''));
 
         try {
-            $secao = $this->criarUseCase->executar($pasta, $currentUser, $nome);
+            $secao = $this->criarUseCase->executar($pasta, $currentUser, $nome, $tenant);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -101,7 +101,7 @@ final class PastaSecaoController extends AbstractController
         $novoNome = trim((string) $request->request->get('nome', ''));
 
         try {
-            $this->renomearUseCase->executar($secao, $currentUser, $novoNome);
+            $this->renomearUseCase->executar($secao, $currentUser, $novoNome, $tenant);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (AccessDeniedException $e) {
@@ -140,7 +140,7 @@ final class PastaSecaoController extends AbstractController
         }
 
         try {
-            $this->excluirUseCase->executar($secao, $currentUser);
+            $this->excluirUseCase->executar($secao, $currentUser, $tenant);
         } catch (AccessDeniedException $e) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
@@ -180,7 +180,7 @@ final class PastaSecaoController extends AbstractController
         }
 
         try {
-            $this->moverUseCase->executar($documento, $secaoDestino, $currentUser);
+            $this->moverUseCase->executar($documento, $secaoDestino, $currentUser, $tenant);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (AccessDeniedException $e) {

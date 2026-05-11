@@ -32,7 +32,7 @@ final class MoverDocumentoParaSecaoUseCaseTest extends TestCase
         $this->useCase = new MoverDocumentoParaSecaoUseCase($this->em);
 
         $this->tenant   = new Tenant();
-        $this->autor    = (new User())->setEmail('autor@test.com')->setTenant($this->tenant);
+        $this->autor    = (new User())->setEmail('autor@test.com');
         $this->pasta    = new Pasta();
 
         $this->documento = new PastaDocumento();
@@ -53,7 +53,7 @@ final class MoverDocumentoParaSecaoUseCaseTest extends TestCase
 
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar($this->documento, $secao, $this->autor);
+        $this->useCase->executar($this->documento, $secao, $this->autor, $this->tenant);
 
         self::assertSame($secao, $this->documento->getSecao());
     }
@@ -67,7 +67,7 @@ final class MoverDocumentoParaSecaoUseCaseTest extends TestCase
 
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar($this->documento, null, $this->autor);
+        $this->useCase->executar($this->documento, null, $this->autor, $this->tenant);
 
         self::assertNull($this->documento->getSecao());
     }
@@ -83,7 +83,7 @@ final class MoverDocumentoParaSecaoUseCaseTest extends TestCase
 
         $this->expectException(AccessDeniedException::class);
 
-        $this->useCase->executar($this->documento, $secaoOutraTenant, $this->autor);
+        $this->useCase->executar($this->documento, $secaoOutraTenant, $this->autor, $this->tenant);
     }
 
     public function testSecaoDeOutraPastaLancaInvalidArgumentException(): void
@@ -97,17 +97,6 @@ final class MoverDocumentoParaSecaoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->documento, $secaoOutraPasta, $this->autor);
-    }
-
-    public function testUsuarioSemTenantLancaLogicException(): void
-    {
-        $autorSemTenant = (new User())->setEmail('semtenant@test.com');
-
-        $this->em->expects($this->never())->method('flush');
-
-        $this->expectException(\LogicException::class);
-
-        $this->useCase->executar($this->documento, null, $autorSemTenant);
+        $this->useCase->executar($this->documento, $secaoOutraPasta, $this->autor, $this->tenant);
     }
 }

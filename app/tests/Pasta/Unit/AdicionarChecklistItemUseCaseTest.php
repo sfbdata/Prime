@@ -23,6 +23,7 @@ final class AdicionarChecklistItemUseCaseTest extends TestCase
     private AdicionarChecklistItemUseCase $useCase;
     private Pasta $pasta;
     private User $autor;
+    private Tenant $tenant;
 
     protected function setUp(): void
     {
@@ -30,9 +31,9 @@ final class AdicionarChecklistItemUseCaseTest extends TestCase
         $this->repo = $this->createMock(PastaChecklistItemRepository::class);
         $this->useCase = new AdicionarChecklistItemUseCase($this->em, $this->repo);
 
-        $tenant      = new Tenant();
-        $this->autor = (new User())->setEmail('autor@test.com')->setTenant($tenant);
-        $this->pasta = new Pasta();
+        $this->tenant = new Tenant();
+        $this->autor  = (new User())->setEmail('autor@test.com');
+        $this->pasta  = new Pasta();
     }
 
     public function testAdicionarItemCriaEntidade(): void
@@ -46,13 +47,13 @@ final class AdicionarChecklistItemUseCaseTest extends TestCase
             ->with($this->isInstanceOf(PastaChecklistItem::class));
         $this->em->expects($this->once())->method('flush');
 
-        $item = $this->useCase->executar($this->pasta, $this->autor, 'Documento de identidade');
+        $item = $this->useCase->executar($this->pasta, $this->autor, 'Documento de identidade', $this->tenant);
 
         self::assertSame('DOCUMENTO DE IDENTIDADE', $item->getTitulo());
         self::assertSame(1, $item->getOrdem());
         self::assertFalse($item->isConcluido());
         self::assertSame($this->pasta, $item->getPasta());
-        self::assertSame($this->autor->getTenant(), $item->getTenant());
+        self::assertSame($this->tenant, $item->getTenant());
     }
 
     public function testTituloComEspacosEhTrimado(): void
@@ -61,7 +62,7 @@ final class AdicionarChecklistItemUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $item = $this->useCase->executar($this->pasta, $this->autor, '  Peça processual  ');
+        $item = $this->useCase->executar($this->pasta, $this->autor, '  Peça processual  ', $this->tenant);
 
         self::assertSame('PEÇA PROCESSUAL', $item->getTitulo());
     }
@@ -72,7 +73,7 @@ final class AdicionarChecklistItemUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, $this->autor, '   ');
+        $this->useCase->executar($this->pasta, $this->autor, '   ', $this->tenant);
     }
 
     public function testTituloAcimaDe255CaracteresLancaExcecao(): void
@@ -81,17 +82,6 @@ final class AdicionarChecklistItemUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, $this->autor, str_repeat('a', 256));
-    }
-
-    public function testUsuarioSemTenantLancaLogicException(): void
-    {
-        $autorSemTenant = (new User())->setEmail('semtenant@test.com');
-
-        $this->em->expects($this->never())->method('persist');
-
-        $this->expectException(\LogicException::class);
-
-        $this->useCase->executar($this->pasta, $autorSemTenant, 'Título válido');
+        $this->useCase->executar($this->pasta, $this->autor, str_repeat('a', 256), $this->tenant);
     }
 }

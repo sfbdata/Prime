@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaSecao;
 use App\Entity\Tenant\Tenant;
@@ -37,6 +38,10 @@ final class PastaSecaoControllerTest extends WebTestCase
         $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
+
+        $userTenant = new UserTenant($user, $tenant);
+        $em->persist($userTenant);
+
         $em->flush();
 
         return $user;
@@ -65,6 +70,20 @@ final class PastaSecaoControllerTest extends WebTestCase
         $em->flush();
 
         return $secao;
+    }
+
+    private function logarComTenant(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, User $user): void
+    {
+        $client->disableReboot();
+        $client->loginUser($user);
+        $tenant = $user->getTenant();
+        if ($tenant === null) {
+            return;
+        }
+        $client->request('GET', '/escritorio/selecionar');
+        $session = $client->getRequest()->getSession();
+        $session->set('current_tenant_id', $tenant->getId());
+        $session->save();
     }
 
     private function instalarCsrfStorage(): void
@@ -120,7 +139,7 @@ final class PastaSecaoControllerTest extends WebTestCase
         $user   = $this->criarUsuarioAdmin();
         $pasta  = $this->criarPasta();
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
+        $this->logarComTenant($client, $user);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/secao", [
             '_token' => $this->csrf('pasta_secao_criar_' . $pasta->getId()),
@@ -139,7 +158,7 @@ final class PastaSecaoControllerTest extends WebTestCase
         $user   = $this->criarUsuarioAdmin();
         $pasta  = $this->criarPasta();
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
+        $this->logarComTenant($client, $user);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/secao", [
             '_token' => $this->csrf('pasta_secao_criar_' . $pasta->getId()),
@@ -163,7 +182,7 @@ final class PastaSecaoControllerTest extends WebTestCase
         $pasta  = $this->criarPasta();
         $secao  = $this->criarSecao($pasta, $user);
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
+        $this->logarComTenant($client, $user);
 
         $client->request('POST', "/pasta/secao/{$secao->getId()}/renomear", [
             '_token' => $this->csrf('pasta_secao_renomear_' . $secao->getId()),
@@ -203,7 +222,7 @@ final class PastaSecaoControllerTest extends WebTestCase
         $secao  = $this->criarSecao($pasta, $user);
         $secaoId = $secao->getId();
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
+        $this->logarComTenant($client, $user);
 
         $client->request('POST', "/pasta/secao/{$secaoId}/excluir", [
             '_token' => $this->csrf('pasta_secao_excluir_' . $secaoId),

@@ -23,6 +23,7 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
     private CriarPastaSecaoUseCase $useCase;
     private Pasta $pasta;
     private User $autor;
+    private Tenant $tenant;
 
     protected function setUp(): void
     {
@@ -30,9 +31,9 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
         $this->repo = $this->createMock(PastaSecaoRepository::class);
         $this->useCase = new CriarPastaSecaoUseCase($this->em, $this->repo);
 
-        $tenant      = new Tenant();
-        $this->autor = (new User())->setEmail('autor@test.com')->setTenant($tenant);
-        $this->pasta = new Pasta();
+        $this->tenant = new Tenant();
+        $this->autor  = (new User())->setEmail('autor@test.com');
+        $this->pasta  = new Pasta();
     }
 
     public function testCriarSecaoPersisteDadosCorretamente(): void
@@ -46,12 +47,12 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
             ->with($this->isInstanceOf(PastaSecao::class));
         $this->em->expects($this->once())->method('flush');
 
-        $secao = $this->useCase->executar($this->pasta, $this->autor, 'Petições');
+        $secao = $this->useCase->executar($this->pasta, $this->autor, 'Petições', $this->tenant);
 
         self::assertSame('PETIÇÕES', $secao->getNome());
         self::assertSame(1, $secao->getOrdem());
         self::assertSame($this->pasta, $secao->getPasta());
-        self::assertSame($this->autor->getTenant(), $secao->getTenant());
+        self::assertSame($this->tenant, $secao->getTenant());
     }
 
     public function testNomeComEspacosEhTrimado(): void
@@ -60,7 +61,7 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $secao = $this->useCase->executar($this->pasta, $this->autor, '  Contratos  ');
+        $secao = $this->useCase->executar($this->pasta, $this->autor, '  Contratos  ', $this->tenant);
 
         self::assertSame('CONTRATOS', $secao->getNome());
     }
@@ -71,7 +72,7 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, $this->autor, '   ');
+        $this->useCase->executar($this->pasta, $this->autor, '   ', $this->tenant);
     }
 
     public function testNomeAcimaDe255CaracteresLancaExcecao(): void
@@ -80,17 +81,6 @@ final class CriarPastaSecaoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, $this->autor, str_repeat('a', 256));
-    }
-
-    public function testUsuarioSemTenantLancaLogicException(): void
-    {
-        $autorSemTenant = (new User())->setEmail('semtenant@test.com');
-
-        $this->em->expects($this->never())->method('persist');
-
-        $this->expectException(\LogicException::class);
-
-        $this->useCase->executar($this->pasta, $autorSemTenant, 'Nome válido');
+        $this->useCase->executar($this->pasta, $this->autor, str_repeat('a', 256), $this->tenant);
     }
 }

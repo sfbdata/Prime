@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaObservacaoFinanceira;
+use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class EnviarObservacaoFinanceiraUseCase
@@ -15,17 +16,12 @@ final class EnviarObservacaoFinanceiraUseCase
         private readonly EntityManagerInterface $em,
     ) {}
 
-    public function executar(Pasta $pasta, User $autor, string $conteudo): PastaObservacaoFinanceira
+    public function executar(Pasta $pasta, User $autor, string $conteudo, Tenant $tenant): PastaObservacaoFinanceira
     {
         $conteudo = trim($conteudo);
 
         if ($conteudo === '' || mb_strlen($conteudo) > 5000) {
             throw new \InvalidArgumentException('Conteúdo inválido: deve ter entre 1 e 5000 caracteres.');
-        }
-
-        $tenant = $autor->getTenant();
-        if ($tenant === null) {
-            throw new \LogicException('Usuário sem tenant.');
         }
 
         $obs = new PastaObservacaoFinanceira();

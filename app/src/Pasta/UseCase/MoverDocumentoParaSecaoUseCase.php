@@ -7,6 +7,7 @@ namespace App\Pasta\UseCase;
 use App\Entity\Auth\User;
 use App\Entity\Pasta\PastaDocumento;
 use App\Entity\Pasta\PastaSecao;
+use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -17,13 +18,8 @@ final class MoverDocumentoParaSecaoUseCase
     ) {
     }
 
-    public function executar(PastaDocumento $documento, ?PastaSecao $secaoDestino, User $autor): void
+    public function executar(PastaDocumento $documento, ?PastaSecao $secaoDestino, User $autor, Tenant $tenant): void
     {
-        $tenant = $autor->getTenant();
-        if ($tenant === null) {
-            throw new \LogicException('Usuário sem tenant.');
-        }
-
         $pastaDodocumento = $documento->getPasta();
         if ($pastaDodocumento === null) {
             throw new \LogicException('Documento sem pasta associada.');

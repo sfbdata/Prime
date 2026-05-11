@@ -29,7 +29,7 @@ final class RenomearPastaSecaoUseCaseTest extends TestCase
         $this->useCase = new RenomearPastaSecaoUseCase($this->repo);
 
         $this->tenant = new Tenant();
-        $this->autor  = (new User())->setEmail('autor@test.com')->setTenant($this->tenant);
+        $this->autor  = (new User())->setEmail('autor@test.com');
 
         $this->secao = new PastaSecao();
         $this->secao->setTenant($this->tenant);
@@ -42,7 +42,7 @@ final class RenomearPastaSecaoUseCaseTest extends TestCase
             ->method('salvar')
             ->with($this->secao, true);
 
-        $this->useCase->executar($this->secao, $this->autor, 'Novo nome');
+        $this->useCase->executar($this->secao, $this->autor, 'Novo nome', $this->tenant);
 
         self::assertSame('NOVO NOME', $this->secao->getNome());
     }
@@ -51,7 +51,7 @@ final class RenomearPastaSecaoUseCaseTest extends TestCase
     {
         $this->repo->method('salvar');
 
-        $this->useCase->executar($this->secao, $this->autor, '  Contratos  ');
+        $this->useCase->executar($this->secao, $this->autor, '  Contratos  ', $this->tenant);
 
         self::assertSame('CONTRATOS', $this->secao->getNome());
     }
@@ -62,29 +62,17 @@ final class RenomearPastaSecaoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->secao, $this->autor, '   ');
+        $this->useCase->executar($this->secao, $this->autor, '   ', $this->tenant);
     }
 
     public function testTenantDivergeLancaAccessDeniedException(): void
     {
         $outraTenant = new Tenant();
-        $autorOutroTenant = (new User())->setEmail('outro@test.com')->setTenant($outraTenant);
 
         $this->repo->expects($this->never())->method('salvar');
 
         $this->expectException(AccessDeniedException::class);
 
-        $this->useCase->executar($this->secao, $autorOutroTenant, 'Novo nome');
-    }
-
-    public function testUsuarioSemTenantLancaLogicException(): void
-    {
-        $autorSemTenant = (new User())->setEmail('semtenant@test.com');
-
-        $this->repo->expects($this->never())->method('salvar');
-
-        $this->expectException(\LogicException::class);
-
-        $this->useCase->executar($this->secao, $autorSemTenant, 'Novo nome');
+        $this->useCase->executar($this->secao, $this->autor, 'Novo nome', $outraTenant);
     }
 }

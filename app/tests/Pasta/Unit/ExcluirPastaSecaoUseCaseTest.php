@@ -29,7 +29,7 @@ final class ExcluirPastaSecaoUseCaseTest extends TestCase
         $this->useCase = new ExcluirPastaSecaoUseCase($this->em);
 
         $this->tenant = new Tenant();
-        $this->autor  = (new User())->setEmail('autor@test.com')->setTenant($this->tenant);
+        $this->autor  = (new User())->setEmail('autor@test.com');
 
         $this->secao = new PastaSecao();
         $this->secao->setTenant($this->tenant);
@@ -43,29 +43,17 @@ final class ExcluirPastaSecaoUseCaseTest extends TestCase
             ->with($this->secao);
         $this->em->expects($this->once())->method('flush');
 
-        $this->useCase->executar($this->secao, $this->autor);
+        $this->useCase->executar($this->secao, $this->autor, $this->tenant);
     }
 
     public function testTenantDivergeLancaAccessDeniedException(): void
     {
         $outraTenant = new Tenant();
-        $autorOutroTenant = (new User())->setEmail('outro@test.com')->setTenant($outraTenant);
 
         $this->em->expects($this->never())->method('remove');
 
         $this->expectException(AccessDeniedException::class);
 
-        $this->useCase->executar($this->secao, $autorOutroTenant);
-    }
-
-    public function testUsuarioSemTenantLancaLogicException(): void
-    {
-        $autorSemTenant = (new User())->setEmail('semtenant@test.com');
-
-        $this->em->expects($this->never())->method('remove');
-
-        $this->expectException(\LogicException::class);
-
-        $this->useCase->executar($this->secao, $autorSemTenant);
+        $this->useCase->executar($this->secao, $this->autor, $outraTenant);
     }
 }

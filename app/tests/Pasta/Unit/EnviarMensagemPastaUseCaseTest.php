@@ -6,19 +6,19 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaObservacaoFinanceira;
+use App\Entity\Pasta\PastaMensagem;
 use App\Entity\Tenant\Tenant;
-use App\Pasta\UseCase\EnviarObservacaoFinanceiraUseCase;
+use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(EnviarObservacaoFinanceiraUseCase::class)]
-final class EnviarObservacaoFinanceiraUseCaseTest extends TestCase
+#[CoversClass(EnviarMensagemPastaUseCase::class)]
+final class EnviarMensagemPastaUseCaseTest extends TestCase
 {
     private EntityManagerInterface&MockObject $em;
-    private EnviarObservacaoFinanceiraUseCase $useCase;
+    private EnviarMensagemPastaUseCase $useCase;
     private Pasta $pasta;
     private User $autor;
     private Tenant $tenant;
@@ -26,24 +26,24 @@ final class EnviarObservacaoFinanceiraUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em     = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EnviarObservacaoFinanceiraUseCase($this->em);
+        $this->useCase = new EnviarMensagemPastaUseCase($this->em);
 
         $this->tenant = new Tenant();
         $this->autor  = (new User())->setEmail('autor@test.com');
         $this->pasta  = new Pasta();
     }
 
-    public function testEnviarObservacaoCriaEntidade(): void
+    public function testEnviarMensagemCriaEntidade(): void
     {
-        $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(PastaObservacaoFinanceira::class));
+        $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(PastaMensagem::class));
         $this->em->expects($this->once())->method('flush');
 
-        $obs = $this->useCase->executar($this->pasta, $this->autor, 'Observação de teste', $this->tenant);
+        $mensagem = $this->useCase->executar($this->pasta, $this->autor, 'Mensagem de teste', $this->tenant);
 
-        self::assertSame('Observação de teste', $obs->getConteudo());
-        self::assertSame($this->pasta, $obs->getPasta());
-        self::assertSame($this->autor, $obs->getAutor());
-        self::assertSame($this->tenant, $obs->getTenant());
+        self::assertSame('Mensagem de teste', $mensagem->getConteudo());
+        self::assertSame($this->pasta, $mensagem->getPasta());
+        self::assertSame($this->autor, $mensagem->getAutor());
+        self::assertSame($this->tenant, $mensagem->getTenant());
     }
 
     public function testConteudoVazioLancaExcecao(): void

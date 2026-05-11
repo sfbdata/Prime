@@ -6,19 +6,19 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaObservacaoFinanceira;
+use App\Entity\Pasta\PastaObservacaoDetalhes;
 use App\Entity\Tenant\Tenant;
-use App\Pasta\UseCase\EnviarObservacaoFinanceiraUseCase;
+use App\Pasta\UseCase\EnviarObservacaoDetalhesUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(EnviarObservacaoFinanceiraUseCase::class)]
-final class EnviarObservacaoFinanceiraUseCaseTest extends TestCase
+#[CoversClass(EnviarObservacaoDetalhesUseCase::class)]
+final class EnviarObservacaoDetalhesUseCaseTest extends TestCase
 {
     private EntityManagerInterface&MockObject $em;
-    private EnviarObservacaoFinanceiraUseCase $useCase;
+    private EnviarObservacaoDetalhesUseCase $useCase;
     private Pasta $pasta;
     private User $autor;
     private Tenant $tenant;
@@ -26,7 +26,7 @@ final class EnviarObservacaoFinanceiraUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em     = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EnviarObservacaoFinanceiraUseCase($this->em);
+        $this->useCase = new EnviarObservacaoDetalhesUseCase($this->em);
 
         $this->tenant = new Tenant();
         $this->autor  = (new User())->setEmail('autor@test.com');
@@ -35,12 +35,12 @@ final class EnviarObservacaoFinanceiraUseCaseTest extends TestCase
 
     public function testEnviarObservacaoCriaEntidade(): void
     {
-        $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(PastaObservacaoFinanceira::class));
+        $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(PastaObservacaoDetalhes::class));
         $this->em->expects($this->once())->method('flush');
 
-        $obs = $this->useCase->executar($this->pasta, $this->autor, 'Observação de teste', $this->tenant);
+        $obs = $this->useCase->executar($this->pasta, $this->autor, 'Observação de detalhes', $this->tenant);
 
-        self::assertSame('Observação de teste', $obs->getConteudo());
+        self::assertSame('Observação de detalhes', $obs->getConteudo());
         self::assertSame($this->pasta, $obs->getPasta());
         self::assertSame($this->autor, $obs->getAutor());
         self::assertSame($this->tenant, $obs->getTenant());

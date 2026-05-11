@@ -6,6 +6,7 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
 use App\Entity\Pasta\PastaSecao;
+use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
@@ -16,13 +17,8 @@ final class ExcluirPastaSecaoUseCase
     ) {
     }
 
-    public function executar(PastaSecao $secao, User $autor): void
+    public function executar(PastaSecao $secao, User $autor, Tenant $tenant): void
     {
-        $tenant = $autor->getTenant();
-        if ($tenant === null) {
-            throw new \LogicException('Usuário sem tenant.');
-        }
-
         if ($secao->getTenant() !== $tenant) {
             throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
         }
