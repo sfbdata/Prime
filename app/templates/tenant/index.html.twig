@@ -31,7 +31,7 @@
                             <td>{{ tenant.createdAt|date('d/m/Y H:i') }}</td>
                             <td>{{ tenant.isActive ? 'Ativo' : 'Inativo' }}</td>
                             <td>
-                                {% if can_administer('admin.tenant.settings.manage') and app.user.tenant.id == tenant.id %}
+                                {% if can_administer('admin.tenant.settings.manage') and current_tenant() and current_tenant().id == tenant.id %}
                                     <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}"
                                        class="btn-action btn-action-edit"
                                        title="Editar escritório"

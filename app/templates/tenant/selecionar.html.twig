@@ -3,7 +3,31 @@
 {% block title %}Selecionar escritório{% endblock %}
 
 {% block body %}
-<div class="container py-5">
-    <p class="text-muted">Em breve: seleção de escritório.</p>
+<div class="container py-5" style="max-width: 600px">
+    <div class="text-center mb-4">
+        <h3>Selecione um escritório</h3>
+        {% if vinculos|length > 0 %}
+            <p class="text-muted">Você tem acesso a {{ vinculos|length }} escritório(s).</p>
+        {% endif %}
+    </div>
+
+    {% if vinculos is empty %}
+        <div class="alert alert-warning">
+            Você não está vinculado a nenhum escritório. Contate seu administrador.
+        </div>
+    {% else %}
+        {% for vinculo in vinculos %}
+            <form method="post" action="{{ path('tenant_selecionar') }}" class="mb-3">
+                <input type="hidden" name="tenant_id" value="{{ vinculo.tenant.id }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('tenant_selecionar') }}">
+                <button type="submit" class="btn btn-outline-primary w-100 text-start p-3">
+                    <strong>{{ vinculo.tenant.name }}</strong>
+                    {% if vinculo.tenantRole %}
+                        <br><small class="text-muted">{{ vinculo.tenantRole.name }}</small>
+                    {% endif %}
+                </button>
+            </form>
+        {% endfor %}
+    {% endif %}
 </div>
 {% endblock %}

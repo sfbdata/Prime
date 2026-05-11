@@ -235,7 +235,26 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 
 #### ✅ Sub-etapa 5b — COMPLETA (5b.1 + 5b.2 + 5b.3a + 5b.3b)
 
-#### ⏳ Sub-etapa 5c — Refatorar referências legadas + TenantSelecaoController real (PENDENTE)
+#### ⏳ Sub-etapa 5c — Refatorar referências legadas + TenantSelecaoController real (EM ANDAMENTO)
+
+##### ✅ Fase 5c.1 — Extensão Twig + migração de templates (CONCLUÍDA)
+
+**Arquivos criados:**
+- `app/src/Twig/TenantContextExtension.php` — expõe `current_tenant(): ?Tenant` nos templates Twig
+
+**Arquivos modificados:**
+- `app/templates/_sidebar.html.twig` — 5 ocorrências de `app.user.tenant.id` → `current_tenant().id`
+- `app/templates/tenant/index.html.twig` — 1 ocorrência: `app.user.tenant.id == tenant.id` → `current_tenant() and current_tenant().id == tenant.id`
+
+##### ✅ Fase 5c.2 — TenantSelecaoController real (CONCLUÍDA)
+
+**Arquivos modificados:**
+- `app/src/Controller/Tenant/TenantSelecaoController.php` — stub → real: GET lista `UserTenant` ativos, auto-seleção quando 1 vínculo, redirect SuperAdmin sem tenant para `/admin/platform`, POST com validação CSRF + guard `tenantId <= 0` + try/catch + flash `'danger'`
+- `app/templates/tenant/selecionar.html.twig` — placeholder → real: cards Bootstrap com nome do escritório + papel (role), estado vazio com mensagem ao usuário
+
+**Suite:** 449 testes, 1039 assertions, 13 erros pré-existentes (Grupo A) inalterados. Smoke test manual validado em 4 cenários.
+
+##### ⏳ Fase 5c.3+ — Refatorar referências PHP legadas (PENDENTE)
 
 ---
 
@@ -248,6 +267,13 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 ---
 
 ## Histórico de operações em ambiente
+
+### 11/05/2026 — Fases 5c.1 e 5c.2 concluídas — Refatoração de templates Twig + TenantSelecaoController real
+
+- Extensão Twig `TenantContextExtension` criada com função `current_tenant()`. Templates `_sidebar.html.twig` (5 linhas) e `tenant/index.html.twig` (1 linha) refatorados para usar `current_tenant().id` em vez de `app.user.tenant.id`.
+- `TenantSelecaoController` real implementado: GET lista `UserTenant` ativos via `findActiveByUser()`, POST com CSRF + validação `tenantId <= 0` + try/catch no `setCurrentTenant()` + flash `'danger'`, auto-seleção quando user tem 1 tenant, redirect SuperAdmin sem tenant para `/admin/platform`.
+- Template `tenant/selecionar.html.twig` real: cards Bootstrap com nome do escritório e papel (role), estado vazio com mensagem ao usuário.
+- 449 testes, 1039 assertions, 13 erros pré-existentes (Grupo A) inalterados. Smoke test manual validado em 4 cenários.
 
 ### 09/05/2026 (continuação) — Fase 5b.3b concluída — Criação de convites
 
@@ -351,6 +377,8 @@ Tratar após a refatoração de identidade global:
 - Templates de email recebem entidade `Invitation` diretamente — viola padrão `templates/CLAUDE.md` (que exige DTOs). Decisão: aceitável pra emails internos, mas avaliar criar `InvitationEmailDTO` se complexidade crescer
 - `ConviteMailer` chama rota `auth_aceite_convite` que será criada na Fase 5b.3a — não chamar `ConviteMailer` até a rota existir, ou vai quebrar em runtime
 - OPcache do PHP-FPM: criar procedimento documentado de reload após mudanças em rotas (`kill -USR2` no processo ou outro mecanismo) — evita 404 em rotas que existem no `debug:router` mas não são encontradas via HTTP
+- Padronizar chave de flash messages no projeto: `'erro'` gera `alert-erro` (classe Bootstrap inválida — sem estilização de cor). Mapear para `'danger'` ou ajustar `base.html.twig` para mapear `'erro' → 'danger'`. Afeta principalmente os controllers das fases 5b.3a e 5b.3b
+- Validação visual da regra `current_tenant().id == tenant.id` em `/tenant` impossível com apenas 1 tenant no banco de dev. Quando segundo tenant entrar (5c.3+), revalidar que botão "Editar" só aparece no card do tenant atualmente selecionado
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 

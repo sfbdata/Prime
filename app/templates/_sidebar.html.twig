@@ -149,7 +149,7 @@
 
                     {% if can_administer('admin.users.manage') %}
                         <li class="pje-menu-item">
-                            <a href="{{ path('app_tenant_users', {'id': app.user.tenant.id}) }}"
+                            <a href="{{ path('app_tenant_users', {'id': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute == 'app_tenant_users' ? 'active' : '' }}">
                                 <i class="bi bi-people-fill pje-nav-icon"></i>
                                 <span>Colaboradores</span>
@@ -159,7 +159,7 @@
 
                     {% if can_administer('admin.tenant.settings.manage') %}
                         <li class="pje-menu-item">
-                            <a href="{{ path('app_tenant_show', {'id': app.user.tenant.id}) }}"
+                            <a href="{{ path('app_tenant_show', {'id': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute == 'app_tenant_show' ? 'active' : '' }}">
                                 <i class="bi bi-building-gear pje-nav-icon"></i>
                                 <span>Meu Escritório</span>
@@ -169,7 +169,7 @@
 
                     {% if can_administer('admin.roles.manage') %}
                         <li class="pje-menu-item">
-                            <a href="{{ path('app_tenant_role_index', {'tenantId': app.user.tenant.id}) }}"
+                            <a href="{{ path('app_tenant_role_index', {'tenantId': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute starts with 'app_tenant_role_' ? 'active' : '' }}">
                                 <i class="bi bi-shield-lock pje-nav-icon"></i>
                                 <span>Perfis</span>
@@ -200,7 +200,7 @@
 
                     {% if can_administer('admin.ponto.manage') %}
                         <li class="pje-menu-item">
-                            <a href="{{ path('app_tenant_sedes', {'id': app.user.tenant.id}) }}"
+                            <a href="{{ path('app_tenant_sedes', {'id': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute == 'app_tenant_sedes' ? 'active' : '' }}">
                                 <i class="bi bi-geo-alt pje-nav-icon"></i>
                                 <span>Sedes (Ponto)</span>
@@ -210,7 +210,7 @@
 
                     {% if can_administer('admin.tenant.settings.manage') %}
                         <li class="pje-menu-item">
-                            <a href="{{ path('app_feriado_index', {'tenantId': app.user.tenant.id}) }}"
+                            <a href="{{ path('app_feriado_index', {'tenantId': current_tenant().id}) }}"
                                class="pje-menu-link {{ currentRoute starts with 'app_feriado_' ? 'active' : '' }}">
                                 <i class="bi bi-calendar-check pje-nav-icon"></i>
                                 <span>Feriados e Folgas</span>
