@@ -22,6 +22,7 @@ use App\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
+use App\Repository\UserTenantRepository;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -110,6 +111,7 @@ class PastaController extends AbstractController
         private readonly ReordenarChecklistItensUseCase $reordenarChecklistItensUseCase,
         private readonly AlterarPrioridadeUseCase $alterarPrioridadeUseCase,
         private readonly PastaSecaoRepository $secaoRepository,
+        private readonly UserTenantRepository $userTenantRepo,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -772,7 +774,8 @@ class PastaController extends AbstractController
             $pasta->setResponsavel(null);
         } else {
             $responsavel = $this->userRepository->find((int) $responsavelId);
-            if ($responsavel === null || $responsavel->getTenant()?->getId() !== $this->tenantContext->getCurrentTenant()?->getId()) {
+            $tenant = $this->tenantContext->getCurrentTenant() ?? throw new \LogicException('Tenant ausente.');
+            if ($responsavel === null || !$this->userTenantRepo->existeVinculoAtivo($responsavel, $tenant)) {
                 return $this->json(['erro' => 'Usuário não encontrado.'], Response::HTTP_NOT_FOUND);
             }
             $pasta->setResponsavel($responsavel);

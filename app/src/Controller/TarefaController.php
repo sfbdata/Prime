@@ -1,13 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
+use App\Entity\Tenant\Tenant;
 use App\Repository\PastaRepository;
 use App\Repository\TarefaRepository;
 use App\Repository\UserRepository;
+use App\Repository\UserTenantRepository;
+use App\Service\PermissionChecker;
+use App\Service\Tenant\TenantContext;
 use App\Tarefa\Service\TarefaTimelineAssembler;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -21,11 +27,14 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
 
 #[Route('/tarefas')]
-class TarefaController extends AbstractController
+final class TarefaController extends AbstractController
 {
     public function __construct(
         private readonly ParameterBagInterface $parameterBag,
         private readonly TarefaTimelineAssembler $timelineAssembler,
+        private readonly TenantContext $tenantContext,
+        private readonly PermissionChecker $permissionChecker,
+        private readonly UserTenantRepository $userTenantRepo,
     ) {
     }
 
@@ -37,6 +46,7 @@ class TarefaController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
+        $this->assertAccess($usuario);
 
         $tarefas = $tarefaRepository->findByResponsavel($usuario);
 
@@ -58,19 +68,21 @@ class TarefaController extends AbstractController
     ): JsonResponse {
         /** @var User $usuario */
         $usuario = $this->getUser();
+        $tenant = $this->assertAccess($usuario);
 
         $pasta = $pastaRepository->find($pastaId);
         if ($pasta === null) {
             return $this->json(['erro' => 'Pasta não encontrada.'], 404);
         }
 
-        $tenantId          = $usuario->getTenant()?->getId();
-        $criadorTenant     = $pasta->getCriadoPor()?->getTenant()?->getId();
-        $responsavelTenant = $pasta->getResponsavel()?->getTenant()?->getId();
-        $pastaAcessivel    = ($criadorTenant !== null && $criadorTenant === $tenantId)
-            || ($responsavelTenant !== null && $responsavelTenant === $tenantId);
+        $criadorPasta = $pasta->getCriadoPor();
+        $responsavelPasta = $pasta->getResponsavel();
+        $criadorPertence = $criadorPasta !== null
+            && $this->userTenantRepo->existeVinculoAtivo($criadorPasta, $tenant);
+        $responsavelPertence = $responsavelPasta !== null
+            && $this->userTenantRepo->existeVinculoAtivo($responsavelPasta, $tenant);
 
-        if (!$pastaAcessivel) {
+        if (!$criadorPertence && !$responsavelPertence) {
             return $this->json(['erro' => 'Pasta não encontrada.'], 404);
         }
 
@@ -104,7 +116,7 @@ class TarefaController extends AbstractController
         $responsavelId = (int) $request->request->get('responsavel_id', 0);
         if ($responsavelId > 0) {
             $responsavel = $userRepository->find($responsavelId);
-            if ($responsavel instanceof User && $responsavel->getTenant()?->getId() === $usuario->getTenant()?->getId()) {
+            if ($responsavel instanceof User && $this->userTenantRepo->existeVinculoAtivo($responsavel, $tenant)) {
                 $tarefa->addResponsavel($responsavel);
             }
         }
@@ -123,13 +135,13 @@ class TarefaController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
 
-        $this->verificarAcessoTarefa($usuario, $tarefa);
-
-        $tenantId = (int) $usuario->getTenant()?->getId();
+        $tenantId = (int) $tenant->getId();
         $timelineItems = $this->timelineAssembler->montar($tarefa, $tenantId);
 
-        $users = $userRepository->findBy(['tenant' => $tenantId]);
+        $users = $userRepository->findBy(['tenant' => $tenant]);
 
         return $this->render('tarefa/show.html.twig', [
             'tarefa'        => $tarefa,
@@ -148,14 +160,15 @@ class TarefaController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $this->verificarAcessoTarefa($usuario, $tarefa);
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
 
         if (!$this->isCsrfTokenValid('update_responsaveis_' . $tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
         $userIds = $request->request->all('responsaveis', []);
-        $users = $userRepository->findBy(['id' => $userIds, 'tenant' => $usuario->getTenant()]);
+        $users = $userRepository->findBy(['id' => $userIds, 'tenant' => $tenant]);
 
         $tarefa->getResponsaveis()->clear();
         foreach ($users as $user) {
@@ -178,7 +191,8 @@ class TarefaController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $this->verificarAcessoTarefa($usuario, $tarefa);
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
 
         if (!$this->isCsrfTokenValid('mensagem_tarefa_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -224,7 +238,8 @@ class TarefaController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $this->verificarAcessoTarefa($usuario, $tarefa);
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
 
         if (!$this->isCsrfTokenValid('concluir_tarefa_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
@@ -251,7 +266,8 @@ class TarefaController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa());
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa(), $tenant);
 
         $caminho = $this->resolverCaminhoArquivo((string) $mensagem->getArquivoAnexo());
 
@@ -275,7 +291,8 @@ class TarefaController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
-        $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa());
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa(), $tenant);
 
         $caminho = $this->resolverCaminhoArquivo((string) $mensagem->getArquivoAnexo());
 
@@ -284,6 +301,34 @@ class TarefaController extends AbstractController
         }
 
         return $this->file($caminho, basename($caminho), ResponseHeaderBag::DISPOSITION_ATTACHMENT);
+    }
+
+    private function assertAccess(User $user): Tenant
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
+            throw $this->createAccessDeniedException('Sem tenant selecionado.');
+        }
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'tarefas')) {
+            throw $this->createAccessDeniedException('Sem acesso ao módulo Tarefas.');
+        }
+
+        return $tenant;
+    }
+
+    private function verificarAcessoTarefa(User $usuario, Tarefa $tarefa, Tenant $tenant): void
+    {
+        $pasta = $tarefa->getPasta();
+        $criador = $pasta->getCriadoPor();
+        $responsavel = $pasta->getResponsavel();
+        $criadorPertence = $criador !== null
+            && $this->userTenantRepo->existeVinculoAtivo($criador, $tenant);
+        $responsavelPertence = $responsavel !== null
+            && $this->userTenantRepo->existeVinculoAtivo($responsavel, $tenant);
+
+        if (!$criadorPertence && !$responsavelPertence) {
+            throw $this->createAccessDeniedException('Acesso negado.');
+        }
     }
 
     private function resolverCaminhoArquivo(string $caminhoPublico): ?string
@@ -328,22 +373,5 @@ class TarefaController extends AbstractController
         }
 
         return $paths;
-    }
-
-    private function verificarAcessoTarefa(User $usuario, Tarefa $tarefa): void
-    {
-        // Verifica acesso via tenant do criador ou responsável da pasta
-        $pasta = $tarefa->getPasta();
-        $tenantId = $usuario->getTenant()?->getId();
-
-        $criadorTenant = $pasta->getCriadoPor()?->getTenant()?->getId();
-        $responsavelTenant = $pasta->getResponsavel()?->getTenant()?->getId();
-
-        $pastaAcessivel = ($criadorTenant !== null && $criadorTenant === $tenantId)
-            || ($responsavelTenant !== null && $responsavelTenant === $tenantId);
-
-        if (!$pastaAcessivel) {
-            throw $this->createAccessDeniedException('Acesso negado.');
-        }
     }
 }
