@@ -6,6 +6,18 @@ Separar `user` (identidade global, 1 conta por pessoa) de `user_tenant` (víncul
 
 ---
 
+## Estado atual — 11/05/2026
+
+- **Última fase concluída:** 5c.3d Lote 4a — `PontoController` (commit `608deae`)
+- **Próximo passo:** 5c.3d Lote 4b — `TenantController` (~1369 linhas, ~27 refs, ~20 actions)
+- **Roteiro completo até o fim:**
+  1. 5c.3d Lote 4b — `TenantController`
+  2. 5c.3e — demais arquivos com refs legadas (~10 arquivos pequenos)
+  3. 5c.4 — cleanup
+  4. Etapa 6 — remover colunas de `user`: `tenant_id`, `tenant_role_id`, `cargo_id`, `lotacao_id`, `codigo_funcionario`, `demitido_em`, `last_login`
+
+---
+
 ## Decisões de produto já tomadas
 
 - Login é global (email único no sistema todo, sem `tenant_id` na constraint)
@@ -289,6 +301,22 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 
 ## Histórico de operações em ambiente
 
+### 11/05/2026 — Fase 5c.3d concluída (Lotes 1–4a) — Controllers legados em `src/Controller/`
+
+- **Pré-Lote:** `findAtivoPorUserETenant(User, Tenant): ?UserTenant` adicionado em `UserTenantRepository` — usado no Padrão D para obter cargo, lotação e código do funcionário via `UserTenant`
+- **Lote 1 (3 controllers simples):** `AuditLogController`, `FeriadoController`, `JornadaTenantController` — Padrão A eliminado; `assertAccess($user)` retorna `Tenant`
+- **Lote 2 (3 controllers médios):** `TenantRoleController`, `AccessRequestController`, `JornadaColaboradorController` — Padrões A+B; `existeVinculoAtivo(User, Tenant)` substitui comparação de IDs de tenant
+- **Lote 3:** `TarefaController` + residual de `PastaController` — Padrões A+B+D
+- **Lote 4a — `PontoController`** (commit `608deae`): maior controller do lote (8 actions + 1 método privado `montarDadosFolha`). Mudanças:
+  - `declare(strict_types=1)` adicionado; `User`, `Tenant`, `UserTenantRepository` importados
+  - `PermissionChecker` e `UserTenantRepository` movidos para o construtor; removidos dos parâmetros de 8 actions
+  - `assertAccess(User): Tenant` adicionado; usado em 5 actions HTML; 2 AJAX (`batida`, `alertaHorario`) mantêm retorno JSON e usam `$this->permissionChecker` diretamente
+  - Padrão B: `exportarFolhaPdf` + `exportarFolhaXlsx` — `getTenant()->getId() === getTenant()->getId()` → `existeVinculoAtivo($targetUser, $tenant)`
+  - Padrão D em `montarDadosFolha`: `getCargo()`, `getLotacao()`, `getCodigoFuncionario()` → `findAtivoPorUserETenant()` → `$userTenant?->getCargo()` etc.
+  - 49 linhas de dead code removidas: blocos em `exportarFolhaPdf` (linhas 716–742) e `exportarFolhaXlsx` (linhas 837–858) que recomputavam variáveis já geradas por `montarDadosFolha`
+- **Suite pós-Lote 4a:** 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A) inalterados
+- **Pendente:** 5c.3d Lote 4b (`TenantController`, ~1369 linhas, ~27 refs, ~20 actions)
+
 ### 11/05/2026 — Fase 5c.3a concluída — Refatoração do módulo Kanban
 
 - 4 UseCases refatorados: `ListarBoards`, `CriarBoard`, `AtualizarBoard`, `AtualizarCard` — `Tenant` adicionado como parâmetro explícito, `$user->getTenant()` removido
@@ -372,6 +400,62 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 
 ---
 
+## Padrões de refatoração
+
+### Padrão B-route — variante de B para actions com $tenantId na rota
+
+Quando uma action recebe `int $tenantId` (ou similar) como parâmetro de
+rota e precisa validar que o user logado tem vínculo ativo com aquele
+tenant específico:
+
+**Proibido:** usar `$this->tenantContext->getCurrentTenant()` como fonte
+do Tenant na validação. `TenantContext` lê exclusivamente da sessão e
+não é sincronizado com a URL. Usar a sessão quando a rota fornece o
+tenant cria divergência possível (sessão=A, URL=B) e remove a defesa
+contra manipulação de URL — vetor de IDOR.
+
+**Correto:** buscar o `Tenant` via repositório a partir do `$tenantId`
+da rota e usá-lo como fonte da verdade:
+
+```php
+public function minhaAction(
+    int $tenantId,
+    // ... outros params ...
+    TenantRepository $tenantRepository,
+    UserTenantRepository $userTenantRepository,
+): Response {
+    $tenant = $tenantRepository->find($tenantId);
+    if (!$tenant) {
+        throw $this->createNotFoundException();
+    }
+    $currentUser = $this->getUser();
+    $isOwnTenant = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
+    // ...
+}
+```
+
+**Por que isso preserva a defesa original:** a comparação anterior
+(`$currentUser->getTenant()?->getId() === $tenantId`) ancorava o
+controle no `$tenantId` da URL. O padrão B-route mantém esse âncora
+ao buscar o Tenant a partir do mesmo `$tenantId`, e adiciona a
+validação via `existeVinculoAtivo` por cima.
+
+**Quando usar B-route vs B puro:**
+- Action **tem** `$tenantId` (ou `Tenant`) na rota → B-route
+- Action **não tem** referência a tenant na rota, usa só sessão → B puro
+  com `assertAccess()` ou `getCurrentTenant()` (sem risco de divergência
+  porque não há outra fonte com a qual divergir)
+
+**Quando usar B-route vs A:**
+- Validando vínculo do user logado consigo mesmo (auto-acesso) → A
+  (`assertAccess()`)
+- Validando que o user logado tem vínculo com o tenant **da URL** → B-route
+- Validando vínculo de outro user com um tenant → B puro (cross-user)
+
+**Origem:** descoberta de risco IDOR antes do sub-lote 4b.3 da Fase 5c.3d.
+
+---
+
 ## Pontos de auditoria identificados mas NÃO tratados
 
 Tratar após a refatoração de identidade global:
@@ -410,6 +494,7 @@ Tratar após a refatoração de identidade global:
 - Padronizar chave de flash messages no projeto: `'erro'` gera `alert-erro` (classe Bootstrap inválida — sem estilização de cor). Mapear para `'danger'` ou ajustar `base.html.twig` para mapear `'erro' → 'danger'`. Afeta principalmente os controllers das fases 5b.3a e 5b.3b
 - Validação visual da regra `current_tenant().id == tenant.id` em `/tenant` impossível com apenas 1 tenant no banco de dev. Quando segundo tenant entrar (5c.3+), revalidar que botão "Editar" só aparece no card do tenant atualmente selecionado
 - `AtualizarBoardUseCase` (`app/src/Kanban/UseCase/AtualizarBoardUseCase.php`) não possui `KanbanBoardRepository` injetado e não chama flush explícito — depende do unit-of-work do Doctrine para persistir as mudanças no board. Comportamento atual e funcional, mas inconsistente com outros UseCases que chamam `$repository->salvar()` explicitamente. Revisar numa sprint futura.
+- `TenantController.php` tem ~1369 linhas com 20 actions cobrindo: criação/edição de tenant, gestão de usuários, perfis, ponto manual, justificativas, sedes, demissão, resource access. Candidato a quebra em controllers menores agrupados por responsabilidade. Não tratar na refatoração de identidade — sprint dedicada após a Etapa 6. Mesma lógica aplicada ao `PastaController` (~1700 linhas).
 - `PastaController.php` tem ~1700 linhas — controller monolítico, candidato a quebra em módulos menores (`PastaShowController`, `PastaChecklistController`, `PastaObservacaoController`, etc.). Não tratar na refatoração de identidade; tratar em sprint dedicada.
 - `TenantContextValidatorListener` não tem testes funcionais/integração cobrindo o cenário "user sem tenant tenta acessar rota protegida". Durante a Fase 5c.3b, 6 testes unitários `testUsuarioSemTenantLancaLogicException` dos UseCases de Pasta foram removidos (tornaram-se inaplicáveis com Tenant explícito) sem substituto direto. A barreira existe no código (listener redireciona para `tenant_selecionar`), mas não está coberta por teste automatizado. Criar testes funcionais para o listener em sprint futura.
 - Criar helper compartilhado `logarComTenant()` em WebTestCase base do projeto. A 5c.3b precisou implementar o helper em `PastaSecaoControllerTest`, e esse padrão vai se repetir em todo teste funcional das fases 5c.3c+. Não duplicar.
@@ -428,6 +513,38 @@ Tratar após a refatoração de identidade global:
 
 ---
 
+## Achados paralelos pra triagem posterior
+
+Lista única de observações feitas durante a refatoração de identidade
+global que não se relacionam diretamente com o escopo (separação
+user/user_tenant), mas foram registradas pra triagem futura. Nenhum
+desses itens bloqueia a refatoração em andamento.
+
+### A1 — Uso de `in_array('ROLE_SUPER_ADMIN', ...)` em PontoController
+
+**Origem:** auditoria do Lote 4a (Fase 5c.3d), 2026-05-11.
+
+**Local:**
+- `app/src/Controller/PontoController.php` — `exportarFolhaPdf` (~L670)
+- `app/src/Controller/PontoController.php` — `exportarFolhaXlsx` (~L753)
+
+**Trecho:**
+```php
+$isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+```
+
+**Status:** SUSPEITA, não confirmada. O `CLAUDE.md` aparentemente proíbe
+checagem direta de role via `in_array`, recomendando uso do
+`PermissionChecker`. Porém, o `CLAUDE.md` está marcado para revisão geral
+após a Etapa 6 e pode conter regras desatualizadas. A semântica do
+bypass (SUPER_ADMIN = dono da plataforma, acesso total cross-tenant)
+é intencional — o que está em discussão é a forma de implementar a
+checagem, não o comportamento.
+
+**Ação:** revisitar junto da revisão do `CLAUDE.md` pós-Etapa 6.
+
+---
+
 ## Como retomar em chat novo do Claude Code
 
 Este chat foi encerrado após a Etapa 4 para iniciar a Etapa 5 com contexto limpo.
@@ -440,10 +557,11 @@ No próximo chat, primeira mensagem deve ser:
 > **Não execute nada ainda — só confirme que entendeu o contexto.**
 
 ### Status atual ao iniciar chat novo
-- Etapas 1, 2, 3, 4 concluídas
-- Banco de dev local com dados reais de produção (restaurados em 07/05/2026)
+- Etapas 1, 2, 3, 4 concluídas; Etapa 5 em andamento (Sub-etapa 5c, Fase 5c.3d em andamento)
+- Fase 5c.3d: Pré-Lote + Lotes 1, 2, 3, 4a concluídos — restam Lote 4b (`TenantController`) e demais fases até 5c.4
+- Banco de dev com dados reais de produção (restaurados em 07/05/2026)
 - User dedicado de E2E (`e2e@jusprime.local`) funcional
-- 9/9 testes E2E passando
+- 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A)
 - Documento mestre `docs/refatoracao-identidade-global.md` atualizado e completo
 
 ### Pré-requisitos identificados que precisam ser tratados ANTES da Etapa 6
