@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Controller;
 
@@ -13,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/auditoria')]
-class AuditLogController extends AbstractController
+final class AuditLogController extends AbstractController
 {
     private const PER_PAGE = 50;
 
@@ -47,7 +48,7 @@ class AuditLogController extends AbstractController
         $dateTo = $this->parseDate($dateToInput);
         $page = max(1, $request->query->getInt('page', 1));
 
-        $tenantId = $currentUser->getTenant()?->getId();
+        $tenantId = $tenant?->getId();
 
         $entityOptions = $this->getEntityOptions($entityManager);
         $userOptions = $userRepository->findAuditFilterOptions(is_int($tenantId) ? $tenantId : null);

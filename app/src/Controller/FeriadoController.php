@@ -1,8 +1,10 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Controller;
 
 use App\Entity\Ponto\Feriado;
+use App\Entity\Tenant\Tenant;
 use App\Form\FeriadoType;
 use App\Repository\Ponto\FeriadoRepository;
 use App\Service\PermissionChecker;
@@ -20,7 +22,7 @@ final class FeriadoController extends AbstractController
         private readonly TenantContext $tenantContext,
     ) {}
 
-    private function assertAccess(int $tenantId, PermissionChecker $checker): void
+    private function assertAccess(int $tenantId, PermissionChecker $checker): Tenant
     {
         $user = $this->getUser();
 
@@ -28,14 +30,17 @@ final class FeriadoController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if ($user->getTenant()?->getId() !== $tenantId) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || $tenant->getId() !== $tenantId) {
             throw $this->createAccessDeniedException('Você não tem acesso aos feriados deste escritório.');
         }
 
-        $tenant = $this->tenantContext->getCurrentTenant();
         if (!$checker->canAdminister($user, $tenant, 'admin.tenant.settings.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para gerenciar feriados.');
         }
+
+        return $tenant;
     }
 
     #[Route('', name: 'app_feriado_index', methods: ['GET'])]
@@ -44,9 +49,9 @@ final class FeriadoController extends AbstractController
         FeriadoRepository $feriadoRepository,
         PermissionChecker $checker
     ): Response {
-        $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId, $checker);
 
-        $feriados = $feriadoRepository->findByTenantOrdenado($this->getUser()->getTenant());
+        $feriados = $feriadoRepository->findByTenantOrdenado($tenant);
 
         return $this->render('feriado/index.html.twig', [
             'tenantId' => $tenantId,
@@ -61,10 +66,10 @@ final class FeriadoController extends AbstractController
         EntityManagerInterface $em,
         PermissionChecker $checker
     ): Response {
-        $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId, $checker);
 
         $feriado = new Feriado();
-        $feriado->setTenant($this->getUser()->getTenant());
+        $feriado->setTenant($tenant);
         $feriado->setRecorrente(true);
 
         $form = $this->createForm(FeriadoType::class, $feriado);
@@ -93,9 +98,9 @@ final class FeriadoController extends AbstractController
         EntityManagerInterface $em,
         PermissionChecker $checker
     ): Response {
-        $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId, $checker);
 
-        if ($feriado->getTenant()?->getId() !== $tenantId) {
+        if ($feriado->getTenant()?->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException('Feriado não encontrado.');
         }
 
@@ -125,9 +130,9 @@ final class FeriadoController extends AbstractController
         EntityManagerInterface $em,
         PermissionChecker $checker
     ): Response {
-        $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId, $checker);
 
-        if ($feriado->getTenant()?->getId() !== $tenantId) {
+        if ($feriado->getTenant()?->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException('Feriado não encontrado.');
         }
 

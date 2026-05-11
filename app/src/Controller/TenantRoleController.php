@@ -1,7 +1,9 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
 use App\Form\TenantRoleType;
@@ -22,11 +24,7 @@ final class TenantRoleController extends AbstractController
         private readonly TenantContext $tenantContext,
     ) {}
 
-    /**
-     * Garante que o usuário autenticado tem admin.roles.manage
-     * e que o tenantId bate com o tenant do usuário.
-     */
-    private function assertAccess(int $tenantId, PermissionChecker $checker): void
+    private function assertAccess(int $tenantId, PermissionChecker $checker): Tenant
     {
         $user = $this->getUser();
 
@@ -34,14 +32,17 @@ final class TenantRoleController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if ($user->getTenant()?->getId() !== $tenantId) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || $tenant->getId() !== $tenantId) {
             throw $this->createAccessDeniedException('Você não tem acesso aos perfis deste escritório.');
         }
 
-        $tenant = $this->tenantContext->getCurrentTenant();
         if (!$checker->canAdminister($user, $tenant, 'admin.roles.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para gerenciar perfis.');
         }
+
+        return $tenant;
     }
 
     #[Route('', name: 'app_tenant_role_index', methods: ['GET'])]
@@ -50,9 +51,9 @@ final class TenantRoleController extends AbstractController
         TenantRoleRepository $roleRepository,
         PermissionChecker $checker
     ): Response {
-        $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId, $checker);
 
-        $roles = $roleRepository->findByTenantId($tenantId);
+        $roles = $roleRepository->findByTenantId($tenant->getId());
 
         return $this->render('tenant_role/index.html.twig', [
             'tenantId' => $tenantId,
@@ -68,10 +69,7 @@ final class TenantRoleController extends AbstractController
         PermissionRepository $permissionRepository,
         PermissionChecker $checker
     ): Response {
-        $this->assertAccess($tenantId, $checker);
-
-        $user = $this->getUser();
-        $tenant = $user->getTenant();
+        $tenant = $this->assertAccess($tenantId, $checker);
 
         $role = new TenantRole();
         $role->setTenant($tenant);
@@ -111,10 +109,9 @@ final class TenantRoleController extends AbstractController
         PermissionRepository $permissionRepository,
         PermissionChecker $checker
     ): Response {
-        $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId, $checker);
 
-        // Garante que o perfil pertence ao tenant da URL
-        if ($role->getTenant()?->getId() !== $tenantId) {
+        if ($role->getTenant()?->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException('Perfil não encontrado neste escritório.');
         }
 
@@ -166,9 +163,9 @@ final class TenantRoleController extends AbstractController
         EntityManagerInterface $em,
         PermissionChecker $checker
     ): Response {
-        $this->assertAccess($tenantId, $checker);
+        $tenant = $this->assertAccess($tenantId, $checker);
 
-        if ($role->getTenant()?->getId() !== $tenantId) {
+        if ($role->getTenant()?->getId() !== $tenant->getId()) {
             throw $this->createNotFoundException('Perfil não encontrado neste escritório.');
         }
 
