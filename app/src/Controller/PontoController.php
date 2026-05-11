@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Controller;
 
+use App\Entity\Auth\User;
 use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Ponto\JornadaTenant;
 use App\Entity\Ponto\JustificativaPonto;
@@ -15,6 +18,8 @@ use App\Service\Ponto\CalculadoraJornada;
 use App\Repository\Ponto\RegistroPontoRepository;
 use App\Repository\SedeRepository;
 use App\Repository\UserRepository;
+use App\Entity\Tenant\Tenant;
+use App\Repository\UserTenantRepository;
 use App\Service\NotificacaoService;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\PermissionChecker;
@@ -44,6 +49,8 @@ final class PontoController extends AbstractController
         private readonly JornadaResolver $jornadaResolver,
         private readonly GerarCodigoFuncionario $gerarCodigo,
         private readonly TenantContext $tenantContext,
+        private readonly PermissionChecker $permissionChecker,
+        private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -52,17 +59,12 @@ final class PontoController extends AbstractController
         RegistroPontoRepository $repository,
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
-        PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder
     ): Response {
-        /** @var \App\Entity\Auth\User $user */
+        /** @var User $user */
         $user = $this->getUser();
-        $jornadaTenant = $user->getTenant()?->getJornadaTenant();
-
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
-            throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
-        }
+        $tenant = $this->assertAccess($user);
+        $jornadaTenant = $tenant->getJornadaTenant();
 
         $agora = new \DateTimeImmutable();
         $mes = (int) $agora->format('m');
@@ -104,7 +106,7 @@ final class PontoController extends AbstractController
             $jornada = new JornadaColaborador();
             $jornada->setUser($user);
         }
-        $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
+        $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
         $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant);
@@ -157,16 +159,11 @@ final class PontoController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         JustificativaPontoRepository $justificativaRepository,
-        PermissionChecker $permissionChecker,
         NotificacaoService $notificacaoService
     ): Response {
-        /** @var \App\Entity\Auth\User $user */
+        /** @var User $user */
         $user = $this->getUser();
-
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
-            throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
-        }
+        $tenant = $this->assertAccess($user);
 
         $form = $this->createForm(JustificativaPontoType::class);
         $form->handleRequest($request);
@@ -248,7 +245,7 @@ final class PontoController extends AbstractController
             $entityManager->flush();
 
             if (!$isFaltaNaoJustificada) {
-                $urlGestor = $this->generateUrl('app_tenant_users', ['id' => $user->getTenant()->getId()]);
+                $urlGestor = $this->generateUrl('app_tenant_users', ['id' => $tenant->getId()]);
                 foreach ($justificativasCriadas as $j) {
                     $notificacaoService->notificarJustificativaEnviada($j, $urlGestor);
                 }
@@ -279,15 +276,10 @@ final class PontoController extends AbstractController
         JustificativaPonto $justificativa,
         Request $request,
         EntityManagerInterface $entityManager,
-        PermissionChecker $permissionChecker
     ): Response {
-        /** @var \App\Entity\Auth\User $user */
+        /** @var User $user */
         $user = $this->getUser();
-
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
-            throw $this->createAccessDeniedException();
-        }
+        $this->assertAccess($user);
 
         if ($justificativa->getUser()->getId() !== $user->getId()) {
             throw $this->createAccessDeniedException('Acesso negado a esta justificativa.');
@@ -340,15 +332,10 @@ final class PontoController extends AbstractController
     #[Route('/justificativa/{id}/anexo', name: 'ponto_justificativa_anexo', methods: ['GET'])]
     public function downloadAnexo(
         JustificativaPonto $justificativa,
-        PermissionChecker $permissionChecker
     ): Response {
-        /** @var \App\Entity\Auth\User $user */
+        /** @var User $user */
         $user = $this->getUser();
-
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
-            throw $this->createAccessDeniedException();
-        }
+        $this->assertAccess($user);
 
         if ($justificativa->getUser()->getId() !== $user->getId()) {
             throw $this->createAccessDeniedException('Acesso negado a este atestado.');
@@ -368,9 +355,9 @@ final class PontoController extends AbstractController
     }
 
     #[Route('/alerta-horario', name: 'ponto_alerta_horario', methods: ['GET'])]
-    public function alertaHorario(PermissionChecker $permissionChecker): JsonResponse
+    public function alertaHorario(): JsonResponse
     {
-        /** @var \App\Entity\Auth\User $user */
+        /** @var User $user */
         $user = $this->getUser();
 
         if (!$user) {
@@ -378,11 +365,11 @@ final class PontoController extends AbstractController
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             return $this->json(['alertar' => false]);
         }
 
-        $jornadaTenant = $user->getTenant()?->getJornadaTenant();
+        $jornadaTenant = $tenant?->getJornadaTenant();
 
         return $this->json($this->verificadorAlerta->verificar($user, new \DateTimeImmutable(), $jornadaTenant));
     }
@@ -393,9 +380,8 @@ final class PontoController extends AbstractController
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
-        PermissionChecker $permissionChecker
     ): JsonResponse {
-        /** @var \App\Entity\Auth\User $user */
+        /** @var User $user */
         $user = $this->getUser();
 
         if (!$user) {
@@ -403,15 +389,15 @@ final class PontoController extends AbstractController
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
             return $this->json(['success' => false, 'message' => 'Sem permissão para registrar ponto.'], 403);
         }
 
-        if ($user->getTenant() === null) {
+        if ($tenant === null) {
             return $this->json(['success' => false, 'message' => 'Usuário sem tenant configurado.'], 403);
         }
 
-        $jornadaTenant = $user->getTenant()->getJornadaTenant();
+        $jornadaTenant = $tenant->getJornadaTenant();
 
         $data = json_decode($request->getContent(), true);
 
@@ -483,7 +469,7 @@ final class PontoController extends AbstractController
             ], 422);
         }
 
-        $sedes = $sedeRepository->findBy(['tenant' => $user->getTenant()]);
+        $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
         if (empty($sedes)) {
             return $this->json([
                 'success' => false,
@@ -664,18 +650,13 @@ final class PontoController extends AbstractController
         RegistroPontoRepository $repository,
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
-        PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder,
         UserRepository $userRepository,
         Environment $twig
     ): Response {
-        /** @var \App\Entity\Auth\User $user */
+        /** @var User $user */
         $user = $this->getUser();
-
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
-            throw $this->createAccessDeniedException();
-        }
+        $tenant = $this->assertAccess($user);
 
         $targetUser = $user;
         $targetUserId = (int) $request->query->get('userId', 0);
@@ -687,9 +668,11 @@ final class PontoController extends AbstractController
             }
 
             $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-            $isSameTenant = $targetUser->getTenant()?->getId() === $user->getTenant()?->getId();
 
-            if (!$isSuperAdmin && !($isSameTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.users.manage'))) {
+            if (!$isSuperAdmin && !(
+                $this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)
+                && $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')
+            )) {
                 throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
             }
         }
@@ -700,9 +683,9 @@ final class PontoController extends AbstractController
         /** @var \App\Entity\Ponto\RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
         $jornada  = $targetUser->getJornadaColaborador();
-        $feriados = $targetUser->getTenant() !== null ? $feriadoRepository->findByTenant($targetUser->getTenant()) : [];
+        $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
-        $jornadaTenantPdf = $targetUser->getTenant()?->getJornadaTenant();
+        $jornadaTenantPdf = $tenant->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
@@ -713,35 +696,7 @@ final class PontoController extends AbstractController
             $nomeUsuario = (string) $targetUser->getUserIdentifier();
         }
 
-        $tenant  = $targetUser->getTenant();
-        $profile = $targetUser->getProfile();
-        $cargo   = $targetUser->getCargo();
-        $lotacao = $targetUser->getLotacao();
-
-        $inicioMesFormatado = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->format('d/m/Y');
-        $fimMesFormatado    = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->modify('last day of this month')->format('d/m/Y');
-
-        $cnpj = '';
-        if ($tenant?->getCnpj() !== null && $tenant->getCnpj() !== '') {
-            $raw = preg_replace('/\D/', '', $tenant->getCnpj()) ?? '';
-            if (strlen($raw) === 14) {
-                $cnpj = sprintf('%s.%s.%s/%s-%s', substr($raw, 0, 2), substr($raw, 2, 3), substr($raw, 5, 3), substr($raw, 8, 4), substr($raw, 12, 2));
-            } else {
-                $cnpj = $tenant->getCnpj();
-            }
-        }
-
-        $enderecoPartes = array_filter([
-            $tenant?->getLogradouro(),
-            $tenant?->getNumero() ? ', ' . $tenant->getNumero() : null,
-            $tenant?->getComplemento() ? ' - ' . $tenant->getComplemento() : null,
-        ]);
-        $enderecoLinha1 = implode('', $enderecoPartes);
-        $cidadeEstado   = trim(($tenant?->getBairro() ? $tenant->getBairro() . ' - ' : '') . ($tenant?->getCidade() ?? '') . ($tenant?->getEstado() ? ' - ' . $tenant->getEstado() : ''));
-        $cep            = $tenant?->getCep() ? ' CEP ' . $tenant->getCep() : '';
-        $enderecoLinha2 = trim($cidadeEstado . $cep);
-
-        $dados = $this->montarDadosFolha($targetUser, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantPdf, $folhaPontoBuilder);
+        $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantPdf, $folhaPontoBuilder);
 
         $html = $twig->render('ponto/folha_pdf.html.twig', $dados);
 
@@ -778,18 +733,13 @@ final class PontoController extends AbstractController
         RegistroPontoRepository $repository,
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
-        PermissionChecker $permissionChecker,
         FolhaPontoBuilder $folhaPontoBuilder,
         FolhaPontoXlsxExporter $xlsxExporter,
         UserRepository $userRepository
     ): StreamedResponse {
-        /** @var \App\Entity\Auth\User $user */
+        /** @var User $user */
         $user = $this->getUser();
-
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
-            throw $this->createAccessDeniedException();
-        }
+        $tenant = $this->assertAccess($user);
 
         $targetUser = $user;
         $targetUserId = (int) $request->query->get('userId', 0);
@@ -801,9 +751,11 @@ final class PontoController extends AbstractController
             }
 
             $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-            $isSameTenant = $targetUser->getTenant()?->getId() === $user->getTenant()?->getId();
 
-            if (!$isSuperAdmin && !($isSameTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.users.manage'))) {
+            if (!$isSuperAdmin && !(
+                $this->userTenantRepository->existeVinculoAtivo($targetUser, $tenant)
+                && $this->permissionChecker->canAdminister($user, $tenant, 'admin.users.manage')
+            )) {
                 throw $this->createAccessDeniedException('Sem permissão para exportar folha deste usuário.');
             }
         }
@@ -814,9 +766,9 @@ final class PontoController extends AbstractController
         /** @var RegistroPonto[] $batidas */
         $batidas = $repository->findByUserAndCompetencia($targetUser, $ano, $mes);
         $jornada  = $targetUser->getJornadaColaborador();
-        $feriados = $targetUser->getTenant() !== null ? $feriadoRepository->findByTenant($targetUser->getTenant()) : [];
+        $feriados = $feriadoRepository->findByTenant($tenant);
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($targetUser, $ano, $mes);
-        $jornadaTenantXlsx = $targetUser->getTenant()?->getJornadaTenant();
+        $jornadaTenantXlsx = $tenant->getJornadaTenant();
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
@@ -834,30 +786,7 @@ final class PontoController extends AbstractController
 
         $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.xlsx', $nomeUsuario, $mes, $ano);
 
-        $tenant  = $targetUser->getTenant();
-        $profile = $targetUser->getProfile();
-        $cargo   = $targetUser->getCargo();
-        $lotacao = $targetUser->getLotacao();
-
-        $inicioMesFormatado = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->format('d/m/Y');
-        $fimMesFormatado    = (new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes)))->modify('last day of this month')->format('d/m/Y');
-
-        $cnpj = '';
-        if ($tenant?->getCnpj() !== null && $tenant->getCnpj() !== '') {
-            $raw = preg_replace('/\D/', '', $tenant->getCnpj()) ?? '';
-            if (strlen($raw) === 14) {
-                $cnpj = sprintf('%s.%s.%s/%s-%s', substr($raw, 0, 2), substr($raw, 2, 3), substr($raw, 5, 3), substr($raw, 8, 4), substr($raw, 12, 2));
-            } else {
-                $cnpj = $tenant->getCnpj();
-            }
-        }
-
-        $nomeXlsx = trim((string) $targetUser->getFullName());
-        if ($nomeXlsx === '') {
-            $nomeXlsx = (string) $targetUser->getUserIdentifier();
-        }
-
-        $dados = $this->montarDadosFolha($targetUser, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantXlsx, $folhaPontoBuilder);
+        $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantXlsx, $folhaPontoBuilder);
 
         return $xlsxExporter->exportar($dados['folhaRows'], $nomeArquivo, $dados);
     }
@@ -871,6 +800,7 @@ final class PontoController extends AbstractController
      */
     private function montarDadosFolha(
         \App\Entity\Auth\User $targetUser,
+        Tenant $tenant,
         int $ano,
         int $mes,
         array $folhaRows,
@@ -879,10 +809,10 @@ final class PontoController extends AbstractController
         ?\App\Entity\Ponto\JornadaTenant $jornadaTenant,
         FolhaPontoBuilder $builder,
     ): array {
-        $tenant  = $targetUser->getTenant();
-        $profile = $targetUser->getProfile();
-        $cargo   = $targetUser->getCargo();
-        $lotacao = $targetUser->getLotacao();
+        $profile    = $targetUser->getProfile();
+        $userTenant = $this->userTenantRepository->findAtivoPorUserETenant($targetUser, $tenant);
+        $cargo      = $userTenant?->getCargo();
+        $lotacao    = $userTenant?->getLotacao();
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -988,8 +918,8 @@ final class PontoController extends AbstractController
             'cnpj'                    => $this->formatarCnpj($tenant?->getCnpj() ?? ''),
             'enderecoLinha1'          => implode('', $enderecoPartes),
             'enderecoLinha2'          => trim($cidadeEstado . $cep),
-            'codigoFuncionario'       => $targetUser->getCodigoFuncionario()
-                ?? ($tenant !== null ? $this->gerarCodigo->executar($tenant) : ''),
+            'codigoFuncionario'       => $userTenant?->getCodigoFuncionario()
+                ?? $this->gerarCodigo->executar($tenant),
             'cpf'                     => $this->formatarCpf($profile?->getCpf() ?? ''),
             'cargo'                   => mb_strtoupper($cargo?->getNome() ?? ''),
             'ctps'                    => $profile?->getCtps() ?? '',
@@ -1017,14 +947,27 @@ final class PontoController extends AbstractController
             'interjornadaConforme'    => $interjornadaConforme,
             'responsavelAssinatura'   => $tenant?->getResponsavelAssinatura() ?? '',
             // retrocompatibilidade com campos usados pela visualização da folha na tela
-            'numeroTrabalhador' => $targetUser->getCodigoFuncionario()
-                ?? ($tenant !== null ? $this->gerarCodigo->executar($tenant) : ''),
+            'numeroTrabalhador' => $userTenant?->getCodigoFuncionario()
+                ?? $this->gerarCodigo->executar($tenant),
             'descrJornada'  => $descrJornada,
             'horaEntrada'   => $horarios['entrada'] . ' h',
             'horaRepouso'   => $horarios['repouso'] . ' h',
             'horaRetorno'   => $horarios['retorno'] . ' h',
             'horaSaida'     => $horarios['saida'] . ' h',
         ];
+    }
+
+    private function assertAccess(User $user): Tenant
+    {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
+            throw $this->createAccessDeniedException('Sem tenant selecionado.');
+        }
+        if (!$this->permissionChecker->canAccessModule($user, $tenant, 'ponto')) {
+            throw $this->createAccessDeniedException('Sem acesso ao módulo Ponto Eletrônico.');
+        }
+
+        return $tenant;
     }
 
     private function formatarMinutos(int|null $minutos): string
