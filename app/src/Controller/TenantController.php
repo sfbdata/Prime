@@ -30,6 +30,7 @@ use App\Repository\SedeRepository;
 use App\Repository\CargoRepository;
 use App\Repository\LotacaoRepository;
 use App\Repository\TenantRepository;
+use App\Repository\UserTenantRepository;
 use App\Repository\TenantRoleRepository;
 use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\Form\DadosPessoaisType;
@@ -672,7 +673,9 @@ final class TenantController extends AbstractController
         User $user,
         Request $request,
         EntityManagerInterface $entityManager,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
         $currentUser = $this->getUser();
 
@@ -680,11 +683,19 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para lançar batidas.');
         }
 
@@ -734,7 +745,9 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         RegistroPontoRepository $registroPontoRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
         $currentUser = $this->getUser();
 
@@ -742,11 +755,19 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para editar batidas.');
         }
 
@@ -816,7 +837,9 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         RegistroPontoRepository $registroPontoRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
         $currentUser = $this->getUser();
 
@@ -824,11 +847,19 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para excluir batidas.');
         }
 
