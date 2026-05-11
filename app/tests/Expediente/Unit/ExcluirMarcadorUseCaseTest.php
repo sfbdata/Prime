@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Expediente\Unit;
 
 use App\Entity\Auth\User;
@@ -8,10 +10,12 @@ use App\Expediente\Entity\Marcador;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Expediente\UseCase\ExcluirMarcadorUseCase;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-class ExcluirMarcadorUseCaseTest extends TestCase
+#[CoversClass(ExcluirMarcadorUseCase::class)]
+final class ExcluirMarcadorUseCaseTest extends TestCase
 {
     private MarcadorRepository&MockObject $repository;
     private EntityManagerInterface&MockObject $em;
@@ -26,7 +30,7 @@ class ExcluirMarcadorUseCaseTest extends TestCase
         $this->useCase    = new ExcluirMarcadorUseCase($this->repository, $this->em);
 
         $this->tenant  = new Tenant();
-        $this->usuario = (new User())->setEmail('user@test.com')->setTenant($this->tenant);
+        $this->usuario = (new User())->setEmail('user@test.com');
     }
 
     public function testExcluirMarcadorExistente(): void
@@ -42,7 +46,7 @@ class ExcluirMarcadorUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('remove')->with($marcador);
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar(5, $this->usuario);
+        $resultado = $this->useCase->executar(5, $this->tenant);
 
         $this->assertSame($marcador, $resultado);
     }
@@ -61,15 +65,13 @@ class ExcluirMarcadorUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Marcador não encontrado.');
 
-        $this->useCase->executar(999, $this->usuario);
+        $this->useCase->executar(999, $this->tenant);
     }
 
     public function testExcluirNaoAfetaMarcadorDeOutroTenant(): void
     {
         $outraTenant = new Tenant();
-        $outroUsuario = (new User())->setEmail('outro@test.com')->setTenant($outraTenant);
 
-        // repository filtra por tenant — retorna null para outro tenant
         $this->repository
             ->expects($this->once())
             ->method('findPorTenant')
@@ -80,6 +82,6 @@ class ExcluirMarcadorUseCaseTest extends TestCase
 
         $this->expectException(\DomainException::class);
 
-        $this->useCase->executar(1, $outroUsuario);
+        $this->useCase->executar(1, $outraTenant);
     }
 }

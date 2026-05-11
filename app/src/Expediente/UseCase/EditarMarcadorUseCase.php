@@ -2,7 +2,7 @@
 
 namespace App\Expediente\UseCase;
 
-use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use App\Expediente\Repository\MarcadorRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -19,9 +19,9 @@ class EditarMarcadorUseCase
         private readonly EntityManagerInterface $em,
     ) {}
 
-    public function executar(int $id, string $nome, ?string $cor, User $usuario): Marcador
+    public function executar(int $id, string $nome, ?string $cor, Tenant $tenant): Marcador
     {
-        $marcador = $this->repository->findPorTenant($id, $usuario->getTenant());
+        $marcador = $this->repository->findPorTenant($id, $tenant);
 
         if ($marcador === null) {
             throw new \DomainException('Marcador não encontrado.');

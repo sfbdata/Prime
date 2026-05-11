@@ -3,6 +3,7 @@
 namespace App\Expediente\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Expediente\DTO\CriarMarcadorDTO;
 use App\Expediente\Entity\Marcador;
 use App\Expediente\Repository\MarcadorRepository;
@@ -16,10 +17,9 @@ class CriarMarcadorUseCase
         private readonly EntityManagerInterface $em,
     ) {}
 
-    public function executar(CriarMarcadorDTO $dto, User $usuario): Marcador
+    public function executar(CriarMarcadorDTO $dto, User $usuario, Tenant $tenant): Marcador
     {
-        $tenant = $usuario->getTenant();
-        $pai    = null;
+        $pai = null;
 
         if ($dto->paiId !== null) {
             $pai = $this->repository->findPorTenant($dto->paiId, $tenant);

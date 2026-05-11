@@ -2,8 +2,8 @@
 
 namespace App\Expediente\UseCase;
 
-use App\Entity\Auth\User;
 use App\Entity\Pasta\Pasta;
+use App\Entity\Tenant\Tenant;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -20,14 +20,12 @@ class SincronizarMarcadoresDaPastaUseCase
     /**
      * Define exatamente quais marcadores a pasta deve ter.
      * Adiciona os novos e remove os que não estão na lista.
-     * Valida que pasta e todos os marcadores pertencem ao tenant do usuário.
+     * Valida que todos os marcadores pertencem ao tenant.
      *
      * @param int[] $marcadorIds IDs desejados (pode ser vazio para remover todos)
      */
-    public function executar(int $pastaId, array $marcadorIds, User $usuario): Pasta
+    public function executar(int $pastaId, array $marcadorIds, Tenant $tenant): Pasta
     {
-        $tenant = $usuario->getTenant();
-
         $pasta = $this->pastaRepository->find($pastaId);
         if ($pasta === null) {
             throw new NotFoundHttpException('Pasta não encontrada.');

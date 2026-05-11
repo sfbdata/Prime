@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Expediente\Unit;
 
 use App\Entity\Auth\User;
@@ -9,11 +11,13 @@ use App\Expediente\Entity\Marcador;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Expediente\UseCase\CriarMarcadorUseCase;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-class CriarMarcadorUseCaseTest extends TestCase
+#[CoversClass(CriarMarcadorUseCase::class)]
+final class CriarMarcadorUseCaseTest extends TestCase
 {
     private MarcadorRepository&MockObject $repository;
     private EntityManagerInterface&MockObject $em;
@@ -28,7 +32,7 @@ class CriarMarcadorUseCaseTest extends TestCase
         $this->useCase    = new CriarMarcadorUseCase($this->repository, $this->em);
 
         $this->tenant  = new Tenant();
-        $this->usuario = (new User())->setEmail('user@test.com')->setTenant($this->tenant);
+        $this->usuario = (new User())->setEmail('user@test.com');
     }
 
     public function testCriarMarcadorSimples(): void
@@ -39,7 +43,7 @@ class CriarMarcadorUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(Marcador::class));
         $this->em->expects($this->once())->method('flush');
 
-        $marcador = $this->useCase->executar($dto, $this->usuario);
+        $marcador = $this->useCase->executar($dto, $this->usuario, $this->tenant);
 
         $this->assertSame('Urgente', $marcador->getNome());
         $this->assertSame($this->tenant, $marcador->getTenant());
@@ -55,7 +59,7 @@ class CriarMarcadorUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $marcador = $this->useCase->executar($dto, $this->usuario);
+        $marcador = $this->useCase->executar($dto, $this->usuario, $this->tenant);
 
         $this->assertSame('#fde8e8', $marcador->getCor());
     }
@@ -69,7 +73,7 @@ class CriarMarcadorUseCaseTest extends TestCase
 
         $marcadores = [];
         foreach ($nomes as $nome) {
-            $marcadores[] = $this->useCase->executar(new CriarMarcadorDTO(nome: $nome), $this->usuario);
+            $marcadores[] = $this->useCase->executar(new CriarMarcadorDTO(nome: $nome), $this->usuario, $this->tenant);
         }
 
         $this->assertCount(4, $marcadores);
@@ -92,7 +96,7 @@ class CriarMarcadorUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $marcador = $this->useCase->executar($dto, $this->usuario);
+        $marcador = $this->useCase->executar($dto, $this->usuario, $this->tenant);
 
         $this->assertSame('Filho', $marcador->getNome());
         $this->assertSame($pai, $marcador->getPai());
@@ -113,6 +117,6 @@ class CriarMarcadorUseCaseTest extends TestCase
 
         $this->expectException(NotFoundHttpException::class);
 
-        $this->useCase->executar($dto, $this->usuario);
+        $this->useCase->executar($dto, $this->usuario, $this->tenant);
     }
 }

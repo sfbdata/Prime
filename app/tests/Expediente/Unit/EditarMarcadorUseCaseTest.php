@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Tests\Expediente\Unit;
 
 use App\Entity\Auth\User;
@@ -8,10 +10,12 @@ use App\Expediente\Entity\Marcador;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Expediente\UseCase\EditarMarcadorUseCase;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-class EditarMarcadorUseCaseTest extends TestCase
+#[CoversClass(EditarMarcadorUseCase::class)]
+final class EditarMarcadorUseCaseTest extends TestCase
 {
     private MarcadorRepository&MockObject $repository;
     private EntityManagerInterface&MockObject $em;
@@ -26,7 +30,7 @@ class EditarMarcadorUseCaseTest extends TestCase
         $this->useCase    = new EditarMarcadorUseCase($this->repository, $this->em);
 
         $this->tenant  = new Tenant();
-        $this->usuario = (new User())->setEmail('user@test.com')->setTenant($this->tenant);
+        $this->usuario = (new User())->setEmail('user@test.com');
     }
 
     public function testEditarNomeDoMarcador(): void
@@ -41,7 +45,7 @@ class EditarMarcadorUseCaseTest extends TestCase
 
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar(1, 'Novo Nome', null, $this->usuario);
+        $resultado = $this->useCase->executar(1, 'Novo Nome', null, $this->tenant);
 
         $this->assertSame('Novo Nome', $resultado->getNome());
         $this->assertNull($resultado->getCor());
@@ -57,7 +61,7 @@ class EditarMarcadorUseCaseTest extends TestCase
 
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar(1, 'Marcador', '#e8fdf0', $this->usuario);
+        $resultado = $this->useCase->executar(1, 'Marcador', '#e8fdf0', $this->tenant);
 
         $this->assertSame('#e8fdf0', $resultado->getCor());
     }
@@ -75,7 +79,7 @@ class EditarMarcadorUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Cor inválida.');
 
-        $this->useCase->executar(1, 'Marcador', '#000000', $this->usuario);
+        $this->useCase->executar(1, 'Marcador', '#000000', $this->tenant);
     }
 
     public function testEditarMarcadorInexistenteLancaExcecao(): void
@@ -91,6 +95,6 @@ class EditarMarcadorUseCaseTest extends TestCase
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('Marcador não encontrado.');
 
-        $this->useCase->executar(999, 'Qualquer', null, $this->usuario);
+        $this->useCase->executar(999, 'Qualquer', null, $this->tenant);
     }
 }
