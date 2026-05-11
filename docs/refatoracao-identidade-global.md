@@ -612,6 +612,31 @@ verificar a assinatura da action e aplicar a guarda 1 quando houver
 Registrado aqui pra rastreabilidade — a refatoração de identidade
 fechou um buraco de autorização pré-existente como efeito colateral.
 
+### A3 — 13 testes com erro "Class not found" em UseCases de Expediente
+
+**Origem:** descoberto na execução da suite após commit do sub-lote 4b.3
+(Fase 5c.3d), 2026-05-11.
+
+**Local:**
+- `tests/Expediente/Unit/MoverPastaMarcadoresUseCaseTest.php` (8 erros)
+- `tests/Expediente/Unit/RemoverMarcadorDaPastaUseCaseTest.php` (5 erros)
+
+**Problema:** os testes referenciam classes que não existem no código:
+- `App\Expediente\UseCase\MoverPastaMarcadoresUseCase`
+- `App\Expediente\UseCase\RemoverMarcadorDaPastaUseCase`
+
+Provavelmente os UseCases foram movidos, renomeados ou deletados em
+alguma fase anterior, mas os testes não foram atualizados. Pré-existente
+ao Lote 4b — confirmado por execução isolada do arquivo de teste no
+estado pré-4b.3 (mesma falha).
+
+**Status:** não-bloqueador. 441 dos 454 testes passam. Os 13 erros são
+sempre os mesmos e independem das mudanças do Lote 4b.
+
+**Ação:** triagem em momento dedicado (não durante a refatoração de
+identidade). Restaurar as classes ou deletar os testes — decisão de
+produto.
+
 ---
 
 ## Como retomar em chat novo do Claude Code
