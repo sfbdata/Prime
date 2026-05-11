@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Controller;
 
@@ -35,9 +36,9 @@ final class JornadaTenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-        $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
+        $tenantCtx    = $this->tenantContext->getCurrentTenant();
+        $isOwnTenant  = $tenantCtx?->getId() === $tenant->getId();
 
-        $tenantCtx = $this->tenantContext->getCurrentTenant();
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenantCtx, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para configurar jornada.');
         }
@@ -92,9 +93,9 @@ final class JornadaTenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-        $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
+        $tenantCtx    = $this->tenantContext->getCurrentTenant();
+        $isOwnTenant  = $tenantCtx?->getId() === $tenant->getId();
 
-        $tenantCtx = $this->tenantContext->getCurrentTenant();
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenantCtx, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para configurar jornada.');
         }

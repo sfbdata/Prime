@@ -1,11 +1,14 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Controller;
 
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Permission\ResourceAccess;
+use App\Entity\Tenant\Tenant;
 use App\Repository\AccessRequestRepository;
 use App\Repository\ResourceAccessRepository;
+use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -27,13 +30,10 @@ final class AccessRequestController extends AbstractController
 {
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
-    /**
-     * Garante que o usuário autenticado tem admin.access_requests.approve
-     * e que pertence a um tenant válido.
-     */
-    private function assertAccess(PermissionChecker $checker): void
+    private function assertAccess(PermissionChecker $checker): Tenant
     {
         $user = $this->getUser();
 
@@ -42,27 +42,27 @@ final class AccessRequestController extends AbstractController
         }
 
         $tenant = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null) {
+            throw $this->createAccessDeniedException('Usuário sem tenant associado.');
+        }
+
         if (!$checker->canAdminister($user, $tenant, 'admin.access_requests.approve')) {
             throw $this->createAccessDeniedException('Você não tem permissão para aprovar solicitações de acesso.');
         }
 
-        if ($user->getTenant() === null) {
-            throw $this->createAccessDeniedException('Usuário sem tenant associado.');
-        }
+        return $tenant;
     }
 
-    /**
-     * Garante que a solicitação pertence ao tenant do admin logado.
-     * Reforço de isolamento antes de qualquer mutação.
-     */
-    private function assertBelongsToAdminTenant(AccessRequest $request): void
+    private function assertBelongsToAdminTenant(AccessRequest $accessRequest, Tenant $tenant): void
     {
-        $admin = $this->getUser();
+        $requestingUser = $accessRequest->getUser();
 
-        $adminTenantId   = $admin->getTenant()?->getId();
-        $requestTenantId = $request->getUser()?->getTenant()?->getId();
+        if ($requestingUser === null) {
+            throw $this->createAccessDeniedException('Esta solicitação não pertence ao seu escritório.');
+        }
 
-        if ($adminTenantId !== $requestTenantId) {
+        if (!$this->userTenantRepository->existeVinculoAtivo($requestingUser, $tenant)) {
             throw $this->createAccessDeniedException('Esta solicitação não pertence ao seu escritório.');
         }
     }
@@ -133,11 +133,9 @@ final class AccessRequestController extends AbstractController
         AccessRequestRepository $repository,
         PermissionChecker $checker,
     ): Response {
-        $this->assertAccess($checker);
+        $tenant = $this->assertAccess($checker);
 
-        $admin = $this->getUser();
-
-        $requests = $repository->findPendingByTenant($admin->getTenant());
+        $requests = $repository->findPendingByTenant($tenant);
 
         return $this->render('access_request/index.html.twig', [
             'requests' => $requests,
@@ -160,7 +158,7 @@ final class AccessRequestController extends AbstractController
         EntityManagerInterface $em,
         PermissionChecker $checker,
     ): Response {
-        $this->assertAccess($checker);
+        $tenant = $this->assertAccess($checker);
 
         $accessRequest = $accessRequestRepository->find($id);
 
@@ -168,7 +166,7 @@ final class AccessRequestController extends AbstractController
             throw $this->createNotFoundException('Solicitação não encontrada.');
         }
 
-        $this->assertBelongsToAdminTenant($accessRequest);
+        $this->assertBelongsToAdminTenant($accessRequest, $tenant);
 
         if (!$accessRequest->isPending()) {
             $this->addFlash('warning', 'Esta solicitação já foi decidida.');
@@ -241,7 +239,7 @@ final class AccessRequestController extends AbstractController
         EntityManagerInterface $em,
         PermissionChecker $checker,
     ): Response {
-        $this->assertAccess($checker);
+        $tenant = $this->assertAccess($checker);
 
         $accessRequest = $accessRequestRepository->find($id);
 
@@ -249,7 +247,7 @@ final class AccessRequestController extends AbstractController
             throw $this->createNotFoundException('Solicitação não encontrada.');
         }
 
-        $this->assertBelongsToAdminTenant($accessRequest);
+        $this->assertBelongsToAdminTenant($accessRequest, $tenant);
 
         if (!$accessRequest->isPending()) {
             $this->addFlash('warning', 'Esta solicitação já foi decidida.');

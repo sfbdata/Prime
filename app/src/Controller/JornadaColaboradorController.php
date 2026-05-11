@@ -8,6 +8,7 @@ use App\Entity\Ponto\BlocoJornadaColaborador;
 use App\Entity\Ponto\JornadaColaborador;
 use App\Entity\Auth\User;
 use App\Repository\Ponto\JornadaColaboradorRepository;
+use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -22,6 +23,7 @@ final class JornadaColaboradorController extends AbstractController
 {
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_get', methods: ['GET'])]
@@ -37,19 +39,19 @@ final class JornadaColaboradorController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $tenant       = $this->tenantContext->getCurrentTenant();
+        $isOwnTenant  = $tenant?->getId() === $tenantId;
 
-        $tenant = $this->tenantContext->getCurrentTenant();
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
-        if ($user->getTenant()?->getId() !== $tenantId && !$isSuperAdmin) {
+        if (!$isSuperAdmin && ($tenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $tenant))) {
             throw $this->createAccessDeniedException('Usuário não pertence a este tenant.');
         }
 
         $jornada       = $user->getJornadaColaborador();
-        $jornadaTenant = $user->getTenant()?->getJornadaTenant();
+        $jornadaTenant = $tenant?->getJornadaTenant();
 
         $blocosTenant = [];
         if ($jornadaTenant !== null) {
@@ -117,14 +119,14 @@ final class JornadaColaboradorController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $tenant       = $this->tenantContext->getCurrentTenant();
+        $isOwnTenant  = $tenant?->getId() === $tenantId;
 
-        $tenant = $this->tenantContext->getCurrentTenant();
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
-        if ($user->getTenant()?->getId() !== $tenantId && !$isSuperAdmin) {
+        if (!$isSuperAdmin && ($tenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $tenant))) {
             throw $this->createAccessDeniedException('Usuário não pertence a este tenant.');
         }
 
@@ -196,14 +198,14 @@ final class JornadaColaboradorController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $tenant       = $this->tenantContext->getCurrentTenant();
+        $isOwnTenant  = $tenant?->getId() === $tenantId;
 
-        $tenant = $this->tenantContext->getCurrentTenant();
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
-        if ($user->getTenant()?->getId() !== $tenantId && !$isSuperAdmin) {
+        if (!$isSuperAdmin && ($tenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $tenant))) {
             throw $this->createAccessDeniedException('Usuário não pertence a este tenant.');
         }
 
