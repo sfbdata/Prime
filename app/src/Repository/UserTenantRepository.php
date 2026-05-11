@@ -37,4 +37,9 @@ class UserTenantRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult() > 0;
     }
+
+    public function findAtivoPorUserETenant(User $user, Tenant $tenant): ?UserTenant
+    {
+        return $this->findOneBy(['user' => $user, 'tenant' => $tenant, 'isActive' => true]);
+    }
 }
