@@ -415,30 +415,57 @@ tenant cria divergência possível (sessão=A, URL=B) e remove a defesa
 contra manipulação de URL — vetor de IDOR.
 
 **Correto:** buscar o `Tenant` via repositório a partir do `$tenantId`
-da rota e usá-lo como fonte da verdade:
+da rota e usá-lo como fonte da verdade.
+
+**Quando a action também recebe um `User $user` (target) na rota** —
+caso típico de actions tipo `/{tenantId}/user/{id}/...` — é obrigatório
+adicionar uma segunda guarda validando que o target user pertence ao
+tenant da URL. O `ParamConverter` padrão do Symfony resolve `User` por
+ID global, sem filtro de tenant — sem essa guarda, um admin do tenant
+A pode operar sobre um user do tenant B via URL manipulada.
 
 ```php
 public function minhaAction(
     int $tenantId,
+    User $user,                              // target user (rota /{id})
     // ... outros params ...
     TenantRepository $tenantRepository,
     UserTenantRepository $userTenantRepository,
+    PermissionChecker $permissionChecker,
 ): Response {
     $tenant = $tenantRepository->find($tenantId);
     if (!$tenant) {
         throw $this->createNotFoundException();
     }
-    $currentUser = $this->getUser();
+
+    // Guarda 1: target user pertence ao tenant da URL.
+    // Vale pra TODOS, incluindo SUPER_ADMIN — operação cross-tenant
+    // sobre usuários individuais não tem caso de uso legítimo.
+    // createNotFoundException (não AccessDenied): não vaza que o user
+    // existe em outro tenant.
+    if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+        throw $this->createNotFoundException();
+    }
+
+    $currentUser  = $this->getUser();
+    $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+
+    // Guarda 2: admin logado pertence ao tenant da URL.
+    // SUPER_ADMIN bypass mantido: acesso cross-tenant intencional pra
+    // dono da plataforma.
     $isOwnTenant = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
-    // ...
+
+    if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, '...'))) {
+        throw $this->createAccessDeniedException('...');
+    }
+
+    // ... lógica da action ...
 }
 ```
 
-**Por que isso preserva a defesa original:** a comparação anterior
-(`$currentUser->getTenant()?->getId() === $tenantId`) ancorava o
-controle no `$tenantId` da URL. O padrão B-route mantém esse âncora
-ao buscar o Tenant a partir do mesmo `$tenantId`, e adiciona a
-validação via `existeVinculoAtivo` por cima.
+**Quando a action NÃO recebe target user pela rota** (só `$tenantId`),
+aplica só a guarda 2 (admin logado). Não inventar target user a partir
+de outras fontes.
 
 **Quando usar B-route vs B puro:**
 - Action **tem** `$tenantId` (ou `Tenant`) na rota → B-route
@@ -450,9 +477,17 @@ validação via `existeVinculoAtivo` por cima.
 - Validando vínculo do user logado consigo mesmo (auto-acesso) → A
   (`assertAccess()`)
 - Validando que o user logado tem vínculo com o tenant **da URL** → B-route
-- Validando vínculo de outro user com um tenant → B puro (cross-user)
+- Validando vínculo de outro user com um tenant → B-route (guarda 1)
 
-**Origem:** descoberta de risco IDOR antes do sub-lote 4b.3 da Fase 5c.3d.
+**Sobre SUPER_ADMIN:** o bypass na guarda 2 é intencional (dono da
+plataforma tem acesso cross-tenant por design). A guarda 1 (target user)
+NÃO tem bypass — vale pra todos. Fluxos cross-tenant legítimos pro
+SUPER_ADMIN devem usar endpoints dedicados, não actions de tenant
+específico.
+
+**Origem:** descoberta de risco IDOR antes do sub-lote 4b.3 da Fase 5c.3d,
+e descoberta da ausência de guarda no target user durante a expansão
+do mesmo sub-lote.
 
 ---
 
@@ -542,6 +577,40 @@ bypass (SUPER_ADMIN = dono da plataforma, acesso total cross-tenant)
 checagem, não o comportamento.
 
 **Ação:** revisitar junto da revisão do `CLAUDE.md` pós-Etapa 6.
+
+### A2 — Ausência de guarda do target user em actions com User $user na rota
+
+**Origem:** descoberta durante a expansão do sub-lote 4b.3 (Fase 5c.3d),
+2026-05-11.
+
+**Local:** `app/src/Controller/TenantController.php` — múltiplas actions
+com rota `/{tenantId}/user/{id}/...`. Identificadas no plano do Lote 4b
+(além das 3 do sub-lote 4b.3 já corrigidas):
+- editUserRole (deferida — sprint arquitetural)
+- editUserName
+- demitirFuncionario
+- aprovarJustificativa
+- rejeitarJustificativa
+- novaJustificativaAdmin
+- downloadAnexoJustificativa
+- removeResourceAccess
+- (revisar lista completa contra mapeamento das 21 refs do Lote 4b)
+
+**Problema:** o `ParamConverter` padrão resolve `User $user` por ID
+global, sem filtro de tenant. Não há `Voter` no projeto. O
+`TenantContextValidatorListener` valida apenas o `$currentUser` logado,
+não o target. Resultado: admin do tenant A pode operar sobre user do
+tenant B via URL manipulada (`/B/user/{id_de_user_de_B}/...`).
+
+**Status:** sendo corrigido in-loco durante o Lote 4b pela aplicação do
+Padrão B-route com guarda 1 (validação do target user). Cada sub-lote
+remanescente do Lote 4b (4b.1, 4b.2, 4b.4, 4b.5, 4b.6a, 4b.6b) deve
+verificar a assinatura da action e aplicar a guarda 1 quando houver
+`User $user` na rota.
+
+**Ação:** sem ação adicional além da execução normal do Lote 4b.
+Registrado aqui pra rastreabilidade — a refatoração de identidade
+fechou um buraco de autorização pré-existente como efeito colateral.
 
 ---
 
