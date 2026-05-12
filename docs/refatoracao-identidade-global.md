@@ -6,10 +6,11 @@ Separar `user` (identidade global, 1 conta por pessoa) de `user_tenant` (víncul
 
 ---
 
-## Estado atual — 11/05/2026
+## Estado atual — 12/05/2026
 
-- **Última fase concluída:** 5c.3d Lote 4a — `PontoController` (commit `608deae`)
-- **Próximo passo:** 5c.3d Lote 4b — `TenantController` (~1369 linhas, ~27 refs, ~20 actions)
+- **Última fase concluída:** 5c.3d Lote 4b — `TenantController`, sub-lotes 4b.1 a 4b.5
+  (commits `505cc8a`, `cf9aee9`, `6aea0b3`, `c7c3fbd`, `71a8670`, `690d1ce`, `492c422`)
+- **Próximo passo:** 5c.3d Lote 4b — sub-lotes 4b.6a (`editSede`) e 4b.6b (`deleteSede`)
 - **Roteiro completo até o fim:**
   1. 5c.3d Lote 4b — `TenantController`
   2. 5c.3e — demais arquivos com refs legadas (~10 arquivos pequenos)
@@ -301,6 +302,26 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 
 ## Histórico de operações em ambiente
 
+### 12/05/2026 — Fase 5c.3d em andamento — Lote 4b sub-lotes 4b.1 a 4b.5 (`TenantController`)
+
+Sub-lotes executados em ordem cronológica de commit:
+
+- **4b.3** (`505cc8a`) — `pontoAdd`, `pontoEdit`, `pontoDelete`: 3 actions de ponto manual. Padrão B-route com guarda 1 (target user pertence ao tenant da URL).
+- **4b.4** (`cf9aee9`) — 4 actions de justificativa: `aprovarJustificativa`, `rejeitarJustificativa`, `novaJustificativaAdmin`, `downloadAnexoJustificativa`. Padrão B-route com guarda 1 em todas.
+- **4b.1** (`6aea0b3`) — `index`, `show`, `edit`, `listUsers`. Padrão B-route; `index` e `show` sem guarda 1 (sem target user na rota); `edit` e `listUsers` com guarda 1.
+- **4b.2** (`c7c3fbd`) — `editUserRole` (apenas L458 — guarda 1 adicionada; 5 refs restantes em L468, L470, L525, L536×2 deferidas para sprint arquitetural pela complexidade do fluxo de role), `editUserName`, `demitirFuncionario`. Padrão B-route com guarda 1.
+- **fix fixtures** (`71a8670`) — `DemitirFuncionarioControllerTest`: criação de `UserTenant` nas fixtures para desbloquear testes funcionais do demitir.
+- **4b.5** (`690d1ce`) — `removeResourceAccess`: B-route com guardas 1 e 2 (target user + admin logado); CSRF validado antes da G1; mensagens 404 idênticas para não vazar existência cross-tenant. `manageSedes`: B-route só com guarda 2 (Tenant via ParamConverter, sem target user na rota). (`editSede` delegada a 4b.6a, `deleteSede` a 4b.6b.)
+- **seed infra** (`492c422`) — Migrations de smoke test criadas: `Version20260512120000` (tenant B "Escritório Smoke B", role Admin, permissions 21+27, UserTenant para Emily user 3) e `Version20260512130000` (resource_access fake para Emily, `resource_type='pasta'`, `resource_id=999999`). Guard `skipIf(APP_ENV=prod)`. Reutilizáveis nos sub-lotes 4b.6a e 4b.6b.
+
+**Smoke test do 4b.5:** cenários G1 e G2 cross-tenant validados com tenant B (id=30) + Emily como usuária dos dois tenants. OPcache do PHP-FPM cacheou versão anterior do `TenantController` — resolvido com `kill -USR2 1` no container `jusprime_php_dev`. Confirma ponto de auditoria OPcache pré-existente (vide seção de pontos de auditoria).
+
+**Suite pós-4b.5:** 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A — A3 inalterado), 0 falhas novas.
+
+**Pendente no Lote 4b:** sub-lotes 4b.6a (`editSede`) e 4b.6b (`deleteSede`), reutilizando tenant B + Emily como admin.
+
+---
+
 ### 11/05/2026 — Fase 5c.3d concluída (Lotes 1–4a) — Controllers legados em `src/Controller/`
 
 - **Pré-Lote:** `findAtivoPorUserETenant(User, Tenant): ?UserTenant` adicionado em `UserTenantRepository` — usado no Padrão D para obter cargo, lotação e código do funcionário via `UserTenant`
@@ -525,7 +546,7 @@ Tratar após a refatoração de identidade global:
 - Outros tenants além do tenant 1 não têm role com permissão `admin.users.invite` — quando outros escritórios entrarem em produção, garantir que o role inicial criado já tenha essa permissão (sem ela, `/escritorio/convites` fica inacessível para todos no tenant)
 - Templates de email recebem entidade `Invitation` diretamente — viola padrão `templates/CLAUDE.md` (que exige DTOs). Decisão: aceitável pra emails internos, mas avaliar criar `InvitationEmailDTO` se complexidade crescer
 - `ConviteMailer` chama rota `auth_aceite_convite` que será criada na Fase 5b.3a — não chamar `ConviteMailer` até a rota existir, ou vai quebrar em runtime
-- OPcache do PHP-FPM: criar procedimento documentado de reload após mudanças em rotas (`kill -USR2` no processo ou outro mecanismo) — evita 404 em rotas que existem no `debug:router` mas não são encontradas via HTTP
+- OPcache do PHP-FPM [CONFIRMADO em 12/05/2026]: durante smoke test do 4b.5, o PHP-FPM serviu versão antiga do TenantController ignorando mudanças recentes. Solução validada em container jusprime_php_dev: `docker exec jusprime_php_dev bash -c 'kill -USR2 1'` (PID 1 = master do PHP-FPM). Fallback se PID 1 não for o master: `kill -USR2 $(pgrep -f 'php-fpm: master')`. Criar alias ou script de reload para uso após deploys e mudanças em controllers com rotas novas
 - Padronizar chave de flash messages no projeto: `'erro'` gera `alert-erro` (classe Bootstrap inválida — sem estilização de cor). Mapear para `'danger'` ou ajustar `base.html.twig` para mapear `'erro' → 'danger'`. Afeta principalmente os controllers das fases 5b.3a e 5b.3b
 - Validação visual da regra `current_tenant().id == tenant.id` em `/tenant` impossível com apenas 1 tenant no banco de dev. Quando segundo tenant entrar (5c.3+), revalidar que botão "Editar" só aparece no card do tenant atualmente selecionado
 - `AtualizarBoardUseCase` (`app/src/Kanban/UseCase/AtualizarBoardUseCase.php`) não possui `KanbanBoardRepository` injetado e não chama flush explícito — depende do unit-of-work do Doctrine para persistir as mudanças no board. Comportamento atual e funcional, mas inconsistente com outros UseCases que chamam `$repository->salvar()` explicitamente. Revisar numa sprint futura.
@@ -537,6 +558,10 @@ Tratar após a refatoração de identidade global:
 - `ExpedienteController::acervoGeral()` usa `pastaRepository->findAll()` sem filtro de tenant — risco de vazamento de dados cross-tenant. Decisão: 5c.3c adiciona apenas `assertAccess()` pra exigir autenticação/permissão. Filtro real precisa ser definido em sprint dedicada — entender primeiro se "acervo geral" é conceito intencional ou bug de copy-paste.
 - `PermissionChecker` faz N+1 queries no sidebar: cada chamada de `can_administer()` / `can_access_module()` no `_sidebar.html.twig` dispara query em `user_tenant` + iteração sobre TRPs com lazy-loading de cada `Permission` individual. Smoke test em `/expediente` mostrou 55 queries totais, sendo maioria re-fetchs do mesmo `user_tenant` e `permissions`. Otimização requer cache de permissions no scope da request (provavelmente via `PermissionChecker` mantendo um array carregado uma vez). Não tratar na refatoração de identidade; sprint dedicada de performance.
 - Deprecation Symfony 7.3 do autowiring `RateLimiterFactory $conviteCriarLimiter` / `$conviteAceiteLimiter` — trocar tipo dos parâmetros para `RateLimiterFactoryInterface` em `AdminConviteController`, `ConviteController` e `GerenciarConvitesController`. Trivial mas vai quebrar em Symfony 8.0. Tratar antes de fechar a Etapa 5 ou em sprint separada.
+
+- `TenantController::removeResourceAccess` L1294: `throw createNotFoundException('Acesso não encontrado.')` diverge da mensagem das demais 404s da mesma action ('Usuário não encontrado.'). G1+G2 protegem antes, mas quando ambos passam, a mensagem diferente vaza a existência do `resource_access` sem vazar existência cross-tenant diretamente. Refatorar para mensagem genérica ('Registro não encontrado.' ou similar) quando tocar essa action novamente.
+- Role "Colaborador (a)" no tenant 1 (dados de produção restaurados) não tem permission `modules.expediente.view`. Users com esse role caem em 403 ao acessar `/expediente` (rota default pós-login). Não é bug da refatoração — gap de seed de produção. Avaliar: (a) adicionar a permission ao role via migration de correção, ou (b) mudar rota default pós-login para algo que todos os roles tenham acesso.
+- Migrations de seed para smoke test criadas e ficam no repo: `Version20260512120000` (tenant B + role + permissions + UserTenant para Emily) e `Version20260512130000` (resource_access fake para Emily). Ambas têm guard `skipIf(APP_ENV=prod)` — no-op em produção. São reutilizáveis para sub-lotes 4b.6a e 4b.6b. Após o encerramento da Fase 5c.3d, avaliar se devem permanecer no repo ou ser removidas via `down()`.
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
@@ -583,18 +608,21 @@ checagem, não o comportamento.
 **Origem:** descoberta durante a expansão do sub-lote 4b.3 (Fase 5c.3d),
 2026-05-11.
 
-**Local:** `app/src/Controller/TenantController.php` — múltiplas actions
-com rota `/{tenantId}/user/{id}/...`. Identificadas no plano do Lote 4b
-(além das 3 do sub-lote 4b.3 já corrigidas):
-- editUserRole (deferida — sprint arquitetural)
-- editUserName
-- demitirFuncionario
-- aprovarJustificativa
-- rejeitarJustificativa
-- novaJustificativaAdmin
-- downloadAnexoJustificativa
-- removeResourceAccess
-- (revisar lista completa contra mapeamento das 21 refs do Lote 4b)
+**Local:** `app/src/Controller/TenantController.php` — múltiplas actions.
+
+Actions com guarda 1 aplicada (target user na rota):
+- ✅ 4b.3: pontoAdd, pontoEdit, pontoDelete
+- ✅ 4b.4: aprovarJustificativa, rejeitarJustificativa, novaJustificativaAdmin, downloadAnexoJustificativa
+- ✅ 4b.1: edit, listUsers
+- ✅ 4b.2: editUserName, demitirFuncionario, editUserRole L458
+- ✅ 4b.5: removeResourceAccess
+- ⏳ editUserRole refs L468, L470, L525, L536×2 — deferidas (sprint arquitetural)
+
+Actions sem target user (só guarda 2):
+- ✅ 4b.1: index, show
+- ✅ 4b.5: manageSedes
+- ⏳ 4b.6a: editSede (a confirmar assinatura)
+- ⏳ 4b.6b: deleteSede (a confirmar assinatura)
 
 **Problema:** o `ParamConverter` padrão resolve `User $user` por ID
 global, sem filtro de tenant. Não há `Voter` no projeto. O
@@ -602,13 +630,12 @@ global, sem filtro de tenant. Não há `Voter` no projeto. O
 não o target. Resultado: admin do tenant A pode operar sobre user do
 tenant B via URL manipulada (`/B/user/{id_de_user_de_B}/...`).
 
-**Status:** sendo corrigido in-loco durante o Lote 4b pela aplicação do
-Padrão B-route com guarda 1 (validação do target user). Cada sub-lote
-remanescente do Lote 4b (4b.1, 4b.2, 4b.4, 4b.5, 4b.6a, 4b.6b) deve
-verificar a assinatura da action e aplicar a guarda 1 quando houver
-`User $user` na rota.
+**Status:** parcialmente corrigido. Sub-lotes 4b.3, 4b.4, 4b.1, 4b.2 e 4b.5
+concluídos. Restam 4b.6a (`editSede`) e 4b.6b (`deleteSede`), mais
+5 refs de `editUserRole` deferidas para sprint arquitetural.
 
-**Ação:** sem ação adicional além da execução normal do Lote 4b.
+**Ação:** continuar Lote 4b (4b.6a e 4b.6b). As refs de `editUserRole`
+deferidas dependem de decisão arquitetural separada.
 Registrado aqui pra rastreabilidade — a refatoração de identidade
 fechou um buraco de autorização pré-existente como efeito colateral.
 
@@ -652,7 +679,7 @@ No próximo chat, primeira mensagem deve ser:
 
 ### Status atual ao iniciar chat novo
 - Etapas 1, 2, 3, 4 concluídas; Etapa 5 em andamento (Sub-etapa 5c, Fase 5c.3d em andamento)
-- Fase 5c.3d: Pré-Lote + Lotes 1, 2, 3, 4a concluídos — restam Lote 4b (`TenantController`) e demais fases até 5c.4
+- Fase 5c.3d: Pré-Lote + Lotes 1, 2, 3, 4a + Lote 4b sub-lotes 4b.1–4b.5 concluídos — restam sub-lotes 4b.6a (`editSede`) e 4b.6b (`deleteSede`), depois demais fases até 5c.4
 - Banco de dev com dados reais de produção (restaurados em 07/05/2026)
 - User dedicado de E2E (`e2e@jusprime.local`) funcional
 - 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A)
