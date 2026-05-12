@@ -43,6 +43,7 @@ final class DemitirFuncionarioControllerTest extends WebTestCase
         $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
+        $em->persist(new UserTenant($user, $tenant));
         $em->flush();
 
         return $user;
@@ -62,6 +63,7 @@ final class DemitirFuncionarioControllerTest extends WebTestCase
         $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
+        $em->persist(new UserTenant($user, $tenant));
         $em->flush();
 
         return $user;
@@ -187,10 +189,6 @@ final class DemitirFuncionarioControllerTest extends WebTestCase
         $tenant      = $this->criarTenant();
         $semPermissao = $this->criarFuncionario($tenant);
         $alvo        = $this->criarFuncionario($tenant);
-
-        $userTenant = new UserTenant($semPermissao, $tenant);
-        $em->persist($userTenant);
-        $em->flush();
 
         $this->instalarCsrfStorage();
         $client->loginUser($semPermissao);
