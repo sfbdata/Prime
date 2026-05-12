@@ -897,8 +897,19 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
-        NotificacaoService $notificacaoService
+        NotificacaoService $notificacaoService,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
         $currentUser = $this->getUser();
 
         if (!$currentUser) {
@@ -906,10 +917,8 @@ final class TenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para abonar justificativas.');
         }
 
@@ -960,8 +969,19 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
-        NotificacaoService $notificacaoService
+        NotificacaoService $notificacaoService,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
         $currentUser = $this->getUser();
 
         if (!$currentUser) {
@@ -969,10 +989,8 @@ final class TenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para rejeitar justificativas.');
         }
 
@@ -1022,8 +1040,19 @@ final class TenantController extends AbstractController
         User $user,
         Request $request,
         EntityManagerInterface $entityManager,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
         $currentUser = $this->getUser();
 
         if (!$currentUser) {
@@ -1031,10 +1060,8 @@ final class TenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para lançar justificativas.');
         }
 
@@ -1145,8 +1172,19 @@ final class TenantController extends AbstractController
         User $user,
         int $justificativaId,
         JustificativaPontoRepository $justificativaRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
         $currentUser = $this->getUser();
 
         if (!$currentUser) {
@@ -1154,10 +1192,8 @@ final class TenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão.');
         }
 
