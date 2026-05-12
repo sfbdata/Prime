@@ -1255,7 +1255,9 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         ResourceAccessRepository $resourceAccessRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository,
     ): Response {
         $currentUser = $this->getUser();
 
@@ -1263,16 +1265,31 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
-
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException('Você não tem permissão para remover acessos.');
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
         }
 
-        if (!$this->isCsrfTokenValid('remove_resource_access_' . $raId, (string) $request->request->get('_token'))) {
+        if (!$this->isCsrfTokenValid('remove_resource_access_' . $raId, $request->request->getString('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $targetUser = $entityManager->find(User::class, $userId);
+        if (!$targetUser) {
+            throw $this->createNotFoundException('Usuário não encontrado.');
+        }
+
+        // Guarda 1: target user pertence ao tenant da URL.
+        if (!$userTenantRepository->existeVinculoAtivo($targetUser, $tenant)) {
+            throw $this->createNotFoundException('Usuário não encontrado.');
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
+
+        // Guarda 2: admin logado pertence ao tenant da URL (SUPER_ADMIN bypass mantido).
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Você não tem permissão para remover acessos.');
         }
 
         $resourceAccess = $resourceAccessRepository->find($raId);
@@ -1300,7 +1317,8 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        UserTenantRepository $userTenantRepository,
     ): Response {
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
@@ -1309,11 +1327,11 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
+        // Guarda 2: admin logado pertence ao tenant da URL (SUPER_ADMIN bypass mantido).
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-        $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($user, $tenant);
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $currentTenant, 'admin.ponto.manage'))) {
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.ponto.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para gerenciar sedes.');
         }
 
