@@ -77,7 +77,7 @@ final class TenantController extends AbstractController
         if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
             $tenants = $tenantRepository->findAll();
         } elseif ($permissionChecker->canAdminister($user, $tenant, 'admin.tenant.settings.manage')) {
-            $tenants = [$user->getTenant()];
+            $tenants = [$tenant];
         } else {
             throw $this->createAccessDeniedException('Você não tem permissão para acessar Tenants.');
         }
@@ -160,7 +160,7 @@ final class TenantController extends AbstractController
     }
 
     #[Route('/{id}', name: 'app_tenant_show', methods: ['GET'])]
-    public function show(Tenant $tenant, PermissionChecker $permissionChecker): Response
+    public function show(Tenant $tenant, PermissionChecker $permissionChecker, UserTenantRepository $userTenantRepository): Response
     {
         $user = $this->getUser();
 
@@ -168,17 +168,11 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        if (in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true)) {
-            return $this->render('tenant/show.html.twig', ['tenant' => $tenant]);
-        }
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($user, $tenant);
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$permissionChecker->canAdminister($user, $currentTenant, 'admin.tenant.settings.manage')) {
+        if (!($isSuperAdmin || ($isOwnTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.tenant.settings.manage')))) {
             throw $this->createAccessDeniedException('Você não tem permissão para ver este Tenant.');
-        }
-
-        if ($user->getTenant()?->getId() !== $tenant->getId()) {
-            throw $this->createAccessDeniedException('Você não tem permissão para acessar este Tenant.');
         }
 
         return $this->render('tenant/show.html.twig', ['tenant' => $tenant]);
@@ -191,7 +185,8 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         PermissionChecker $permissionChecker,
-        TenantRoleRepository $tenantRoleRepository
+        TenantRoleRepository $tenantRoleRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
         $user = $this->getUser();
 
@@ -200,10 +195,9 @@ final class TenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-        $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($user, $tenant);
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!($isSuperAdmin || ($isOwnTenant && $permissionChecker->canAdminister($user, $currentTenant, 'admin.tenant.settings.manage')))) {
+        if (!($isSuperAdmin || ($isOwnTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.tenant.settings.manage')))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar este Tenant.');
         }
 
@@ -321,6 +315,7 @@ final class TenantController extends AbstractController
         ClienteRepository $clienteRepository,
         PastaRepository $pastaRepository,
         ProcessoRepository $processoRepository,
+        UserTenantRepository $userTenantRepository,
     ): Response {
         $user = $this->getUser();
 
@@ -329,10 +324,9 @@ final class TenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-        $isOwnTenant  = $user->getTenant()?->getId() === $tenant->getId();
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($user, $tenant);
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $currentTenant, 'admin.users.manage'))) {
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para ver os usuários deste Tenant.');
         }
 
