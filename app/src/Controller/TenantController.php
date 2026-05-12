@@ -441,7 +441,9 @@ final class TenantController extends AbstractController
         CargoRepository $cargoRepository,
         LotacaoRepository $lotacaoRepository,
         GerarCodigoFuncionario $gerarCodigo,
-        ObterOuCriarPerfilUseCase $obterOuCriarPerfil
+        ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
         $currentUser = $this->getUser();
 
@@ -449,11 +451,15 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar perfis de usuário.');
         }
 
@@ -580,7 +586,9 @@ final class TenantController extends AbstractController
         User $user,
         Request $request,
         EntityManagerInterface $entityManager,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
         $currentUser = $this->getUser();
 
@@ -588,11 +596,19 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $currentTenant, 'admin.users.manage'))) {
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar nomes de usuário.');
         }
 
@@ -623,6 +639,8 @@ final class TenantController extends AbstractController
         DemitirFuncionarioUseCase $useCase,
         PermissionChecker $permissionChecker,
         EntityManagerInterface $em,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository,
     ): Response {
         $executor = $this->getUser();
 
@@ -630,12 +648,9 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $executor->getRoles(), true);
-        $isOwnTenant  = $executor->getTenant()?->getId() === $tenantId;
-
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($executor, $currentTenant, 'admin.users.manage'))) {
-            throw $this->createAccessDeniedException();
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
         }
 
         if (!$this->isCsrfTokenValid('demitir_' . $userId, $request->request->getString('_token'))) {
@@ -646,6 +661,17 @@ final class TenantController extends AbstractController
 
         if (!$funcionario) {
             throw $this->createNotFoundException('Funcionário não encontrado.');
+        }
+
+        if (!$userTenantRepository->existeVinculoAtivo($funcionario, $tenant)) {
+            throw $this->createNotFoundException('Funcionário não encontrado.');
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $executor->getRoles(), true);
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($executor, $tenant);
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($executor, $tenant, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException();
         }
 
         $substitutoId = $request->request->getInt('substituto_id') ?: null;
