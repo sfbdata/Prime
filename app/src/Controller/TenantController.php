@@ -1365,6 +1365,8 @@ final class TenantController extends AbstractController
         Request $request,
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository,
         PermissionChecker $permissionChecker
     ): Response {
         /** @var \App\Entity\Auth\User $user */
@@ -1375,10 +1377,15 @@ final class TenantController extends AbstractController
         }
 
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-        $isOwnTenant  = $user->getTenant()?->getId() === $tenantId;
 
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $currentTenant, 'admin.ponto.manage'))) {
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($user, $tenant);
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.ponto.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar sedes.');
         }
 
@@ -1399,7 +1406,6 @@ final class TenantController extends AbstractController
         }
 
         // Falha de validação: re-renderizar a página com o form de edição com erros
-        $tenant   = $sede->getTenant();
         $newSede  = new Sede();
         $form     = $this->createForm(SedeType::class, $newSede);
         $sedes    = $sedeRepository->findBy(['tenant' => $tenant]);
