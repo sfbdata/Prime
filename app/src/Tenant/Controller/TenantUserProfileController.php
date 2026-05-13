@@ -7,8 +7,9 @@ use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\Form\DadosPessoaisType;
 use App\Profile\UseCase\AtualizarDadosPessoaisUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
+use App\Repository\TenantRepository;
+use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
-use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -21,7 +22,6 @@ final class TenantUserProfileController extends AbstractController
         private readonly ObterOuCriarPerfilUseCase $obterOuCriarPerfil,
         private readonly AtualizarDadosPessoaisUseCase $atualizarDadosPessoais,
         private readonly PermissionChecker $permissionChecker,
-        private readonly TenantContext $tenantContext,
     ) {}
 
     #[Route('/{tenantId}/user/{id}/dados-pessoais', name: 'app_tenant_user_dados_pessoais', methods: ['POST'])]
@@ -29,6 +29,8 @@ final class TenantUserProfileController extends AbstractController
         int $tenantId,
         User $user,
         Request $request,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository,
     ): Response {
         $currentUser = $this->getUser();
 
@@ -36,9 +38,18 @@ final class TenantUserProfileController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $tenant = $this->tenantContext->getCurrentTenant();
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        // Guarda 1: target user pertence ao tenant da URL (válido pra todos, incl. SUPER_ADMIN).
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
         $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
-        $isOwnTenant  = $currentUser->getTenant()?->getId() === $tenantId;
+        $isOwnTenant  = $userTenantRepository->existeVinculoAtivo($currentUser, $tenant);
 
         if (!$isSuperAdmin && !($isOwnTenant && $this->permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para editar dados de usuário.');
