@@ -1427,7 +1427,9 @@ final class TenantController extends AbstractController
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroPontoRepository,
-        PermissionChecker $permissionChecker
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
     ): Response {
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
@@ -1436,41 +1438,48 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException();
         }
 
-        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
-        $isOwnTenant  = $user->getTenant()?->getId() === $tenantId;
-
-        $currentTenant = $this->tenantContext->getCurrentTenant();
-        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $currentTenant, 'admin.ponto.manage'))) {
-            throw $this->createAccessDeniedException('Você não tem permissão para excluir sedes.');
-        }
-
         if (!$this->isCsrfTokenValid('delete_sede_' . $sedeId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $user->getRoles(), true);
+
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        $isOwnTenant = $userTenantRepository->existeVinculoAtivo($user, $tenant);
+
+        if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.ponto.manage'))) {
+            throw $this->createAccessDeniedException('Você não tem permissão para excluir sedes.');
+        }
+
         $sede = $sedeRepository->find($sedeId);
 
-        if ($sede && $sede->getTenant()?->getId() === $tenantId) {
-            $connection = $entityManager->getConnection();
-            try {
-                $connection->beginTransaction();
-                $totalDesvinculados = $registroPontoRepository->desvincularSede($sede);
-                $entityManager->remove($sede);
-                $entityManager->flush();
-                $connection->commit();
+        if (!$sede || $sede->getTenant()?->getId() !== $tenantId) {
+            throw $this->createNotFoundException();
+        }
 
-                $this->addFlash('success', 'Sede removida com sucesso.');
+        $connection = $entityManager->getConnection();
+        try {
+            $connection->beginTransaction();
+            $totalDesvinculados = $registroPontoRepository->desvincularSede($sede);
+            $entityManager->remove($sede);
+            $entityManager->flush();
+            $connection->commit();
 
-                if ($totalDesvinculados > 0) {
-                    $this->addFlash('info', sprintf('%d registro(s) de ponto foram desvinculados automaticamente da sede removida.', $totalDesvinculados));
-                }
-            } catch (\Throwable) {
-                if ($connection->isTransactionActive()) {
-                    $connection->rollBack();
-                }
+            $this->addFlash('success', 'Sede removida com sucesso.');
 
-                $this->addFlash('danger', 'Não foi possível remover a sede neste momento. Tente novamente.');
+            if ($totalDesvinculados > 0) {
+                $this->addFlash('info', sprintf('%d registro(s) de ponto foram desvinculados automaticamente da sede removida.', $totalDesvinculados));
             }
+        } catch (\Throwable) {
+            if ($connection->isTransactionActive()) {
+                $connection->rollBack();
+            }
+
+            $this->addFlash('danger', 'Não foi possível remover a sede neste momento. Tente novamente.');
         }
 
         return $this->redirectToRoute('app_tenant_sedes', ['id' => $tenantId]);
