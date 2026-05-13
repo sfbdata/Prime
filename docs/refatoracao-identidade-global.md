@@ -6,11 +6,11 @@ Separar `user` (identidade global, 1 conta por pessoa) de `user_tenant` (víncul
 
 ---
 
-## Estado atual — 12/05/2026
+## Estado atual — 13/05/2026
 
-- **Última fase concluída:** 5c.3d Lote 4b — `TenantController`, sub-lotes 4b.1 a 4b.5
-  (commits `505cc8a`, `cf9aee9`, `6aea0b3`, `c7c3fbd`, `71a8670`, `690d1ce`, `492c422`)
-- **Próximo passo:** 5c.3d Lote 4b — sub-lotes 4b.6a (`editSede`) e 4b.6b (`deleteSede`)
+- **Última fase concluída:** 5c.3d Lote 4b — `TenantController`, sub-lotes 4b.1 a 4b.6b
+  (commits `505cc8a`, `cf9aee9`, `6aea0b3`, `c7c3fbd`, `71a8670`, `690d1ce`, `492c422`, `07091d9`, `bd17ec2`)
+- **Próximo passo:** 5c.3e — demais arquivos com refs legadas (~10 arquivos)
 - **Roteiro completo até o fim:**
   1. 5c.3d Lote 4b — `TenantController`
   2. 5c.3e — demais arquivos com refs legadas (~10 arquivos pequenos)
@@ -318,7 +318,38 @@ Sub-lotes executados em ordem cronológica de commit:
 
 **Suite pós-4b.5:** 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A — A3 inalterado), 0 falhas novas.
 
-**Pendente no Lote 4b:** sub-lotes 4b.6a (`editSede`) e 4b.6b (`deleteSede`), reutilizando tenant B + Emily como admin.
+**Suite pós-4b.5:** 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A — A3 inalterado), 0 falhas novas.
+
+### 13/05/2026 — Sub-lote 4b.6a (`editSede`) — retroativo
+
+Commit: `07091d9`
+
+- `editSede`: injetados `TenantRepository` e `UserTenantRepository`
+- `editSede`: `$tenant` via `tenantRepository->find($tenantId)` + 404 se null
+- `editSede`: `$isOwnTenant` via `existeVinculoAtivo($user, $tenant)` (era `$user->getTenant()->getId() === $tenantId`)
+- `editSede`: `canAdminister` recebe `$tenant` da URL (era `$currentTenant` da sessão)
+- Migration `Version20260512140000`: Sede Smoke B para tenant_id=30 — seed de smoke criada junto
+
+Suite pós-4b.6a: 454 testes, 1070 assertions, 13 erros A3, 0 falhas novas.
+
+### 13/05/2026 — Sub-lote 4b.6b (`deleteSede` + seed Sede Smoke A)
+
+Commit: `bd17ec2`
+
+- `deleteSede`: injetados `TenantRepository` e `UserTenantRepository`
+- `deleteSede`: CSRF movido para antes das guardas (padrão 4b.5)
+- `deleteSede`: `$tenant` via `tenantRepository->find($tenantId)` + 404 se null
+- `deleteSede`: `$isOwnTenant` via `existeVinculoAtivo($user, $tenant)` (era `$user->getTenant()`)
+- `deleteSede`: `canAdminister` recebe `$tenant` da URL; removida linha `$currentTenant = $this->tenantContext->getCurrentTenant()`
+- `deleteSede`: posse da Sede como early return 404 (era `if ($sede && owns) { ... }`)
+- Migration `Version20260513110809`: Sede Smoke A para tenant_id=1 (id=19)
+- `DeleteSedeCrossTenantTest`: teste funcional cobre bloqueio cross-tenant (atacante sem vínculo em tenant B → 403, sede intacta)
+
+**Achado durante execução:** rota `/tenant/{tenantId}/sedes/{sedeId}/delete` (prefixo `/tenant` vem de `#[Route('/tenant')]` na classe `TenantController`) — URL inicialmente omitida no teste, corrigida ao detectar 404 de roteamento.
+
+Suite pós-4b.6b: 455 testes, 1072 assertions, 13 erros A3, 0 falhas novas.
+
+**Lote 4b completo.** Próximo: 5c.3e — demais arquivos com refs legadas (~10 arquivos).
 
 ---
 
@@ -553,7 +584,8 @@ Tratar após a refatoração de identidade global:
 - `TenantController.php` tem ~1369 linhas com 20 actions cobrindo: criação/edição de tenant, gestão de usuários, perfis, ponto manual, justificativas, sedes, demissão, resource access. Candidato a quebra em controllers menores agrupados por responsabilidade. Não tratar na refatoração de identidade — sprint dedicada após a Etapa 6. Mesma lógica aplicada ao `PastaController` (~1700 linhas).
 - `PastaController.php` tem ~1700 linhas — controller monolítico, candidato a quebra em módulos menores (`PastaShowController`, `PastaChecklistController`, `PastaObservacaoController`, etc.). Não tratar na refatoração de identidade; tratar em sprint dedicada.
 - `TenantContextValidatorListener` não tem testes funcionais/integração cobrindo o cenário "user sem tenant tenta acessar rota protegida". Durante a Fase 5c.3b, 6 testes unitários `testUsuarioSemTenantLancaLogicException` dos UseCases de Pasta foram removidos (tornaram-se inaplicáveis com Tenant explícito) sem substituto direto. A barreira existe no código (listener redireciona para `tenant_selecionar`), mas não está coberta por teste automatizado. Criar testes funcionais para o listener em sprint futura.
-- Criar helper compartilhado `logarComTenant()` em WebTestCase base do projeto. A 5c.3b precisou implementar o helper em `PastaSecaoControllerTest`, e esse padrão vai se repetir em todo teste funcional das fases 5c.3c+. Não duplicar.
+- Criar helper compartilhado `logarComTenant()` em WebTestCase base do projeto. A 5c.3b precisou implementar o helper em `PastaSecaoControllerTest`, e esse padrão vai se repetir em todo teste funcional das fases 5c.3c+. N+1 ocorrência: `DeleteSedeCrossTenantTest` (4b.6b) inlinou a lógica de login + sessão de tenant. Agora são pelo menos 3 testes com padrão duplicado aguardando extração. Não adiar além do início de 5c.3e.
+- `DeleteSedeCrossTenantTest` usa `User::setTenant($tenantVinculo)` (método legado em `User`) para associar o atacante a um tenant via propriedade direta. Antes da Etapa 6, junto da refatoração geral de fixtures, migrar para criação exclusiva via `UserTenant` (sem `setTenant` no `User`). Inventariar todos os testes funcionais que usam `setTenant` antes de remover o campo na Etapa 6.
 - Validações de posse de entidade que comparam `$user->getTenant()` com o tenant corrente (ex: `PastaController.php` linha 775 verifica se `$responsavel->getTenant()` é igual ao tenant do operador) vão quebrar na Etapa 6 quando `user.tenant_id` for removido. Precisam migrar para checagem via `UserTenant` antes da Etapa 6. Inventariar todas as ocorrências antes.
 - `ExpedienteController::acervoGeral()` usa `pastaRepository->findAll()` sem filtro de tenant — risco de vazamento de dados cross-tenant. Decisão: 5c.3c adiciona apenas `assertAccess()` pra exigir autenticação/permissão. Filtro real precisa ser definido em sprint dedicada — entender primeiro se "acervo geral" é conceito intencional ou bug de copy-paste.
 - `PermissionChecker` faz N+1 queries no sidebar: cada chamada de `can_administer()` / `can_access_module()` no `_sidebar.html.twig` dispara query em `user_tenant` + iteração sobre TRPs com lazy-loading de cada `Permission` individual. Smoke test em `/expediente` mostrou 55 queries totais, sendo maioria re-fetchs do mesmo `user_tenant` e `permissions`. Otimização requer cache de permissions no scope da request (provavelmente via `PermissionChecker` mantendo um array carregado uma vez). Não tratar na refatoração de identidade; sprint dedicada de performance.
@@ -561,7 +593,7 @@ Tratar após a refatoração de identidade global:
 
 - `TenantController::removeResourceAccess` L1294: `throw createNotFoundException('Acesso não encontrado.')` diverge da mensagem das demais 404s da mesma action ('Usuário não encontrado.'). G1+G2 protegem antes, mas quando ambos passam, a mensagem diferente vaza a existência do `resource_access` sem vazar existência cross-tenant diretamente. Refatorar para mensagem genérica ('Registro não encontrado.' ou similar) quando tocar essa action novamente.
 - Role "Colaborador (a)" no tenant 1 (dados de produção restaurados) não tem permission `modules.expediente.view`. Users com esse role caem em 403 ao acessar `/expediente` (rota default pós-login). Não é bug da refatoração — gap de seed de produção. Avaliar: (a) adicionar a permission ao role via migration de correção, ou (b) mudar rota default pós-login para algo que todos os roles tenham acesso.
-- Migrations de seed para smoke test criadas e ficam no repo: `Version20260512120000` (tenant B + role + permissions + UserTenant para Emily) e `Version20260512130000` (resource_access fake para Emily). Ambas têm guard `skipIf(APP_ENV=prod)` — no-op em produção. São reutilizáveis para sub-lotes 4b.6a e 4b.6b. Após o encerramento da Fase 5c.3d, avaliar se devem permanecer no repo ou ser removidas via `down()`.
+- Migrations de seed para smoke test criadas e ficam no repo: `Version20260512120000` (tenant B + role + permissions + UserTenant para Emily), `Version20260512130000` (resource_access fake para Emily), `Version20260512140000` (Sede Smoke B, tenant_id=30) e `Version20260513110809` (Sede Smoke A, tenant_id=1, id=19). Todas têm guard `skipIf(APP_ENV=prod)` — no-op em produção. Após o encerramento da Fase 5c.3d, avaliar se devem permanecer no repo ou ser removidas via `down()`.
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
@@ -621,8 +653,8 @@ Actions com guarda 1 aplicada (target user na rota):
 Actions sem target user (só guarda 2):
 - ✅ 4b.1: index, show
 - ✅ 4b.5: manageSedes
-- ⏳ 4b.6a: editSede (a confirmar assinatura)
-- ⏳ 4b.6b: deleteSede (a confirmar assinatura)
+- ✅ 4b.6a: editSede (sem target user na rota — só guarda 2; commit `07091d9`)
+- ✅ 4b.6b: deleteSede (sem target user na rota — só guarda 2; commit `bd17ec2`)
 
 **Problema:** o `ParamConverter` padrão resolve `User $user` por ID
 global, sem filtro de tenant. Não há `Voter` no projeto. O
@@ -630,11 +662,10 @@ global, sem filtro de tenant. Não há `Voter` no projeto. O
 não o target. Resultado: admin do tenant A pode operar sobre user do
 tenant B via URL manipulada (`/B/user/{id_de_user_de_B}/...`).
 
-**Status:** parcialmente corrigido. Sub-lotes 4b.3, 4b.4, 4b.1, 4b.2 e 4b.5
-concluídos. Restam 4b.6a (`editSede`) e 4b.6b (`deleteSede`), mais
-5 refs de `editUserRole` deferidas para sprint arquitetural.
+**Status:** parcialmente corrigido. Sub-lotes 4b.3, 4b.4, 4b.1, 4b.2, 4b.5, 4b.6a e 4b.6b
+concluídos (Lote 4b completo). Restam 5 refs de `editUserRole` deferidas para sprint arquitetural.
 
-**Ação:** continuar Lote 4b (4b.6a e 4b.6b). As refs de `editUserRole`
+**Ação:** Lote 4b completo. As refs de `editUserRole`
 deferidas dependem de decisão arquitetural separada.
 Registrado aqui pra rastreabilidade — a refatoração de identidade
 fechou um buraco de autorização pré-existente como efeito colateral.
