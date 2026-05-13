@@ -288,6 +288,17 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 
 **Suite:** 449 testes, 1039 assertions, 13 erros pré-existentes (Grupo A) inalterados.
 
+##### ✅ Fase 5c.3c — Refatoração de ExpedienteController (CONCLUÍDA, bloco retroativo)
+
+**Nota:** este bloco foi reconstruído retroativamente em 2026-05-13 durante verificação do levantamento. A fase foi executada mas não teve bloco de histórico estruturado registrado na época — permaneceu apenas como audit notes esparsas.
+
+**Arquivos modificados:**
+- `app/src/Expediente/Controller/ExpedienteController.php` — importou e injetou `TenantContext`; refatorou L39 (era `$usuario->getTenant()`) para uso de `TenantContext`; `ExpedienteController::acervoGeral()` ganhou `assertAccess()` para exigir autenticação/permissão (filtro real de `pastaRepository->findAll()` por tenant fica para sprint dedicada — ver "Pontos de auditoria")
+
+**Verificação atual:** zero chamadas legadas (`->getTenant()`/`->setTenant()`/`->getTenantRole()`/`->setTenantRole()`) no arquivo.
+
+**Pendência:** reconstruir lista completa de arquivos modificados a partir do `git log` do branch `refactor/etapa-5-identidade-global` filtrando por commits relacionados à fase 5c.3c. Comando sugerido: `git log --oneline refactor/etapa-5-identidade-global --grep="5c\.3c"`. Mesma pendência se aplica à Fase 5c.3b — bloco retroativo a consolidar em sprint dedicada.
+
 ##### ⏳ Fase 5c.3b+ — Refatorar demais módulos com referências PHP legadas (PENDENTE)
 
 ---
@@ -587,6 +598,7 @@ Tratar após a refatoração de identidade global:
 - Criar helper compartilhado `logarComTenant()` em WebTestCase base do projeto. A 5c.3b precisou implementar o helper em `PastaSecaoControllerTest`, e esse padrão vai se repetir em todo teste funcional das fases 5c.3c+. N+1 ocorrência: `DeleteSedeCrossTenantTest` (4b.6b) inlinou a lógica de login + sessão de tenant. Agora são pelo menos 3 testes com padrão duplicado aguardando extração. Não adiar além do início de 5c.3e.
 - `DeleteSedeCrossTenantTest` usa `User::setTenant($tenantVinculo)` (método legado em `User`) para associar o atacante a um tenant via propriedade direta. Antes da Etapa 6, junto da refatoração geral de fixtures, migrar para criação exclusiva via `UserTenant` (sem `setTenant` no `User`). Inventariar todos os testes funcionais que usam `setTenant` antes de remover o campo na Etapa 6.
 - Validações de posse de entidade que comparam `$user->getTenant()` com o tenant corrente (ex: `PastaController.php` linha 775 verifica se `$responsavel->getTenant()` é igual ao tenant do operador) vão quebrar na Etapa 6 quando `user.tenant_id` for removido. Precisam migrar para checagem via `UserTenant` antes da Etapa 6. Inventariar todas as ocorrências antes.
+- Levantamentos por grep com filtro de receiver (padrão usado em `5c-levantamento-2026-05-13.md`) não capturam refs legadas acessadas via propriedade de DTO ou VO (ex: `$input->usuarioAtual->getTenant()`). Próximos levantamentos devem incluir passada manual em DTOs com propriedade tipada `User`. Estado em 2026-05-13: 4 DTOs em `app/src/Auth/DTO/` têm propriedade pública `User` — `AceitarConviteEscritorioComContaInput` (`$usuarioAtual`), `RecusarConviteEscritorioInput` (`$usuarioAtual`), `CriarConvitePlataformaInput` (`$criadoPor`), `CriarConviteEscritorioInput` (`$criadoPor`). Apenas `AceitarConviteEscritorioComContaUseCase` chama métodos legados via DTO (4 refs em L58, L59, L61, L62 — entram no escopo da Fase 5c.3e).
 - `ExpedienteController::acervoGeral()` usa `pastaRepository->findAll()` sem filtro de tenant — risco de vazamento de dados cross-tenant. Decisão: 5c.3c adiciona apenas `assertAccess()` pra exigir autenticação/permissão. Filtro real precisa ser definido em sprint dedicada — entender primeiro se "acervo geral" é conceito intencional ou bug de copy-paste.
 - `PermissionChecker` faz N+1 queries no sidebar: cada chamada de `can_administer()` / `can_access_module()` no `_sidebar.html.twig` dispara query em `user_tenant` + iteração sobre TRPs com lazy-loading de cada `Permission` individual. Smoke test em `/expediente` mostrou 55 queries totais, sendo maioria re-fetchs do mesmo `user_tenant` e `permissions`. Otimização requer cache de permissions no scope da request (provavelmente via `PermissionChecker` mantendo um array carregado uma vez). Não tratar na refatoração de identidade; sprint dedicada de performance.
 - Deprecation Symfony 7.3 do autowiring `RateLimiterFactory $conviteCriarLimiter` / `$conviteAceiteLimiter` — trocar tipo dos parâmetros para `RateLimiterFactoryInterface` em `AdminConviteController`, `ConviteController` e `GerenciarConvitesController`. Trivial mas vai quebrar em Symfony 8.0. Tratar antes de fechar a Etapa 5 ou em sprint separada.
@@ -600,7 +612,6 @@ Tratar após a refatoração de identidade global:
 - `app/templates/_sidebar.html.twig` linhas 152, 162, 172, 203, 213: usam `app.user.tenant.id` para construir URLs de navegação — migrar para `TenantContext` exposto via Twig global antes de remover `user.tenant_id`
 - `app/templates/tenant/index.html.twig:34`: usa `app.user.tenant.id == tenant.id` — mesmo padrão legado, migrar junto
 - `app/migrations/Version20260508170000.php`: faz `UPDATE user SET tenant_id=1` no E2E user para compensar o template legado — remover quando os templates forem refatorados
-- `app/src/Expediente/Controller/ExpedienteController.php:39`: usa `$usuario->getTenant()` — refatorar para `TenantContext`
 - Fixtures de testes E2E (`advogado1@escritorio.com.br` e demais users carregados do dump): não têm `user_tenant` após a Etapa 4 — adicionar registros de UserTenant nas fixtures antes de rodar a suite completa
 
 ---
@@ -648,7 +659,20 @@ Actions com guarda 1 aplicada (target user na rota):
 - ✅ 4b.1: edit, listUsers
 - ✅ 4b.2: editUserName, demitirFuncionario, editUserRole L458
 - ✅ 4b.5: removeResourceAccess
-- ⏳ editUserRole refs L468, L470, L525, L536×2 — deferidas (sprint arquitetural)
+- ⏳ editUserRole — deferida (sprint arquitetural)
+
+**Critério de deferral (editUserRole):** todas as refs legadas (acessos a `$user->getTenant()`, `$user->getTenantRole()`, campos migrados para `UserTenant` como `codigoFuncionario`, `cargo`, `lotacao`, etc.) dentro do método `editUserRole` (`app/src/Controller/TenantController.php`, L425–L583) ficam deferidas para sprint arquitetural pela complexidade do fluxo de role. Inventário atual (verificado em 2026-05-13):
+
+- L468: `$user->getTenant()?->getId()`
+- L470: `$user->getTenant()`
+- L475: `$user->getCodigoFuncionario()`
+- L476: `$user->setCodigoFuncionario(...)`
+- L525: `$user->getTenant()?->getJornadaTenant()`
+- L536 (×2): `$user->getTenant()` (na mesma linha, 2 chamadas)
+
+Total: 7 refs no método. Levantamentos futuros devem aceitar como ESPERADO qualquer match dentro do range L425–L583 do arquivo `TenantController.php`, independente da linha exata listada acima — adições/remoções ao método antes da sprint arquitetural não devem virar falsa regressão.
+
+Origem da correção: levantamento `5c-levantamento-2026-05-13.md` detectou L475 e L476 como refs reais não capturadas pela lista anterior do A2.
 
 Actions sem target user (só guarda 2):
 - ✅ 4b.1: index, show
@@ -663,7 +687,7 @@ não o target. Resultado: admin do tenant A pode operar sobre user do
 tenant B via URL manipulada (`/B/user/{id_de_user_de_B}/...`).
 
 **Status:** parcialmente corrigido. Sub-lotes 4b.3, 4b.4, 4b.1, 4b.2, 4b.5, 4b.6a e 4b.6b
-concluídos (Lote 4b completo). Restam 5 refs de `editUserRole` deferidas para sprint arquitetural.
+concluídos (Lote 4b completo). Restam 7 refs de `editUserRole` deferidas para sprint arquitetural (inventário atualizado em 2026-05-13).
 
 **Ação:** Lote 4b completo. As refs de `editUserRole`
 deferidas dependem de decisão arquitetural separada.
