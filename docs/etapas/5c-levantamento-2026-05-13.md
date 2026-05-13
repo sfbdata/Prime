@@ -250,7 +250,7 @@ da Etapa 4a. São falsos positivos; o arquivo está limpo.
 
 | Arquivo | Fase | Obs |
 |---|---|---|
-| `app/src/Controller/PastaController.php` | Lote 3 | Zero matches C1/C2/C3/C4. Nota: $responsavel->getTenant() em L775 não coberto pelo grep — ver Apêndice 7. |
+| `app/src/Controller/PastaController.php` | Lote 3 / 5c.3e.2 | L775 verificada e fechada (commit 0344eef). Demais residuais não delimitados — refatoração arquitetural pendente em sprint dedicada. |
 
 ### [REFATORADO_SEM_BLOCO_ESTRUTURADO] — confirmados limpos
 
@@ -283,6 +283,9 @@ variáveis não incluídas no filtro de receiver. Aguardam decisão sobre segund
 Doc mestre menciona: `$responsavel->getTenant()` em L775 como ref que quebrará na Etapa 6.
 C1 não capturou (receiver `$responsavel` fora do filtro). Verificar manualmente.
 
+> **Fechado em 5c.3e.2 (13/05/2026):** Verificação manual confirmou que commit `0344eef`
+> (Fase 5c.3d Lote 3) já aplicou `existeVinculoAtivo`. Zero matches residuais. ✅
+
 ---
 
 ## 8. Apêndice — Segunda passada e gaps conhecidos
@@ -295,7 +298,7 @@ C1 não capturou (receiver `$responsavel` fora do filtro). Verificar manualmente
    - Doc mestre: "Inventariar todos os testes funcionais que usam `setTenant` antes de remover o campo na Etapa 6"
    - Grep sugerido: `rg -n -t php 'setTenant' app/tests/`
 
-2. **`app/src/Controller/PastaController.php:775`** — `$responsavel->getTenant()` (receiver não coberto). Verificar manualmente.
+2. **`app/src/Controller/PastaController.php:775`** — `$responsavel->getTenant()` (receiver não coberto). ✅ Fechado em 5c.3e.2: commit `0344eef` já aplicou `existeVinculoAtivo`.
 
 3. **`AceitarConviteEscritorioComContaUseCase.php:58-62`** — verificado e promovido para Seção 3 (PENDENTES) em 13/05/2026. Não é mais um gap.
 
