@@ -318,8 +318,6 @@ Sub-lotes executados em ordem cronológica de commit:
 
 **Suite pós-4b.5:** 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A — A3 inalterado), 0 falhas novas.
 
-**Suite pós-4b.5:** 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A — A3 inalterado), 0 falhas novas.
-
 ### 13/05/2026 — Sub-lote 4b.6a (`editSede`) — retroativo
 
 Commit: `07091d9`
@@ -348,6 +346,8 @@ Commit: `bd17ec2`
 **Achado durante execução:** rota `/tenant/{tenantId}/sedes/{sedeId}/delete` (prefixo `/tenant` vem de `#[Route('/tenant')]` na classe `TenantController`) — URL inicialmente omitida no teste, corrigida ao detectar 404 de roteamento.
 
 Suite pós-4b.6b: 455 testes, 1072 assertions, 13 erros A3, 0 falhas novas.
+
+**Smoke manual:** pulado. Vetor cross-tenant crítico coberto pelo `DeleteSedeCrossTenantTest` (atacante sem vínculo em tenant B → 403, sede intacta). Cenários positivos (Emily admin em B deleta Sede em B; sfb.samuell admin em A deleta Sede em A) e anônimo não exercitados — risco baixo dado o padrão B-route já validado em `manageSedes` (4b.5) e `editSede` (4b.6a), com guardas análogas.
 
 **Lote 4b completo.** Próximo: 5c.3e — demais arquivos com refs legadas (~10 arquivos).
 
