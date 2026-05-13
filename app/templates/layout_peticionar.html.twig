@@ -824,12 +824,18 @@
                        aria-label="Menu do usuário">
                         <div class="navtop-user-info d-none d-md-flex">
                             <span class="navtop-username">{{ app.user.fullName }}</span>
+                            {# TODO 5c.3e: bloco de lastLogin ocultado. Restaurar após
+                               trocador de escritório + decisão de semântica (plataforma
+                               vs tenant ativo). Ver doc mestre, Pontos de auditoria.
+                               Sub-lote 5c.3e.3. #}
+                            {% if false %}
                             <span class="navtop-last-access">
                                 Último Acesso Em:
                                 {{ app.user.lastLogin is defined and app.user.lastLogin
                                     ? app.user.lastLogin|date('d/m/Y - H:i:s')
                                     : 'não disponível' }}
                             </span>
+                            {% endif %}
                         </div>
                         <span class="navtop-avatar" id="navtopAvatar">
                             {% if fotoPerfilUrl %}
