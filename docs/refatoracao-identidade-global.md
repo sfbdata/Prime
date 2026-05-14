@@ -713,12 +713,24 @@ Tratar após a refatoração de identidade global:
   Sidebar foi refatorado na Fase 5c.1. Validar contra HEAD se essa
   migration pode ser limpa AGORA, não na Etapa 6.
 
+- **Detecção de dead code por grep pode produzir falsos positivos massivos (5c.4):**
+  levantamento automatizado via grep (Fase 5c.4) reportou 12 métodos
+  privados como órfãos em Kanban + Auth controllers; verificação manual
+  com grep direto confirmou 3–6 callers por método em todos os casos. O
+  grep não cobria variações de chamada como `$this->method(`,
+  encadeamento e callbacks. Próximos cleanups de dead code: dupla
+  verificação manual obrigatória de TODA detecção "método sem caller"
+  antes de remover qualquer código. Cleanup correlato (5c.4): seção
+  "Pré-requisitos bloqueantes da Etapa 6" continha 3 entradas resolvidas
+  há semanas (sidebar, tenant/index, fixtures advogado) ainda listadas
+  como ativas. Cada consolidação de fase deve revalidar entradas dessa
+  seção contra HEAD antes de fechar — padrão já estabelecido em 5c.3e.2
+  para Apêndice 7 deve estender-se a todas as listas de pendências do
+  doc mestre.
+
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
-- `app/templates/_sidebar.html.twig` linhas 152, 162, 172, 203, 213: usam `app.user.tenant.id` para construir URLs de navegação — migrar para `TenantContext` exposto via Twig global antes de remover `user.tenant_id`
-- `app/templates/tenant/index.html.twig:34`: usa `app.user.tenant.id == tenant.id` — mesmo padrão legado, migrar junto
-- `app/migrations/Version20260508170000.php`: faz `UPDATE user SET tenant_id=1` no E2E user para compensar o template legado — remover quando os templates forem refatorados
-- Fixtures de testes E2E (`advogado1@escritorio.com.br` e demais users carregados do dump): não têm `user_tenant` após a Etapa 4 — adicionar registros de UserTenant nas fixtures antes de rodar a suite completa
+- `app/migrations/Version20260508170000.php:60` — `UPDATE user SET tenant_id=1` no E2E user. Pré-requisito original era esperar refatoração dos templates do sidebar, atendido na Fase 5c.1. Migration ainda contém o UPDATE; remover antes da Etapa 6 ou junto com ela.
 
 ---
 
