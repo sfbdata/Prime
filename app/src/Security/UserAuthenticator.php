@@ -56,8 +56,6 @@ final class UserAuthenticator extends AbstractLoginFormAuthenticator
             return new RedirectResponse($this->router->generate('expediente_index'));
         }
 
-        $user->setLastLogin(new \DateTimeImmutable());
-
         $tenants = $this->userTenantRepository->findActiveByUser($user);
 
         if (count($tenants) === 1) {
