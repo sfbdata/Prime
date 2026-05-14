@@ -6,16 +6,19 @@ Separar `user` (identidade global, 1 conta por pessoa) de `user_tenant` (víncul
 
 ---
 
-## Estado atual — 13/05/2026
+## Estado atual — 14/05/2026
 
-- **Última fase concluída:** 5c.3d Lote 4b — `TenantController`, sub-lotes 4b.1 a 4b.6b
-  (commits `505cc8a`, `cf9aee9`, `6aea0b3`, `c7c3fbd`, `71a8670`, `690d1ce`, `492c422`, `07091d9`, `bd17ec2`)
-- **Próximo passo:** 5c.3e — demais arquivos com refs legadas (~10 arquivos)
+- **Última fase concluída:** 5c.3e (sub-lotes 5c.3e.1 a 5c.3e.7)
+  (commits 0dac17a, 868cf76, 24cd0f8, 950fd74, 99e6b88, cae1b5c, 1ff80b2)
+- **Próximo passo:** 5c.4 — cleanup (verificar resíduos pós-5c.3e e fechar a Sub-etapa 5c)
 - **Roteiro completo até o fim:**
-  1. 5c.3d Lote 4b — `TenantController`
-  2. 5c.3e — demais arquivos com refs legadas (~10 arquivos pequenos)
-  3. 5c.4 — cleanup
-  4. Etapa 6 — remover colunas de `user`: `tenant_id`, `tenant_role_id`, `cargo_id`, `lotacao_id`, `codigo_funcionario`, `demitido_em`, `last_login`
+  1. 5c.4 — cleanup
+  2. Sprint dedicada de fixtures (Sub-lotes A-E definidos em
+     docs/etapas/5c.3e.7-fixtures-levantamento.md) — pré-requisito da Etapa 6
+  3. Sprint de robustez do aceite de convite — bug de recontratação
+     descoberto na 5c.3e.5 (UniqueConstraintViolationException)
+  4. Etapa 6 — remover colunas de user: tenant_id, tenant_role_id,
+     cargo_id, lotacao_id, codigo_funcionario, demitido_em, last_login
 
 ---
 
@@ -300,6 +303,65 @@ Implementar `TenantSelecaoController` real com lista de escritórios do user e P
 **Pendência:** reconstruir lista completa de arquivos modificados a partir do `git log` do branch `refactor/etapa-5-identidade-global` filtrando por commits relacionados à fase 5c.3c. Comando sugerido: `git log --oneline refactor/etapa-5-identidade-global --grep="5c\.3c"`. Mesma pendência se aplica à Fase 5c.3b — bloco retroativo a consolidar em sprint dedicada.
 
 ##### ⏳ Fase 5c.3b+ — Refatorar demais módulos com referências PHP legadas (PENDENTE)
+
+##### ✅ Fase 5c.3e — Refatoração final de refs legadas (CONCLUÍDA)
+
+Sub-lotes 5c.3e.1 a 5c.3e.7, baseados no levantamento
+docs/etapas/5c-levantamento-2026-05-13.md.
+
+**Sub-lotes executados:**
+
+- **5c.3e.1** (commit 0dac17a) — TenantUserProfileController via
+  Padrão B-route. 1 ref eliminada (L41). Guarda 1 (target user)
+  ausente do código original foi adicionada — efeito colateral de
+  fechar A2.
+
+- **5c.3e.2** (commit 868cf76) — PastaController:775. Verificação
+  confirmou que a ref já havia sido eliminada no commit 0344eef
+  (Lote 3, 11/05). Levantamento marcou erroneamente como pendente
+  por não validar Apêndice 7 contra HEAD na geração. Doc do
+  relatório fechou a entrada; zero código de produção alterado.
+
+- **5c.3e.3** (commit 24cd0f8) — Ocultou bloco de lastLogin nos
+  templates `base.html.twig` e `layout_peticionar.html.twig` via
+  `{% if false %}`. 4 refs eliminadas. Decisão de produto sobre
+  semântica (plataforma vs tenant ativo) adiada para sprint do
+  trocador de escritório.
+
+- **5c.3e.4** (commit 950fd74) — `PerfilOutput::fromEntity()` passa
+  a receber `?UserTenant`. ProfileController injeta TenantContext
+  e resolve via `getCurrentUserTenant()`. 2 refs eliminadas. 1 teste
+  novo (UserTenant resolvido) + 1 teste novo (UserTenant null).
+
+- **5c.3e.5** (commit 99e6b88) — UseCases de aceite de convite
+  (ComConta e SemConta): removida duplicação `$user->setTenant`/
+  `setTenantRole` que apenas sincronizava com UserTenant já criado
+  independentemente. 6 refs eliminadas. 1 teste deletado
+  (`testNaoSobrescreverTenantJaPreenchido` — testava guard removido).
+  **Bug pré-existente descoberto:** recontratação de ex-funcionário
+  (UserTenant inativo preservado para auditoria) → guard
+  `existeVinculoAtivo` não detecta → UniqueConstraintViolationException
+  não tratada → 500. Ver Pontos de auditoria.
+
+- **5c.3e.6** (commit cae1b5c) — Removido `$user->setLastLogin()` em
+  `UserAuthenticator`. 1 ref eliminada. Path auto-select (1 tenant)
+  continua gravando `UserTenant.lastLoginAt` (Etapa 4). Paths
+  multi-tenant e SUPER_ADMIN sem tenant deixam de gravar timestamp
+  temporariamente. Sem consumidor ativo (templates ocultos via
+  5c.3e.3). E2E auth/sessão/perfil validada: 0 testes novos falhando.
+
+- **5c.3e.7** (commit 1ff80b2) — Levantamento de fixtures legadas.
+  Não refatora código. Produz `docs/etapas/5c.3e.7-fixtures-levantamento.md`
+  com inventário e proposta de 5 sub-lotes (A-E) para sprint
+  dedicada, pré-requisito da Etapa 6.
+
+**Verificações finais:**
+- Refs legadas eliminadas no código de produção: 14 (de 22 PENDENTES
+  do levantamento; restantes vão para Etapa 6 ou sprints dedicadas)
+- Suite PHPUnit: 456 testes, 13 erros Grupo A inalterados, 0 falhas novas
+- E2E: validada nos sub-lotes que tocam fluxos sensíveis (5c.3e.6)
+- Doc mestre, relatório 5c-2026-05-13 e levantamento de fixtures
+  consolidados
 
 ---
 
@@ -597,7 +659,6 @@ Tratar após a refatoração de identidade global:
 - `TenantContextValidatorListener` não tem testes funcionais/integração cobrindo o cenário "user sem tenant tenta acessar rota protegida". Durante a Fase 5c.3b, 6 testes unitários `testUsuarioSemTenantLancaLogicException` dos UseCases de Pasta foram removidos (tornaram-se inaplicáveis com Tenant explícito) sem substituto direto. A barreira existe no código (listener redireciona para `tenant_selecionar`), mas não está coberta por teste automatizado. Criar testes funcionais para o listener em sprint futura.
 - Criar helper compartilhado `logarComTenant()` em WebTestCase base do projeto. A 5c.3b precisou implementar o helper em `PastaSecaoControllerTest`, e esse padrão vai se repetir em todo teste funcional das fases 5c.3c+. N+1 ocorrência: `DeleteSedeCrossTenantTest` (4b.6b) inlinou a lógica de login + sessão de tenant. Agora são pelo menos 3 testes com padrão duplicado aguardando extração. Não adiar além do início de 5c.3e.
 - `DeleteSedeCrossTenantTest` usa `User::setTenant($tenantVinculo)` (método legado em `User`) para associar o atacante a um tenant via propriedade direta. Antes da Etapa 6, junto da refatoração geral de fixtures, migrar para criação exclusiva via `UserTenant` (sem `setTenant` no `User`). Inventariar todos os testes funcionais que usam `setTenant` antes de remover o campo na Etapa 6.
-- Validações de posse de entidade que comparam `$user->getTenant()` com o tenant corrente (ex: `PastaController.php` linha 775 verifica se `$responsavel->getTenant()` é igual ao tenant do operador) vão quebrar na Etapa 6 quando `user.tenant_id` for removido. Precisam migrar para checagem via `UserTenant` antes da Etapa 6. Inventariar todas as ocorrências antes.
 - Levantamentos por grep com filtro de receiver (padrão usado em `5c-levantamento-2026-05-13.md`) não capturam refs legadas acessadas via propriedade de DTO ou VO (ex: `$input->usuarioAtual->getTenant()`). Próximos levantamentos devem incluir passada manual em DTOs com propriedade tipada `User`. Estado em 2026-05-13: 4 DTOs em `app/src/Auth/DTO/` têm propriedade pública `User` — `AceitarConviteEscritorioComContaInput` (`$usuarioAtual`), `RecusarConviteEscritorioInput` (`$usuarioAtual`), `CriarConvitePlataformaInput` (`$criadoPor`), `CriarConviteEscritorioInput` (`$criadoPor`). Apenas `AceitarConviteEscritorioComContaUseCase` chama métodos legados via DTO (4 refs em L58, L59, L61, L62 — entram no escopo da Fase 5c.3e).
 - `ExpedienteController::acervoGeral()` usa `pastaRepository->findAll()` sem filtro de tenant — risco de vazamento de dados cross-tenant. Decisão: 5c.3c adiciona apenas `assertAccess()` pra exigir autenticação/permissão. Filtro real precisa ser definido em sprint dedicada — entender primeiro se "acervo geral" é conceito intencional ou bug de copy-paste.
 - `PermissionChecker` faz N+1 queries no sidebar: cada chamada de `can_administer()` / `can_access_module()` no `_sidebar.html.twig` dispara query em `user_tenant` + iteração sobre TRPs com lazy-loading de cada `Permission` individual. Smoke test em `/expediente` mostrou 55 queries totais, sendo maioria re-fetchs do mesmo `user_tenant` e `permissions`. Otimização requer cache de permissions no scope da request (provavelmente via `PermissionChecker` mantendo um array carregado uma vez). Não tratar na refatoração de identidade; sprint dedicada de performance.
@@ -606,6 +667,51 @@ Tratar após a refatoração de identidade global:
 - `TenantController::removeResourceAccess` L1294: `throw createNotFoundException('Acesso não encontrado.')` diverge da mensagem das demais 404s da mesma action ('Usuário não encontrado.'). G1+G2 protegem antes, mas quando ambos passam, a mensagem diferente vaza a existência do `resource_access` sem vazar existência cross-tenant diretamente. Refatorar para mensagem genérica ('Registro não encontrado.' ou similar) quando tocar essa action novamente.
 - Role "Colaborador (a)" no tenant 1 (dados de produção restaurados) não tem permission `modules.expediente.view`. Users com esse role caem em 403 ao acessar `/expediente` (rota default pós-login). Não é bug da refatoração — gap de seed de produção. Avaliar: (a) adicionar a permission ao role via migration de correção, ou (b) mudar rota default pós-login para algo que todos os roles tenham acesso.
 - Migrations de seed para smoke test criadas e ficam no repo: `Version20260512120000` (tenant B + role + permissions + UserTenant para Emily), `Version20260512130000` (resource_access fake para Emily), `Version20260512140000` (Sede Smoke B, tenant_id=30) e `Version20260513110809` (Sede Smoke A, tenant_id=1, id=19). Todas têm guard `skipIf(APP_ENV=prod)` — no-op em produção. Após o encerramento da Fase 5c.3d, avaliar se devem permanecer no repo ou ser removidas via `down()`.
+
+- **CSRF em controllers de tenant — clarificação de padrão (5c.3e.1):**
+  endpoint POST raw sem Form Component exige CSRF manual ANTES das
+  guardas (Lote 4b.5, commit 690d1ce). Endpoint POST com Form Symfony
+  tem CSRF implícito via `$form->isValid()`; guardas podem rodar
+  antes do form porque (a) não mutam estado, (b) form é fronteira
+  canônica de validação, (c) Guarda 1 (B-route) rejeita requisição
+  forjada com tenant divergente antes do form sequer ser criado.
+
+- **Apêndice 7 de levantamentos deve ser validado contra HEAD (5c.3e.2):**
+  falso positivo descoberto durante o sub-lote. PastaController:775
+  estava listado como pendente mas já havia sido fechado em commit
+  anterior. Próximos levantamentos: rodar grep amplo do método
+  específico, não copiar entradas manuais de versões antigas do doc.
+
+- **Restaurar bloco de lastLogin nos templates pós-trocador (5c.3e.3):**
+  `app/templates/base.html.twig` e `app/templates/layout_peticionar.html.twig`
+  têm bloco do `<span class="navtop-last-access">` envolto em
+  `{% if false %}`. Restaurar após decisão de produto sobre semântica
+  (plataforma vs tenant ativo) com Samuel + Farlei.
+
+- **Restaurar gravação de lastLoginAt em paths não-auto-select (5c.3e.6):**
+  `UserAuthenticator` parou de gravar timestamp nos paths multi-tenant
+  e SUPER_ADMIN sem tenant. Path auto-select (1 tenant) preservado.
+  Implementar gravação em `TenantSelecaoController` (e no fluxo
+  SUPER_ADMIN, se houver caso de uso) junto com o trocador de
+  escritório.
+
+- **Bug pré-existente: recontratação de ex-funcionário (5c.3e.5):**
+  `existeVinculoAtivo` em `AceitarConviteEscritorioComContaUseCase`
+  filtra `isActive=true`. UserTenant inativo (ex-funcionário demitido,
+  vínculo preservado para auditoria por decisão de produto) para o
+  mesmo par (user, tenant) não é detectado pela guard. Tentativa de
+  recontratação dispara `UniqueConstraintViolationException` não
+  tratada → 500. Bug pré-existente desde Fase 5b.1, não introduzido
+  pela refatoração. Tratamento: (a) substituir `existeVinculoAtivo`
+  por método que checa qualquer vínculo (ativo ou inativo) e reativa
+  se inativo; ou (b) try/catch da exception. **Sprint de robustez
+  antes da Etapa 6.**
+
+- **Migration Version20260508170000.php:60 — possível falsa pendência (5c.3e.7):**
+  pré-requisito da Etapa 6 diz que `UPDATE user SET tenant_id=1` no
+  E2E user pode ser removido "quando os templates forem refatorados".
+  Sidebar foi refatorado na Fase 5c.1. Validar contra HEAD se essa
+  migration pode ser limpa AGORA, não na Etapa 6.
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
@@ -733,12 +839,21 @@ No próximo chat, primeira mensagem deve ser:
 > **Não execute nada ainda — só confirme que entendeu o contexto.**
 
 ### Status atual ao iniciar chat novo
-- Etapas 1, 2, 3, 4 concluídas; Etapa 5 em andamento (Sub-etapa 5c, Fase 5c.3d em andamento)
-- Fase 5c.3d: Pré-Lote + Lotes 1, 2, 3, 4a + Lote 4b sub-lotes 4b.1–4b.5 concluídos — restam sub-lotes 4b.6a (`editSede`) e 4b.6b (`deleteSede`), depois demais fases até 5c.4
-- Banco de dev com dados reais de produção (restaurados em 07/05/2026)
-- User dedicado de E2E (`e2e@jusprime.local`) funcional
-- 454 testes, 1070 assertions, 13 erros pré-existentes (Grupo A)
-- Documento mestre `docs/refatoracao-identidade-global.md` atualizado e completo
+- Etapas 1, 2, 3, 4 concluídas; Etapa 5 quase fechada (Sub-etapa 5c,
+  Fases 5c.1, 5c.2, 5c.3a, 5c.3b, 5c.3c, 5c.3d, 5c.3e completas;
+  falta 5c.4 cleanup).
+- Banco de dev com dados reais de produção (restaurados em 07/05/2026).
+- User dedicado de E2E (`e2e@jusprime.local`) funcional.
+- 456 testes PHPUnit, 13 erros pré-existentes (Grupo A) inalterados.
+- Branch refactor/etapa-5-identidade-global, HEAD em cae1b5c.
+- Documento mestre, relatório 5c-2026-05-13 e levantamento de
+  fixtures atualizados e completos.
+
+Próximas tarefas em ordem:
+1. 5c.4 cleanup (verificar resíduos pós-5c.3e)
+2. Sprint dedicada de fixtures (5c.3e.7 sub-lotes A-E)
+3. Sprint de robustez do aceite de convite
+4. Etapa 6 (remover colunas de user)
 
 ### Pré-requisitos identificados que precisam ser tratados ANTES da Etapa 6
 Ver seção "Pontos de auditoria identificados mas NÃO tratados" no início do documento.
