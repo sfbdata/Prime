@@ -42,4 +42,9 @@ class UserTenantRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['user' => $user, 'tenant' => $tenant, 'isActive' => true]);
     }
+
+    public function findPorUserETenant(User $user, Tenant $tenant): ?UserTenant
+    {
+        return $this->findOneBy(['user' => $user, 'tenant' => $tenant]);
+    }
 }

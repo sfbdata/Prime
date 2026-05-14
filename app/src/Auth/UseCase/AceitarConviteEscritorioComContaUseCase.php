@@ -43,8 +43,20 @@ final class AceitarConviteEscritorioComContaUseCase
             throw new \DomainException('Convite inválido: escritório não encontrado.');
         }
 
-        if ($this->userTenantRepository->existeVinculoAtivo($input->usuarioAtual, $tenant)) {
+        $vinculo = $this->userTenantRepository->findPorUserETenant($input->usuarioAtual, $tenant);
+
+        if ($vinculo !== null && $vinculo->isActive()) {
             throw new \DomainException('Você já é colaborador deste escritório.');
+        }
+
+        if ($vinculo !== null) {
+            $vinculo->reativar();
+            $vinculo->setTenantRole($invitation->getTenantRole());
+            $vinculo->setUpdatedAt(new \DateTimeImmutable());
+            $invitation->aceitar($input->usuarioAtual);
+            $this->em->flush();
+
+            return $vinculo;
         }
 
         $userTenant = new UserTenant($input->usuarioAtual, $tenant);

@@ -69,7 +69,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
     {
         $invitation = $this->makePendingOfficeInvitation('usuario@example.com');
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
-        $this->userTenantRepo->method('existeVinculoAtivo')->willReturn(false);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn(null);
         $this->em->expects($this->once())->method('persist')->with($this->isInstanceOf(UserTenant::class));
         $this->em->expects($this->once())->method('flush');
 
@@ -87,7 +87,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
         $role       = new TenantRole();
         $invitation = $this->makePendingOfficeInvitation('usuario@example.com', role: $role);
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
-        $this->userTenantRepo->method('existeVinculoAtivo')->willReturn(false);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn(null);
         $this->em->method('persist');
         $this->em->method('flush');
 
@@ -102,7 +102,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
     {
         $invitation = $this->makePendingOfficeInvitation('usuario@example.com');
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
-        $this->userTenantRepo->method('existeVinculoAtivo')->willReturn(false);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn(null);
         $this->em->method('persist');
         $this->em->method('flush');
 
@@ -164,7 +164,7 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
     {
         $invitation = $this->makePendingOfficeInvitation('USUARIO@EXAMPLE.COM');
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
-        $this->userTenantRepo->method('existeVinculoAtivo')->willReturn(false);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn(null);
         $this->em->method('persist');
         $this->em->method('flush');
 
@@ -178,15 +178,98 @@ final class AceitarConviteEscritorioComContaUseCaseTest extends TestCase
 
     public function testJaEColaboradorAtivoLancaExcecao(): void
     {
-        $invitation = $this->makePendingOfficeInvitation('usuario@example.com');
+        $invitation     = $this->makePendingOfficeInvitation('usuario@example.com');
+        $vinculoAtivo   = new UserTenant($this->usuario, $this->tenant);
         $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
-        $this->userTenantRepo->method('existeVinculoAtivo')->willReturn(true);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn($vinculoAtivo);
         $this->em->expects($this->never())->method('persist');
 
         $this->expectException(\DomainException::class);
         $this->expectExceptionMessage('já é colaborador');
 
         $this->useCase->executar(new AceitarConviteEscritorioComContaInput('tok123', $this->usuario));
+    }
+
+    public function testReativaVinculoInativoAoAceitarConvite(): void
+    {
+        $invitation     = $this->makePendingOfficeInvitation('usuario@example.com');
+        $vinculoInativo = new UserTenant($this->usuario, $this->tenant);
+        $vinculoInativo->demitir();
+
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn($vinculoInativo);
+        $this->em->expects($this->never())->method('persist');
+        $this->em->expects($this->once())->method('flush');
+
+        $resultado = $this->useCase->executar(
+            new AceitarConviteEscritorioComContaInput('tok123', $this->usuario)
+        );
+
+        self::assertSame($vinculoInativo, $resultado);
+        self::assertTrue($resultado->isActive());
+        self::assertNull($resultado->getDemitidoEm());
+        self::assertSame('accepted', $invitation->getStatus());
+        self::assertSame($this->usuario, $invitation->getAcceptedAsUser());
+    }
+
+    public function testAtualizaTenantRoleAoReativarVinculo(): void
+    {
+        $roleAntiga     = new TenantRole();
+        $roleNova       = new TenantRole();
+        $invitation     = $this->makePendingOfficeInvitation('usuario@example.com', role: $roleNova);
+        $vinculoInativo = new UserTenant($this->usuario, $this->tenant);
+        $vinculoInativo->demitir();
+        $vinculoInativo->setTenantRole($roleAntiga);
+
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn($vinculoInativo);
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar(
+            new AceitarConviteEscritorioComContaInput('tok123', $this->usuario)
+        );
+
+        self::assertSame($roleNova, $resultado->getTenantRole());
+    }
+
+    public function testReativarComConviteSemRoleResetaRoleParaNull(): void
+    {
+        $roleAntiga     = new TenantRole();
+        $invitation     = $this->makePendingOfficeInvitation('usuario@example.com');
+        $vinculoInativo = new UserTenant($this->usuario, $this->tenant);
+        $vinculoInativo->demitir();
+        $vinculoInativo->setTenantRole($roleAntiga);
+
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn($vinculoInativo);
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar(
+            new AceitarConviteEscritorioComContaInput('tok123', $this->usuario)
+        );
+
+        self::assertNull($resultado->getTenantRole());
+    }
+
+    public function testPreservaDataAdmissaoECodigoFuncionarioAoReativar(): void
+    {
+        $dataAdmissao   = new \DateTimeImmutable('2023-01-15');
+        $invitation     = $this->makePendingOfficeInvitation('usuario@example.com');
+        $vinculoInativo = new UserTenant($this->usuario, $this->tenant);
+        $vinculoInativo->demitir();
+        $vinculoInativo->setDataAdmissao($dataAdmissao);
+        $vinculoInativo->setCodigoFuncionario('F-0042');
+
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userTenantRepo->method('findPorUserETenant')->willReturn($vinculoInativo);
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar(
+            new AceitarConviteEscritorioComContaInput('tok123', $this->usuario)
+        );
+
+        self::assertSame($dataAdmissao, $resultado->getDataAdmissao());
+        self::assertSame('F-0042', $resultado->getCodigoFuncionario());
     }
 
     public function testInvitationSemTenantLancaExcecao(): void
