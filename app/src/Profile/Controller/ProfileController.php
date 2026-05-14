@@ -12,6 +12,7 @@ use App\Profile\UseCase\AtualizarDadosPessoaisUseCase;
 use App\Profile\UseCase\AtualizarFotoPerfilUseCase;
 use App\Profile\UseCase\AtualizarStatusUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
+use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -29,6 +30,7 @@ final class ProfileController extends AbstractController
         private readonly AtualizarFotoPerfilUseCase $atualizarFoto,
         private readonly ArquivoStorageInterface $storage,
         private readonly string $fotosPerfilDir,
+        private readonly TenantContext $tenantContext,
     ) {
     }
 
@@ -37,8 +39,9 @@ final class ProfileController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
+        $userTenant = $this->tenantContext->getCurrentUserTenant();
         $perfil = $this->obterOuCriarPerfil->executar($user);
-        $output = PerfilOutput::fromEntity($perfil, $user);
+        $output = PerfilOutput::fromEntity($perfil, $user, $userTenant);
 
         $input = new DadosPessoaisInput();
         $input->nomeCompleto = $output->nomeCompleto;

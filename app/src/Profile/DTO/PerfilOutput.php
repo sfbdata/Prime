@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Profile\DTO;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Profile\Entity\UserProfile;
 
 final class PerfilOutput
@@ -24,7 +25,7 @@ final class PerfilOutput
     ) {
     }
 
-    public static function fromEntity(UserProfile $perfil, User $user): self
+    public static function fromEntity(UserProfile $perfil, User $user, ?UserTenant $userTenant): self
     {
         $nomeCompleto = $perfil->getNomeCompleto();
         $nomeExibido = $nomeCompleto ?? $user->getFullName() ?? '';
@@ -34,8 +35,8 @@ final class PerfilOutput
             nomeExibido: $nomeExibido,
             iniciais: self::calcularIniciais($nomeExibido),
             email: $user->getEmail() ?? '',
-            cargo: $user->getCargo()?->getNome(),
-            lotacao: $user->getLotacao()?->getNome(),
+            cargo: $userTenant?->getCargo()?->getNome(),
+            lotacao: $userTenant?->getLotacao()?->getNome(),
             fotoUrl: $perfil->getFotoUrl(),
             status: $perfil->getStatus(),
             cpf: $perfil->getCpf(),

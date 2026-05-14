@@ -3,6 +3,9 @@ declare(strict_types=1);
 namespace App\Tests\Profile\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Cargo;
+use App\Entity\Tenant\Lotacao;
 use App\Profile\DTO\PerfilOutput;
 use App\Profile\Entity\UserProfile;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -18,8 +21,6 @@ final class PerfilOutputTest extends TestCase
         $user = $this->createStub(User::class);
         $user->method('getFullName')->willReturn($nome);
         $user->method('getEmail')->willReturn($email);
-        $user->method('getCargo')->willReturn(null);
-        $user->method('getLotacao')->willReturn(null);
         $user->method('getCreatedAt')->willReturn(new \DateTimeImmutable('2023-01-01'));
 
         return $user;
@@ -38,7 +39,7 @@ final class PerfilOutputTest extends TestCase
         $perfil->setCtps('12345');
         $perfil->setSerie('001');
 
-        $output = PerfilOutput::fromEntity($perfil, $user);
+        $output = PerfilOutput::fromEntity($perfil, $user, null);
 
         self::assertSame('Maria Souza', $output->nomeCompleto);
         self::assertSame('Maria Souza', $output->nomeExibido);
@@ -59,7 +60,7 @@ final class PerfilOutputTest extends TestCase
         $perfil = new UserProfile($user);
         $perfil->setNomeCompleto('Nome do Perfil');
 
-        $output = PerfilOutput::fromEntity($perfil, $user);
+        $output = PerfilOutput::fromEntity($perfil, $user, null);
 
         self::assertSame('Nome do Perfil', $output->nomeExibido);
     }
@@ -70,7 +71,7 @@ final class PerfilOutputTest extends TestCase
         $user = $this->criarUser('Fulano User');
         $perfil = new UserProfile($user);
 
-        $output = PerfilOutput::fromEntity($perfil, $user);
+        $output = PerfilOutput::fromEntity($perfil, $user, null);
 
         self::assertSame('Fulano User', $output->nomeExibido);
     }
@@ -96,7 +97,7 @@ final class PerfilOutputTest extends TestCase
         $user = $this->criarUser($nome);
         $perfil = new UserProfile($user);
 
-        $output = PerfilOutput::fromEntity($perfil, $user);
+        $output = PerfilOutput::fromEntity($perfil, $user, null);
 
         self::assertSame($esperado, $output->iniciais);
     }
@@ -109,13 +110,44 @@ final class PerfilOutputTest extends TestCase
         $user = $this->createStub(User::class);
         $user->method('getFullName')->willReturn('João Silva');
         $user->method('getEmail')->willReturn('joao@test.com');
-        $user->method('getCargo')->willReturn(null);
-        $user->method('getLotacao')->willReturn(null);
         $user->method('getCreatedAt')->willReturn($data);
 
         $perfil = new UserProfile($user);
-        $output = PerfilOutput::fromEntity($perfil, $user);
+        $output = PerfilOutput::fromEntity($perfil, $user, null);
 
         self::assertSame($data, $output->membroDesde);
+    }
+
+    #[TestDox('cargo e lotação são null quando userTenant é null')]
+    public function testCargosNullQuandoUserTenantEhNull(): void
+    {
+        $user = $this->criarUser();
+        $perfil = new UserProfile($user);
+
+        $output = PerfilOutput::fromEntity($perfil, $user, null);
+
+        self::assertNull($output->cargo);
+        self::assertNull($output->lotacao);
+    }
+
+    #[TestDox('cargo e lotação vêm do UserTenant quando fornecido')]
+    public function testCargosVemDoUserTenant(): void
+    {
+        $cargo = $this->createStub(Cargo::class);
+        $cargo->method('getNome')->willReturn('Analista');
+        $lotacao = $this->createStub(Lotacao::class);
+        $lotacao->method('getNome')->willReturn('TI');
+
+        $userTenant = $this->createStub(UserTenant::class);
+        $userTenant->method('getCargo')->willReturn($cargo);
+        $userTenant->method('getLotacao')->willReturn($lotacao);
+
+        $user = $this->criarUser();
+        $perfil = new UserProfile($user);
+
+        $output = PerfilOutput::fromEntity($perfil, $user, $userTenant);
+
+        self::assertSame('Analista', $output->cargo);
+        self::assertSame('TI', $output->lotacao);
     }
 }
