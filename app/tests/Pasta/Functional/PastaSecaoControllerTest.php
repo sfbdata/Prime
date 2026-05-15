@@ -10,17 +10,17 @@ use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PastaSecaoController;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 #[CoversClass(PastaSecaoController::class)]
-final class PastaSecaoControllerTest extends WebTestCase
+final class PastaSecaoControllerTest extends JusPrimeWebTestCase
 {
-    private function criarUsuarioAdmin(): User
+    private function criarUsuarioAdmin(): array
     {
         $container = static::getContainer();
         $em        = $container->get(EntityManagerInterface::class);
@@ -35,7 +35,6 @@ final class PastaSecaoControllerTest extends WebTestCase
         $user->setFullName('Admin Secao');
         $user->setRoles(['ROLE_SUPER_ADMIN']);
         $user->setIsActive(true);
-        $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
 
@@ -44,7 +43,7 @@ final class PastaSecaoControllerTest extends WebTestCase
 
         $em->flush();
 
-        return $user;
+        return [$user, $tenant];
     }
 
     private function criarPasta(): Pasta
@@ -58,32 +57,18 @@ final class PastaSecaoControllerTest extends WebTestCase
         return $pasta;
     }
 
-    private function criarSecao(Pasta $pasta, User $autor): PastaSecao
+    private function criarSecao(Pasta $pasta, Tenant $tenant): PastaSecao
     {
         $em    = static::getContainer()->get(EntityManagerInterface::class);
         $secao = new PastaSecao();
         $secao->setPasta($pasta);
-        $secao->setTenant($autor->getTenant());
+        $secao->setTenant($tenant);
         $secao->setNome('Seção de Teste');
         $secao->setOrdem(1);
         $em->persist($secao);
         $em->flush();
 
         return $secao;
-    }
-
-    private function logarComTenant(\Symfony\Bundle\FrameworkBundle\KernelBrowser $client, User $user): void
-    {
-        $client->disableReboot();
-        $client->loginUser($user);
-        $tenant = $user->getTenant();
-        if ($tenant === null) {
-            return;
-        }
-        $client->request('GET', '/escritorio/selecionar');
-        $session = $client->getRequest()->getSession();
-        $session->set('current_tenant_id', $tenant->getId());
-        $session->save();
     }
 
     private function instalarCsrfStorage(): void
@@ -119,9 +104,9 @@ final class PastaSecaoControllerTest extends WebTestCase
     #[TestDox('POST criar seção com CSRF inválido retorna 400')]
     public function testCriarCsrfInvalidoRetorna400(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
+        $client  = static::createClient();
+        [$user]  = $this->criarUsuarioAdmin();
+        $pasta   = $this->criarPasta();
         $client->loginUser($user);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/secao", [
@@ -135,11 +120,11 @@ final class PastaSecaoControllerTest extends WebTestCase
     #[TestDox('POST criar seção com nome vazio retorna 422')]
     public function testCriarNomeVazioRetorna422(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta();
         $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $user);
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/secao", [
             '_token' => $this->csrf('pasta_secao_criar_' . $pasta->getId()),
@@ -154,11 +139,11 @@ final class PastaSecaoControllerTest extends WebTestCase
     #[TestDox('POST criar seção com nome válido retorna 201 com id e nome')]
     public function testCriarComSucessoRetorna201(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta();
         $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $user);
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/secao", [
             '_token' => $this->csrf('pasta_secao_criar_' . $pasta->getId()),
@@ -177,12 +162,12 @@ final class PastaSecaoControllerTest extends WebTestCase
     #[TestDox('POST renomear seção com nome válido retorna 200')]
     public function testRenomearComSucessoRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
-        $secao  = $this->criarSecao($pasta, $user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta();
+        $secao           = $this->criarSecao($pasta, $tenant);
         $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $user);
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/pasta/secao/{$secao->getId()}/renomear", [
             '_token' => $this->csrf('pasta_secao_renomear_' . $secao->getId()),
@@ -198,8 +183,8 @@ final class PastaSecaoControllerTest extends WebTestCase
     #[TestDox('POST renomear seção inexistente retorna 404')]
     public function testRenomearSecaoInexistenteRetorna404(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
+        $client  = static::createClient();
+        [$user]  = $this->criarUsuarioAdmin();
         $this->instalarCsrfStorage();
         $client->loginUser($user);
 
@@ -216,13 +201,13 @@ final class PastaSecaoControllerTest extends WebTestCase
     #[TestDox('POST excluir seção com sucesso retorna 200')]
     public function testExcluirComSucessoRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
-        $secao  = $this->criarSecao($pasta, $user);
-        $secaoId = $secao->getId();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta();
+        $secao           = $this->criarSecao($pasta, $tenant);
+        $secaoId         = $secao->getId();
         $this->instalarCsrfStorage();
-        $this->logarComTenant($client, $user);
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/pasta/secao/{$secaoId}/excluir", [
             '_token' => $this->csrf('pasta_secao_excluir_' . $secaoId),
@@ -239,10 +224,10 @@ final class PastaSecaoControllerTest extends WebTestCase
     #[TestDox('POST excluir seção com CSRF inválido retorna 400')]
     public function testExcluirCsrfInvalidoRetorna400(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
-        $secao  = $this->criarSecao($pasta, $user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta();
+        $secao           = $this->criarSecao($pasta, $tenant);
         $client->loginUser($user);
 
         $client->request('POST', "/pasta/secao/{$secao->getId()}/excluir", [
