@@ -55,11 +55,6 @@ final class Version20260508170000 extends AbstractMigration
               )
         SQL);
 
-        // Vincula tenant_id na tabela user para compatibilidade com código legado (ex.: sidebar)
-        $this->addSql(<<<'SQL'
-            UPDATE "user" SET tenant_id = 1
-            WHERE email = 'e2e@jusprime.local' AND tenant_id IS NULL
-        SQL);
     }
 
     public function down(Schema $schema): void

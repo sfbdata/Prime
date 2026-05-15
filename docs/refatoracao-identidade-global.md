@@ -707,11 +707,10 @@ Tratar após a refatoração de identidade global:
   se inativo; ou (b) try/catch da exception. **Sprint de robustez
   antes da Etapa 6.**
 
-- **Migration Version20260508170000.php:60 — possível falsa pendência (5c.3e.7):**
-  pré-requisito da Etapa 6 diz que `UPDATE user SET tenant_id=1` no
-  E2E user pode ser removido "quando os templates forem refatorados".
-  Sidebar foi refatorado na Fase 5c.1. Validar contra HEAD se essa
-  migration pode ser limpa AGORA, não na Etapa 6.
+- **Migration Version20260508170000.php:60 — RESOLVIDO (Sub-lote E, 15/05/2026):**
+  `UPDATE user SET tenant_id=1` removido da migration. Sidebar já usava
+  `current_tenant().id` desde a Fase 5c.1. Migration nunca havia rodado
+  em produção, então foi editada diretamente.
 
 - **Detecção de dead code por grep pode produzir falsos positivos massivos (5c.4):**
   levantamento automatizado via grep (Fase 5c.4) reportou 12 métodos
@@ -735,8 +734,6 @@ Tratar após a refatoração de identidade global:
 - **Audit metodológica — levantamento de fixtures unit não cruzou estado do UseCase correspondente (detectado no Sub-lote D, 15/05/2026):** `5c.3e.7-fixtures-levantamento.md` listou `DemitirFuncionarioUseCaseTest.php` como candidato a migrar `User::setTenant()` por UserTenant transient. Não verificou se o próprio `DemitirFuncionarioUseCase` havia sido refatorado para Tenant explícito. Resultado: `setTenant` no teste é load-bearing (UseCase usa `$user->getTenant()` em L38, L42-44, L51), tornando a remoção direta impossível sem refatorar o UseCase. Sub-lote D pulou o arquivo. **Regra para próximos levantamentos:** cruzar candidatos de teste unit com o código de produção testado — verificar se o UseCase/service correspondente ainda usa padrões legados (`getTenant()`, `getTenantRole()`, etc.) antes de classificar o `setTenant` no teste como dead code.
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
-
-- `app/migrations/Version20260508170000.php:60` — `UPDATE user SET tenant_id=1` no E2E user. Pré-requisito original era esperar refatoração dos templates do sidebar, atendido na Fase 5c.1. Migration ainda contém o UPDATE; remover antes da Etapa 6 ou junto com ela.
 
 - `app/src/Tenant/UseCase/DemitirFuncionarioUseCase.php` — usa `$user->getTenant()` em 3 lugares (L38, L42-44, L51) para validar posse de tenant do funcionário, do criador do tenant e do substituto. Refatorar para receber `Tenant` explícito (alinhado com padrão de 5c.3a/5c.3b) OU remover validações redundantes com B-route guarda 1 já aplicada no controller (sub-lote 4b.2). Decisão arquitetural pendente: reduzir defesa em profundidade vs. duplicar validação do controller. Descoberto na Sprint de Fixtures Sub-lote D, 15/05/2026 — `DemitirFuncionarioUseCaseTest` não foi migrado neste sub-lote porque `setTenant` no teste é load-bearing.
 
