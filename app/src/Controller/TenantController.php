@@ -677,8 +677,12 @@ final class TenantController extends AbstractController
         $substitutoId = $request->request->getInt('substituto_id') ?: null;
         $substituto   = $substitutoId ? $em->find(User::class, $substitutoId) : null;
 
+        if ($substituto !== null && !$userTenantRepository->existeVinculoAtivo($substituto, $tenant)) {
+            throw $this->createNotFoundException('Funcionário não encontrado.');
+        }
+
         try {
-            $useCase->executar(new DemitirFuncionarioInput($executor, $funcionario, $substituto));
+            $useCase->executar(new DemitirFuncionarioInput($executor, $funcionario, $tenant, $substituto));
             $this->addFlash('success', 'Funcionário demitido com sucesso.');
         } catch (\InvalidArgumentException $e) {
             $this->addFlash('danger', $e->getMessage());

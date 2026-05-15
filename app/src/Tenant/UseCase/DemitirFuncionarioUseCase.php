@@ -7,7 +7,6 @@ namespace App\Tenant\UseCase;
 use App\Entity\Auth\User;
 use App\Tenant\DTO\DemitirFuncionarioInput;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 final class DemitirFuncionarioUseCase
 {
@@ -29,27 +28,27 @@ final class DemitirFuncionarioUseCase
         $this->em->flush();
     }
 
+    /**
+     * IMPORTANTE: este UseCase assume que o controller chamador já
+     * validou via Guarda 1 (B-route) que $input->funcionario tem
+     * vínculo ativo com $input->tenant. Sem essa validação prévia,
+     * a verificação de "criador do tenant" abaixo pode falhar
+     * silenciosamente quando tenant não pertencer ao funcionário.
+     * Idem para $input->substituto: o controller valida
+     * existeVinculoAtivo($substituto, $tenant) antes de criar o input.
+     */
     private function validarInput(DemitirFuncionarioInput $input): void
     {
         if ($input->executor === $input->funcionario) {
             throw new \InvalidArgumentException('Não é permitido demitir a si mesmo.');
         }
 
-        if ($input->funcionario->getTenant() !== $input->executor->getTenant()) {
-            throw new AccessDeniedException('O funcionário não pertence ao seu tenant.');
-        }
-
-        $tenant = $input->funcionario->getTenant();
-        if ($tenant !== null && $tenant->getCriadoPor() === $input->funcionario) {
+        if ($input->tenant->getCriadoPor() === $input->funcionario) {
             throw new \InvalidArgumentException('Não é permitido demitir o criador do escritório.');
         }
 
         if ($input->substituto === null) {
             return;
-        }
-
-        if ($input->substituto->getTenant() !== $input->executor->getTenant()) {
-            throw new \InvalidArgumentException('O substituto deve pertencer ao mesmo tenant.');
         }
 
         if (!$input->substituto->isActive()) {

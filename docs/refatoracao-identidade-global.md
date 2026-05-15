@@ -735,7 +735,14 @@ Tratar após a refatoração de identidade global:
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
-- `app/src/Tenant/UseCase/DemitirFuncionarioUseCase.php` — usa `$user->getTenant()` em 3 lugares (L38, L42-44, L51) para validar posse de tenant do funcionário, do criador do tenant e do substituto. Refatorar para receber `Tenant` explícito (alinhado com padrão de 5c.3a/5c.3b) OU remover validações redundantes com B-route guarda 1 já aplicada no controller (sub-lote 4b.2). Decisão arquitetural pendente: reduzir defesa em profundidade vs. duplicar validação do controller. Descoberto na Sprint de Fixtures Sub-lote D, 15/05/2026 — `DemitirFuncionarioUseCaseTest` não foi migrado neste sub-lote porque `setTenant` no teste é load-bearing.
+Todos os pré-requisitos resolvidos — Etapa 6 desbloqueada.
+
+- `Version20260508170000.php:60` — RESOLVIDO em Sub-lote E (15/05/2026)
+- `DemitirFuncionarioUseCase.php` — RESOLVIDO em Sprint de Fixtures (15/05/2026):
+  Recebe `Tenant` explícito via `DemitirFuncionarioInput.tenant`. Validações
+  L38–40 e L51–53 removidas (redundantes com guardas do controller). Guard de
+  substituto adicionada no controller via `existeVinculoAtivo`. `DemitirFuncionarioUseCaseTest`
+  migrado: 2 testes removidos (validações movidas), `setTenant` eliminado.
 
 ---
 
