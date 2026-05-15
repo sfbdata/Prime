@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaObservacaoFinanceira;
 use App\Entity\Tenant\Tenant;
@@ -27,7 +28,8 @@ final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
         $this->useCase = new EditarObservacaoFinanceiraUseCase($this->em);
 
         $tenant = new Tenant();
-        $autor  = (new User())->setEmail('autor@test.com')->setTenant($tenant);
+        $autor  = (new User())->setEmail('autor@test.com');
+        new UserTenant($autor, $tenant);
 
         $this->observacao = new PastaObservacaoFinanceira();
         $this->observacao->setPasta(new Pasta());

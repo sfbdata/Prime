@@ -732,9 +732,13 @@ Tratar após a refatoração de identidade global:
 
 - **Audit metodológica — namespace de entidade não verificado antes de prescrever `use` (detectado no Sub-lote B1, 15/05/2026):** o plano do Sub-lote A criou `JusPrimeWebTestCase` importando `App\Entity\Auth\Tenant` (namespace inexistente; Tenant real em `App\Entity\Tenant\Tenant`). O bug ficou silencioso porque nenhum teste do Sub-lote A chamava `logarComTenant` ainda; explodiu apenas ao prescrever o Diff 2 do B1 (DemandasControllerTest). **Regra para próximos planos:** antes de prescrever qualquer `use` de entidade em classe base/utility de testes, verificar o namespace real com `rg -n 'namespace App\\Entity' app/src` e confirmar o caminho do arquivo via `find app/src -name '<Entidade>.php'`.
 
+- **Audit metodológica — levantamento de fixtures unit não cruzou estado do UseCase correspondente (detectado no Sub-lote D, 15/05/2026):** `5c.3e.7-fixtures-levantamento.md` listou `DemitirFuncionarioUseCaseTest.php` como candidato a migrar `User::setTenant()` por UserTenant transient. Não verificou se o próprio `DemitirFuncionarioUseCase` havia sido refatorado para Tenant explícito. Resultado: `setTenant` no teste é load-bearing (UseCase usa `$user->getTenant()` em L38, L42-44, L51), tornando a remoção direta impossível sem refatorar o UseCase. Sub-lote D pulou o arquivo. **Regra para próximos levantamentos:** cruzar candidatos de teste unit com o código de produção testado — verificar se o UseCase/service correspondente ainda usa padrões legados (`getTenant()`, `getTenantRole()`, etc.) antes de classificar o `setTenant` no teste como dead code.
+
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
 - `app/migrations/Version20260508170000.php:60` — `UPDATE user SET tenant_id=1` no E2E user. Pré-requisito original era esperar refatoração dos templates do sidebar, atendido na Fase 5c.1. Migration ainda contém o UPDATE; remover antes da Etapa 6 ou junto com ela.
+
+- `app/src/Tenant/UseCase/DemitirFuncionarioUseCase.php` — usa `$user->getTenant()` em 3 lugares (L38, L42-44, L51) para validar posse de tenant do funcionário, do criador do tenant e do substituto. Refatorar para receber `Tenant` explícito (alinhado com padrão de 5c.3a/5c.3b) OU remover validações redundantes com B-route guarda 1 já aplicada no controller (sub-lote 4b.2). Decisão arquitetural pendente: reduzir defesa em profundidade vs. duplicar validação do controller. Descoberto na Sprint de Fixtures Sub-lote D, 15/05/2026 — `DemitirFuncionarioUseCaseTest` não foi migrado neste sub-lote porque `setTenant` no teste é load-bearing.
 
 ---
 

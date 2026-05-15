@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Tenant\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
@@ -29,7 +30,8 @@ final class TenantBootstrapServiceTest extends TestCase
         $this->em      = $this->createMock(EntityManagerInterface::class);
         $this->service = new TenantBootstrapService($this->em);
         $this->tenant  = new Tenant();
-        $this->criador = (new User())->setEmail('admin@test.com')->setTenant($this->tenant);
+        $this->criador = (new User())->setEmail('admin@test.com');
+        new UserTenant($this->criador, $this->tenant);
 
         $tenantRoleRepo = $this->createMock(EntityRepository::class);
         $tenantRoleRepo->method('findOneBy')->willReturn(null);
