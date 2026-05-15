@@ -5,20 +5,22 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaDocumento;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PeticionarController;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
-use Symfony\Component\HttpFoundation\Response;
 
 #[CoversClass(PeticionarController::class)]
-final class PeticionarControllerTest extends WebTestCase
+final class PeticionarControllerTest extends JusPrimeWebTestCase
 {
     /** @var string[] */
     private array $arquivosParaLimpar = [];
@@ -39,7 +41,7 @@ final class PeticionarControllerTest extends WebTestCase
         $em        = $container->get(EntityManagerInterface::class);
         $hasher    = $container->get(UserPasswordHasherInterface::class);
 
-        $tenant = new \App\Entity\Tenant\Tenant();
+        $tenant = new Tenant();
         $tenant->setName('Tenant Peticionar ' . uniqid());
         $em->persist($tenant);
 
@@ -48,9 +50,10 @@ final class PeticionarControllerTest extends WebTestCase
         $user->setFullName('Admin Peticionar');
         $user->setRoles(['ROLE_SUPER_ADMIN']);
         $user->setIsActive(true);
-        $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
+        $userTenant = new UserTenant($user, $tenant);
+        $em->persist($userTenant);
         $em->flush();
 
         return $user;

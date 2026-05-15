@@ -9,15 +9,15 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\DemandasController;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
 #[CoversClass(DemandasController::class)]
-final class DemandasControllerTest extends WebTestCase
+final class DemandasControllerTest extends JusPrimeWebTestCase
 {
     private function criarUsuarioComTenant(KernelBrowser $client): array
     {
@@ -34,7 +34,6 @@ final class DemandasControllerTest extends WebTestCase
         $user->setFullName('Funcionário Teste');
         $user->setRoles(['ROLE_USER']);
         $user->setIsActive(true);
-        $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
 
@@ -43,10 +42,7 @@ final class DemandasControllerTest extends WebTestCase
 
         $em->flush();
 
-        $client->loginUser($user);
-        $session = $client->getSession();
-        $session->set('current_tenant_id', $tenant->getId());
-        $session->save();
+        $this->logarComTenant($client, $user, $tenant);
 
         return [$user, $tenant];
     }

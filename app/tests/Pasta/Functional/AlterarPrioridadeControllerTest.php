@@ -6,17 +6,18 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Tenant\Tenant;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 #[CoversClass(PastaController::class)]
-final class AlterarPrioridadeControllerTest extends WebTestCase
+final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
 {
     private function criarUsuarioAdmin(): User
     {
@@ -33,9 +34,10 @@ final class AlterarPrioridadeControllerTest extends WebTestCase
         $user->setFullName('Admin Prioridade');
         $user->setRoles(['ROLE_SUPER_ADMIN']);
         $user->setIsActive(true);
-        $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
+        $userTenant = new UserTenant($user, $tenant);
+        $em->persist($userTenant);
         $em->flush();
 
         return $user;
