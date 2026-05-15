@@ -735,6 +735,17 @@ Tratar após a refatoração de identidade global:
 
 - **`MigrateLegatyRolesCommand` deletado — RESOLVIDO (15/05/2026):** Investigação pré-Etapa 6 identificou o comando como bloqueante: `execute()` lê `user.tenant_id` via `findBy(['tenant' => $tenant])` (L127) e lê/escreve `user.tenant_role_id` via `getTenantRole()`/`setTenantRole()` (L215, L219, L242) — ambas colunas a serem dropadas na Etapa 6. Decisão: **deletar** (não refatorar). Justificativa: (1) migração já concluída em produção — todos os 13 users com tenant_id têm tenant_role_id; (2) 2 users remanescentes sem role também não têm tenant_id, portanto fora do escopo do comando; (3) após Etapa 6, o conceito de "migrar role legada para TenantRole em `User`" torna-se inaplicável pois a coluna deixa de existir; (4) `UserTenant` não tem herança legada a migrar (criado corretamente na Etapa 2). Sem testes, sem callers externos (CI/CD, Makefile, controllers). Arquivo deletado, cache limpo, suite validada: 458 testes, 13 erros Grupo A inalterados, 0 novas falhas. Typo no nome da classe (`Legaty` em vez de `Legacy`) e no filename — morreu junto.
 
+- **AccessRequestRepository.findPendingByTenant não filtra UserTenant.isActive (6.A):**
+  Comportamento atual preservado — access requests pendentes de demitidos continuam
+  aparecendo na listagem do admin. Validar com produto se é comportamento intencional
+  (auditoria) ou bug (demitidos não deveriam ter requests pendentes visíveis).
+
+- **GerarCodigoFuncionarioTest tem cobertura cega à DQL (6.A):** mock usa
+  `Doctrine\ORM\Query` concreta com `willReturn` genérico em `createQuery` — não
+  asserta a string DQL. A pivotação da query (User → UserTenant) em 6.A passou sem
+  validação automática da DQL correta. Reescrever mock seguindo padrão atual
+  (interface + InMemory ou KernelTestCase) em sprint futura.
+
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
 Todos os pré-requisitos resolvidos — Etapa 6 desbloqueada.

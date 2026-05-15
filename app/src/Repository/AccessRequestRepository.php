@@ -2,7 +2,6 @@
 
 namespace App\Repository;
 
-use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -46,9 +45,13 @@ class AccessRequestRepository extends ServiceEntityRepository
     public function findPendingByTenant(Tenant $tenant): array
     {
         return $this->createQueryBuilder('ar')
-            ->join('ar.user', 'u')
-            ->where('u.tenant = :tenant')
-            ->andWhere('ar.status = :status')
+            ->join(
+                'App\Entity\Auth\UserTenant',
+                'ut',
+                'WITH',
+                'ut.user = ar.user AND ut.tenant = :tenant'
+            )
+            ->where('ar.status = :status')
             ->setParameter('tenant', $tenant)
             ->setParameter('status', AccessRequest::STATUS_PENDING)
             ->orderBy('ar.requestedAt', 'ASC')

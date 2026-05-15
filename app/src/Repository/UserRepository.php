@@ -27,7 +27,12 @@ class UserRepository extends ServiceEntityRepository
 
         if (is_int($tenantId)) {
             $queryBuilder
-                ->andWhere('u.tenant = :tenantId')
+                ->join(
+                    'App\Entity\Auth\UserTenant',
+                    'ut',
+                    'WITH',
+                    'ut.user = u AND ut.tenant = :tenantId'
+                )
                 ->setParameter('tenantId', $tenantId);
         }
 

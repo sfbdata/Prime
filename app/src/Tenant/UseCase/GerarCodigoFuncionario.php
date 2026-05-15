@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tenant\UseCase;
 
-use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -23,10 +22,10 @@ final class GerarCodigoFuncionario
     public function executar(Tenant $tenant): string
     {
         $rows = $this->em->createQuery(
-            'SELECT u.codigoFuncionario
-             FROM App\Entity\Auth\User u
-             WHERE u.tenant = :tenant
-               AND u.codigoFuncionario IS NOT NULL'
+            'SELECT ut.codigoFuncionario
+             FROM App\Entity\Auth\UserTenant ut
+             WHERE ut.tenant = :tenant
+               AND ut.codigoFuncionario IS NOT NULL'
         )
         ->setParameter('tenant', $tenant)
         ->getArrayResult();

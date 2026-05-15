@@ -6,6 +6,7 @@ use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Ponto\JustificativaPonto;
 use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
@@ -82,47 +83,6 @@ class NotificacaoService
                 Notificacao::TIPO_TAREFA_CRIADA,
                 'Nova tarefa atribuída',
                 "A tarefa \"{$tarefa->getTitulo()}\" foi atribuída a você.",
-                $tarefa
-            );
-        }
-
-        $this->entityManager->flush();
-    }
-
-    /**
-     * Notifica admins do tenant que um usuário enviou tarefa para revisão.
-     * Chamado quando funcionário clica em "Enviar para Revisão".
-     */
-    public function notificarTarefaEmRevisao(Tarefa $tarefa, User $usuarioQueEnviou): void
-    {
-        // Buscar admins do mesmo tenant
-        $tenant = $usuarioQueEnviou->getTenant();
-        if ($tenant === null) {
-            return;
-        }
-
-        // Buscar todos os usuários do tenant e filtrar admins em PHP
-        // (evita problemas com LIKE em campos JSON no PostgreSQL)
-        $usuarios = $this->userRepository->createQueryBuilder('u')
-            ->where('u.tenant = :tenant')
-            ->setParameter('tenant', $tenant)
-            ->getQuery()
-            ->getResult();
-
-        $admins = array_filter($usuarios, function(User $user) use ($tenant) {
-            return $this->permissionChecker->canAdminister($user, $tenant, 'admin.tarefas.manage');
-        });
-
-        foreach ($admins as $admin) {
-            if ($admin->getId() === $usuarioQueEnviou->getId()) {
-                continue; // Não notifica o próprio usuário
-            }
-
-            $this->criar(
-                $admin,
-                Notificacao::TIPO_TAREFA_EM_REVISAO,
-                'Tarefa aguardando revisão',
-                "{$usuarioQueEnviou->getFullName()} enviou a tarefa \"{$tarefa->getTitulo()}\" para revisão.",
                 $tarefa
             );
         }
@@ -213,16 +173,17 @@ class NotificacaoService
         $this->notificacaoRepository->marcarTodasComoLidas($usuario);
     }
 
-    public function notificarJustificativaEnviada(JustificativaPonto $justificativa, string $urlGestor): void
+    public function notificarJustificativaEnviada(JustificativaPonto $justificativa, string $urlGestor, Tenant $tenant): void
     {
         $user = $justificativa->getUser();
-        $tenant = $user?->getTenant();
-        if ($tenant === null) {
-            return;
-        }
 
         $usuarios = $this->userRepository->createQueryBuilder('u')
-            ->where('u.tenant = :tenant')
+            ->join(
+                'App\Entity\Auth\UserTenant',
+                'ut',
+                'WITH',
+                'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true'
+            )
             ->setParameter('tenant', $tenant)
             ->getQuery()
             ->getResult();

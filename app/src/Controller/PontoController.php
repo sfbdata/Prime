@@ -247,7 +247,7 @@ final class PontoController extends AbstractController
             if (!$isFaltaNaoJustificada) {
                 $urlGestor = $this->generateUrl('app_tenant_users', ['id' => $tenant->getId()]);
                 foreach ($justificativasCriadas as $j) {
-                    $notificacaoService->notificarJustificativaEnviada($j, $urlGestor);
+                    $notificacaoService->notificarJustificativaEnviada($j, $urlGestor, $tenant);
                 }
             }
 
