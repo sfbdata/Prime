@@ -365,11 +365,21 @@ docs/etapas/5c-levantamento-2026-05-13.md.
 
 ---
 
-### ⏳ Etapa 6 — Limpeza (PENDENTE)
+### ⏳ Etapa 6 — Limpeza (EM ANDAMENTO)
 
-- Remover colunas de `user`: `tenant_id`, `tenant_role_id`, `cargo_id`, `lotacao_id`, `codigo_funcionario`, `demitido_em`, `last_login`
-- Remover `user_profiles.data_admissao`
-- Trocar UNIQUE de `user.email` por UNIQUE global puro (já é, mas confirmar que está como índice de coluna e que faz sentido depois da remoção do `tenant_id`)
+Sub-lotes:
+
+| # | Escopo | Status |
+|---|---|---|
+| 6.A | DQL + services downstream | CONCLUÍDO (commit 3103542) |
+| 6.B | editUserRole + Forms + Templates | CONCLUÍDO (pendente commit) |
+| 6.C | Services + Tenant.php | pendente |
+| 6.D | Entidades User.php + UserProfile.php + demitir() | pendente |
+| 6.E | Migration DROP COLUMN (8 colunas) | pendente |
+
+Colunas a dropar em 6.E: `user.tenant_id`, `user.tenant_role_id`, `user.cargo_id`,
+`user.lotacao_id`, `user.codigo_funcionario`, `user.demitido_em`, `user.last_login`,
+`user_profiles.data_admissao`.
 
 ---
 
@@ -745,6 +755,15 @@ Tratar após a refatoração de identidade global:
   asserta a string DQL. A pivotação da query (User → UserTenant) em 6.A passou sem
   validação automática da DQL correta. Reescrever mock seguindo padrão atual
   (interface + InMemory ou KernelTestCase) em sprint futura.
+
+- **Feature "pausar funcionário no tenant" removida em 6.B:** o toggle "Conta ativa"
+  no form `EditUserTenantRoleType` tinha semântica incorreta — mapeava para
+  `User.isActive` (desativava o login global) em vez de pausar o vínculo por tenant.
+  Removido sem substituto: campo deletado do form, bloco de processamento removido
+  do controller, render removido do template. Reimplementar como feature dedicada
+  no futuro com: motivo (férias/licença/afastamento), data prevista de retorno,
+  fluxo de aprovação se necessário. Arquivos alterados: `EditUserTenantRoleType.php`,
+  `TenantController.editUserRole`, `templates/tenant/edit_user_role.html.twig`.
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 

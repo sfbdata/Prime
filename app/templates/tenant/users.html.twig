@@ -40,17 +40,18 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% set usersAtivos = users|filter(u => u.demitidoEm is null) %}
-                        {% set usersDesligados = users|filter(u => u.demitidoEm is not null) %}
+                        {% set usersAtivos = users|filter(u => userTenantByUserId[u.id].demitidoEm is null) %}
+                        {% set usersDesligados = users|filter(u => userTenantByUserId[u.id].demitidoEm is not null) %}
                         {% for user in usersAtivos %}
+                            {% set ut = userTenantByUserId[user.id] ?? null %}
                             {% set userAccesses = accessByUser[user.id] ?? [] %}
                             <tr>
-                                <td class="align-middle ps-3 text-muted fw-semibold" style="font-size:.82rem;">{{ user.codigoFuncionario ?? '—' }}</td>
+                                <td class="align-middle ps-3 text-muted fw-semibold" style="font-size:.82rem;">{{ ut ? ut.codigoFuncionario ?? '—' : '—' }}</td>
                                 <td class="align-middle">{{ user.fullName }}</td>
                                 <td class="align-middle">{{ user.email }}</td>
                                 <td class="align-middle">
-                                    {% if user.tenantRole %}
-                                        <span class="badge text-bg-secondary">{{ user.tenantRole.name }}</span>
+                                    {% if ut and ut.tenantRole %}
+                                        <span class="badge text-bg-secondary">{{ ut.tenantRole.name }}</span>
                                     {% else %}
                                         <span class="text-muted">—</span>
                                     {% endif %}
@@ -152,20 +153,21 @@
                             </thead>
                             <tbody>
                                 {% for user in usersDesligados %}
+                                    {% set ut = userTenantByUserId[user.id] ?? null %}
                                     <tr class="text-muted">
-                                        <td class="align-middle ps-3 fw-semibold" style="font-size:.82rem;">{{ user.codigoFuncionario ?? '—' }}</td>
+                                        <td class="align-middle ps-3 fw-semibold" style="font-size:.82rem;">{{ ut ? ut.codigoFuncionario ?? '—' : '—' }}</td>
                                         <td class="align-middle">{{ user.fullName }}</td>
                                         <td class="align-middle">{{ user.email }}</td>
                                         <td class="align-middle">
-                                            {% if user.tenantRole %}
-                                                <span class="badge text-bg-secondary">{{ user.tenantRole.name }}</span>
+                                            {% if ut and ut.tenantRole %}
+                                                <span class="badge text-bg-secondary">{{ ut.tenantRole.name }}</span>
                                             {% else %}
                                                 <span class="text-muted">—</span>
                                             {% endif %}
                                         </td>
                                         <td class="align-middle">
                                             <span class="badge text-bg-warning text-dark"><i class="bi bi-person-x me-1"></i>Desligado</span>
-                                            <div class="text-muted" style="font-size:.72rem;">{{ user.demitidoEm|date('d/m/Y') }}</div>
+                                            <div class="text-muted" style="font-size:.72rem;">{{ ut ? ut.demitidoEm|date('d/m/Y') : '—' }}</div>
                                         </td>
                                         <td class="align-middle">
                                             <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenant.id, id: user.id}) }}"

@@ -9,6 +9,7 @@ use App\Entity\Ponto\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Form\EditUserTenantRoleType;
 use App\Profile\Entity\UserProfile;
 use App\Form\RegistroPontoManualType;
@@ -332,6 +333,12 @@ final class TenantController extends AbstractController
 
         $users = $tenant->getUsers()->toArray();
 
+        $vinculos = $userTenantRepository->findBy(['tenant' => $tenant]);
+        $userTenantByUserId = [];
+        foreach ($vinculos as $vt) {
+            $userTenantByUserId[$vt->getUser()->getId()] = $vt;
+        }
+
         // Busca todos os ResourceAccess dos usuários do tenant em uma query só
         $accessByUser = $resourceAccessRepository->findByUsers($users);
 
@@ -339,10 +346,11 @@ final class TenantController extends AbstractController
         $resourceLabels = $this->resolveResourceLabels($accessByUser, $clienteRepository, $pastaRepository, $processoRepository);
 
         return $this->render('tenant/users.html.twig', [
-            'tenant'         => $tenant,
-            'users'          => $users,
-            'accessByUser'   => $accessByUser,
-            'resourceLabels' => $resourceLabels,
+            'tenant'             => $tenant,
+            'users'              => $users,
+            'userTenantByUserId' => $userTenantByUserId,
+            'accessByUser'       => $accessByUser,
+            'resourceLabels'     => $resourceLabels,
         ]);
     }
 
@@ -463,24 +471,24 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para editar perfis de usuário.');
         }
 
-        // Para SUPER_ADMIN editando outro tenant, buscar roles do tenant do usuário alvo.
-        // Para admin normal, buscar roles do próprio tenant.
-        $targetTenantId = $isSuperAdmin ? ($user->getTenant()?->getId() ?? $tenantId) : $tenantId;
-        $tenantRoles    = $tenantRoleRepository->findByTenantId($targetTenantId);
-        $targetTenant   = $user->getTenant();
-        $cargos         = $targetTenant ? $cargoRepository->findBy(['tenant' => $targetTenant], ['nome' => 'ASC']) : [];
-        $lotacoes       = $targetTenant ? $lotacaoRepository->findBy(['tenant' => $targetTenant], ['nome' => 'ASC']) : [];
-
-        // Pré-preenche em memória sem flush — o flush ocorre apenas na submissão válida
-        if ($user->getCodigoFuncionario() === null && $targetTenant !== null) {
-            $user->setCodigoFuncionario($gerarCodigo->executar($targetTenant));
+        $userTenant = $userTenantRepository->findAtivoPorUserETenant($user, $tenant);
+        if ($userTenant === null) {
+            throw $this->createNotFoundException();
         }
 
-        $form = $this->createForm(EditUserTenantRoleType::class, $user, [
+        $tenantRoles = $tenantRoleRepository->findByTenantId($tenantId);
+        $cargos      = $cargoRepository->findBy(['tenant' => $tenant], ['nome' => 'ASC']);
+        $lotacoes    = $lotacaoRepository->findBy(['tenant' => $tenant], ['nome' => 'ASC']);
+
+        if ($userTenant->getCodigoFuncionario() === null) {
+            $userTenant->setCodigoFuncionario($gerarCodigo->executar($tenant));
+        }
+
+        $form = $this->createForm(EditUserTenantRoleType::class, $userTenant, [
             'tenant_roles'    => $tenantRoles,
             'tenant_cargos'   => $cargos,
             'tenant_lotacoes' => $lotacoes,
-            'data_admissao'   => $user->getProfile()?->getDataAdmissao(),
+            'data_admissao'   => $userTenant->getDataAdmissao(),
         ]);
         $form->handleRequest($request);
 
@@ -491,12 +499,7 @@ final class TenantController extends AbstractController
                 $user->setPassword($passwordHasher->hashPassword($user, $newPassword));
             }
 
-            $profile = $user->getProfile();
-            if ($profile === null) {
-                $profile = new UserProfile($user);
-                $entityManager->persist($profile);
-            }
-            $profile->setDataAdmissao($form->get('dataAdmissao')->getData());
+            $userTenant->setDataAdmissao($form->get('dataAdmissao')->getData());
 
             $entityManager->flush();
             $this->addFlash('success', 'Usuário atualizado com sucesso!');
@@ -522,7 +525,7 @@ final class TenantController extends AbstractController
             $competenciaSelecionada = (string) $competenciasPonto[0]['valor'];
         }
 
-        $jornadaTenant = $user->getTenant()?->getJornadaTenant();
+        $jornadaTenant = $tenant->getJornadaTenant();
 
         $folhaRowsPonto = [];
         $mesCompetenciaPonto = null;
@@ -533,7 +536,7 @@ final class TenantController extends AbstractController
 
             $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $anoSelecionado, $mesSelecionado));
             $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-            $feriados = $user->getTenant() !== null ? $feriadoRepository->findByTenant($user->getTenant()) : [];
+            $feriados = $feriadoRepository->findByTenant($tenant);
             $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
             $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant);
             $mesCompetenciaPonto = $mesSelecionado;
@@ -552,12 +555,11 @@ final class TenantController extends AbstractController
         $inputDados->serie           = $perfil->getSerie();
         $formDadosPessoais = $this->createForm(DadosPessoaisType::class, $inputDados);
 
-        $colegas = $targetTenant
-            ? array_values(array_filter(
-                $targetTenant->getUsers()->toArray(),
-                static fn (User $u) => $u->isActive() && $u->getId() !== $user->getId()
-            ))
-            : [];
+        $colegasVinculos = $userTenantRepository->findBy(['tenant' => $tenant, 'isActive' => true]);
+        $colegas = array_values(array_filter(
+            $colegasVinculos,
+            static fn (UserTenant $ut) => $ut->getUser()->getId() !== $user->getId()
+        ));
 
         return $this->render('tenant/edit_user_role.html.twig', [
             'form'                   => $form->createView(),

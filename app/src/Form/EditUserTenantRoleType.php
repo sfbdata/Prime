@@ -2,13 +2,12 @@
 
 namespace App\Form;
 
-use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\TenantRole;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
-use Symfony\Component\Form\Extension\Core\Type\CheckboxType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
 use Symfony\Component\Form\Extension\Core\Type\RepeatedType;
@@ -62,10 +61,6 @@ class EditUserTenantRoleType extends AbstractType
                 'data'     => $options['data_admissao'],
                 'attr'     => ['class' => 'form-control'],
             ])
-            ->add('isActive', CheckboxType::class, [
-                'label'    => 'Conta ativa',
-                'required' => false,
-            ])
             ->add('newPassword', RepeatedType::class, [
                 'type'            => PasswordType::class,
                 'mapped'          => false,
@@ -79,7 +74,7 @@ class EditUserTenantRoleType extends AbstractType
     public function configureOptions(OptionsResolver $resolver): void
     {
         $resolver->setDefaults([
-            'data_class'      => User::class,
+            'data_class'      => UserTenant::class,
             'tenant_roles'    => [],
             'tenant_cargos'   => [],
             'tenant_lotacoes' => [],
