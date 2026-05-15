@@ -3,21 +3,20 @@ declare(strict_types=1);
 namespace App\Tests\Profile\Functional;
 
 use App\Entity\Auth\User;
-use App\Entity\Tenant\Tenant;
 use App\Profile\Controller\ProfileController;
 use App\Profile\Repository\UserProfileRepository;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 #[CoversClass(ProfileController::class)]
-final class SalvarFotoPerfilControllerTest extends WebTestCase
+final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
 {
     private function criarUsuario(): User
     {
@@ -25,16 +24,11 @@ final class SalvarFotoPerfilControllerTest extends WebTestCase
         $em        = $container->get(EntityManagerInterface::class);
         $hasher    = $container->get(UserPasswordHasherInterface::class);
 
-        $tenant = new Tenant();
-        $tenant->setName('Tenant Foto ' . uniqid());
-        $em->persist($tenant);
-
         $user = new User();
         $user->setEmail('test_foto_' . uniqid() . '@test.com');
         $user->setFullName('Usuário Foto');
         $user->setRoles(['ROLE_SUPER_ADMIN']);
         $user->setIsActive(true);
-        $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
         $em->flush();

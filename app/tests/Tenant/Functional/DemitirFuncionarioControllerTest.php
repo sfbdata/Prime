@@ -11,12 +11,12 @@ use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 #[CoversClass(TenantController::class)]
-final class DemitirFuncionarioControllerTest extends WebTestCase
+final class DemitirFuncionarioControllerTest extends JusPrimeWebTestCase
 {
     private function criarTenant(): Tenant
     {
@@ -40,7 +40,6 @@ final class DemitirFuncionarioControllerTest extends WebTestCase
         $user->setFullName('Admin Demissão');
         $user->setRoles(['ROLE_SUPER_ADMIN']);
         $user->setIsActive(true);
-        $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
         $em->persist(new UserTenant($user, $tenant));
@@ -60,7 +59,6 @@ final class DemitirFuncionarioControllerTest extends WebTestCase
         $user->setFullName('Funcionário Teste');
         $user->setRoles(['ROLE_USER']);
         $user->setIsActive(true);
-        $user->setTenant($tenant);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
         $em->persist(new UserTenant($user, $tenant));
@@ -191,10 +189,7 @@ final class DemitirFuncionarioControllerTest extends WebTestCase
         $alvo        = $this->criarFuncionario($tenant);
 
         $this->instalarCsrfStorage();
-        $client->loginUser($semPermissao);
-        $session = $client->getSession();
-        $session->set('current_tenant_id', $tenant->getId());
-        $session->save();
+        $this->logarComTenant($client, $semPermissao, $tenant);
 
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$alvo->getId()}/demitir", [
             '_token' => $this->gerarCsrf('demitir_' . $alvo->getId()),

@@ -10,12 +10,12 @@ use App\Entity\Auth\User;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 #[CoversClass(AdminConviteController::class)]
-final class AdminConviteControllerTest extends WebTestCase
+final class AdminConviteControllerTest extends JusPrimeWebTestCase
 {
     private function criarSuperAdmin(): User
     {
@@ -93,10 +93,7 @@ final class AdminConviteControllerTest extends WebTestCase
     {
         $client = static::createClient();
         ['user' => $user, 'tenant' => $tenant] = $this->criarUsuarioComTenant();
-        $client->loginUser($user);
-        $session = $client->getSession();
-        $session->set('current_tenant_id', $tenant->getId());
-        $session->save();
+        $this->logarComTenant($client, $user, $tenant);
         $client->request('GET', '/admin/platform/convites');
 
         self::assertResponseStatusCodeSame(403);

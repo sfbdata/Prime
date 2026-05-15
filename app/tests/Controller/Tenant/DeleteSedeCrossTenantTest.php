@@ -11,13 +11,13 @@ use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 #[CoversClass(TenantController::class)]
-final class DeleteSedeCrossTenantTest extends WebTestCase
+final class DeleteSedeCrossTenantTest extends JusPrimeWebTestCase
 {
     private function criarTenant(): Tenant
     {
@@ -41,7 +41,6 @@ final class DeleteSedeCrossTenantTest extends WebTestCase
         $user->setFullName('Atacante CrossTenant');
         $user->setRoles(['ROLE_USER']);
         $user->setIsActive(true);
-        $user->setTenant($tenantVinculo);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
         $em->persist(new UserTenant($user, $tenantVinculo));
@@ -95,11 +94,7 @@ final class DeleteSedeCrossTenantTest extends WebTestCase
         $sede     = $this->criarSede($tenantB);
 
         $this->instalarCsrfStorage();
-        $client->loginUser($atacante);
-
-        $session = $client->getSession();
-        $session->set('current_tenant_id', $tenantA->getId());
-        $session->save();
+        $this->logarComTenant($client, $atacante, $tenantA);
 
         $client->request('POST', "/tenant/{$tenantB->getId()}/sedes/{$sede->getId()}/delete", [
             '_token' => $this->gerarCsrf('delete_sede_' . $sede->getId()),
