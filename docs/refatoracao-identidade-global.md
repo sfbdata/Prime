@@ -728,6 +728,8 @@ Tratar após a refatoração de identidade global:
   para Apêndice 7 deve estender-se a todas as listas de pendências do
   doc mestre.
 
+- **AppFixtures.php em estado degradado (descoberto na Sprint de Fixtures Sub-lote A, 15/05/2026):** 851 linhas, 13 entidades, 100% hardcoded, sem Faker/factory. 6 bugs identificados: L261/L262 (corrigidos no Sub-lote A — new DateTime → new DateTimeImmutable pra desbloquear smoke), L612 e L629 (mesmo padrão de DateTime, não corrigidos pois não bloqueiam o smoke), L599-602 (Collection::clear() pós-flush() — Doctrine state inconsistency). Zero referência externa relevante: scripts reset_db.sh e reset_symfony.sh carregam fixtures sem nomear, sem CI/CD nem composer scripts. Decisão pendente: (a) corrigir bugs remanescentes em sub-lote isolado, (b) reescrever do zero em sprint pós-refatoração (factories por domínio, escolha de Faker), (c) deletar e usar dump de produção como única fonte de seed para DEV. Discussão deferida pra calendário pós-refatoração de identidade global.
+
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
 - `app/migrations/Version20260508170000.php:60` — `UPDATE user SET tenant_id=1` no E2E user. Pré-requisito original era esperar refatoração dos templates do sidebar, atendido na Fase 5c.1. Migration ainda contém o UPDATE; remover antes da Etapa 6 ou junto com ela.

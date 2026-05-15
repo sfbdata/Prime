@@ -5,6 +5,7 @@ namespace App\DataFixtures;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Comercial\PreCadastro;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
@@ -114,6 +115,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
 
         $users = [];
         $adminUser = null;
+        $userTenantRepo = $manager->getRepository(UserTenant::class);
         foreach ($dados as $dado) {
             // Procura usuário existente por email
             $user = $userRepo->findOneBy(['email' => $dado['email']]);
@@ -129,7 +131,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $user->setFullName($dado['nome']);
             $user->setRoles($dado['roles']);
             $user->setIsActive($dado['ativo']);
-            $user->setTenant($tenant);
+            if ($userTenantRepo->findOneBy(['user' => $user, 'tenant' => $tenant]) === null) {
+                $manager->persist(new UserTenant($user, $tenant));
+            }
             
             $users[] = $user;
 
@@ -254,8 +258,8 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $c->setNomeCompleto($dado['nomeCompleto']);
             $c->setRg($dado['rg']);
             $c->setRgOrgaoExpedidor($dado['rgOrgao']);
-            $c->setRgDataEmissao(new \DateTime($dado['rgDataEmissao']));
-            $c->setDataNascimento(new \DateTime($dado['dataNascimento']));
+            $c->setRgDataEmissao(new \DateTimeImmutable($dado['rgDataEmissao']));
+            $c->setDataNascimento(new \DateTimeImmutable($dado['dataNascimento']));
             $c->setEstadoCivil($dado['estadoCivil']);
             $c->setProfissao($dado['profissao']);
             $c->setEmail($dado['email']);
