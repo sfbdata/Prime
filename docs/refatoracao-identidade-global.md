@@ -733,6 +733,8 @@ Tratar após a refatoração de identidade global:
 
 - **Audit metodológica — levantamento de fixtures unit não cruzou estado do UseCase correspondente (detectado no Sub-lote D, 15/05/2026):** `5c.3e.7-fixtures-levantamento.md` listou `DemitirFuncionarioUseCaseTest.php` como candidato a migrar `User::setTenant()` por UserTenant transient. Não verificou se o próprio `DemitirFuncionarioUseCase` havia sido refatorado para Tenant explícito. Resultado: `setTenant` no teste é load-bearing (UseCase usa `$user->getTenant()` em L38, L42-44, L51), tornando a remoção direta impossível sem refatorar o UseCase. Sub-lote D pulou o arquivo. **Regra para próximos levantamentos:** cruzar candidatos de teste unit com o código de produção testado — verificar se o UseCase/service correspondente ainda usa padrões legados (`getTenant()`, `getTenantRole()`, etc.) antes de classificar o `setTenant` no teste como dead code.
 
+- **`MigrateLegatyRolesCommand` deletado — RESOLVIDO (15/05/2026):** Investigação pré-Etapa 6 identificou o comando como bloqueante: `execute()` lê `user.tenant_id` via `findBy(['tenant' => $tenant])` (L127) e lê/escreve `user.tenant_role_id` via `getTenantRole()`/`setTenantRole()` (L215, L219, L242) — ambas colunas a serem dropadas na Etapa 6. Decisão: **deletar** (não refatorar). Justificativa: (1) migração já concluída em produção — todos os 13 users com tenant_id têm tenant_role_id; (2) 2 users remanescentes sem role também não têm tenant_id, portanto fora do escopo do comando; (3) após Etapa 6, o conceito de "migrar role legada para TenantRole em `User`" torna-se inaplicável pois a coluna deixa de existir; (4) `UserTenant` não tem herança legada a migrar (criado corretamente na Etapa 2). Sem testes, sem callers externos (CI/CD, Makefile, controllers). Arquivo deletado, cache limpo, suite validada: 458 testes, 13 erros Grupo A inalterados, 0 novas falhas. Typo no nome da classe (`Legaty` em vez de `Legacy`) e no filename — morreu junto.
+
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
 Todos os pré-requisitos resolvidos — Etapa 6 desbloqueada.
@@ -743,6 +745,10 @@ Todos os pré-requisitos resolvidos — Etapa 6 desbloqueada.
   L38–40 e L51–53 removidas (redundantes com guardas do controller). Guard de
   substituto adicionada no controller via `existeVinculoAtivo`. `DemitirFuncionarioUseCaseTest`
   migrado: 2 testes removidos (validações movidas), `setTenant` eliminado.
+- `MigrateLegatyRolesCommand.php` — RESOLVIDO (deletado) em 15/05/2026:
+  Bloqueante descoberto na investigação pré-Etapa 6 (dependia de `user.tenant_id`
+  e `user.tenant_role_id`). Migração já concluída em produção. Arquivo deletado.
+  Ver audit note detalhada em "Pontos de auditoria".
 
 ---
 
