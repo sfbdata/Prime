@@ -43,7 +43,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 64, nullable: true)]
     private ?string $invitationToken = null;
 
-    #[ORM\ManyToOne(inversedBy: 'users')]
+    #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true)]
     private ?Tenant $tenant = null;
 

@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
 use App\Entity\Ponto\Feriado;
 use App\Entity\Tenant\Tenant;
@@ -68,8 +69,16 @@ class TenantBootstrapService
         $adminRole = $this->findOrCreateAdminRole($tenant);
 
         if ($creator !== null) {
-            $creator->setTenantRole($adminRole);
             $this->entityManager->persist($creator);
+
+            $userTenant = $this->entityManager
+                ->getRepository(UserTenant::class)
+                ->findOneBy(['user' => $creator, 'tenant' => $tenant]);
+            if ($userTenant === null) {
+                $userTenant = new UserTenant($creator, $tenant);
+                $this->entityManager->persist($userTenant);
+            }
+            $userTenant->setTenantRole($adminRole);
             $tenant->setCriadoPor($creator);
             $this->entityManager->persist($tenant);
         }

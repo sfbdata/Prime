@@ -765,6 +765,21 @@ Tratar após a refatoração de identidade global:
   fluxo de aprovação se necessário. Arquivos alterados: `EditUserTenantRoleType.php`,
   `TenantController.editUserRole`, `templates/tenant/edit_user_role.html.twig`.
 
+- **Bug persist($creator) removido por acidente em 6.C:** ao remover
+  `setTenantRole` de `User` no `TenantBootstrapService`, a linha
+  `$this->entityManager->persist($creator)` que estava no mesmo bloco
+  `if` foi removida junto. Bug passou pela suite de 458 testes — o service
+  não tem teste de integração do fluxo de bootstrap. Padrão recorrente:
+  fluxos críticos (forms, services de bootstrap) escapam de cobertura.
+  Considerar sprint dedicada a integration tests de `TenantBootstrapService`,
+  `AceitarConviteEscritorioComContaUseCase` e demais services de boot/aceite.
+
+- **TenantBootstrapService: find-or-create silencioso de UserTenant (6.C):**
+  Se chamado com `$creator` que já tem vínculo ativo em outro role, o bootstrap
+  sobrescreve o role sem aviso. Aceito como débito técnico para acelerar a Etapa 6.
+  Conserto futuro: `bootstrap()` recebe `UserTenant` pronto na assinatura; callers
+  (`TenantController::new` e `AppFixtures`) fazem o find-or-create antes.
+
 - **Bug DateTimeImmutable em EditUserTenantRoleType (6.B smoke):** campo `dataAdmissao`
   do form Symfony retornava `DateTime` mutável, mas `UserTenant::setDataAdmissao` tipa
   como `?\DateTimeImmutable`. Bug passou pela suite de 458 testes porque não existe

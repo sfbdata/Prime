@@ -39,9 +39,13 @@ final class TenantBootstrapServiceTest extends TestCase
         $permissionRepo = $this->createMock(EntityRepository::class);
         $permissionRepo->method('findAll')->willReturn([]);
 
+        $userTenantRepo = $this->createMock(EntityRepository::class);
+        $userTenantRepo->method('findOneBy')->willReturn(null);
+
         $this->em->method('getRepository')->willReturnMap([
             [TenantRole::class, $tenantRoleRepo],
             [Permission::class, $permissionRepo],
+            [UserTenant::class, $userTenantRepo],
         ]);
     }
 

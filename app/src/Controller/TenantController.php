@@ -331,9 +331,8 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para ver os usuários deste Tenant.');
         }
 
-        $users = $tenant->getUsers()->toArray();
-
         $vinculos = $userTenantRepository->findBy(['tenant' => $tenant]);
+        $users    = array_map(fn($vt) => $vt->getUser(), $vinculos);
         $userTenantByUserId = [];
         foreach ($vinculos as $vt) {
             $userTenantByUserId[$vt->getUser()->getId()] = $vt;

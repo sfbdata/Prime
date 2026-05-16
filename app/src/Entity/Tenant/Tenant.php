@@ -54,12 +54,6 @@ class Tenant
     private ?bool $isActive = null;
 
     /**
-     * @var Collection<int, User>
-     */
-    #[ORM\OneToMany(targetEntity: User::class, mappedBy: 'tenant')]
-    private Collection $users;
-
-    /**
      * @var Collection<int, TenantRole>
      */
     #[ORM\OneToMany(targetEntity: TenantRole::class, mappedBy: 'tenant', cascade: ['persist', 'remove'])]
@@ -95,7 +89,6 @@ class Tenant
 
     public function __construct()
     {
-        $this->users = new ArrayCollection();
         $this->roles = new ArrayCollection();
         $this->sedes = new ArrayCollection();
         $this->cargos = new ArrayCollection();
@@ -221,35 +214,6 @@ class Tenant
     public function setIsActive(bool $isActive): static
     {
         $this->isActive = $isActive;
-        return $this;
-    }
-
-    /**
-     * @return Collection<int, User>
-     */
-    public function getUsers(): Collection
-    {
-        return $this->users;
-    }
-
-    public function addUser(User $user): static
-    {
-        if (!$this->users->contains($user)) {
-            $this->users->add($user);
-            $user->setTenant($this);
-        }
-
-        return $this;
-    }
-
-    public function removeUser(User $user): static
-    {
-        if ($this->users->removeElement($user)) {
-            if ($user->getTenant() === $this) {
-                $user->setTenant(null);
-            }
-        }
-
         return $this;
     }
 
