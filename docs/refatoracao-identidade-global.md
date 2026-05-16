@@ -765,6 +765,15 @@ Tratar após a refatoração de identidade global:
   fluxo de aprovação se necessário. Arquivos alterados: `EditUserTenantRoleType.php`,
   `TenantController.editUserRole`, `templates/tenant/edit_user_role.html.twig`.
 
+- **Bug DateTimeImmutable em EditUserTenantRoleType (6.B smoke):** campo `dataAdmissao`
+  do form Symfony retornava `DateTime` mutável, mas `UserTenant::setDataAdmissao` tipa
+  como `?\DateTimeImmutable`. Bug passou pela suite de 458 testes porque não existe
+  teste de submit no form. Padrão recorrente — ver também audit note do
+  `GerarCodigoFuncionarioTest` (6.A). Considerar sprint dedicada a criar form-level
+  integration tests para forms críticos (`EditUserTenantRoleType`, `EventoType`, etc)
+  em momento futuro. Fix: `'input' => 'datetime_immutable'` adicionado ao campo
+  `dataAdmissao` em `EditUserTenantRoleType.php`.
+
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
 Todos os pré-requisitos resolvidos — Etapa 6 desbloqueada.

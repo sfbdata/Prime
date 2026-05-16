@@ -58,6 +58,7 @@ class EditUserTenantRoleType extends AbstractType
                 'mapped'   => false,
                 'widget'   => 'single_text',
                 'html5'    => true,
+                'input'    => 'datetime_immutable',
                 'data'     => $options['data_admissao'],
                 'attr'     => ['class' => 'form-control'],
             ])
