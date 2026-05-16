@@ -3,10 +3,6 @@
 namespace App\Entity\Auth;
 
 use App\Entity\Ponto\JornadaColaborador;
-use App\Entity\Tenant\Cargo;
-use App\Entity\Tenant\Lotacao;
-use App\Entity\Tenant\Tenant;
-use App\Entity\Tenant\TenantRole;
 use App\Profile\Entity\UserProfile;
 use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
@@ -43,36 +39,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: 'string', length: 64, nullable: true)]
     private ?string $invitationToken = null;
 
-    #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?Tenant $tenant = null;
-
-    #[ORM\ManyToOne(inversedBy: 'users')]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?TenantRole $tenantRole = null;
-
-    #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $lastLogin = null;
-
-    #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    private ?Cargo $cargo = null;
-
-    #[ORM\ManyToOne]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    private ?Lotacao $lotacao = null;
-
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?JornadaColaborador $jornadaColaborador = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
     private ?UserProfile $profile = null;
-
-    #[ORM\Column(length: 20, nullable: true)]
-    private ?string $codigoFuncionario = null;
-
-    #[ORM\Column(nullable: true)]
-    private ?\DateTimeImmutable $demitidoEm = null;
 
     #[ORM\Column(length: 20, nullable: true)]
     private ?string $oabNumero = null;
@@ -188,61 +159,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getTenant(): ?Tenant
-    {
-        return $this->tenant;
-    }
-
-    public function setTenant(?Tenant $tenant): static
-    {
-        $this->tenant = $tenant;
-        return $this;
-    }
-
-    public function getLastLogin(): ?\DateTimeImmutable
-    {
-        return $this->lastLogin;
-    }
-
-    public function setLastLogin(?\DateTimeImmutable $lastLogin): static
-    {
-        $this->lastLogin = $lastLogin;
-        return $this;
-    }
-
-    public function getTenantRole(): ?TenantRole
-    {
-        return $this->tenantRole;
-    }
-
-    public function setTenantRole(?TenantRole $tenantRole): static
-    {
-        $this->tenantRole = $tenantRole;
-        return $this;
-    }
-
-    public function getCargo(): ?Cargo
-    {
-        return $this->cargo;
-    }
-
-    public function setCargo(?Cargo $cargo): static
-    {
-        $this->cargo = $cargo;
-        return $this;
-    }
-
-    public function getLotacao(): ?Lotacao
-    {
-        return $this->lotacao;
-    }
-
-    public function setLotacao(?Lotacao $lotacao): static
-    {
-        $this->lotacao = $lotacao;
-        return $this;
-    }
-
     public function getJornadaColaborador(): ?JornadaColaborador
     {
         return $this->jornadaColaborador;
@@ -266,28 +182,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->profile = $profile;
         return $this;
-    }
-
-    public function getCodigoFuncionario(): ?string
-    {
-        return $this->codigoFuncionario;
-    }
-
-    public function setCodigoFuncionario(?string $codigoFuncionario): static
-    {
-        $this->codigoFuncionario = $codigoFuncionario;
-        return $this;
-    }
-
-    public function getDemitidoEm(): ?\DateTimeImmutable
-    {
-        return $this->demitidoEm;
-    }
-
-    public function demitir(): void
-    {
-        $this->isActive   = false;
-        $this->demitidoEm = new \DateTimeImmutable();
     }
 
     public function getOabNumero(): ?string { return $this->oabNumero; }

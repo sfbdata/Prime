@@ -119,7 +119,6 @@ final class TenantController extends AbstractController
             $adminUser = new User();
             $adminUser->setEmail($adminEmail);
             $adminUser->setRoles(['ROLE_USER']);
-            $adminUser->setTenant($tenant);
             $adminUser->setFullName('Administrador do Tenant');
 
             // Bootstrap: cria perfil "Administrador do Escritório" e vincula o criador

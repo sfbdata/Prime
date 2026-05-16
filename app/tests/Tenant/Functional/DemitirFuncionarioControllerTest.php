@@ -130,8 +130,15 @@ final class DemitirFuncionarioControllerTest extends JusPrimeWebTestCase
         $em              = static::getContainer()->get(EntityManagerInterface::class);
         $funcionarioAtualizado = $em->find(User::class, $funcionario->getId());
         self::assertNotNull($funcionarioAtualizado);
-        self::assertFalse($funcionarioAtualizado->isActive());
-        self::assertNotNull($funcionarioAtualizado->getDemitidoEm());
+        self::assertTrue($funcionarioAtualizado->isActive());
+
+        $vinculo = $em->getRepository(UserTenant::class)->findOneBy([
+            'user'   => $funcionario,
+            'tenant' => $tenant,
+        ]);
+        self::assertNotNull($vinculo);
+        self::assertFalse($vinculo->isActive());
+        self::assertNotNull($vinculo->getDemitidoEm());
     }
 
     #[TestDox('POST demitir com substituto válido redireciona com flash de sucesso')]
@@ -155,7 +162,7 @@ final class DemitirFuncionarioControllerTest extends JusPrimeWebTestCase
         $em              = static::getContainer()->get(EntityManagerInterface::class);
         $funcionarioAtualizado = $em->find(User::class, $funcionario->getId());
         self::assertNotNull($funcionarioAtualizado);
-        self::assertFalse($funcionarioAtualizado->isActive());
+        self::assertTrue($funcionarioAtualizado->isActive());
     }
 
     #[TestDox('POST demitir a si mesmo redireciona com flash de erro')]

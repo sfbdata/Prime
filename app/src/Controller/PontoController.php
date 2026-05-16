@@ -925,7 +925,7 @@ final class PontoController extends AbstractController
             'ctps'                    => $profile?->getCtps() ?? '',
             'serie'                   => $profile?->getSerie() ?? '',
             'lotacao'                 => ($lotacao !== null ? mb_strtoupper($lotacao->getNome()) : ''),
-            'dataAdmissao'            => $profile?->getDataAdmissao()?->format('d/m/Y') ?? '',
+            'dataAdmissao'            => $userTenant?->getDataAdmissao()?->format('d/m/Y') ?? '',
             'jornadaSemanal'          => $horasSemana . 'h',
             'jornadaSemanalTexto'     => $horasSemana . 'h semanais',
             'horarioContratual'       => $horarios['entrada'] . ' às ' . $horarios['saida'],

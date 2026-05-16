@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenant\UseCase;
 
 use App\Entity\Auth\User;
+use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\DemitirFuncionarioInput;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -12,6 +13,7 @@ final class DemitirFuncionarioUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
     public function executar(DemitirFuncionarioInput $input): void
@@ -24,7 +26,14 @@ final class DemitirFuncionarioUseCase
             $this->removerResponsabilidades($input->funcionario);
         }
 
-        $input->funcionario->demitir();
+        $userTenant = $this->userTenantRepository->findAtivoPorUserETenant(
+            $input->funcionario,
+            $input->tenant,
+        );
+        if ($userTenant === null) {
+            throw new \InvalidArgumentException('Vínculo ativo não encontrado.');
+        }
+        $userTenant->demitir();
         $this->em->flush();
     }
 
