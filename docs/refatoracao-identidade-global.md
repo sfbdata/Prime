@@ -373,9 +373,9 @@ Sub-lotes:
 |---|---|---|
 | 6.A | DQL + services downstream | CONCLUÍDO (commit 3103542) |
 | 6.B | editUserRole + Forms + Templates | CONCLUÍDO (pendente commit) |
-| 6.C | Services + Tenant.php | pendente |
-| 6.D | Entidades User.php + UserProfile.php + demitir() | pendente |
-| 6.E | Migration DROP COLUMN (8 colunas) | pendente |
+| 6.C | Services + Tenant.php | CONCLUÍDO (commit 56ebe95) |
+| 6.D | Entidades User.php + UserProfile.php + demitir() | CONCLUÍDO (commit f12eb1c) |
+| 6.E | Migration DROP COLUMN (8 colunas) | CONCLUÍDO |
 
 Colunas a dropar em 6.E: `user.tenant_id`, `user.tenant_role_id`, `user.cargo_id`,
 `user.lotacao_id`, `user.codigo_funcionario`, `user.demitido_em`, `user.last_login`,
@@ -789,6 +789,18 @@ Tratar após a refatoração de identidade global:
   integration tests para forms críticos (`EditUserTenantRoleType`, `EventoType`, etc)
   em momento futuro. Fix: `'input' => 'datetime_immutable'` adicionado ao campo
   `dataAdmissao` em `EditUserTenantRoleType.php`.
+
+- **Relação inversa TenantRole::$users esquecida no 6.D (6.E):** após remover
+  `User::$tenantRole` no 6.D, a relação inversa `TenantRole::$users`
+  (`mappedBy: 'tenantRole'`) ficou órfã, deixando `doctrine:schema:validate`
+  em estado de erro sem que ninguém notasse. Detectado na investigação pré-6.E
+  via `doctrine:schema:validate` antes de aplicar a migration. 6.E corrigiu
+  ao remover a propriedade, inicialização e getter de `TenantRole`. 5º bug que
+  escapou da cobertura na Etapa 6 (DateTimeImmutable, persist creator, setTenant
+  residual, validação mista, relação inversa).
+  **Procedimento defensivo:** `doctrine:schema:validate` deve fazer parte do
+  checklist de fechamento de qualquer sub-lote que toque entidade ORM.
+  Adotar a partir das próximas etapas.
 
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 

@@ -44,17 +44,10 @@ class TenantRole
     #[ORM\OneToMany(targetEntity: TenantRolePermission::class, mappedBy: 'tenantRole', cascade: ['persist', 'remove'])]
     private Collection $tenantRolePermissions;
 
-    /**
-     * @var Collection<int, \App\Entity\Auth\User>
-     */
-    #[ORM\OneToMany(targetEntity: \App\Entity\Auth\User::class, mappedBy: 'tenantRole')]
-    private Collection $users;
-
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->tenantRolePermissions = new ArrayCollection();
-        $this->users = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -130,11 +123,5 @@ class TenantRole
         return $this->tenantRolePermissions;
     }
 
-    /**
-     * @return Collection<int, \App\Entity\Auth\User>
-     */
-    public function getUsers(): Collection
-    {
-        return $this->users;
-    }
+
 }
