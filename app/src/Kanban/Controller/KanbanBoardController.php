@@ -51,7 +51,7 @@ final class KanbanBoardController extends AbstractController
 
         $boards   = $this->listarBoards->executar($user, $tenant);
         $form     = $this->createForm(KanbanBoardType::class, new CriarBoardInput());
-        $usuarios = $this->userRepository->findBy(['tenant' => $tenant]);
+        $usuarios = $this->userRepository->findTodosPorTenant($tenant);
 
         return $this->render('kanban/index.html.twig', [
             'boards'   => $boards,
@@ -104,7 +104,7 @@ final class KanbanBoardController extends AbstractController
         $editInput->descricao = $board->getDescricao();
         $editInput->cor       = $board->getCor();
         $formEdit     = $this->createForm(KanbanBoardEditType::class, $editInput);
-        $usuarios     = $this->userRepository->findBy(['tenant' => $tenant]);
+        $usuarios     = $this->userRepository->findTodosPorTenant($tenant);
 
         return $this->render('kanban/board.html.twig', [
             'board'      => $output,

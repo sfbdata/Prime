@@ -802,6 +802,21 @@ Tratar após a refatoração de identidade global:
   checklist de fechamento de qualquer sub-lote que toque entidade ORM.
   Adotar a partir das próximas etapas.
 
+- **Padrão findBy(['tenant' => ...]) sobre User escapou de toda a Fase A da Etapa 6 (6.F — 6º bug):**
+  Detectado em smoke pós-6.E no módulo Kanban — não tocado pela refatoração mas quebrado em runtime
+  pelo drop da coluna `user.tenant_id`. Sintoma: `UnrecognizedField: App\Entity\Auth\User::$tenant`
+  em `KanbanBoardController::index()` L54. Mapeamento completo revelou 5 arquivos / 8 linhas com o
+  mesmo padrão: `findBy(['tenant' => $tenant])` e `findOneBy(['id' => $id, 'tenant' => $tenant])`
+  chamados em `UserRepository`. Fix em 6.F: 3 métodos novos em `UserRepository`
+  (`findTodosPorTenant`, `findPorIdETenant`, `findPorIdsETenant`) + 8 substituições em 5 arquivos
+  (`KanbanBoardController`, `CriarBoardUseCase`, `AtualizarBoardUseCase`, `AtualizarCardUseCase`,
+  `TarefaController`). **Padrão recorrente crítico:** `doctrine:schema:validate` pega erros de
+  mapping estático mas NÃO pega chamadas dinâmicas `findBy`/`findOneBy` com critérios inválidos
+  em runtime — o Doctrine só valida o critério no momento da execução da query. **Defensivo futuro:**
+  incluir `grep -rn "findBy.*'tenant'\|findOneBy.*'tenant'" app/src --include="*.php"` no checklist
+  de qualquer refatoração que remova propriedade ORM, especialmente em módulos fora do escopo direto
+  da refatoração.
+
 **Pré-requisitos bloqueantes da Etapa 6 (identificados na Etapa 4):**
 
 Todos os pré-requisitos resolvidos — Etapa 6 desbloqueada.

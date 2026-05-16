@@ -31,7 +31,7 @@ final class CriarBoardUseCase
         $board->setCor($input->cor);
 
         foreach ($input->participantesIds as $userId) {
-            $user = $this->userRepository->findOneBy(['id' => $userId, 'tenant' => $tenant]);
+            $user = $this->userRepository->findPorIdETenant($userId, $tenant);
             if ($user !== null && $user !== $criador) {
                 $board->adicionarParticipante($user);
             }

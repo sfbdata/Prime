@@ -37,7 +37,7 @@ final class AtualizarCardUseCase
         }
 
         foreach ($input->responsaveisIds as $userId) {
-            $user = $this->userRepository->findOneBy(['id' => $userId, 'tenant' => $tenant]);
+            $user = $this->userRepository->findPorIdETenant($userId, $tenant);
             if ($user !== null) {
                 $card->adicionarResponsavel($user);
             }

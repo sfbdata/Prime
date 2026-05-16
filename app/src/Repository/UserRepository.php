@@ -3,6 +3,8 @@
 namespace App\Repository;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
+use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -45,6 +47,47 @@ class UserRepository extends ServiceEntityRepository
             ],
             array_filter($rows, static fn (array $row): bool => isset($row['id']) && $row['id'] !== null)
         ));
+    }
+
+    /** @return User[] */
+    public function findTodosPorTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('u')
+            ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.email', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function findPorIdETenant(int $id, Tenant $tenant): ?User
+    {
+        return $this->createQueryBuilder('u')
+            ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant')
+            ->andWhere('u.id = :id')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
+     * @param int[] $ids
+     * @return User[]
+     */
+    public function findPorIdsETenant(array $ids, Tenant $tenant): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('u')
+            ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant')
+            ->andWhere('u.id IN (:ids)')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->getResult();
     }
 
     //    /**

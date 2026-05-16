@@ -141,7 +141,7 @@ final class TarefaController extends AbstractController
         $tenantId = (int) $tenant->getId();
         $timelineItems = $this->timelineAssembler->montar($tarefa, $tenantId);
 
-        $users = $userRepository->findBy(['tenant' => $tenant]);
+        $users = $userRepository->findTodosPorTenant($tenant);
 
         return $this->render('tarefa/show.html.twig', [
             'tarefa'        => $tarefa,
@@ -167,8 +167,8 @@ final class TarefaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $userIds = $request->request->all('responsaveis', []);
-        $users = $userRepository->findBy(['id' => $userIds, 'tenant' => $tenant]);
+        $userIds = array_map('intval', $request->request->all('responsaveis', []));
+        $users = $userRepository->findPorIdsETenant($userIds, $tenant);
 
         $tarefa->getResponsaveis()->clear();
         foreach ($users as $user) {
