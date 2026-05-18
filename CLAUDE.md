@@ -48,6 +48,8 @@ Padrão: `modules.<modulo>.view` · `admin.<area>.<acao>` · `resources.<tipo>.<
 docker exec jusprime_php_dev bash -c 'cd app && php bin/console <cmd>'
 docker exec jusprime_php_dev bash -c 'cd app && composer <cmd>'
 docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'
+docker exec -it jusprime_db_dev psql -U symfony -d saas          # interativo (humano)
+docker exec jusprime_db_dev psql -U symfony -d saas -c "<query>" # one-shot (automação)
 ```
 
 Nunca rodar `php`, `composer` ou `bin/console` fora do container.
