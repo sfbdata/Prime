@@ -7,40 +7,21 @@ SaaS jurídico multi-tenant. PHP 8.2+, Symfony 7.4, Doctrine ORM 3.x, PostgreSQL
 Código, comentários e commits em **português brasileiro**.
 `camelCase` métodos/variáveis · `PascalCase` classes · `snake_case` rotas/templates/colunas DB.
 
-## Arquitetura
+## Arquitetura em uma frase
 
-Cada domínio em `app/src/<Dominio>/` com: `Controller/` `UseCase/` `Entity/` `Repository/` `DTO/` `Form/`
+Cada domínio em `app/src/<Dominio>/` com `Controller/ UseCase/ Entity/ Repository/ DTO/ Form/`.
+Fluxo: `Request → Controller → Form/DTO → UseCase → Entity → Repository → flush()`.
 
-Fluxo obrigatório: `Request → Controller → Form/DTO → UseCase → Entity → Repository → flush()`
+Estrutura detalhada, regras transversais (multi-tenancy, permissões), padrões PHP/Symfony e refatoração de legado → ver `app/src/CLAUDE.md`.
 
-Pastas `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository/` são **legado** — não criar arquivos novos lá.
+## Fluxo de desenvolvimento
 
-## Fluxo de desenvolvimento obrigatório
-
-Antes de implementar qualquer funcionalidade ou correção:
+Antes de implementar funcionalidade ou correção:
 1. Analise ou crie o(s) UseCase(s) envolvidos
 2. Escreva ou ajuste os testes (unit do UseCase + functional do controller)
-3. Só então implemente o restante (controller, template, form, etc.)
+3. Só então implemente o restante
 
-## Regras que se aplicam em todo arquivo novo
-
-- `declare(strict_types=1);` · type hints em 100% de args/retornos · `private readonly` no construtor
-- Classes `final` por padrão — **exceto entidades Doctrine** (proxies via herança)
-- Atributos PHP (`#[Route]`, `#[ORM\...]`) — nunca anotações docblock
-- `===`/`!==` sempre · nunca `else`/`elseif` após `if` que retorna ou lança
-
-## Multi-tenancy (crítico)
-
-Toda query filtra por `tenant`. Nunca buscar por ID sem validar posse do tenant.
-
-## Permissões (crítico)
-
-```php
-$checker->canAccessModule($user, 'clientes');  // correto
-in_array('ROLE_ADMIN', $user->getRoles());     // errado — não respeita hierarquia
-```
-
-Padrão: `modules.<modulo>.view` · `admin.<area>.<acao>` · `resources.<tipo>.<acao>`
+Skills disponíveis em `.claude/skills/` carregam automaticamente conforme a camada: `criar-controller`, `criar-entity`, `criar-repository`, `criar-usecase`, `criar-dto`, `criar-form`.
 
 ## Docker — todos os comandos dentro do container
 
@@ -54,27 +35,10 @@ docker exec jusprime_db_dev psql -U symfony -d saas -c "<query>" # one-shot (aut
 
 Nunca rodar `php`, `composer` ou `bin/console` fora do container.
 
-## Git
+## Git — controle humano direto
 
-Commits imperativos em português: "Adicionar X", "Corrigir Y" (máx. 72 chars, sem ponto final).
-Branch: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`
+Commits, push, merge, rebase, reset e demais comandos destrutivos são responsabilidade exclusiva do desenvolvedor humano. Comandos de leitura (`status`, `diff`, `log`, `show`, `branch`) podem ser executados livremente.
 
----
+Quando uma instrução do usuário implicar comando git de escrita, sugira-o em bloco de código markdown, prefixado com `# Execute manualmente no terminal externo`, para o usuário copiar e colar.
 
-## Guia de leitura dos CLAUDE.md por tarefa
-
-Leia apenas o(s) arquivo(s) relevantes para o que está fazendo. Não leia todos de uma vez.
-
-| Tarefa | Ler |
-|---|---|
-| Criar/editar controller | `app/src/_referencia/Controller/CLAUDE.md` |
-| Criar/editar entidade | `app/src/_referencia/Entity/CLAUDE.md` |
-| Criar/editar repository | `app/src/_referencia/Repository/CLAUDE.md` |
-| Criar/editar use case | `app/src/_referencia/UseCase/CLAUDE.md` |
-| Criar/editar DTO | `app/src/_referencia/DTO/CLAUDE.md` |
-| Criar/editar form type | `app/src/_referencia/Form/CLAUDE.md` |
-| Criar/editar template Twig | `app/templates/CLAUDE.md` |
-| Escrever testes | `app/tests/CLAUDE.md` |
-| Usar serviços compartilhados (storage, etc.) | `app/src/Shared/CLAUDE.md` |
-| Entender domínios ativos e estrutura geral de `src/` | `app/src/CLAUDE.md` |
-| Trabalhar num domínio específico | Ler também `app/src/<Dominio>/<Camada>/CLAUDE.md` se existir |
+Convenção de commit: imperativo em português, máx. 72 chars, sem ponto final. Branches: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`.
