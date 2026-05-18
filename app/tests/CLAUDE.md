@@ -122,6 +122,3 @@ Testes existentes escritos antes deste guia podem ter problemas silenciosos. Ant
 
 Se qualquer um desses problemas estiver presente, refatore o teste antes de usá-lo como base de segurança. Um teste com defeito dá falsa confiança — é pior do que não ter teste.
 
-## Relação obrigatória: UseCase + testes
-
-Todo UseCase deve ter seu teste unitário verificado ou criado junto. Nunca implementar ou refatorar um UseCase sem garantir que o teste unitário correspondente existe e está correto. O mesmo vale para o controller associado: functional test cobre o happy path e pelo menos um caso de erro.

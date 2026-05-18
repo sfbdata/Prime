@@ -1,6 +1,9 @@
-# Form/ — Regras de Symfony Form Types
+---
+name: criar-form
+description: "Padrões para criar ou refatorar Symfony Form Types do jusprime: estrutura, data_class apontando para Input DTO, CSRF, uploads. Carregue ao criar, editar ou revisar arquivos *Type.php em app/src/<Dominio>/Form/."
+---
 
-> Referência canônica para todos os domínios.
+# Form/ — Regras de Symfony Form Types
 
 ## Responsabilidade
 

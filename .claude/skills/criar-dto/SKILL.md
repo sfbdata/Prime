@@ -1,6 +1,9 @@
-# DTO/ — Regras de Data Transfer Objects
+---
+name: criar-dto
+description: "Padrões para criar ou refatorar DTOs do jusprime: Input vs Output, validação com #[Assert], fromEntity(), exceção readonly+Symfony Form. Carregue ao criar, editar ou revisar arquivos *Input.php ou *Output.php em app/src/<Dominio>/DTO/."
+---
 
-> Referência canônica para todos os domínios.
+# DTO/ — Regras de Data Transfer Objects
 
 ## Responsabilidade
 
@@ -83,7 +86,31 @@ final class <Nome>Output
 - Named `fromEntity()` estático para conversão — mantém o DTO desacoplado da entity
 - Nomes descritivos: `CriarClienteInput`, `AtualizarEnderecoInput`, `ClienteListaItem`
 
-**Exceção — Input DTO com Symfony Form:** quando o Input DTO é usado com `createForm()`, as propriedades devem ser `public` e **não** `readonly` — o Form Component precisa escrever nos campos via data mapper. Use `readonly` apenas em Input DTOs usados com `#[MapRequestPayload]` (APIs JSON) e em todos os Output DTOs.
+## Exceção — Input DTO com Symfony Form
+
+Quando o Input DTO é usado com `createForm()`, as propriedades devem ser `public` e **não** `readonly` — o Form Component precisa escrever nos campos via data mapper.
+
+Use `readonly` apenas em:
+- Input DTOs usados com `#[MapRequestPayload]` (APIs JSON)
+- Todos os Output DTOs (sempre readonly)
+
+```php
+// Input DTO para Symfony Form — sem readonly:
+final class CriarClienteInput
+{
+    public string $nome = '';
+    public string $email = '';
+}
+
+// Input DTO para API JSON com #[MapRequestPayload] — com readonly:
+final class CriarClienteInput
+{
+    public function __construct(
+        public readonly string $nome,
+        public readonly string $email,
+    ) {}
+}
+```
 
 ## Validação no Input DTO
 

@@ -18,10 +18,26 @@ Pastas globais `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository
 | Perfil do usuário | `src/Profile/` | ativo |
 | Compartilhado | `src/Shared/` | ativo |
 | Ponto | `src/Entity/Ponto/` | legado — migrar para `src/Ponto/` |
-| Agenda | `src/Entity/Agenda/` | legado — migrar para `src/Agenda/` |
-| ServiceDesk | `src/Entity/ServiceDesk/` | legado — migrar para `src/ServiceDesk/` |
+| Agenda | `src/Entity/Agenda/` | legado — migração planejada (`src/Agenda/` ainda não criado) |
+| ServiceDesk | `src/Entity/ServiceDesk/` | legado — migração planejada (`src/ServiceDesk/` ainda não criado) |
 | Tenant | `src/Entity/Tenant/` | legado |
 | Permission | `src/Entity/Permission/` | legado |
+
+## Configuração por domínio
+
+Dados específicos de cada domínio. Use ao criar/editar arquivos em
+`src/<Dominio>/`. Padrões gerais de cada camada estão nas skills
+(a serem criadas na próxima etapa).
+
+| Domínio | Namespace base | Módulo permissão | Prefixo rota |
+|---|---|---|---|
+| Cliente | `App\Cliente` | `clientes` | `app_cliente_` |
+| Expediente | `App\Expediente` | `expediente` | `app_expediente_` |
+| Processo | `App\Processo` | `processos` | `app_processo_` |
+| Pasta | `App\Pasta` | `pastas` | `app_pasta_` |
+| Tarefa | `App\Tarefa` | `tarefas` | `app_tarefa_` |
+| Profile | `App\Profile` | `profile` | `app_profile_` |
+| Shared | `App\Shared` | _(transversal)_ | _(N/A)_ |
 
 ## Refatorando código legado
 
@@ -33,6 +49,7 @@ Antes de alterar qualquer arquivo em pasta legada (`src/Controller/`, `src/Entit
 4. **Se não houver testes**, escreva-os primeiro (comportamento atual, não o ideal) antes de refatorar
 5. **Mova para o domínio correto** seguindo o fluxo obrigatório: crie o UseCase, depois o controller no domínio, depois remova o legado
 6. **Nunca reescrever e mover ao mesmo tempo** — ou move (sem mudar comportamento) ou reescreve (no lugar certo), não os dois em um commit só
+7. **Mapeamento amplo pega ~80%, smoke pega os 20% restantes** — toda refatoração que toca muitos arquivos deve incluir tempo explícito para smoke manual após aplicar, antes do commit final. Grep + análise pegam a maioria dos usos, mas formulários, services de bootstrap e queries dinâmicas (findBy criteria) escapam.
 
 ## Testes e UseCases — verificação obrigatória
 

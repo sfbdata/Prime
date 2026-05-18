@@ -1,6 +1,9 @@
-# Entity/ — Regras de Entidades Doctrine
+---
+name: criar-entity
+description: "Padrões para criar ou refatorar Entidades Doctrine do jusprime: UUID, multi-tenant, enums, lifecycle, entidade rica vs anêmica. Carregue ao criar, editar ou revisar arquivos *.php em app/src/<Dominio>/Entity/."
+---
 
-> Referência canônica para todos os domínios. Novas entidades vão em `src/<Dominio>/Entity/`.
+# Entity/ — Regras de Entidades Doctrine
 
 ## Responsabilidade
 
@@ -101,3 +104,25 @@ public function aoInserir(): void
 ```
 
 Para lógica real de domínio: colete domain events no aggregate e dispare após flush.
+
+## Ao remover ou renomear propriedade de entidade
+
+Antes de remover propriedade de entidade Doctrine, rodar OS TRÊS greps:
+
+```bash
+# 1. Pega chamadas a getters/setters
+grep -rn "->get<Prop>\|->set<Prop>" app/src app/tests
+
+# 2. Pega criteria dinâmicos (escapam do mapping estático)
+grep -rn "findBy.*'<prop>'\|findOneBy.*'<prop>'" app/src
+
+# 3. Pega DQL com alias
+grep -rn "<alias>\.<prop>" app/src
+```
+
+Após remover, rodar `doctrine:schema:validate` no container para pegar
+relações inversas órfãs (inversedBy, mappedBy) que grep não encontra:
+
+```bash
+docker exec jusprime_php_dev bash -c 'cd app && php bin/console doctrine:schema:validate'
+```

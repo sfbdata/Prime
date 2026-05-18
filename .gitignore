@@ -49,3 +49,7 @@ HANDOFF_FINAL.md
 
 # Exemplos e referências locais
 /exemplo/
+
+# Claude Code — configuração local
+.claude/settings.local.json
+.claude/settings.local.json.backup

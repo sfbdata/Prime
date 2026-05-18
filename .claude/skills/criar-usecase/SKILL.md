@@ -1,3 +1,8 @@
+---
+name: criar-usecase
+description: "Padrões para criar ou refatorar UseCases do jusprime: storytelling obrigatório antes de implementar, estrutura, transação, multi-tenancy. Carregue sempre que a tarefa envolver criar, editar ou pensar em um UseCase."
+---
+
 # UseCase/ — Regras da Camada de Aplicação
 
 ## Antes de implementar — storytelling obrigatório
@@ -13,8 +18,6 @@ UseCase sem storytelling vira código que resolve o problema técnico errado. An
 7. **Regras de negócio** — há alguma restrição não óbvia envolvida?
 
 A User Story responde o "quem" e o "por quê" (valor). O UseCase responde o "como" (comportamento do sistema). Só implemente depois de ter ambos claros.
-
-> Referência canônica para todos os domínios.
 
 ## Responsabilidade
 
