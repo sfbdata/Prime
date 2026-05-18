@@ -53,6 +53,12 @@ class JustificativaPonto
     #[ORM\Column(type: 'time', nullable: true)]
     private ?\DateTimeInterface $horaFimAbono = null;
 
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $tipoRegistroEsquecido = null;
+
+    #[ORM\Column(type: 'time', nullable: true)]
+    private ?\DateTimeInterface $horaRegistroEsquecido = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -196,6 +202,30 @@ class JustificativaPonto
     public function setHoraFimAbono(?\DateTimeInterface $horaFimAbono): static
     {
         $this->horaFimAbono = $horaFimAbono;
+        return $this;
+    }
+
+    public function getTipoRegistroEsquecido(): ?string
+    {
+        return $this->tipoRegistroEsquecido;
+    }
+
+    public function setTipoRegistroEsquecido(?string $tipoRegistroEsquecido): static
+    {
+        $this->tipoRegistroEsquecido = $tipoRegistroEsquecido;
+
+        return $this;
+    }
+
+    public function getHoraRegistroEsquecido(): ?\DateTimeInterface
+    {
+        return $this->horaRegistroEsquecido;
+    }
+
+    public function setHoraRegistroEsquecido(?\DateTimeInterface $horaRegistroEsquecido): static
+    {
+        $this->horaRegistroEsquecido = $horaRegistroEsquecido;
+
         return $this;
     }
 

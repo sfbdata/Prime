@@ -51,6 +51,22 @@ class JustificativaPontoType extends AbstractType
                 'required' => false,
                 'widget'   => 'single_text',
             ])
+            ->add('tipoRegistroEsquecido', ChoiceType::class, [
+                'mapped'      => false,
+                'required'    => false,
+                'choices'     => [
+                    'Entrada' => 'entrada',
+                    'Repouso' => 'repouso',
+                    'Retorno' => 'retorno',
+                    'Saída'   => 'saida',
+                ],
+                'placeholder' => 'Selecione o tipo de batida',
+            ])
+            ->add('horaRegistroEsquecido', TimeType::class, [
+                'mapped'   => false,
+                'required' => false,
+                'widget'   => 'single_text',
+            ])
             ->add('anexo', FileType::class, [
                 'label'       => 'Atestado / Comprovante',
                 'mapped'      => false,

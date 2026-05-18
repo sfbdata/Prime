@@ -11,7 +11,9 @@
 {% set campoAbono      = nomePrefixo ? nomePrefixo ~ '[abonoParcial]'    : 'abonoParcial' %}
 {% set campoHoraInicio = nomePrefixo ? nomePrefixo ~ '[horaInicioAbono]' : 'horaInicioAbono' %}
 {% set campoHoraFim    = nomePrefixo ? nomePrefixo ~ '[horaFimAbono]'    : 'horaFimAbono' %}
-{% set campoAnexo      = nomePrefixo ? nomePrefixo ~ '[anexo]'           : 'anexo' %}
+{% set campoAnexo             = nomePrefixo ? nomePrefixo ~ '[anexo]'                  : 'anexo' %}
+{% set campoTipoRegEsquecido = nomePrefixo ? nomePrefixo ~ '[tipoRegistroEsquecido]' : 'tipoRegistroEsquecido' %}
+{% set campoHoraRegEsquecido = nomePrefixo ? nomePrefixo ~ '[horaRegistroEsquecido]' : 'horaRegistroEsquecido' %}
 
 <div class="mb-3">
     <label for="{{ p }}-tipo" class="form-label fw-semibold">Tipo de Justificativa</label>
@@ -26,6 +28,26 @@
 <div id="{{ p }}-alerta-nao-justificada" class="d-none alert alert-warning py-2 mb-3">
     <i class="bi bi-exclamation-triangle me-1"></i>
     Este tipo apenas registra que a falta não foi justificada. As horas faltantes <strong>não</strong> serão abonadas.
+</div>
+
+<div id="{{ p }}-bloco-registro-esquecido" class="d-none mb-3 p-3 border rounded bg-warning bg-opacity-10">
+    <p class="small fw-semibold mb-2"><i class="bi bi-clock-history me-1"></i>Detalhes do registro esquecido</p>
+    <div class="row g-2">
+        <div class="col-sm-6">
+            <label for="{{ p }}-tipo-reg-esquecido" class="form-label">Tipo de batida</label>
+            <select name="{{ campoTipoRegEsquecido }}" id="{{ p }}-tipo-reg-esquecido" class="form-select">
+                <option value="">Selecione...</option>
+                <option value="entrada">Entrada</option>
+                <option value="repouso">Repouso</option>
+                <option value="retorno">Retorno</option>
+                <option value="saida">Saída</option>
+            </select>
+        </div>
+        <div class="col-sm-6">
+            <label for="{{ p }}-hora-reg-esquecido" class="form-label">Horário que deveria ter sido registrado</label>
+            <input type="time" name="{{ campoHoraRegEsquecido }}" id="{{ p }}-hora-reg-esquecido" class="form-control">
+        </div>
+    </div>
 </div>
 
 <div id="{{ p }}-bloco-abono-parcial" class="mb-3 form-check">
@@ -65,20 +87,32 @@
 
 <script>
 (function() {
-    const tipoSelect        = document.getElementById('{{ p }}-tipo');
-    const alertaNaoJust     = document.getElementById('{{ p }}-alerta-nao-justificada');
-    const blocoAbonoParcial = document.getElementById('{{ p }}-bloco-abono-parcial');
-    const checkAbonoParcial = document.getElementById('{{ p }}-abono-parcial');
-    const blocoHorario      = document.getElementById('{{ p }}-bloco-horario-abono');
-    const hiddenDatas       = document.getElementById('{{ p }}-datas');
+    const tipoSelect             = document.getElementById('{{ p }}-tipo');
+    const alertaNaoJust          = document.getElementById('{{ p }}-alerta-nao-justificada');
+    const blocoAbonoParcial      = document.getElementById('{{ p }}-bloco-abono-parcial');
+    const checkAbonoParcial      = document.getElementById('{{ p }}-abono-parcial');
+    const blocoHorario           = document.getElementById('{{ p }}-bloco-horario-abono');
+    const blocoRegistroEsquecido = document.getElementById('{{ p }}-bloco-registro-esquecido');
+    const selectTipoReg          = document.getElementById('{{ p }}-tipo-reg-esquecido');
+    const inputHoraReg           = document.getElementById('{{ p }}-hora-reg-esquecido');
+    const hiddenDatas            = document.getElementById('{{ p }}-datas');
 
     function aplicarEstadoTipo() {
-        const isFaltaNaoJustificada = tipoSelect.value === 'falta_nao_justificada';
+        const v = tipoSelect.value;
+        const isFaltaNaoJustificada  = v === 'falta_nao_justificada';
+        const isEsquecimentoRegistro = v === 'esquecimento_registro';
+
         alertaNaoJust.classList.toggle('d-none', !isFaltaNaoJustificada);
-        blocoAbonoParcial.classList.toggle('d-none', isFaltaNaoJustificada);
-        if (isFaltaNaoJustificada) {
+        blocoAbonoParcial.classList.toggle('d-none', isFaltaNaoJustificada || isEsquecimentoRegistro);
+        blocoRegistroEsquecido.classList.toggle('d-none', !isEsquecimentoRegistro);
+
+        if (isFaltaNaoJustificada || isEsquecimentoRegistro) {
             checkAbonoParcial.checked = false;
             blocoHorario.classList.add('d-none');
+        }
+        if (!isEsquecimentoRegistro) {
+            selectTipoReg.value = '';
+            inputHoraReg.value  = '';
         }
     }
 
@@ -98,6 +132,9 @@
     document.getElementById('{{ idModal }}').addEventListener('show.bs.modal', function() {
         checkAbonoParcial.checked = false;
         blocoHorario.classList.add('d-none');
+        selectTipoReg.value = '';
+        inputHoraReg.value  = '';
+        blocoRegistroEsquecido.classList.add('d-none');
         tipoSelect.value = '';
         aplicarEstadoTipo();
     });

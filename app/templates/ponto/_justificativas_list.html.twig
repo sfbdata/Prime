@@ -46,6 +46,12 @@
                                         <div class="small text-muted mt-1">{{ batch[0].horaInicioAbono|date('H:i') }}–{{ batch[0].horaFimAbono|date('H:i') }}</div>
                                     {% endif %}
                                 {% endif %}
+                                {% if batch[0].tipo == 'esquecimento_registro' and batch[0].tipoRegistroEsquecido %}
+                                    <div class="small text-muted mt-1">
+                                        {{ {'entrada':'Entrada','repouso':'Repouso','retorno':'Retorno','saida':'Saída'}[batch[0].tipoRegistroEsquecido] }}
+                                        {% if batch[0].horaRegistroEsquecido %}às {{ batch[0].horaRegistroEsquecido|date('H:i') }}{% endif %}
+                                    </div>
+                                {% endif %}
                             </td>
                             <td>
                                 {% set status = batch[0].status %}
@@ -85,6 +91,8 @@
                                             data-abono-parcial="{{ batch[0].abonoParcial ? '1' : '0' }}"
                                             data-hora-inicio="{{ batch[0].horaInicioAbono ? batch[0].horaInicioAbono|date('H:i') : '' }}"
                                             data-hora-fim="{{ batch[0].horaFimAbono ? batch[0].horaFimAbono|date('H:i') : '' }}"
+                                            data-tipo-reg-esquecido="{{ batch[0].tipoRegistroEsquecido ?? '' }}"
+                                            data-hora-reg-esquecido="{{ batch[0].horaRegistroEsquecido ? batch[0].horaRegistroEsquecido|date('H:i') : '' }}"
                                             data-csrf="{{ csrf_token('editar_justificativa_' ~ batch[0].id) }}"
                                             data-url="{{ path('ponto_justificativa_editar', {id: batch[0].id}) }}"
                                             onclick="abrirModalEditarJustificativa(this)">

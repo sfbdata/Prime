@@ -129,7 +129,27 @@
                         </select>
                     </div>
 
-                    <div class="mb-3 form-check">
+                    <div id="editarBlocoRegistroEsquecido" class="d-none mb-3 p-3 border rounded bg-warning bg-opacity-10">
+                        <p class="small fw-semibold mb-2"><i class="bi bi-clock-history me-1"></i>Detalhes do registro esquecido</p>
+                        <div class="row g-2">
+                            <div class="col-sm-6">
+                                <label for="editarTipoRegEsquecido" class="form-label">Tipo de batida</label>
+                                <select name="tipoRegistroEsquecido" id="editarTipoRegEsquecido" class="form-select">
+                                    <option value="">Selecione...</option>
+                                    <option value="entrada">Entrada</option>
+                                    <option value="repouso">Repouso</option>
+                                    <option value="retorno">Retorno</option>
+                                    <option value="saida">Saída</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-6">
+                                <label for="editarHoraRegEsquecido" class="form-label">Horário que deveria ter sido registrado</label>
+                                <input type="time" name="horaRegistroEsquecido" id="editarHoraRegEsquecido" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="editarBlocoAbonoParcial" class="mb-3 form-check">
                         <input type="checkbox" class="form-check-input" id="editarAbonoParcial" name="abonoParcial" value="1">
                         <label class="form-check-label" for="editarAbonoParcial">Abono parcial (ausência dentro do expediente)</label>
                     </div>
@@ -339,17 +359,37 @@
         const form = document.getElementById('formEditarJustificativa');
         form.action = btn.dataset.url;
         document.getElementById('editarJustificativaToken').value = btn.dataset.csrf;
-        document.getElementById('editarJustificativaTipo').value = btn.dataset.tipo || '';
 
-        const abonoParcial = btn.dataset.abonoParcial === '1';
+        const tipo = btn.dataset.tipo || '';
+        document.getElementById('editarJustificativaTipo').value = tipo;
+
+        const isEsquecimento = tipo === 'esquecimento_registro';
+        document.getElementById('editarBlocoRegistroEsquecido').classList.toggle('d-none', !isEsquecimento);
+        document.getElementById('editarTipoRegEsquecido').value = btn.dataset.tipoRegEsquecido || '';
+        document.getElementById('editarHoraRegEsquecido').value = btn.dataset.horaRegEsquecido || '';
+
+        const abonoParcial = btn.dataset.abonoParcial === '1' && !isEsquecimento;
         const checkAbono = document.getElementById('editarAbonoParcial');
         checkAbono.checked = abonoParcial;
+        document.getElementById('editarBlocoAbonoParcial').classList.toggle('d-none', isEsquecimento);
         document.getElementById('editarBlocoHorario').classList.toggle('d-none', !abonoParcial);
         document.getElementById('editarHoraInicio').value = btn.dataset.horaInicio || '';
         document.getElementById('editarHoraFim').value = btn.dataset.horaFim || '';
 
         new bootstrap.Modal(document.getElementById('modalEditarJustificativa')).show();
     };
+
+    document.getElementById('editarJustificativaTipo').addEventListener('change', function() {
+        const isEsquecimento = this.value === 'esquecimento_registro';
+        document.getElementById('editarBlocoRegistroEsquecido').classList.toggle('d-none', !isEsquecimento);
+        document.getElementById('editarBlocoAbonoParcial').classList.toggle('d-none', isEsquecimento);
+        if (isEsquecimento) {
+            document.getElementById('editarAbonoParcial').checked = false;
+            document.getElementById('editarBlocoHorario').classList.add('d-none');
+            document.getElementById('editarTipoRegEsquecido').value = '';
+            document.getElementById('editarHoraRegEsquecido').value = '';
+        }
+    });
 
     document.getElementById('editarAbonoParcial').addEventListener('change', function() {
         document.getElementById('editarBlocoHorario').classList.toggle('d-none', !this.checked);

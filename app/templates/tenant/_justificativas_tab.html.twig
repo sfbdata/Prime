@@ -22,21 +22,30 @@
             <div class="accordion" id="accordionJustificativas">
                 {% for batchKey, batch in batches %}
                     {% set primeiraJust = batch[0] %}
-                    {% set isPendente = primeiraJust.status == 'pendente' %}
+
+                    {# Calcular quantos dias do lote estão pendentes #}
+                    {% set qtdPendente = 0 %}
+                    {% for j in batch %}
+                        {% if j.status == 'pendente' %}{% set qtdPendente = qtdPendente + 1 %}{% endif %}
+                    {% endfor %}
+                    {% set hasAnyPendente = qtdPendente > 0 %}
+
                     <div class="accordion-item">
                         <h2 class="accordion-header">
-                            <button class="accordion-button {{ not isPendente ? 'collapsed' : '' }}"
+                            <button class="accordion-button {{ not hasAnyPendente ? 'collapsed' : '' }}"
                                     type="button"
                                     data-bs-toggle="collapse"
                                     data-bs-target="#batch-{{ batchKey }}"
-                                    aria-expanded="{{ isPendente ? 'true' : 'false' }}">
+                                    aria-expanded="{{ hasAnyPendente ? 'true' : 'false' }}">
                                 <div class="d-flex align-items-center gap-2 flex-wrap w-100 me-3">
                                     <span>
                                         {% for j in batch %}
                                             <span class="badge text-bg-light border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
                                         {% endfor %}
                                     </span>
-                                    {% if primeiraJust.status == 'abonado' and primeiraJust.tipo == 'falta_nao_justificada' %}
+                                    {% if hasAnyPendente and qtdPendente < batch|length %}
+                                        <span class="badge text-bg-info text-dark ms-auto"><i class="bi bi-hourglass-split me-1"></i>Análise parcial</span>
+                                    {% elseif primeiraJust.status == 'abonado' and primeiraJust.tipo == 'falta_nao_justificada' %}
                                         <span class="badge text-bg-danger ms-auto"><i class="bi bi-x-circle me-1"></i>Não abonado</span>
                                     {% elseif primeiraJust.status == 'abonado' %}
                                         <span class="badge text-bg-success ms-auto"><i class="bi bi-check-circle me-1"></i>Abonado</span>
@@ -48,7 +57,7 @@
                                 </div>
                             </button>
                         </h2>
-                        <div id="batch-{{ batchKey }}" class="accordion-collapse collapse {{ isPendente ? 'show' : '' }}"
+                        <div id="batch-{{ batchKey }}" class="accordion-collapse collapse {{ hasAnyPendente ? 'show' : '' }}"
                              data-bs-parent="#accordionJustificativas">
                             <div class="accordion-body">
                                 <dl class="row mb-3">
@@ -70,8 +79,17 @@
                                         {% endif %}
                                     </dd>
 
-                                    <dt class="col-sm-3">Observação</dt>
-                                    <dd class="col-sm-9">{{ primeiraJust.observacaoAnalise ?? '—' }}</dd>
+                                    {% if primeiraJust.tipo == 'esquecimento_registro' and primeiraJust.tipoRegistroEsquecido %}
+                                        <dt class="col-sm-3">Registro esquecido</dt>
+                                        <dd class="col-sm-9">
+                                            <span class="badge text-bg-warning text-dark">
+                                                {{ {'entrada': 'Entrada', 'repouso': 'Repouso', 'retorno': 'Retorno', 'saida': 'Saída'}[primeiraJust.tipoRegistroEsquecido] ?? primeiraJust.tipoRegistroEsquecido }}
+                                            </span>
+                                            {% if primeiraJust.horaRegistroEsquecido %}
+                                                às {{ primeiraJust.horaRegistroEsquecido|date('H:i') }}
+                                            {% endif %}
+                                        </dd>
+                                    {% endif %}
 
                                     <dt class="col-sm-3">Atestado</dt>
                                     <dd class="col-sm-9">
@@ -84,29 +102,38 @@
                                             <span class="text-muted">Sem atestado</span>
                                         {% endif %}
                                     </dd>
-
-                                    {% if primeiraJust.status != 'pendente' %}
-                                        <dt class="col-sm-3">Analisado por</dt>
-                                        <dd class="col-sm-9">
-                                            {{ primeiraJust.analisadoPor ? primeiraJust.analisadoPor.fullName : '—' }}
-                                            {% if primeiraJust.dataAnalise %}
-                                                <span class="text-muted small ms-2">{{ primeiraJust.dataAnalise|date('d/m/Y') }}</span>
-                                            {% endif %}
-                                        </dd>
-                                        {% if primeiraJust.observacaoAnalise and primeiraJust.status == 'rejeitado' %}
-                                            <dt class="col-sm-3">Motivo da rejeição</dt>
-                                            <dd class="col-sm-9 text-danger">{{ primeiraJust.observacaoAnalise }}</dd>
-                                        {% endif %}
-                                    {% endif %}
                                 </dl>
 
-                                {% if primeiraJust.status == 'pendente' %}
-                                    {# Botões de abonar e rejeitar para CADA dia do lote individualmente #}
-                                    {% for j in batch %}
-                                        <div class="border rounded p-3 mb-2 bg-light">
-                                            <strong class="d-block mb-2">
-                                                <i class="bi bi-calendar-day me-1"></i>{{ j.data|date('d/m/Y') }}
-                                            </strong>
+                                {# Botão "Aprovar Todos" — só aparece quando há 2+ dias pendentes no lote #}
+                                {% if qtdPendente >= 2 %}
+                                    <form method="post"
+                                          action="{{ path('app_tenant_user_justificativa_aprovar_todos', {tenantId: tenantId, id: user.id, batchId: primeiraJust.batchId}) }}"
+                                          class="mb-3"
+                                          onsubmit="return confirm('Aprovar todos os {{ qtdPendente }} dias pendentes deste lote?')">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('justificativa_aprovar_todos_' ~ primeiraJust.batchId) }}">
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="bi bi-check-all me-1"></i>Aprovar Todos ({{ qtdPendente }} dias pendentes)
+                                        </button>
+                                    </form>
+                                {% endif %}
+
+                                {# Cada dia do lote com seu estado individual #}
+                                {% for j in batch %}
+                                    <div class="border rounded p-3 mb-2 {{ j.status == 'pendente' ? 'bg-light' : (j.status == 'abonado' ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10') }}">
+                                        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                            <strong><i class="bi bi-calendar-day me-1"></i>{{ j.data|date('d/m/Y') }}</strong>
+                                            {% if j.status == 'pendente' %}
+                                                <span class="badge text-bg-warning text-dark">Pendente</span>
+                                            {% elseif j.status == 'abonado' and j.tipo == 'falta_nao_justificada' %}
+                                                <span class="badge text-bg-danger">Não abonado</span>
+                                            {% elseif j.status == 'abonado' %}
+                                                <span class="badge text-bg-success">Abonado</span>
+                                            {% else %}
+                                                <span class="badge text-bg-danger">Rejeitado</span>
+                                            {% endif %}
+                                        </div>
+
+                                        {% if j.status == 'pendente' %}
                                             <div class="d-flex gap-2 flex-wrap">
                                                 {# Abonar #}
                                                 <form method="post"
@@ -138,9 +165,24 @@
                                                     </button>
                                                 </form>
                                             </div>
-                                        </div>
-                                    {% endfor %}
-                                {% endif %}
+                                        {% else %}
+                                            <div class="small text-muted mb-2">
+                                                Analisado por {{ j.analisadoPor ? j.analisadoPor.fullName : '—' }}
+                                                {% if j.dataAnalise %} em {{ j.dataAnalise|date('d/m/Y') }}{% endif %}
+                                                {% if j.observacaoAnalise %} — {{ j.observacaoAnalise }}{% endif %}
+                                            </div>
+                                            {# Reverter para pendente #}
+                                            <form method="post"
+                                                  action="{{ path('app_tenant_user_justificativa_reverter', {tenantId: tenantId, id: user.id, justificativaId: j.id}) }}"
+                                                  onsubmit="return confirm('Reverter esta justificativa para pendente?')">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('justificativa_reverter_' ~ j.id) }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                    <i class="bi bi-arrow-counterclockwise me-1"></i>Reverter para Pendente
+                                                </button>
+                                            </form>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
                             </div>
                         </div>
                     </div>

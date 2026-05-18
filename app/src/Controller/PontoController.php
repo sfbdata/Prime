@@ -175,6 +175,17 @@ final class PontoController extends AbstractController
             $horaInicio = $form->get('horaInicioAbono')->getData();
             $horaFim = $form->get('horaFimAbono')->getData();
 
+            $tipoRegEsquecido = null;
+            $horaRegEsquecida = null;
+            if ($tipo === 'esquecimento_registro') {
+                $tipoRegEsquecido = $form->get('tipoRegistroEsquecido')->getData();
+                $horaRegEsquecida = $form->get('horaRegistroEsquecido')->getData();
+                if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaRegEsquecida === null) {
+                    $this->addFlash('warning', 'Informe o tipo e o horário do registro esquecido.');
+                    return $this->redirectToRoute('ponto_index');
+                }
+            }
+
             $datasArray = array_filter(array_map('trim', explode(',', $datasRaw)));
 
             if (empty($datasArray)) {
@@ -184,6 +195,11 @@ final class PontoController extends AbstractController
 
             if ($abonoParcial && count($datasArray) > 1) {
                 $this->addFlash('warning', 'Abono parcial só pode ser aplicado a uma única data.');
+                return $this->redirectToRoute('ponto_index');
+            }
+
+            if ($tipo === 'esquecimento_registro' && count($datasArray) > 1) {
+                $this->addFlash('warning', 'Esquecimento de Registro só pode ser aplicado a uma única data.');
                 return $this->redirectToRoute('ponto_index');
             }
 
@@ -201,7 +217,7 @@ final class PontoController extends AbstractController
                     continue;
                 }
                 // Não permitir datas futuras
-                if ($dataObj > $hoje) {
+                if ($dataObj->format('Y-m-d') > $hoje->format('Y-m-d')) {
                     $this->addFlash('warning', sprintf('A data %s é futura e foi ignorada.', $dataObj->format('d/m/Y')));
                     continue;
                 }
@@ -236,6 +252,10 @@ final class PontoController extends AbstractController
                 if ($abonoParcial) {
                     $justificativa->setHoraInicioAbono($horaInicio);
                     $justificativa->setHoraFimAbono($horaFim);
+                }
+                if ($tipo === 'esquecimento_registro') {
+                    $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
+                    $justificativa->setHoraRegistroEsquecido($horaRegEsquecida);
                 }
 
                 $entityManager->persist($justificativa);
@@ -316,6 +336,21 @@ final class PontoController extends AbstractController
         $justificativa->setAbonoParcial($abonoParcial);
         $justificativa->setHoraInicioAbono($abonoParcial ? $horaInicio : null);
         $justificativa->setHoraFimAbono($abonoParcial ? $horaFim : null);
+
+        if ($tipo === 'esquecimento_registro') {
+            $tipoRegEsquecido = $request->request->get('tipoRegistroEsquecido');
+            $horaRegRaw = $request->request->get('horaRegistroEsquecido');
+            $horaReg = ($horaRegRaw !== null && $horaRegRaw !== '') ? \DateTime::createFromFormat('H:i', $horaRegRaw) ?: null : null;
+            if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaReg === null) {
+                $this->addFlash('warning', 'Informe o tipo e o horário do registro esquecido.');
+                return $this->redirectToRoute('ponto_index');
+            }
+            $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido);
+            $justificativa->setHoraRegistroEsquecido($horaReg);
+        } else {
+            $justificativa->setTipoRegistroEsquecido(null);
+            $justificativa->setHoraRegistroEsquecido(null);
+        }
 
         $anexoFile = $request->files->get('anexo');
         if ($anexoFile !== null) {

@@ -972,6 +972,24 @@ final class TenantController extends AbstractController
 
         $entityManager->flush();
 
+        if ($justificativa->getTipo() === 'esquecimento_registro'
+            && $justificativa->getTipoRegistroEsquecido() !== null
+            && $justificativa->getHoraRegistroEsquecido() !== null
+            && $justificativa->getData() !== null
+        ) {
+            $dataHora = new \DateTime(
+                $justificativa->getData()->format('Y-m-d') . ' '
+                . $justificativa->getHoraRegistroEsquecido()->format('H:i:s')
+            );
+            $registro = new RegistroPonto();
+            $registro->setUser($justificativa->getUser());
+            $registro->setDataHora($dataHora);
+            $registro->setTipo($justificativa->getTipoRegistroEsquecido());
+            $registro->setObservacao('Criado por aprovação de justificativa (Esquecimento de Registro)');
+            $entityManager->persist($registro);
+            $entityManager->flush();
+        }
+
         $urlPonto = $this->generateUrl('ponto_index');
         $notificacaoService->notificarJustificativaAprovada($justificativa, $urlPonto);
 
@@ -1058,6 +1076,139 @@ final class TenantController extends AbstractController
         ]);
     }
 
+    #[Route('/{tenantId}/user/{id}/justificativa/batch/{batchId}/aprovar-todos', name: 'app_tenant_user_justificativa_aprovar_todos', methods: ['POST'])]
+    public function aprovarTodosJustificativas(
+        int $tenantId,
+        User $user,
+        string $batchId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        JustificativaPontoRepository $justificativaRepository,
+        PermissionChecker $permissionChecker,
+        NotificacaoService $notificacaoService,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
+    ): Response {
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
+        $currentUser = $this->getUser();
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para abonar justificativas.');
+        }
+
+        if (!$this->isCsrfTokenValid('justificativa_aprovar_todos_' . $batchId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $pendentes = $justificativaRepository->findBy(['user' => $user, 'batchId' => $batchId, 'status' => 'pendente']);
+
+        if (empty($pendentes)) {
+            $this->addFlash('warning', 'Nenhuma justificativa pendente encontrada neste lote.');
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
+        $urlPonto = $this->generateUrl('ponto_index');
+        foreach ($pendentes as $justificativa) {
+            $justificativa->setStatus('abonado');
+            $justificativa->setDataAnalise(new \DateTime());
+            $justificativa->setAnalisadoPor($currentUser);
+            $notificacaoService->notificarJustificativaAprovada($justificativa, $urlPonto);
+        }
+
+        $entityManager->flush();
+
+        $this->addFlash('success', sprintf('%d justificativa(s) abonada(s) com sucesso.', count($pendentes)));
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
+            'tenantId' => $tenantId,
+            'id'       => $user->getId(),
+            'tab'      => 'justificativas',
+        ]);
+    }
+
+    #[Route('/{tenantId}/user/{id}/justificativa/{justificativaId}/reverter', name: 'app_tenant_user_justificativa_reverter', methods: ['POST'])]
+    public function reverterJustificativa(
+        int $tenantId,
+        User $user,
+        int $justificativaId,
+        Request $request,
+        EntityManagerInterface $entityManager,
+        JustificativaPontoRepository $justificativaRepository,
+        PermissionChecker $permissionChecker,
+        TenantRepository $tenantRepository,
+        UserTenantRepository $userTenantRepository
+    ): Response {
+        $tenant = $tenantRepository->find($tenantId);
+        if (!$tenant) {
+            throw $this->createNotFoundException();
+        }
+
+        if (!$userTenantRepository->existeVinculoAtivo($user, $tenant)) {
+            throw $this->createNotFoundException();
+        }
+
+        $currentUser = $this->getUser();
+        if (!$currentUser) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $isSuperAdmin = in_array('ROLE_SUPER_ADMIN', $currentUser->getRoles(), true);
+        if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
+            throw $this->createAccessDeniedException('Sem permissão para reverter justificativas.');
+        }
+
+        if (!$this->isCsrfTokenValid('justificativa_reverter_' . $justificativaId, (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $justificativa = $justificativaRepository->find($justificativaId);
+
+        if ($justificativa === null || $justificativa->getUser()?->getId() !== $user->getId()) {
+            throw $this->createNotFoundException('Justificativa não encontrada.');
+        }
+
+        if ($justificativa->getStatus() === 'pendente') {
+            $this->addFlash('warning', 'Esta justificativa já está pendente.');
+            return $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
+        }
+
+        $statusAnterior = $justificativa->getStatus();
+
+        $justificativa->setStatus('pendente');
+        $justificativa->setAnalisadoPor(null);
+        $justificativa->setDataAnalise(null);
+        $justificativa->setObservacaoAnalise(null);
+
+        $entityManager->flush();
+
+        if ($justificativa->getTipo() === 'esquecimento_registro' && $statusAnterior === 'abonado') {
+            $this->addFlash('warning', sprintf(
+                'Justificativa de %s revertida para pendente. Atenção: o registro de ponto criado automaticamente durante o abono NÃO foi removido e deve ser ajustado manualmente.',
+                $justificativa->getData()?->format('d/m/Y')
+            ));
+        } else {
+            $this->addFlash('success', sprintf('Justificativa de %s revertida para pendente.', $justificativa->getData()?->format('d/m/Y')));
+        }
+
+        return $this->redirectToRoute('app_tenant_user_edit_role', [
+            'tenantId' => $tenantId,
+            'id'       => $user->getId(),
+            'tab'      => 'justificativas',
+        ]);
+    }
+
     #[Route('/{tenantId}/user/{id}/justificativa/nova', name: 'app_tenant_user_justificativa_nova', methods: ['POST'])]
     public function novaJustificativaAdmin(
         int $tenantId,
@@ -1095,11 +1246,13 @@ final class TenantController extends AbstractController
 
         $redirect = fn () => $this->redirectToRoute('app_tenant_user_edit_role', ['tenantId' => $tenantId, 'id' => $user->getId(), 'tab' => 'justificativas']);
 
-        $datasRaw   = trim((string) $request->request->get('datas', ''));
-        $tipo       = trim((string) $request->request->get('tipo', ''));
-        $abonoParcial = (bool) $request->request->get('abonoParcial', false);
-        $horaInicioStr = trim((string) $request->request->get('horaInicioAbono', ''));
-        $horaFimStr    = trim((string) $request->request->get('horaFimAbono', ''));
+        $datasRaw          = trim((string) $request->request->get('datas', ''));
+        $tipo              = trim((string) $request->request->get('tipo', ''));
+        $abonoParcial      = (bool) $request->request->get('abonoParcial', false);
+        $horaInicioStr     = trim((string) $request->request->get('horaInicioAbono', ''));
+        $horaFimStr        = trim((string) $request->request->get('horaFimAbono', ''));
+        $tipoRegEsquecido  = trim((string) $request->request->get('tipoRegistroEsquecido', ''));
+        $horaRegEsquecidaStr = trim((string) $request->request->get('horaRegistroEsquecido', ''));
 
         $datasArray = array_filter(array_map('trim', explode(',', $datasRaw)));
 
@@ -1127,6 +1280,15 @@ final class TenantController extends AbstractController
         if (!in_array($tipo, TipoJustificativa::valores(), true)) {
             $this->addFlash('danger', 'Tipo de justificativa inválido.');
             return $redirect();
+        }
+
+        $horaRegEsquecida = null;
+        if ($tipo === 'esquecimento_registro') {
+            $horaRegEsquecida = $horaRegEsquecidaStr !== '' ? \DateTime::createFromFormat('H:i', $horaRegEsquecidaStr) ?: null : null;
+            if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaRegEsquecida === null) {
+                $this->addFlash('danger', 'Informe o tipo e o horário do registro esquecido.');
+                return $redirect();
+            }
         }
 
         $hoje = new \DateTimeImmutable('today');
@@ -1172,7 +1334,23 @@ final class TenantController extends AbstractController
                 $justificativa->setHoraInicioAbono($horaInicio);
                 $justificativa->setHoraFimAbono($horaFim);
             }
+            if ($tipo === 'esquecimento_registro') {
+                $justificativa->setTipoRegistroEsquecido($tipoRegEsquecido ?: null);
+                $justificativa->setHoraRegistroEsquecido($horaRegEsquecida);
+            }
             $entityManager->persist($justificativa);
+
+            if ($tipo === 'esquecimento_registro' && $horaRegEsquecida !== null && $tipoRegEsquecido !== '') {
+                $dataHora = new \DateTime(
+                    $dataObj->format('Y-m-d') . ' ' . $horaRegEsquecida->format('H:i:s')
+                );
+                $registro = new RegistroPonto();
+                $registro->setUser($user);
+                $registro->setDataHora($dataHora);
+                $registro->setTipo($tipoRegEsquecido);
+                $registro->setObservacao('Criado pelo administrador via justificativa (Esquecimento de Registro)');
+                $entityManager->persist($registro);
+            }
         }
 
         $entityManager->flush();
