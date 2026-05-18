@@ -1,6 +1,9 @@
-# Controller/ — Regras da Camada HTTP
+---
+name: criar-controller
+description: "Padrões para criar ou refatorar Controllers Symfony do jusprime: estrutura, convenções, rotas, permissões, heurística 5-10-20. Carregue sempre que a tarefa envolver criar, editar ou revisar um arquivo *Controller.php em app/src/<Dominio>/Controller/."
+---
 
-> Referência canônica para todos os domínios. Novos controllers vão em `src/<Dominio>/Controller/`.
+# Controller/ — Regras da Camada HTTP
 
 ## Responsabilidade única
 

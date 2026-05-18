@@ -1,6 +1,9 @@
-# Entity/ — Regras de Entidades Doctrine
+---
+name: criar-entity
+description: "Padrões para criar ou refatorar Entidades Doctrine do jusprime: UUID, multi-tenant, enums, lifecycle, entidade rica vs anêmica. Carregue ao criar, editar ou revisar arquivos *.php em app/src/<Dominio>/Entity/."
+---
 
-> Referência canônica para todos os domínios. Novas entidades vão em `src/<Dominio>/Entity/`.
+# Entity/ — Regras de Entidades Doctrine
 
 ## Responsabilidade
 

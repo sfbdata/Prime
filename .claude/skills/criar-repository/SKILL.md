@@ -1,6 +1,9 @@
-# Repository/ — Regras da Camada de Persistência
+---
+name: criar-repository
+description: "Padrões para criar ou refatorar Repositories Doctrine do jusprime: filtro tenant obrigatório, paginação, DTOs via DQL NEW, QueryBuilder vs DQL. Carregue ao criar, editar ou revisar arquivos *Repository.php em app/src/<Dominio>/Repository/."
+---
 
-> Referência canônica para todos os domínios. Novos repositories vão em `src/<Dominio>/Repository/`.
+# Repository/ — Regras da Camada de Persistência
 
 ## Responsabilidade
 
