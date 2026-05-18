@@ -49,6 +49,7 @@ Antes de alterar qualquer arquivo em pasta legada (`src/Controller/`, `src/Entit
 4. **Se não houver testes**, escreva-os primeiro (comportamento atual, não o ideal) antes de refatorar
 5. **Mova para o domínio correto** seguindo o fluxo obrigatório: crie o UseCase, depois o controller no domínio, depois remova o legado
 6. **Nunca reescrever e mover ao mesmo tempo** — ou move (sem mudar comportamento) ou reescreve (no lugar certo), não os dois em um commit só
+7. **Mapeamento amplo pega ~80%, smoke pega os 20% restantes** — toda refatoração que toca muitos arquivos deve incluir tempo explícito para smoke manual após aplicar, antes do commit final. Grep + análise pegam a maioria dos usos, mas formulários, services de bootstrap e queries dinâmicas (findBy criteria) escapam.
 
 ## Testes e UseCases — verificação obrigatória
 
