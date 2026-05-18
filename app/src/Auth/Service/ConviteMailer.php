@@ -37,7 +37,7 @@ final class ConviteMailer
         $email = (new Email())
             ->from($this->mailerFrom)
             ->to($invitation->getEmail())
-            ->subject('Você foi convidado para o JusPrime')
+            ->subject('Você foi convidado para o BlueJus')
             ->html($html);
 
         try {
@@ -66,7 +66,7 @@ final class ConviteMailer
         $email = (new Email())
             ->from($this->mailerFrom)
             ->to($invitation->getEmail())
-            ->subject('Você foi convidado para colaborar em um escritório no JusPrime')
+            ->subject('Você foi convidado para colaborar em um escritório no BlueJus')
             ->html($html);
 
         try {

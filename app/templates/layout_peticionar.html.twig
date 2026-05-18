@@ -3,9 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Peticionar{% endblock %} — JusPrime</title>
+    <title>{% block title %}Peticionar{% endblock %} — BlueJus</title>
 
+    {# Favicon #}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
     <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/site.webmanifest">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,7 +48,7 @@
         /* Painel preview (direita) */
         --pv-bg: #f5f5f5;
 
-        /* Marca JusPrime */
+        /* Marca BlueJus */
         --coral: #E86C50;
     }
 
@@ -62,7 +68,7 @@
     }
 
     /* ═══════════════════════════════════════════════════════════════════════
-       CABEÇALHO — mantém o padrão JusPrime com fix do position:fixed
+       CABEÇALHO — mantém o padrão BlueJus com fix do position:fixed
        ═══════════════════════════════════════════════════════════════════════ */
     nav.app-header.navtop {
         position: relative !important;

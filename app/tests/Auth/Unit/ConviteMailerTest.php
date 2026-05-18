@@ -25,7 +25,7 @@ final class ConviteMailerTest extends TestCase
     private UrlGeneratorInterface&MockObject $urlGenerator;
     private ConviteMailer $service;
 
-    private const MAILER_FROM = 'JusPrime <test@jusprime.test>';
+    private const MAILER_FROM = 'BlueJus <test@bluejus.test>';
     private const FAKE_URL    = 'https://app.jusprime.com.br/convite/abc123';
     private const TOKEN       = 'abc123def456abc123def456abc123def456abc123def456abc123def456abc1';
 
@@ -100,7 +100,7 @@ final class ConviteMailerTest extends TestCase
 
         $this->service->enviarConvitePlataforma($this->criarConvitePlataforma());
 
-        self::assertSame('Você foi convidado para o JusPrime', $emailCapturado->getSubject());
+        self::assertSame('Você foi convidado para o BlueJus', $emailCapturado->getSubject());
     }
 
     public function testEnviarConvitePlataformaFromCorreto(): void
@@ -116,8 +116,8 @@ final class ConviteMailerTest extends TestCase
 
         $this->service->enviarConvitePlataforma($this->criarConvitePlataforma());
 
-        self::assertSame('test@jusprime.test', $emailCapturado->getFrom()[0]->getAddress());
-        self::assertSame('JusPrime', $emailCapturado->getFrom()[0]->getName());
+        self::assertSame('test@bluejus.test', $emailCapturado->getFrom()[0]->getAddress());
+        self::assertSame('BlueJus', $emailCapturado->getFrom()[0]->getName());
     }
 
     public function testEnviarConvitePlataformaToCorreto(): void
@@ -192,7 +192,7 @@ final class ConviteMailerTest extends TestCase
         $this->service->enviarConviteEscritorio($this->criarConviteEscritorio());
 
         self::assertSame(
-            'Você foi convidado para colaborar em um escritório no JusPrime',
+            'Você foi convidado para colaborar em um escritório no BlueJus',
             $emailCapturado->getSubject(),
         );
     }

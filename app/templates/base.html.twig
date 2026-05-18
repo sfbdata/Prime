@@ -5,9 +5,12 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
         <meta name="color-scheme" content="light dark">
         {% block head_meta %}{% endblock %}
-        <title>{% block title %}JusPrime{% endblock %}</title>
+        <title>{% block title %}BlueJus{% endblock %}</title>
 
         {# Favicon #}
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+        <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+        <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
         <link rel="manifest" href="/site.webmanifest">
@@ -65,7 +68,7 @@
                                 <i class="bi bi-list"></i>
                             </button>
                             <a href="{{ path('expediente_index') }}" class="navtop-brand">
-                                <span class="navtop-brand-text"><span style="color:#E86C50">Jus</span>Prime</span>
+                                <img src="/images/logo/bluejus-logo-nav.png" alt="BlueJus" class="navtop-brand-logo" style="height:32px;">
                             </a>
                             {# Separador + título da página atual #}
                             {% set pageTitle = '' %}
@@ -344,12 +347,12 @@
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">
-                            <i class="bi bi-phone me-2"></i>Instalar JusPrime
+                            <i class="bi bi-phone me-2"></i>Instalar BlueJus
                         </h5>
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
                     </div>
                     <div class="modal-body">
-                        <p class="mb-3">Para instalar o JusPrime no seu iPhone ou iPad:</p>
+                        <p class="mb-3">Para instalar o BlueJus no seu iPhone ou iPad:</p>
                         <ol class="mb-0">
                             <li class="mb-2">Toque no botão <strong>Compartilhar</strong> <i class="bi bi-box-arrow-up"></i> na barra do Safari</li>
                             <li class="mb-2">Role para baixo e toque em <strong>"Adicionar à Tela de Início"</strong></li>
