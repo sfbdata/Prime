@@ -18,10 +18,26 @@ Pastas globais `src/Controller/`, `src/Entity/`, `src/Service/`, `src/Repository
 | Perfil do usuário | `src/Profile/` | ativo |
 | Compartilhado | `src/Shared/` | ativo |
 | Ponto | `src/Entity/Ponto/` | legado — migrar para `src/Ponto/` |
-| Agenda | `src/Entity/Agenda/` | legado — migrar para `src/Agenda/` |
-| ServiceDesk | `src/Entity/ServiceDesk/` | legado — migrar para `src/ServiceDesk/` |
+| Agenda | `src/Entity/Agenda/` | legado — migração planejada (`src/Agenda/` ainda não criado) |
+| ServiceDesk | `src/Entity/ServiceDesk/` | legado — migração planejada (`src/ServiceDesk/` ainda não criado) |
 | Tenant | `src/Entity/Tenant/` | legado |
 | Permission | `src/Entity/Permission/` | legado |
+
+## Configuração por domínio
+
+Dados específicos de cada domínio. Use ao criar/editar arquivos em
+`src/<Dominio>/`. Padrões gerais de cada camada estão nas skills
+(a serem criadas na próxima etapa).
+
+| Domínio | Namespace base | Módulo permissão | Prefixo rota |
+|---|---|---|---|
+| Cliente | `App\Cliente` | `clientes` | `app_cliente_` |
+| Expediente | `App\Expediente` | `expediente` | `app_expediente_` |
+| Processo | `App\Processo` | `processos` | `app_processo_` |
+| Pasta | `App\Pasta` | `pastas` | `app_pasta_` |
+| Tarefa | `App\Tarefa` | `tarefas` | `app_tarefa_` |
+| Profile | `App\Profile` | `profile` | `app_profile_` |
+| Shared | `App\Shared` | _(transversal)_ | _(N/A)_ |
 
 ## Refatorando código legado
 

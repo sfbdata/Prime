@@ -1,106 +1,25 @@
-# Repository/ — Legado
+# src/Repository/ — Legado
 
-> Esta pasta é **legado**. Novos repositories vão em `src/<Dominio>/Repository/`.
-> Regras completas em [src/_referencia/Repository/CLAUDE.md](../_referencia/Repository/CLAUDE.md).
+⚠️ Pasta legado. Não criar arquivos novos aqui.
 
-## Responsabilidade
+## Ao tocar um arquivo desta pasta
 
-Repository = único ponto de acesso ao banco para uma entidade. Queries + persistência simples. Sem lógica de negócio.
+Decida ANTES de editar:
 
-## Estrutura obrigatória
+**Opção A — Edição mínima cirúrgica**
+Se a alteração é uma correção pontual e pequena (1-2 linhas),
+edite no lugar. Não faça refactor oportunista junto.
 
-```php
-<?php
-declare(strict_types=1);
-namespace App\<Dominio>\Repository;
+**Opção B — Migração para domínio**
+Se a alteração é não-trivial OU o arquivo precisa de evolução
+maior, MIGRE para `src/<Dominio>/Repository/` antes de
+implementar a mudança. Veja `app/src/CLAUDE.md` seção
+"Refatorando código legado" para o checklist.
 
-use App\<Dominio>\Entity\<Nome>;
-use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\Persistence\ManagerRegistry;
+## Regras válidas aqui
 
-final class <Nome>Repository extends ServiceEntityRepository
-{
-    public function __construct(ManagerRegistry $registry)
-    {
-        parent::__construct($registry, <Nome>::class);
-    }
+As mesmas regras gerais do projeto (raiz CLAUDE.md) se aplicam:
+strict_types, type hints, multi-tenant, PermissionChecker.
 
-    public function salvar(<Nome> $entidade, bool $flush = false): void
-    {
-        $this->getEntityManager()->persist($entidade);
-        if ($flush) {
-            $this->getEntityManager()->flush();
-        }
-    }
-
-    public function remover(<Nome> $entidade, bool $flush = false): void
-    {
-        $this->getEntityManager()->remove($entidade);
-        if ($flush) {
-            $this->getEntityManager()->flush();
-        }
-    }
-}
-```
-
-## Regras críticas
-
-**Proibido:**
-- Lógica de negócio (cálculos, validações, decisões de fluxo)
-- `findAll()` em listagens de usuário — sempre paginar
-- Concatenação de string em DQL/SQL — SQL injection:
-  ```php
-  // ERRADO:
-  ->where("u.email = '$email'")
-
-  // CERTO:
-  ->where('u.email = :email')->setParameter('email', $email)
-  ```
-- Orquestração multi-entidade (isso é responsabilidade do UseCase)
-
-**Obrigatório:**
-- Filtrar por `tenant` em toda query:
-  ```php
-  $qb->andWhere('e.tenant = :tenant')
-     ->setParameter('tenant', $tenant);
-  ```
-- Nomes de métodos pelo negócio: `buscarAtivosDoTenant()`, `listarPorCliente()` — nunca `getData()`
-
-## Paginação obrigatória em listagens
-
-```php
-use Doctrine\ORM\Tools\Pagination\Paginator;
-
-public function listarPaginado(Tenant $tenant, int $pagina, int $porPagina): Paginator
-{
-    $qb = $this->createQueryBuilder('e')
-        ->andWhere('e.tenant = :tenant')
-        ->setParameter('tenant', $tenant)
-        ->orderBy('e.criadoEm', 'DESC')
-        ->setFirstResult(($pagina - 1) * $porPagina)
-        ->setMaxResults($porPagina);
-
-    return new Paginator($qb);
-}
-```
-
-## DTOs read-only via DQL NEW (evitar N+1)
-
-```php
-public function listarResumido(Tenant $tenant): array
-{
-    return $this->getEntityManager()
-        ->createQuery('SELECT NEW App\<Dominio>\DTO\<Nome>ListaItem(e.id, e.nome) FROM App\<Dominio>\Entity\<Nome> e WHERE e.tenant = :tenant')
-        ->setParameter('tenant', $tenant)
-        ->getResult(); // retorna array de DTOs — não entidades Doctrine
-}
-```
-
-## Quando usar cada abordagem
-
-| Situação | Abordagem |
-|---|---|
-| Query dinâmica (filtros opcionais) | `QueryBuilder` |
-| Query estática simples | DQL |
-| Features PG específicas (CTE, tsvector, GIN) | DBAL raw SQL |
-| Listagem para view | DQL `NEW` com DTO |
+Padrões de camada (estrutura, convenções, heurística 5-10-20)
+estão documentados nas skills do projeto — consulte ao migrar.
