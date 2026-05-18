@@ -2,6 +2,7 @@
 
 namespace App\Entity\Tenant;
 
+use App\Entity\Auth\UserTenant;
 use App\Repository\TenantRoleRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -44,10 +45,17 @@ class TenantRole
     #[ORM\OneToMany(targetEntity: TenantRolePermission::class, mappedBy: 'tenantRole', cascade: ['persist', 'remove'])]
     private Collection $tenantRolePermissions;
 
+    /**
+     * @var Collection<int, UserTenant>
+     */
+    #[ORM\OneToMany(targetEntity: UserTenant::class, mappedBy: 'tenantRole')]
+    private Collection $userTenants;
+
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
         $this->tenantRolePermissions = new ArrayCollection();
+        $this->userTenants = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -123,5 +131,11 @@ class TenantRole
         return $this->tenantRolePermissions;
     }
 
-
+    /**
+     * @return Collection<int, UserTenant>
+     */
+    public function getUserTenants(): Collection
+    {
+        return $this->userTenants;
+    }
 }

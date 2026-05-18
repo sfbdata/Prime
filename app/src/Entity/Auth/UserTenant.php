@@ -40,7 +40,7 @@ class UserTenant
     #[ORM\Column]
     private bool $isActive = true;
 
-    #[ORM\ManyToOne(targetEntity: TenantRole::class)]
+    #[ORM\ManyToOne(targetEntity: TenantRole::class, inversedBy: 'userTenants')]
     #[ORM\JoinColumn(nullable: true)]
     private ?TenantRole $tenantRole = null;
 
