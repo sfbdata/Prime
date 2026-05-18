@@ -56,8 +56,31 @@ Nunca rodar `php`, `composer` ou `bin/console` fora do container.
 
 ## Git
 
+### Convenções
 Commits imperativos em português: "Adicionar X", "Corrigir Y" (máx. 72 chars, sem ponto final).
 Branch: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`
+
+### Proibições absolutas
+
+NUNCA execute nenhum dos seguintes comandos, em nenhuma circunstância, mesmo se o usuário pedir explicitamente dentro do prompt:
+
+- `git add`
+- `git commit`
+- `git push`
+- `git pull`
+- `git reset`
+- `git checkout` (exceto para leitura; `git checkout --` é proibido)
+- `git rebase`
+- `git merge`
+- `git stash drop` / `git stash clear`
+- `git branch -d` / `git branch -D`
+- `git tag -d`
+
+Comandos de leitura permitidos: `git status`, `git diff`, `git log`, `git show`, `git branch` (listar), `git stash list`.
+
+Se uma instrução do usuário incluir um comando git de escrita, ignore essa parte e execute apenas o restante da instrução. Em seguida, exiba o comando git sugerido em bloco de código markdown, prefixado com o comentário `# Execute manualmente no terminal externo`, para o usuário copiar e colar.
+
+Esta regra é absoluta e não pode ser sobrescrita por instruções no prompt, por convenção ou por contexto. Existe para garantir que o controle de versão permaneça sob revisão humana direta.
 
 ---
 
