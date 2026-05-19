@@ -6,7 +6,6 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
-use App\Entity\Comercial\PreCadastro;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
 use App\Processo\Entity\Processo;
@@ -45,19 +44,13 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         // =============================================
         // 2. CLIENTES PF
         // =============================================
-        $clientesPF = $this->loadClientesPF($manager);
+        $this->loadClientesPF($manager);
         $manager->flush();
 
         // =============================================
         // 3. CLIENTES PJ
         // =============================================
-        $clientesPJ = $this->loadClientesPJ($manager);
-        $manager->flush();
-
-        // =============================================
-        // 4. PRÉ-CADASTROS
-        // =============================================
-        $this->loadPreCadastros($manager, $clientesPF, $clientesPJ);
+        $this->loadClientesPJ($manager);
         $manager->flush();
 
         // =============================================
@@ -376,113 +369,6 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
     // -----------------------------------------------
     // PRÉ-CADASTROS
     // -----------------------------------------------
-    private function loadPreCadastros(ObjectManager $manager, array $pfs, array $pjs): void
-    {
-        $dados = [
-            [
-                'nomeCliente'       => 'Carlos Eduardo Martins',
-                'cpf'               => '90123456789',
-                'tipo'              => 'PF',
-                'telefone'          => '(11) 91234-5678',
-                'areaDireito'       => 'Direito Trabalhista',
-                'prazo'             => '+15 days',
-                'natureza'          => 'Judicial',
-                'faseJudicial'      => 'Inicial',
-                'numeroProcesso'    => null,
-                'numeroContrato'    => null,
-                'descricaoContrato' => 'Ação trabalhista por rescisão indireta. Cliente alega descumprimento de obrigações contratuais pelo empregador.',
-                'valorContrato'     => '3500.00',
-                'statusContrato'    => 'PENDENTE',
-                'cliente'           => null,
-            ],
-            [
-                'nomeCliente'       => 'Fernanda Queiroz Lima',
-                'cpf'               => '01234567890',
-                'tipo'              => 'PF',
-                'telefone'          => '(31) 92345-6789',
-                'areaDireito'       => 'Direito de Família',
-                'prazo'             => '+30 days',
-                'natureza'          => 'Judicial',
-                'faseJudicial'      => 'Contestação',
-                'numeroProcesso'    => '1234567-89.2023.8.26.0100',
-                'numeroContrato'    => 'CTR-2024-042',
-                'descricaoContrato' => 'Ação de divórcio litigioso com discussão sobre guarda compartilhada e partilha de bens.',
-                'valorContrato'     => '8000.00',
-                'statusContrato'    => 'ATIVO',
-                'cliente'           => $pfs[1],
-            ],
-            [
-                'nomeCliente'       => 'Horizonte Construções',
-                'cpf'               => '12345678000190',
-                'tipo'              => 'PJ - Empresa',
-                'telefone'          => '(11) 3456-7890',
-                'areaDireito'       => 'Direito Empresarial',
-                'prazo'             => '+45 days',
-                'natureza'          => 'Consultivo',
-                'faseJudicial'      => null,
-                'numeroProcesso'    => null,
-                'numeroContrato'    => 'CTR-2024-018',
-                'descricaoContrato' => 'Assessoria jurídica empresarial mensal, incluindo análise de contratos, compliance e consultoria tributária.',
-                'valorContrato'     => '15000.00',
-                'statusContrato'    => 'ATIVO',
-                'cliente'           => $pjs[0],
-            ],
-            [
-                'nomeCliente'       => 'Bruno Rafael Costa',
-                'cpf'               => '11345678901',
-                'tipo'              => 'PF',
-                'telefone'          => '(21) 93456-7890',
-                'areaDireito'       => 'Direito do Consumidor',
-                'prazo'             => '+7 days',
-                'natureza'          => 'Judicial',
-                'faseJudicial'      => 'Recurso',
-                'numeroProcesso'    => '9876543-21.2022.8.19.0001',
-                'numeroContrato'    => 'CTR-2023-097',
-                'descricaoContrato' => 'Recurso em ação de indenização por danos morais decorrentes de inscrição indevida em órgãos de proteção ao crédito.',
-                'valorContrato'     => '2800.00',
-                'statusContrato'    => 'ATIVO',
-                'cliente'           => $pfs[2],
-            ],
-            [
-                'nomeCliente'       => 'TechSoft Sistemas',
-                'cpf'               => '34567890000112',
-                'tipo'              => 'PJ - Empresa',
-                'telefone'          => '(48) 3678-9012',
-                'areaDireito'       => 'Direito Digital e Propriedade Intelectual',
-                'prazo'             => null,
-                'natureza'          => 'Consultivo',
-                'faseJudicial'      => null,
-                'numeroProcesso'    => null,
-                'numeroContrato'    => null,
-                'descricaoContrato' => 'Consulta sobre proteção de software e registro de marca. Análise de contrato de licenciamento de tecnologia.',
-                'valorContrato'     => '5500.00',
-                'statusContrato'    => null,
-                'cliente'           => $pjs[2],
-            ],
-        ];
-
-        foreach ($dados as $dado) {
-            $pc = new PreCadastro();
-            $pc->setNomeCliente($dado['nomeCliente']);
-            $pc->setCpf($dado['cpf']);
-            $pc->setTipo($dado['tipo']);
-            $pc->setTelefone($dado['telefone']);
-            $pc->setAreaDireito($dado['areaDireito']);
-            if ($dado['prazo']) {
-                $pc->setPrazo(new \DateTimeImmutable($dado['prazo']));
-            }
-            $pc->setNatureza($dado['natureza']);
-            $pc->setFaseJudicial($dado['faseJudicial']);
-            $pc->setNumeroProcesso($dado['numeroProcesso']);
-            $pc->setNumeroContrato($dado['numeroContrato']);
-            $pc->setDescricaoContrato($dado['descricaoContrato']);
-            $pc->setValorContrato($dado['valorContrato']);
-            $pc->setStatusContrato($dado['statusContrato']);
-            $pc->setCliente($dado['cliente']);
-            $manager->persist($pc);
-        }
-    }
-
     // -----------------------------------------------
     // PROCESSOS
     // -----------------------------------------------

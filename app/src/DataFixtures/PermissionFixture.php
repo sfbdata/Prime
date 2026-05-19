@@ -20,7 +20,6 @@ class PermissionFixture extends Fixture
         ['code' => 'modules.tarefas.view',       'description' => 'Acesso ao módulo Tarefas (visão do usuário)', 'group' => 'modules'],
         ['code' => 'modules.agenda.view',        'description' => 'Acesso ao módulo Agenda',                     'group' => 'modules'],
         ['code' => 'modules.servicedesk.view',   'description' => 'Acesso ao módulo Service Desk (usuário)',     'group' => 'modules'],
-        ['code' => 'modules.precadastros.view',  'description' => 'Acesso ao módulo Pré-Cadastros',              'group' => 'modules'],
         ['code' => 'modules.ponto.view',         'description' => 'Acesso ao módulo Ponto Eletrônico',          'group' => 'modules'],
         ['code' => 'modules.financeiro.view',    'description' => 'Acesso ao módulo Financeiro (futuro)',        'group' => 'modules'],
         ['code' => 'modules.bi.view',            'description' => 'Acesso ao módulo BI (futuro)',                'group' => 'modules'],

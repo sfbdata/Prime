@@ -102,16 +102,6 @@
                     </li>
                 {% endif %}
 
-                {% if can_access_module('precadastros') %}
-                    <li class="pje-menu-item">
-                        <a href="{{ path('pre_cadastro_index') }}"
-                           class="pje-menu-link {{ currentRoute starts with 'pre_cadastro_' ? 'active' : '' }}">
-                            <i class="bi bi-person-plus pje-nav-icon"></i>
-                            <span>Pré-Cadastros</span>
-                        </a>
-                    </li>
-                {% endif %}
-
                 {% if can_access_module('ponto') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('ponto_index') }}"

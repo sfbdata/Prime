@@ -7,7 +7,6 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
-use App\Entity\Comercial\PreCadastro;
 use App\Cliente\Form\ClientePFType;
 use App\Cliente\Form\ClientePJType;
 use App\Cliente\Repository\ClienteRepository;
@@ -16,7 +15,6 @@ use App\Cliente\Repository\ClientePJRepository;
 use App\Repository\ClienteDocumentoRepository;
 use App\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
-use App\Repository\PreCadastroRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageService;
@@ -178,72 +176,6 @@ class ClienteController extends AbstractController
         return $this->render('cliente/new_pj.html.twig', [
             'form' => $form,
         ]);
-    }
-
-    #[Route('/from-pre-cadastro/{id}', name: 'cliente_from_pre_cadastro', methods: ['GET', 'POST'])]
-    public function fromPreCadastro(Request $request, PreCadastroRepository $preCadastroRepo, int $id): Response
-    {
-        /** @var \App\Entity\Auth\User $currentUser */
-        $currentUser = $this->getUser();
-        $tenant = $this->tenantContext->getCurrentTenant();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'clientes')) {
-            $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de clientes.');
-            return $this->redirectToRoute('homepage');
-        }
-
-        $preCadastro = $preCadastroRepo->find($id);
-
-        if (!$preCadastro) {
-            throw $this->createNotFoundException('Pré-cadastro não encontrado');
-        }
-
-        $isPF = $preCadastro->getTipo() === 'PF';
-
-        if ($isPF) {
-            $cliente = new ClientePF();
-            $cliente->setNomeCompleto($preCadastro->getNomeCliente());
-            $cliente->setCpf($preCadastro->getCpf());
-            $cliente->setTelefoneCelular($preCadastro->getTelefone());
-
-            $form = $this->createForm(ClientePFType::class, $cliente);
-            $form->handleRequest($request);
-
-            if ($form->isSubmitted() && $form->isValid()) {
-                $cliente->setCriadoPor($this->getUser());
-                $this->clientePFRepository->save($cliente, true);
-                $preCadastro->setCliente($cliente);
-                $this->em->persist($preCadastro);
-                $this->em->flush();
-                return $this->redirectToRoute('cliente_index');
-            }
-
-            return $this->render('cliente/new_pf.html.twig', [
-                'form' => $form,
-                'preCadastro' => $preCadastro,
-            ]);
-        } else {
-            $cliente = new ClientePJ();
-            $cliente->setRazaoSocial($preCadastro->getNomeCliente());
-            $cliente->setCnpj($preCadastro->getCpf());
-            $cliente->setTelefoneCelular($preCadastro->getTelefone());
-
-            $form = $this->createForm(ClientePJType::class, $cliente);
-            $form->handleRequest($request);
-
-            if ($form->isSubmitted() && $form->isValid()) {
-                $cliente->setCriadoPor($this->getUser());
-                $this->clientePJRepository->save($cliente, true);
-                $preCadastro->setCliente($cliente);
-                $this->em->persist($preCadastro);
-                $this->em->flush();
-                return $this->redirectToRoute('cliente_index');
-            }
-
-            return $this->render('cliente/new_pj.html.twig', [
-                'form' => $form,
-                'preCadastro' => $preCadastro,
-            ]);
-        }
     }
 
     #[Route('/{id}', name: 'cliente_show', methods: ['GET'])]
