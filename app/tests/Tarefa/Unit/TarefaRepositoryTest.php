@@ -5,7 +5,7 @@ namespace App\Tests\Tarefa\Unit;
 use App\Entity\Auth\User;
 use App\Entity\Pasta\Pasta;
 use App\Entity\Tarefa\Tarefa;
-use App\Repository\TarefaRepository;
+use App\Tarefa\Repository\TarefaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Mapping\ClassMetadata;
 use PHPUnit\Framework\MockObject\MockObject;

@@ -4,7 +4,7 @@ namespace App\Entity\Tarefa;
 
 use App\Entity\Auth\User;
 use App\Entity\Pasta\Pasta;
-use App\Repository\TarefaRepository;
+use App\Tarefa\Repository\TarefaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;

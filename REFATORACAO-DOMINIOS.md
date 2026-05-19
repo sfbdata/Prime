@@ -26,15 +26,15 @@ Ordem definida por critério: domínio destino existe + arquivo pequeno + tem te
 
 | # | Arquivo legado | Linhas | Destino | Tem teste? | Status |
 |---|----------------|-------:|---------|:----------:|--------|
-| 1 | `src/Repository/TarefaRepository.php` | 56 | `src/Tarefa/Repository/` | Sim | **Próximo** |
-| - | (próximos a definir após primeira migração concluída) | | | | |
+| - | (próximo a definir após análise da fila restante) | | | | |
 
 ## Concluído
 
-| Data | Commit | Frente |
-|------|--------|--------|
-| 2026-05-19 | `e790cf8` | Remoção do módulo PreCadastro (código, templates, fixtures, permissão) |
-| 2026-05-19 | `ff86399` | DROP TABLE `pre_cadastro` (migration irreversível) |
+| Data | Frente |
+|------|--------|
+| 2026-05-19 | Remoção do módulo PreCadastro (código, templates, fixtures, permissão) |
+| 2026-05-19 | DROP TABLE `pre_cadastro` (migration irreversível) |
+| 2026-05-19 | Migrar `TarefaRepository` para `src/Tarefa/Repository/` |
 
 ## Trilha separada (não tocar na fila de migrações pequenas)
 
@@ -47,6 +47,9 @@ Reescritas grandes — projeto próprio cada uma:
 ## Pendências não-migração
 
 - **13 testes quebrados** por `App\Expediente\UseCase\RemoverMarcadorDaPastaUseCase` inexistente. Detectado em 2026-05-19. Não bloqueia migrações da fila. Investigar quando atacar o domínio Expediente.
+- **Entidade `Tarefa`** permanece em `src/Entity/Tarefa/` (legado). Migração futura — quando feita, atualizar `use` em 11 arquivos.
+- **`TarefaMensagemRepository`** permanece em `src/Repository/` (legado). Migração futura para `src/Tarefa/Repository/`.
+- **Skill `criar-repository`** define métodos `salvar()`/`remover()` (português) divergindo do padrão real `save()`/`remove()` (inglês) usado em Cliente, Processo e Tarefa. Corrigir em frente separada.
 
 ## Hierarquia de risco (resumo — ver project instructions para detalhe)
 

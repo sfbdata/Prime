@@ -9,7 +9,7 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Cliente\Repository\ClienteRepository;
-use App\Repository\TarefaRepository;
+use App\Tarefa\Repository\TarefaRepository;
 use App\Processo\Service\DatajudClient;
 use App\Processo\Service\DatajudProcessoMapper;
 use App\Service\PermissionChecker;

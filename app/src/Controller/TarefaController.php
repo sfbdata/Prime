@@ -9,7 +9,7 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Repository\PastaRepository;
-use App\Repository\TarefaRepository;
+use App\Tarefa\Repository\TarefaRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;

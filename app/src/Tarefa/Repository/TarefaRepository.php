@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Repository;
+namespace App\Tarefa\Repository;
 
 use App\Entity\Auth\User;
 use App\Processo\Entity\Processo;
