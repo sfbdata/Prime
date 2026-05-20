@@ -53,3 +53,6 @@ HANDOFF_FINAL.md
 # Claude Code — configuração local
 .claude/settings.local.json
 .claude/settings.local.json.backup
+
+# Pasta temporária (backups, restore prod→dev, dumps)
+/tmp/
