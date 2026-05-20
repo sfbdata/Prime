@@ -164,6 +164,14 @@
                 flex-shrink: 0;
             }
             .d-contents { display: contents; }
+            .docs-list-scroll {
+                max-height: 320px;
+                overflow-y: auto;
+            }
+            .docs-list-scroll::-webkit-scrollbar { width: 5px; }
+            .docs-list-scroll::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
+            .doc-item .doc-acoes { opacity: 0; transition: opacity .15s; }
+            .doc-item:hover .doc-acoes { opacity: 1; }
             </style>
             <div class="card-body">
                 <div class="row">
@@ -816,7 +824,7 @@
                                 {% endfor %}
 
                                 {% if hasDocuments %}<hr>{% endif %}
-                                <div class="mb-3" id="documentosGerais" data-secao-destino="geral">
+                                <div class="mb-3 docs-list-scroll" id="documentosGerais" data-secao-destino="geral">
                                     {% for tipo, docs in documentosPorTipo %}
                                         {% if docs|length > 0 %}
                                             {% set label = documentTypeOptions[tipo] ?? tipo %}
@@ -840,7 +848,7 @@
                                                             · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}
                                                         </small>
                                                     </div>
-                                                    <div class="d-flex gap-1 flex-shrink-0">
+                                                    <div class="d-flex gap-1 flex-shrink-0 doc-acoes">
                                                         <button type="button" class="btn btn-sm btn-outline-primary"
                                                                 title="Visualizar"
                                                                 data-bs-toggle="modal"
@@ -929,7 +937,7 @@
                                             </button>
                                         </div>
                                     </form>
-                                    <div class="js-secao-docs" data-secao-destino="{{ secao.id }}">
+                                    <div class="js-secao-docs docs-list-scroll" data-secao-destino="{{ secao.id }}">
                                         {% for doc in secao.documentos %}
                                             {% set label = documentTypeOptions[doc.categoria] ?? doc.categoria %}
                                             <div class="d-flex align-items-center border rounded px-2 py-2 mb-2 gap-2 doc-item"
@@ -947,7 +955,7 @@
                                                         {{ label }}{% if doc.descricao %} · {{ doc.descricao }}{% endif %}{% if doc.numero %} · Nº {{ doc.numero }}{% endif %} · {{ doc.uploadedAt|date('d/m/Y') }}
                                                     </small>
                                                 </div>
-                                                <div class="d-flex gap-1 flex-shrink-0">
+                                                <div class="d-flex gap-1 flex-shrink-0 doc-acoes">
                                                     <button type="button" class="btn btn-sm btn-outline-primary" title="Visualizar"
                                                             data-bs-toggle="modal" data-bs-target="#previewDocModal"
                                                             data-url="{{ path('pasta_documento_view', {id: doc.id}) }}"
