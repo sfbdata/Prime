@@ -20,6 +20,13 @@ if [[ ! -f ".env.prod" ]]; then
   exit 1
 fi
 
+if [[ ! -f "/etc/letsencrypt/live/bluejus.com.br/fullchain.pem" || \
+      ! -f "/etc/letsencrypt/live/bluejus.com.br/privkey.pem" ]]; then
+  echo "❌ Certificados Let's Encrypt não encontrados em /etc/letsencrypt/live/bluejus.com.br/"
+  echo "   Execute: certbot certonly --standalone -d bluejus.com.br -d www.bluejus.com.br"
+  exit 1
+fi
+
 if [[ ! -f "/etc/letsencrypt/live/grupojusprime.tech/fullchain.pem" || \
       ! -f "/etc/letsencrypt/live/grupojusprime.tech/privkey.pem" ]]; then
   echo "❌ Certificados Let's Encrypt não encontrados em /etc/letsencrypt/live/grupojusprime.tech/"
@@ -75,4 +82,5 @@ ss -tlnp | grep -E ':80|:443' || echo "⚠️  Nenhuma porta 80/443 detectada."
 
 echo ""
 echo "🚀 Deploy TLS concluído com sucesso."
+echo "   🌐 https://bluejus.com.br"
 echo "   🌐 https://grupojusprime.tech"
