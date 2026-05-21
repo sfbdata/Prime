@@ -34,6 +34,8 @@
     min-width: 0;
     font-size: .875rem;
 }
+.financeiro-doc-item .financeiro-doc-acoes { opacity: 0; transition: opacity .15s; }
+.financeiro-doc-item:hover .financeiro-doc-acoes { opacity: 1; }
 
 .financeiro-obs-item {
     border: 1px solid #e9ecef;
@@ -88,34 +90,36 @@
                             <i class="bi bi-file-earmark-word text-primary flex-shrink-0"></i>
                         {% endif %}
                         <span class="doc-titulo" title="{{ doc.titulo }}">{{ doc.titulo }}</span>
-                        <button type="button"
-                                class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
-                                title="Visualizar"
-                                data-bs-toggle="modal"
-                                data-bs-target="#previewDocModal"
-                                data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
-                                data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
-                                data-nome="{{ doc.titulo }}"
-                                data-mime="{{ doc.mimeType }}">
-                            <i class="bi bi-eye"></i>
-                        </button>
-                        <button type="button"
-                                class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
-                                title="Renomear"
-                                data-doc-id="{{ doc.id }}"
-                                data-titulo="{{ doc.titulo }}"
-                                data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
-                                data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button type="button"
-                                class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
-                                title="Excluir"
-                                data-doc-id="{{ doc.id }}"
-                                data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
-                                data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        <div class="financeiro-doc-acoes d-flex gap-1 flex-shrink-0">
+                            <button type="button"
+                                    class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
+                                    title="Visualizar"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#previewDocModal"
+                                    data-url="{{ path('pasta_financeiro_documento_view', {id: pasta.id, docId: doc.id}) }}"
+                                    data-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: doc.id}) }}"
+                                    data-nome="{{ doc.titulo }}"
+                                    data-mime="{{ doc.mimeType }}">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button type="button"
+                                    class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
+                                    title="Renomear"
+                                    data-doc-id="{{ doc.id }}"
+                                    data-titulo="{{ doc.titulo }}"
+                                    data-csrf="{{ csrf_token('pasta_financeiro_renomear_' ~ doc.id) }}"
+                                    data-url="{{ path('pasta_financeiro_documento_renomear', {id: pasta.id, docId: doc.id}) }}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button"
+                                    class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
+                                    title="Excluir"
+                                    data-doc-id="{{ doc.id }}"
+                                    data-csrf="{{ csrf_token('pasta_financeiro_excluir_' ~ doc.id) }}"
+                                    data-url="{{ path('pasta_financeiro_documento_excluir', {id: pasta.id, docId: doc.id}) }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -317,34 +321,36 @@
         div.innerHTML = `
             ${iconeParaMime(mimeType)}
             <span class="doc-titulo" title="${esc(titulo)}">${esc(titulo)}</span>
-            <button type="button"
-                    class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
-                    title="Visualizar"
-                    data-bs-toggle="modal"
-                    data-bs-target="#previewDocModal"
-                    data-url="${esc(urlVisualizar)}"
-                    data-download="${esc(urlDownload)}"
-                    data-nome="${esc(titulo)}"
-                    data-mime="${esc(mimeType)}">
-                <i class="bi bi-eye"></i>
-            </button>
-            <button type="button"
-                    class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
-                    title="Renomear"
-                    data-doc-id="${id}"
-                    data-titulo="${esc(titulo)}"
-                    data-csrf="${esc(csrfRenomear)}"
-                    data-url="${esc(urlRenomear)}">
-                <i class="bi bi-pencil"></i>
-            </button>
-            <button type="button"
-                    class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
-                    title="Excluir"
-                    data-doc-id="${id}"
-                    data-csrf="${esc(csrfExcluir)}"
-                    data-url="${esc(urlExcluir)}">
-                <i class="bi bi-trash"></i>
-            </button>`;
+            <div class="financeiro-doc-acoes d-flex gap-1 flex-shrink-0">
+                <button type="button"
+                        class="btn btn-link btn-sm p-0 text-primary flex-shrink-0"
+                        title="Visualizar"
+                        data-bs-toggle="modal"
+                        data-bs-target="#previewDocModal"
+                        data-url="${esc(urlVisualizar)}"
+                        data-download="${esc(urlDownload)}"
+                        data-nome="${esc(titulo)}"
+                        data-mime="${esc(mimeType)}">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button type="button"
+                        class="btn btn-link btn-sm p-0 text-secondary flex-shrink-0 btn-renomear-doc"
+                        title="Renomear"
+                        data-doc-id="${id}"
+                        data-titulo="${esc(titulo)}"
+                        data-csrf="${esc(csrfRenomear)}"
+                        data-url="${esc(urlRenomear)}">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                <button type="button"
+                        class="btn btn-link btn-sm p-0 text-danger flex-shrink-0 btn-excluir-doc"
+                        title="Excluir"
+                        data-doc-id="${id}"
+                        data-csrf="${esc(csrfExcluir)}"
+                        data-url="${esc(urlExcluir)}">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>`;
         return div;
     }
 
