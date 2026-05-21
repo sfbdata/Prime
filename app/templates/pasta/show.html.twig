@@ -718,9 +718,11 @@
                     {# Right Column - Sidebar #}
                     <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
                         {# Card: Documentação #}
+                        {% set totalDocsGeral = 0 %}
+                        {% for tipo, docs in documentosPorTipo %}{% set totalDocsGeral = totalDocsGeral + docs|length %}{% endfor %}
                         <div class="card card-primary card-outline mb-3" data-secao-destino="geral">
                             <div class="card-header d-flex align-items-center">
-                                <h3 class="card-title me-auto"><i class="bi bi-check2-square me-1"></i> Documentação</h3>
+                                <h3 class="card-title me-auto"><i class="bi bi-check2-square me-1"></i> Documentação <span class="badge text-bg-secondary ms-1 js-secao-contador" id="contadorSecaoGeral">{{ totalDocsGeral }} {{ totalDocsGeral == 1 ? 'arquivo' : 'arquivos' }}</span></h3>
                                 <button type="button" class="btn btn-tool" data-bs-toggle="collapse"
                                         data-bs-target="#documentacaoBody" aria-expanded="true"
                                         id="btnDocumentacaoToggle">
@@ -886,7 +888,7 @@
                              id="secaoCard{{ secao.id }}"
                              data-secao-destino="{{ secao.id }}">
                             <div class="card-header d-flex align-items-center py-2">
-                                <span class="pasta-secao-nome fw-semibold me-auto">{{ secao.nome|e }}</span>
+                                <span class="pasta-secao-nome fw-semibold me-auto">{{ secao.nome|e }} <span class="badge text-bg-secondary ms-1 js-secao-contador">{{ secao.documentos|length }} {{ secao.documentos|length == 1 ? 'arquivo' : 'arquivos' }}</span></span>
                                 <div class="d-flex align-items-center gap-1 ms-2">
                                     <button type="button" class="btn btn-sm btn-outline-secondary js-secao-renomear-btn" title="Renomear seção"
                                             data-secao-id="{{ secao.id }}"
@@ -3981,7 +3983,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <div class="card card-outline card-secondary mb-3 pasta-secao-card"
      id="secaoCard${id}" data-secao-destino="${id}">
   <div class="card-header d-flex align-items-center py-2">
-    <span class="pasta-secao-nome fw-semibold me-auto">${escapeHtml(data.nome)}</span>
+    <span class="pasta-secao-nome fw-semibold me-auto">${escapeHtml(data.nome)} <span class="badge text-bg-secondary ms-1 js-secao-contador">0 arquivos</span></span>
     <div class="d-flex align-items-center gap-1 ms-2">
       <button type="button" class="btn btn-sm btn-outline-secondary js-secao-renomear-btn" title="Renomear seção"
               data-secao-id="${id}" data-nome-atual="${escapeAttr(data.nome)}"
@@ -4319,6 +4321,15 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    function atualizarContadorSecao(docsContainer) {
+        const card = docsContainer.closest('.card');
+        if (!card) return;
+        const badge = card.querySelector('.js-secao-contador');
+        if (!badge) return;
+        const n = docsContainer.querySelectorAll('.doc-item').length;
+        badge.textContent = n + ' ' + (n === 1 ? 'arquivo' : 'arquivos');
+    }
+
     function inicializarSortableDocs(container) {
         if (!container || container._sortableDoc) return;
         container._sortableDoc = new Sortable(container, {
@@ -4331,6 +4342,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     await persistirMoverDocumento(evt.item, evt.to);
                     await persistirOrdemDocumentos(evt.to);
+                    atualizarContadorSecao(evt.from);
+                    atualizarContadorSecao(evt.to);
                 }
             },
         });
