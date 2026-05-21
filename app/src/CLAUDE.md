@@ -69,6 +69,7 @@ Se o UseCase já existir mas o teste não seguir o padrão atual, refatore o tes
 $checker->canAccessModule($user, 'clientes');   // correto
 in_array('ROLE_ADMIN', $user->getRoles());       // errado — não respeita hierarquia
 ```
+Modelo completo (4 camadas, bypasses, falhas conhecidas) → ver `docs/AUTORIZACAO.md`. Leia antes de mexer em qualquer coisa de permissão.
 
 **Fluxo de dados obrigatório:**
 ```

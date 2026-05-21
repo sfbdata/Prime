@@ -14,6 +14,8 @@ Fluxo: `Request → Controller → Form/DTO → UseCase → Entity → Repositor
 
 Estrutura detalhada, regras transversais (multi-tenancy, permissões), padrões PHP/Symfony e refatoração de legado → ver `app/src/CLAUDE.md`.
 
+Modelo de autorização (4 camadas, bypasses, falhas conhecidas) → ver `docs/AUTORIZACAO.md`. Leia antes de mexer em qualquer coisa de permissão.
+
 ## Fluxo de desenvolvimento
 
 Antes de implementar funcionalidade ou correção:
