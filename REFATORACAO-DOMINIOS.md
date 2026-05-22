@@ -40,7 +40,7 @@ Ordem definida por critério: domínio destino existe + arquivo pequeno + tem te
 
 Reescritas grandes — projeto próprio cada uma:
 
-- **PastaController** (1.849 linhas) — extrair UseCases, dividir em sub-controllers, criar testes antes de mexer.
+- **PastaController** — frente ATIVA em andamento, ver seção 'Refatoração da Pasta (frente ativa)' acima.
 - **TenantController** (1.670 linhas) — mesmo tratamento; cuidado redobrado (componente MÉDIO na hierarquia de risco).
 - **PontoController** (1.224 linhas) — componente ALTO. Smoke manual obrigatório, dump de banco antes de qualquer schema change.
 
