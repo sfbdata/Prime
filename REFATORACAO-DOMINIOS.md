@@ -60,13 +60,16 @@ FATIAS (uma por commit):
 - [x] Fatia 0 — limpar pastas de teste do dev (feito 2026-05-22, banco zerado, backup em ~/backup_saas_pre_limpeza_pasta.sql.gz)
 - [x] Fatia 1 — tenant_id em Pasta + PastaDocumento (commit 25df99d). Coluna + FK + índice + 7 pontos de setTenant. Smoke OK.
 - [x] Fatia 2 — filtro de tenant no PastaRepository (resolve o vazamento cross-tenant ALTA). 4 métodos (findByFilters, findAllNups, findPorMarcador, findByFiltrosEMarcador) ganham Tenant $tenant + andWhere('p.tenant = :tenant'); findAll() em acervoGeral() substituído por findByFilters([], $tenant); 2 testes de isolamento cross-tenant (PastaRepositoryIsolamentoTest). Suíte verde exceto os 13 Expediente conhecidos. Feito 2026-05-22.
-- [ ] Fatia 3 — extrair CRUD de Pasta (create/edit/delete) para UseCases, tirando do PastaController legado (~1700 linhas). Resolve I14.
+- [~] Fatia 3 — extrair CRUD de Pasta para UseCases (fatiada em 3a/3b/3c). Resolve I14.
+  - [x] 3a — criar() → CriarPastaUseCase + CriarPastaDTO + teste de caracterização. canAccessModule mantido no controller; unicidade global do NUP preservada. Feito 2026-05-22.
+  - [ ] 3b — editar() → EditarPastaUseCase (resource-access preservado).
+  - [ ] 3c — delete() → ExcluirPastaUseCase (side effect de storage; mais cuidado).
 - [ ] Fatia 4 — mover entidades + repositories de Pasta para app/src/Pasta/ (domínio). Resolve I2/I3.
 - [ ] Fatia 5 — limpeza de consistência (I4 onDelete PastaDocumento, I5 inversedBy PastaMensagem, I6/I7 timestamps, I8 strict_types, I9 nome bilíngue, I10 OrderBy, I13 Assert) — onde tocar o arquivo.
 
 PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
 
-Próximo passo: Fatia 3.
+Próximo passo: Fatia 3b (editar).
 
 ## Pendências não-migração
 
@@ -96,6 +99,8 @@ Próximo passo: Fatia 3.
 - **[ALTA] Vazamento cross-tenant via findByCliente (ClienteController:200)**: raiz é o find($id) do Cliente em ClienteController::show() sem validar posse por tenant — Cliente de outro tenant retorna as pastas dele via findByCliente. Vazamento NOVO (não mapeado na pendência ALTA original do PastaRepository), domínio Cliente, fora da Fatia 2. Detectado 2026-05-22.
 - **Divergência ORM↔banco em PastaDocumento.tenant**: atributo PHP mapeado `?Tenant = null` enquanto a coluna é NOT NULL (migration Fatia 1). Latente — nenhum caller real aciona hoje (os 4 pontos de persist de PastaDocumento em src/ setam tenant). Alinhar (`nullable: false` no atributo) numa fatia que toque a entidade (candidata: Fatia 4). Detectado 2026-05-22.
 - **Banco de teste sem setup automático de schema**: `doctrine:migrations:migrate --env=test` é manual; cada migration nova exige rodar à mão ou a suíte quebra silenciosamente (foi o caso da Fatia 1, que deixou ~38 testes vermelhos despercebidos até a Fatia 2). Criar script de setup de test (candidato: scripts/setup-test-db.sh ou passo no phpunit bootstrap). Detectado 2026-05-22.
+- **Bug latente de normalização do NUP no criar de Pasta**: `CriarPastaUseCase` (e o controller legado de origem) checa unicidade via `findOneBy(['nup' => trim($dto->nup)])` com o valor CRU, mas `Pasta::setNup()` armazena `mb_strtoupper(trim())`. NUP com minúsculas (`"abc-001"`) não encontra a duplicata `"ABC-001"` já existente → fura a validação e estoura `UniqueConstraintViolationException` não tratada (HTTP 500). Bug pré-existente, replicado fielmente na 3a (não corrigido). Corrigir normalizando o NUP antes do `findOneBy`. Detectado 2026-05-22.
+- **Form de criar Pasta sem CSRF token**: `templates/_partials/modal_nova_pasta.html.twig` faz POST `/pasta/nova` sem `_token`; o controller nunca validou CSRF. Diverge do guia de templates (`CLAUDE.md` exige `_token` em forms manuais). Pré-existente, fora do escopo da 3a. Detectado 2026-05-22.
 
 ## Hierarquia de risco (resumo — ver project instructions para detalhe)
 

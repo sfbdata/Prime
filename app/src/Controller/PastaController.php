@@ -31,7 +31,9 @@ use App\Entity\Pasta\PastaObservacaoDetalhes;
 use App\Entity\Pasta\PastaObservacaoFinanceira;
 use App\Entity\Pasta\PastaChecklistItem;
 use App\Entity\Pasta\PrioridadePasta;
+use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
+use App\Pasta\UseCase\CriarPastaUseCase;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\EditarChecklistItemUseCase;
@@ -112,6 +114,7 @@ class PastaController extends AbstractController
         private readonly AlterarPrioridadeUseCase $alterarPrioridadeUseCase,
         private readonly PastaSecaoRepository $secaoRepository,
         private readonly UserTenantRepository $userTenantRepo,
+        private readonly CriarPastaUseCase $criarPastaUseCase,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -131,29 +134,22 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('expediente_index');
         }
 
-        $nup = trim((string) $request->request->get('nup', ''));
-        if ($nup === '') {
-            $this->addFlash('error', 'O NUP é obrigatório.');
+        $dto = new CriarPastaDTO(
+            nup: (string) $request->request->get('nup', ''),
+            nomeCliente: ($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null,
+            nomeAcao: ($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null,
+        );
+
+        try {
+            $pasta = $this->criarPastaUseCase->executar($dto, $currentUser, $tenant);
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('error', $e->getMessage());
+
             return $this->redirectToRoute('expediente_index');
         }
-
-        $existente = $this->pastaRepository->findOneBy(['nup' => $nup]);
-        if ($existente !== null) {
-            $this->addFlash('error', sprintf('O NUP "%s" já está em uso por outra pasta.', $nup));
-            return $this->redirectToRoute('expediente_index');
-        }
-
-        $pasta = new Pasta();
-        $pasta->setNup($nup);
-        $pasta->setNomeCliente(($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null);
-        $pasta->setNomeAcao(($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null);
-        $pasta->setCriadoPor($currentUser);
-        $pasta->setTenant($tenant);
-
-        $this->em->persist($pasta);
-        $this->em->flush();
 
         $this->addFlash('success', 'Pasta criada com sucesso.');
+
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
     }
 
