@@ -125,7 +125,8 @@ class PastaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessModule($currentUser, $this->tenantContext->getCurrentTenant(), 'pastas')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'pastas')) {
             $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de pastas.');
             return $this->redirectToRoute('expediente_index');
         }
@@ -147,6 +148,7 @@ class PastaController extends AbstractController
         $pasta->setNomeCliente(($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null);
         $pasta->setNomeAcao(($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null);
         $pasta->setCriadoPor($currentUser);
+        $pasta->setTenant($tenant);
 
         $this->em->persist($pasta);
         $this->em->flush();
@@ -942,7 +944,8 @@ class PastaController extends AbstractController
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', (int) $pasta->getId(), 'edit')) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
             throw $this->createAccessDeniedException('Você não tem permissão para enviar documentos nesta pasta.');
         }
 
@@ -1008,6 +1011,7 @@ class PastaController extends AbstractController
 
             $doc = new PastaDocumento();
             $doc->setPasta($pasta);
+            $doc->setTenant($tenant);
             $doc->setTitulo($file->getClientOriginalName());
             $doc->setCategoria($categoria);
             $doc->setDescricao($descricao !== '' ? $descricao : null);
@@ -1213,8 +1217,9 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1245,6 +1250,7 @@ class PastaController extends AbstractController
 
         $doc = new PastaDocumento();
         $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
         $doc->setTitulo($file->getClientOriginalName());
         $doc->setCategoria(PastaDocumento::CATEGORIA_CONTRATO);
         $doc->setCaminhoArquivo($nomeUnico);

@@ -6,6 +6,7 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaDocumento;
+use App\Entity\Tenant\Tenant;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -42,6 +43,7 @@ final class UploadPecaUseCase
         string $categoria,
         ?string $descricao,
         ?string $numero,
+        Tenant $tenant,
     ): PastaDocumento {
         $mimeType = $file->getMimeType() ?? '';
 
@@ -64,6 +66,7 @@ final class UploadPecaUseCase
 
         $doc = new PastaDocumento();
         $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
         $doc->setTitulo($file->getClientOriginalName());
         $doc->setCategoria($categoria);
         $doc->setDescricao(($descricao !== null && $descricao !== '') ? $descricao : null);

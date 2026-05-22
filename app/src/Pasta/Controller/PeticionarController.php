@@ -108,7 +108,7 @@ final class PeticionarController extends AbstractController
         $numero    = trim((string) $request->request->get('numero', '')) ?: null;
 
         try {
-            $doc = $this->uploadPecaUseCase->executar($pasta, $arquivo, $categoria, $descricao, $numero);
+            $doc = $this->uploadPecaUseCase->executar($pasta, $arquivo, $categoria, $descricao, $numero, $tenant);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -158,7 +158,7 @@ final class PeticionarController extends AbstractController
         $categoria = in_array($categoriaRaw, $categoriasValidas, true) ? $categoriaRaw : PastaDocumento::CATEGORIA_PECA;
 
         try {
-            $doc = $this->salvarPecaTextoUseCase->executar($pasta, $conteudoHtml, $titulo, $categoria);
+            $doc = $this->salvarPecaTextoUseCase->executar($pasta, $conteudoHtml, $titulo, $categoria, $tenant);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }

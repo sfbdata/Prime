@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Entity\Pasta;
 
+use App\Entity\Tenant\Tenant;
 use App\Repository\PastaDocumentoRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaDocumentoRepository::class)]
+#[ORM\Table(name: 'pasta_documento')]
+#[ORM\Index(name: 'idx_pasta_documento_tenant', columns: ['tenant_id'])]
 class PastaDocumento
 {
     public const CATEGORIA_PECA = 'PECA';
@@ -64,6 +67,10 @@ class PastaDocumento
 
     #[ORM\Column(options: ['default' => 0])]
     private int $ordem = 0;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     public function __construct()
     {
@@ -208,5 +215,17 @@ class PastaDocumento
     public function setOrdem(int $ordem): void
     {
         $this->ordem = $ordem;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(?Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
+
+        return $this;
     }
 }

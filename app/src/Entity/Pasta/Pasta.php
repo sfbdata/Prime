@@ -7,6 +7,7 @@ namespace App\Entity\Pasta;
 use App\Entity\Auth\User;
 use App\Cliente\Entity\Cliente;
 use App\Expediente\Entity\Marcador;
+use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
 use App\Entity\Tarefa\Tarefa;
 use App\Repository\PastaRepository;
@@ -16,6 +17,8 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaRepository::class)]
+#[ORM\Table(name: 'pasta')]
+#[ORM\Index(name: 'idx_pasta_tenant', columns: ['tenant_id'])]
 #[ORM\HasLifecycleCallbacks]
 class Pasta
 {
@@ -67,6 +70,9 @@ class Pasta
     #[ORM\JoinColumn(nullable: true)]
     private ?Processo $processo = null;
 
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\ManyToMany(targetEntity: Cliente::class)]
     #[ORM\JoinTable(name: 'pasta_cliente')]
@@ -419,6 +425,18 @@ $this->documentos = new ArrayCollection();
                 $secao->setPasta(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(?Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
 
         return $this;
     }

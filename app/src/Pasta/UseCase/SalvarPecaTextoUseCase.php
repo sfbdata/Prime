@@ -6,6 +6,7 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaDocumento;
+use App\Entity\Tenant\Tenant;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -22,6 +23,7 @@ final class SalvarPecaTextoUseCase
         string $conteudoHtml,
         string $titulo,
         string $categoria,
+        Tenant $tenant,
     ): PastaDocumento {
         if (trim($titulo) === '') {
             throw new \InvalidArgumentException('O título da peça não pode ser vazio.');
@@ -33,6 +35,7 @@ final class SalvarPecaTextoUseCase
 
         $doc = new PastaDocumento();
         $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
         $doc->setTitulo($titulo);
         $doc->setCategoria($categoria);
         $doc->setCaminhoArquivo($nomeArquivo);
