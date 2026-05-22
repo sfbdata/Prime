@@ -59,14 +59,14 @@ DECISÕES FIXADAS (não revisitar sem motivo):
 FATIAS (uma por commit):
 - [x] Fatia 0 — limpar pastas de teste do dev (feito 2026-05-22, banco zerado, backup em ~/backup_saas_pre_limpeza_pasta.sql.gz)
 - [x] Fatia 1 — tenant_id em Pasta + PastaDocumento (commit 25df99d). Coluna + FK + índice + 7 pontos de setTenant. Smoke OK.
-- [ ] Fatia 2 — filtro de tenant nas 7 queries do PastaRepository (resolve o vazamento cross-tenant ALTA). Cada método recebe Tenant + andWhere.
+- [x] Fatia 2 — filtro de tenant no PastaRepository (resolve o vazamento cross-tenant ALTA). 4 métodos (findByFilters, findAllNups, findPorMarcador, findByFiltrosEMarcador) ganham Tenant $tenant + andWhere('p.tenant = :tenant'); findAll() em acervoGeral() substituído por findByFilters([], $tenant); 2 testes de isolamento cross-tenant (PastaRepositoryIsolamentoTest). Suíte verde exceto os 13 Expediente conhecidos. Feito 2026-05-22.
 - [ ] Fatia 3 — extrair CRUD de Pasta (create/edit/delete) para UseCases, tirando do PastaController legado (~1700 linhas). Resolve I14.
 - [ ] Fatia 4 — mover entidades + repositories de Pasta para app/src/Pasta/ (domínio). Resolve I2/I3.
 - [ ] Fatia 5 — limpeza de consistência (I4 onDelete PastaDocumento, I5 inversedBy PastaMensagem, I6/I7 timestamps, I8 strict_types, I9 nome bilíngue, I10 OrderBy, I13 Assert) — onde tocar o arquivo.
 
 PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
 
-Próximo passo: Fatia 2.
+Próximo passo: Fatia 3.
 
 ## Pendências não-migração
 
@@ -93,6 +93,9 @@ Próximo passo: Fatia 2.
 - **Exibição dupla de documento em seção (pasta_show)**: ao subir arquivo numa seção nova, o documento aparece DUPLICADO na tela — uma vez na seção, outra na lista principal. Confirmado que NÃO é duplicação de dados (há 1 só registro em pasta_documento; secao_id correto). É bug de exibição/agrupamento no pasta_show: documento com seção está sendo renderizado em dois lugares. Frontend. Detectado em 2026-05-22.
 - **Peticionar não permite escolher a seção do anexo (falta funcionalidade)**: ao enviar um documento pelo Peticionar, ele é salvo com secao_id NULL — o fluxo NÃO pergunta a qual seção o anexo deve ir. Comportamento desejado: o peticionar deve perguntar/permitir escolher a seção antes de salvar. Hoje o documento fica "solto" e não aparece em nenhuma seção no pasta_show. É gap de feature, não bug de exibição. Detectado em 2026-05-22.
 - **Visualização de peça de texto trava o painel de documentos**: ao visualizar um documento de texto criado pelo editor interno, a visualização "prende" — clicar em outro documento não troca o conteúdo; o editor permanece aberto sobre a visualização. Mesma família do bug de painel AJAX já registrado (innerHTML/script reinjetado não executa). Frontend/JS do pasta_show. Detectado em 2026-05-22.
+- **[ALTA] Vazamento cross-tenant via findByCliente (ClienteController:200)**: raiz é o find($id) do Cliente em ClienteController::show() sem validar posse por tenant — Cliente de outro tenant retorna as pastas dele via findByCliente. Vazamento NOVO (não mapeado na pendência ALTA original do PastaRepository), domínio Cliente, fora da Fatia 2. Detectado 2026-05-22.
+- **Divergência ORM↔banco em PastaDocumento.tenant**: atributo PHP mapeado `?Tenant = null` enquanto a coluna é NOT NULL (migration Fatia 1). Latente — nenhum caller real aciona hoje (os 4 pontos de persist de PastaDocumento em src/ setam tenant). Alinhar (`nullable: false` no atributo) numa fatia que toque a entidade (candidata: Fatia 4). Detectado 2026-05-22.
+- **Banco de teste sem setup automático de schema**: `doctrine:migrations:migrate --env=test` é manual; cada migration nova exige rodar à mão ou a suíte quebra silenciosamente (foi o caso da Fatia 1, que deixou ~38 testes vermelhos despercebidos até a Fatia 2). Criar script de setup de test (candidato: scripts/setup-test-db.sh ou passo no phpunit bootstrap). Detectado 2026-05-22.
 
 ## Hierarquia de risco (resumo — ver project instructions para detalhe)
 

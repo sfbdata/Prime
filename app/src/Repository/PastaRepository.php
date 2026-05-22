@@ -25,9 +25,11 @@ class PastaRepository extends ServiceEntityRepository
      * @param array<string, string> $filters
      * @return Pasta[]
      */
-    public function findByFilters(array $filters): array
+    public function findByFilters(array $filters, Tenant $tenant): array
     {
-        $qb = $this->createQueryBuilder('p');
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
 
         if (!empty($filters['nup'])) {
             $qb->andWhere('p.nup LIKE :nup')
@@ -62,10 +64,12 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @return string[]
      */
-    public function findAllNups(): array
+    public function findAllNups(Tenant $tenant): array
     {
         $rows = $this->createQueryBuilder('p')
             ->select('p.nup')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
             ->orderBy('p.nup', 'ASC')
             ->getQuery()
             ->getArrayResult();
@@ -90,12 +94,14 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @return Pasta[]
      */
-    public function findPorMarcador(Marcador $marcador): array
+    public function findPorMarcador(Marcador $marcador, Tenant $tenant): array
     {
         return $this->createQueryBuilder('p')
             ->join('p.marcadores', 'm')
             ->where('m = :marcador')
             ->setParameter('marcador', $marcador)
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
             ->orderBy('p.id', 'DESC')
             ->getQuery()
             ->getResult();
@@ -105,12 +111,14 @@ class PastaRepository extends ServiceEntityRepository
      * @param array<string, string> $filters
      * @return Pasta[]
      */
-    public function findByFiltrosEMarcador(array $filters, Marcador $marcador): array
+    public function findByFiltrosEMarcador(array $filters, Marcador $marcador, Tenant $tenant): array
     {
         $qb = $this->createQueryBuilder('p')
             ->join('p.marcadores', 'm')
             ->where('m = :marcador')
-            ->setParameter('marcador', $marcador);
+            ->setParameter('marcador', $marcador)
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
 
         if (!empty($filters['nup'])) {
             $qb->andWhere('p.nup LIKE :nup')

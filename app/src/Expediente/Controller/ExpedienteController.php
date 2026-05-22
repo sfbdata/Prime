@@ -178,8 +178,8 @@ final class ExpedienteController extends AbstractController
         ];
         $hasFilters = array_filter($filters, fn($v) => $v !== '');
         $pastas     = $hasFilters
-            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador)
-            : $this->pastaRepository->findPorMarcador($marcador);
+            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant)
+            : $this->pastaRepository->findPorMarcador($marcador, $tenant);
 
         $urlPainel = $this->generateUrl('expediente_marcador_pastas', ['id' => $id]);
 
@@ -187,7 +187,7 @@ final class ExpedienteController extends AbstractController
             'marcador'     => $marcador,
             'pastas'       => $pastas,
             'filters'      => $filters,
-            'nups'         => $this->pastaRepository->findAllNups(),
+            'nups'         => $this->pastaRepository->findAllNups($tenant),
             'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
             'formAction'   => $urlPainel,
             'limparUrl'    => $urlPainel,
@@ -230,7 +230,7 @@ final class ExpedienteController extends AbstractController
     {
         /** @var User $user */
         $user = $this->getUser();
-        $this->assertAccess($user);
+        $tenant = $this->assertAccess($user);
 
         if (!$request->isXmlHttpRequest()) {
             return $this->redirectToRoute('expediente_index');
@@ -247,9 +247,9 @@ final class ExpedienteController extends AbstractController
         $hasFilters = array_filter($filters, fn($v) => $v !== '');
 
         return $this->render('expediente/_acervo_geral.html.twig', [
-            'pastas'       => $hasFilters ? $this->pastaRepository->findByFilters($filters) : $this->pastaRepository->findAll(),
+            'pastas'       => $hasFilters ? $this->pastaRepository->findByFilters($filters, $tenant) : $this->pastaRepository->findByFilters([], $tenant),
             'filters'      => $filters,
-            'nups'         => $this->pastaRepository->findAllNups(),
+            'nups'         => $this->pastaRepository->findAllNups($tenant),
             'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
             'formAction'   => $this->generateUrl('expediente_acervo_geral'),
             'limparUrl'    => $this->generateUrl('expediente_acervo_geral'),
