@@ -44,6 +44,30 @@ Reescritas grandes — projeto próprio cada uma:
 - **TenantController** (1.670 linhas) — mesmo tratamento; cuidado redobrado (componente MÉDIO na hierarquia de risco).
 - **PontoController** (1.224 linhas) — componente ALTO. Smoke manual obrigatório, dump de banco antes de qualquer schema change.
 
+## Refatoração da Pasta (frente ativa)
+
+Branch: `refactor/pasta-dominio`. Objetivo: deixar Pasta (núcleo do produto) arquiteturalmente coerente ANTES de importar ~1200 pastas reais do Google Drive. Origem: auditoria de arquitetura de 2026-05-22 (16 inconsistências, baldes: estrutural / consistência / cosmético).
+
+DECISÕES FIXADAS (não revisitar sem motivo):
+- Só User e ecossistema de ponto eletrônico contêm dado REAL. Pasta/Cliente/Processo/Documento/Tarefa/Financeiro = fictício/descartável. (Confirmado enfaticamente pelo dono 2026-05-22.)
+- I12: ObservacaoFinanceira e ObservacaoDetalhes NÃO serão unificadas. A financeira é embrião do financeiro real (vai ganhar valor/parcela/pagamento) e vai divergir. Ficam separadas.
+- Modelo de domínio alvo: Pasta é o centro (criada a partir de contrato). Cliente vive separado, N:N com Pasta. Processo idem, N:N. Tarefa é do escritório, pode ou não ligar a Pasta (zelador recebe tarefa sem pasta). Financeiro tem 2 níveis (da pasta + geral do escritório) ainda não desenhados.
+- Modelo de acesso a pastas alvo (estilo Google Drive corporativo): pasta é do tenant, não da pessoa. Todos LISTAM todas as pastas; ABRIR exige acesso (por perfil amplo OU por solicitação AccessRequest→ResourceAccess). Criador/responsável definem edição, não visibilidade. Acesso granular por pasta é futuro próximo, mas o mecanismo deve funcionar.
+- Estratégia (X): arrumar a arquitetura ANTES de importar as 1200. Tabela limpa é mais barata de refatorar.
+- Limpeza prod: ao fazer deploy desta frente, LIMPAR as pastas de teste no prod ANTES da migration de tenant_id NOT NULL rodar (senão quebra). Passo manual no SSH.
+
+FATIAS (uma por commit):
+- [x] Fatia 0 — limpar pastas de teste do dev (feito 2026-05-22, banco zerado, backup em ~/backup_saas_pre_limpeza_pasta.sql.gz)
+- [x] Fatia 1 — tenant_id em Pasta + PastaDocumento (commit 25df99d). Coluna + FK + índice + 7 pontos de setTenant. Smoke OK.
+- [ ] Fatia 2 — filtro de tenant nas 7 queries do PastaRepository (resolve o vazamento cross-tenant ALTA). Cada método recebe Tenant + andWhere.
+- [ ] Fatia 3 — extrair CRUD de Pasta (create/edit/delete) para UseCases, tirando do PastaController legado (~1700 linhas). Resolve I14.
+- [ ] Fatia 4 — mover entidades + repositories de Pasta para app/src/Pasta/ (domínio). Resolve I2/I3.
+- [ ] Fatia 5 — limpeza de consistência (I4 onDelete PastaDocumento, I5 inversedBy PastaMensagem, I6/I7 timestamps, I8 strict_types, I9 nome bilíngue, I10 OrderBy, I13 Assert) — onde tocar o arquivo.
+
+PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
+
+Próximo passo: Fatia 2.
+
 ## Pendências não-migração
 
 - **13 testes quebrados** por `App\Expediente\UseCase\RemoverMarcadorDaPastaUseCase` inexistente. Detectado em 2026-05-19. Não bloqueia migrações da fila. Investigar quando atacar o domínio Expediente.
