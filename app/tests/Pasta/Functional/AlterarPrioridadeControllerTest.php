@@ -19,7 +19,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PastaController::class)]
 final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
 {
-    private function criarUsuarioAdmin(): User
+    private function criarUsuarioAdmin(): array
     {
         $container = static::getContainer();
         $em        = $container->get(EntityManagerInterface::class);
@@ -40,14 +40,15 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
         $em->persist($userTenant);
         $em->flush();
 
-        return $user;
+        return [$user, $tenant];
     }
 
-    private function criarPasta(): Pasta
+    private function criarPasta(Tenant $tenant): Pasta
     {
         $em    = static::getContainer()->get(EntityManagerInterface::class);
         $pasta = new Pasta();
         $pasta->setNup('TEST-PRIO-' . uniqid());
+        $pasta->setTenant($tenant);
         $em->persist($pasta);
         $em->flush();
 
@@ -85,9 +86,9 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST prioridade com CSRF inválido retorna 403')]
     public function testCsrfInvalidoRetorna403(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/prioridade", [
@@ -103,9 +104,9 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST prioridade com valor inválido retorna 422')]
     public function testValorInvalidoRetorna422(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
@@ -123,9 +124,9 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST prioridade com valor urgente retorna 200 com badgeClass e label')]
     public function testAlterarParaUrgenteRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
@@ -144,9 +145,9 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST prioridade com valor normal retorna 200 com badge secondary')]
     public function testAlterarParaNormalRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);

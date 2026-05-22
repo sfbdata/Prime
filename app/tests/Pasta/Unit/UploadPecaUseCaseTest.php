@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaDocumento;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\UploadPecaUseCase;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,6 +22,7 @@ final class UploadPecaUseCaseTest extends TestCase
     private ArquivoStorageInterface&MockObject $storage;
     private UploadPecaUseCase $useCase;
     private Pasta $pasta;
+    private Tenant $tenant;
 
     protected function setUp(): void
     {
@@ -28,6 +30,7 @@ final class UploadPecaUseCaseTest extends TestCase
         $this->storage = $this->createMock(ArquivoStorageInterface::class);
         $this->useCase = new UploadPecaUseCase($this->em, $this->storage, '/uploads/pastas');
         $this->pasta   = new Pasta();
+        $this->tenant  = new Tenant();
     }
 
     public function testUploadValidoRetornaPastaDocumento(): void
@@ -45,7 +48,7 @@ final class UploadPecaUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, $file, 'PECA', null, null);
+        $resultado = $this->useCase->executar($this->pasta, $file, 'PECA', null, null, $this->tenant);
 
         self::assertInstanceOf(PastaDocumento::class, $resultado);
         self::assertSame('PETICAO.PDF', $resultado->getTitulo());
@@ -67,7 +70,7 @@ final class UploadPecaUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, $file, 'PECA', 'Descrição da peça', '001/2026');
+        $resultado = $this->useCase->executar($this->pasta, $file, 'PECA', 'Descrição da peça', '001/2026', $this->tenant);
 
         self::assertSame('Descrição da peça', $resultado->getDescricao());
         self::assertSame('001/2026', $resultado->getNumero());
@@ -84,7 +87,7 @@ final class UploadPecaUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, $file, 'PECA', null, null);
+        $this->useCase->executar($this->pasta, $file, 'PECA', null, null, $this->tenant);
     }
 
     public function testTamanhoExcedidoLancaInvalidArgumentException(): void
@@ -99,7 +102,7 @@ final class UploadPecaUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, $file, 'PECA', null, null);
+        $this->useCase->executar($this->pasta, $file, 'PECA', null, null, $this->tenant);
     }
 
     public function testDescricaoENumeroVaziosViramNull(): void
@@ -113,7 +116,7 @@ final class UploadPecaUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, $file, 'DEMAIS', '', '');
+        $resultado = $this->useCase->executar($this->pasta, $file, 'DEMAIS', '', '', $this->tenant);
 
         self::assertNull($resultado->getDescricao());
         self::assertNull($resultado->getNumero());

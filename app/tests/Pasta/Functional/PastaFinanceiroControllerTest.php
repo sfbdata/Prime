@@ -22,7 +22,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(PastaController::class)]
 final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
 {
-    private function criarUsuarioAdmin(): User
+    private function criarUsuarioAdmin(): array
     {
         $container = static::getContainer();
         $em = $container->get(EntityManagerInterface::class);
@@ -43,15 +43,16 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
         $em->persist($userTenant);
         $em->flush();
 
-        return $user;
+        return [$user, $tenant];
     }
 
-    private function criarPasta(): Pasta
+    private function criarPasta(Tenant $tenant): Pasta
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $pasta = new Pasta();
         $pasta->setNup('TEST-' . uniqid());
+        $pasta->setTenant($tenant);
         $em->persist($pasta);
         $em->flush();
 
@@ -221,9 +222,9 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST financeiro/upload com CSRF inválido retorna 403')]
     public function testUploadRetorna403ComCsrfInvalido(): void
     {
-        $client = static::createClient();
-        $user = $this->criarUsuarioAdmin();
-        $pasta = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/financeiro/upload", [
@@ -238,9 +239,9 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST financeiro/upload sem arquivo retorna 422')]
     public function testUploadRetorna422SemArquivo(): void
     {
-        $client = static::createClient();
-        $user = $this->criarUsuarioAdmin();
-        $pasta = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
@@ -257,9 +258,9 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST financeiro/upload com MIME type inválido retorna 422')]
     public function testUploadRetorna422ComMimeInvalido(): void
     {
-        $client = static::createClient();
-        $user = $this->criarUsuarioAdmin();
-        $pasta = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
@@ -285,13 +286,13 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST financeiro/upload com arquivo PDF válido retorna 201 com dados do documento')]
     public function testUploadComPdfValidoRetorna201(): void
     {
-        $client = static::createClient();
-        $user = $this->criarUsuarioAdmin();
-        $pasta = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
 
         $this->instalarCsrfStorage();
         static::getContainer()->set(ArquivoStorageInterface::class, $this->storageFake());
-        $client->loginUser($user);
+        $this->logarComTenant($client, $user, $tenant);
 
         $tmpPath = sys_get_temp_dir() . '/test_upload_' . uniqid() . '.pdf';
         file_put_contents($tmpPath, '%PDF-1.4 fake pdf content');

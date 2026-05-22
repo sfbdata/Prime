@@ -35,7 +35,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         }
     }
 
-    private function criarUsuarioAdmin(): User
+    private function criarUsuarioAdmin(): array
     {
         $container = static::getContainer();
         $em        = $container->get(EntityManagerInterface::class);
@@ -56,21 +56,22 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $em->persist($userTenant);
         $em->flush();
 
-        return $user;
+        return [$user, $tenant];
     }
 
-    private function criarPasta(User $user): Pasta
+    private function criarPasta(Tenant $tenant): Pasta
     {
         $em    = static::getContainer()->get(EntityManagerInterface::class);
         $pasta = new Pasta();
         $pasta->setNup('NUP-PETIC-' . uniqid());
+        $pasta->setTenant($tenant);
         $em->persist($pasta);
         $em->flush();
 
         return $pasta;
     }
 
-    private function criarDocumentoHtml(Pasta $pasta): PastaDocumento
+    private function criarDocumentoHtml(Pasta $pasta, Tenant $tenant): PastaDocumento
     {
         $container  = static::getContainer();
         $em         = $container->get(EntityManagerInterface::class);
@@ -84,6 +85,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
 
         $doc = new PastaDocumento();
         $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
         $doc->setTitulo('Peça de Texto Teste');
         $doc->setCategoria(PastaDocumento::CATEGORIA_PECA);
         $doc->setCaminhoArquivo($nomeArquivo);
@@ -96,11 +98,12 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         return $doc;
     }
 
-    private function criarDocumento(Pasta $pasta): PastaDocumento
+    private function criarDocumento(Pasta $pasta, Tenant $tenant): PastaDocumento
     {
         $em  = static::getContainer()->get(EntityManagerInterface::class);
         $doc = new PastaDocumento();
         $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
         $doc->setTitulo('Petição Inicial.pdf');
         $doc->setCategoria(PastaDocumento::CATEGORIA_PECA);
         $doc->setCaminhoArquivo('fake_file.pdf');
@@ -146,10 +149,10 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('GET peticionar com usuário autenticado retorna 200')]
     public function testGetRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
-        $this->criarDocumento($pasta);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarDocumento($pasta, $tenant);
         $client->loginUser($user);
 
         $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
@@ -161,8 +164,8 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('GET peticionar de pasta inexistente retorna 404')]
     public function testGetPastaInexistenteRetorna404(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
+        $client    = static::createClient();
+        [$user]    = $this->criarUsuarioAdmin();
         $client->loginUser($user);
 
         $client->request('GET', '/pasta/99999/peticionar');
@@ -185,9 +188,9 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST upload com CSRF inválido retorna 403')]
     public function testUploadCsrfInvalidoRetorna403(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/upload", [
@@ -202,9 +205,9 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST upload sem arquivo retorna 400')]
     public function testUploadSemArquivoRetorna400(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
         $client->loginUser($user);
 
@@ -220,11 +223,11 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST upload com arquivo válido retorna 200 com dados do documento')]
     public function testUploadArquivoValidoRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
+        $this->logarComTenant($client, $user, $tenant);
 
         $tmpFile = tempnam(sys_get_temp_dir(), 'test_pdf_');
         file_put_contents($tmpFile, '%PDF-1.4 dummy');
@@ -264,11 +267,11 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST texto com dados válidos retorna 200 com documento criado')]
     public function testCriarTextoComDadosValidosRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
             '_token'    => $this->csrf('peticionar_texto_' . $pasta->getId()),
@@ -288,9 +291,9 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST texto com CSRF inválido retorna 403')]
     public function testCriarTextoComCsrfInvalidoRetorna403(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
@@ -305,11 +308,11 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST texto com título vazio retorna 400')]
     public function testCriarTextoComTituloVazioRetorna400(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
+        $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
             '_token'   => $this->csrf('peticionar_texto_' . $pasta->getId()),
@@ -337,9 +340,9 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST imagem com JPEG válido retorna 200 com URL')]
     public function testUploadImagemEditorComJpegValidoRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
         $client->loginUser($user);
 
@@ -366,9 +369,9 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST imagem com MIME inválido retorna 422')]
     public function testUploadImagemEditorComMimeInvalidoRetorna422(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
         $client->loginUser($user);
 
@@ -405,10 +408,10 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('PUT texto com dados válidos retorna 200')]
     public function testEditarTextoComDadosValidosRetorna200(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
-        $doc    = $this->criarDocumentoHtml($pasta);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $this->instalarCsrfStorage();
         $client->loginUser($user);
 
@@ -433,10 +436,10 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('PUT texto com CSRF inválido retorna 403')]
     public function testEditarTextoComCsrfInvalidoRetorna403(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
-        $doc    = $this->criarDocumentoHtml($pasta);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $client->loginUser($user);
 
         $client->request(
@@ -457,10 +460,10 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('PUT texto em documento não HTML retorna 400')]
     public function testEditarTextoEmDocumentoNaoHtmlRetorna400(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
-        $doc    = $this->criarDocumento($pasta); // MIME: application/pdf
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant); // MIME: application/pdf
         $this->instalarCsrfStorage();
         $client->loginUser($user);
 
@@ -496,10 +499,10 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('GET exportar DOCX retorna 200 com Content-Type correto')]
     public function testExportarTextoEmDocxRetorna200ComHeaders(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
-        $doc    = $this->criarDocumentoHtml($pasta);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $client->loginUser($user);
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/docx");
@@ -518,10 +521,10 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('GET exportar PDF retorna 200 com Content-Type application/pdf')]
     public function testExportarTextoEmPdfRetorna200ComHeaders(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
-        $doc    = $this->criarDocumentoHtml($pasta);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $client->loginUser($user);
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/pdf");
@@ -537,10 +540,10 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('GET exportar com formato inválido retorna 400')]
     public function testExportarTextoComFormatoInvalidoRetorna400(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
-        $doc    = $this->criarDocumentoHtml($pasta);
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $client->loginUser($user);
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/xml");
@@ -551,10 +554,10 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
     #[TestDox('GET exportar em documento não HTML retorna 400')]
     public function testExportarTextoEmDocumentoNaoHtmlRetorna400(): void
     {
-        $client = static::createClient();
-        $user   = $this->criarUsuarioAdmin();
-        $pasta  = $this->criarPasta($user);
-        $doc    = $this->criarDocumento($pasta); // MIME: application/pdf
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $doc             = $this->criarDocumento($pasta, $tenant); // MIME: application/pdf
         $client->loginUser($user);
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/docx");

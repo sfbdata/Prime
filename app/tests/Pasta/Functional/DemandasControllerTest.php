@@ -47,13 +47,14 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         return [$user, $tenant];
     }
 
-    private function criarPastaParaResponsavel(User $responsavel): Pasta
+    private function criarPastaParaResponsavel(User $responsavel, Tenant $tenant): Pasta
     {
         $em    = static::getContainer()->get(EntityManagerInterface::class);
         $pasta = new Pasta();
         $pasta->setNup('DEMAND-' . uniqid());
         $pasta->setNomeCliente('Cliente Teste');
         $pasta->setResponsavel($responsavel);
+        $pasta->setTenant($tenant);
         $em->persist($pasta);
         $em->flush();
 
@@ -84,9 +85,9 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
     #[TestDox('GET /demandas exibe pasta onde usuário é responsável')]
     public function testExibePastaDoResponsavel(): void
     {
-        $client           = static::createClient();
-        [$usuario]        = $this->criarUsuarioComTenant($client);
-        $pasta            = $this->criarPastaParaResponsavel($usuario);
+        $client              = static::createClient();
+        [$usuario, $tenant]  = $this->criarUsuarioComTenant($client);
+        $pasta               = $this->criarPastaParaResponsavel($usuario, $tenant);
 
         $client->request('GET', '/demandas');
 

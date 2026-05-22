@@ -46,11 +46,12 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         return [$user, $tenant];
     }
 
-    private function criarPasta(): Pasta
+    private function criarPasta(Tenant $tenant): Pasta
     {
         $em    = static::getContainer()->get(EntityManagerInterface::class);
         $pasta = new Pasta();
         $pasta->setNup('TEST-SEC-' . uniqid());
+        $pasta->setTenant($tenant);
         $em->persist($pasta);
         $em->flush();
 
@@ -104,9 +105,9 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
     #[TestDox('POST criar seção com CSRF inválido retorna 400')]
     public function testCriarCsrfInvalidoRetorna400(): void
     {
-        $client  = static::createClient();
-        [$user]  = $this->criarUsuarioAdmin();
-        $pasta   = $this->criarPasta();
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/secao", [
@@ -122,7 +123,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta();
+        $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
 
@@ -141,7 +142,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta();
+        $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
 
@@ -164,7 +165,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta();
+        $pasta           = $this->criarPasta($tenant);
         $secao           = $this->criarSecao($pasta, $tenant);
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
@@ -203,7 +204,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta();
+        $pasta           = $this->criarPasta($tenant);
         $secao           = $this->criarSecao($pasta, $tenant);
         $secaoId         = $secao->getId();
         $this->instalarCsrfStorage();
@@ -226,7 +227,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        $pasta           = $this->criarPasta();
+        $pasta           = $this->criarPasta($tenant);
         $secao           = $this->criarSecao($pasta, $tenant);
         $client->loginUser($user);
 

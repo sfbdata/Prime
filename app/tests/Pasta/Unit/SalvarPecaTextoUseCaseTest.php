@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Pasta\Pasta;
 use App\Entity\Pasta\PastaDocumento;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\SalvarPecaTextoUseCase;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,6 +22,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
     private ArquivoStorageInterface&MockObject $storage;
     private SalvarPecaTextoUseCase $useCase;
     private Pasta $pasta;
+    private Tenant $tenant;
 
     protected function setUp(): void
     {
@@ -28,6 +30,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->storage = $this->createMock(ArquivoStorageInterface::class);
         $this->useCase = new SalvarPecaTextoUseCase($this->em, $this->storage, '/uploads/pastas');
         $this->pasta   = new Pasta();
+        $this->tenant  = new Tenant();
     }
 
     #[TestDox('Salvar peça texto válida retorna PastaDocumento com mimeType text/html')]
@@ -41,7 +44,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, '<p>Conteúdo</p>', 'Petição Inicial', 'PECA');
+        $resultado = $this->useCase->executar($this->pasta, '<p>Conteúdo</p>', 'Petição Inicial', 'PECA', $this->tenant);
 
         self::assertInstanceOf(PastaDocumento::class, $resultado);
         self::assertSame('PETIÇÃO INICIAL', $resultado->getTitulo());
@@ -61,7 +64,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, $conteudo, 'Título', 'PECA');
+        $resultado = $this->useCase->executar($this->pasta, $conteudo, 'Título', 'PECA', $this->tenant);
 
         self::assertSame(strlen($conteudo), $resultado->getTamanhoBytes());
     }
@@ -74,7 +77,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, '<p>HTML</p>', '', 'PECA');
+        $this->useCase->executar($this->pasta, '<p>HTML</p>', '', 'PECA', $this->tenant);
     }
 
     #[TestDox('Título apenas espaços é tratado como vazio')]
@@ -84,7 +87,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, '<p>HTML</p>', '   ', 'PECA');
+        $this->useCase->executar($this->pasta, '<p>HTML</p>', '   ', 'PECA', $this->tenant);
     }
 
     #[TestDox('Categoria diferente é salva corretamente')]
@@ -94,7 +97,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, '<p>Contrato</p>', 'Contrato Social', 'CONTRATO');
+        $resultado = $this->useCase->executar($this->pasta, '<p>Contrato</p>', 'Contrato Social', 'CONTRATO', $this->tenant);
 
         self::assertSame('CONTRATO', $resultado->getCategoria());
     }
@@ -110,7 +113,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, '', 'Rascunho', 'PECA');
+        $resultado = $this->useCase->executar($this->pasta, '', 'Rascunho', 'PECA', $this->tenant);
 
         self::assertSame(0, $resultado->getTamanhoBytes());
     }
