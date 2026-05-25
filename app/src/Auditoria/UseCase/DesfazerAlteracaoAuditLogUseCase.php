@@ -12,13 +12,13 @@ final class DesfazerAlteracaoAuditLogUseCase
 {
     /** Entidades de risco BAIXO — únicas reversíveis. */
     private const ENTIDADES_REVERSIVEIS = [
-        \App\Entity\Pasta\Pasta::class,
-        \App\Entity\Pasta\PastaDocumento::class,
-        \App\Entity\Pasta\PastaSecao::class,
-        \App\Entity\Pasta\PastaChecklistItem::class,
-        \App\Entity\Pasta\PastaMensagem::class,
-        \App\Entity\Pasta\PastaObservacaoDetalhes::class,
-        \App\Entity\Pasta\PrioridadePasta::class,
+        \App\Pasta\Entity\Pasta::class,
+        \App\Pasta\Entity\PastaDocumento::class,
+        \App\Pasta\Entity\PastaSecao::class,
+        \App\Pasta\Entity\PastaChecklistItem::class,
+        \App\Pasta\Entity\PastaMensagem::class,
+        \App\Pasta\Entity\PastaObservacaoDetalhes::class,
+        \App\Pasta\Entity\PrioridadePasta::class,
         \App\Entity\Tarefa\Tarefa::class,
         \App\Entity\Tarefa\TarefaMensagem::class,
         \App\Entity\ServiceDesk\Chamado::class,

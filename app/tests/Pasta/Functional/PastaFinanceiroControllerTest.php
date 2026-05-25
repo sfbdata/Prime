@@ -7,7 +7,7 @@ namespace App\Tests\Pasta\Functional;
 use App\Controller\PastaController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Tests\Functional\JusPrimeWebTestCase;

@@ -4,7 +4,7 @@ namespace App\Form;
 
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Processo\Entity\Processo;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;

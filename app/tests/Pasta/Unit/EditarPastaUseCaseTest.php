@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\UseCase\EditarPastaUseCase;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;

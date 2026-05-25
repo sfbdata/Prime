@@ -2,27 +2,27 @@
 
 declare(strict_types=1);
 
-namespace App\Entity\Pasta;
+namespace App\Pasta\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
-use App\Repository\Pasta\PastaObservacaoFinanceiraRepository;
+use App\Pasta\Repository\PastaMensagemRepository;
 use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
-#[ORM\Entity(repositoryClass: PastaObservacaoFinanceiraRepository::class)]
-#[ORM\Table(name: 'pasta_observacao_financeira')]
-#[ORM\Index(name: 'idx_pasta_obs_fin_pasta_id', columns: ['pasta_id'])]
-#[ORM\Index(name: 'idx_pasta_obs_fin_tenant', columns: ['tenant_id'])]
-class PastaObservacaoFinanceira implements Auditavel
+#[ORM\Entity(repositoryClass: PastaMensagemRepository::class)]
+#[ORM\Table(name: 'pasta_mensagem')]
+#[ORM\Index(name: 'idx_pasta_mensagem_pasta_id', columns: ['pasta_id'])]
+#[ORM\Index(name: 'idx_pasta_mensagem_tenant', columns: ['tenant_id'])]
+class PastaMensagem implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'observacoesFinanceiras')]
+    #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'mensagens')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Pasta $pasta = null;
 
@@ -38,11 +38,8 @@ class PastaObservacaoFinanceira implements Auditavel
     #[ORM\Column(type: 'text')]
     private string $conteudo = '';
 
-    #[ORM\Column(name: 'criada_em', type: 'datetime_immutable')]
+    #[ORM\Column(name: 'criada_em')]
     private \DateTimeImmutable $criadaEm;
-
-    #[ORM\Column(name: 'editada_em', type: 'datetime_immutable', nullable: true)]
-    private ?\DateTimeImmutable $editadaEm = null;
 
     public function __construct()
     {
@@ -62,7 +59,6 @@ class PastaObservacaoFinanceira implements Auditavel
     public function setPasta(?Pasta $pasta): self
     {
         $this->pasta = $pasta;
-
         return $this;
     }
 
@@ -74,7 +70,6 @@ class PastaObservacaoFinanceira implements Auditavel
     public function setAutor(?User $autor): self
     {
         $this->autor = $autor;
-
         return $this;
     }
 
@@ -86,7 +81,6 @@ class PastaObservacaoFinanceira implements Auditavel
     public function setTenant(?Tenant $tenant): self
     {
         $this->tenant = $tenant;
-
         return $this;
     }
 
@@ -98,24 +92,11 @@ class PastaObservacaoFinanceira implements Auditavel
     public function setConteudo(string $conteudo): self
     {
         $this->conteudo = $conteudo;
-
         return $this;
     }
 
     public function getCriadaEm(): \DateTimeImmutable
     {
         return $this->criadaEm;
-    }
-
-    public function getEditadaEm(): ?\DateTimeImmutable
-    {
-        return $this->editadaEm;
-    }
-
-    public function setEditadaEm(?\DateTimeImmutable $editadaEm): self
-    {
-        $this->editadaEm = $editadaEm;
-
-        return $this;
     }
 }

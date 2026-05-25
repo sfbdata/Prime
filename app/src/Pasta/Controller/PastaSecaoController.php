@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaDocumento;
-use App\Entity\Pasta\PastaSecao;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Pasta\UseCase\CriarPastaSecaoUseCase;
 use App\Pasta\UseCase\ExcluirPastaSecaoUseCase;
 use App\Pasta\UseCase\MoverDocumentoParaSecaoUseCase;

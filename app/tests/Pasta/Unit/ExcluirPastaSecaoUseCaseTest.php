@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\PastaSecao;
+use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\ExcluirPastaSecaoUseCase;
 use Doctrine\ORM\EntityManagerInterface;

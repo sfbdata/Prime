@@ -3,7 +3,7 @@
 namespace App\Entity\Tarefa;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Tarefa\Repository\TarefaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;

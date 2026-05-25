@@ -2,25 +2,25 @@
 
 declare(strict_types=1);
 
-namespace App\Repository\Pasta;
+namespace App\Pasta\Repository;
 
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaObservacaoDetalhes;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
- * @extends ServiceEntityRepository<PastaObservacaoDetalhes>
+ * @extends ServiceEntityRepository<PastaObservacaoFinanceira>
  */
-final class PastaObservacaoDetalhesRepository extends ServiceEntityRepository
+final class PastaObservacaoFinanceiraRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)
     {
-        parent::__construct($registry, PastaObservacaoDetalhes::class);
+        parent::__construct($registry, PastaObservacaoFinanceira::class);
     }
 
-    /** @return PastaObservacaoDetalhes[] */
+    /** @return PastaObservacaoFinanceira[] */
     public function findByPasta(Pasta $pasta, Tenant $tenant, int $limit = 100): array
     {
         return $this->createQueryBuilder('o')

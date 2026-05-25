@@ -13,7 +13,7 @@ use App\Cliente\Repository\ClienteRepository;
 use App\Cliente\Repository\ClientePFRepository;
 use App\Cliente\Repository\ClientePJRepository;
 use App\Repository\ClienteDocumentoRepository;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;

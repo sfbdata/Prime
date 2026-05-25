@@ -54,6 +54,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Kanban/Entity'
                 prefix: 'App\Kanban\Entity'
                 alias: AppKanban
+            AppPasta:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Pasta/Entity'
+                prefix: 'App\Pasta\Entity'
+                alias: AppPasta
         controller_resolver:
             auto_mapping: false
 

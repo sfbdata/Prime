@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaObservacaoDetalhes;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\EnviarObservacaoDetalhesUseCase;
 use Doctrine\ORM\EntityManagerInterface;

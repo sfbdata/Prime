@@ -5,7 +5,7 @@ namespace App\Tests\Tarefa\Unit;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use PHPUnit\Framework\TestCase;
 
 /**

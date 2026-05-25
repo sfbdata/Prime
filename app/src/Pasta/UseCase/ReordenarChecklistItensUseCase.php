@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
-use App\Repository\Pasta\PastaChecklistItemRepository;
+use App\Pasta\Repository\PastaChecklistItemRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class ReordenarChecklistItensUseCase

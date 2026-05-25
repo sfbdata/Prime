@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Entity\Pasta;
+namespace App\Pasta\Entity;
 
 use App\Entity\Auth\User;
 use App\Cliente\Entity\Cliente;
@@ -10,7 +10,7 @@ use App\Expediente\Entity\Marcador;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
 use App\Entity\Tarefa\Tarefa;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
-use App\Entity\Pasta\PastaChecklistItem;
+use App\Pasta\Entity\PastaChecklistItem;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class ExcluirChecklistItemUseCase

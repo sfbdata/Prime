@@ -2,10 +2,10 @@
 
 namespace App\Expediente\UseCase;
 
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Repository\MarcadorRepository;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 

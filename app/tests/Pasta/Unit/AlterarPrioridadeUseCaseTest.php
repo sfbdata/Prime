@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PrioridadePasta;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;

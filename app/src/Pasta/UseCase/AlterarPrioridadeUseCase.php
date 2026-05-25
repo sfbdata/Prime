@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PrioridadePasta;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class AlterarPrioridadeUseCase

@@ -6,8 +6,8 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaObservacaoFinanceira;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\EditarObservacaoFinanceiraUseCase;
 use Doctrine\ORM\EntityManagerInterface;

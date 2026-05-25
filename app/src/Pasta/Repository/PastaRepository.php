@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Repository;
+namespace App\Pasta\Repository;
 
 use App\Cliente\Entity\Cliente;
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PrioridadePasta;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;

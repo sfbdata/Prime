@@ -21,7 +21,7 @@ use App\Form\TenantType;
 use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
 use App\Cliente\Repository\ClienteRepository;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Repository\Ponto\FeriadoRepository;
 use App\Repository\Ponto\JustificativaPontoRepository;
 use App\Repository\Ponto\RegistroPontoRepository;

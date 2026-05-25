@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;

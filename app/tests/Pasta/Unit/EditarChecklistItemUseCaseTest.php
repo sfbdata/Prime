@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
-use App\Entity\Pasta\PastaChecklistItem;
+use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\UseCase\EditarChecklistItemUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;

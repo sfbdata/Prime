@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
-use App\Entity\Pasta\PastaObservacaoDetalhes;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class EditarObservacaoDetalhesUseCase

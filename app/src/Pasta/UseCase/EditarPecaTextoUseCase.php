@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\UseCase;
 
-use App\Entity\Pasta\PastaDocumento;
+use App\Pasta\Entity\PastaDocumento;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 

@@ -6,8 +6,8 @@ namespace App\Tests\Pasta\Functional;
 
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaSecao;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PastaSecaoController;
 use App\Tests\Functional\JusPrimeWebTestCase;

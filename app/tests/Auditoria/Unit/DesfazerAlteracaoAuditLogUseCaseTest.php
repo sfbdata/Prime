@@ -38,7 +38,7 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
 
     public function testUpdatePastaComIdRetornaTrue(): void
     {
-        $log = $this->criarLog('update', \App\Entity\Pasta\Pasta::class, '5');
+        $log = $this->criarLog('update', \App\Pasta\Entity\Pasta::class, '5');
 
         self::assertTrue($this->sut->podeReverter($log));
     }
@@ -73,28 +73,28 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
 
     public function testUpdatePastaObservacaoFinanceiraRetornaFalsePorRiscoMedio(): void
     {
-        $log = $this->criarLog('update', \App\Entity\Pasta\PastaObservacaoFinanceira::class, '1');
+        $log = $this->criarLog('update', \App\Pasta\Entity\PastaObservacaoFinanceira::class, '1');
 
         self::assertFalse($this->sut->podeReverter($log));
     }
 
     public function testCreatePastaRetornaFalse(): void
     {
-        $log = $this->criarLog('create', \App\Entity\Pasta\Pasta::class, '5');
+        $log = $this->criarLog('create', \App\Pasta\Entity\Pasta::class, '5');
 
         self::assertFalse($this->sut->podeReverter($log));
     }
 
     public function testDeletePastaRetornaFalse(): void
     {
-        $log = $this->criarLog('delete', \App\Entity\Pasta\Pasta::class, '5');
+        $log = $this->criarLog('delete', \App\Pasta\Entity\Pasta::class, '5');
 
         self::assertFalse($this->sut->podeReverter($log));
     }
 
     public function testUpdatePastaSemEntityIdRetornaFalse(): void
     {
-        $log = $this->criarLog('update', \App\Entity\Pasta\Pasta::class, null);
+        $log = $this->criarLog('update', \App\Pasta\Entity\Pasta::class, null);
 
         self::assertFalse($this->sut->podeReverter($log));
     }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;

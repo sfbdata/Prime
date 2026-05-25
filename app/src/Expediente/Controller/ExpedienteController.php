@@ -12,7 +12,7 @@ use App\Expediente\UseCase\CriarMarcadorUseCase;
 use App\Expediente\UseCase\EditarMarcadorUseCase;
 use App\Expediente\UseCase\ExcluirMarcadorUseCase;
 use App\Expediente\UseCase\SincronizarMarcadoresDaPastaUseCase;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;

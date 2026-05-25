@@ -68,17 +68,19 @@ FATIAS (uma por commit):
   - [x] 3c — delete() → ExcluirPastaUseCase + teste unit (4 casos). denyResourceAccessUnlessGranted
        (ACTION_DELETE) e CSRF preservados no controller; tenant-check e existe()-antes-de-excluir
        adicionados no UseCase (defesa em profundidade, padrão ExcluirPastaSecaoUseCase). Feito 2026-05-25.
-- [~] Fatia 4 — mover entidades de Pasta para o domínio (fatiada 4.1/4.2). Acoplamento da
-       auditoria a namespace sendo resolvido via interface Auditavel.
+- [x] Fatia 4 — mover entidades de Pasta para o domínio (4.1/4.2 concluídas).
      - [x] 4.1 — interface marcadora App\Shared\Contract\Auditavel; 34 entidades de App\Entity\
        implementam (exceto AuditLog); AuditLogSubscriber.shouldAudit() e AuditLogController.
        getEntityOptions() passam a usar instanceof/is_a Auditavel em vez de str_starts_with('App\\Entity\\');
        teste de cobertura (AuditavelCoberturaTest) varre getAllMetadata e exige Auditavel em toda
        entidade fora de NAO_AUDITAVEIS — sobrevive ao 4.2 (lista de exclusão, não prefixo).
        migrations:diff vazio. Feito 2026-05-25.
-     - [ ] 4.2 — mover entidades de Pasta App\Entity\Pasta\* → App\Pasta\Entity\* + 81 imports +
-       queries hardcoded (DemitirFuncionarioUseCase DQL, AuditLogRepository SQL) + mover
-       PastaRepository/PastaDocumentoRepository da raiz para src/Pasta/Repository/.
+     - [x] 4.2 — entidades App\Entity\Pasta\* → App\Pasta\Entity\* e repositories → App\Pasta\Repository\
+       (git mv, histórico preservado); doctrine.yaml ganha mapeamento AppPasta (padrão dos demais
+       domínios); sed amplo atualizou 76 imports + os ::class de ENTIDADES_REVERSIVEIS + DQL de
+       DemitirFuncionarioUseCase; strings SQL dupla-barra de AuditLogRepository corrigidas à mão.
+       Greps de App\Entity\Pasta e App\Repository\Pasta zerados; schema:validate OK; AuditavelCobertura
+       e DesfazerAuditLog verdes. Feito 2026-05-25.
 - [x] Fatia 5 — limpeza de consistência (5A feita; 5B vira pendência, 5C descartada).
   - [x] 5A — consistência sem schema (I5,I8,I9,I6/I7,I10,I13). Feito 2026-05-25, commit b071226.
   - [–] 5B — onDelete CASCADE na FK PastaDocumento→Pasta: NÃO feito. cascade+orphanRemoval do
@@ -89,7 +91,7 @@ FATIAS (uma por commit):
 
 PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
 
-Próximo passo: Fatia 4.2 (mover Pasta de namespace — agora seguro, auditoria já desacoplada via Auditavel). Depois: deploy da Pasta para produção.
+Próximo passo: REFATORAÇÃO DA PASTA CONCLUÍDA (0/1/2/3/4/5A). Falta levar a branch para produção: limpar 12 pastas/44 docs/logs de auditoria de Pasta em prod (lixo de teste) + merge na master + backup + deploy (migration tenant_id NOT NULL da Fatia 1) + smoke reforçado no bluejus. Depois: sistema pronto para o script importar as ~1200 pastas.
 
 ## Pendências não-migração
 
@@ -138,6 +140,12 @@ Próximo passo: Fatia 4.2 (mover Pasta de namespace — agora seguro, auditoria 
   explícitas em NAO_AUDITAVEIS no AuditavelCoberturaTest. Ampliar auditoria a esses domínios é
   decisão do dono: remover de NAO_AUDITAVEIS + adicionar implements Auditavel (o teste obriga os
   dois passos). Detectado 2026-05-25.
+- **Timeline de auditoria de Pasta e logs históricos**: findForPastaTimeline (AuditLogRepository)
+  consulta entity_class = 'App\\Pasta\\Entity\\...'. Logs gravados ANTES da Fatia 4.2 têm o
+  namespace antigo (App\\Entity\\Pasta\\...) e não aparecerão na timeline. Em prod os logs de
+  Pasta são lixo de teste (serão limpos no deploy), então sem impacto. Mas se algum dia precisar
+  preservar logs através de um rename de namespace, será necessária migration de dados no
+  audit_log. Detectado 2026-05-25.
 
 ## Hierarquia de risco (resumo — ver project instructions para detalhe)
 

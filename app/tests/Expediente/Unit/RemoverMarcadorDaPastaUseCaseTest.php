@@ -3,12 +3,12 @@
 namespace App\Tests\Expediente\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Expediente\UseCase\RemoverMarcadorDaPastaUseCase;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

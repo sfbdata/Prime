@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaDocumento;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\SalvarPecaTextoUseCase;
 use App\Shared\Service\ArquivoStorageInterface;

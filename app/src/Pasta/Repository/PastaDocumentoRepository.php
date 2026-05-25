@@ -1,9 +1,9 @@
 <?php
 
-namespace App\Repository;
+namespace App\Pasta\Repository;
 
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaDocumento;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 

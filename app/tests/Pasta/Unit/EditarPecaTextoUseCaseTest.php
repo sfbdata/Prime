@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
-use App\Entity\Pasta\PastaDocumento;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;

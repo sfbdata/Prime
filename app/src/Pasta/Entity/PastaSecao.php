@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Entity\Pasta;
+namespace App\Pasta\Entity;
 
 use App\Entity\Tenant\Tenant;
-use App\Repository\Pasta\PastaSecaoRepository;
+use App\Pasta\Repository\PastaSecaoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;

@@ -2,13 +2,13 @@
 
 namespace App\Pasta\Service;
 
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Repository\MarcadorRepository;
 use App\Pasta\DTO\TimelineItemDTO;
 use App\Pasta\DTO\TimelineItemType;
 use App\Repository\AuditLogRepository;
-use App\Repository\Pasta\PastaMensagemRepository;
+use App\Pasta\Repository\PastaMensagemRepository;
 use App\Repository\UserRepository;
 
 class PastaTimelineAssembler

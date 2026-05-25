@@ -159,13 +159,13 @@ class AuditLogRepository extends ServiceEntityRepository
         $sql = "
             SELECT id, action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at
             FROM audit_log
-            WHERE entity_class = 'App\\Entity\\Pasta\\Pasta'
+            WHERE entity_class = 'App\\Pasta\\Entity\\Pasta'
               AND tenant_id = :tenantId
               AND entity_id = :pastaIdStr
             UNION ALL
             SELECT id, action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at
             FROM audit_log
-            WHERE entity_class = 'App\\Entity\\Pasta\\PastaDocumento'
+            WHERE entity_class = 'App\\Pasta\\Entity\\PastaDocumento'
               AND tenant_id = :tenantId
               AND (
                 entity_id IN (SELECT id::text FROM pasta_documento WHERE pasta_id = :pastaId)

@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\PastaDocumento;
-use App\Entity\Pasta\PastaSecao;
+use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;

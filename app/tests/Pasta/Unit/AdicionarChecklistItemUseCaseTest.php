@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaChecklistItem;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaChecklistItem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
-use App\Repository\Pasta\PastaChecklistItemRepository;
+use App\Pasta\Repository\PastaChecklistItemRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Entity\Pasta;
+namespace App\Pasta\Entity;
 
 use App\Entity\Tenant\Tenant;
-use App\Repository\PastaDocumentoRepository;
+use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;

@@ -70,7 +70,7 @@ final class DemitirFuncionarioUseCase
         $uid = $funcionario->getId();
 
         $this->em->createQuery(
-            'UPDATE App\Entity\Pasta\Pasta p SET p.responsavel = NULL WHERE p.responsavel = :user'
+            'UPDATE App\Pasta\Entity\Pasta p SET p.responsavel = NULL WHERE p.responsavel = :user'
         )->setParameter('user', $funcionario)->execute();
 
         $this->em->createQuery(
@@ -96,7 +96,7 @@ final class DemitirFuncionarioUseCase
         $sub = $substituto->getId();
 
         $this->em->createQuery(
-            'UPDATE App\Entity\Pasta\Pasta p SET p.responsavel = :sub WHERE p.responsavel = :user'
+            'UPDATE App\Pasta\Entity\Pasta p SET p.responsavel = :sub WHERE p.responsavel = :user'
         )->setParameter('sub', $substituto)->setParameter('user', $funcionario)->execute();
 
         $this->em->createQuery(

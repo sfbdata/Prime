@@ -3,7 +3,7 @@
 namespace App\Tests\Tarefa\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tarefa\Tarefa;
 use App\Tarefa\Repository\TarefaRepository;
 use Doctrine\ORM\EntityManagerInterface;

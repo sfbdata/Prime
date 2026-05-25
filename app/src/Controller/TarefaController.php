@@ -8,7 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
-use App\Repository\PastaRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;

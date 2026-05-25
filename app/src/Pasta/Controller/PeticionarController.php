@@ -6,8 +6,8 @@ namespace App\Pasta\Controller;
 
 use App\Cliente\Entity\Cliente;
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaDocumento;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\DTO\UploadImagemEditorInput;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
 use App\Pasta\UseCase\ExportarPecaTextoUseCase;

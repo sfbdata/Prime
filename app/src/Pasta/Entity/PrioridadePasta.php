@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Entity\Pasta;
+namespace App\Pasta\Entity;
 
 enum PrioridadePasta: string
 {

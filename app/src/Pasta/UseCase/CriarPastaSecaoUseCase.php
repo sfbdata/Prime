@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\Pasta;
-use App\Entity\Pasta\PastaSecao;
+use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
-use App\Repository\Pasta\PastaSecaoRepository;
+use App\Pasta\Repository\PastaSecaoRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class CriarPastaSecaoUseCase

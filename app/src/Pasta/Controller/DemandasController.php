@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
-use App\Entity\Pasta\PrioridadePasta;
+use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\UseCase\ListarMinhasDemandasUseCase;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
