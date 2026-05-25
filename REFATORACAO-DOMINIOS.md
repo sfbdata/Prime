@@ -62,14 +62,16 @@ FATIAS (uma por commit):
 - [x] Fatia 2 — filtro de tenant no PastaRepository (resolve o vazamento cross-tenant ALTA). 4 métodos (findByFilters, findAllNups, findPorMarcador, findByFiltrosEMarcador) ganham Tenant $tenant + andWhere('p.tenant = :tenant'); findAll() em acervoGeral() substituído por findByFilters([], $tenant); 2 testes de isolamento cross-tenant (PastaRepositoryIsolamentoTest). Suíte verde exceto os 13 Expediente conhecidos. Feito 2026-05-22.
 - [~] Fatia 3 — extrair CRUD de Pasta para UseCases (fatiada em 3a/3b/3c). Resolve I14.
   - [x] 3a — criar() → CriarPastaUseCase + CriarPastaDTO + teste de caracterização. canAccessModule mantido no controller; unicidade global do NUP preservada. Feito 2026-05-22.
-  - [ ] 3b — editar() → EditarPastaUseCase (resource-access preservado).
+  - [x] 3b — editar() → EditarPastaUseCase + EditarPastaDTO + testes (unit 5 + functional 3).
+       denyResourceAccessUnlessGranted e CSRF preservados no controller; unicidade global do NUP
+       com auto-exclusão; whitelist de situação. Feito 2026-05-24.
   - [ ] 3c — delete() → ExcluirPastaUseCase (side effect de storage; mais cuidado).
 - [ ] Fatia 4 — mover entidades + repositories de Pasta para app/src/Pasta/ (domínio). Resolve I2/I3.
 - [ ] Fatia 5 — limpeza de consistência (I4 onDelete PastaDocumento, I5 inversedBy PastaMensagem, I6/I7 timestamps, I8 strict_types, I9 nome bilíngue, I10 OrderBy, I13 Assert) — onde tocar o arquivo.
 
 PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
 
-Próximo passo: Fatia 3b (editar).
+Próximo passo: Fatia 3c (delete — atenção ao side effect de storage).
 
 ## Pendências não-migração
 

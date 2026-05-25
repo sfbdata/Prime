@@ -32,8 +32,10 @@ use App\Entity\Pasta\PastaObservacaoFinanceira;
 use App\Entity\Pasta\PastaChecklistItem;
 use App\Entity\Pasta\PrioridadePasta;
 use App\Pasta\DTO\CriarPastaDTO;
+use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
 use App\Pasta\UseCase\CriarPastaUseCase;
+use App\Pasta\UseCase\EditarPastaUseCase;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\EditarChecklistItemUseCase;
@@ -115,6 +117,7 @@ class PastaController extends AbstractController
         private readonly PastaSecaoRepository $secaoRepository,
         private readonly UserTenantRepository $userTenantRepo,
         private readonly CriarPastaUseCase $criarPastaUseCase,
+        private readonly EditarPastaUseCase $editarPastaUseCase,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -724,28 +727,18 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $nup = trim((string) $request->request->get('nup', ''));
-        if ($nup === '') {
-            $this->addFlash('error', 'O NUP é obrigatório.');
+        $dto = new EditarPastaDTO(
+            nup: (string) $request->request->get('nup', ''),
+            nomeCliente: ($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null,
+            nomeAcao: ($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null,
+            situacao: (string) $request->request->get('situacao', Pasta::SITUACAO_ATIVA),
+        );
+        try {
+            $this->editarPastaUseCase->executar($dto, $pasta);
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('error', $e->getMessage());
             return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
         }
-
-        $existente = $this->pastaRepository->findOneBy(['nup' => $nup]);
-        if ($existente !== null && $existente->getId() !== $pasta->getId()) {
-            $this->addFlash('error', sprintf('O NUP "%s" já está em uso por outra pasta.', $nup));
-            return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
-        }
-
-        $pasta->setNup($nup);
-        $pasta->setNomeCliente(($v = trim((string) $request->request->get('nome_cliente', ''))) !== '' ? $v : null);
-        $pasta->setNomeAcao(($v = trim((string) $request->request->get('nome_acao', ''))) !== '' ? $v : null);
-
-        $situacao = $request->request->get('situacao', Pasta::SITUACAO_ATIVA);
-        if (in_array($situacao, [Pasta::SITUACAO_ATIVA, Pasta::SITUACAO_ARQUIVADA], true)) {
-            $pasta->setSituacao($situacao);
-        }
-
-        $this->em->flush();
 
         $this->addFlash('success', 'Pasta atualizada com sucesso.');
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);

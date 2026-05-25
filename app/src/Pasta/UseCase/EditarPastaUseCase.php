@@ -1,0 +1,45 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Pasta\UseCase;
+
+use App\Entity\Pasta\Pasta;
+use App\Pasta\DTO\EditarPastaDTO;
+use App\Repository\PastaRepository;
+use Doctrine\ORM\EntityManagerInterface;
+
+final class EditarPastaUseCase
+{
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly PastaRepository $pastaRepository,
+    ) {}
+
+    public function executar(EditarPastaDTO $dto, Pasta $pasta): void
+    {
+        $nup = trim($dto->nup);
+
+        if ($nup === '') {
+            throw new \InvalidArgumentException('O NUP é obrigatório.');
+        }
+
+        // NOTA: findOneBy busca pelo valor cru (pré-normalização da entidade).
+        // setNup() faz mb_strtoupper(), então "abc" e "ABC" geram conflito silencioso na DB.
+        // Bug latente replicado fielmente do controller legado — não corrigir aqui.
+        $existente = $this->pastaRepository->findOneBy(['nup' => $nup]);
+        if ($existente !== null && $existente->getId() !== $pasta->getId()) {
+            throw new \InvalidArgumentException(sprintf('O NUP "%s" já está em uso por outra pasta.', $nup));
+        }
+
+        $pasta->setNup($nup);
+        $pasta->setNomeCliente($dto->nomeCliente);
+        $pasta->setNomeAcao($dto->nomeAcao);
+
+        if (in_array($dto->situacao, [Pasta::SITUACAO_ATIVA, Pasta::SITUACAO_ARQUIVADA], true)) {
+            $pasta->setSituacao($dto->situacao);
+        }
+
+        $this->em->flush();
+    }
+}
