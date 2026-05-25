@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Auditoria\UseCase\DesfazerAlteracaoAuditLogUseCase;
 use App\Repository\UserRepository;
 use App\Repository\AuditLogRepository;
 use App\Service\PermissionChecker;
@@ -12,6 +13,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 #[Route('/auditoria')]
 final class AuditLogController extends AbstractController
@@ -20,6 +23,7 @@ final class AuditLogController extends AbstractController
 
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly DesfazerAlteracaoAuditLogUseCase $desfazerUseCase,
     ) {}
 
     #[Route('', name: 'audit_log_index', methods: ['GET'])]
@@ -74,8 +78,14 @@ final class AuditLogController extends AbstractController
             self::PER_PAGE
         );
 
+        $podeDesfazerMap = [];
+        foreach ($auditLogs as $auditLog) {
+            $podeDesfazerMap[(int) $auditLog->getId()] = $this->desfazerUseCase->podeReverter($auditLog);
+        }
+
         return $this->render('audit/index.html.twig', [
             'auditLogs' => $auditLogs,
+            'podeDesfazerMap' => $podeDesfazerMap,
             'filters' => [
                 'entity' => $entityFilter,
                 'user' => $userFilter,
@@ -91,6 +101,42 @@ final class AuditLogController extends AbstractController
             'entityOptions' => $entityOptions,
             'userOptions' => $userOptions,
         ]);
+    }
+
+    #[Route('/{id}/desfazer', name: 'audit_log_desfazer', methods: ['POST'])]
+    public function desfazer(
+        int $id,
+        Request $request,
+        PermissionChecker $permissionChecker,
+        CsrfTokenManagerInterface $csrfTokenManager,
+    ): Response {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if (!$permissionChecker->canAdminister($currentUser, $tenant, 'admin.audit.view')) {
+            throw $this->createAccessDeniedException('Você não tem permissão para desfazer alterações.');
+        }
+
+        $tokenValue = (string) $request->request->get('_token', '');
+        if (!$csrfTokenManager->isTokenValid(new CsrfToken('audit_desfazer_' . $id, $tokenValue))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $tenantId = $tenant?->getId();
+        $resultado = $this->desfazerUseCase->executar($id, is_int($tenantId) ? $tenantId : 0);
+
+        if (!$resultado->sucesso) {
+            $this->addFlash('error', (string) $resultado->erro);
+        } else {
+            $this->addFlash('success', 'Alteração desfeita. Novo registro de auditoria criado.');
+
+            if ($resultado->truncado) {
+                $this->addFlash('warning', 'Um ou mais campos de texto longo podem ter sido restaurados parcialmente (limite de 500 caracteres no log).');
+            }
+        }
+
+        return $this->redirectToRoute('audit_log_index');
     }
 
     private function parseDate(string $value): ?\DateTimeImmutable

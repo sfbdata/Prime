@@ -166,7 +166,7 @@
                                         Sem diff detalhado
                                     {% endif %}
                                 </td>
-                                <td>
+                                <td class="text-nowrap">
                                     <button
                                         class="btn-action btn-action-view"
                                         type="button"
@@ -177,6 +177,16 @@
                                         title="Ver detalhes"
                                         aria-label="Ver detalhes do log"
                                     ><i class="bi bi-eye"></i></button>
+                                    {% if podeDesfazerMap[log.id] is defined and podeDesfazerMap[log.id] %}
+                                        <form method="post" action="{{ path('audit_log_desfazer', {id: log.id}) }}"
+                                              onsubmit="return confirm('Desfazer esta alteração? A entidade voltará ao estado anterior.');"
+                                              style="display:inline">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('audit_desfazer_' ~ log.id) }}">
+                                            <button class="btn-action btn-action-delete ms-1" type="submit" title="Desfazer esta alteração">
+                                                <i class="bi bi-arrow-counterclockwise"></i>
+                                            </button>
+                                        </form>
+                                    {% endif %}
                                 </td>
                             </tr>
                             <tr class="collapse" id="{{ detailId }}">

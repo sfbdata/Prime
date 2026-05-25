@@ -172,6 +172,139 @@
             .docs-list-scroll::-webkit-scrollbar-thumb { background: #ced4da; border-radius: 3px; }
             .doc-item .doc-acoes { opacity: 0; transition: opacity .15s; }
             .doc-item:hover .doc-acoes { opacity: 1; }
+
+            /* ── Card Documentação: visual de pasta ── */
+            .doc-folder-wrapper {
+                margin-top: 22px;
+                position: relative;
+            }
+            .doc-folder-wrapper::before {
+                content: '';
+                position: absolute;
+                top: -22px;
+                left: 0;
+                width: 52%;
+                max-width: 175px;
+                height: 22px;
+                background: linear-gradient(180deg, #5b9bd5 0%, #3f7bbf 100%);
+                border-radius: 6px 10px 0 0;
+                clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+            }
+            .doc-folder-card.card.card-primary.card-outline {
+                border-top-left-radius: 0 !important;
+                border-color: #3f7bbf !important;
+                box-shadow: 2px 3px 10px rgba(0,0,0,0.13);
+            }
+            .doc-folder-header {
+                background: linear-gradient(180deg, #5b9bd5 0%, #3f7bbf 100%) !important;
+                border-bottom: none !important;
+                border-top-right-radius: 4px !important;
+                border-top-left-radius: 0 !important;
+                padding: 0.6rem 1rem !important;
+                cursor: pointer;
+                user-select: none;
+            }
+            .doc-folder-header .card-title {
+                color: #fff !important;
+                font-size: 0.9rem;
+            }
+            .doc-folder-header .btn-tool {
+                color: rgba(255,255,255,0.75) !important;
+            }
+            .doc-folder-header .btn-tool:hover {
+                color: #fff !important;
+            }
+            .doc-folder-header .badge {
+                background-color: rgba(255,255,255,0.22) !important;
+                color: #fff !important;
+                font-weight: 500;
+            }
+            @media (max-width: 575.98px) {
+                .doc-folder-wrapper::before {
+                    width: 48%;
+                    max-width: 150px;
+                    height: 20px;
+                    top: -20px;
+                }
+                .doc-folder-wrapper { margin-top: 20px; }
+            }
+
+            /* ── Cards de seção: visual de pasta ── */
+            .pasta-secao-card {
+                margin-top: 22px;
+                position: relative;
+                overflow: visible !important;
+                border-top-left-radius: 0 !important;
+                border-color: #3f7bbf !important;
+                box-shadow: 2px 3px 10px rgba(0,0,0,0.13);
+            }
+            .pasta-secao-card::before {
+                content: '';
+                position: absolute;
+                top: -22px;
+                left: 0;
+                width: 52%;
+                max-width: 175px;
+                height: 22px;
+                background: linear-gradient(180deg, #5b9bd5 0%, #3f7bbf 100%);
+                border-radius: 6px 10px 0 0;
+                clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 100%, 0 100%);
+            }
+            .pasta-secao-card .card-header {
+                background: linear-gradient(180deg, #5b9bd5 0%, #3f7bbf 100%) !important;
+                border-bottom: none !important;
+                border-top-left-radius: 0 !important;
+                cursor: pointer;
+                user-select: none;
+            }
+            .pasta-secao-card .card-header .pasta-secao-nome {
+                color: #fff;
+            }
+            .pasta-secao-card .card-header .badge {
+                background-color: rgba(255,255,255,0.22) !important;
+                color: #fff !important;
+                font-weight: 500;
+            }
+            .pasta-secao-card .card-header .btn-tool {
+                color: rgba(255,255,255,0.75) !important;
+            }
+            .pasta-secao-card .card-header .btn-tool:hover {
+                color: #fff !important;
+            }
+            .pasta-secao-card .card-header .js-secao-renomear-btn,
+            .pasta-secao-card .card-header .js-secao-excluir-btn {
+                opacity: 0;
+                transition: opacity .15s;
+            }
+            .pasta-secao-card .card-header:hover .js-secao-renomear-btn,
+            .pasta-secao-card .card-header:hover .js-secao-excluir-btn {
+                opacity: 1;
+            }
+            .pasta-secao-card .card-header .btn-outline-secondary,
+            .pasta-secao-card .card-header .btn-outline-danger {
+                color: rgba(255,255,255,0.8) !important;
+                border-color: rgba(255,255,255,0.35) !important;
+                background: transparent !important;
+            }
+            .pasta-secao-card .card-header .btn-outline-secondary:hover {
+                color: #fff !important;
+                background: rgba(255,255,255,0.15) !important;
+                border-color: rgba(255,255,255,0.6) !important;
+            }
+            .pasta-secao-card .card-header .btn-outline-danger:hover {
+                color: #fff !important;
+                background: rgba(220,53,69,0.4) !important;
+                border-color: rgba(255,255,255,0.6) !important;
+            }
+            @media (max-width: 575.98px) {
+                .pasta-secao-card { margin-top: 20px; }
+                .pasta-secao-card::before {
+                    width: 48%;
+                    max-width: 150px;
+                    height: 20px;
+                    top: -20px;
+                }
+            }
             </style>
             <div class="card-body">
                 <div class="row">
@@ -720,16 +853,17 @@
                         {# Card: Documentação #}
                         {% set totalDocsGeral = 0 %}
                         {% for tipo, docs in documentosPorTipo %}{% set totalDocsGeral = totalDocsGeral + docs|length %}{% endfor %}
-                        <div class="card card-primary card-outline mb-3" data-secao-destino="geral">
-                            <div class="card-header d-flex align-items-center">
-                                <h3 class="card-title me-auto"><i class="bi bi-check2-square me-1"></i> Documentação <span class="badge text-bg-secondary ms-1 js-secao-contador" id="contadorSecaoGeral">{{ totalDocsGeral }} {{ totalDocsGeral == 1 ? 'arquivo' : 'arquivos' }}</span></h3>
+                        <div class="doc-folder-wrapper">
+                        <div class="card card-primary card-outline mb-3 doc-folder-card" data-secao-destino="geral">
+                            <div class="card-header d-flex align-items-center doc-folder-header">
+                                <h3 class="card-title me-auto"><i class="bi bi-folder-fill me-1"></i> Documentação <span class="badge text-bg-secondary ms-1 js-secao-contador" id="contadorSecaoGeral">{{ totalDocsGeral }} {{ totalDocsGeral == 1 ? 'arquivo' : 'arquivos' }}</span></h3>
                                 <button type="button" class="btn btn-tool" data-bs-toggle="collapse"
-                                        data-bs-target="#documentacaoBody" aria-expanded="true"
+                                        data-bs-target="#documentacaoBody" aria-expanded="false"
                                         id="btnDocumentacaoToggle">
-                                    <i class="bi bi-chevron-up"></i>
+                                    <i class="bi bi-chevron-down"></i>
                                 </button>
                             </div>
-                            <div class="collapse show" id="documentacaoBody">
+                            <div class="collapse" id="documentacaoBody">
                             <div class="card-body">
                                 {# Checklist dinâmico #}
                                 <div class="d-flex justify-content-between align-items-center mb-2">
@@ -880,7 +1014,8 @@
                                 </div>
                             </div>
                             </div>{# /collapse show #}
-                        </div>
+                        </div>{# /doc-folder-card #}
+                        </div>{# /doc-folder-wrapper #}
 
                         {# Cards de seções de documentos #}
                         {% for secao in secoes %}
@@ -4057,6 +4192,17 @@ document.addEventListener('DOMContentLoaded', function () {
             toggleBtn.addEventListener('hidden.bs.collapse', () => toggleBtn.querySelector('i').className = 'bi bi-chevron-down');
         }
 
+        const secaoHeader = card.querySelector('.card-header');
+        if (secaoHeader && toggleBtn) {
+            secaoHeader.addEventListener('click', function(e) {
+                if (!e.target.closest('.btn-tool') &&
+                    !e.target.closest('.js-secao-renomear-btn') &&
+                    !e.target.closest('.js-secao-excluir-btn')) {
+                    toggleBtn.click();
+                }
+            });
+        }
+
         inicializarUploadSecao(card);
         inicializarDropZone(card);
         inicializarSortableDocs(card.querySelector('.js-secao-docs'));
@@ -4365,6 +4511,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 btnDocumentacaoToggle.setAttribute('aria-expanded', 'false');
             });
         }
+    }
+
+    // Clique em qualquer parte do header expande/recolhe o card de Documentação
+    const docFolderHeader = document.querySelector('.doc-folder-header');
+    if (docFolderHeader && btnDocumentacaoToggle) {
+        docFolderHeader.addEventListener('click', function(e) {
+            if (!e.target.closest('.btn-tool')) {
+                btnDocumentacaoToggle.click();
+            }
+        });
     }
 
     // ── Inicializar cards existentes (seções sempre retraídas ao carregar) ────
