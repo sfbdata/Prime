@@ -7,6 +7,7 @@ namespace App\Pasta\Controller;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\UseCase\ListarMinhasDemandasUseCase;
+use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -16,6 +17,7 @@ final class DemandasController extends AbstractController
 {
     public function __construct(
         private readonly ListarMinhasDemandasUseCase $listarMinhasDemandas,
+        private readonly TenantContext $tenantContext,
     ) {}
 
     #[Route('/demandas', name: 'demandas_index', methods: ['GET'])]
@@ -23,11 +25,12 @@ final class DemandasController extends AbstractController
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
+        $tenant  = $this->tenantContext->getCurrentTenant();
 
         $cliente    = $request->query->get('cliente', '') ?: null;
         $prioridade = $request->query->get('prioridade', '') ?: null;
 
-        $pastas = $this->listarMinhasDemandas->executar($usuario, $cliente, $prioridade);
+        $pastas = $this->listarMinhasDemandas->executar($usuario, $tenant, $cliente, $prioridade);
 
         return $this->render('pasta/demandas.html.twig', [
             'pastas'      => $pastas,

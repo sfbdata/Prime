@@ -197,7 +197,7 @@ class ClienteController extends AbstractController
 
         return $this->render('cliente/show.html.twig', [
             'cliente' => $cliente,
-            'pastas' => $this->pastaRepository->findByCliente($cliente),
+            'pastas' => $this->pastaRepository->findByCliente($cliente, $tenant),
             'documentTypeOptions' => self::DOCUMENT_TYPES,
             'documentosPorTipo' => $this->groupDocumentsByType($cliente),
         ]);

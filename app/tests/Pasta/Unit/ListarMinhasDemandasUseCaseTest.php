@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Unit;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\UseCase\ListarMinhasDemandasUseCase;
 use App\Pasta\Repository\PastaRepository;
@@ -29,6 +30,7 @@ final class ListarMinhasDemandasUseCaseTest extends TestCase
     public function testSemFiltrosRetornaPastas(): void
     {
         $usuario = $this->createMock(User::class);
+        $tenant  = $this->createMock(Tenant::class);
 
         $pasta = new Pasta();
         $pasta->setNup('TEST-001');
@@ -36,10 +38,10 @@ final class ListarMinhasDemandasUseCaseTest extends TestCase
         $this->repository
             ->expects($this->once())
             ->method('findAtivasPorResponsavel')
-            ->with($usuario, null, null)
+            ->with($usuario, $tenant, null, null)
             ->willReturn([$pasta]);
 
-        $resultado = $this->useCase->executar($usuario, null, null);
+        $resultado = $this->useCase->executar($usuario, $tenant, null, null);
 
         self::assertCount(1, $resultado);
         self::assertSame($pasta, $resultado[0]);
@@ -49,14 +51,15 @@ final class ListarMinhasDemandasUseCaseTest extends TestCase
     public function testComFiltrosRepassaParaRepository(): void
     {
         $usuario = $this->createMock(User::class);
+        $tenant  = $this->createMock(Tenant::class);
 
         $this->repository
             ->expects($this->once())
             ->method('findAtivasPorResponsavel')
-            ->with($usuario, 'Maria', 'urgente')
+            ->with($usuario, $tenant, 'Maria', 'urgente')
             ->willReturn([]);
 
-        $resultado = $this->useCase->executar($usuario, 'Maria', 'urgente');
+        $resultado = $this->useCase->executar($usuario, $tenant, 'Maria', 'urgente');
 
         self::assertSame([], $resultado);
     }
@@ -65,12 +68,13 @@ final class ListarMinhasDemandasUseCaseTest extends TestCase
     public function testRepositoryVazioRetornaArrayVazio(): void
     {
         $usuario = $this->createMock(User::class);
+        $tenant  = $this->createMock(Tenant::class);
 
         $this->repository
             ->method('findAtivasPorResponsavel')
             ->willReturn([]);
 
-        $resultado = $this->useCase->executar($usuario, null, null);
+        $resultado = $this->useCase->executar($usuario, $tenant, null, null);
 
         self::assertSame([], $resultado);
     }
@@ -79,6 +83,7 @@ final class ListarMinhasDemandasUseCaseTest extends TestCase
     public function testMultiplasPastasRetornadas(): void
     {
         $usuario = $this->createMock(User::class);
+        $tenant  = $this->createMock(Tenant::class);
 
         $pasta1 = new Pasta();
         $pasta1->setNup('NUP-001');
@@ -90,7 +95,7 @@ final class ListarMinhasDemandasUseCaseTest extends TestCase
             ->method('findAtivasPorResponsavel')
             ->willReturn([$pasta1, $pasta2]);
 
-        $resultado = $this->useCase->executar($usuario, null, null);
+        $resultado = $this->useCase->executar($usuario, $tenant, null, null);
 
         self::assertCount(2, $resultado);
         self::assertSame($pasta1, $resultado[0]);

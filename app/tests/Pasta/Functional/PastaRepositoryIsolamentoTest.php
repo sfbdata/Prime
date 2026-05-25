@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Functional;
 
+use App\Cliente\Entity\ClientePF;
+use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
@@ -44,6 +46,37 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         return $pasta;
     }
 
+    private function criarUser(): User
+    {
+        $user = new User();
+        $user->setEmail('iso_' . uniqid() . '@test.com');
+        $user->setFullName('User ISO Test');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword('dummy_hash');
+        $this->em->persist($user);
+
+        return $user;
+    }
+
+    private function criarClientePF(): ClientePF
+    {
+        $cpf = substr(str_replace('.', '', uniqid('', true)), 0, 14);
+        $cliente = new ClientePF();
+        $cliente->setEmail('iso_' . uniqid() . '@test.com');
+        $cliente->setCep('01310-100');
+        $cliente->setEndereco('Av. Paulista, 1000');
+        $cliente->setCidade('São Paulo');
+        $cliente->setEstado('SP');
+        $cliente->setCpf($cpf);
+        $cliente->setRg('00.000.000-0');
+        $cliente->setRgOrgaoExpedidor('SSP');
+        $cliente->setNomeCompleto('Cliente ISO Test');
+        $this->em->persist($cliente);
+
+        return $cliente;
+    }
+
     #[TestDox('findByFilters retorna pastas do tenant A e não vaza pastas do tenant B')]
     public function testFindByFiltersIsolaTenant(): void
     {
@@ -70,6 +103,44 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         $this->em->flush();
 
         $nups = $this->repo->findAllNups($tenantA);
+
+        self::assertContains($pastaA->getNup(), $nups);
+        self::assertNotContains($pastaB->getNup(), $nups);
+    }
+
+    #[TestDox('findAtivasPorResponsavel retorna pastas do tenant A e não vaza pastas do tenant B')]
+    public function testFindAtivasPorResponsavelIsolaTenant(): void
+    {
+        $tenantA  = $this->criarTenant();
+        $tenantB  = $this->criarTenant();
+        $usuario  = $this->criarUser();
+        $pastaA   = $this->criarPasta($tenantA, 'RESP-A');
+        $pastaA->setResponsavel($usuario);
+        $pastaB   = $this->criarPasta($tenantB, 'RESP-B');
+        $pastaB->setResponsavel($usuario);
+        $this->em->flush();
+
+        $resultado = $this->repo->findAtivasPorResponsavel($usuario, $tenantA);
+        $nups      = array_map(fn(Pasta $p) => $p->getNup(), $resultado);
+
+        self::assertContains($pastaA->getNup(), $nups);
+        self::assertNotContains($pastaB->getNup(), $nups);
+    }
+
+    #[TestDox('findByCliente retorna pastas do tenant A e não vaza pastas do tenant B')]
+    public function testFindByClienteIsolaTenant(): void
+    {
+        $tenantA  = $this->criarTenant();
+        $tenantB  = $this->criarTenant();
+        $cliente  = $this->criarClientePF();
+        $pastaA   = $this->criarPasta($tenantA, 'CLI-A');
+        $pastaA->addCliente($cliente);
+        $pastaB   = $this->criarPasta($tenantB, 'CLI-B');
+        $pastaB->addCliente($cliente);
+        $this->em->flush();
+
+        $resultado = $this->repo->findByCliente($cliente, $tenantA);
+        $nups      = array_map(fn(Pasta $p) => $p->getNup(), $resultado);
 
         self::assertContains($pastaA->getNup(), $nups);
         self::assertNotContains($pastaB->getNup(), $nups);

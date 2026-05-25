@@ -80,12 +80,14 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @return Pasta[]
      */
-    public function findByCliente(Cliente $cliente): array
+    public function findByCliente(Cliente $cliente, Tenant $tenant): array
     {
         return $this->createQueryBuilder('p')
             ->join('p.clientes', 'c')
             ->where('c = :cliente')
             ->setParameter('cliente', $cliente)
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
             ->orderBy('p.dataAbertura', 'DESC')
             ->getQuery()
             ->getResult();
@@ -155,14 +157,17 @@ class PastaRepository extends ServiceEntityRepository
      */
     public function findAtivasPorResponsavel(
         User $responsavel,
+        Tenant $tenant,
         ?string $cliente = null,
         ?string $prioridade = null,
     ): array {
         $qb = $this->createQueryBuilder('p')
             ->where('p.responsavel = :responsavel')
             ->andWhere('p.situacao = :situacao')
+            ->andWhere('p.tenant = :tenant')
             ->setParameter('responsavel', $responsavel)
             ->setParameter('situacao', Pasta::SITUACAO_ATIVA)
+            ->setParameter('tenant', $tenant)
             ->orderBy('p.prioridade', 'DESC')
             ->addOrderBy('p.dataAbertura', 'DESC');
 

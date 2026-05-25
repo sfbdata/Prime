@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Repository\PastaRepository;
 
@@ -15,8 +16,8 @@ final class ListarMinhasDemandasUseCase
     ) {}
 
     /** @return Pasta[] */
-    public function executar(User $usuario, ?string $cliente, ?string $prioridade): array
+    public function executar(User $usuario, Tenant $tenant, ?string $cliente, ?string $prioridade): array
     {
-        return $this->repository->findAtivasPorResponsavel($usuario, $cliente, $prioridade);
+        return $this->repository->findAtivasPorResponsavel($usuario, $tenant, $cliente, $prioridade);
     }
 }
