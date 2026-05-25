@@ -166,6 +166,20 @@ Próximo passo: REFATORAÇÃO DA PASTA CONCLUÍDA (0/1/2/3/4/5A). Falta levar a 
   carregado por ID** [BAIXA]: protegido indiretamente (canAccessResource da pasta + checagem de
   seção destino), risco residual baixo. Adicionar check explícito de `$documento->getTenant()`
   quando tocar esses arquivos. Detectado 2026-05-25.
+- **[ALTA] Migration Version20260522180222 sem backfill — bomba-relógio**: adiciona `tenant_id INT NOT NULL`
+  em `pasta` e `pasta_documento` sem default nem backfill. Auto-gerada pelo Doctrine, nunca revisada.
+  Passou em dev (tabela vazia) e quebrou em prod (12 linhas reais) com SQLSTATE 23502. Resolvido no
+  incidente apagando as pastas de teste e rodando na tabela vazia, mas a migration continua perigosa:
+  quebra em qualquer banco com `pasta` populada (restore prod→dev, segundo tenant futuro). CORRIGIR:
+  reescrever para add coluna nullable → backfill com tenant correto → ALTER set NOT NULL. Detectado 2026-05-25.
+- **[PROCESSO] Não confiar no diff automático do Doctrine para migration que toca tabela populada**:
+  causa-raiz do incidente acima. Migration auto-gerada (`Please modify to your needs`) foi deployada sem
+  revisão manual. Reforço da regra já existente: toda migration que altera tabela com dados exige revisão
+  à mão antes do deploy.
+- **[PROCESSO] Smoke pós-deploy precisa exercitar rotas específicas, não só home/ponto**: a refatoração
+  da Pasta foi dada como "deployada e OK", mas `pasta_show` (bug uploadedAt→carregadoEm) e a migration
+  tenant_id nunca tinham sido exercidas em prod. Smoke de Pasta deve incluir: criar pasta + abrir pasta
+  (show), não apenas login/sidebar/ponto.
 
 ## Hierarquia de risco (resumo — ver project instructions para detalhe)
 
