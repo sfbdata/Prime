@@ -25,7 +25,7 @@ class PastaDocumentoRepository extends ServiceEntityRepository
             ->andWhere('d.categoria = :categoria')
             ->setParameter('pasta', $pasta)
             ->setParameter('categoria', $categoria)
-            ->orderBy('d.uploadedAt', 'ASC')
+            ->orderBy('d.carregadoEm', 'ASC')
             ->getQuery()
             ->getResult();
     }
