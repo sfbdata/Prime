@@ -75,20 +75,23 @@ FATIAS (uma por commit):
        PARARIA a auditoria de Pasta silenciosamente e quebraria o desfazer histórico. Exige primeiro
        refatorar o acoplamento (ex: interface Auditavel) + migration de dados no audit_log de prod.
        Investigação de impacto feita 2026-05-25 (5 riscos mapeados). Retomar só depois dessa frente.
-- [~] Fatia 5 — limpeza de consistência (fatiada por risco de schema).
-  - [x] 5A — consistência sem schema: I5 (inversedBy PastaMensagem + coleção mensagens),
-    I8 (strict_types PastaMensagem), I9/I6/I7 (rename createdAt→criadoEm, uploadedAt→carregadoEm
-    preservando colunas via name:), I10 (OrderBy nas observações), I13 (Assert\NotBlank/Length em
-    6 entidades + CONTRATO no Choice). doctrine:migrations:diff vazio confirmado. Feito 2026-05-25.
-  - [ ] 5B — schema: I4 onDelete CASCADE na FK PastaDocumento→Pasta (gera ALTER TABLE; commit próprio).
-  - [ ] 5C (avaliar) — timestamp em PastaChecklistItem (gera migration; baixa prioridade, talvez descartar).
+- [x] Fatia 5 — limpeza de consistência (5A feita; 5B vira pendência, 5C descartada).
+  - [x] 5A — consistência sem schema (I5,I8,I9,I6/I7,I10,I13). Feito 2026-05-25, commit b071226.
+  - [–] 5B — onDelete CASCADE na FK PastaDocumento→Pasta: NÃO feito. cascade+orphanRemoval do
+    ORM já apaga documentos no único caminho real (ExcluirPastaUseCase via Doctrine); onDelete
+    só importaria em DELETE SQL direto, que o sistema não faz. Custo (ALTER TABLE somando à pilha
+    de migrations não-deployadas) sem ganho prático. Vira pendência cosmética abaixo.
+  - [–] 5C — timestamp em PastaChecklistItem: DESCARTADO (feature, não consistência; sem demanda).
 
 PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
 
-Próximo passo: Fatia 5B (onDelete CASCADE — schema). 5A feita. Fatia 4 pausada.
+Próximo passo: refatoração da Pasta CONCLUÍDA (0/1/2/3/5A). Falta levar a branch para produção (deploy com schema change da Fatia 1 — backup, verificar pastas órfãs em prod, smoke reforçado). Fatia 4 pausada.
 
 ## Pendências não-migração
 
+- **Inconsistência cosmética de FK em PastaDocumento**: a FK pasta_id NÃO tem onDelete: CASCADE,
+  enquanto a FK secao_id tem. Sem impacto funcional (ORM cascade+orphanRemoval já cobre o caminho
+  real). Alinhar quando houver outra migration de Pasta a caminho. Detectado 2026-05-25.
 - **Auditoria acoplada a namespace (destrava a Fatia 4)**: AuditLogSubscriber.shouldAudit() e AuditLogController.getEntityOptions() filtram por str_starts_with('App\\Entity\\'); audit_log grava entity_class como string FQCN; DesfazerAlteracaoAuditLogUseCase compara por ::class; DemitirFuncionarioUseCase (DQL) e AuditLogRepository (SQL) têm FQCN de Pasta hardcoded. Mover qualquer entidade de App\\Entity\\ para outro namespace quebra auditoria + desfazer + queries, silenciosamente. Refatorar para marcação robusta (interface Auditavel) e planejar migration de dados do audit_log. Pré-requisito da Fatia 4. Detectado 2026-05-25.
 - **Ordem storage→flush no ExcluirPastaUseCase**: arquivos são apagados do disco ANTES do
   em->flush(). Se o flush falhar, os arquivos já se foram mas a Pasta permanece no banco
