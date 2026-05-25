@@ -45,6 +45,7 @@ use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use App\Pasta\UseCase\EnviarObservacaoDetalhesUseCase;
 use App\Pasta\UseCase\EnviarObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
+use App\Pasta\UseCase\ExcluirPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
 use App\Pasta\UseCase\ToggleChecklistItemUseCase;
 use App\Repository\Pasta\PastaChecklistItemRepository;
@@ -118,6 +119,7 @@ class PastaController extends AbstractController
         private readonly UserTenantRepository $userTenantRepo,
         private readonly CriarPastaUseCase $criarPastaUseCase,
         private readonly EditarPastaUseCase $editarPastaUseCase,
+        private readonly ExcluirPastaUseCase $excluirPastaUseCase,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -855,12 +857,7 @@ class PastaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        foreach ($pasta->getDocumentos() as $doc) {
-            $this->storage->excluir($this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo()));
-        }
-
-        $this->em->remove($pasta);
-        $this->em->flush();
+        $this->excluirPastaUseCase->executar($pasta, $this->getUser(), $this->tenantContext->getCurrentTenant());
 
         $this->addFlash('success', 'Pasta removida com sucesso.');
 

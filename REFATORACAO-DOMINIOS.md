@@ -60,21 +60,31 @@ FATIAS (uma por commit):
 - [x] Fatia 0 — limpar pastas de teste do dev (feito 2026-05-22, banco zerado, backup em ~/backup_saas_pre_limpeza_pasta.sql.gz)
 - [x] Fatia 1 — tenant_id em Pasta + PastaDocumento (commit 25df99d). Coluna + FK + índice + 7 pontos de setTenant. Smoke OK.
 - [x] Fatia 2 — filtro de tenant no PastaRepository (resolve o vazamento cross-tenant ALTA). 4 métodos (findByFilters, findAllNups, findPorMarcador, findByFiltrosEMarcador) ganham Tenant $tenant + andWhere('p.tenant = :tenant'); findAll() em acervoGeral() substituído por findByFilters([], $tenant); 2 testes de isolamento cross-tenant (PastaRepositoryIsolamentoTest). Suíte verde exceto os 13 Expediente conhecidos. Feito 2026-05-22.
-- [~] Fatia 3 — extrair CRUD de Pasta para UseCases (fatiada em 3a/3b/3c). Resolve I14.
+- [x] Fatia 3 — extrair CRUD de Pasta para UseCases (fatiada em 3a/3b/3c). Resolve I14.
   - [x] 3a — criar() → CriarPastaUseCase + CriarPastaDTO + teste de caracterização. canAccessModule mantido no controller; unicidade global do NUP preservada. Feito 2026-05-22.
   - [x] 3b — editar() → EditarPastaUseCase + EditarPastaDTO + testes (unit 5 + functional 3).
        denyResourceAccessUnlessGranted e CSRF preservados no controller; unicidade global do NUP
        com auto-exclusão; whitelist de situação. Feito 2026-05-24.
-  - [ ] 3c — delete() → ExcluirPastaUseCase (side effect de storage; mais cuidado).
+  - [x] 3c — delete() → ExcluirPastaUseCase + teste unit (4 casos). denyResourceAccessUnlessGranted
+       (ACTION_DELETE) e CSRF preservados no controller; tenant-check e existe()-antes-de-excluir
+       adicionados no UseCase (defesa em profundidade, padrão ExcluirPastaSecaoUseCase). Feito 2026-05-25.
 - [ ] Fatia 4 — mover entidades + repositories de Pasta para app/src/Pasta/ (domínio). Resolve I2/I3.
 - [ ] Fatia 5 — limpeza de consistência (I4 onDelete PastaDocumento, I5 inversedBy PastaMensagem, I6/I7 timestamps, I8 strict_types, I9 nome bilíngue, I10 OrderBy, I13 Assert) — onde tocar o arquivo.
 
 PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
 
-Próximo passo: Fatia 3c (delete — atenção ao side effect de storage).
+Próximo passo: Fatia 4 (mover entidades de Pasta para o domínio — ATENÇÃO: a denylist da auditoria em produção lista App\\Entity\\Pasta\\* por string; mover namespace quebra o botão desfazer se não atualizar a denylist no mesmo passo).
 
 ## Pendências não-migração
 
+- **Ordem storage→flush no ExcluirPastaUseCase**: arquivos são apagados do disco ANTES do
+  em->flush(). Se o flush falhar, os arquivos já se foram mas a Pasta permanece no banco
+  (inconsistência). Replicado fiel do delete() legado na Fatia 3c. Avaliar inverter a ordem
+  (flush primeiro, storage depois) ou usar transação. Risco BAIXO hoje. Detectado 2026-05-25.
+- **delete() de Pasta cascateia Tarefas silenciosamente**: a FK Tarefa.pasta_id tem
+  ON DELETE CASCADE no banco — deletar uma Pasta apaga as Tarefas vinculadas sem aviso. O modal
+  de confirmação não alerta sobre isso. Tarefa e risco BAIXO hoje, mas reavaliar o aviso quando
+  Tarefa virar dado real. Detectado 2026-05-25.
 - **13 testes quebrados** por `App\Expediente\UseCase\RemoverMarcadorDaPastaUseCase` inexistente. Detectado em 2026-05-19. Não bloqueia migrações da fila. Investigar quando atacar o domínio Expediente.
 - **Entidade `Tarefa`** permanece em `src/Entity/Tarefa/` (legado). Migração futura — quando feita, atualizar `use` em 11 arquivos.
 - **`TarefaMensagemRepository`** permanece em `src/Repository/` (legado). Migração futura para `src/Tarefa/Repository/`.
