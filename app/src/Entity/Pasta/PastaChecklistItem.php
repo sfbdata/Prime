@@ -7,6 +7,7 @@ namespace App\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Repository\Pasta\PastaChecklistItemRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaChecklistItemRepository::class)]
 #[ORM\Table(name: 'pasta_checklist_item')]
@@ -27,6 +28,8 @@ class PastaChecklistItem
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
 
+    #[Assert\NotBlank(message: 'O título é obrigatório.')]
+    #[Assert\Length(max: 255, maxMessage: 'O título não pode ter mais de {{ limit }} caracteres.')]
     #[ORM\Column(length: 255)]
     private string $titulo = '';
 

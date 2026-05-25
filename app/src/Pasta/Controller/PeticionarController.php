@@ -50,7 +50,7 @@ final class PeticionarController extends AbstractController
         $documentos = $pasta->getDocumentos()->toArray();
         usort(
             $documentos,
-            static fn (PastaDocumento $a, PastaDocumento $b) => $a->getUploadedAt() <=> $b->getUploadedAt(),
+            static fn (PastaDocumento $a, PastaDocumento $b) => $a->getCarregadoEm() <=> $b->getCarregadoEm(),
         );
 
         $primeiroCliente = $pasta->getClientes()->first();
@@ -119,7 +119,7 @@ final class PeticionarController extends AbstractController
                 'id'          => $doc->getId(),
                 'titulo'      => $doc->getTitulo(),
                 'categoria'   => $doc->getCategoria(),
-                'uploadedAt'  => $doc->getUploadedAt()->format('d/m/Y H:i'),
+                'uploadedAt'  => $doc->getCarregadoEm()->format('d/m/Y H:i'),
                 'viewUrl'     => $this->generateUrl('pasta_documento_view', ['id' => $doc->getId()]),
                 'downloadUrl' => $this->generateUrl('pasta_documento_download', ['id' => $doc->getId()]),
                 'mimeType'    => $doc->getMimeType(),
@@ -169,7 +169,7 @@ final class PeticionarController extends AbstractController
                 'id'          => $doc->getId(),
                 'titulo'      => $doc->getTitulo(),
                 'categoria'   => $doc->getCategoria(),
-                'uploadedAt'  => $doc->getUploadedAt()->format('d/m/Y H:i'),
+                'uploadedAt'  => $doc->getCarregadoEm()->format('d/m/Y H:i'),
                 'viewUrl'     => $this->generateUrl('pasta_documento_view', ['id' => $doc->getId()]),
                 'downloadUrl' => $this->generateUrl('pasta_documento_download', ['id' => $doc->getId()]),
                 'mimeType'    => $doc->getMimeType(),

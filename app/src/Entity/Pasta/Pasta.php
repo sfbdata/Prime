@@ -52,8 +52,8 @@ class Pasta
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $nomeAcao = null;
 
-    #[ORM\Column(type: 'datetime_immutable')]
-    private \DateTimeImmutable $createdAt;
+    #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
+    private \DateTimeImmutable $criadoEm;
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $modificadoEm = null;
@@ -96,9 +96,11 @@ class Pasta
     private bool $proBono = false;
 
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaObservacaoFinanceira::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['criadaEm' => 'ASC'])]
     private Collection $observacoesFinanceiras;
 
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaObservacaoDetalhes::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['criadaEm' => 'ASC'])]
     private Collection $observacoesDetalhes;
 
     #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaChecklistItem::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
@@ -109,10 +111,13 @@ class Pasta
     #[ORM\OrderBy(['ordem' => 'ASC'])]
     private Collection $secoes;
 
+    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaMensagem::class)]
+    private Collection $mensagens;
+
     public function __construct()
     {
         $this->dataAbertura = new \DateTimeImmutable();
-        $this->createdAt = new \DateTimeImmutable();
+        $this->criadoEm = new \DateTimeImmutable();
         $this->modificadoEm = new \DateTimeImmutable();
         $this->clientes = new ArrayCollection();
 $this->documentos = new ArrayCollection();
@@ -122,6 +127,7 @@ $this->documentos = new ArrayCollection();
         $this->observacoesDetalhes = new ArrayCollection();
         $this->checklistItens = new ArrayCollection();
         $this->secoes = new ArrayCollection();
+        $this->mensagens = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -215,9 +221,9 @@ $this->documentos = new ArrayCollection();
         return $this;
     }
 
-    public function getCreatedAt(): \DateTimeImmutable
+    public function getCriadoEm(): \DateTimeImmutable
     {
-        return $this->createdAt;
+        return $this->criadoEm;
     }
 
     #[ORM\PreUpdate]
@@ -406,6 +412,12 @@ $this->documentos = new ArrayCollection();
     public function getSecoes(): Collection
     {
         return $this->secoes;
+    }
+
+    /** @return Collection<int, PastaMensagem> */
+    public function getMensagens(): Collection
+    {
+        return $this->mensagens;
     }
 
     public function addSecao(PastaSecao $secao): self

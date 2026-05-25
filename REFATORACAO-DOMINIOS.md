@@ -68,15 +68,28 @@ FATIAS (uma por commit):
   - [x] 3c — delete() → ExcluirPastaUseCase + teste unit (4 casos). denyResourceAccessUnlessGranted
        (ACTION_DELETE) e CSRF preservados no controller; tenant-check e existe()-antes-de-excluir
        adicionados no UseCase (defesa em profundidade, padrão ExcluirPastaSecaoUseCase). Feito 2026-05-25.
-- [ ] Fatia 4 — mover entidades + repositories de Pasta para app/src/Pasta/ (domínio). Resolve I2/I3.
-- [ ] Fatia 5 — limpeza de consistência (I4 onDelete PastaDocumento, I5 inversedBy PastaMensagem, I6/I7 timestamps, I8 strict_types, I9 nome bilíngue, I10 OrderBy, I13 Assert) — onde tocar o arquivo.
+- [⏸] Fatia 4 — PAUSADA (mover entidades de Pasta para o domínio). BLOQUEADA por acoplamento
+       da auditoria a namespace: o AuditLogSubscriber audita via str_starts_with('App\\Entity\\'),
+       o audit_log de produção grava o FQCN antigo como string, e há DQL/SQL hardcoded
+       (DemitirFuncionarioUseCase, AuditLogRepository) + denylist do desfazer. Mover o namespace
+       PARARIA a auditoria de Pasta silenciosamente e quebraria o desfazer histórico. Exige primeiro
+       refatorar o acoplamento (ex: interface Auditavel) + migration de dados no audit_log de prod.
+       Investigação de impacto feita 2026-05-25 (5 riscos mapeados). Retomar só depois dessa frente.
+- [~] Fatia 5 — limpeza de consistência (fatiada por risco de schema).
+  - [x] 5A — consistência sem schema: I5 (inversedBy PastaMensagem + coleção mensagens),
+    I8 (strict_types PastaMensagem), I9/I6/I7 (rename createdAt→criadoEm, uploadedAt→carregadoEm
+    preservando colunas via name:), I10 (OrderBy nas observações), I13 (Assert\NotBlank/Length em
+    6 entidades + CONTRATO no Choice). doctrine:migrations:diff vazio confirmado. Feito 2026-05-25.
+  - [ ] 5B — schema: I4 onDelete CASCADE na FK PastaDocumento→Pasta (gera ALTER TABLE; commit próprio).
+  - [ ] 5C (avaliar) — timestamp em PastaChecklistItem (gera migration; baixa prioridade, talvez descartar).
 
 PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
 
-Próximo passo: Fatia 4 (mover entidades de Pasta para o domínio — ATENÇÃO: a denylist da auditoria em produção lista App\\Entity\\Pasta\\* por string; mover namespace quebra o botão desfazer se não atualizar a denylist no mesmo passo).
+Próximo passo: Fatia 5B (onDelete CASCADE — schema). 5A feita. Fatia 4 pausada.
 
 ## Pendências não-migração
 
+- **Auditoria acoplada a namespace (destrava a Fatia 4)**: AuditLogSubscriber.shouldAudit() e AuditLogController.getEntityOptions() filtram por str_starts_with('App\\Entity\\'); audit_log grava entity_class como string FQCN; DesfazerAlteracaoAuditLogUseCase compara por ::class; DemitirFuncionarioUseCase (DQL) e AuditLogRepository (SQL) têm FQCN de Pasta hardcoded. Mover qualquer entidade de App\\Entity\\ para outro namespace quebra auditoria + desfazer + queries, silenciosamente. Refatorar para marcação robusta (interface Auditavel) e planejar migration de dados do audit_log. Pré-requisito da Fatia 4. Detectado 2026-05-25.
 - **Ordem storage→flush no ExcluirPastaUseCase**: arquivos são apagados do disco ANTES do
   em->flush(). Se o flush falhar, os arquivos já se foram mas a Pasta permanece no banco
   (inconsistência). Replicado fiel do delete() legado na Fatia 3c. Avaliar inverter a ordem

@@ -9,6 +9,7 @@ use App\Repository\Pasta\PastaSecaoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaSecaoRepository::class)]
 #[ORM\Table(name: 'pasta_secao')]
@@ -29,6 +30,8 @@ class PastaSecao
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
 
+    #[Assert\NotBlank(message: 'O nome é obrigatório.')]
+    #[Assert\Length(max: 255, maxMessage: 'O nome não pode ter mais de {{ limit }} caracteres.')]
     #[ORM\Column(length: 255)]
     private string $nome = '';
 

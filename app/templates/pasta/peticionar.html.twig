@@ -57,7 +57,7 @@
                     {% set catLabel  = categoriaLabels[doc.categoria] ?? doc.categoria %}
                     {% set catCor    = categoriaCorMap[doc.categoria] ?? 'text-bg-secondary' %}
                     {% set dotClass  = categoriaPointMap[doc.categoria] ?? 'petic-tl-dot--secondary' %}
-                    {% set docDate   = doc.uploadedAt|date('d/m/Y') %}
+                    {% set docDate   = doc.carregadoEm|date('d/m/Y') %}
                     {% if docDate != lastDate %}
                         <div class="petic-tl-datesep" data-date="{{ docDate }}">
                             <span>{{ docDate }}</span>
@@ -84,7 +84,7 @@
                             </div>
                             <div class="petic-tl-card-bottom">
                                 <span class="badge {{ catCor }} petic-item-cat">{{ catLabel }}</span>
-                                <span class="petic-tl-time">{{ doc.uploadedAt|date('H:i') }}</span>
+                                <span class="petic-tl-time">{{ doc.carregadoEm|date('H:i') }}</span>
                             </div>
                         </div>
                     </div>

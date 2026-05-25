@@ -1,11 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Entity\Pasta;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\Pasta\PastaMensagemRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaMensagemRepository::class)]
 #[ORM\Table(name: 'pasta_mensagem')]
@@ -18,7 +21,7 @@ class PastaMensagem
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Pasta::class)]
+    #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'mensagens')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Pasta $pasta = null;
 
@@ -30,6 +33,7 @@ class PastaMensagem
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
 
+    #[Assert\NotBlank(message: 'O conteúdo é obrigatório.')]
     #[ORM\Column(type: 'text')]
     private string $conteudo = '';
 

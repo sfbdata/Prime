@@ -32,7 +32,7 @@ class PastaDocumento
     #[ORM\Column(length: 255)]
     private string $titulo;
 
-    #[Assert\Choice(choices: ['PECA', 'PROCURACAO', 'IDENTIFICACAO', 'COMPROVANTE_RESIDENCIA', 'GRATUIDADE_JUSTICA', 'DEMAIS'])]
+    #[Assert\Choice(choices: ['PECA', 'PROCURACAO', 'IDENTIFICACAO', 'COMPROVANTE_RESIDENCIA', 'GRATUIDADE_JUSTICA', 'DEMAIS', 'CONTRATO'])]
     #[ORM\Column(length: 40)]
     private string $categoria;
 
@@ -51,8 +51,8 @@ class PastaDocumento
     #[ORM\Column(type: 'integer')]
     private int $tamanhoBytes;
 
-    #[ORM\Column(type: 'datetime_immutable')]
-    private \DateTimeImmutable $uploadedAt;
+    #[ORM\Column(name: 'uploaded_at', type: 'datetime_immutable')]
+    private \DateTimeImmutable $carregadoEm;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $numero = null;
@@ -74,7 +74,7 @@ class PastaDocumento
 
     public function __construct()
     {
-        $this->uploadedAt = new \DateTimeImmutable();
+        $this->carregadoEm = new \DateTimeImmutable();
     }
 
     public function getId(): ?int
@@ -166,9 +166,9 @@ class PastaDocumento
         return $this;
     }
 
-    public function getUploadedAt(): \DateTimeImmutable
+    public function getCarregadoEm(): \DateTimeImmutable
     {
-        return $this->uploadedAt;
+        return $this->carregadoEm;
     }
 
     public function getNumero(): ?string

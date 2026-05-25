@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\Pasta\PastaObservacaoFinanceiraRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaObservacaoFinanceiraRepository::class)]
 #[ORM\Table(name: 'pasta_observacao_financeira')]
@@ -32,6 +33,7 @@ class PastaObservacaoFinanceira
     #[ORM\JoinColumn(nullable: false)]
     private ?Tenant $tenant = null;
 
+    #[Assert\NotBlank(message: 'O conteúdo é obrigatório.')]
     #[ORM\Column(type: 'text')]
     private string $conteudo = '';
 

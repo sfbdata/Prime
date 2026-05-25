@@ -679,7 +679,7 @@
                                     <div class="col-md-3">
                                         <div class="text-muted">
                                             <p class="text-sm mb-2"><i class="bi bi-calendar-plus me-2"></i> Criado em
-                                                <b class="d-block">{{ pasta.createdAt|date('d/m/Y H:i') }}</b>
+                                                <b class="d-block">{{ pasta.criadoEm|date('d/m/Y H:i') }}</b>
                                             </p>
                                         </div>
                                     </div>
@@ -846,7 +846,7 @@
                                                             {{ label }}
                                                             {% if doc.descricao %} · {{ doc.descricao }}{% endif %}
                                                             {% if doc.numero %} · Nº {{ doc.numero }}{% endif %}
-                                                            · {{ doc.uploadedAt|date('d/m/Y') }}
+                                                            · {{ doc.carregadoEm|date('d/m/Y') }}
                                                             · {{ (doc.tamanhoBytes / 1024 / 1024) < 1 ? (doc.tamanhoBytes / 1024)|round(1) ~ ' KB' : (doc.tamanhoBytes / 1024 / 1024)|round(2) ~ ' MB' }}
                                                         </small>
                                                     </div>
@@ -954,7 +954,7 @@
                                                         {{ doc.nomeOriginal }}
                                                     </a>
                                                     <small class="text-muted">
-                                                        {{ label }}{% if doc.descricao %} · {{ doc.descricao }}{% endif %}{% if doc.numero %} · Nº {{ doc.numero }}{% endif %} · {{ doc.uploadedAt|date('d/m/Y') }}
+                                                        {{ label }}{% if doc.descricao %} · {{ doc.descricao }}{% endif %}{% if doc.numero %} · Nº {{ doc.numero }}{% endif %} · {{ doc.carregadoEm|date('d/m/Y') }}
                                                     </small>
                                                 </div>
                                                 <div class="d-flex gap-1 flex-shrink-0 doc-acoes">
