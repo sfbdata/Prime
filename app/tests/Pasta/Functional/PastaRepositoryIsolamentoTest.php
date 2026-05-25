@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Pasta\Functional;
 
 use App\Cliente\Entity\ClientePF;
+use App\Cliente\Entity\ClientePJ;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
@@ -59,7 +60,7 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         return $user;
     }
 
-    private function criarClientePF(): ClientePF
+    private function criarClientePF(string $nomeCompleto = 'Cliente ISO Test'): ClientePF
     {
         $cpf = substr(str_replace('.', '', uniqid('', true)), 0, 14);
         $cliente = new ClientePF();
@@ -71,7 +72,28 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         $cliente->setCpf($cpf);
         $cliente->setRg('00.000.000-0');
         $cliente->setRgOrgaoExpedidor('SSP');
-        $cliente->setNomeCompleto('Cliente ISO Test');
+        $cliente->setNomeCompleto($nomeCompleto);
+        $this->em->persist($cliente);
+
+        return $cliente;
+    }
+
+    private function criarClientePJ(string $razaoSocial = 'Empresa ISO Test Ltda'): ClientePJ
+    {
+        $cnpj = substr(str_replace('.', '', uniqid('', true)), 0, 14);
+        $cliente = new ClientePJ();
+        $cliente->setEmail('iso_pj_' . uniqid() . '@test.com');
+        $cliente->setCep('01310-100');
+        $cliente->setEndereco('Av. Paulista, 2000');
+        $cliente->setCidade('São Paulo');
+        $cliente->setEstado('SP');
+        $cliente->setCnpj($cnpj);
+        $cliente->setRazaoSocial($razaoSocial);
+        $cliente->setEnderecSede('Av. Paulista, 2000, São Paulo');
+        $cliente->setRepresentanteLegal('Representante ISO');
+        $cliente->setRepresentanteCpf('00000000000000');
+        $cliente->setRepresentanteRg('00.000.000-0');
+        $cliente->setRepresentanteCargo('Diretor');
         $this->em->persist($cliente);
 
         return $cliente;
@@ -125,6 +147,44 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
 
         self::assertContains($pastaA->getNup(), $nups);
         self::assertNotContains($pastaB->getNup(), $nups);
+    }
+
+    #[TestDox('findByFilters filtra pasta por ClientePF vinculado (nomeCompleto LIKE)')]
+    public function testFindByFiltersFiltraClientePF(): void
+    {
+        $tenant  = $this->criarTenant();
+        $sufixo  = uniqid();
+        $cliente = $this->criarClientePF('Filtro PF ' . $sufixo);
+        $pasta   = $this->criarPasta($tenant, 'FILT-PF');
+        $pasta->addCliente($cliente);
+        $this->em->flush();
+
+        $resultado = $this->repo->findByFilters(
+            ['cliente' => mb_strtoupper('Filtro PF ' . $sufixo)],
+            $tenant
+        );
+        $nups      = array_map(fn(Pasta $p) => $p->getNup(), $resultado);
+
+        self::assertContains($pasta->getNup(), $nups);
+    }
+
+    #[TestDox('findByFilters filtra pasta por ClientePJ vinculado (razaoSocial LIKE)')]
+    public function testFindByFiltersFiltraClientePJ(): void
+    {
+        $tenant  = $this->criarTenant();
+        $sufixo  = uniqid();
+        $cliente = $this->criarClientePJ('Empresa Filtro PJ ' . $sufixo);
+        $pasta   = $this->criarPasta($tenant, 'FILT-PJ');
+        $pasta->addCliente($cliente);
+        $this->em->flush();
+
+        $resultado = $this->repo->findByFilters(
+            ['cliente' => mb_strtoupper('Filtro PJ ' . $sufixo)],
+            $tenant
+        );
+        $nups      = array_map(fn(Pasta $p) => $p->getNup(), $resultado);
+
+        self::assertContains($pasta->getNup(), $nups);
     }
 
     #[TestDox('findByCliente retorna pastas do tenant A e não vaza pastas do tenant B')]

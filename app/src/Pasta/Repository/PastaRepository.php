@@ -3,6 +3,8 @@
 namespace App\Pasta\Repository;
 
 use App\Cliente\Entity\Cliente;
+use App\Cliente\Entity\ClientePF;
+use App\Cliente\Entity\ClientePJ;
 use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
@@ -48,8 +50,18 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['cliente'])) {
-            $qb->andWhere('p.nomeCliente LIKE :cliente')
-               ->setParameter('cliente', '%' . $filters['cliente'] . '%');
+            $qb->leftJoin('p.clientes', 'c_cli')
+               ->leftJoin(ClientePF::class, 'cpf', 'WITH', 'cpf.id = c_cli.id')
+               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
+               ->andWhere(
+                   $qb->expr()->orX(
+                       $qb->expr()->like('cpf.nomeCompleto', ':cliente'),
+                       $qb->expr()->like('cpj.razaoSocial', ':cliente'),
+                       $qb->expr()->like('p.nomeCliente', ':cliente'),
+                   )
+               )
+               ->setParameter('cliente', '%' . $filters['cliente'] . '%')
+               ->addGroupBy('p.id');
         }
 
         if (!empty($filters['acao'])) {
@@ -139,8 +151,18 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['cliente'])) {
-            $qb->andWhere('p.nomeCliente LIKE :cliente')
-               ->setParameter('cliente', '%' . $filters['cliente'] . '%');
+            $qb->leftJoin('p.clientes', 'c_cli')
+               ->leftJoin(ClientePF::class, 'cpf', 'WITH', 'cpf.id = c_cli.id')
+               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
+               ->andWhere(
+                   $qb->expr()->orX(
+                       $qb->expr()->like('cpf.nomeCompleto', ':cliente'),
+                       $qb->expr()->like('cpj.razaoSocial', ':cliente'),
+                       $qb->expr()->like('p.nomeCliente', ':cliente'),
+                   )
+               )
+               ->setParameter('cliente', '%' . $filters['cliente'] . '%')
+               ->addGroupBy('p.id');
         }
 
         if (!empty($filters['acao'])) {
