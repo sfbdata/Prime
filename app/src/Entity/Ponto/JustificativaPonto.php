@@ -4,11 +4,12 @@ namespace App\Entity\Ponto;
 
 use App\Entity\Auth\User;
 use App\Ponto\Enum\TipoJustificativa;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Repository\Ponto\JustificativaPontoRepository::class)]
 #[ORM\Index(fields: ['batchId'], name: 'IDX_JUST_BATCH')]
-class JustificativaPonto
+class JustificativaPonto implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

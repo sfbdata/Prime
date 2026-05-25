@@ -4,12 +4,13 @@ namespace App\Entity\Tenant;
 
 use App\Entity\Permission\Permission;
 use App\Repository\TenantRolePermissionRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TenantRolePermissionRepository::class)]
 #[ORM\Table(name: 'tenant_role_permission')]
 #[ORM\UniqueConstraint(name: 'uq_tenant_role_permission', columns: ['tenant_role_id', 'permission_id'])]
-class TenantRolePermission
+class TenantRolePermission implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

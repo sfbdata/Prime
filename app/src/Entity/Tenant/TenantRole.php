@@ -6,11 +6,12 @@ use App\Entity\Auth\UserTenant;
 use App\Repository\TenantRoleRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TenantRoleRepository::class)]
 #[ORM\Table(name: 'tenant_role')]
-class TenantRole
+class TenantRole implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

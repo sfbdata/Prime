@@ -10,10 +10,11 @@ use App\Entity\Tenant\Sede;
 use App\Repository\TenantRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TenantRepository::class)]
-class Tenant
+class Tenant implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

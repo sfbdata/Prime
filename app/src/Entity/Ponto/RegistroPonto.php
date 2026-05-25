@@ -4,10 +4,11 @@ namespace App\Entity\Ponto;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Sede;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
-class RegistroPonto
+class RegistroPonto implements Auditavel
 {
     public const TIPO_ENTRADA = 'entrada';
     public const TIPO_REPOUSO = 'repouso';

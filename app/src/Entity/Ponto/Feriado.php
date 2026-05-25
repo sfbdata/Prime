@@ -3,10 +3,11 @@
 namespace App\Entity\Ponto;
 
 use App\Entity\Tenant\Tenant;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Repository\Ponto\FeriadoRepository::class)]
-class Feriado
+class Feriado implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

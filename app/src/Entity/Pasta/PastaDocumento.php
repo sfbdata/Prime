@@ -6,13 +6,14 @@ namespace App\Entity\Pasta;
 
 use App\Entity\Tenant\Tenant;
 use App\Repository\PastaDocumentoRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaDocumentoRepository::class)]
 #[ORM\Table(name: 'pasta_documento')]
 #[ORM\Index(name: 'idx_pasta_documento_tenant', columns: ['tenant_id'])]
-class PastaDocumento
+class PastaDocumento implements Auditavel
 {
     public const CATEGORIA_PECA = 'PECA';
     public const CATEGORIA_PROCURACAO = 'PROCURACAO';

@@ -6,11 +6,12 @@ use App\Entity\Auth\User;
 use App\Repository\ChamadoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ChamadoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Chamado
+class Chamado implements Auditavel
 {
     // Status
     public const STATUS_ABERTO = 'aberto';

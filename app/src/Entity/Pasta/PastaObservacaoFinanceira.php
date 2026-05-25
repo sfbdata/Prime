@@ -7,6 +7,7 @@ namespace App\Entity\Pasta;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\Pasta\PastaObservacaoFinanceiraRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -14,7 +15,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta_observacao_financeira')]
 #[ORM\Index(name: 'idx_pasta_obs_fin_pasta_id', columns: ['pasta_id'])]
 #[ORM\Index(name: 'idx_pasta_obs_fin_tenant', columns: ['tenant_id'])]
-class PastaObservacaoFinanceira
+class PastaObservacaoFinanceira implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

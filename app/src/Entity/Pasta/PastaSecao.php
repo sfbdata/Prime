@@ -8,6 +8,7 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\Pasta\PastaSecaoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -15,7 +16,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta_secao')]
 #[ORM\Index(name: 'idx_pasta_secao_pasta', columns: ['pasta_id'])]
 #[ORM\Index(name: 'idx_pasta_secao_tenant', columns: ['tenant_id'])]
-class PastaSecao
+class PastaSecao implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

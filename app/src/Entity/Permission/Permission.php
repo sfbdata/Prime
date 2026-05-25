@@ -5,11 +5,12 @@ namespace App\Entity\Permission;
 use App\Repository\PermissionRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: PermissionRepository::class)]
 #[ORM\Table(name: 'permission')]
-class Permission
+class Permission implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

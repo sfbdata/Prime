@@ -9,6 +9,7 @@ use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: InvitationRepository::class)]
@@ -17,7 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_invitation_email', columns: ['email'])]
 #[ORM\Index(name: 'idx_invitation_status_expires', columns: ['status', 'expires_at'])]
 #[ORM\Index(name: 'idx_invitation_tenant_status', columns: ['tenant_id', 'status'])]
-class Invitation
+class Invitation implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

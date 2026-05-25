@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controller;
 
 use App\Auditoria\UseCase\DesfazerAlteracaoAuditLogUseCase;
+use App\Shared\Contract\Auditavel;
 use App\Repository\UserRepository;
 use App\Repository\AuditLogRepository;
 use App\Service\PermissionChecker;
@@ -161,11 +162,7 @@ final class AuditLogController extends AbstractController
         foreach ($metadata as $classMetadata) {
             $className = $classMetadata->getName();
 
-            if (!str_starts_with($className, 'App\\Entity\\')) {
-                continue;
-            }
-
-            if ($className === 'App\\Entity\\Audit\\AuditLog') {
+            if (!is_a($className, Auditavel::class, true)) {
                 continue;
             }
 

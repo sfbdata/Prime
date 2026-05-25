@@ -6,11 +6,12 @@ use App\Entity\Auth\User;
 use App\Repository\EventoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: EventoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Evento
+class Evento implements Auditavel
 {
     public const STATUS_AGENDADO = 'agendado';
     public const STATUS_CONCLUIDO = 'concluido';

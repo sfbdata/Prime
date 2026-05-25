@@ -3,6 +3,7 @@
 namespace App\Service\Audit;
 
 use App\Entity\Audit\AuditLog;
+use App\Shared\Contract\Auditavel;
 use Doctrine\Bundle\DoctrineBundle\Attribute\AsDoctrineListener;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\EntityNotFoundException;
@@ -296,11 +297,7 @@ class AuditLogSubscriber
 
     private function shouldAudit(object $entity): bool
     {
-        if ($entity instanceof AuditLog) {
-            return false;
-        }
-
-        return str_starts_with($entity::class, 'App\\Entity\\');
+        return $entity instanceof Auditavel;
     }
 
     private function buildAuditLog(string $action, object $entity, UnitOfWork $unitOfWork, array $changes): AuditLog

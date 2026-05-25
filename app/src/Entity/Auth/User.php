@@ -5,13 +5,14 @@ namespace App\Entity\Auth;
 use App\Entity\Ponto\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Repository\UserRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\Table(name: '`user`')]
-class User implements UserInterface, PasswordAuthenticatedUserInterface
+class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

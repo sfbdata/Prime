@@ -8,6 +8,7 @@ use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\UserTenantRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: UserTenantRepository::class)]
@@ -15,7 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\UniqueConstraint(name: 'uq_user_tenant', columns: ['user_id', 'tenant_id'])]
 #[ORM\Index(name: 'idx_user_tenant_user_id', columns: ['user_id'])]
 #[ORM\Index(name: 'idx_user_tenant_tenant_id', columns: ['tenant_id'])]
-class UserTenant
+class UserTenant implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

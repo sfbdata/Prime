@@ -6,10 +6,11 @@ use App\Entity\Tenant\Tenant;
 use App\Repository\Ponto\JornadaTenantRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: JornadaTenantRepository::class)]
-class JornadaTenant
+class JornadaTenant implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

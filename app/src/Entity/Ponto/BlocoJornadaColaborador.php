@@ -3,11 +3,12 @@
 namespace App\Entity\Ponto;
 
 use App\Repository\Ponto\BlocoJornadaColaboradorRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: BlocoJornadaColaboradorRepository::class)]
 #[ORM\Table(name: 'bloco_jornada_colaborador')]
-class BlocoJornadaColaborador
+class BlocoJornadaColaborador implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

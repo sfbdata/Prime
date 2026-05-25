@@ -4,10 +4,11 @@ namespace App\Entity\ServiceDesk;
 
 use App\Entity\Auth\User;
 use App\Repository\ChamadoInteracaoRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ChamadoInteracaoRepository::class)]
-class ChamadoInteracao
+class ChamadoInteracao implements Auditavel
 {
     // Tipos de interação
     public const TIPO_COMENTARIO = 'comentario';

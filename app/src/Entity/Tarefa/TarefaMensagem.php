@@ -4,10 +4,11 @@ namespace App\Entity\Tarefa;
 
 use App\Entity\Auth\User;
 use App\Repository\TarefaMensagemRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaMensagemRepository::class)]
-class TarefaMensagem
+class TarefaMensagem implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

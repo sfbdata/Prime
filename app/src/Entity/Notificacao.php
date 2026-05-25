@@ -5,11 +5,12 @@ namespace App\Entity;
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
 use App\Repository\NotificacaoRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: NotificacaoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Notificacao
+class Notificacao implements Auditavel
 {
     public const TIPO_TAREFA_CRIADA = 'tarefa_criada';
     public const TIPO_TAREFA_EM_REVISAO = 'tarefa_em_revisao';

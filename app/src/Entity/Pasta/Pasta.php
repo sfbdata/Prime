@@ -13,6 +13,7 @@ use App\Entity\Tarefa\Tarefa;
 use App\Repository\PastaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -20,7 +21,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta')]
 #[ORM\Index(name: 'idx_pasta_tenant', columns: ['tenant_id'])]
 #[ORM\HasLifecycleCallbacks]
-class Pasta
+class Pasta implements Auditavel
 {
     public const SITUACAO_ATIVA     = 'ativo';
     public const SITUACAO_ARQUIVADA = 'arquivado';

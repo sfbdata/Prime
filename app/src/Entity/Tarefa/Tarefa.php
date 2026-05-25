@@ -7,11 +7,12 @@ use App\Entity\Pasta\Pasta;
 use App\Tarefa\Repository\TarefaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Tarefa
+class Tarefa implements Auditavel
 {
     public const STATUS_PENDENTE    = 'pendente';
     public const STATUS_EM_REVISAO  = 'em_revisao';

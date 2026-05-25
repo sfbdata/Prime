@@ -5,11 +5,12 @@ namespace App\Entity\Ponto;
 use App\Entity\Auth\User;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Repository\Ponto\JornadaColaboradorRepository::class)]
 #[ORM\Table(name: 'jornada_colaborador')]
-class JornadaColaborador
+class JornadaColaborador implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

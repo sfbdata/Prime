@@ -3,12 +3,13 @@
 namespace App\Entity\Agenda;
 
 use App\Repository\LegendaCorRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: LegendaCorRepository::class)]
 #[ORM\Table(name: 'legenda_cor')]
 #[ORM\HasLifecycleCallbacks]
-class LegendaCor
+class LegendaCor implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

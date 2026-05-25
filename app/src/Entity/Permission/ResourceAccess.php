@@ -4,6 +4,7 @@ namespace App\Entity\Permission;
 
 use App\Entity\Auth\User;
 use App\Repository\ResourceAccessRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -19,7 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: ResourceAccessRepository::class)]
 #[ORM\Table(name: 'resource_access')]
 #[ORM\UniqueConstraint(name: 'uniq_resource_access_user_resource', columns: ['user_id', 'resource_type', 'resource_id'])]
-class ResourceAccess
+class ResourceAccess implements Auditavel
 {
     public const RESOURCE_CLIENTE  = 'cliente';
     public const RESOURCE_PASTA    = 'pasta';

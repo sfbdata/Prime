@@ -4,10 +4,11 @@ namespace App\Entity\ServiceDesk;
 
 use App\Entity\Auth\User;
 use App\Repository\ChamadoAnexoRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ChamadoAnexoRepository::class)]
-class ChamadoAnexo
+class ChamadoAnexo implements Auditavel
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

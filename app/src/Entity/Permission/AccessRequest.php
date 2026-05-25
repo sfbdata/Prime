@@ -4,6 +4,7 @@ namespace App\Entity\Permission;
 
 use App\Entity\Auth\User;
 use App\Repository\AccessRequestRepository;
+use App\Shared\Contract\Auditavel;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -17,7 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 // Unicidade de solicitações pendentes garantida por partial index no banco
 // (WHERE status = 'pending') — ver migration Version20260331120000.
 // Não usar UniqueConstraint do Doctrine aqui pois ele não suporta partial index.
-class AccessRequest
+class AccessRequest implements Auditavel
 {
     public const STATUS_PENDING  = 'pending';
     public const STATUS_APPROVED = 'approved';

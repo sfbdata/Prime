@@ -68,13 +68,17 @@ FATIAS (uma por commit):
   - [x] 3c — delete() → ExcluirPastaUseCase + teste unit (4 casos). denyResourceAccessUnlessGranted
        (ACTION_DELETE) e CSRF preservados no controller; tenant-check e existe()-antes-de-excluir
        adicionados no UseCase (defesa em profundidade, padrão ExcluirPastaSecaoUseCase). Feito 2026-05-25.
-- [⏸] Fatia 4 — PAUSADA (mover entidades de Pasta para o domínio). BLOQUEADA por acoplamento
-       da auditoria a namespace: o AuditLogSubscriber audita via str_starts_with('App\\Entity\\'),
-       o audit_log de produção grava o FQCN antigo como string, e há DQL/SQL hardcoded
-       (DemitirFuncionarioUseCase, AuditLogRepository) + denylist do desfazer. Mover o namespace
-       PARARIA a auditoria de Pasta silenciosamente e quebraria o desfazer histórico. Exige primeiro
-       refatorar o acoplamento (ex: interface Auditavel) + migration de dados no audit_log de prod.
-       Investigação de impacto feita 2026-05-25 (5 riscos mapeados). Retomar só depois dessa frente.
+- [~] Fatia 4 — mover entidades de Pasta para o domínio (fatiada 4.1/4.2). Acoplamento da
+       auditoria a namespace sendo resolvido via interface Auditavel.
+     - [x] 4.1 — interface marcadora App\Shared\Contract\Auditavel; 34 entidades de App\Entity\
+       implementam (exceto AuditLog); AuditLogSubscriber.shouldAudit() e AuditLogController.
+       getEntityOptions() passam a usar instanceof/is_a Auditavel em vez de str_starts_with('App\\Entity\\');
+       teste de cobertura (AuditavelCoberturaTest) varre getAllMetadata e exige Auditavel em toda
+       entidade fora de NAO_AUDITAVEIS — sobrevive ao 4.2 (lista de exclusão, não prefixo).
+       migrations:diff vazio. Feito 2026-05-25.
+     - [ ] 4.2 — mover entidades de Pasta App\Entity\Pasta\* → App\Pasta\Entity\* + 81 imports +
+       queries hardcoded (DemitirFuncionarioUseCase DQL, AuditLogRepository SQL) + mover
+       PastaRepository/PastaDocumentoRepository da raiz para src/Pasta/Repository/.
 - [x] Fatia 5 — limpeza de consistência (5A feita; 5B vira pendência, 5C descartada).
   - [x] 5A — consistência sem schema (I5,I8,I9,I6/I7,I10,I13). Feito 2026-05-25, commit b071226.
   - [–] 5B — onDelete CASCADE na FK PastaDocumento→Pasta: NÃO feito. cascade+orphanRemoval do
@@ -85,7 +89,7 @@ FATIAS (uma por commit):
 
 PENDÊNCIAS DO SUBSISTEMA DE SEÇÕES (achadas no smoke da fatia 1, ver seção de pendências): exibição dupla, peticionar sem escolha de seção, visualização de peça travando. Atacar na fatia que tocar seções/documentos.
 
-Próximo passo: refatoração da Pasta CONCLUÍDA (0/1/2/3/5A). Falta levar a branch para produção (deploy com schema change da Fatia 1 — backup, verificar pastas órfãs em prod, smoke reforçado). Fatia 4 pausada.
+Próximo passo: Fatia 4.2 (mover Pasta de namespace — agora seguro, auditoria já desacoplada via Auditavel). Depois: deploy da Pasta para produção.
 
 ## Pendências não-migração
 
@@ -129,6 +133,11 @@ Próximo passo: refatoração da Pasta CONCLUÍDA (0/1/2/3/5A). Falta levar a br
 - **Banco de teste sem setup automático de schema**: `doctrine:migrations:migrate --env=test` é manual; cada migration nova exige rodar à mão ou a suíte quebra silenciosamente (foi o caso da Fatia 1, que deixou ~38 testes vermelhos despercebidos até a Fatia 2). Criar script de setup de test (candidato: scripts/setup-test-db.sh ou passo no phpunit bootstrap). Detectado 2026-05-22.
 - **Bug latente de normalização do NUP no criar de Pasta**: `CriarPastaUseCase` (e o controller legado de origem) checa unicidade via `findOneBy(['nup' => trim($dto->nup)])` com o valor CRU, mas `Pasta::setNup()` armazena `mb_strtoupper(trim())`. NUP com minúsculas (`"abc-001"`) não encontra a duplicata `"ABC-001"` já existente → fura a validação e estoura `UniqueConstraintViolationException` não tratada (HTTP 500). Bug pré-existente, replicado fielmente na 3a (não corrigido). Corrigir normalizando o NUP antes do `findOneBy`. Detectado 2026-05-22.
 - **Form de criar Pasta sem CSRF token**: `templates/_partials/modal_nova_pasta.html.twig` faz POST `/pasta/nova` sem `_token`; o controller nunca validou CSRF. Diverge do guia de templates (`CLAUDE.md` exige `_token` em forms manuais). Pré-existente, fora do escopo da 3a. Detectado 2026-05-22.
+- **~18 entidades nunca auditadas (decisão de produto)**: Kanban, Processo, Cliente, Expediente
+  (Marcador), Profile (UserProfile) estão FORA de App\Entity\ e nunca foram auditadas — agora
+  explícitas em NAO_AUDITAVEIS no AuditavelCoberturaTest. Ampliar auditoria a esses domínios é
+  decisão do dono: remover de NAO_AUDITAVEIS + adicionar implements Auditavel (o teste obriga os
+  dois passos). Detectado 2026-05-25.
 
 ## Hierarquia de risco (resumo — ver project instructions para detalhe)
 
