@@ -55,12 +55,12 @@ class PastaRepository extends ServiceEntityRepository
                ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
                ->andWhere(
                    $qb->expr()->orX(
-                       $qb->expr()->like('cpf.nomeCompleto', ':cliente'),
-                       $qb->expr()->like('cpj.razaoSocial', ':cliente'),
-                       $qb->expr()->like('p.nomeCliente', ':cliente'),
+                       'LOWER(cpf.nomeCompleto) LIKE :cliente',
+                       'LOWER(cpj.razaoSocial) LIKE :cliente',
+                       'LOWER(p.nomeCliente) LIKE :cliente',
                    )
                )
-               ->setParameter('cliente', '%' . $filters['cliente'] . '%')
+               ->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%')
                ->addGroupBy('p.id');
         }
 
@@ -156,12 +156,12 @@ class PastaRepository extends ServiceEntityRepository
                ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
                ->andWhere(
                    $qb->expr()->orX(
-                       $qb->expr()->like('cpf.nomeCompleto', ':cliente'),
-                       $qb->expr()->like('cpj.razaoSocial', ':cliente'),
-                       $qb->expr()->like('p.nomeCliente', ':cliente'),
+                       'LOWER(cpf.nomeCompleto) LIKE :cliente',
+                       'LOWER(cpj.razaoSocial) LIKE :cliente',
+                       'LOWER(p.nomeCliente) LIKE :cliente',
                    )
                )
-               ->setParameter('cliente', '%' . $filters['cliente'] . '%')
+               ->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%')
                ->addGroupBy('p.id');
         }
 

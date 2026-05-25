@@ -187,6 +187,25 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         self::assertContains($pasta->getNup(), $nups);
     }
 
+    #[TestDox('findByFilters filtra ClientePJ de forma case-insensitive (maiúsculas→minúsculas)')]
+    public function testFindByFiltersClientePJCaseInsensitive(): void
+    {
+        $tenant  = $this->criarTenant();
+        $sufixo  = uniqid();
+        $cliente = $this->criarClientePJ(mb_strtoupper('Empresa Case PJ ' . $sufixo));
+        $pasta   = $this->criarPasta($tenant, 'CASE-PJ');
+        $pasta->addCliente($cliente);
+        $this->em->flush();
+
+        $resultado = $this->repo->findByFilters(
+            ['cliente' => mb_strtolower('Empresa Case PJ ' . $sufixo)],
+            $tenant,
+        );
+        $nups = array_map(fn(Pasta $p) => $p->getNup(), $resultado);
+
+        self::assertContains($pasta->getNup(), $nups);
+    }
+
     #[TestDox('findByCliente retorna pastas do tenant A e não vaza pastas do tenant B')]
     public function testFindByClienteIsolaTenant(): void
     {
