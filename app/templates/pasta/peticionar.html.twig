@@ -216,11 +216,21 @@
                        required>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-3">
                 <label for="textoCategoria" class="form-label fw-semibold">Categoria</label>
                 <select class="form-select" id="textoCategoria" name="categoria">
                     {% for valor, rotulo in categoriaLabels %}
                         <option value="{{ valor }}" {{ valor == 'PECA' ? 'selected' : '' }}>{{ rotulo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label for="textoSecao" class="form-label fw-semibold">Seção</label>
+                <select class="form-select" id="textoSecao" name="secao_id">
+                    <option value="">(área geral)</option>
+                    {% for secao in secoes %}
+                        <option value="{{ secao.id }}">{{ secao.nome }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -281,10 +291,20 @@
                           maxlength="500" placeholder="Descreva brevemente o documento…"></textarea>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-3">
                 <label for="uploadNumero" class="form-label fw-semibold">Número <span class="text-muted fw-normal">(opcional)</span></label>
                 <input type="text" class="form-control" id="uploadNumero" name="numero"
                        maxlength="100" placeholder="Ex.: 001/2026">
+            </div>
+
+            <div class="mb-4">
+                <label for="uploadSecao" class="form-label fw-semibold">Seção</label>
+                <select class="form-select" id="uploadSecao" name="secao_id">
+                    <option value="">(área geral)</option>
+                    {% for secao in secoes %}
+                        <option value="{{ secao.id }}">{{ secao.nome }}</option>
+                    {% endfor %}
+                </select>
             </div>
 
             <div id="uploadErro" class="alert alert-danger py-2 d-none" role="alert"></div>
@@ -1074,6 +1094,8 @@
         fd.append('titulo',    titulo);
         fd.append('categoria', categoria);
         fd.append('conteudo',  conteudo);
+        const secaoEl = document.getElementById('textoSecao');
+        fd.append('secao_id', secaoEl ? secaoEl.value : '');
 
         try {
             const resp = await fetch(criarTextoUrl, { method: 'POST', body: fd });

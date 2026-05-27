@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\UploadPecaUseCase;
 use App\Shared\Service\ArquivoStorageInterface;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 #[CoversClass(UploadPecaUseCase::class)]
 final class UploadPecaUseCaseTest extends TestCase
@@ -48,7 +50,7 @@ final class UploadPecaUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, $file, 'PECA', null, null, $this->tenant);
+        $resultado = $this->useCase->executar($this->pasta, null, $file, 'PECA', null, null, $this->tenant);
 
         self::assertInstanceOf(PastaDocumento::class, $resultado);
         self::assertSame('PETICAO.PDF', $resultado->getTitulo());
@@ -57,6 +59,7 @@ final class UploadPecaUseCaseTest extends TestCase
         self::assertSame(1024, $resultado->getTamanhoBytes());
         self::assertSame('abc123.pdf', $resultado->getCaminhoArquivo());
         self::assertSame($this->pasta, $resultado->getPasta());
+        self::assertNull($resultado->getSecao());
     }
 
     public function testUploadComDescricaoENumero(): void
@@ -70,7 +73,7 @@ final class UploadPecaUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, $file, 'PECA', 'Descrição da peça', '001/2026', $this->tenant);
+        $resultado = $this->useCase->executar($this->pasta, null, $file, 'PECA', 'Descrição da peça', '001/2026', $this->tenant);
 
         self::assertSame('Descrição da peça', $resultado->getDescricao());
         self::assertSame('001/2026', $resultado->getNumero());
@@ -87,7 +90,7 @@ final class UploadPecaUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, $file, 'PECA', null, null, $this->tenant);
+        $this->useCase->executar($this->pasta, null, $file, 'PECA', null, null, $this->tenant);
     }
 
     public function testTamanhoExcedidoLancaInvalidArgumentException(): void
@@ -102,7 +105,7 @@ final class UploadPecaUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, $file, 'PECA', null, null, $this->tenant);
+        $this->useCase->executar($this->pasta, null, $file, 'PECA', null, null, $this->tenant);
     }
 
     public function testDescricaoENumeroVaziosViramNull(): void
@@ -116,9 +119,64 @@ final class UploadPecaUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, $file, 'DEMAIS', '', '', $this->tenant);
+        $resultado = $this->useCase->executar($this->pasta, null, $file, 'DEMAIS', '', '', $this->tenant);
 
         self::assertNull($resultado->getDescricao());
         self::assertNull($resultado->getNumero());
+    }
+
+    public function testUploadComSecaoValidaAssociaDocumentoASecao(): void
+    {
+        $secao = new PastaSecao();
+        $secao->setPasta($this->pasta);
+        $secao->setTenant($this->tenant);
+        $secao->setNome('Documentos do Cliente');
+
+        $file = $this->createMock(UploadedFile::class);
+        $file->method('getMimeType')->willReturn('application/pdf');
+        $file->method('getSize')->willReturn(512);
+        $file->method('getClientOriginalName')->willReturn('doc.pdf');
+
+        $this->storage->method('salvar')->willReturn('doc.pdf');
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, $secao, $file, 'PECA', null, null, $this->tenant);
+
+        self::assertSame($secao, $resultado->getSecao());
+    }
+
+    public function testUploadComSecaoDeTenantErradoLancaAccessDeniedException(): void
+    {
+        $outroTenant = new Tenant();
+        $secao = new PastaSecao();
+        $secao->setPasta($this->pasta);
+        $secao->setTenant($outroTenant);
+
+        $file = $this->createMock(UploadedFile::class);
+
+        $this->storage->expects($this->never())->method('salvar');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(AccessDeniedException::class);
+
+        $this->useCase->executar($this->pasta, $secao, $file, 'PECA', null, null, $this->tenant);
+    }
+
+    public function testUploadComSecaoDeOutraPastaLancaInvalidArgumentException(): void
+    {
+        $outraPasta = new Pasta();
+        $secao = new PastaSecao();
+        $secao->setPasta($outraPasta);
+        $secao->setTenant($this->tenant);
+
+        $file = $this->createMock(UploadedFile::class);
+
+        $this->storage->expects($this->never())->method('salvar');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar($this->pasta, $secao, $file, 'PECA', null, null, $this->tenant);
     }
 }

@@ -6,6 +6,7 @@ namespace App\Tests\Pasta\Unit;
 
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\UseCase\SalvarPecaTextoUseCase;
 use App\Shared\Service\ArquivoStorageInterface;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 #[CoversClass(SalvarPecaTextoUseCase::class)]
 final class SalvarPecaTextoUseCaseTest extends TestCase
@@ -44,7 +46,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, '<p>Conteúdo</p>', 'Petição Inicial', 'PECA', $this->tenant);
+        $resultado = $this->useCase->executar($this->pasta, null, '<p>Conteúdo</p>', 'Petição Inicial', 'PECA', $this->tenant);
 
         self::assertInstanceOf(PastaDocumento::class, $resultado);
         self::assertSame('PETIÇÃO INICIAL', $resultado->getTitulo());
@@ -53,6 +55,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         self::assertSame('abc123.html', $resultado->getCaminhoArquivo());
         self::assertSame('Petição Inicial.html', $resultado->getNomeOriginal());
         self::assertSame($this->pasta, $resultado->getPasta());
+        self::assertNull($resultado->getSecao());
     }
 
     #[TestDox('Tamanho em bytes é calculado com base no conteúdo HTML')]
@@ -64,7 +67,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, $conteudo, 'Título', 'PECA', $this->tenant);
+        $resultado = $this->useCase->executar($this->pasta, null, $conteudo, 'Título', 'PECA', $this->tenant);
 
         self::assertSame(strlen($conteudo), $resultado->getTamanhoBytes());
     }
@@ -77,7 +80,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, '<p>HTML</p>', '', 'PECA', $this->tenant);
+        $this->useCase->executar($this->pasta, null, '<p>HTML</p>', '', 'PECA', $this->tenant);
     }
 
     #[TestDox('Título apenas espaços é tratado como vazio')]
@@ -87,7 +90,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
 
-        $this->useCase->executar($this->pasta, '<p>HTML</p>', '   ', 'PECA', $this->tenant);
+        $this->useCase->executar($this->pasta, null, '<p>HTML</p>', '   ', 'PECA', $this->tenant);
     }
 
     #[TestDox('Categoria diferente é salva corretamente')]
@@ -97,7 +100,7 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->em->method('persist');
         $this->em->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, '<p>Contrato</p>', 'Contrato Social', 'CONTRATO', $this->tenant);
+        $resultado = $this->useCase->executar($this->pasta, null, '<p>Contrato</p>', 'Contrato Social', 'CONTRATO', $this->tenant);
 
         self::assertSame('CONTRATO', $resultado->getCategoria());
     }
@@ -113,8 +116,57 @@ final class SalvarPecaTextoUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('persist');
         $this->em->expects($this->once())->method('flush');
 
-        $resultado = $this->useCase->executar($this->pasta, '', 'Rascunho', 'PECA', $this->tenant);
+        $resultado = $this->useCase->executar($this->pasta, null, '', 'Rascunho', 'PECA', $this->tenant);
 
         self::assertSame(0, $resultado->getTamanhoBytes());
+    }
+
+    #[TestDox('Seção válida é associada ao documento criado')]
+    public function testSalvarTextoComSecaoValidaAssociaDocumentoASecao(): void
+    {
+        $secao = new PastaSecao();
+        $secao->setPasta($this->pasta);
+        $secao->setTenant($this->tenant);
+        $secao->setNome('Petições');
+
+        $this->storage->method('salvarConteudo')->willReturn('doc.html');
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, $secao, '<p>HTML</p>', 'Título', 'PECA', $this->tenant);
+
+        self::assertSame($secao, $resultado->getSecao());
+    }
+
+    #[TestDox('Seção de tenant diferente lança AccessDeniedException')]
+    public function testSalvarTextoComSecaoDeTenantErradoLancaAccessDeniedException(): void
+    {
+        $outroTenant = new Tenant();
+        $secao = new PastaSecao();
+        $secao->setPasta($this->pasta);
+        $secao->setTenant($outroTenant);
+
+        $this->storage->expects($this->never())->method('salvarConteudo');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(AccessDeniedException::class);
+
+        $this->useCase->executar($this->pasta, $secao, '<p>HTML</p>', 'Título', 'PECA', $this->tenant);
+    }
+
+    #[TestDox('Seção de outra pasta lança InvalidArgumentException')]
+    public function testSalvarTextoComSecaoDeOutraPastaLancaInvalidArgumentException(): void
+    {
+        $outraPasta = new Pasta();
+        $secao = new PastaSecao();
+        $secao->setPasta($outraPasta);
+        $secao->setTenant($this->tenant);
+
+        $this->storage->expects($this->never())->method('salvarConteudo');
+        $this->em->expects($this->never())->method('flush');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->useCase->executar($this->pasta, $secao, '<p>HTML</p>', 'Título', 'PECA', $this->tenant);
     }
 }

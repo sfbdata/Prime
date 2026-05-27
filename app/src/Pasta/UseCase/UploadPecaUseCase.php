@@ -6,10 +6,12 @@ namespace App\Pasta\UseCase;
 
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Service\ArquivoStorageInterface;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 
 final class UploadPecaUseCase
 {
@@ -39,12 +41,21 @@ final class UploadPecaUseCase
 
     public function executar(
         Pasta $pasta,
+        ?PastaSecao $secao,
         UploadedFile $file,
         string $categoria,
         ?string $descricao,
         ?string $numero,
         Tenant $tenant,
     ): PastaDocumento {
+        if ($secao !== null && $secao->getTenant() !== $tenant) {
+            throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
+        }
+
+        if ($secao !== null && $secao->getPasta() !== $pasta) {
+            throw new \InvalidArgumentException('Seção não pertence à pasta do documento.');
+        }
+
         $mimeType = $file->getMimeType() ?? '';
 
         if (!array_key_exists($mimeType, self::MIME_LIMITS)) {
@@ -75,6 +86,7 @@ final class UploadPecaUseCase
         $doc->setNomeOriginal($file->getClientOriginalName());
         $doc->setMimeType($mimeType);
         $doc->setTamanhoBytes($tamanho);
+        $doc->setSecao($secao);
 
         $this->em->persist($doc);
         $this->em->flush();

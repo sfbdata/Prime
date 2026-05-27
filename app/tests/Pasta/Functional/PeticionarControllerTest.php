@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PeticionarController;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -69,6 +70,19 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $pasta;
+    }
+
+    private function criarSecao(Pasta $pasta, Tenant $tenant, string $nome = 'Seção Teste'): PastaSecao
+    {
+        $em    = static::getContainer()->get(EntityManagerInterface::class);
+        $secao = new PastaSecao();
+        $secao->setPasta($pasta);
+        $secao->setTenant($tenant);
+        $secao->setNome($nome);
+        $em->persist($secao);
+        $em->flush();
+
+        return $secao;
     }
 
     private function criarDocumentoHtml(Pasta $pasta, Tenant $tenant): PastaDocumento
@@ -159,6 +173,25 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString($pasta->getNup(), (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('GET peticionar renderiza os selects de seção nos dois modais')]
+    public function testGetRetornaSelectsDeSecaoNoTemplate(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->criarSecao($pasta, $tenant, 'Contratos do Cliente');
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('id="uploadSecao"', $html);
+        self::assertStringContainsString('id="textoSecao"', $html);
+        self::assertStringContainsString('name="secao_id"', $html);
+        self::assertStringContainsString('(área geral)', $html);
     }
 
     #[TestDox('GET peticionar de pasta inexistente retorna 404')]
@@ -252,6 +285,67 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         }
     }
 
+    #[TestDox('POST upload com secao_id válido associa o documento à seção')]
+    public function testUploadComSecaoValidaAssociaASecao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $secao           = $this->criarSecao($pasta, $tenant, 'Petições');
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_pdf_');
+        file_put_contents($tmpFile, '%PDF-1.4 dummy');
+        $uploadedFile = new UploadedFile($tmpFile, 'peticao.pdf', 'application/pdf', null, true);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/peticionar/upload",
+            ['_token' => $this->csrf('peticionar_upload_' . $pasta->getId()), 'secao_id' => $secao->getId()],
+            ['arquivo' => $uploadedFile],
+        );
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($data['success']);
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $doc = $em->find(PastaDocumento::class, $data['documento']['id']);
+        self::assertNotNull($doc);
+        self::assertSame($secao->getId(), $doc->getSecao()?->getId());
+
+        @unlink($tmpFile);
+    }
+
+    #[TestDox('POST upload com secao_id de seção inexistente retorna 404')]
+    public function testUploadComSecaoInexistenteRetorna404(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_pdf_');
+        file_put_contents($tmpFile, '%PDF-1.4 dummy');
+        $uploadedFile = new UploadedFile($tmpFile, 'peticao.pdf', 'application/pdf', null, true);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/peticionar/upload",
+            ['_token' => $this->csrf('peticionar_upload_' . $pasta->getId()), 'secao_id' => '99999'],
+            ['arquivo' => $uploadedFile],
+        );
+
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+
+        @unlink($tmpFile);
+    }
+
     // ── POST texto (criar) ─────────────────────────────────────────────────────
 
     #[TestDox('POST texto sem autenticação redireciona para login')]
@@ -321,6 +415,57 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(Response::HTTP_BAD_REQUEST);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($data['success']);
+    }
+
+    #[TestDox('POST texto com secao_id válido associa o documento à seção')]
+    public function testCriarTextoComSecaoValidaAssociaASecao(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $secao           = $this->criarSecao($pasta, $tenant, 'Contratos');
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
+            '_token'    => $this->csrf('peticionar_texto_' . $pasta->getId()),
+            'titulo'    => 'Contrato Social',
+            'categoria' => 'CONTRATO',
+            'conteudo'  => '<p>Conteúdo</p>',
+            'secao_id'  => $secao->getId(),
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($data['success']);
+
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $doc = $em->find(PastaDocumento::class, $data['documento']['id']);
+        self::assertNotNull($doc);
+        self::assertSame($secao->getId(), $doc->getSecao()?->getId());
+    }
+
+    #[TestDox('POST texto com secao_id de seção inexistente retorna 404')]
+    public function testCriarTextoComSecaoInexistenteRetorna404(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
+            '_token'    => $this->csrf('peticionar_texto_' . $pasta->getId()),
+            'titulo'    => 'Petição',
+            'categoria' => 'PECA',
+            'conteudo'  => '<p>HTML</p>',
+            'secao_id'  => '99999',
+        ]);
+
+        self::assertResponseStatusCodeSame(Response::HTTP_NOT_FOUND);
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertFalse($data['success']);
     }
