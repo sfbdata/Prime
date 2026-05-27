@@ -47,6 +47,19 @@ class PastaSecaoRepository extends ServiceEntityRepository
         return ($max === null ? 0 : (int) $max) + 1;
     }
 
+    public function findByIdAndPastaAndTenant(int $id, Pasta $pasta, Tenant $tenant): ?PastaSecao
+    {
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.id = :id')
+            ->andWhere('s.pasta = :pasta')
+            ->andWhere('s.tenant = :tenant')
+            ->setParameter('id', $id)
+            ->setParameter('pasta', $pasta)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     public function salvar(PastaSecao $secao, bool $flush = false): void
     {
         $this->getEntityManager()->persist($secao);

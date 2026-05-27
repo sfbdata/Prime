@@ -9,6 +9,7 @@ use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\DTO\UploadImagemEditorInput;
+use App\Pasta\Repository\PastaSecaoRepository;
 use App\Pasta\UseCase\EditarPecaTextoUseCase;
 use App\Pasta\UseCase\ExportarPecaTextoUseCase;
 use App\Pasta\UseCase\SalvarPecaTextoUseCase;
@@ -33,6 +34,7 @@ final class PeticionarController extends AbstractController
         private readonly EditarPecaTextoUseCase $editarPecaTextoUseCase,
         private readonly ExportarPecaTextoUseCase $exportarPecaTextoUseCase,
         private readonly UploadImagemEditorUseCase $uploadImagemEditorUseCase,
+        private readonly PastaSecaoRepository $pastaSecaoRepository,
         private readonly string $uploadsDir,
     ) {}
 
@@ -56,10 +58,13 @@ final class PeticionarController extends AbstractController
         $primeiroCliente = $pasta->getClientes()->first();
         $nomeCliente     = ($primeiroCliente instanceof Cliente) ? $primeiroCliente->getNomeExibicao() : null;
 
+        $secoes = $tenant !== null ? $this->pastaSecaoRepository->findByPasta($pasta, $tenant) : [];
+
         return $this->render('pasta/peticionar.html.twig', [
             'pasta'           => $pasta,
             'documentos'      => $documentos,
             'nomeCliente'     => $nomeCliente,
+            'secoes'          => $secoes,
             'categoriaLabels' => [
                 PastaDocumento::CATEGORIA_PECA                    => 'Peça',
                 PastaDocumento::CATEGORIA_PROCURACAO              => 'Procuração',
@@ -107,8 +112,17 @@ final class PeticionarController extends AbstractController
         $descricao = trim((string) $request->request->get('descricao', '')) ?: null;
         $numero    = trim((string) $request->request->get('numero', '')) ?: null;
 
+        $secao     = null;
+        $secaoIdRaw = $request->request->get('secao_id');
+        if ($secaoIdRaw !== null && $secaoIdRaw !== '') {
+            $secao = $this->pastaSecaoRepository->findByIdAndPastaAndTenant((int) $secaoIdRaw, $pasta, $tenant);
+            if ($secao === null) {
+                return new JsonResponse(['success' => false, 'error' => 'Seção não encontrada.'], Response::HTTP_NOT_FOUND);
+            }
+        }
+
         try {
-            $doc = $this->uploadPecaUseCase->executar($pasta, $arquivo, $categoria, $descricao, $numero, $tenant);
+            $doc = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
@@ -157,8 +171,17 @@ final class PeticionarController extends AbstractController
         ];
         $categoria = in_array($categoriaRaw, $categoriasValidas, true) ? $categoriaRaw : PastaDocumento::CATEGORIA_PECA;
 
+        $secao     = null;
+        $secaoIdRaw = $request->request->get('secao_id');
+        if ($secaoIdRaw !== null && $secaoIdRaw !== '') {
+            $secao = $this->pastaSecaoRepository->findByIdAndPastaAndTenant((int) $secaoIdRaw, $pasta, $tenant);
+            if ($secao === null) {
+                return new JsonResponse(['success' => false, 'error' => 'Seção não encontrada.'], Response::HTTP_NOT_FOUND);
+            }
+        }
+
         try {
-            $doc = $this->salvarPecaTextoUseCase->executar($pasta, $conteudoHtml, $titulo, $categoria, $tenant);
+            $doc = $this->salvarPecaTextoUseCase->executar($pasta, $secao, $conteudoHtml, $titulo, $categoria, $tenant);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
