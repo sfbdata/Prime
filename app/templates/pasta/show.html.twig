@@ -2697,7 +2697,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function buildSelectOpcoes() {
         let html = '<option value="">Selecione o tipo</option>';
         for (const [valor, texto] of Object.entries(documentTypeOptions)) {
-            html += `<option value="${valor}">${texto}</option>`;
+            html += `<option value="${valor}"${valor === 'DEMAIS' ? ' selected' : ''}>${texto}</option>`;
         }
         return html;
     }
@@ -4295,7 +4295,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function buildOpcoesSecao() {
         let html = '<option value="">Selecione o tipo</option>';
         for (const [v, t] of Object.entries(TIPOS_DOC)) {
-            html += `<option value="${v}">${escapeHtml(t)}</option>`;
+            html += `<option value="${v}"${v === 'DEMAIS' ? ' selected' : ''}>${escapeHtml(t)}</option>`;
         }
         return html;
     }
