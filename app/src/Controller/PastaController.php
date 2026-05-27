@@ -1738,6 +1738,9 @@ class PastaController extends AbstractController
             $grouped[$tipo] = [];
         }
         foreach ($pasta->getDocumentos() as $doc) {
+            if ($doc->getSecao() !== null) {
+                continue;
+            }
             $cat = $doc->getCategoria();
             if (array_key_exists($cat, $grouped)) {
                 $grouped[$cat][] = $doc;
