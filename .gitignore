@@ -56,3 +56,4 @@ HANDOFF_FINAL.md
 
 # Pasta temporária (backups, restore prod→dev, dumps)
 /tmp/
+*:Zone.Identifier
