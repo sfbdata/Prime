@@ -21,11 +21,20 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
 - Pendências (73): 50 nup_repetido (24 NUPs), 14 pasta_vazia, 6 nup_duplo, 2 linha_removida, 1 pasta_equipe.
 - Conferido à mão: litígio (cliente|contraparte|ação), NUP-grudado, cliente-invertido.
 
-### Fase 1 — Import das pastas → mecânica VALIDADA em DEV; produção PENDENTE
+### Fase 1 — Import das pastas → CONCLUÍDA em produção (28/05/2026)
 - `ImportarAcervoCommand` (`app:acervo:importar`): lê CSV (BOM consumido antes do fgetcsv, `;`, enclosure `"`, leitura por nome de coluna), mapeia nup/cliente/ação, insere via `CriarPastaUseCase`. Opções: `--csv --tenant-id --usuario-id --amostra --dry-run --pular-erros`.
 - Testado em DEV: 941 inseridas; idempotência comprovada (reexecução = 0 importadas, 941 puladas, 0 erros).
 - Confirmado: `CriarPastaUseCase` não cria registro em `pasta_documento`; tenant/user resolvidos em CLI via repositório.
 - Falta: rodar em produção (backup feito), `--amostra=20` → conferir no bluejus → lote.
+
+**Produção (28/05/2026):**
+- Branch `deploy/acervo-import` (cherry-pick de 4 commits sobre master) deployada via `scripts/deploy-prod-tls.sh`.
+- Backup pré-carga: `/var/backups/jusprime/jusprime_20260528_205704.tar.gz`.
+- Sequência: dry-run amostra=20 → conferido vazio no DB (rollback OK) → import amostra=20 (20 importadas) → conferência visual no bluejus (Dr. Farlei OK) → lote completo.
+- Resultado: **941 processadas / 921 importadas / 20 puladas / 0 erros** (idempotência cobriu o overlap das 20 da amostra).
+- Backup pós-carga: `/var/backups/jusprime/jusprime_20260528_211913.tar.gz`.
+- Achado colateral (NÃO escopo desta frente): página de listagem de pastas no bluejus não tem paginação — todas as 941 carregam de uma vez. Pendência de UX, frente própria.
+
 
 ### Review — commit 5511918 (feature-review-agent, 28/05/2026)
 
@@ -95,8 +104,8 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
   Regra violada nos 4 commits paralelos (3641e9e, 8bdfa3c, 65ae6da, 770644f) —
   esta atualização é débito retroativo via commit `docs()` separado. Corrigir
   prospectivamente.
-- [ ] Testar os 4 fixes em DEV (dry-run via transação, amostra, reconciliação, log PII) antes do cherry-pick para prod.
-- [ ] Import em produção (amostra 20 → lote → smoke no bluejus).
+- [x] ~~Testar os 4 fixes em DEV~~ — validados em 28/05/2026 (fix 2, 4, 6 em runtime; fix 1, 3 por inspeção).
+- [x] ~~Import em produção~~ — concluído em 28/05/2026 (ver Fase 1).
 - [ ] Tratar manualmente as 82 pastas (9 revisão + 73 pendências).
 - [ ] Decisão sobre o repo público.
 
