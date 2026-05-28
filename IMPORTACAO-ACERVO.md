@@ -27,6 +27,20 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
 - Confirmado: `CriarPastaUseCase` não cria registro em `pasta_documento`; tenant/user resolvidos em CLI via repositório.
 - Falta: rodar em produção (backup feito), `--amostra=20` → conferir no bluejus → lote.
 
+### Review — commit 5511918 (feature-review-agent, 28/05/2026)
+
+6 achados: 2 críticos, 2 altos, 2 médios.
+
+**Corrigidos no commit 0b08483:**
+- **CRÍTICO 1 — EM fechado cascateia:** com `--pular-erros`, o loop continuava após erro grave que fecha o EntityManager; todas as linhas seguintes falhavam. Fix: `isOpen()` no `catch` aborta o import imediatamente, independente de `--pular-erros`.
+- **CRÍTICO 2 — dry-run não exercitava persistência:** `--dry-run` pulava o UseCase e reportava "Importadas: N" sem tocar Doctrine ou DB. Fix: dry-run persiste via transação revertida (`beginTransaction → executar → rollBack`); resumo mostra "Simuladas". Gate "amostra → conferir → lote" agora válido.
+- **MÉDIO 5 — reconciliação ausente:** loop encerrava sem detectar falha silenciosa de `fgetcsv` antes do EOF. Fix: `feof()` pós-loop; FAILURE com detalhes se o arquivo não foi lido até o fim.
+- **MÉDIO 6 — PII no log do dry-run:** nome de cliente e ação apareciam no scrollback/docker logs. Fix: log exibe apenas linha+NUP.
+
+**Dívidas aceitas (decisão consciente, sem correção):**
+- **ALTO 3 — `--usuario-id` sem validação de pertencimento ao tenant:** aceito para operação manual com supervisão direta, 1 tenant em prod, IDs conhecidos. Mitigação: operador confirma IDs reais antes de executar em prod.
+- **ALTO 4 — `findOneBy(['nup'])` sem filtro de tenant; UNIQUE global no schema:** idem entrada em "Riscos conhecidos". Aceito com 1 tenant em prod; torna-se bloqueante ao entrar 2º tenant.
+
 ### Fase 2 — Cópia dos ~20GB → NÃO INICIADA
 - Acesso ao Drive hoje via link compartilhado (frágil para 20GB).
 - Barra fullwidth `／` no nome original importa para o path.
@@ -81,6 +95,7 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
   Regra violada nos 4 commits paralelos (3641e9e, 8bdfa3c, 65ae6da, 770644f) —
   esta atualização é débito retroativo via commit `docs()` separado. Corrigir
   prospectivamente.
+- [ ] Testar os 4 fixes em DEV (dry-run via transação, amostra, reconciliação, log PII) antes do cherry-pick para prod.
 - [ ] Import em produção (amostra 20 → lote → smoke no bluejus).
 - [ ] Tratar manualmente as 82 pastas (9 revisão + 73 pendências).
 - [ ] Decisão sobre o repo público.
