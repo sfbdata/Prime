@@ -87,7 +87,8 @@ final class ImportarAcervoCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io = new SymfonyStyle($input, $output);
+        $io   = new SymfonyStyle($input, $output);
+        $conn = $this->em->getConnection();
 
         $csvPath    = $input->getOption('csv');
         $tenantId   = $input->getOption('tenant-id');
@@ -97,6 +98,8 @@ final class ImportarAcervoCommand extends Command
         $pularErros = (bool) $input->getOption('pular-erros');
 
         // --- 1. Validação antecipada de todos os parâmetros ---
+        // Nenhum dos returns abaixo precisa de rollback: a transação dry-run
+        // só abre DEPOIS destas validações.
 
         if ($csvPath === null) {
             $io->error('--csv é obrigatório.');
@@ -139,7 +142,8 @@ final class ImportarAcervoCommand extends Command
         // --- Avisos de modo ---
 
         if ($dryRun) {
-            $io->note('Modo dry-run — nenhuma linha será persistida.');
+            $io->note('[DRY-RUN] Validando contra DB, nada será persistido.');
+            $conn->beginTransaction(); // transação revertida no fim ou em qualquer early return abaixo
         }
 
         if ($amostra > 0) {
@@ -150,6 +154,9 @@ final class ImportarAcervoCommand extends Command
 
         $handle = fopen($csvPath, 'r');
         if ($handle === false) {
+            if ($dryRun && $conn->isTransactionActive()) {
+                $conn->rollBack();
+            }
             $io->error(sprintf('Não foi possível abrir o CSV: %s', $csvPath));
 
             return Command::FAILURE;
@@ -165,6 +172,9 @@ final class ImportarAcervoCommand extends Command
         /** @var list<string>|false $cabecalho */
         $cabecalho = fgetcsv($handle, 0, ';', '"');
         if ($cabecalho === false) {
+            if ($dryRun && $conn->isTransactionActive()) {
+                $conn->rollBack();
+            }
             fclose($handle);
             $io->error('CSV vazio — nenhuma linha de cabeçalho encontrada.');
 
@@ -177,6 +187,9 @@ final class ImportarAcervoCommand extends Command
         $colIdx = array_flip($cabecalho);
         foreach (self::COLUNAS_OBRIGATORIAS as $col) {
             if (!isset($colIdx[$col])) {
+                if ($dryRun && $conn->isTransactionActive()) {
+                    $conn->rollBack();
+                }
                 fclose($handle);
                 $io->error(sprintf(
                     'Coluna "%s" não encontrada no CSV. Colunas detectadas: %s',
@@ -190,10 +203,12 @@ final class ImportarAcervoCommand extends Command
 
         // --- 3. Processar linhas ---
 
-        $importadas = 0;
-        $puladas    = 0;
-        $erros      = 0;
-        $linhaCSV   = 1; // cabeçalho foi a linha 1
+        $importadas        = 0;
+        $puladas           = 0;
+        $erros             = 0;
+        $linhaCSV          = 1; // cabeçalho foi a linha 1
+        $linhasProcessadas = 0;
+        $abortouPorAmostra = false;
 
         /** @var list<string>|false $row */
         while (($row = fgetcsv($handle, 0, ';', '"')) !== false) {
@@ -201,8 +216,11 @@ final class ImportarAcervoCommand extends Command
             $linhadeDados = $linhaCSV - 1; // 1-indexed dentro dos dados
 
             if ($amostra > 0 && $linhadeDados > $amostra) {
+                $abortouPorAmostra = true;
                 break;
             }
+
+            $linhasProcessadas++;
 
             $nup     = trim($row[$colIdx['nup']] ?? '');
             $cliente = trim($row[$colIdx['cliente']] ?? '');
@@ -214,20 +232,11 @@ final class ImportarAcervoCommand extends Command
                 nomeAcao: $acao !== '' ? $acao : null,
             );
 
-            if ($dryRun) {
-                $io->writeln(sprintf(
-                    '  [dry-run] #%d NUP=<info>%s</info> | Cliente=%s | Ação=%s',
-                    $linhadeDados,
-                    $nup,
-                    $cliente ?: '<comment>(vazio)</comment>',
-                    $acao ?: '<comment>(vazio)</comment>',
-                ));
-                $importadas++;
-                continue;
-            }
-
             try {
                 $this->useCase->executar($dto, $usuario, $tenant);
+                if ($dryRun) {
+                    $io->writeln(sprintf('  [dry-run] #%d NUP=<info>%s</info>', $linhadeDados, $nup));
+                }
                 $importadas++;
             } catch (\InvalidArgumentException $e) {
                 // NUP duplicado ou NUP vazio — sempre pula, independente de --pular-erros
@@ -247,7 +256,25 @@ final class ImportarAcervoCommand extends Command
                     $e->getMessage(),
                 ));
 
+                if (!$this->em->isOpen()) {
+                    if ($dryRun && $conn->isTransactionActive()) {
+                        $conn->rollBack();
+                    }
+                    fclose($handle);
+                    $io->error(sprintf(
+                        'EntityManager fechado após erro na linha %d — o banco encerrou a sessão (erro grave de BD). '
+                        . 'Import abortado independentemente de --pular-erros.',
+                        $linhaCSV,
+                    ));
+                    $this->exibirResumo($io, $importadas, $puladas, $erros, $dryRun);
+
+                    return Command::FAILURE;
+                }
+
                 if (!$pularErros) {
+                    if ($dryRun && $conn->isTransactionActive()) {
+                        $conn->rollBack();
+                    }
                     fclose($handle);
                     $io->error(sprintf(
                         'Import interrompido na linha %d. Use --pular-erros para continuar em erros inesperados.',
@@ -258,6 +285,29 @@ final class ImportarAcervoCommand extends Command
                     return Command::FAILURE;
                 }
             }
+        }
+
+        // Desfaz a transação de validação do dry-run antes de qualquer saída final
+        if ($dryRun && $conn->isTransactionActive()) {
+            $conn->rollBack();
+        }
+
+        // Reconciliação: detecta fgetcsv que interrompeu silenciosamente antes do EOF
+        if (!$abortouPorAmostra && !feof($handle)) {
+            fclose($handle);
+            $io->error(sprintf(
+                'Reconciliação falhou: fgetcsv interrompeu antes do fim do arquivo na linha CSV %d '
+                . '(%d linhas processadas, importadas=%d puladas=%d erros=%d). '
+                . 'Possível arquivo corrompido ou erro de leitura.',
+                $linhaCSV + 1,
+                $linhasProcessadas,
+                $importadas,
+                $puladas,
+                $erros,
+            ));
+            $this->exibirResumo($io, $importadas, $puladas, $erros, $dryRun);
+
+            return Command::FAILURE;
         }
 
         fclose($handle);
@@ -282,7 +332,7 @@ final class ImportarAcervoCommand extends Command
             ['Métrica', 'Linhas'],
             [
                 ['Processadas', $importadas + $puladas + $erros],
-                ['Importadas', $importadas],
+                [$dryRun ? 'Simuladas' : 'Importadas', $importadas],
                 ['Puladas (NUP já existe)', $puladas],
                 ['Erros inesperados', $erros],
             ],
