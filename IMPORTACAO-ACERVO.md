@@ -17,11 +17,20 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
 - Pendências (73): 50 nup_repetido (24 NUPs), 14 pasta_vazia, 6 nup_duplo, 2 linha_removida, 1 pasta_equipe.
 - Conferido à mão: litígio (cliente|contraparte|ação), NUP-grudado, cliente-invertido.
 
-### Fase 1 — Import das pastas → mecânica VALIDADA em DEV; produção PENDENTE
+### Fase 1 — Import das pastas → CONCLUÍDA em produção (28/05/2026)
 - `ImportarAcervoCommand` (`app:acervo:importar`): lê CSV (BOM consumido antes do fgetcsv, `;`, enclosure `"`, leitura por nome de coluna), mapeia nup/cliente/ação, insere via `CriarPastaUseCase`. Opções: `--csv --tenant-id --usuario-id --amostra --dry-run --pular-erros`.
 - Testado em DEV: 941 inseridas; idempotência comprovada (reexecução = 0 importadas, 941 puladas, 0 erros).
 - Confirmado: `CriarPastaUseCase` não cria registro em `pasta_documento`; tenant/user resolvidos em CLI via repositório.
 - Falta: rodar em produção (backup feito), `--amostra=20` → conferir no bluejus → lote.
+
+**Produção (28/05/2026):**
+- Branch `deploy/acervo-import` (cherry-pick de 4 commits sobre master) deployada via `scripts/deploy-prod-tls.sh`.
+- Backup pré-carga: `/var/backups/jusprime/jusprime_20260528_205704.tar.gz`.
+- Sequência: dry-run amostra=20 → conferido vazio no DB (rollback OK) → import amostra=20 (20 importadas) → conferência visual no bluejus (Dr. Farlei OK) → lote completo.
+- Resultado: **941 processadas / 921 importadas / 20 puladas / 0 erros** (idempotência cobriu o overlap das 20 da amostra).
+- Backup pós-carga: `/var/backups/jusprime/jusprime_20260528_211913.tar.gz`.
+- Achado colateral (NÃO escopo desta frente): página de listagem de pastas no bluejus não tem paginação — todas as 941 carregam de uma vez. Pendência de UX, frente própria.
+
 
 ### Review — commit 5511918 (feature-review-agent, 28/05/2026)
 
@@ -43,6 +52,7 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
 
 ### Fase 3 — Organização dos documentos → NÃO INICIADA
 - Nota: o sistema já tem `PastaSecao` (seções estruturais com FK secao_id).
+  (upload + editor), validando o modelo antes da fase de organização massiva.
 
 ## Decisões arquiteturais
 - Extração por `rclone` (fiel, sem reinterpretar encoding).
@@ -55,13 +65,15 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
 - CSVs NÃO commitados (repo público + PII) → transferir à VPS por scp/docker cp.
 
 ## Riscos conhecidos
+- **Branch mista (importação + commits paralelos de pasta):** merge direto para `master`
+  entrega tudo junto. Separar em PRs distintos antes do merge.
 - Repositório PÚBLICO (SaaS jurídico). Acervo .txt confirmado NÃO vazado (untracked, movido p/ `tmp/acervo/`). Repo público = risco de governança em aberto.
 - Unique constraint de NUP é GLOBAL, não `(nup, tenant_id)` — bloqueará import de um 2º escritório. Dívida técnica registrada.
 - Acesso Drive por link compartilhado frágil para Fase 2.
 - Command loga 941 linhas `[pulada]` na reexecução — ruído; resumir no futuro.
-
 ## Pendências
-- [ ] Import em produção (amostra 20 → lote → smoke no bluejus).
+- [x] ~~Testar os 4 fixes em DEV~~ — validados em 28/05/2026 (fix 2, 4, 6 em runtime; fix 1, 3 por inspeção).
+- [x] ~~Import em produção~~ — concluído em 28/05/2026 (ver Fase 1).
 - [ ] Tratar manualmente as 82 pastas (9 revisão + 73 pendências).
 - [ ] Decisão sobre o repo público.
 
