@@ -3,6 +3,10 @@
 Documento-mãe da frente de importação do acervo. Branch: `import/acervo-pastas`.
 Atualizar no mesmo commit da mudança que descreve.
 
+> **Atenção — branch mista:** além dos commits de importação, esta branch contém
+> commits paralelos de pasta/peticionar (ver seção "Commits paralelos" abaixo).
+> O merge para `master` exige cherry-pick ou PR separado para cada frente.
+
 ## Objetivo
 Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arquivos) do Google Drive para o jusprime, em 4 fases. Dado real em produção (bluejus) → tratado como risco MÉDIO/ALTO.
 
@@ -29,6 +33,8 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
 
 ### Fase 3 — Organização dos documentos → NÃO INICIADA
 - Nota: o sistema já tem `PastaSecao` (seções estruturais com FK secao_id).
+  O commit 8bdfa3c (frente paralela) já usa essa infraestrutura no peticionar
+  (upload + editor), validando o modelo antes da fase de organização massiva.
 
 ## Decisões arquiteturais
 - Extração por `rclone` (fiel, sem reinterpretar encoding).
@@ -41,13 +47,40 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
 - CSVs NÃO commitados (repo público + PII) → transferir à VPS por scp/docker cp.
 
 ## Riscos conhecidos
+- **Branch mista (importação + commits paralelos de pasta):** merge direto para `master`
+  entrega tudo junto. Separar em PRs distintos antes do merge.
 - Repositório PÚBLICO (SaaS jurídico). Acervo .txt confirmado NÃO vazado (untracked, movido p/ `tmp/acervo/`). Repo público = risco de governança em aberto.
 - Unique constraint de NUP é GLOBAL, não `(nup, tenant_id)` — bloqueará import de um 2º escritório. Dívida técnica registrada.
 - Acesso Drive por link compartilhado frágil para Fase 2.
 - Command loga 941 linhas `[pulada]` na reexecução — ruído; resumir no futuro.
+- **Lacuna de tenant em UseCases legados de pasta (defesa em profundidade):** ver
+  `REFATORACAO-DOMINIOS.md` (pendência registrada lá). O fluxo do peticionar
+  (upload + editor) foi parcialmente fechado em 8bdfa3c.
+
+## Commits paralelos nesta branch (fora da frente de importação)
+
+- **3641e9e** `feat(pasta): pre-seleciona Demais Documentos no upload`
+  `app/templates/pasta/show.html.twig` — funções JS `buildSelectOpcoes()` e
+  `buildOpcoesSecao()` passam `selected` quando `valor === 'DEMAIS'`.
+
+- **8bdfa3c** `feat(peticionar): adiciona selecao de secao no upload e editor`
+  Permite associar documento a uma `PastaSecao` ao fazer upload ou criar texto
+  no peticionar. Inclui `findByIdAndPastaAndTenant()` no repositório e validação
+  de tenant em `UploadPecaUseCase` + `SalvarPecaTextoUseCase`.
+
+- **65ae6da** `fix(pasta): remove duplicacao visual de doc com secao em geral`
+  `PastaController` (agrupamento): documentos com `secao != null` são omitidos da
+  área "Documentação Geral". Teste funcional em `PastaShowDocumentosControllerTest`.
+
+- **770644f** `chore: remove sidecars :Zone.Identifier e ignora o padrão`
+  Housekeeping: remove arquivos `*:Zone.Identifier` gerados pelo Windows/WSL e
+  adiciona o padrão ao `.gitignore`.
 
 ## Pendências
-- [ ] Commitar este doc em `import/acervo-pastas`.
+- [ ] Manter este doc atualizado NO MESMO commit das mudanças que descreve.
+  Regra violada nos 4 commits paralelos (3641e9e, 8bdfa3c, 65ae6da, 770644f) —
+  esta atualização é débito retroativo via commit `docs()` separado. Corrigir
+  prospectivamente.
 - [ ] Import em produção (amostra 20 → lote → smoke no bluejus).
 - [ ] Tratar manualmente as 82 pastas (9 revisão + 73 pendências).
 - [ ] Decisão sobre o repo público.
