@@ -71,6 +71,23 @@ Importar o acervo real do escritório do Dr. Farlei (1023 pastas + ~20GB de arqu
 - Unique constraint de NUP é GLOBAL, não `(nup, tenant_id)` — bloqueará import de um 2º escritório. Dívida técnica registrada.
 - Acesso Drive por link compartilhado frágil para Fase 2.
 - Command loga 941 linhas `[pulada]` na reexecução — ruído; resumir no futuro.
+## Frente Upload em Massa
+
+**O que esta frente faz:**
+Amplia os MIME types aceitos no `UploadPecaUseCase` (`MIME_LIMITS`) para suportar os tipos reais do acervo do Drive (~15 GB, ~30k arquivos). Sobe os limites de infra (PHP e nginx) para que arquivos maiores cheguem ao Symfony sem bloqueio prévio.
+
+Tipos adicionados: `text/plain` (5 MB), `application/zip` (50 MB), `application/pkcs7-signature` (5 MB), `audio/opus` (50 MB).
+Limites PHP: `upload_max_filesize 15M → 65M`, `post_max_size 20M → 70M` (`Dockerfile`).
+Limites nginx: `client_max_body_size 55m → 70m` (`nginx.conf`, `nginx.prod.conf`).
+
+**Dívida técnica amplificada (pré-existente, não criada aqui):**
+Três endpoints do sistema não têm validação própria de MIME type nem de tamanho de arquivo:
+- Kanban — `AdicionarAnexoUseCase` (`app/src/Kanban/UseCase/AdicionarAnexoUseCase.php:23`)
+- Tarefa mensagens — `TarefaController::uploadFiles` (`app/src/Controller/TarefaController.php:349`)
+- ServiceDesk — `ServiceDeskController::processarAnexos` (`app/src/Controller/ServiceDeskController.php`)
+
+Antes desta frente esses endpoints eram implicitamente bloqueados pelo limite de 15 MB do PHP. Com o limite subindo para 65 MB, eles passam a aceitar qualquer tipo de arquivo e qualquer tamanho até 65 MB. O risco é pré-existente e fica amplificado. Frente separada necessária para adicionar validação nesses três pontos.
+
 ## Pendências
 - [x] ~~Testar os 4 fixes em DEV~~ — validados em 28/05/2026 (fix 2, 4, 6 em runtime; fix 1, 3 por inspeção).
 - [x] ~~Import em produção~~ — concluído em 28/05/2026 (ver Fase 1).

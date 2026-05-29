@@ -179,4 +179,72 @@ final class UploadPecaUseCaseTest extends TestCase
 
         $this->useCase->executar($this->pasta, $secao, $file, 'PECA', null, null, $this->tenant);
     }
+
+    public function testTextPlainEAceito(): void
+    {
+        $file = $this->createMock(UploadedFile::class);
+        $file->method('getMimeType')->willReturn('text/plain');
+        $file->method('getSize')->willReturn(1 * 1024 * 1024);
+        $file->method('getClientOriginalName')->willReturn('nota.txt');
+
+        $this->storage->method('salvar')->willReturn('nota.txt');
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $file, 'DEMAIS', null, null, $this->tenant);
+
+        self::assertInstanceOf(PastaDocumento::class, $resultado);
+        self::assertSame('text/plain', $resultado->getMimeType());
+    }
+
+    public function testApplicationZipEAceito(): void
+    {
+        $file = $this->createMock(UploadedFile::class);
+        $file->method('getMimeType')->willReturn('application/zip');
+        $file->method('getSize')->willReturn(10 * 1024 * 1024);
+        $file->method('getClientOriginalName')->willReturn('acervo.zip');
+
+        $this->storage->method('salvar')->willReturn('acervo.zip');
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $file, 'DEMAIS', null, null, $this->tenant);
+
+        self::assertInstanceOf(PastaDocumento::class, $resultado);
+        self::assertSame('application/zip', $resultado->getMimeType());
+    }
+
+    public function testPkcs7SignatureEAceito(): void
+    {
+        $file = $this->createMock(UploadedFile::class);
+        $file->method('getMimeType')->willReturn('application/pkcs7-signature');
+        $file->method('getSize')->willReturn(50 * 1024);
+        $file->method('getClientOriginalName')->willReturn('assinatura.p7s');
+
+        $this->storage->method('salvar')->willReturn('assinatura.p7s');
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $file, 'DEMAIS', null, null, $this->tenant);
+
+        self::assertInstanceOf(PastaDocumento::class, $resultado);
+        self::assertSame('application/pkcs7-signature', $resultado->getMimeType());
+    }
+
+    public function testAudioOpusEAceito(): void
+    {
+        $file = $this->createMock(UploadedFile::class);
+        $file->method('getMimeType')->willReturn('audio/opus');
+        $file->method('getSize')->willReturn(5 * 1024 * 1024);
+        $file->method('getClientOriginalName')->willReturn('gravacao.opus');
+
+        $this->storage->method('salvar')->willReturn('gravacao.opus');
+        $this->em->method('persist');
+        $this->em->method('flush');
+
+        $resultado = $this->useCase->executar($this->pasta, null, $file, 'DEMAIS', null, null, $this->tenant);
+
+        self::assertInstanceOf(PastaDocumento::class, $resultado);
+        self::assertSame('audio/opus', $resultado->getMimeType());
+    }
 }

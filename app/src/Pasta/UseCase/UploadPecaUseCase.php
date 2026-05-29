@@ -31,6 +31,10 @@ final class UploadPecaUseCase
         'audio/mp4'                                                                          => 10 * 1024 * 1024,
         'video/mp4'                                                                          => 50 * 1024 * 1024,
         'video/quicktime'                                                                    => 50 * 1024 * 1024,
+        'text/plain'                                                                         => 5 * 1024 * 1024,
+        'application/zip'                                                                    => 50 * 1024 * 1024,
+        'application/pkcs7-signature'                                                        => 5 * 1024 * 1024,
+        'audio/opus'                                                                         => 50 * 1024 * 1024,
     ];
 
     public function __construct(
