@@ -289,15 +289,14 @@
 
 /* ── Botão de toggle da sidebar ───────────────────────────────── */
 .expediente-sidebar-toggle-btn {
-    position: absolute;
-    right: -13px;
-    top: 50%;
-    transform: translateY(-50%);
+    position: sticky;
+    top: 500px; /* posição vertical sticky ajustada visualmente — não é cálculo geométrico */
+    margin-left: calc(100% - 13px); /* mantém o botão na borda direita com sidebar expandida e retraída */
     z-index: 20;
     width: 26px;
     height: 26px;
-    background: #fff;
-    border: 1px solid #dee2e6;
+    background: #0069a0;
+    border: none;
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -305,14 +304,14 @@
     cursor: pointer;
     box-shadow: 0 1px 4px rgba(0,0,0,0.10);
     transition: background 0.15s, box-shadow 0.15s;
-    color: #6c757d;
+    color: #fff;
     font-size: 0.7rem;
     padding: 0;
 }
 
 .expediente-sidebar-toggle-btn:hover {
-    background: #e9ecef;
-    color: #212529;
+    background: #005580;
+    color: #fff;
     box-shadow: 0 2px 6px rgba(0,0,0,0.14);
 }
 
