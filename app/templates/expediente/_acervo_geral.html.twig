@@ -7,7 +7,9 @@
         </button>
     </div>
 
+    {{ include('expediente/_paginacao.html.twig') }}
     {{ include('pasta/_tabela.html.twig') }}
+    {{ include('expediente/_paginacao.html.twig') }}
 </div>
 
 <script>
@@ -20,7 +22,10 @@
         painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.text(); })
-            .then(function (html) { painel.innerHTML = html; })
+            .then(function (html) {
+                painel.innerHTML = html;
+                painel.scrollIntoView({ block: 'start' });
+            })
             .catch(function () {
                 painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
             });
@@ -29,6 +34,15 @@
     form.addEventListener('submit', function (e) {
         e.preventDefault();
         carregarComFiltros(form.action + '?' + new URLSearchParams(new FormData(form)).toString());
+    });
+
+    painel.addEventListener('click', function (e) {
+        var btn = e.target.closest('.btn-pagina');
+        if (!btn) return;
+        e.preventDefault();
+        var params = new URLSearchParams(new FormData(form));
+        params.set('page', btn.dataset.page);
+        carregarComFiltros(form.action + '?' + params.toString());
     });
 })();
 </script>

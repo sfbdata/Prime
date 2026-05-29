@@ -26,6 +26,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class ExpedienteController extends AbstractController
 {
+    private const PER_PAGE = 25;
+
     public function __construct(
         private readonly PastaRepository $pastaRepository,
         private readonly UserRepository $userRepository,
@@ -177,9 +179,19 @@ final class ExpedienteController extends AbstractController
             'acao'        => $request->query->get('acao', ''),
         ];
         $hasFilters = array_filter($filters, fn($v) => $v !== '');
-        $pastas     = $hasFilters
-            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant)
-            : $this->pastaRepository->findPorMarcador($marcador, $tenant);
+
+        $page = max(1, $request->query->getInt('page', 1));
+
+        $totalItems = $hasFilters
+            ? $this->pastaRepository->countByFiltrosEMarcador($filters, $marcador, $tenant)
+            : $this->pastaRepository->countPorMarcador($marcador, $tenant);
+
+        $totalPages = max(1, (int) ceil($totalItems / self::PER_PAGE));
+        $page       = min($page, $totalPages);
+
+        $pastas = $hasFilters
+            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, self::PER_PAGE)
+            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, self::PER_PAGE);
 
         $urlPainel = $this->generateUrl('expediente_marcador_pastas', ['id' => $id]);
 
@@ -191,6 +203,12 @@ final class ExpedienteController extends AbstractController
             'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
             'formAction'   => $urlPainel,
             'limparUrl'    => $urlPainel,
+            'pagination'   => [
+                'current_page' => $page,
+                'per_page'     => self::PER_PAGE,
+                'total_items'  => $totalItems,
+                'total_pages'  => $totalPages,
+            ],
         ]);
     }
 
@@ -244,15 +262,25 @@ final class ExpedienteController extends AbstractController
             'acao'        => $request->query->get('acao', ''),
         ];
 
-        $hasFilters = array_filter($filters, fn($v) => $v !== '');
+        $page = max(1, $request->query->getInt('page', 1));
+
+        $totalItems = $this->pastaRepository->countByFilters($filters, $tenant);
+        $totalPages = max(1, (int) ceil($totalItems / self::PER_PAGE));
+        $page       = min($page, $totalPages);
 
         return $this->render('expediente/_acervo_geral.html.twig', [
-            'pastas'       => $hasFilters ? $this->pastaRepository->findByFilters($filters, $tenant) : $this->pastaRepository->findByFilters([], $tenant),
+            'pastas'       => $this->pastaRepository->findByFilters($filters, $tenant, $page, self::PER_PAGE),
             'filters'      => $filters,
             'nups'         => $this->pastaRepository->findAllNups($tenant),
             'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
             'formAction'   => $this->generateUrl('expediente_acervo_geral'),
             'limparUrl'    => $this->generateUrl('expediente_acervo_geral'),
+            'pagination'   => [
+                'current_page' => $page,
+                'per_page'     => self::PER_PAGE,
+                'total_items'  => $totalItems,
+                'total_pages'  => $totalPages,
+            ],
         ]);
     }
 

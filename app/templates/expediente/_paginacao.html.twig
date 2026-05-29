@@ -1,0 +1,46 @@
+{% if pagination.total_pages > 1 %}
+    {% set win = 3 %}
+    {% set start = max(1, pagination.current_page - win) %}
+    {% set end   = min(pagination.total_pages, pagination.current_page + win) %}
+
+    <nav aria-label="Paginação" class="d-flex align-items-center my-2">
+        <ul class="pagination pagination-sm mb-0">
+
+            <li class="page-item {{ pagination.current_page <= 1 ? 'disabled' : '' }}">
+                <button type="button"
+                        class="page-link btn-pagina"
+                        data-page="{{ pagination.current_page - 1 }}"
+                        aria-label="Página anterior"
+                        {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
+                    &lsaquo;
+                </button>
+            </li>
+
+            {% for p in start..end %}
+                <li class="page-item {{ p == pagination.current_page ? 'active' : '' }}">
+                    <button type="button"
+                            class="page-link btn-pagina"
+                            data-page="{{ p }}"
+                            aria-label="Página {{ p }}"
+                            {% if p == pagination.current_page %}aria-current="page"{% endif %}>
+                        {{ p }}
+                    </button>
+                </li>
+            {% endfor %}
+
+            <li class="page-item {{ pagination.current_page >= pagination.total_pages ? 'disabled' : '' }}">
+                <button type="button"
+                        class="page-link btn-pagina"
+                        data-page="{{ pagination.current_page + 1 }}"
+                        aria-label="Próxima página"
+                        {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
+                    &rsaquo;
+                </button>
+            </li>
+
+        </ul>
+        <small class="text-muted ms-2">
+            {{ pagination.total_items }} resultado{{ pagination.total_items != 1 ? 's' : '' }}
+        </small>
+    </nav>
+{% endif %}

@@ -11,6 +11,7 @@ use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -27,50 +28,35 @@ class PastaRepository extends ServiceEntityRepository
      * @param array<string, string> $filters
      * @return Pasta[]
      */
-    public function findByFilters(array $filters, Tenant $tenant): array
-    {
-        $qb = $this->createQueryBuilder('p')
-            ->andWhere('p.tenant = :tenant')
-            ->setParameter('tenant', $tenant);
-
-        if (!empty($filters['nup'])) {
-            $qb->andWhere('p.nup LIKE :nup')
-               ->setParameter('nup', '%' . $filters['nup'] . '%');
-        }
-
-        if (!empty($filters['status'])) {
-            $qb->andWhere('p.situacao = :status')
-               ->setParameter('status', $filters['status']);
-        }
-
-        if (!empty($filters['responsavel'])) {
-            $qb->join('p.responsavel', 'r')
-               ->andWhere('r.id = :responsavel')
-               ->setParameter('responsavel', (int) $filters['responsavel']);
-        }
+    public function findByFilters(
+        array $filters,
+        Tenant $tenant,
+        int $page = 1,
+        int $perPage = 25
+    ): array {
+        $qb = $this->buildQbByFilters($filters, $tenant);
 
         if (!empty($filters['cliente'])) {
-            $qb->leftJoin('p.clientes', 'c_cli')
-               ->leftJoin(ClientePF::class, 'cpf', 'WITH', 'cpf.id = c_cli.id')
-               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
-               ->andWhere(
-                   $qb->expr()->orX(
-                       'LOWER(cpf.nomeCompleto) LIKE :cliente',
-                       'LOWER(cpj.razaoSocial) LIKE :cliente',
-                       'LOWER(p.nomeCliente) LIKE :cliente',
-                   )
-               )
-               ->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%')
-               ->addGroupBy('p.id');
+            $qb->addGroupBy('p.id');
         }
 
-        if (!empty($filters['acao'])) {
-            $qb->leftJoin('p.processo', 'proc')
-               ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
-               ->setParameter('acao', '%' . $filters['acao'] . '%');
-        }
+        return $qb
+            ->orderBy('p.id', 'DESC')
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage)
+            ->getQuery()
+            ->getResult();
+    }
 
-        return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
+    /**
+     * @param array<string, string> $filters
+     */
+    public function countByFilters(array $filters, Tenant $tenant): int
+    {
+        return (int) $this->buildQbByFilters($filters, $tenant)
+            ->select('COUNT(DISTINCT p.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /**
@@ -108,70 +94,65 @@ class PastaRepository extends ServiceEntityRepository
     /**
      * @return Pasta[]
      */
-    public function findPorMarcador(Marcador $marcador, Tenant $tenant): array
-    {
-        return $this->createQueryBuilder('p')
-            ->join('p.marcadores', 'm')
-            ->where('m = :marcador')
-            ->setParameter('marcador', $marcador)
-            ->andWhere('p.tenant = :tenant')
-            ->setParameter('tenant', $tenant)
+    public function findPorMarcador(
+        Marcador $marcador,
+        Tenant $tenant,
+        int $page = 1,
+        int $perPage = 25
+    ): array {
+        return $this->buildQbPorMarcador([], $marcador, $tenant)
             ->orderBy('p.id', 'DESC')
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage)
             ->getQuery()
             ->getResult();
+    }
+
+    public function countPorMarcador(Marcador $marcador, Tenant $tenant): int
+    {
+        return (int) $this->buildQbPorMarcador([], $marcador, $tenant)
+            ->select('COUNT(DISTINCT p.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /**
      * @param array<string, string> $filters
      * @return Pasta[]
      */
-    public function findByFiltrosEMarcador(array $filters, Marcador $marcador, Tenant $tenant): array
-    {
-        $qb = $this->createQueryBuilder('p')
-            ->join('p.marcadores', 'm')
-            ->where('m = :marcador')
-            ->setParameter('marcador', $marcador)
-            ->andWhere('p.tenant = :tenant')
-            ->setParameter('tenant', $tenant);
-
-        if (!empty($filters['nup'])) {
-            $qb->andWhere('p.nup LIKE :nup')
-               ->setParameter('nup', '%' . $filters['nup'] . '%');
-        }
-
-        if (!empty($filters['status'])) {
-            $qb->andWhere('p.situacao = :status')
-               ->setParameter('status', $filters['status']);
-        }
-
-        if (!empty($filters['responsavel'])) {
-            $qb->join('p.responsavel', 'r')
-               ->andWhere('r.id = :responsavel')
-               ->setParameter('responsavel', (int) $filters['responsavel']);
-        }
+    public function findByFiltrosEMarcador(
+        array $filters,
+        Marcador $marcador,
+        Tenant $tenant,
+        int $page = 1,
+        int $perPage = 25
+    ): array {
+        $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant);
 
         if (!empty($filters['cliente'])) {
-            $qb->leftJoin('p.clientes', 'c_cli')
-               ->leftJoin(ClientePF::class, 'cpf', 'WITH', 'cpf.id = c_cli.id')
-               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
-               ->andWhere(
-                   $qb->expr()->orX(
-                       'LOWER(cpf.nomeCompleto) LIKE :cliente',
-                       'LOWER(cpj.razaoSocial) LIKE :cliente',
-                       'LOWER(p.nomeCliente) LIKE :cliente',
-                   )
-               )
-               ->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%')
-               ->addGroupBy('p.id');
+            $qb->addGroupBy('p.id');
         }
 
-        if (!empty($filters['acao'])) {
-            $qb->leftJoin('p.processo', 'proc')
-               ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
-               ->setParameter('acao', '%' . $filters['acao'] . '%');
-        }
+        return $qb
+            ->orderBy('p.id', 'DESC')
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage)
+            ->getQuery()
+            ->getResult();
+    }
 
-        return $qb->orderBy('p.id', 'DESC')->getQuery()->getResult();
+    /**
+     * @param array<string, string> $filters
+     */
+    public function countByFiltrosEMarcador(
+        array $filters,
+        Marcador $marcador,
+        Tenant $tenant
+    ): int {
+        return (int) $this->buildQbPorMarcador($filters, $marcador, $tenant)
+            ->select('COUNT(DISTINCT p.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     /**
@@ -226,5 +207,107 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $counts;
+    }
+
+    /**
+     * @param array<string, string> $filters
+     */
+    private function buildQbByFilters(array $filters, Tenant $tenant): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
+
+        if (!empty($filters['nup'])) {
+            $qb->andWhere('p.nup LIKE :nup')
+               ->setParameter('nup', '%' . $filters['nup'] . '%');
+        }
+
+        if (!empty($filters['status'])) {
+            $qb->andWhere('p.situacao = :status')
+               ->setParameter('status', $filters['status']);
+        }
+
+        if (!empty($filters['responsavel'])) {
+            $qb->join('p.responsavel', 'r')
+               ->andWhere('r.id = :responsavel')
+               ->setParameter('responsavel', (int) $filters['responsavel']);
+        }
+
+        if (!empty($filters['cliente'])) {
+            $qb->leftJoin('p.clientes', 'c_cli')
+               ->leftJoin(ClientePF::class, 'cpf', 'WITH', 'cpf.id = c_cli.id')
+               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
+               ->andWhere(
+                   $qb->expr()->orX(
+                       'LOWER(cpf.nomeCompleto) LIKE :cliente',
+                       'LOWER(cpj.razaoSocial) LIKE :cliente',
+                       'LOWER(p.nomeCliente) LIKE :cliente',
+                   )
+               )
+               ->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%');
+        }
+
+        if (!empty($filters['acao'])) {
+            $qb->leftJoin('p.processo', 'proc')
+               ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
+               ->setParameter('acao', '%' . $filters['acao'] . '%');
+        }
+
+        return $qb;
+    }
+
+    /**
+     * @param array<string, string> $filters
+     */
+    private function buildQbPorMarcador(
+        array $filters,
+        Marcador $marcador,
+        Tenant $tenant
+    ): QueryBuilder {
+        $qb = $this->createQueryBuilder('p')
+            ->join('p.marcadores', 'm')
+            ->where('m = :marcador')
+            ->setParameter('marcador', $marcador)
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
+
+        if (!empty($filters['nup'])) {
+            $qb->andWhere('p.nup LIKE :nup')
+               ->setParameter('nup', '%' . $filters['nup'] . '%');
+        }
+
+        if (!empty($filters['status'])) {
+            $qb->andWhere('p.situacao = :status')
+               ->setParameter('status', $filters['status']);
+        }
+
+        if (!empty($filters['responsavel'])) {
+            $qb->join('p.responsavel', 'r')
+               ->andWhere('r.id = :responsavel')
+               ->setParameter('responsavel', (int) $filters['responsavel']);
+        }
+
+        if (!empty($filters['cliente'])) {
+            $qb->leftJoin('p.clientes', 'c_cli')
+               ->leftJoin(ClientePF::class, 'cpf', 'WITH', 'cpf.id = c_cli.id')
+               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
+               ->andWhere(
+                   $qb->expr()->orX(
+                       'LOWER(cpf.nomeCompleto) LIKE :cliente',
+                       'LOWER(cpj.razaoSocial) LIKE :cliente',
+                       'LOWER(p.nomeCliente) LIKE :cliente',
+                   )
+               )
+               ->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%');
+        }
+
+        if (!empty($filters['acao'])) {
+            $qb->leftJoin('p.processo', 'proc')
+               ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
+               ->setParameter('acao', '%' . $filters['acao'] . '%');
+        }
+
+        return $qb;
     }
 }
