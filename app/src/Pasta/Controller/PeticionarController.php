@@ -115,6 +115,12 @@ final class PeticionarController extends AbstractController
         $secao     = null;
         $secaoIdRaw = $request->request->get('secao_id');
         if ($secaoIdRaw !== null && $secaoIdRaw !== '') {
+            if ($tenant === null) {
+                return new JsonResponse(
+                    ['success' => false, 'error' => 'Sem permissão.'],
+                    Response::HTTP_FORBIDDEN
+                );
+            }
             $secao = $this->pastaSecaoRepository->findByIdAndPastaAndTenant((int) $secaoIdRaw, $pasta, $tenant);
             if ($secao === null) {
                 return new JsonResponse(['success' => false, 'error' => 'Seção não encontrada.'], Response::HTTP_NOT_FOUND);
@@ -174,6 +180,12 @@ final class PeticionarController extends AbstractController
         $secao     = null;
         $secaoIdRaw = $request->request->get('secao_id');
         if ($secaoIdRaw !== null && $secaoIdRaw !== '') {
+            if ($tenant === null) {
+                return new JsonResponse(
+                    ['success' => false, 'error' => 'Sem permissão.'],
+                    Response::HTTP_FORBIDDEN
+                );
+            }
             $secao = $this->pastaSecaoRepository->findByIdAndPastaAndTenant((int) $secaoIdRaw, $pasta, $tenant);
             if ($secao === null) {
                 return new JsonResponse(['success' => false, 'error' => 'Seção não encontrada.'], Response::HTTP_NOT_FOUND);
