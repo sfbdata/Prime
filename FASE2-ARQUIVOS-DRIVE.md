@@ -35,11 +35,20 @@ Regras de mapeamento (decididas em 29/05/2026):
   ~10% dos arquivos estão em sub-subpasta.
 - Volume total estimado: ~15 GB.
 
-### Etapa 1 — Mapeamento Drive→Sistema → NÃO INICIADA
+### Etapa 1 — Mapeamento Drive→Sistema → CONCLUÍDA (29/05/2026)
 - Extrair NUP de cada nome de pasta do Drive (reusar parser AcervoNomesParser).
 - Cruzar com SELECT id, nup FROM pasta WHERE tenant_id=1 em prod.
 - Gerar CSV: nup, drive_folder_id, drive_name, sistema_pasta_id.
 - Reportar lacunas: pastas no Drive sem match no sistema (e vice-versa).
+
+**Resultado em 29/05/2026 (banco DEV restaurado de backup pré-deploy de prod):**
+- Comando: `app:acervo:mapear` em `app/src/Command/MapearAcervoCommand.php` (commit 3c5cd9e).
+- 941 pastas mapeadas (cobrem 100% das pastas do sistema).
+- 84 pastas do Drive sem match: 50 nup_duplicado_drive, 23 nup_nao_extraido, 11 nup_nao_existe_no_sistema.
+- 0 pastas do sistema sem match no Drive.
+- Reconciliação: 941 + 84 = 1025 ✓
+- Os 11 "nup_nao_existe_no_sistema" são possivelmente pastas criadas no Drive
+  após a Fase 0. A revisar com Dr. Farlei depois.
 
 ### Etapa 2 — Decisão de arquitetura do pipeline → NÃO INICIADA
 - Opções: rclone copia tudo pra VPS + comando Symfony processa, OU HTTP via
@@ -68,7 +77,7 @@ Regras de mapeamento (decididas em 29/05/2026):
   pula ou se aumenta limite ainda mais. Levantar antes da carga.
 
 ## Pendências
-- [ ] Etapa 1: gerar mapeamento Drive→Sistema (CSV).
+- [x] ~~Etapa 1: gerar mapeamento Drive→Sistema (CSV).~~ — concluída em 29/05/2026.
 - [ ] Etapa 2: definir arquitetura do pipeline.
 - [ ] Etapa 3: implementar comando.
 - [ ] Etapa 4: testar 5-10 pastas no WSL.
