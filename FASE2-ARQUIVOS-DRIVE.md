@@ -67,6 +67,7 @@ Opções:
 - `--tenant-id=N` tenant alvo
 - `--limit=N` processar só as primeiras N pastas (teste)
 - `--pasta-id=N` processar só uma pasta (debug)
+- `--arquivos-grandes-csv=PATH` CSV onde arquivos > 65 MB são registrados para revisão manual
 
 Comportamento:
 - Subpastas imediatas → criam `PastaSecao` (nome normalizado UPPERCASE/trim).
@@ -75,7 +76,9 @@ Comportamento:
 - Todos os documentos com `categoria=DEMAIS`.
 - Storage: `ArquivoStorageService::salvarConteudo(file_get_contents($path), ...)`.
 - Chave de idempotência: `SELECT id FROM pasta_documento WHERE pasta_id=:p AND nome_original=:n`.
-- Flush por pasta; erros por arquivo são logados e não interrompem a execução.
+- Flush + `em->clear()` por pasta — evita acúmulo de entidades no EntityManager.
+- Arquivos > 65 MB são pulados e opcionalmente registrados em CSV (`--arquivos-grandes-csv`).
+- Erros por arquivo são logados e não interrompem a execução.
 - Ignora `.DS_Store`, `Thumbs.db`, `desktop.ini` e qualquer dot-file.
 
 ### Etapa 4 — Teste em escala reduzida (WSL) → NÃO INICIADA

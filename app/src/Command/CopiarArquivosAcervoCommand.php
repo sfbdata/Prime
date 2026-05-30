@@ -35,6 +35,11 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
 )]
 final class CopiarArquivosAcervoCommand extends Command
 {
+    private const TAMANHO_MAX_BYTES = 65 * 1024 * 1024;
+
+    /** @var resource|null */
+    private $arquivosGrandesHandle = null;
+
     public function __construct(
         private readonly EntityManagerInterface  $em,
         private readonly TenantRepository        $tenantRepository,
@@ -72,6 +77,12 @@ final class CopiarArquivosAcervoCommand extends Command
                 null,
                 InputOption::VALUE_REQUIRED,
                 'Processar apenas uma pasta específica (debug)',
+            )
+            ->addOption(
+                'arquivos-grandes-csv',
+                null,
+                InputOption::VALUE_REQUIRED,
+                'Caminho do CSV onde arquivos > 65 MB serão listados para revisão posterior',
             );
     }
 
@@ -79,10 +90,11 @@ final class CopiarArquivosAcervoCommand extends Command
     {
         $io = new SymfonyStyle($input, $output);
 
-        $diretorio   = $input->getOption('diretorio');
-        $tenantId    = $input->getOption('tenant-id');
-        $limit       = $input->getOption('limit');
-        $pastaIdOpt  = $input->getOption('pasta-id');
+        $diretorio           = $input->getOption('diretorio');
+        $tenantId            = $input->getOption('tenant-id');
+        $limit               = $input->getOption('limit');
+        $pastaIdOpt          = $input->getOption('pasta-id');
+        $arquivosGrandesCsv  = $input->getOption('arquivos-grandes-csv');
 
         // --- Validações antecipadas ---
 
@@ -111,6 +123,20 @@ final class CopiarArquivosAcervoCommand extends Command
             return Command::FAILURE;
         }
 
+        // --- Abrir CSV de arquivos grandes ---
+
+        $this->arquivosGrandesHandle = null;
+        if ($arquivosGrandesCsv !== null) {
+            $handle = fopen($arquivosGrandesCsv, 'w');
+            if ($handle === false) {
+                $io->error(sprintf('Não foi possível criar arquivo CSV: %s', $arquivosGrandesCsv));
+
+                return Command::FAILURE;
+            }
+            $this->arquivosGrandesHandle = $handle;
+            fputcsv($this->arquivosGrandesHandle, ['pasta_id', 'secao_nome', 'nome_original', 'tamanho_bytes', 'path_origem'], ';');
+        }
+
         // --- Determinar lista de pasta_ids ---
 
         if ($pastaIdOpt !== null) {
@@ -133,10 +159,25 @@ final class CopiarArquivosAcervoCommand extends Command
             'pulados'     => 0,
             'erros'       => 0,
             'secoesNovas' => 0,
+            'grandes'     => 0,
         ];
 
-        foreach ($pastaIds as $idx => $pastaId) {
-            $this->processarPasta($pastaId, $tenant, $diretorio, $io, $totais, $idx + 1, $total);
+        try {
+            foreach ($pastaIds as $idx => $pastaId) {
+                // Refetch após em->clear() da pasta anterior (tenant ficaria detached)
+                $tenant = $this->tenantRepository->find((int) $tenantId);
+                if ($tenant === null) {
+                    $io->error('Tenant desapareceu do banco durante o processamento.');
+
+                    return Command::FAILURE;
+                }
+                $this->processarPasta($pastaId, $tenant, $diretorio, $io, $totais, $idx + 1, $total);
+            }
+        } finally {
+            if ($this->arquivosGrandesHandle !== null) {
+                fclose($this->arquivosGrandesHandle);
+                $this->arquivosGrandesHandle = null;
+            }
         }
 
         // --- Resumo final ---
@@ -146,11 +187,12 @@ final class CopiarArquivosAcervoCommand extends Command
         $io->table(
             ['Métrica', 'Total'],
             [
-                ['Pastas processadas',              $totais['pastas']],
-                ['Documentos criados',              $totais['criados']],
-                ['Documentos pulados (já existiam)', $totais['pulados']],
-                ['Erros',                           $totais['erros']],
-                ['Seções criadas',                  $totais['secoesNovas']],
+                ['Pastas processadas',                 $totais['pastas']],
+                ['Documentos criados',                 $totais['criados']],
+                ['Documentos pulados (já existiam)',   $totais['pulados']],
+                ['Arquivos grandes pulados (> 65 MB)', $totais['grandes']],
+                ['Erros',                              $totais['erros']],
+                ['Seções criadas',                     $totais['secoesNovas']],
             ],
         );
 
@@ -204,7 +246,7 @@ final class CopiarArquivosAcervoCommand extends Command
             return;
         }
 
-        $contadores  = ['criados' => 0, 'pulados' => 0, 'erros' => 0];
+        $contadores  = ['criados' => 0, 'pulados' => 0, 'erros' => 0, 'grandes' => 0];
         $secoesNovas = 0;
 
         // Índice em memória: nome normalizado (UPPERCASE) → PastaSecao
@@ -266,13 +308,15 @@ final class CopiarArquivosAcervoCommand extends Command
         }
 
         $this->em->flush();
+        $this->em->clear();
 
         $io->writeln(sprintf(
-            '[%d/%d] pasta_id=%d — %d criados, %d seções novas, %d pulados, %d erros',
+            '[%d/%d] pasta_id=%d — %d criados, %d seções novas, %d pulados, %d grandes, %d erros',
             $idx, $total, $pastaId,
             $contadores['criados'],
             $secoesNovas,
             $contadores['pulados'],
+            $contadores['grandes'],
             $contadores['erros'],
         ));
 
@@ -280,6 +324,7 @@ final class CopiarArquivosAcervoCommand extends Command
         $totais['criados']     += $contadores['criados'];
         $totais['pulados']     += $contadores['pulados'];
         $totais['erros']       += $contadores['erros'];
+        $totais['grandes']     += $contadores['grandes'];
         $totais['secoesNovas'] += $secoesNovas;
     }
 
@@ -311,14 +356,24 @@ final class CopiarArquivosAcervoCommand extends Command
                 return;
             }
 
-            $conteudo = file_get_contents($path);
-            if ($conteudo === false) {
-                throw new \RuntimeException(sprintf('Não foi possível ler: %s', $path));
-            }
-
             $tamanho = filesize($path);
             if ($tamanho === false) {
                 throw new \RuntimeException(sprintf('Não foi possível obter tamanho: %s', $path));
+            }
+
+            if ($tamanho > self::TAMANHO_MAX_BYTES) {
+                $io->writeln(sprintf('  GRANDE: %s (%.1f MB) — pulado', $nomeOriginal, $tamanho / 1024 / 1024));
+                $contadores['grandes']++;
+                if ($this->arquivosGrandesHandle !== null) {
+                    fputcsv($this->arquivosGrandesHandle, [$pasta->getId(), $secao?->getNome() ?? '', $nomeOriginal, $tamanho, $path], ';');
+                }
+
+                return;
+            }
+
+            $conteudo = file_get_contents($path);
+            if ($conteudo === false) {
+                throw new \RuntimeException(sprintf('Não foi possível ler: %s', $path));
             }
 
             $extensao    = pathinfo($path, PATHINFO_EXTENSION);
