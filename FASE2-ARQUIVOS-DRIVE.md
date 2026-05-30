@@ -50,13 +50,33 @@ Regras de mapeamento (decididas em 29/05/2026):
 - Os 11 "nup_nao_existe_no_sistema" são possivelmente pastas criadas no Drive
   após a Fase 0. A revisar com Dr. Farlei depois.
 
-### Etapa 2 — Decisão de arquitetura do pipeline → NÃO INICIADA
-- Opções: rclone copia tudo pra VPS + comando Symfony processa, OU HTTP via
-  API, OU outro.
-- Decidir onde rodar (WSL pra teste reduzido, VPS pra carga total).
-- Decidir autenticação, idempotência, logging.
+### Etapa 2 — Decisão de arquitetura do pipeline → CONCLUÍDA (30/05/2026)
+- **Decisão:** rclone baixa tudo para a VPS em `/opt/jusprime-acervo-download/pastas/<pasta_id>/`;
+  comando Symfony lê o filesystem e grava no storage do sistema.
+- Sem chamada à API do Drive em runtime — evita rate limit.
+- Idempotência por par `(pasta_id, nome_original)` via query SQL antes de cada arquivo.
+- Seções: lookup em memória após `findByPasta()` + comparação UPPERCASE/trim.
 
-### Etapa 3 — Implementação do comando → NÃO INICIADA
+### Etapa 3 — Implementação do comando → EM DESENVOLVIMENTO (30/05/2026)
+
+**Comando:** `app:acervo:copiar-arquivos`
+**Arquivo:** `app/src/Command/CopiarArquivosAcervoCommand.php`
+
+Opções:
+- `--diretorio=PATH` raiz onde estão as subpastas `<pasta_id>/`
+- `--tenant-id=N` tenant alvo
+- `--limit=N` processar só as primeiras N pastas (teste)
+- `--pasta-id=N` processar só uma pasta (debug)
+
+Comportamento:
+- Subpastas imediatas → criam `PastaSecao` (nome normalizado UPPERCASE/trim).
+- Sub-subpastas são achatadas: arquivos vão para a seção avó.
+- Arquivos na raiz da pasta → sem seção (Documentação Geral).
+- Todos os documentos com `categoria=DEMAIS`.
+- Storage: `ArquivoStorageService::salvarConteudo(file_get_contents($path), ...)`.
+- Chave de idempotência: `SELECT id FROM pasta_documento WHERE pasta_id=:p AND nome_original=:n`.
+- Flush por pasta; erros por arquivo são logados e não interrompem a execução.
+- Ignora `.DS_Store`, `Thumbs.db`, `desktop.ini` e qualquer dot-file.
 
 ### Etapa 4 — Teste em escala reduzida (WSL) → NÃO INICIADA
 
@@ -78,7 +98,7 @@ Regras de mapeamento (decididas em 29/05/2026):
 
 ## Pendências
 - [x] ~~Etapa 1: gerar mapeamento Drive→Sistema (CSV).~~ — concluída em 29/05/2026.
-- [ ] Etapa 2: definir arquitetura do pipeline.
-- [ ] Etapa 3: implementar comando.
+- [x] ~~Etapa 2: definir arquitetura do pipeline.~~ — concluída em 30/05/2026.
+- [ ] Etapa 3: implementar e validar comando (EM DESENVOLVIMENTO).
 - [ ] Etapa 4: testar 5-10 pastas no WSL.
 - [ ] Etapa 5: rodar em produção.
