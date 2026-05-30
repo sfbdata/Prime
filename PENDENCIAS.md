@@ -1,0 +1,280 @@
+# PENDÊNCIAS
+
+Catálogo das pendências e dívidas técnicas conhecidas do JusPrime. Atualizar
+sempre que uma frente identificar item novo, e remover (com strike + data
+de conclusão) quando resolvido.
+
+Cada item tem: categoria → descrição curta + caminho do arquivo + commit/doc
+de referência se houver.
+
+---
+
+## 🔴 Segurança / Validação
+
+- **[ALTA] 3 endpoints sem validação de MIME/tamanho de upload** — risco amplificado pelo
+  aumento do limite PHP para 65 MB (commit `fa8290c`). Antes implicitamente bloqueados pelo
+  limite de 15 MB; agora aceitam qualquer tipo/tamanho até 65 MB.
+  - Kanban anexos: `app/src/Kanban/UseCase/AdicionarAnexoUseCase.php:23`
+  - Tarefa mensagens: `app/src/Controller/TarefaController.php:349`
+  - ServiceDesk: `app/src/Controller/ServiceDeskController.php` (`processarAnexos`)
+  - Ref: `IMPORTACAO-ACERVO.md` § "Dívida técnica amplificada"
+
+- **[ALTA] F1 — show/edit/delete de Cliente e Pasta sem check de módulo** — `canAccessResource`
+  presente, `canAccessModule` ausente. Usuário com `ResourceAccess` mas sem
+  `modules.{clientes,pastas}.view` acessa o item diretamente pela URL. Pasta tem 50+ chamadas —
+  superfície ampla. Exposição de dado em produção.
+  - `app/src/Cliente/Controller/` · `app/src/Pasta/Controller/`
+  - Ref: `REFATORACAO-DOMINIOS.md:126` · `docs/AUTORIZACAO.md` § F1
+
+- **[ALTA] Migration Version20260522180222 sem backfill — bomba-relógio** — adiciona
+  `tenant_id INT NOT NULL` em `pasta` e `pasta_documento` sem default nem backfill. Passou em dev
+  (tabela vazia); quebra em qualquer banco com `pasta` populada (restore prod→dev, 2º tenant futuro).
+  Reescrever: add nullable → backfill com tenant correto → ALTER set NOT NULL.
+  - `app/migrations/Version20260522180222.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:169`
+
+- **[MÉDIA] 9 UseCases-filha de Pasta sem tenant-check** — mutam/removem sem validar tenant no
+  UseCase; protegidos APENAS pelo `canAccessResource` do controller. `ExcluirChecklistItem`,
+  `EditarChecklistItem`, `ToggleChecklistItem`, `AlterarPrioridade`, `AlterarSituacaoContrato`,
+  `EditarObservacaoDetalhes`, `EditarObservacaoFinanceira`, `EditarPecaTexto`, `ReordenarDocumentos`.
+  - `app/src/Pasta/UseCase/`
+  - Ref: `REFATORACAO-DOMINIOS.md:155`
+
+- **[BAIXA] Bug latente de normalização do NUP no criar Pasta** — `CriarPastaUseCase` checa
+  unicidade com o NUP cru (`trim()`), mas `Pasta::setNup()` armazena `mb_strtoupper(trim())`.
+  NUP com minúsculas não encontra duplicata em maiúsculas → `UniqueConstraintViolationException`
+  HTTP 500 não tratada.
+  - `app/src/Pasta/UseCase/CriarPastaUseCase.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:142`
+
+- **[BAIXA] Form de criar Pasta sem CSRF token** — `templates/_partials/modal_nova_pasta.html.twig`
+  faz POST `/pasta/nova` sem `_token`; controller nunca validou CSRF. Diverge do guia de templates.
+  - `app/templates/_partials/modal_nova_pasta.html.twig`
+  - Ref: `REFATORACAO-DOMINIOS.md:143`
+
+- **[BAIXA] PastaSecaoController / MoverDocumentoParaSecaoUseCase sem tenant check explícito** —
+  proteção indireta via `canAccessResource` da pasta + seção destino; risco residual baixo.
+  Adicionar check `$documento->getTenant()` ao tocar esses arquivos.
+  - `app/src/Pasta/Controller/PastaSecaoController.php`
+  - `app/src/Pasta/UseCase/MoverDocumentoParaSecaoUseCase.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:165`
+
+- **[INFO] TODO: notificação de novo chamado no ServiceDesk** — `notificarNovoChamado()` é um
+  stub vazio (só log); nenhum alerta chega a admins/equipe TI.
+  - `app/src/Controller/ServiceDeskController.php:398`
+
+---
+
+## 🟡 UX / Produto
+
+- **Loop de redirect pós-deploy** — após cada deploy a sessão do usuário quebra (cookies
+  estourados); precisa de `/logout` manual ou limpeza de cookies. Reportado por usuários reais.
+  Em investigação — próxima frente.
+  - Ref: observação de produção
+
+- **Bug B — redirect pós-login cego** — `UserAuthenticator::onAuthenticationSuccess()` redireciona
+  fixo para `/expediente` sem checar permissão. Perfil sem acesso a Expediente toma 403 ao logar.
+  São 3 pontos de redirect fixo: `UserAuthenticator` (2 branches) + `TenantSelecaoController`
+  (~l. 44 e ~57). Correção: redirecionar para a primeira rota de módulo permitida.
+  - `app/src/Security/UserAuthenticator.php`
+  - `app/src/Controller/TenantSelecaoController.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:119`
+
+- **Paginação ausente na listagem de pastas (acervo geral)** — todas as 941 pastas carregam de
+  uma vez. Frente própria.
+  - `app/src/Expediente/Controller/ExpedienteController.php`
+  - Ref: `IMPORTACAO-ACERVO.md:32`
+
+- **Painel AJAX do filtro de pastas quebrado** — `carregarComFiltros` injeta HTML via `innerHTML`;
+  `<script>` não executa (padrão HTML5). Na 2ª busca o handler XHR some, cai em navegação normal,
+  controller redireciona para `expediente_index` e o filtro desaparece. Correção: mover handlers
+  para `index.html.twig` via delegação; remover blocos `<script>` dos partials.
+  - `app/templates/expediente/_acervo_geral.html.twig`
+  - `app/templates/expediente/_painel_marcador.html.twig`
+  - Ref: `REFATORACAO-DOMINIOS.md:132`
+
+- **Exibição dupla de documento em seção (pasta_show)** — ao subir arquivo numa seção nova, o
+  documento aparece duplicado na tela (1 vez na seção + 1 na lista principal). Dado não duplicado;
+  é bug de agrupamento/exibição no template.
+  - `app/templates/pasta/pasta_show.html.twig`
+  - Ref: `REFATORACAO-DOMINIOS.md:136`
+
+- **Peticionar não permite escolher seção do anexo** — ao enviar documento pelo Peticionar,
+  `secao_id` fica NULL; documento não aparece em nenhuma seção no `pasta_show`. Gap de feature.
+  - `app/src/Pasta/` (fluxo Peticionar)
+  - Ref: `REFATORACAO-DOMINIOS.md:137`
+
+- **Visualização de peça de texto trava o painel de documentos** — ao visualizar documento de texto
+  do editor interno, clicar em outro documento não troca o conteúdo; editor permanece aberto sobre
+  a visualização. Mesma família do bug de `innerHTML` do filtro de pastas.
+  - `app/templates/pasta/pasta_show.html.twig`
+  - Ref: `REFATORACAO-DOMINIOS.md:138`
+
+- **delete() de Pasta cascateia Tarefas silenciosamente** — FK `Tarefa.pasta_id` tem
+  `ON DELETE CASCADE`; deletar Pasta apaga Tarefas vinculadas sem aviso. Modal de confirmação
+  não alerta. Baixo risco hoje (Tarefa ainda não é dado real); reavaliar antes de popularizar
+  o uso de Tarefas.
+  - `app/src/Pasta/UseCase/ExcluirPastaUseCase.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:111`
+
+- **Filtro de NUP usa LIKE (deveria ser igualdade exata ou dropdown)** — campo é select de valores
+  exatos; LIKE permite matches parciais indesejados. Decidir junto com a frente de melhorias de
+  filtro (busca livre).
+  - `app/src/Pasta/Repository/PastaRepository.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:134`
+
+- **F7 — label "Financeiro" com chave `clientes`** — sidebar exibe "Financeiro" mas a chave de
+  permissão subjacente é `clientes`. Resolve de quebra com a refatoração da fonte única de módulos.
+  - `app/templates/_sidebar.html.twig`
+  - Ref: `REFATORACAO-DOMINIOS.md:127` · `docs/AUTORIZACAO.md` § F7
+
+---
+
+## 🟢 Importação do acervo (Fase 0/1/2)
+
+- **82 pastas em estado ambíguo (Fase 0)** — 9 em `revisao_manual.csv` + 73 em `pendencias.csv`.
+  Tratamento manual necessário com Dr. Farlei.
+  - `tmp/acervo/` (arquivos locais, não comitados)
+  - Ref: `IMPORTACAO-ACERVO.md` § Pendências
+
+- **11 NUPs sem match no sistema** — motivo `nup_nao_existe_no_sistema`: pastas criadas no Drive
+  após a Fase 0. Lista em `~/projetos/jusprime/tmp/acervo-fase2/output/sem_match_drive.csv`.
+  - Ref: `FASE2-ARQUIVOS-DRIVE.md`
+
+- **19 arquivos > 65 MB pulados na carga da Fase 2** — lista em
+  `/opt/jusprime-acervo-download/arquivos-grandes.csv` (VPS). Decidir com Dr. Farlei: dividir,
+  comprimir ou descartar.
+  - Ref: `FASE2-ARQUIVOS-DRIVE.md` § Pendências
+
+---
+
+## 🔵 Multi-tenancy / Arquitetura
+
+- **Unique constraint de NUP é GLOBAL** — `findOneBy(['nup'])` sem filtro de tenant; UNIQUE
+  constraint não é `(nup, tenant_id)`. Inócuo com 1 tenant; bloqueia import do 2º escritório.
+  **Resolvido? Verificar no schema atual.**
+  - `app/src/Pasta/Entity/Pasta.php` · `app/src/Pasta/Repository/PastaRepository.php`
+  - Ref: `IMPORTACAO-ACERVO.md` § Riscos conhecidos
+
+- **Fonte única de módulos (refatoração estrutural)** — lista de módulos vive hardcoded no Twig;
+  não há enum/registro canônico em PHP. Cria blockers: Bug B (redirect), F5 (admin = módulo),
+  F7 (label Financeiro), planos comerciais futuros. Fatias: (1) desenhar, (2) criar enum,
+  (3) sidebar consome, (4) redirect consome, (5) catálogo derivado. Risco MÉDIO (auth + sidebar).
+  - `app/templates/_sidebar.html.twig` · `app/src/Security/UserAuthenticator.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:127` · `docs/AUTORIZACAO.md` § 7
+
+- **[ALTA] Auditoria acoplada a namespace** — `AuditLogSubscriber.shouldAudit()` e
+  `AuditLogController.getEntityOptions()` filtram por `str_starts_with('App\\Entity\\')`.
+  Mover qualquer entidade para outro namespace quebra auditoria + desfazer + queries
+  silenciosamente. Pré-requisito da Fatia 4. Refatorar para interface `Auditavel` + migration
+  de dados do `audit_log`.
+  - `app/src/Shared/EventSubscriber/AuditLogSubscriber.php`
+  - `app/src/Shared/Controller/AuditLogController.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:106`
+
+- **Limpeza de código/permissões mortos (F2 + F4)** — `PermissionChecker::canActOnResource()`
+  nunca chamado (código morto); `admin.tarefas.manage` no catálogo e na sidebar mas nenhum
+  controller a usa (permissão fantasma). Risco BAIXO.
+  - `app/src/Shared/Security/PermissionChecker.php`
+  - `app/src/Entity/Permission/`
+  - Ref: `REFATORACAO-DOMINIOS.md:128` · `docs/AUTORIZACAO.md` § F2, F4
+
+- **[DECISÃO] F3 — granularidade de recurso em Processo** — `resources.processo.{view,edit,delete}`
+  no catálogo e no painel de Perfis; zero chamadas de `canAccessResource` para `'processo'`.
+  Implementar (como Cliente/Pasta têm) ou remover as permissões fantasma. Decisão de produto.
+  - `app/src/Processo/Controller/` · `app/src/Entity/Permission/`
+  - Ref: `REFATORACAO-DOMINIOS.md:130` · `docs/AUTORIZACAO.md` § F3
+
+- **F6 — Divergência fixture vs migration do catálogo de permissões** — `PermissionFixture.php`
+  e a migration `Version20260401130000` têm conjuntos diferentes de permissões. Resolver ao
+  aposentar a fixture e definir fonte de verdade do catálogo.
+  - `app/src/DataFixtures/PermissionFixture.php`
+  - `app/migrations/Version20260401130000.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:129` · `docs/AUTORIZACAO.md` § F6
+
+- **13 testes quebrados por UseCase inexistente** — `App\Expediente\UseCase\RemoverMarcadorDaPastaUseCase`
+  não existe. Não bloqueia migrações da fila atual; investigar ao atacar o domínio Expediente.
+  - `tests/Expediente/`
+  - Ref: `REFATORACAO-DOMINIOS.md:115`
+
+- **Entidade Tarefa permanece em legado** — `src/Entity/Tarefa/`; migração futura para
+  `src/Tarefa/Entity/`. Ao fazer, atualizar `use` em 11 arquivos.
+  - `app/src/Entity/Tarefa/`
+  - Ref: `REFATORACAO-DOMINIOS.md:116`
+
+- **TarefaMensagemRepository permanece em legado** — `src/Repository/TarefaMensagemRepository.php`;
+  migrar para `src/Tarefa/Repository/` em frente futura.
+  - `app/src/Repository/TarefaMensagemRepository.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:117`
+
+- **Banco de teste sem setup automático de schema** — `doctrine:migrations:migrate --env=test` é
+  manual; migration nova exige rodar à mão ou a suíte quebra silenciosamente (ocorreu na Fatia 1:
+  ~38 testes vermelhos despercebidos). Criar `scripts/setup-test-db.sh` ou passo no bootstrap
+  do PHPUnit.
+  - `app/phpunit.xml.dist`
+  - Ref: `REFATORACAO-DOMINIOS.md:141`
+
+- **[DECISÃO] ~18 entidades nunca auditadas** — Kanban, Processo, Cliente, Expediente (Marcador),
+  Profile (UserProfile) estão fora de `App\Entity\` e nunca foram auditadas; explícitas em
+  `NAO_AUDITAVEIS` no `AuditavelCoberturaTest`. Ampliar auditoria nesses domínios é decisão do
+  dono do produto.
+  - `app/tests/.../AuditavelCoberturaTest.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:144`
+
+- **[BAIXA] Ordem storage→flush no ExcluirPastaUseCase** — arquivos apagados do disco ANTES do
+  `em->flush()`. Se flush falhar, arquivos sumidos mas Pasta permanece no banco. Avaliar inverter
+  a ordem (flush → storage) ou usar transação.
+  - `app/src/Pasta/UseCase/ExcluirPastaUseCase.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:107`
+
+- **[BAIXA] 6 entidades de Pasta com `?Tenant` nullable no PHP vs NOT NULL no banco** — `Pasta`,
+  `PastaSecao`, `PastaMensagem`, `PastaChecklistItem`, `PastaObservacaoDetalhes`,
+  `PastaObservacaoFinanceira` (+ `PastaDocumento` abaixo). Type system mente; sem impacto prático.
+  Alinhar `?Tenant`→`Tenant` ao tocar cada entidade.
+  - `app/src/Pasta/Entity/`
+  - Ref: `REFATORACAO-DOMINIOS.md:161`
+
+- **[BAIXA] Divergência ORM↔banco em PastaDocumento.tenant** — atributo PHP mapeado
+  `?Tenant = null`; coluna é NOT NULL. Todos os pontos de persist setam tenant; sem impacto
+  prático hoje. Alinhar (`nullable: false`) ao tocar a entidade.
+  - `app/src/Pasta/Entity/PastaDocumento.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:140`
+
+- **[BAIXA] Inconsistência de FK em PastaDocumento** — `pasta_id` não tem `onDelete: CASCADE`;
+  `secao_id` tem. Sem impacto funcional (ORM cascade+orphanRemoval cobre). Alinhar quando
+  houver outra migration de Pasta.
+  - `app/src/Pasta/Entity/PastaDocumento.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:103`
+
+---
+
+## 🟣 Infra / Ops
+
+- **Pasta `/opt/jusprime-acervo-download/pastas/` na VPS (14 GB) pode ser apagada** — conteúdo
+  já importado para o sistema. Manter por algumas semanas como segurança; apagar quando confirmado
+  com Dr. Farlei que não é mais necessária.
+  - VPS — `/opt/jusprime-acervo-download/pastas/`
+  - Ref: decisão pós-Fase 2
+
+- **Limpeza automática de cache Docker na VPS** — `deploy-prod-tls.sh` acumula build cache
+  indefinidamente; chegou a ~15 GB (38% de disco) em 2026-05-22, limpo manualmente. Risco
+  agravado durante migração futura de documentos. Correção: adicionar `docker builder prune -f`
+  ao fim do script OU cron semanal na VPS.
+  - VPS — `deploy-prod-tls.sh`
+  - Ref: `REFATORACAO-DOMINIOS.md:135`
+
+- **Migrations com pré-check que nunca registram** — `Version20260401000000` e
+  `Version20260408180237` aparecem permanentemente como "not migrated" no
+  `doctrine:migrations:status` (pré-check impede o registro; schema já existe). Inofensivas
+  (sempre puladas), mas poluem o status. Converter em stubs de registro histórico ou marcar
+  como executadas manualmente.
+  - `app/migrations/Version20260401000000.php`
+  - `app/migrations/Version20260408180237.php`
+  - Ref: `REFATORACAO-DOMINIOS.md:125`
+
+- **Doc de troubleshooting de certificado TLS ausente** — `DEPLOY.md`/`SETUP.md` cobrem emissão
+  e renovação, mas não o cenário "cert sumiu/venceu e deploy abortou". `deploy-prod-tls.sh`
+  checa só existência do arquivo, não validade/expiração. Documentar o procedimento de
+  recuperação; considerar checagem de expiração no script.
+  - `DEPLOY.md` · VPS — `deploy-prod-tls.sh`
+  - Ref: `REFATORACAO-DOMINIOS.md:124`
