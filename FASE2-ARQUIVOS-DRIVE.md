@@ -57,7 +57,7 @@ Regras de mapeamento (decididas em 29/05/2026):
 - Idempotência por par `(pasta_id, nome_original)` via query SQL antes de cada arquivo.
 - Seções: lookup em memória após `findByPasta()` + comparação UPPERCASE/trim.
 
-### Etapa 3 — Implementação do comando → EM DESENVOLVIMENTO (30/05/2026)
+### Etapa 3 — Implementação do comando → CONCLUÍDA (30/05/2026)
 
 **Comando:** `app:acervo:copiar-arquivos`
 **Arquivo:** `app/src/Command/CopiarArquivosAcervoCommand.php`
@@ -81,9 +81,37 @@ Comportamento:
 - Erros por arquivo são logados e não interrompem a execução.
 - Ignora `.DS_Store`, `Thumbs.db`, `desktop.ini` e qualquer dot-file.
 
-### Etapa 4 — Teste em escala reduzida (WSL) → NÃO INICIADA
+**Histórico de ajustes:**
+- 30/05/2026: ajuste pós-OOM em produção. Pulo de arquivos > 65 MB com
+  listagem em CSV opcional (`--arquivos-grandes-csv`) e `em->clear()` por pasta.
+  Commit 9f6a423.
 
-### Etapa 5 — Carga em massa em produção → NÃO INICIADA
+### Etapa 4 — Teste em escala reduzida (WSL) → CONCLUÍDA (30/05/2026)
+
+- Smoke contra mock no DEV: 4 pastas, 10 arquivos, 3 seções, idempotência OK (10 pulados no rerun).
+- Smoke em produção com `--limit=5`: 5 pastas (40–44), 81 documentos, 0 erros.
+- Idempotência confirmada em prod: 81 pulados no rerun.
+
+### Etapa 5 — Carga em massa em produção → CONCLUÍDA (30/05/2026)
+
+- Comando executado via `docker run` temporário (fora do container web), ligado
+  à network `jusprime_saas_net`, montando volume `jusprime_uploads_prod` e bind
+  read-only de `/opt/jusprime-acervo-download/pastas`. PHP rodado com
+  `-d memory_limit=512M`.
+
+**Resultado final:**
+- 941 pastas processadas.
+- 10.560 documentos criados (8.661 do run final + 1.899 do run anterior parcial,
+  antes do fix pós-OOM).
+- 468 seções no banco.
+- 19 arquivos > 65 MB pulados; lista em `arquivos-grandes.csv` (pendência para
+  revisão manual com Dr. Farlei).
+- 0 erros.
+- 858 pastas com pelo menos 1 documento (das 941): 83 sem doc = 76 pastas vazias
+  no Drive (já levantadas na Etapa 2) + 7 pastas cujo conteúdo eram apenas
+  arquivos > 65 MB (pulados).
+- Volume `uploads_prod`: 12 GB.
+- Smoke visual no bluejus aprovado.
 
 ## Decisões arquiteturais (a tomar nas próximas etapas)
 
@@ -96,12 +124,16 @@ Comportamento:
 - API do Drive tem rate limit. Pipeline ingênuo pode ser bloqueado.
 - Volume (~15 GB): se rodar via API HTTP do jusprime, vai ser lento; melhor
   rclone direto pra VPS.
-- Arquivos > 65 MB não passam (limite PHP). Se houver, precisa decidir se
-  pula ou se aumenta limite ainda mais. Levantar antes da carga.
+
+**Resolvido:**
+- Arquivos > 65 MB: decidido pular + registrar em CSV (`--arquivos-grandes-csv`).
+  19 arquivos pulados na carga final; lista em `arquivos-grandes.csv` para
+  revisão manual com Dr. Farlei.
 
 ## Pendências
 - [x] ~~Etapa 1: gerar mapeamento Drive→Sistema (CSV).~~ — concluída em 29/05/2026.
 - [x] ~~Etapa 2: definir arquitetura do pipeline.~~ — concluída em 30/05/2026.
-- [ ] Etapa 3: implementar e validar comando (EM DESENVOLVIMENTO).
-- [ ] Etapa 4: testar 5-10 pastas no WSL.
-- [ ] Etapa 5: rodar em produção.
+- [x] ~~Etapa 3: implementar e validar comando.~~ — concluída em 30/05/2026.
+- [x] ~~Etapa 4: testar em escala reduzida (WSL).~~ — concluída em 30/05/2026.
+- [x] ~~Etapa 5: carga em massa em produção.~~ — concluída em 30/05/2026.
+- [ ] Decidir destino dos 19 arquivos > 65 MB listados em `arquivos-grandes.csv` (revisar com Dr. Farlei).
