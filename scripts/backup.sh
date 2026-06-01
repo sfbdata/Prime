@@ -114,19 +114,22 @@ log "Dump concluído (${DB_SIZE} comprimido)."
 # 2. Backup dos uploads
 # ---------------------------------------------------------------------------
 
-log "Copiando uploads do volume Docker (${UPLOADS_VOLUME})..."
+# log "Copiando uploads do volume Docker (${UPLOADS_VOLUME})..."
+#
+# UPLOADS_DIR="${TEMP_DIR}/uploads"
+# mkdir -p "${UPLOADS_DIR}"
+#
+# # Usa um container temporário para copiar os dados do volume
+# docker run --rm \
+#     -v "${UPLOADS_VOLUME}:/source:ro" \
+#     -v "${UPLOADS_DIR}:/dest" \
+#     alpine sh -c "cp -a /source/. /dest/"
+#
+# UPLOADS_COUNT=$(find "${UPLOADS_DIR}" -type f | wc -l)
+# log "Uploads copiados: ${UPLOADS_COUNT} arquivo(s)."
 
-UPLOADS_DIR="${TEMP_DIR}/uploads"
-mkdir -p "${UPLOADS_DIR}"
-
-# Usa um container temporário para copiar os dados do volume
-docker run --rm \
-    -v "${UPLOADS_VOLUME}:/source:ro" \
-    -v "${UPLOADS_DIR}:/dest" \
-    alpine sh -c "cp -a /source/. /dest/"
-
-UPLOADS_COUNT=$(find "${UPLOADS_DIR}" -type f | wc -l)
-log "Uploads copiados: ${UPLOADS_COUNT} arquivo(s)."
+log "AVISO: backup de uploads DESABILITADO temporariamente (ver scripts/backup.sh)"
+UPLOADS_COUNT=0
 
 # ---------------------------------------------------------------------------
 # 3. Cria o arquivo de backup final
@@ -148,7 +151,6 @@ EOF
 tar -czf "${BACKUP_DIR}/${BACKUP_NAME}.tar.gz" \
     -C "${TEMP_DIR}" \
     database.sql.gz \
-    uploads \
     backup_info.txt
 
 FINAL_SIZE=$(du -sh "${BACKUP_DIR}/${BACKUP_NAME}.tar.gz" | cut -f1)
