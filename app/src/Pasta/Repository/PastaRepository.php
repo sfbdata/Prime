@@ -209,6 +209,76 @@ class PastaRepository extends ServiceEntityRepository
         return $counts;
     }
 
+    public function countAtivas(Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.situacao = :situacao')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('situacao', Pasta::SITUACAO_ATIVA)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function countUrgentes(Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.prioridade = :prioridade')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('prioridade', PrioridadePasta::Urgente)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * @return array<int, int>  userId => total (todas as situações)
+     */
+    public function countPorResponsavel(Tenant $tenant): array
+    {
+        $rows = $this->createQueryBuilder('p')
+            ->select('r.id AS responsavel_id, COUNT(p.id) AS total')
+            ->join('p.responsavel', 'r')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->groupBy('r.id')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['responsavel_id']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
+    /**
+     * @return array<int, int>  userId => total (só ativas)
+     */
+    public function countAtivasPorResponsavel(Tenant $tenant): array
+    {
+        $rows = $this->createQueryBuilder('p')
+            ->select('r.id AS responsavel_id, COUNT(p.id) AS total')
+            ->join('p.responsavel', 'r')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.situacao = :situacao')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('situacao', Pasta::SITUACAO_ATIVA)
+            ->groupBy('r.id')
+            ->getQuery()
+            ->getArrayResult();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(int) $row['responsavel_id']] = (int) $row['total'];
+        }
+
+        return $counts;
+    }
+
     /**
      * @param array<string, string> $filters
      */
