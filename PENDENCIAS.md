@@ -259,7 +259,9 @@ de referência se houver.
 - **Limpeza automática de cache Docker na VPS** — `deploy-prod-tls.sh` acumula build cache
   indefinidamente; chegou a ~15 GB (38% de disco) em 2026-05-22, limpo manualmente. Risco
   agravado durante migração futura de documentos. Correção: adicionar `docker builder prune -f`
-  ao fim do script OU cron semanal na VPS.
+  ao fim do script OU cron semanal na VPS. Nota (01/Jun/2026): no incidente de disco cheio,
+  o cache Docker NÃO foi o vilão (~1 GB); o volume de uploads vivo (~24 GB) foi a causa.
+  Cache prune deu retorno marginal.
   - VPS — `deploy-prod-tls.sh`
   - Ref: `REFATORACAO-DOMINIOS.md:135`
 
@@ -278,3 +280,33 @@ de referência se houver.
   recuperação; considerar checagem de expiração no script.
   - `DEPLOY.md` · VPS — `deploy-prod-tls.sh`
   - Ref: `REFATORACAO-DOMINIOS.md:124`
+
+- **[CRÍTICA] Disco de produção subdimensionado para o acervo** — uploads vivos
+  (~24 GB no volume Docker `jusprime_uploads_prod`) num disco de 48 GB. Após o
+  incidente de 01/Jun e limpeza, disco em ~93%. Cresce com o uso. Requer
+  armazenamento dedicado / disco maior. Bloqueia a reversão do item "backup de
+  uploads desabilitado" abaixo.
+  - VPS — volume `jusprime_uploads_prod`
+  - Ref: incidente 01/Jun/2026
+
+- **[CRÍTICA] Backups não ficam fora da VPS** — todos os `.tar.gz` em
+  `/var/backups/jusprime` na mesma máquina de produção. Falha de disco ou da VPS =
+  perda total do backup. Mover para storage externo (S3 ou outro host).
+  - VPS — `/var/backups/jusprime`
+  - Ref: incidente 01/Jun/2026
+
+- **[ALTA — paliativo ativo] Backup de uploads desabilitado temporariamente** —
+  commit `86564f0` comentou o passo de cópia de uploads em `scripts/backup.sh` para
+  parar de estourar o disco. A partir de 01/Jun, os backups contêm APENAS o banco;
+  nenhum upload novo é backupeado. Último backup com uploads ainda existente:
+  `jusprime_20260531_020001.tar.gz`. REVERTER (descomentar o passo 2 e restaurar
+  `uploads` no tar) assim que o disco/storage do item acima for resolvido.
+  - `scripts/backup.sh`
+  - Ref: commit `86564f0` · incidente 01/Jun/2026
+
+- **[MÉDIA] `deploy-prod-tls.sh` executa migrations automaticamente** — todo deploy
+  roda `doctrine:migrations:migrate` em produção sem confirmação manual. Risco de
+  alteração de schema não intencional num deploy de rotina. Avaliar gate de
+  confirmação ou separar o migrate do deploy.
+  - VPS — `deploy-prod-tls.sh`
+  - Ref: incidente 01/Jun/2026
