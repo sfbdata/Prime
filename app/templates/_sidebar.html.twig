@@ -26,6 +26,16 @@
         <nav>
             <ul class="pje-menu-list">
 
+                {% if can_access_module('bi') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('dashboard_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'dashboard_' ? 'active' : '' }}">
+                            <i class="bi bi-bar-chart-line pje-nav-icon"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 <li class="pje-menu-item">
                     <a href="{{ path('expediente_index') }}"
                        class="pje-menu-link {{ currentRoute starts with 'expediente_' ? 'active' : '' }}">
