@@ -11,11 +11,9 @@ use App\Tests\Factory\Tarefa\TarefaFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 use Zenstruck\Foundry\Test\Factories;
-use Zenstruck\Foundry\Test\ResetDatabase;
 
 final class FactorySmokeTest extends KernelTestCase
 {
-    use ResetDatabase;
     use Factories;
 
     public function testCadaFactoryPersisteSemErro(): void
