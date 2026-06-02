@@ -49,6 +49,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
         $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
         $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
     }
 
     private function mockUser(int $id, string $nome): User
@@ -170,6 +171,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
 
         $u10 = $this->mockUser(10, 'Ana Lima');
         $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u10]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -201,6 +203,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
 
         $u20 = $this->mockUser(20, 'Carlos Melo');
         $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u20]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -233,6 +236,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
 
         $u1 = $this->mockUser(1, 'Beatriz Costa');
         $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u1]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -266,6 +270,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $u2 = $this->mockUser(2, 'Bruno');
         $u3 = $this->mockUser(3, 'Carla');
         $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u1, $u2, $u3]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -273,5 +278,53 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(2, $output->porAdvogado[0]->userId); // totalMetas=5
         self::assertSame(1, $output->porAdvogado[1]->userId); // totalMetas=3
         self::assertSame(3, $output->porAdvogado[2]->userId); // totalMetas=1
+    }
+
+    // ─── CARGO ───────────────────────────────────────────────────────
+
+    #[TestDox('colaborador com cargo tem cargoNome preenchido na linha')]
+    public function testColaboradorComCargoPreencheCargoNome(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+
+        $u5 = $this->mockUser(5, 'João Advogado');
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u5]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([5 => 'Advogado(a)']);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia);
+
+        self::assertCount(1, $output->porAdvogado);
+        self::assertSame('Advogado(a)', $output->porAdvogado[0]->cargoNome);
+    }
+
+    #[TestDox('colaborador sem cargo tem cargoNome null na linha')]
+    public function testColaboradorSemCargoTemCargoNomeNull(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+
+        $u6 = $this->mockUser(6, 'Maria Colaboradora');
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u6]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([]);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia);
+
+        self::assertCount(1, $output->porAdvogado);
+        self::assertNull($output->porAdvogado[0]->cargoNome);
     }
 }

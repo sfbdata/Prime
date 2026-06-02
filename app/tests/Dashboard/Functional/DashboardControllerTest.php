@@ -162,7 +162,22 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('table tbody', $user->getFullName());
         self::assertSelectorExists('table tbody tr');
         // Linha com totalMetas = 0
-        self::assertSelectorTextContains('table tbody tr td:nth-child(2)', '0');
+        self::assertSelectorTextContains('table tbody tr td:nth-child(3)', '0');
+    }
+
+    #[TestDox('GET /dashboard renderiza coluna Cargo na tabela')]
+    public function testColunaCargoApareceNaTabela(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('table thead', 'Cargo');
+        self::assertSelectorExists('tbody tr[data-cargo]');
     }
 
     #[TestDox('GET /dashboard renderiza nome do advogado e linha na tabela com dados reais')]

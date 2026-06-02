@@ -71,6 +71,28 @@ class UserRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** @return array<int, string|null>  userId => nome do cargo (null se sem cargo) */
+    public function findCargoPorColaboradores(Tenant $tenant): array
+    {
+        $rows = $this->getEntityManager()
+            ->createQuery(
+                'SELECT u.id AS userId, c.nome AS cargoNome
+                 FROM App\Entity\Auth\UserTenant ut
+                 JOIN ut.user u
+                 LEFT JOIN ut.cargo c
+                 WHERE ut.tenant = :tenant AND ut.isActive = true'
+            )
+            ->setParameter('tenant', $tenant)
+            ->getArrayResult();
+
+        $mapa = [];
+        foreach ($rows as $row) {
+            $mapa[(int) $row['userId']] = $row['cargoNome'];
+        }
+
+        return $mapa;
+    }
+
     public function findPorIdETenant(int $id, Tenant $tenant): ?User
     {
         return $this->createQueryBuilder('u')

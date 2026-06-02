@@ -7,8 +7,9 @@ namespace App\Dashboard\DTO;
 final class LinhaAdvogadoDashboardOutput
 {
     public function __construct(
-        public readonly int    $userId,
-        public readonly string $nomeAdvogado,
+        public readonly int     $userId,
+        public readonly string  $nomeAdvogado,
+        public readonly ?string $cargoNome,
         // Tarefa
         public readonly int    $totalMetas,
         public readonly int    $metasAtivas,

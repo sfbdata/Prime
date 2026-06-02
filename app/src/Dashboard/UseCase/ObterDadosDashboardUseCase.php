@@ -44,6 +44,8 @@ final class ObterDadosDashboardUseCase
             return new DashboardOutput($totalMetasAtivas, $demandasUrgentes, $metaGlobalPercent, []);
         }
 
+        $mCargo = $this->userRepository->findCargoPorColaboradores($tenant);
+
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
         foreach ($colaboradores as $user) {
@@ -51,6 +53,7 @@ final class ObterDadosDashboardUseCase
             $linhas[] = new LinhaAdvogadoDashboardOutput(
                 userId:         $id,
                 nomeAdvogado:   $user->getFullName(),
+                cargoNome:      $mCargo[$id] ?? null,
                 totalMetas:     $mTotalTarefa[$id]  ?? 0,
                 metasAtivas:    $mAtivasTarefa[$id] ?? 0,
                 metasVencidas:  $mVencidas[$id]     ?? 0,

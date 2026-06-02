@@ -138,6 +138,15 @@
                 <i class="bi bi-people"></i>
                 <span>Desempenho por Advogado</span>
             </div>
+            {% if dashboard.porAdvogado is not empty %}
+            <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom">
+                <label for="filtroCargo" class="form-label mb-0 text-muted small">Cargo:</label>
+                <select id="filtroCargo" class="form-select form-select-sm w-auto">
+                    <option value="">Todos os cargos</option>
+                    <option value="__sem_cargo__">Sem cargo</option>
+                </select>
+            </div>
+            {% endif %}
             <div class="table-responsive">
                 {% if dashboard.porAdvogado is empty %}
                 <div class="db-empty text-secondary">
@@ -145,10 +154,11 @@
                     Nenhum advogado com dados no período.
                 </div>
                 {% else %}
-                <table class="table db-table mb-0">
+                <table id="tabelaColaboradores" class="table db-table mb-0">
                     <thead>
                         <tr>
                             <th>Advogado</th>
+                            <th>Cargo</th>
                             <th class="text-center">Total Metas</th>
                             <th class="text-center">Metas Ativas</th>
                             <th class="text-center">Metas Vencidas</th>
@@ -159,8 +169,9 @@
                     </thead>
                     <tbody>
                         {% for linha in dashboard.porAdvogado %}
-                        <tr>
+                        <tr data-cargo="{{ linha.cargoNome|default('')|e('html_attr') }}">
                             <td class="fw-medium">{{ linha.nomeAdvogado }}</td>
+                            <td class="text-muted">{{ linha.cargoNome ?? '—' }}</td>
                             <td class="text-center">{{ linha.totalMetas }}</td>
                             <td class="text-center">{{ linha.metasAtivas }}</td>
                             <td class="text-center">
@@ -189,4 +200,41 @@
 
     </div>
 </section>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var select = document.getElementById('filtroCargo');
+    if (!select) return;
+
+    var tabela = document.getElementById('tabelaColaboradores');
+    var linhas = tabela.querySelectorAll('tbody tr[data-cargo]');
+
+    var cargosVistos = {};
+    linhas.forEach(function (tr) {
+        var cargo = tr.dataset.cargo;
+        if (cargo && !cargosVistos[cargo]) {
+            cargosVistos[cargo] = true;
+            var opt = document.createElement('option');
+            opt.value = cargo;
+            opt.textContent = cargo;
+            select.insertBefore(opt, select.querySelector('[value="__sem_cargo__"]'));
+        }
+    });
+
+    select.addEventListener('change', function () {
+        var val = this.value;
+        linhas.forEach(function (tr) {
+            if (!val) {
+                tr.style.display = '';
+            } else if (val === '__sem_cargo__') {
+                tr.style.display = tr.dataset.cargo === '' ? '' : 'none';
+            } else {
+                tr.style.display = tr.dataset.cargo === val ? '' : 'none';
+            }
+        });
+    });
+});
+</script>
 {% endblock %}
