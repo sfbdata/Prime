@@ -8,17 +8,23 @@ use App\Dashboard\Controller\DashboardController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
+use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Tests\Factory\Pasta\PastaFactory;
+use App\Tests\Factory\Tarefa\TarefaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Zenstruck\Foundry\Test\Factories;
 
 #[CoversClass(DashboardController::class)]
 final class DashboardControllerTest extends JusPrimeWebTestCase
 {
+    use Factories;
+
     private function criarTenant(): Tenant
     {
         $em     = static::getContainer()->get(EntityManagerInterface::class);
@@ -123,5 +129,44 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/dashboard');
 
         self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('GET /dashboard renderiza cards zerados para tenant sem dados')]
+    public function testRenderizaCardsZeradosParaTenantVazio(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('.db-stat-card');
+        self::assertSelectorTextContains('body', 'Nenhum advogado com dados no período.');
+    }
+
+    #[TestDox('GET /dashboard renderiza nome do advogado e linha na tabela com dados reais')]
+    public function testRenderizaDadosReaisNaTabela(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        $em     = static::getContainer()->get(EntityManagerInterface::class);
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        $tarefa = TarefaFactory::createOne([
+            'pasta'  => $pasta,
+            'status' => Tarefa::STATUS_PENDENTE,
+        ])->_real();
+        $tarefa->addResponsavel($user);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('table tbody', $user->getFullName());
+        self::assertSelectorExists('table tbody tr');
     }
 }
