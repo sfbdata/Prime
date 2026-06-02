@@ -51,12 +51,26 @@ GET /dashboard
 - [x] 1b-ii — agregações de Tarefa (`TarefaRepository`)
 - [x] 2 — UseCase + DTOs
 - [x] 3 — controller + rota + permissão + stub de template
-- [ ] 4 — template completo + gráfico (Chart.js) — **PENDENTE**
+- [x] 4 — template completo (cards pastel + barra de progresso + tabela por advogado). SEM gráfico (cortado do escopo original).
+
+## Próxima frente — tabela por colaborador
+
+A tabela atual lista apenas advogados que aparecem como **responsáveis** em alguma pasta ou tarefa (lista derivada das agregações). Decisão: mudar para mostrar **todos os colaboradores do tenant**, com zeros para quem não tiver dados.
+
+### Mudanças de backend necessárias
+
+- **UseCase:** lista de linhas passa a vir dos `User` do tenant (via `UserTenantRepository` ou similar), não dos responsáveis encontrados nas agregações. Agregações de Tarefa e Pasta viram `LEFT JOIN` para que colaboradores sem tarefas apareçam com zeros.
+- **DTO `LinhaAdvogadoDashboardOutput`:** ganha campos de `avatar` (URL ou iniciais) e `perfil` (a definir: cargo? `TenantRole.name`?).
+- **Filtro por perfil:** interface ainda a especificar — qual campo define "perfil" de um colaborador no tenant.
+- **Testes do UseCase:** os testes atuais assumem a lista derivada das agregações; precisarão ser reescritos para a nova lógica de LEFT JOIN.
+
+**Status:** planejada, não iniciada.
 
 ## Decisões registradas
 
 - **Permissão:** `modules.bi.view` reusada — não criada nova. BI estava reservado para métricas/dashboard.
 - **Sidebar:** Dashboard como primeiro item (acima de Expediente).
-- **Escopo:** só Pasta/Tarefa. Demais domínios dependem de `tenant_id` — ver PENDENCIAS.md.
+- **Escopo v1:** só Pasta/Tarefa. Demais domínios dependem de `tenant_id` — ver PENDENCIAS.md. Gráfico (Chart.js) cortado do escopo original.
+- **Tabela v1:** lista derivada de responsáveis (não de todos os colaboradores). Próxima frente expande para todos os usuários do tenant via LEFT JOIN.
 - **Teste:** `#[ResetDatabase]` removido do Foundry (conflitava com DAMA) — ver PENDENCIAS.md.
 - **Soma de linhas vs card:** intencional — ManyToMany de responsáveis em Tarefa.
