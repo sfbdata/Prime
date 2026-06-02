@@ -37,35 +37,20 @@ final class ObterDadosDashboardUseCase
         $mTotalPasta   = $this->pastaRepository->countPorResponsavel($tenant);
         $mAtivasPasta  = $this->pastaRepository->countAtivasPorResponsavel($tenant);
 
-        // União dos userIds presentes em qualquer mapa
-        $allIds = array_unique(array_merge(
-            array_keys($mTotalTarefa),
-            array_keys($mAtivasTarefa),
-            array_keys($mVencidas),
-            array_keys($mPrazos),
-            array_keys($mTotalPasta),
-            array_keys($mAtivasPasta),
-        ));
+        // Lista canônica: todos os colaboradores ativos do tenant
+        $colaboradores = $this->userRepository->findColaboradoresAtivosPorTenant($tenant);
 
-        // Guard: findBy(['id' => []]) gera IN () no PostgreSQL
-        if ($allIds === []) {
+        if ($colaboradores === []) {
             return new DashboardOutput($totalMetasAtivas, $demandasUrgentes, $metaGlobalPercent, []);
         }
 
-        // 1 query para todos os nomes (ids já são do tenant — filtrados nos 6 mapas)
-        $users   = $this->userRepository->findBy(['id' => $allIds]);
-        $userMap = [];
-        foreach ($users as $user) {
-            $userMap[$user->getId()] = $user;
-        }
-
-        // Montar linhas ($userMap[$id] pode ser null se user foi deletado)
+        // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
-        foreach ($allIds as $id) {
-            $user     = $userMap[$id] ?? null;
+        foreach ($colaboradores as $user) {
+            $id       = $user->getId();
             $linhas[] = new LinhaAdvogadoDashboardOutput(
                 userId:         $id,
-                nomeAdvogado:   $user?->getFullName() ?? '',
+                nomeAdvogado:   $user->getFullName(),
                 totalMetas:     $mTotalTarefa[$id]  ?? 0,
                 metasAtivas:    $mAtivasTarefa[$id] ?? 0,
                 metasVencidas:  $mVencidas[$id]     ?? 0,

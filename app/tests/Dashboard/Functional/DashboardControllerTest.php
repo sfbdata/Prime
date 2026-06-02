@@ -131,7 +131,7 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
     }
 
-    #[TestDox('GET /dashboard renderiza cards zerados para tenant sem dados')]
+    #[TestDox('GET /dashboard renderiza cards zerados para tenant sem tarefas ou pastas')]
     public function testRenderizaCardsZeradosParaTenantVazio(): void
     {
         $client = static::createClient();
@@ -143,7 +143,26 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorExists('.db-stat-card');
-        self::assertSelectorTextContains('body', 'Nenhum advogado com dados no período.');
+        // O colaborador logado já aparece na tabela com zeros (lista = colaboradores ativos)
+        self::assertSelectorTextContains('table tbody', $user->getFullName());
+    }
+
+    #[TestDox('GET /dashboard colaborador ativo sem tarefa ou pasta aparece na tabela com zeros')]
+    public function testColaboradorAtivoSemTarefaOuPastaApareceNaRenderizacao(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        // Sem criar nenhuma Pasta ou Tarefa para este colaborador
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('table tbody', $user->getFullName());
+        self::assertSelectorExists('table tbody tr');
+        // Linha com totalMetas = 0
+        self::assertSelectorTextContains('table tbody tr td:nth-child(2)', '0');
     }
 
     #[TestDox('GET /dashboard renderiza nome do advogado e linha na tabela com dados reais')]

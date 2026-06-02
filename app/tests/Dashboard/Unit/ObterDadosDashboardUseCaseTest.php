@@ -70,7 +70,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 2, 'total' => 4]);
 
         $this->configureMapasVazios();
-        $this->userRepo->method('findBy')->willReturn([]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -87,7 +87,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
 
         $this->configureMapasVazios();
-        $this->userRepo->method('findBy')->willReturn([]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -102,7 +102,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 1, 'total' => 3]);
 
         $this->configureMapasVazios();
-        $this->userRepo->method('findBy')->willReturn([]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -111,51 +111,51 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
 
     // ─── TABELA — guard e casos extremos ─────────────────────────────
 
-    #[TestDox('porAdvogado é vazio quando nenhum responsável existe (guard $allIds vazio)')]
-    public function testSemResponsaveisRetornaTabelaVazia(): void
+    #[TestDox('porAdvogado é vazio quando não há colaboradores ativos no tenant')]
+    public function testSemColaboradoresAtivosRetornaTabelaVazia(): void
     {
         $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
         $this->pastaRepo->method('countUrgentes')->willReturn(0);
         $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
 
         $this->configureMapasVazios();
-        // findBy NÃO deve ser chamado quando $allIds está vazio
-        $this->userRepo->expects(self::never())->method('findBy');
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
         self::assertSame([], $output->porAdvogado);
     }
 
-    #[TestDox('userId presente nos mapas mas não retornado por findBy gera linha com nomeAdvogado vazio')]
-    public function testUserIdOrfaoRetornaNomeVazio(): void
+    #[TestDox('colaborador ativo sem nenhuma tarefa ou pasta aparece na tabela com todos os contadores zerados')]
+    public function testColaboradorAtivoSemTarefaOuPastaApareceComZeros(): void
     {
-        $this->tarefaRepo->method('countMetasAtivas')->willReturn(3);
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
         $this->pastaRepo->method('countUrgentes')->willReturn(0);
-        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 3]);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
 
-        $this->tarefaRepo->method('countPorResponsavel')->willReturn([42 => 3]);
-        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([42 => 3]);
-        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([]);
-        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
-        $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
-        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->configureMapasVazios();
 
-        // findBy retorna array vazio — user 42 foi deletado
-        $this->userRepo->method('findBy')->willReturn([]);
+        $u7 = $this->mockUser(7, 'Fulano da Silva');
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u7]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
         self::assertCount(1, $output->porAdvogado);
-        self::assertSame(42, $output->porAdvogado[0]->userId);
-        self::assertSame('', $output->porAdvogado[0]->nomeAdvogado);
-        self::assertSame(3, $output->porAdvogado[0]->totalMetas);
+        $linha = $output->porAdvogado[0];
+        self::assertSame(7, $linha->userId);
+        self::assertSame('Fulano da Silva', $linha->nomeAdvogado);
+        self::assertSame(0, $linha->totalMetas);
+        self::assertSame(0, $linha->metasAtivas);
+        self::assertSame(0, $linha->metasVencidas);
+        self::assertSame(0, $linha->prazosProximos);
+        self::assertSame(0, $linha->totalDemandas);
+        self::assertSame(0, $linha->demandasAtivas);
     }
 
-    // ─── TABELA — union de mapas ──────────────────────────────────────
+    // ─── TABELA — counts parciais ─────────────────────────────────────
 
-    #[TestDox('advogado com pasta mas sem tarefa tem todos os campos de tarefa zerados')]
-    public function testAdvogadoComPastaMasSemTarefa(): void
+    #[TestDox('colaborador com pasta mas sem tarefa tem todos os campos de tarefa zerados')]
+    public function testColaboradorSemTarefaTemDadosDePasta(): void
     {
         $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
         $this->pastaRepo->method('countUrgentes')->willReturn(2);
@@ -169,7 +169,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([10 => 3]);
 
         $u10 = $this->mockUser(10, 'Ana Lima');
-        $this->userRepo->method('findBy')->willReturn([$u10]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u10]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -185,8 +185,8 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertSame(3, $linha->demandasAtivas);
     }
 
-    #[TestDox('advogado com tarefa mas sem pasta tem todos os campos de pasta zerados')]
-    public function testAdvogadoComTarefaMasSemPasta(): void
+    #[TestDox('colaborador com tarefa mas sem pasta tem todos os campos de pasta zerados')]
+    public function testColaboradorSemPastaTemDadosDeTarefa(): void
     {
         $this->tarefaRepo->method('countMetasAtivas')->willReturn(4);
         $this->pastaRepo->method('countUrgentes')->willReturn(0);
@@ -200,7 +200,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
 
         $u20 = $this->mockUser(20, 'Carlos Melo');
-        $this->userRepo->method('findBy')->willReturn([$u20]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u20]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -232,7 +232,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([1 => 6]);
 
         $u1 = $this->mockUser(1, 'Beatriz Costa');
-        $this->userRepo->method('findBy')->willReturn([$u1]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u1]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 
@@ -265,7 +265,7 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         $u1 = $this->mockUser(1, 'Alice');
         $u2 = $this->mockUser(2, 'Bruno');
         $u3 = $this->mockUser(3, 'Carla');
-        $this->userRepo->method('findBy')->willReturn([$u1, $u2, $u3]);
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u1, $u2, $u3]);
 
         $output = $this->sut->executar($this->tenant, $this->referencia);
 

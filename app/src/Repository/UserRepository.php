@@ -60,6 +60,17 @@ class UserRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /** @return User[] */
+    public function findColaboradoresAtivosPorTenant(Tenant $tenant): array
+    {
+        return $this->createQueryBuilder('u')
+            ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('u.fullName', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findPorIdETenant(int $id, Tenant $tenant): ?User
     {
         return $this->createQueryBuilder('u')
