@@ -10,6 +10,7 @@ final class LinhaAdvogadoDashboardOutput
         public readonly int     $userId,
         public readonly string  $nomeAdvogado,
         public readonly ?string $cargoNome,
+        public readonly ?string $fotoUrl,
         // Tarefa
         public readonly int    $totalMetas,
         public readonly int    $metasAtivas,

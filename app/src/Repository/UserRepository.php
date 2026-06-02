@@ -93,6 +93,28 @@ class UserRepository extends ServiceEntityRepository
         return $mapa;
     }
 
+    /** @return array<int, string|null>  userId => fotoUrl (null se sem perfil ou sem foto) */
+    public function findFotoPorColaboradores(Tenant $tenant): array
+    {
+        $rows = $this->getEntityManager()
+            ->createQuery(
+                'SELECT u.id AS userId, p.fotoUrl AS fotoUrl
+                 FROM App\Entity\Auth\UserTenant ut
+                 JOIN ut.user u
+                 LEFT JOIN u.profile p
+                 WHERE ut.tenant = :tenant AND ut.isActive = true'
+            )
+            ->setParameter('tenant', $tenant)
+            ->getArrayResult();
+
+        $mapa = [];
+        foreach ($rows as $row) {
+            $mapa[(int) $row['userId']] = $row['fotoUrl'];
+        }
+
+        return $mapa;
+    }
+
     public function findPorIdETenant(int $id, Tenant $tenant): ?User
     {
         return $this->createQueryBuilder('u')

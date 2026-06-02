@@ -12,6 +12,7 @@ use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Profile\Entity\UserProfile;
 use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Factory\Tarefa\TarefaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
@@ -202,5 +203,38 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('table tbody', $user->getFullName());
         self::assertSelectorExists('table tbody tr');
+    }
+
+    #[TestDox('GET /dashboard exibe inicial quando colaborador não tem foto')]
+    public function testAvatarInicialApareceQuandoSemFoto(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('tbody td .collab-avatar-inicial');
+    }
+
+    #[TestDox('GET /dashboard exibe img quando colaborador tem fotoUrl')]
+    public function testAvatarImgApareceQuandoComFoto(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        $em      = static::getContainer()->get(EntityManagerInterface::class);
+        $profile = (new UserProfile($user))->setFotoUrl('avatar_teste.jpg');
+        $em->persist($profile);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('tbody td img[src*="avatar_teste.jpg"]');
     }
 }

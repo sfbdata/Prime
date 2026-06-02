@@ -45,6 +45,7 @@ final class ObterDadosDashboardUseCase
         }
 
         $mCargo = $this->userRepository->findCargoPorColaboradores($tenant);
+        $mFoto  = $this->userRepository->findFotoPorColaboradores($tenant);
 
         // Montar linhas — colaborador sem tarefa/pasta aparece com zeros
         $linhas = [];
@@ -54,6 +55,7 @@ final class ObterDadosDashboardUseCase
                 userId:         $id,
                 nomeAdvogado:   $user->getFullName(),
                 cargoNome:      $mCargo[$id] ?? null,
+                fotoUrl:        $mFoto[$id]  ?? null,
                 totalMetas:     $mTotalTarefa[$id]  ?? 0,
                 metasAtivas:    $mAtivasTarefa[$id] ?? 0,
                 metasVencidas:  $mVencidas[$id]     ?? 0,
