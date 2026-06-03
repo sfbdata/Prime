@@ -134,11 +134,15 @@ de referência se houver.
 
 - **82 pastas em estado ambíguo (Fase 0)** — 9 em `revisao_manual.csv` + 73 em `pendencias.csv`.
   Tratamento manual necessário com Dr. Farlei.
-  - `tmp/acervo/` (arquivos locais, não comitados)
+  - CSVs não versionados (PII). Regenerar com:
+    `docker exec jusprime_php_dev bash -c 'cd app && php bin/console app:acervo:parsear --entrada=/var/www/tmp/acervo/acervo_nomes.txt --saida=/var/www/tmp/acervo/'`
+    (ajustar saída se necessário). Após regerar, atacar manualmente com Dr. Farlei.
   - Ref: `IMPORTACAO-ACERVO.md` § Pendências
 
 - **11 NUPs sem match no sistema** — motivo `nup_nao_existe_no_sistema`: pastas criadas no Drive
-  após a Fase 0. Lista em `~/projetos/jusprime/tmp/acervo-fase2/output/sem_match_drive.csv`.
+  após a Fase 0. Lista em `tmp/acervo-fase2/output/sem_match_drive.csv` (PII, fora do git).
+  Regenerar se sumir com:
+  `docker exec jusprime_php_dev bash -c 'cd app && php bin/console app:acervo:mapear --json=/var/www/tmp/acervo-fase2/pastas-drive.json --tenant-id=1 --saida=/var/www/tmp/acervo-fase2/output'`.
   - Ref: `FASE2-ARQUIVOS-DRIVE.md`
 
 - **19 arquivos > 65 MB pulados na carga da Fase 2** — lista em
