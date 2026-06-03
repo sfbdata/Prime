@@ -8,6 +8,7 @@ use App\Profile\DTO\AtualizarStatusInput;
 use App\Profile\DTO\DadosPessoaisInput;
 use App\Profile\DTO\PerfilOutput;
 use App\Profile\Form\DadosPessoaisType;
+use App\Profile\Repository\UserProfileRepository;
 use App\Profile\UseCase\AtualizarDadosPessoaisUseCase;
 use App\Profile\UseCase\AtualizarFotoPerfilUseCase;
 use App\Profile\UseCase\AtualizarStatusUseCase;
@@ -31,6 +32,7 @@ final class ProfileController extends AbstractController
         private readonly ArquivoStorageInterface $storage,
         private readonly string $fotosPerfilDir,
         private readonly TenantContext $tenantContext,
+        private readonly UserProfileRepository $profileRepository,
     ) {
     }
 
@@ -124,11 +126,14 @@ final class ProfileController extends AbstractController
     #[Route('/foto/{nome}', name: '_foto_serve', methods: ['GET'])]
     public function servirFoto(string $nome): Response
     {
-        /** @var User $user */
-        $user = $this->getUser();
-        $perfil = $this->obterOuCriarPerfil->executar($user);
+        // Rejeita path traversal antes de qualquer acesso ao banco ou filesystem
+        if (basename($nome) !== $nome) {
+            throw $this->createNotFoundException('Foto não encontrada.');
+        }
 
-        if ($perfil->getFotoUrl() !== $nome) {
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if ($tenant === null || $this->profileRepository->buscarPorFotoUrlETenant($nome, $tenant) === null) {
             throw $this->createNotFoundException('Foto não encontrada.');
         }
 

@@ -59,9 +59,31 @@ de referência se houver.
   - `app/src/Pasta/UseCase/MoverDocumentoParaSecaoUseCase.php`
   - Ref: `REFATORACAO-DOMINIOS.md:165`
 
+- **[MÉDIA] getCurrentTenant() não valida vínculo do solicitante** — `TenantContext::getCurrentTenant()`
+  lê o tenant da sessão via `em->find(Tenant)` sem confirmar que o usuário autenticado tem
+  `UserTenant.isActive = true` nesse tenant. Combinado com o `UserChecker` (que só checa
+  `User.isActive`, não `UserTenant.isActive`), um usuário demitido com sessão ainda viva pode
+  acessar recursos filtrados por `getCurrentTenant()` — ex: ver fotos de ex-colegas via
+  `servirFoto`. O isolamento cross-tenant das queries continua válido; a falha é que o vínculo
+  do solicitante não é revalidado por request. Frente própria: revisar `UserChecker` para
+  invalidar sessão quando `UserTenant.isActive` vira `false`. Afeta toda rota que usa
+  `getCurrentTenant()`, não só a foto.
+  - `app/src/Service/Tenant/TenantContext.php`
+  - `app/src/Security/UserChecker.php` (frente de correção)
+
 - **[INFO] TODO: notificação de novo chamado no ServiceDesk** — `notificarNovoChamado()` é um
   stub vazio (só log); nenhum alerta chega a admins/equipe TI.
   - `app/src/Controller/ServiceDeskController.php:398`
+
+- **[BAIXA] Fallback onerror de avatar só no dashboard** — o dashboard trata foto quebrada
+  (HTTP 404 na rota `app_profile_foto_serve`) com fallback de inicial via `onerror` inline.
+  Os mesmos `<img>` em `base.html.twig` (sidebar/dropdown), `profile/index.html.twig` e
+  `layout_peticionar.html.twig` não têm `onerror` — exibem ícone de imagem quebrada se a
+  foto der 404. Risco baixo (esses contextos mostram a foto do próprio usuário logado, que
+  normalmente existe), mas inconsistente. Melhoria: replicar o padrão `onerror` nesses templates.
+  - `app/templates/base.html.twig`
+  - `app/templates/profile/index.html.twig`
+  - `app/templates/layout_peticionar.html.twig`
 
 ---
 

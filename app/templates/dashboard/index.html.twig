@@ -174,7 +174,12 @@
                                 {% if linha.fotoUrl %}
                                     <img src="{{ path('app_profile_foto_serve', {nome: linha.fotoUrl}) }}"
                                          alt="{{ linha.nomeAdvogado }}"
-                                         style="width:28px;height:28px;object-fit:cover;border-radius:50%;flex-shrink:0;">
+                                         style="width:28px;height:28px;object-fit:cover;border-radius:50%;flex-shrink:0;"
+                                         onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                                    <span class="collab-avatar-inicial"
+                                          style="display:none;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--bs-secondary-bg);font-size:0.75rem;font-weight:600;flex-shrink:0;">
+                                        {{ linha.nomeAdvogado|slice(0,1)|upper }}
+                                    </span>
                                 {% else %}
                                     <span class="collab-avatar-inicial"
                                           style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--bs-secondary-bg);font-size:0.75rem;font-weight:600;flex-shrink:0;">

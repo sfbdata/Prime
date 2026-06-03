@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace App\Profile\Repository;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Profile\Entity\UserProfile;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -35,5 +36,21 @@ class UserProfileRepository extends ServiceEntityRepository
     public function buscarPorUsuario(User $user): ?UserProfile
     {
         return $this->findOneBy(['user' => $user]);
+    }
+
+    public function buscarPorFotoUrlETenant(string $fotoUrl, Tenant $tenant): ?UserProfile
+    {
+        return $this->getEntityManager()
+            ->createQuery(
+                'SELECT up FROM App\Profile\Entity\UserProfile up
+                 JOIN up.user u
+                 JOIN App\Entity\Auth\UserTenant ut WITH ut.user = u
+                 WHERE up.fotoUrl  = :fotoUrl
+                   AND ut.tenant   = :tenant
+                   AND ut.isActive = true'
+            )
+            ->setParameter('fotoUrl', $fotoUrl)
+            ->setParameter('tenant', $tenant)
+            ->getOneOrNullResult();
     }
 }
