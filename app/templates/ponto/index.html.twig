@@ -1,5 +1,17 @@
 {% extends 'base.html.twig' %}
 
+{% block stylesheets %}
+<style>
+@keyframes piscar-repouso {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.35; }
+}
+.repouso-disponivel-piscando {
+    animation: piscar-repouso 1s ease-in-out infinite;
+}
+</style>
+{% endblock %}
+
 {% block title %}Ponto Eletrônico{% endblock %}
 
 {% block body %}
@@ -262,10 +274,10 @@
 
                 if (restante > 0) {
                     repousoStatusEl.textContent = `Retorno disponível em ${restante} min`;
-                    contadorRepousoEl.className = 'alert alert-warning small mb-3 py-2 text-center';
+                    contadorRepousoEl.className = 'alert alert-success small mb-3 py-2 text-center';
                 } else {
                     repousoStatusEl.textContent = 'Retorno disponível';
-                    contadorRepousoEl.className = 'alert alert-success small mb-3 py-2 text-center';
+                    contadorRepousoEl.className = 'alert alert-warning small mb-3 py-2 text-center repouso-disponivel-piscando';
                 }
             } else {
                 repousoStatusEl.textContent = '';
