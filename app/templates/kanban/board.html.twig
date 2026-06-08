@@ -989,8 +989,26 @@ window.criarMarcador = function (boardId, cardId) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nome: nome, cor: cor }),
-    }).then(r => r.json()).then(function (res) {
-        if (res.sucesso) { recarregarModalCard(cardId); }
+    }).then(r => r.json())
+    .then(function (res) {
+        if (!res.sucesso) return;
+        // marcador criado — agora atribui ao card atual (toggle)
+        return fetch('/kanban/card/' + cardId + '/marcador/' + res.marcador.id + '/toggle',
+                     { method: 'POST' })
+            .then(r => r.json())
+            .then(function (tog) {
+                if (tog.sucesso && tog.adicionado) {
+                    recarregarModalCard(cardId);
+                } else {
+                    // toggle não atribuiu — recarrega mesmo assim (marcador existe)
+                    // mas avisa que a atribuição automática falhou
+                    alert('Marcador criado, mas não foi possível atribuí-lo automaticamente. Clique nele para atribuir.');
+                    recarregarModalCard(cardId);
+                }
+            });
+    })
+    .catch(function () {
+        alert('Falha ao criar ou atribuir o marcador. Tente novamente.');
     });
 };
 
