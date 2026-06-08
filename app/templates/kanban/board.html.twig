@@ -148,6 +148,17 @@
     font-weight: 600;
     color: #fff;
 }
+.kb-marcador-btn {
+    cursor: pointer;
+    transition: transform .1s ease, box-shadow .15s ease;
+}
+.kb-marcador-btn:hover {
+    transform: scale(1.05);
+}
+.kb-marcador-btn.ativo::after {
+    content: ' \2713';
+    font-size: .7rem;
+}
 .kb-card-footer {
     display: flex;
     align-items: center;
