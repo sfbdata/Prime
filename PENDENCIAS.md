@@ -85,6 +85,17 @@ de referência se houver.
   - `app/templates/profile/index.html.twig`
   - `app/templates/layout_peticionar.html.twig`
 
+- **[BAIXA] podeAdministrar do board não cobre admin kanban não-criador** —
+  `BoardDetalheOutput::fromEntity()` calcula `podeAdministrar` apenas como
+  `board.getCriadoPor() === usuarioAtual`. Mas `ExcluirBoardUseCase` autoriza também quem tem
+  `canAdminister($user, $tenant, 'kanban')`. Um admin kanban que não criou o board NÃO vê o
+  modal de configurações (nem o botão de excluir), embora o backend aceitaria a operação. É
+  restrição indevida (não exposição): o front esconde uma ação que o back permite. Correção:
+  incluir o resultado de `canAdminister` no cálculo de `podeAdministrar` (passar
+  PermissionChecker ou o boolean já calculado pelo controller ao fromEntity).
+  - `app/src/Kanban/DTO/BoardDetalheOutput.php`
+  - `app/src/Kanban/Controller/KanbanBoardController.php`
+
 ---
 
 ## 🟡 UX / Produto
@@ -252,6 +263,18 @@ de referência se houver.
   a ordem (flush → storage) ou usar transação.
   - `app/src/Pasta/UseCase/ExcluirPastaUseCase.php`
   - Ref: `REFATORACAO-DOMINIOS.md:107`
+
+- **[BAIXA] Anexos de Kanban ficam órfãos no disco ao excluir board/card** — a exclusão de board
+  ou card remove os registros `kanban_anexo` do banco por cascata (Doctrine + ON DELETE CASCADE),
+  mas NÃO apaga os arquivos físicos do disco. Só `ExcluirAnexoUseCase` chama
+  `storage->excluir()`; `ExcluirCardUseCase` e `ExcluirBoardUseCase` removem do banco sem coletar
+  os caminhos antes. Arquivos acumulam no filesystem sem referência. Não quebra nada
+  funcionalmente; é acúmulo de lixo. Correção (frente própria): coletar os caminhos dos anexos
+  da árvore ANTES do flush de remoção; remover do banco; depois apagar do disco (best-effort,
+  logar falha sem reverter). Atenção à ordem (mesma classe do item storage→flush do
+  ExcluirPastaUseCase).
+  - `app/src/Kanban/UseCase/ExcluirCardUseCase.php`
+  - `app/src/Kanban/UseCase/ExcluirBoardUseCase.php`
 
 - **[BAIXA] 6 entidades de Pasta com `?Tenant` nullable no PHP vs NOT NULL no banco** — `Pasta`,
   `PastaSecao`, `PastaMensagem`, `PastaChecklistItem`, `PastaObservacaoDetalhes`,
