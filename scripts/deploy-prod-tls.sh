@@ -80,6 +80,13 @@ fi
 echo "🔌 Portas ativas:"
 ss -tlnp | grep -E ':80|:443' || echo "⚠️  Nenhuma porta 80/443 detectada."
 
+# ─── Limpeza de lixo do Docker ────────────────────────────────────────────────
+# Remove SOMENTE imagens dangling e build cache. NÃO toca volumes (db/uploads)
+# nem imagens em uso. Evita acúmulo a cada deploy com --build.
+echo "🧹 Limpando imagens dangling e build cache..."
+docker image prune -f || true
+docker builder prune -f || true
+
 echo ""
 echo "🚀 Deploy TLS concluído com sucesso."
 echo "   🌐 https://bluejus.com.br"
