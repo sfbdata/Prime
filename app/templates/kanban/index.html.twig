@@ -184,7 +184,7 @@
 {% else %}
     <div class="kb-boards-grid" id="kbBoardsGrid">
         {% for board in boards %}
-        <a href="{{ path('kanban_board_view', {id: board.id}) }}" class="kb-board-card" style="--kb-cor: {{ board.cor ?? '#3b82f6' }};">
+        <a href="{{ path('kanban_board_view', {id: board.id}) }}" class="kb-board-card" style="--kb-cor: {{ board.cor ?: '#3b82f6' }};">
             <div class="kb-board-banner"></div>
             <div class="kb-board-body">
                 <h5 class="kb-board-name">{{ board.nome }}</h5>
@@ -227,7 +227,7 @@
             </div>
             <form id="formCriarBoard" method="post" action="{{ path('kanban_board_criar') }}">
                 <div class="modal-body py-3">
-                    {{ form_row(form.nome, {attr: {class: 'form-control form-control-sm', id: 'boardNomeInput'}}) }}
+                    {{ form_row(form.nome, {attr: {class: 'form-control form-control-sm'}}) }}
 
                     {{ form_row(form.descricao, {attr: {class: 'form-control form-control-sm', rows: 2}}) }}
 
@@ -238,7 +238,7 @@
                                 <button type="button" class="kb-cor-btn" style="background:{{ cor }};" data-cor="{{ cor }}" title="{{ cor }}"></button>
                             {% endfor %}
                         </div>
-                        {{ form_row(form.cor, {attr: {class: 'd-none', id: 'boardCorInput'}}) }}
+                        {{ form_row(form.cor, {attr: {class: 'd-none'}}) }}
                     </div>
 
                     <div class="mb-3">
@@ -271,7 +271,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     // Color picker
     const corOpcoes = document.querySelectorAll('.kb-cor-btn');
-    const corInput  = document.getElementById('boardCorInput');
+    const corInput  = document.getElementById('kanban_board_cor');
     let corSelecionada = '#3b82f6';
 
     corOpcoes.forEach(btn => {
@@ -283,6 +283,7 @@ document.addEventListener('DOMContentLoaded', function () {
             corInput.value = corSelecionada;
         });
     });
+    corInput.value = corSelecionada;
 
     // Select2 para participantes
     if (typeof $.fn !== 'undefined' && typeof $.fn.select2 !== 'undefined') {
@@ -324,7 +325,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Focus no nome ao abrir modal
     document.getElementById('modalCriarBoard').addEventListener('shown.bs.modal', function () {
-        document.getElementById('boardNomeInput').focus();
+        document.getElementById('kanban_board_nome').focus();
     });
 });
 </script>
