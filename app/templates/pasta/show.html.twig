@@ -2076,7 +2076,9 @@
                 <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" id="formVincularProcesso"
-                  action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
+                  action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}"
+                  data-pasta-id="{{ pasta.id }}"
+                  data-csrf-desvincular="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('vincular_processo_' ~ pasta.id) }}">
                 <div class="modal-body py-3">
 
@@ -2675,6 +2677,7 @@ document.addEventListener('DOMContentLoaded', function () {
             btn.dataset.copyAttached = '1';
         });
     }
+    window.attachCopyButtons = attachCopyButtons;
 
     attachCopyButtons();
 
@@ -3086,7 +3089,7 @@ document.addEventListener('DOMContentLoaded', function () {
             .replace(/'/g, '&#39;');
     }
 
-    function renderProcessoTab(processo) {
+    function renderProcessoTab(processo, pastaId, csrfDesvincularProcesso) {
         var partesHtml = '';
         if (processo.partes && processo.partes.length > 0) {
             partesHtml = '<hr>' +
@@ -3157,7 +3160,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (dados.sucesso && dados.processo) {
                 var content = document.getElementById('processoTabContent');
                 if (content) {
-                    content.innerHTML = renderProcessoTab(dados.processo);
+                    content.innerHTML = renderProcessoTab(dados.processo, this.dataset.pastaId, this.dataset.csrfDesvincular);
                     attachCopyButtons();
                 }
                 bootstrap.Modal.getInstance(modalEl)?.hide();
@@ -3166,7 +3169,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             feedbackEl.className = 'alert alert-danger mt-3';
             feedbackEl.textContent = 'Processo vinculado, mas não foi possível atualizar o conteúdo.';
-        } catch (_) {
+        } catch (e) {
+            console.error('Erro ao vincular processo:', e);
             feedbackEl.className = 'alert alert-danger mt-3';
             feedbackEl.textContent = 'Erro de comunicação. Tente novamente.';
         } finally {
