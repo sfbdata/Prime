@@ -9,6 +9,16 @@
             <li class="page-item {{ pagination.current_page <= 1 ? 'disabled' : '' }}">
                 <button type="button"
                         class="page-link btn-pagina"
+                        data-page="1"
+                        aria-label="Primeira página"
+                        {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
+                    &laquo;
+                </button>
+            </li>
+
+            <li class="page-item {{ pagination.current_page <= 1 ? 'disabled' : '' }}">
+                <button type="button"
+                        class="page-link btn-pagina"
                         data-page="{{ pagination.current_page - 1 }}"
                         aria-label="Página anterior"
                         {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
@@ -35,6 +45,16 @@
                         aria-label="Próxima página"
                         {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
                     &rsaquo;
+                </button>
+            </li>
+
+            <li class="page-item {{ pagination.current_page >= pagination.total_pages ? 'disabled' : '' }}">
+                <button type="button"
+                        class="page-link btn-pagina"
+                        data-page="{{ pagination.total_pages }}"
+                        aria-label="Última página"
+                        {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
+                    &raquo;
                 </button>
             </li>
 
