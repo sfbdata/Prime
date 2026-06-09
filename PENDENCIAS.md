@@ -336,3 +336,17 @@ de referência se houver.
   confirmação ou separar o migrate do deploy.
   - VPS — `deploy-prod-tls.sh`
   - Ref: incidente 01/Jun/2026
+
+## Expediente — melhorias de navegação (sugestões dos colaboradores)
+
+- [ ] **Ir para página N**: campo para digitar o número da página e saltar direto.
+  Complemento dos botões primeira/última já entregues. total_pages já disponível
+  no controller; paginação é LIMIT/OFFSET manual com data-page + AJAX.
+- [ ] **Persistir página ao voltar/atualizar**: ao recarregar o navegador ou entrar
+  numa pasta e voltar, a listagem reseta para a página 1. A página vem de ?page=N
+  na query string, mas a navegação AJAX não persiste no histórico/URL ao sair e
+  voltar. Investigar onde o estado se perde. Provável raiz comum com o item acima.
+- [ ] **Navegação entre pastas (anterior/próxima)**: botões dentro de uma pasta para
+  ir à pasta anterior/seguinte sem voltar à listagem. DECISÃO DE UX PENDENTE:
+  "próxima" em relação a quê? Deve respeitar filtro e ordenação ativos na listagem,
+  não a ordem natural do banco.
