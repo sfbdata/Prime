@@ -10,6 +10,7 @@ use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Entity\Marcador;
+use App\Processo\Entity\Processo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -277,6 +278,18 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $counts;
+    }
+
+    /**
+     * @return Pasta[]
+     */
+    public function findByProcesso(Processo $processo): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.processo = :processo')
+            ->setParameter('processo', $processo)
+            ->getQuery()
+            ->getResult();
     }
 
     /**

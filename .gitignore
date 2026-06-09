@@ -46,6 +46,7 @@ app/public/adminlte4/
 # Artefatos de processo / relatórios de sessão
 DAY*_COMPLETION_REPORT.md
 HANDOFF_FINAL.md
+/dossie-system-overview.md
 
 # Exemplos e referências locais
 /exemplo/

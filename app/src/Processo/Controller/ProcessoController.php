@@ -9,9 +9,11 @@ use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Cliente\Repository\ClienteRepository;
+use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Processo\Service\DatajudClient;
 use App\Processo\Service\DatajudProcessoMapper;
+use App\Processo\UseCase\ExcluirProcessoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -157,7 +159,7 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/{id}', name: 'processo_show', methods: ['GET'])]
-    public function show(Processo $processo, TarefaRepository $tarefaRepository, PermissionChecker $permissionChecker): Response
+    public function show(Processo $processo, TarefaRepository $tarefaRepository, PastaRepository $pastaRepository, PermissionChecker $permissionChecker): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -201,14 +203,17 @@ class ProcessoController extends AbstractController
             fn (array $a, array $b): int => $b['dataCriacao'] <=> $a['dataCriacao']
         );
 
+        $qtdPastasVinculadas = count($pastaRepository->findByProcesso($processo));
+
         return $this->render('processo/show.html.twig', [
             'processo' => $processo,
             'historicoTarefas' => $historicoTarefas,
+            'qtdPastasVinculadas' => $qtdPastasVinculadas,
         ]);
     }
 
     #[Route('/{id}/deletar', name: 'processo_delete', methods: ['POST'])]
-    public function delete(Request $request, Processo $processo, EntityManagerInterface $em, PermissionChecker $permissionChecker): Response
+    public function delete(Request $request, Processo $processo, ExcluirProcessoUseCase $excluirProcesso, PermissionChecker $permissionChecker): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -223,8 +228,7 @@ class ProcessoController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $em->remove($processo);
-        $em->flush();
+        $excluirProcesso->executar($processo);
 
         return $this->redirectToRoute('processo_index');
     }

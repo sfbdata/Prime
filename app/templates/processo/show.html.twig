@@ -282,7 +282,12 @@
                            aria-label="Editar processo">
                             <i class="bi bi-pencil me-1"></i> Editar
                         </a>
-                        <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('Tem certeza que deseja excluir este processo?');">
+                        {% if qtdPastasVinculadas > 0 %}
+                            {% set confirmMsg = 'Este processo possui ' ~ qtdPastasVinculadas ~ ' pasta(s) vinculada(s). Ao excluir, essas pastas serão desvinculadas (continuam existindo, sem processo). Deseja continuar?' %}
+                        {% else %}
+                            {% set confirmMsg = 'Tem certeza que deseja excluir este processo?' %}
+                        {% endif %}
+                        <form method="post" action="{{ path('processo_delete', {id: processo.id}) }}" onsubmit="return confirm('{{ confirmMsg|e('js') }}');">
                             <input type="hidden" name="_token" value="{{ csrf_token('delete_processo_' ~ processo.id) }}">
                             <button type="submit"
                                     class="btn btn-outline-danger btn-sm"

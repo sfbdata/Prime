@@ -295,6 +295,42 @@ de referência se houver.
   - `app/src/Pasta/Entity/PastaDocumento.php`
   - Ref: `REFATORACAO-DOMINIOS.md:103`
 
+- **[MÉDIA] Domínio Processo sem testes funcionais** — `app/src/Processo/` tem o primeiro unit
+  test (`ExcluirProcessoUseCaseTest`, mock de EM) mas zero testes funcionais. O fix de exclusão
+  (`ExcluirProcessoUseCase`: desvincula pastas + remove + flush atômico) só é validado de verdade
+  por teste que toca o banco — o unit com mock não pega regressão de integração (o bug original era
+  FK `NO ACTION` no banco, invisível para mock). Criar functional do `ProcessoController` (delete
+  com pastas vinculadas → 302 + pastas com `processo_id NULL` no banco; vínculo; show) usando
+  `WebTestCase` + DAMA. Também falta factory Foundry de `Processo`. Domínio inteiro sem cobertura
+  functional hoje.
+  - `app/src/Processo/Controller/ProcessoController.php`
+  - `app/tests/Processo/` (só `Unit/` existe)
+
+- **[ALTA] ExcluirProcessoUseCase desvincula pastas sem filtro de tenant** —
+  `PastaRepository::findByProcesso` filtra só por processo, sem tenant. Como Processo NÃO tem
+  `tenant_id` (recurso global) e Pasta TEM, um processo vinculado a pastas de tenants diferentes,
+  ao ser excluído por um tenant, desvincula pastas de TODOS os tenants (write cross-tenant) e o
+  `show()` expõe a contagem agregada (information disclosure). Inócuo hoje (1 tenant), vira risco
+  real no 2º escritório. Ligado à dívida estrutural "Processo sem tenant_id". Resolver junto com
+  a definição de posse/tenant de Processo.
+  - `app/src/Pasta/Repository/PastaRepository.php` (`findByProcesso`)
+  - `app/src/Processo/UseCase/ExcluirProcessoUseCase.php`
+  - `app/src/Processo/Entity/Processo.php` (sem `tenant_id`)
+
+- **[MÉDIA] Race condition na exclusão de processo** — `ExcluirProcessoUseCase` faz o SELECT das
+  pastas (`findByProcesso`) fora da transação do flush. Se uma pasta for vinculada ao processo
+  entre o SELECT e o flush, o DELETE volta a violar a FK (`ForeignKeyConstraintViolationException`).
+  Baixa probabilidade no contexto atual (1 tenant, baixo volume). Corrigir envolvendo SELECT +
+  mutações + flush num `$em->wrapInTransaction(...)` ou lock pessimista no processo.
+  - `app/src/Processo/UseCase/ExcluirProcessoUseCase.php`
+
+- **[MÉDIA] Processo: entidade global sem tenant_id** — a entidade Processo não tem campo tenant
+  nem filtro de tenant nos repositories; é um recurso global num sistema multi-tenant. Abre risco
+  de acesso/vínculo cross-tenant (ver itens acima). Frente estrutural: definir posse de Processo
+  (`tenant_id` direto, ou via pasta/cliente) e filtrar queries. Decisão de produto + migration.
+  - `app/src/Processo/Entity/Processo.php`
+  - `app/src/Processo/Repository/ProcessoRepository.php`
+
 ---
 
 ## 🟣 Infra / Ops
