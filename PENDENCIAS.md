@@ -154,6 +154,27 @@ de referência se houver.
 
 ## 🟢 Importação do acervo (Fase 0/1/2)
 
+- **[ALTA] Drive e sistema não estão sincronizados (dois sentidos)** — pastas existem
+  no sistema sem par no Drive (ex: NUP 1172, criado normalmente pelo escritório em
+  10/jun/2026) e vice-versa; nomes divergem por caracteres visualmente idênticos
+  (ex: NUP 882 — en-dash `–` no Drive vs hífen `-` no sistema). A Fase 2 NÃO pode
+  assumir paridade: precisa tratar pastas órfãs nos dois lados antes de copiar arquivos.
+  - Ref: `FASE2-ARQUIVOS-DRIVE.md`
+
+- **[MÉDIA] 170 "números ausentes" do relatório de 10/jun podem conter gaps falsos** —
+  o relatório lista 170 NUPs ausentes no intervalo 1–1171, mas o NUP 882 aparecia como
+  ausente apenas por en-dash no nome da pasta (parser não reconhecia o número; pasta
+  existia no sistema desde 28/mai). Outros dos 170 podem ter o mesmo problema. Não
+  tratar a lista como ausências definitivas sem cruzar com o banco de produção.
+  - Ref: relatório gerencial 10/Jun/2026 · item "Drive e sistema não estão sincronizados" acima
+
+- **[MÉDIA] Falta comando de reconciliação Drive↔sistema sob demanda** — o acervo é vivo:
+  escritório cria e renomeia pastas todo dia em ambos os lados sem espelhamento. Auditoria
+  manual (rclone + parse + script) não escala. Avaliar `app:acervo:reconciliar` que tire
+  snapshot de ambos os lados no momento e produza um diff (órfãos, divergências de nome,
+  arquivos novos).
+  - Ref: `IMPORTACAO-ACERVO.md` · `FASE2-ARQUIVOS-DRIVE.md`
+
 - **82 pastas em estado ambíguo (Fase 0)** — 9 em `revisao_manual.csv` + 73 em `pendencias.csv`.
   Tratamento manual necessário com Dr. Farlei.
   - CSVs não versionados (PII). Regenerar com:
@@ -171,6 +192,11 @@ de referência se houver.
   `/opt/jusprime-acervo-download/arquivos-grandes.csv` (VPS). Decidir com Dr. Farlei: dividir,
   comprimir ou descartar.
   - Ref: `FASE2-ARQUIVOS-DRIVE.md` § Pendências
+
+- **[INFO] NUP 622 — pasta esvaziada e renomeada intencionalmente** — a pasta foi renomeada
+  no Drive para `"622 - vazia/"` pela gerência (confirmado em 10/jun/2026). Sem documentos
+  a copiar na Fase 2. Não é regressão nem erro; registrado para não reaparecer como
+  achado-fantasma em auditorias futuras.
 
 ---
 
@@ -321,12 +347,14 @@ de referência se houver.
   - VPS — `/var/backups/jusprime`
   - Ref: incidente 01/Jun/2026
 
-- **[ALTA — paliativo ativo] Backup de uploads desabilitado temporariamente** —
+- **[CRÍTICA — paliativo ativo] Backup de uploads desabilitado temporariamente** —
   commit `86564f0` comentou o passo de cópia de uploads em `scripts/backup.sh` para
   parar de estourar o disco. A partir de 01/Jun, os backups contêm APENAS o banco;
-  nenhum upload novo é backupeado. Último backup com uploads ainda existente:
-  `jusprime_20260531_020001.tar.gz`. REVERTER (descomentar o passo 2 e restaurar
-  `uploads` no tar) assim que o disco/storage do item acima for resolvido.
+  nenhum upload é backupeado. O backup `jusprime_20260531_020001.tar.gz` (último com
+  uploads) foi removido pela rotação automática em 10/Jun/2026 (janela de 7 backups).
+  Hoje NÃO existe nenhum backup com uploads — falha de disco = perda total sem
+  recuperação. REVERTER assim que o disco/storage do item "Disco de produção
+  subdimensionado para o acervo" for resolvido.
   - `scripts/backup.sh`
   - Ref: commit `86564f0` · incidente 01/Jun/2026
 
