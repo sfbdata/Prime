@@ -378,3 +378,16 @@ de referência se houver.
   ir à pasta anterior/seguinte sem voltar à listagem. DECISÃO DE UX PENDENTE:
   "próxima" em relação a quê? Deve respeitar filtro e ordenação ativos na listagem,
   não a ordem natural do banco.
+
+## Expediente — ordenação por NUP (dívidas do review)
+
+- [ ] **Performance da ordenação por CAST_INT(nup)**: EXPLAIN mostra Seq Scan +
+  Sort; o índice unique em `nup` não serve à expressão de cast. Irrelevante hoje
+  (~942 linhas/tenant), mas com tenants de dezenas de milhares de pastas o sort
+  do conjunto filtrado roda a cada página. Mitigável com índice funcional parcial
+  sobre a expressão de cast. Não feito.
+- [ ] **Cache de metadata Doctrine no deploy**: a função DQL CAST_INT depende da
+  config nova em doctrine.yaml. O deploy-prod faz up --build (reconstrói imagem,
+  deve aquecer o cache), mas confirmar que o build aquece — um cache prod anterior
+  à config lançaria "Unknown DQL function CAST_INT". Validar no primeiro deploy
+  desta frente.
