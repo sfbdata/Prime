@@ -62,6 +62,9 @@ doctrine:
                 alias: AppPasta
         controller_resolver:
             auto_mapping: false
+        dql:
+            numeric_functions:
+                CAST_INT: App\Shared\Doctrine\DQL\CastInteger
 
 when@test:
     doctrine:
