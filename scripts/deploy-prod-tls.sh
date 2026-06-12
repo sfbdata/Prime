@@ -27,13 +27,6 @@ if [[ ! -f "/etc/letsencrypt/live/bluejus.com.br/fullchain.pem" || \
   exit 1
 fi
 
-if [[ ! -f "/etc/letsencrypt/live/grupojusprime.tech/fullchain.pem" || \
-      ! -f "/etc/letsencrypt/live/grupojusprime.tech/privkey.pem" ]]; then
-  echo "❌ Certificados Let's Encrypt não encontrados em /etc/letsencrypt/live/grupojusprime.tech/"
-  echo "   Execute: certbot certonly --standalone -d grupojusprime.tech -d www.grupojusprime.tech"
-  exit 1
-fi
-
 # ─── Atualiza código ───────────────────────────────────────────────────────────
 echo "📦 Atualizando código do repositório..."
 git pull
@@ -90,4 +83,4 @@ docker builder prune -f || true
 echo ""
 echo "🚀 Deploy TLS concluído com sucesso."
 echo "   🌐 https://bluejus.com.br"
-echo "   🌐 https://grupojusprime.tech"
+echo "   🌐 https://bluejus.com.br"
