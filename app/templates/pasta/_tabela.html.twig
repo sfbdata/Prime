@@ -214,7 +214,12 @@
                         </div>
                     </td>
                     <td class="align-middle">
-                        <span class="badge {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}">
+                        <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
+                              style="cursor:pointer;user-select:none;"
+                              data-situacao="{{ pasta.situacao }}"
+                              data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}"
+                              data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
+                              title="Dê duplo-clique para alternar entre ativo e arquivado">
                             {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
                         </span>
                     </td>

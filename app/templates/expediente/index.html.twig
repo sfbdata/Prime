@@ -867,8 +867,41 @@
 document.addEventListener('click', function (e) {
     var tr = e.target.closest('tr.pasta-row-link');
     if (!tr) return;
-    if (e.target.closest('button, a, form, input, select')) return;
+    if (e.target.closest('button, a, form, input, select, .js-toggle-situacao')) return;
     window.location.href = tr.dataset.href;
+});
+
+/* ── Alternar situação da pasta por duplo-clique na badge ── */
+document.addEventListener('dblclick', function (e) {
+    var badge = e.target.closest('.js-toggle-situacao');
+    if (!badge) return;
+    e.stopPropagation();
+
+    if (badge.dataset.ocupado === '1') return;
+    badge.dataset.ocupado = '1';
+
+    fetch(badge.dataset.url, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: '_token=' + encodeURIComponent(badge.dataset.csrf),
+    })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+    .then(function (res) {
+        badge.dataset.ocupado = '';
+        if (!res.ok || !res.data.sucesso) {
+            alert(res.data.erro || 'Erro ao alterar situação.');
+            return;
+        }
+        var eAtivo = res.data.novaSituacao === 'ativo';
+        badge.classList.remove('text-bg-success', 'text-bg-secondary');
+        badge.classList.add(eAtivo ? 'text-bg-success' : 'text-bg-secondary');
+        badge.textContent      = eAtivo ? 'Ativo' : 'Arquivado';
+        badge.dataset.situacao = res.data.novaSituacao;
+    })
+    .catch(function () {
+        badge.dataset.ocupado = '';
+        alert('Erro de comunicação com o servidor.');
+    });
 });
 
 document.addEventListener('DOMContentLoaded', function () {
