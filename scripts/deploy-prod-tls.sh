@@ -30,7 +30,9 @@ fi
 if [[ ! -f "/etc/letsencrypt/live/grupojusprime.tech/fullchain.pem" || \
       ! -f "/etc/letsencrypt/live/grupojusprime.tech/privkey.pem" ]]; then
   echo "❌ Certificados Let's Encrypt não encontrados em /etc/letsencrypt/live/grupojusprime.tech/"
-  echo "   Execute: certbot certonly --standalone -d grupojusprime.tech -d www.grupojusprime.tech"
+  echo "   O nginx referencia esse cert (proxy do sistema co-hospedado)."
+  echo "   Sem ele, o recreate do nginx derruba TAMBÉM o bluejus."
+  echo "   Gere/restaure o cert antes de deployar."
   exit 1
 fi
 
@@ -42,6 +44,16 @@ git pull
 echo "🐳 Subindo containers..."
 $COMPOSE_CMD $COMPOSE_FILE $ENV_FILE down --remove-orphans
 $COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --build
+
+# ─── Reconecta o nginx à rede do sistema co-hospedado (condomínio) ───
+# O container nginx é recriado no up acima, então perde a conexão com a rede do
+# condomínio. Reconectar para o proxy_pass de grupojusprime.tech resolver
+# condominio_app. Tolerante a falha: se a rede/condomínio não existir, o nginx
+# segue servindo bluejus normalmente (grupojusprime cai em 502 até o condomínio subir).
+echo "🔗 Reconectando nginx à rede do condomínio (se existir)..."
+docker network connect condominio_condominio_net jusprime_nginx_prod 2>/dev/null \
+  && echo "   ✅ conectado" \
+  || echo "   ⚠️  rede condominio_condominio_net indisponível ou já conectado — seguindo"
 
 # ─── Aguarda banco de dados ────────────────────────────────────────────────────
 source <(grep -E '^(POSTGRES_USER|POSTGRES_DB)=' .env.prod)
@@ -90,4 +102,4 @@ docker builder prune -f || true
 echo ""
 echo "🚀 Deploy TLS concluído com sucesso."
 echo "   🌐 https://bluejus.com.br"
-echo "   🌐 https://grupojusprime.tech"
+echo "   🌐 https://bluejus.com.br"
