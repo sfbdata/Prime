@@ -108,16 +108,26 @@
 <div class="card d-none d-md-block">
     <div class="card-body table-responsive p-0">
         <table class="table table-hover mb-0" id="tabelaPastas">
+            <colgroup>
+                <col style="width:66px">           <!-- NUP -->
+                <col style="width:28%">            <!-- Cliente (elástica dominante) -->
+                <col style="width:18%">            <!-- Ação (elástica, cede primeiro) -->
+                <col style="width:100px">          <!-- Prioridade -->
+                <col style="width:140px">          <!-- Responsável -->
+                <col style="width:66px">           <!-- Metas -->
+                <col style="width:112px">          <!-- Marcadores -->
+                <col style="width:96px">           <!-- Situação -->
+            </colgroup>
             <thead class="table-light">
                 <tr>
-                    <th class="sortable ps-3" data-col="0" style="width:90px"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable ps-3" data-col="0"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-acao-tabela" data-col="2"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable" data-col="3" style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" data-col="3"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="sortable col-resp-tabela" data-col="4"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Metas</th>
+                    <th class="col-tarefas-tabela"><i class="bi bi-check2-square me-1"></i>Metas</th>
                     <th class="sortable col-marc-tabela" data-col="6"><i class="bi bi-tags me-1"></i>Marcadores <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable" data-col="7" style="width:90px"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable" data-col="7"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
                 </tr>
             </thead>
             <tbody>
@@ -128,9 +138,9 @@
                     <td class="align-middle">
                         {% if pasta.clientes|length > 0 %}
                             {% if pasta.clientes|length == 1 %}
-                                <span class="text-truncate d-block" style="max-width:160px;">{{ pasta.clientes[0].nomeExibicao }}</span>
+                                <span class="text-truncate d-block" style="width:100%;">{{ pasta.clientes[0].nomeExibicao }}</span>
                             {% else %}
-                                <span class="clientes-resumo text-truncate d-block" style="max-width:160px;"
+                                <span class="clientes-resumo text-truncate d-block" style="width:100%;"
                                       data-bs-placement="right"
                                       data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
                                     {{ pasta.clientes[0].nomeExibicao }}&hellip;
@@ -138,13 +148,13 @@
                                 </span>
                             {% endif %}
                         {% elseif pasta.nomeCliente %}
-                            <span class="text-truncate d-block" style="max-width:160px;">{{ pasta.nomeCliente }}</span>
+                            <span class="text-truncate d-block" style="width:100%;">{{ pasta.nomeCliente }}</span>
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
                     </td>
                     <td class="col-acao-tabela align-middle">
-                        <span class="text-truncate d-block" style="max-width:180px;">
+                        <span class="text-truncate d-block" style="width:100%;">
                         {% if pasta.processo %}
                             {{ pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso }}
                         {% elseif pasta.nomeAcao %}
@@ -361,6 +371,7 @@
 
 <style>
 /* ── Tabela desktop ──────────────────────────────────────────── */
+#tabelaPastas { table-layout: fixed; width: 100%; min-width: 920px; }
 #tabelaPastas thead th {
     white-space: nowrap;
     vertical-align: middle;
@@ -369,15 +380,36 @@
     letter-spacing: 0.04em;
     color: #6c757d;
     border-bottom: 2px solid #dee2e6;
-    padding: 10px 8px;
+    padding: 10px 10px;
 }
 #tabelaPastas tbody td {
     vertical-align: middle;
     font-size: 0.85rem;
-    padding: 8px 8px;
+    padding: 8px 10px;
     border-bottom: 1px solid #f0f0f0;
     text-transform: uppercase;
 }
+/* Respiro extra à direita da coluna Prioridade (rótulo encosta no vizinho) */
+#tabelaPastas thead th[data-col="3"],   /* Prioridade */
+#tabelaPastas tbody td:nth-child(4) {
+    padding-right: 14px;
+}
+
+/* Colunas centralizadas: Metas, Marcadores, Situação */
+#tabelaPastas thead th.col-tarefas-tabela,
+#tabelaPastas tbody td.col-tarefas-tabela,
+#tabelaPastas thead th.col-marc-tabela,
+#tabelaPastas tbody td.col-marc-tabela,
+#tabelaPastas thead th[data-col="7"],
+#tabelaPastas tbody td:last-child {
+    text-align: center;
+}
+#tabelaPastas tbody td.col-marc-tabela .d-flex {
+    justify-content: center;
+}
+/* Respiro simétrico na última coluna (Situação) sem desalinhar o centro */
+#tabelaPastas thead th:last-child,
+#tabelaPastas tbody td:last-child { padding-left: 14px; padding-right: 14px; }
 #tabelaPastas tbody tr:last-child td { border-bottom: none; }
 #tabelaPastas tbody tr:hover { background: #f8f9ff; }
 .clientes-resumo { cursor: default; white-space: nowrap; }
@@ -388,7 +420,11 @@
 .sortable.asc .sort-icon::before { content: "\F148"; }
 .sortable.desc .sort-icon::before { content: "\F128"; }
 
-.col-tarefas-tabela { padding-left: 6px !important; padding-right: 6px !important; }
+/* Telas médias: Cliente e Ação cedem mais antes do scroll entrar */
+@media (max-width: 1300px) and (min-width: 901px) {
+    #tabelaPastas colgroup col:nth-child(2) { width: 24%; }  /* Cliente */
+    #tabelaPastas colgroup col:nth-child(3) { width: 15%; }  /* Ação */
+}
 
 /* Ocultar colunas secundárias em telas médias */
 @media (max-width: 900px) {
