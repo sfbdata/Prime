@@ -1,7 +1,18 @@
 {% if pagination.total_pages > 1 %}
-    {% set win = 3 %}
-    {% set start = max(1, pagination.current_page - win) %}
-    {% set end   = min(pagination.total_pages, pagination.current_page + win) %}
+    {% set max_botoes = 8 %}
+    {% set total = pagination.total_pages %}
+    {% set atual = pagination.current_page %}
+    {% set metade = (max_botoes / 2)|round(0, 'floor') %}
+    {% set start = atual - metade %}
+    {% set end   = start + max_botoes - 1 %}
+    {% if start < 1 %}
+        {% set start = 1 %}
+        {% set end = min(total, start + max_botoes - 1) %}
+    {% endif %}
+    {% if end > total %}
+        {% set end = total %}
+        {% set start = max(1, end - max_botoes + 1) %}
+    {% endif %}
 
     <nav aria-label="Paginação" class="d-flex align-items-center my-2">
         <ul class="pagination pagination-sm mb-0">
