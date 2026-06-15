@@ -26,7 +26,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 final class ExpedienteController extends AbstractController
 {
-    private const PER_PAGE = 25;
+    private const PER_PAGE = 50;
 
     public function __construct(
         private readonly PastaRepository $pastaRepository,
