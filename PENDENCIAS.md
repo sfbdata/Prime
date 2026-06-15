@@ -391,3 +391,7 @@ de referência se houver.
   deve aquecer o cache), mas confirmar que o build aquece — um cache prod anterior
   à config lançaria "Unknown DQL function CAST_INT". Validar no primeiro deploy
   desta frente.
+
+- **[MÉDIA] Histórico de migrations não-linear em produção — 2 migrations presas como `not migrated`** — `Version20260401000000` (Ponto) e `Version20260408180237` (checklist) constam `not migrated` em prod, mas são posteriores à `Current`. Foram puladas em deploys reais via `skipIf` e o `migrate` do deploy passa sem dano. **Seguro APENAS enquanto:** a tabela `sede` EXISTIR em prod (desarma a 20260401) E a tabela `checklist_item_cliente` NÃO existir em prod (desarma a 20260408 — esta tem `DROP TABLE` perigoso). Verificar antes de assumir: `SELECT to_regclass('sede'), to_regclass('checklist_item_cliente');`. Resolver de vez registrando as 2 como executadas (`doctrine:migrations:version --add`) ou consolidando o histórico, para não depender de `skipIf` indefinidamente.
+  - `app/migrations/Version20260401000000.php` · `app/migrations/Version20260408180237.php`
+  - Confirmado em prod (banco `prime`) em 2026-06-15: `sede` existe, `checklist_item_cliente` ausente → ambas pulam.
