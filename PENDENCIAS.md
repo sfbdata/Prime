@@ -107,10 +107,14 @@ de referência se houver.
   - `app/src/Expediente/Controller/ExpedienteController.php`
   - Ref: `IMPORTACAO-ACERVO.md:32`
 
-- **Painel AJAX do filtro de pastas quebrado** — `carregarComFiltros` injeta HTML via `innerHTML`;
+- **[ALTA] Painel AJAX do filtro de pastas quebrado** — `carregarComFiltros` injeta HTML via `innerHTML`;
   `<script>` não executa (padrão HTML5). Na 2ª busca o handler XHR some, cai em navegação normal,
   controller redireciona para `expediente_index` e o filtro desaparece. Correção: mover handlers
   para `index.html.twig` via delegação; remover blocos `<script>` dos partials.
+  **Dimensão PII (eleva a ALTA):** quando o handler XHR não religa e o form cai em GET nativo, a
+  query string do filtro vai para a barra de endereços, histórico e logs do servidor — e o campo
+  `cliente` é texto livre com NOME DE CLIENTE (PII). Logo a falha não é só de UX: expõe PII em
+  URL/logs/histórico sempre que o JS falha.
   - `app/templates/expediente/_acervo_geral.html.twig`
   - `app/templates/expediente/_painel_marcador.html.twig`
   - Ref: `REFATORACAO-DOMINIOS.md:132`
@@ -373,7 +377,16 @@ de referência se houver.
 - [ ] **Persistir página ao voltar/atualizar**: ao recarregar o navegador ou entrar
   numa pasta e voltar, a listagem reseta para a página 1. A página vem de ?page=N
   na query string, mas a navegação AJAX não persiste no histórico/URL ao sair e
-  voltar. Investigar onde o estado se perde. Provável raiz comum com o item acima.
+  voltar. Provável raiz comum com o item acima. Desmembrado em dois cenários:
+  - [x] ~~**Voltar de uma pasta**: ao entrar numa pasta (`pasta_show`) e voltar, a
+    listagem restaura página + filtros ativos em vez de resetar~~ — Resolvido
+    2026-06-15, commit `d697cad`. Estado persistido em `sessionStorage` (não na URL,
+    pois o filtro `cliente` é PII); restaura só quando `document.referrer` aponta
+    para `pasta_show`.
+  - [ ] **Persistir em refresh/F5**: recarregar o navegador (F5) puro NÃO restaura —
+    sem referrer de `pasta_show` o estado salvo é ignorado de propósito e a listagem
+    volta à página 1. Continua pendente; exigiria gatilho de restauração independente
+    do referrer (ex.: sempre restaurar no bootstrap, ou marcar o estado com timestamp).
 - [ ] **Navegação entre pastas (anterior/próxima)**: botões dentro de uma pasta para
   ir à pasta anterior/seguinte sem voltar à listagem. DECISÃO DE UX PENDENTE:
   "próxima" em relação a quê? Deve respeitar filtro e ordenação ativos na listagem,
