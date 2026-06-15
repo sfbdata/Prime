@@ -31,6 +31,7 @@
             .then(function (html) {
                 painel.innerHTML = html;
                 painel.scrollIntoView({ block: 'start' });
+                if (window.salvarEstadoPainelExpediente) window.salvarEstadoPainelExpediente();
             })
             .catch(function () {
                 painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';

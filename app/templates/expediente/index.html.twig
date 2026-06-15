@@ -1008,8 +1008,123 @@ document.addEventListener('DOMContentLoaded', function () {
     // Marcadores disponíveis no tenant (para o modal "Mover para")
     var todosMarcadores = {{ todosMarcadores|map(m => {id: m.id, nome: m.nome, cor: m.cor, paiId: m.pai ? m.pai.id : null})|json_encode|raw }};
 
-    // ── Seleciona "Todas as pastas" automaticamente ao abrir a página ──
+    // ── Persistência do estado do painel (sessionStorage) ───────────
+    // Grava filtros + página atuais a cada recarregamento do painel para
+    // poder restaurar ao voltar de uma pasta. NÃO usa URL: o filtro "cliente"
+    // é texto livre com nome de cliente (PII) e não pode ir para URL/logs.
+    // Centralizado aqui no shell e exposto em window para os fragmentos AJAX
+    // (_painel_marcador / _acervo_geral), que rodam em escopo isolado.
+    var CHAVE_ESTADO_PAINEL = 'expediente:estadoPainel';
+
+    function lerPaginaAtualDoPainel() {
+        var ativo = painel.querySelector('.pagination .page-item.active .btn-pagina');
+        if (ativo && ativo.dataset.page) {
+            var n = parseInt(ativo.dataset.page, 10);
+            if (n > 0) return n;
+        }
+        return 1; // sem paginação (página única) = página 1
+    }
+
+    function salvarEstadoPainel() {
+        try {
+            var form = document.getElementById('formFiltrosPasta');
+            if (!form) return; // painel sem tabela (placeholder/erro) — nada a salvar
+            var fd = new FormData(form);
+            var estado = {
+                painelUrl: form.getAttribute('action'), // marcador id ou rota acervo
+                filtros: {
+                    nup:         fd.get('nup')         || '',
+                    status:      fd.get('status')      || '',
+                    responsavel: fd.get('responsavel') || '',
+                    cliente:     fd.get('cliente')     || '', // PII — só em sessionStorage
+                    acao:        fd.get('acao')        || ''
+                },
+                page: lerPaginaAtualDoPainel()
+            };
+            sessionStorage.setItem(CHAVE_ESTADO_PAINEL, JSON.stringify(estado));
+        } catch (e) { /* sessionStorage indisponível/cheio — ignora silenciosamente */ }
+    }
+    // Exposto para os fragmentos AJAX chamarem após cada render do painel
+    window.salvarEstadoPainelExpediente = salvarEstadoPainel;
+
+    function voltouDePastaShow() {
+        try {
+            if (!document.referrer) return false;
+            var ref = new URL(document.referrer);
+            if (ref.origin !== window.location.origin) return false;
+            // pasta_show = /pasta/{id} (prefixo de classe /pasta). Exclui /pasta
+            // (index) e rotas com segmentos extras (/pasta/{id}/...).
+            return /^\/pasta\/[^\/]+$/.test(ref.pathname);
+        } catch (e) { return false; }
+    }
+
+    function reacenderSidebarPainel(painelUrl) {
+        document.querySelectorAll('.expediente-menu-link, .expediente-submenu-link')
+            .forEach(function (l) { l.classList.remove('active'); });
+
+        var acervo = document.querySelector('.expediente-menu-link[data-painel]');
+        if (acervo && acervo.dataset.painel === painelUrl) {
+            acervo.classList.add('active');
+            if (labelPainel) labelPainel.textContent = 'Todas as pastas';
+            return;
+        }
+
+        var m = painelUrl ? painelUrl.match(/\/marcador\/([^\/]+)\/pastas/) : null;
+        if (!m) return;
+        var id = m[1];
+        var link = document.querySelector(
+            '.expediente-submenu-link[data-marcador-id="' + id + '"], ' +
+            '.expediente-menu-link[data-marcador-id="' + id + '"]'
+        );
+        if (!link) return;
+        link.classList.add('active');
+        // Sub-marcador: abre o grupo pai para o item ficar visível
+        var submenuPai = link.closest('.expediente-submenu');
+        if (submenuPai) submenuPai.classList.add('show');
+        if (labelPainel) {
+            var span = link.querySelector('span');
+            if (span) labelPainel.textContent = span.textContent.trim();
+        }
+    }
+
+    function tentarRestaurarEstadoPainel() {
+        if (!voltouDePastaShow()) return false;
+
+        var bruto;
+        try { bruto = sessionStorage.getItem(CHAVE_ESTADO_PAINEL); }
+        catch (e) { return false; }
+        if (!bruto) return false;
+
+        var estado;
+        try { estado = JSON.parse(bruto); }
+        catch (e) { return false; } // estado corrompido — ignora
+        if (!estado || !estado.painelUrl) return false;
+
+        var params = new URLSearchParams();
+        var f = estado.filtros || {};
+        ['nup', 'status', 'responsavel', 'cliente', 'acao'].forEach(function (k) {
+            if (f[k]) params.set(k, f[k]);
+        });
+        if (estado.page && estado.page > 1) params.set('page', estado.page);
+
+        var qs  = params.toString();
+        var url = estado.painelUrl + (qs ? ('?' + qs) : '');
+
+        // Repinta o painel já no estado salvo (sem passar pelo default → sem flicker).
+        // O servidor re-renderiza o form com selected/value, então os filtros voltam
+        // preenchidos visualmente pelo próprio fetch.
+        carregarPainel(url, null);
+        reacenderSidebarPainel(estado.painelUrl);
+        return true;
+    }
+
+    // ── Bootstrap do painel ──────────────────────────────────────────
+    // Se o usuário voltou de uma pasta (pasta_show) e há estado salvo, restaura
+    // o painel como estava (filtros + página). Caso contrário, comportamento
+    // padrão: "Todas as pastas" (Acervo Geral), página 1, sem filtros.
     (function () {
+        if (tentarRestaurarEstadoPainel()) return;
+
         var linkTodasPastas = document.querySelector('.expediente-menu-link[data-painel]');
         if (linkTodasPastas) {
             linkTodasPastas.classList.add('active');
@@ -1402,7 +1517,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (labelPainel && nomeAtivo) labelPainel.textContent = nomeAtivo;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.text(); })
-            .then(function (html) { injetarHtmlComScripts(painel, html); })
+            .then(function (html) {
+                injetarHtmlComScripts(painel, html);
+                salvarEstadoPainel();
+            })
             .catch(function () {
                 painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
             });
