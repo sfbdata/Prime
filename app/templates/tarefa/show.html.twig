@@ -216,10 +216,27 @@
                                                 <div class="flex-grow-1 tarefa-timeline-body{% if item.tipo.value == 'mensagem' %} tarefa-timeline-body--mensagem{% endif %}">
                                                     <div class="d-flex justify-content-between align-items-start gap-1">
                                                         <span class="fw-semibold small">{{ item.titulo }}</span>
-                                                        <small class="text-muted flex-shrink-0">{{ item.dataHora|date('H:i') }}</small>
+                                                        <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                                                            {% if item.tipo.value == 'mensagem' and item.detalhe and item.usuarioId == app.user.id and tarefa.status != 'concluida' %}
+                                                                <button type="button"
+                                                                        class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg"
+                                                                        title="Editar mensagem"
+                                                                        data-msg-id="{{ item.mensagemId }}"
+                                                                        data-conteudo="{{ item.detalhe|e('html_attr') }}"
+                                                                        data-csrf="{{ csrf_token('editar_mensagem_tarefa_' ~ item.mensagemId) }}"
+                                                                        data-url="{{ path('tarefa_mensagem_editar', {id: item.mensagemId}) }}">
+                                                                    <i class="bi bi-pencil"></i>
+                                                                </button>
+                                                            {% endif %}
+                                                            <small class="text-muted">
+                                                                {{ item.dataHora|date('H:i') }}
+                                                                {% if item.editadoEm %}<span class="ms-1 fst-italic tarefa-msg-editado">(editado)</span>{% endif %}
+                                                            </small>
+                                                        </div>
                                                     </div>
                                                     {% if item.detalhe %}
-                                                        <div class="mt-1 small {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}">
+                                                        <div class="mt-1 small tarefa-msg-conteudo {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}"
+                                                             {% if item.mensagemId %}id="tarefa-msg-conteudo-{{ item.mensagemId }}"{% endif %}>
                                                             {{ item.detalhe|nl2br }}
                                                         </div>
                                                     {% endif %}
@@ -775,6 +792,110 @@ document.addEventListener('DOMContentLoaded', function () {
     var tl = document.getElementById('timelineList');
     if (tl) tl.scrollTop = tl.scrollHeight;
 });
+
+// Edição inline de mensagem do histórico (apenas o autor; espelha _detalhes_obs)
+(function () {
+    'use strict';
+
+    function esc(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    const timeline = document.getElementById('timelineList');
+    if (!timeline) { return; }
+
+    timeline.addEventListener('click', function (e) {
+        const btnEditar = e.target.closest('.btn-editar-msg');
+        if (!btnEditar) { return; }
+
+        const msgId        = btnEditar.dataset.msgId;
+        const conteudoDiv  = document.getElementById('tarefa-msg-conteudo-' + msgId);
+        if (!conteudoDiv) { return; }
+        const conteudoAtual = btnEditar.dataset.conteudo;
+
+        const textarea = document.createElement('textarea');
+        textarea.className = 'form-control form-control-sm w-100 mb-2';
+        textarea.rows = 3;
+        textarea.maxLength = 5000;
+        textarea.value = conteudoAtual;
+
+        const btnConfirmar = document.createElement('button');
+        btnConfirmar.type = 'button';
+        btnConfirmar.className = 'btn btn-sm btn-success me-1';
+        btnConfirmar.textContent = 'Salvar';
+
+        const btnCancelar = document.createElement('button');
+        btnCancelar.type = 'button';
+        btnCancelar.className = 'btn btn-sm btn-outline-secondary';
+        btnCancelar.textContent = 'Cancelar';
+
+        const acoesBtns = document.createElement('div');
+        acoesBtns.className = 'mb-1';
+        acoesBtns.appendChild(btnConfirmar);
+        acoesBtns.appendChild(btnCancelar);
+
+        conteudoDiv.style.display = 'none';
+        conteudoDiv.after(textarea);
+        textarea.after(acoesBtns);
+        textarea.focus();
+        btnEditar.disabled = true;
+
+        function encerrarEdicao() {
+            textarea.remove();
+            acoesBtns.remove();
+            conteudoDiv.style.display = '';
+            btnEditar.disabled = false;
+        }
+
+        btnCancelar.addEventListener('click', encerrarEdicao);
+
+        btnConfirmar.addEventListener('click', async function () {
+            const novoConteudo = textarea.value.trim();
+            if (novoConteudo === '') { alert('A mensagem não pode ser vazia.'); return; }
+
+            const fd = new FormData();
+            fd.append('_token', btnEditar.dataset.csrf);
+            fd.append('conteudo', novoConteudo);
+
+            btnConfirmar.disabled = true;
+
+            try {
+                const resp = await fetch(btnEditar.dataset.url, {
+                    method: 'POST',
+                    body: fd,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    btnConfirmar.disabled = false;
+                    alert(data.erro ?? 'Erro ao editar.');
+                    return;
+                }
+
+                conteudoDiv.innerHTML = esc(data.conteudo).replace(/\n/g, '<br>');
+                btnEditar.dataset.conteudo = data.conteudo;
+
+                // Injeta a marca "(editado)" ao lado da hora, se ainda não houver
+                const small = btnEditar.parentElement.querySelector('small.text-muted');
+                if (small && !small.querySelector('.tarefa-msg-editado')) {
+                    const marca = document.createElement('span');
+                    marca.className = 'ms-1 fst-italic tarefa-msg-editado';
+                    marca.textContent = '(editado)';
+                    small.appendChild(marca);
+                }
+
+                encerrarEdicao();
+            } catch (_) {
+                btnConfirmar.disabled = false;
+                alert('Erro de rede. Tente novamente.');
+            }
+        });
+    });
+})();
 </script>
 
 {# Modal: Preview de arquivo do chat #}

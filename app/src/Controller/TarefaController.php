@@ -10,6 +10,7 @@ use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Repository\TarefaRepository;
+use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
@@ -228,6 +229,37 @@ final class TarefaController extends AbstractController
         $entityManager->flush();
 
         return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+    }
+
+    /**
+     * Edita o texto de uma mensagem do histórico. Apenas o autor pode editar.
+     */
+    #[Route('/mensagem/{id}/editar', name: 'tarefa_mensagem_editar', methods: ['POST'])]
+    public function editarMensagem(TarefaMensagem $mensagem, Request $request, EditarTarefaMensagemUseCase $useCase): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $mensagem->getTarefa(), $tenant);
+
+        if ($mensagem->getUsuario()?->getId() !== $usuario->getId()) {
+            return $this->json(['erro' => 'Apenas o autor pode editar esta mensagem.'], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$this->isCsrfTokenValid('editar_mensagem_tarefa_'.$mensagem->getId(), (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $useCase->executar($mensagem, (string) $request->request->get('conteudo', ''));
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'conteudo'  => $mensagem->getMensagem(),
+            'editadoEm' => $mensagem->getEditadoEm()?->format('d/m/Y H:i'),
+        ]);
     }
 
     /**

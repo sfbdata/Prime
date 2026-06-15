@@ -32,6 +32,9 @@ class TarefaMensagem implements Auditavel
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 
+    #[ORM\Column(name: 'editado_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $editadoEm = null;
+
     public function __construct()
     {
         $this->criadoEm = new \DateTimeImmutable();
@@ -94,6 +97,17 @@ class TarefaMensagem implements Auditavel
     public function setCriadoEm(\DateTimeImmutable $criadoEm): self
     {
         $this->criadoEm = $criadoEm;
+        return $this;
+    }
+
+    public function getEditadoEm(): ?\DateTimeImmutable
+    {
+        return $this->editadoEm;
+    }
+
+    public function setEditadoEm(?\DateTimeImmutable $editadoEm): self
+    {
+        $this->editadoEm = $editadoEm;
         return $this;
     }
 }

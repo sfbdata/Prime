@@ -15,5 +15,7 @@ final readonly class TimelineItemDTO
         public string $badgeCss,
         public ?string $arquivoAnexo = null,
         public ?int $mensagemId = null,
+        public ?\DateTimeImmutable $editadoEm = null,
+        public ?int $usuarioId = null,
     ) {}
 }

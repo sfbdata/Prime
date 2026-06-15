@@ -59,6 +59,8 @@ class TarefaTimelineAssembler
                 badgeCss:      'text-bg-info',
                 arquivoAnexo:  $msg->getArquivoAnexo(),
                 mensagemId:    $msg->getId(),
+                editadoEm:     $msg->getEditadoEm(),
+                usuarioId:     $msg->getUsuario()?->getId(),
             );
         }
 
