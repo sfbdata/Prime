@@ -1,4 +1,4 @@
-# JusPrime — Contexto Geral
+# JusPrime / BlueJus — Contexto Geral
 
 SaaS jurídico multi-tenant. PHP 8.2+, Symfony 7.4, Doctrine ORM 3.x, PostgreSQL 15, Twig, Docker.
 
@@ -16,6 +16,22 @@ Estrutura detalhada, regras transversais (multi-tenancy, permissões), padrões 
 
 Modelo de autorização (4 camadas, bypasses, falhas conhecidas) → ver `docs/AUTORIZACAO.md`. Leia antes de mexer em qualquer coisa de permissão.
 
+## Orquestrador & ciclo de trabalho
+
+A sessão principal é o orquestrador: entende, discute, planeja e **implementa**
+— mas só depois de investigar/planejar, nunca pulando direto pro código.
+Subagentes são **read-only**: investigam e revisam, nunca escrevem.
+Comportamento completo, ciclo e regras de docs → ver `.claude/skills/workflow`.
+
+**Risco** (define o rigor): ALTO = ponto eletrônico, identidade User/Tenant ·
+MÉDIO = TenantRole/Permission/Profile · BAIXO = demais.
+
+**Ciclo:** investigar (subagente) → planejar (registra spec em `docs/specs/` se
+ALTO/MÉDIO) → implementar (orquestrador) → revisar contra a spec/descrição
+(`feature-review-agent`, read-only, só aponta furos) → corrigir (orquestrador) →
+conferir; em ALTO, re-revisar antes de seguir. Disparo da revisão: comando
+`/review`, não confie só na auto-delegação.
+
 ## Fluxo de desenvolvimento
 
 Antes de implementar funcionalidade ou correção:
@@ -23,7 +39,9 @@ Antes de implementar funcionalidade ou correção:
 2. Escreva ou ajuste os testes (unit do UseCase + functional do controller)
 3. Só então implemente o restante
 
-Skills disponíveis em `.claude/skills/` carregam automaticamente conforme a camada: `criar-controller`, `criar-entity`, `criar-repository`, `criar-usecase`, `criar-dto`, `criar-form`.
+Skills em `.claude/skills/` carregam conforme a camada: `criar-controller`,
+`criar-entity`, `criar-repository`, `criar-usecase`, `criar-dto`, `criar-form`.
+A skill `workflow` carrega no início de qualquer tarefa de implementação ou refatoração.
 
 ## Docker — todos os comandos dentro do container
 
@@ -39,8 +57,8 @@ Nunca rodar `php`, `composer` ou `bin/console` fora do container.
 
 ## Git — controle humano direto
 
-Commits, push, merge, rebase, reset e demais comandos destrutivos são responsabilidade exclusiva do desenvolvedor humano. Comandos de leitura (`status`, `diff`, `log`, `show`, `branch`) podem ser executados livremente.
+Commits, push, merge, rebase, reset e demais comandos destrutivos são responsabilidade exclusiva do desenvolvedor humano. Comandos de leitura (`status`, `diff`, `log`, `show`, `branch`) podem ser executados livremente. `block-git-writes.py` permanece ativo como garantia.
 
-Quando uma instrução do usuário implicar comando git de escrita, sugira-o em bloco de código markdown, prefixado com `# Execute manualmente no terminal externo`, para o usuário copiar e colar.
+Quando uma instrução implicar comando git de escrita, o orquestrador monta o(s) comando(s), explica o que cada um faz, e entrega em bloco markdown prefixado com `# Execute manualmente no terminal externo`. Mostra antes; você aprova e executa.
 
 Convenção de commit: imperativo em português, máx. 72 chars, sem ponto final. Branches: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`.

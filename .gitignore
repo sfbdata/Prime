@@ -66,3 +66,4 @@ HANDOFF_FINAL.md
 # Documentos de contexto/relatório com dados sensíveis (PII, infra) — nunca versionar
 dossie-system-overview.md
 relatorio-commits-10-11-jun-2026.md
+*.bak
