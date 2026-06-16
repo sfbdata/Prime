@@ -39,6 +39,11 @@
 # ACME challenge webroot
 /certbot/*
 !/certbot/.gitkeep
+# mantém o dir do webroot no clone (necessário para o mount do nginx),
+# mas ignora os tokens de desafio gerados pelo certbot
+!/certbot/www/
+/certbot/www/*
+!/certbot/www/.gitkeep
 # AdminLTE assets (baixar separadamente)
 AdminLTE-4.0.0-rc4/
 app/public/adminlte4/

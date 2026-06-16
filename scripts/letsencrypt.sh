@@ -29,15 +29,12 @@ if [[ -z "$DOMAIN" ]]; then
   exit 1
 fi
 
-mkdir -p certbot/www certs
+mkdir -p certbot/www
 
-copy_and_reload() {
-  sudo cp "/etc/letsencrypt/live/${DOMAIN}/fullchain.pem" certs/fullchain.pem
-  sudo cp "/etc/letsencrypt/live/${DOMAIN}/privkey.pem" certs/privkey.pem
-  sudo chown "$(id -u):$(id -g)" certs/fullchain.pem certs/privkey.pem
-  chmod 644 certs/fullchain.pem
-  chmod 600 certs/privkey.pem
-  $COMPOSE_CMD -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod exec -T nginx nginx -s reload
+# O nginx de produção lê os certificados direto de /etc/letsencrypt (montado :ro),
+# então basta recarregar — não há cópia para certs/.
+reload_nginx() {
+  docker exec jusprime_nginx_prod nginx -s reload
 }
 
 if [[ "$ACTION" == "issue" ]]; then
@@ -46,7 +43,7 @@ if [[ "$ACTION" == "issue" ]]; then
     exit 1
   fi
 
-  $COMPOSE_CMD -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod up -d
+  $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod up -d
 
   sudo certbot certonly \
     --webroot \
@@ -57,14 +54,14 @@ if [[ "$ACTION" == "issue" ]]; then
     --no-eff-email \
     --non-interactive
 
-  copy_and_reload
+  reload_nginx
   echo "Certificado emitido e aplicado com sucesso."
   exit 0
 fi
 
 if [[ "$ACTION" == "renew" ]]; then
   sudo certbot renew --webroot -w "$(pwd)/certbot/www"
-  copy_and_reload
+  reload_nginx
   echo "Renovação concluída e Nginx recarregado."
   exit 0
 fi

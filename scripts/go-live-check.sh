@@ -74,14 +74,14 @@ check_required_env "SYMFONY_TRUSTED_PROXIES"
 check_required_env "SYMFONY_TRUSTED_HOSTS"
 
 echo "==> Validando containers da stack TLS"
-if $COMPOSE_CMD -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod ps >/tmp/jusprime_ps.txt 2>/dev/null; then
+if $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod ps >/tmp/jusprime_ps.txt 2>/dev/null; then
   pass "docker-compose ps executado"
 else
   fail "falha ao executar docker-compose ps"
 fi
 
 for service in php nginx db; do
-  if $COMPOSE_CMD -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod ps --services --filter "status=running" | grep -qx "${service}"; then
+  if $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod ps --services --filter "status=running" | grep -qx "${service}"; then
     pass "serviço ${service} em execução"
   else
     fail "serviço ${service} não está em execução"
@@ -89,33 +89,36 @@ for service in php nginx db; do
 done
 
 echo "==> Validando saúde do banco"
-if $COMPOSE_CMD -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod exec -T db pg_isready -U "${POSTGRES_USER:-symfony}" -d "${POSTGRES_DB:-saas}" >/dev/null 2>&1; then
+if $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod exec -T db pg_isready -U "${POSTGRES_USER:-symfony}" -d "${POSTGRES_DB:-saas}" >/dev/null 2>&1; then
   pass "PostgreSQL responde ao pg_isready"
 else
   fail "PostgreSQL não está pronto"
 fi
 
 echo "==> Validando Nginx e certificados"
-if $COMPOSE_CMD -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod exec -T nginx nginx -t >/dev/null 2>&1; then
+if $COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod exec -T nginx nginx -t >/dev/null 2>&1; then
   pass "nginx -t sem erros"
 else
   fail "nginx -t reportou erro"
 fi
 
-if [[ -f "certs/fullchain.pem" && -f "certs/privkey.pem" ]]; then
-  pass "arquivos de certificado presentes"
+# O nginx de produção lê os certificados de /etc/letsencrypt (montado :ro), não de certs/.
+# A pasta live/ é 0700 root, então as checagens precisam de sudo.
+CERT_LIVE="/etc/letsencrypt/live/${DOMAIN}"
+if sudo test -f "${CERT_LIVE}/fullchain.pem" && sudo test -f "${CERT_LIVE}/privkey.pem"; then
+  pass "arquivos de certificado presentes em ${CERT_LIVE}"
   if command -v openssl >/dev/null 2>&1; then
-    CERT_END="$(openssl x509 -enddate -noout -in certs/fullchain.pem 2>/dev/null | cut -d= -f2- || true)"
+    CERT_END="$(sudo openssl x509 -enddate -noout -in "${CERT_LIVE}/fullchain.pem" 2>/dev/null | cut -d= -f2- || true)"
     if [[ -n "${CERT_END}" ]]; then
       pass "validade do certificado: ${CERT_END}"
     else
-      warn "não foi possível ler validade de certs/fullchain.pem"
+      warn "não foi possível ler validade de ${CERT_LIVE}/fullchain.pem"
     fi
   else
     warn "openssl não encontrado para validar expiração do certificado"
   fi
 else
-  fail "certificados ausentes em certs/fullchain.pem e/ou certs/privkey.pem"
+  fail "certificados ausentes em ${CERT_LIVE}/fullchain.pem e/ou privkey.pem"
 fi
 
 echo "==> Validando DNS"
@@ -154,7 +157,7 @@ else
 fi
 
 echo "==> Validando status de migrations"
-if MIGRATIONS_STATUS="$($COMPOSE_CMD -f docker-compose.prod.yml -f docker-compose.prod.tls.yml --env-file .env.prod exec -T php php /var/www/app/bin/console doctrine:migrations:status --no-interaction 2>&1)"; then
+if MIGRATIONS_STATUS="$($COMPOSE_CMD -f docker-compose.prod.yml --env-file .env.prod exec -T php php /var/www/app/bin/console doctrine:migrations:status --no-interaction 2>&1)"; then
   pass "doctrine:migrations:status executado"
   if echo "${MIGRATIONS_STATUS}" | grep -Eq 'New Migrations:[[:space:]]+[1-9]'; then
     warn "existem migrations pendentes"

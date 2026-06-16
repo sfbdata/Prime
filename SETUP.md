@@ -117,13 +117,20 @@ certbot certificates
 ---
 
 ## 8. Cron de renovação automática do certificado
+
+> A renovação usa **webroot** (o nginx serve `/.well-known/acme-challenge/` a partir
+> de `./certbot/www`). Garanta que os renewal configs estão em `authenticator = webroot`
+> — reemita com `certbot certonly --webroot -w /opt/jusprime/certbot/www -d <apex> -d www.<apex>`
+> caso ainda estejam em standalone. O `scripts/letsencrypt.sh` é só ferramenta de
+> emissão manual, não entra no cron.
+
 ```bash
 crontab -e
 ```
 
 Adicionar no final:
 ```
-0 3 * * * certbot renew --quiet && docker exec jusprime_nginx_prod nginx -s reload
+0 3 * * * certbot renew --quiet --deploy-hook "docker exec jusprime_nginx_prod nginx -s reload"
 ```
 
 ---

@@ -85,42 +85,51 @@ Esse script:
 Uploads em produção:
 - arquivos em `public/uploads` são persistidos no volume Docker `uploads_prod`, compartilhado entre PHP e Nginx.
 
-## Let's Encrypt (renovação)
+## Let's Encrypt (emissão e renovação via webroot)
 
-O script `letsencrypt.sh` usa o método webroot (com containers em execução):
+A validação ACME usa o método **webroot**: o nginx serve o desafio HTTP-01 a partir
+de `./certbot/www` (montado em `/var/www/certbot`), e os dois server blocks `:80`
+expõem `location ^~ /.well-known/acme-challenge/`. Não é preciso parar o nginx —
+zero downtime nas renovações.
 
-Pré-requisitos:
-- Stack de produção já em execução;
-- `certbot` instalado no host;
-- variáveis `LETSENCRYPT_DOMAIN` e `LETSENCRYPT_EMAIL` definidas.
+> **Pré-requisito de infra:** o nginx precisa já estar servindo o acme-challenge.
+> Depois de alterar `nginx.prod.conf`/`docker-compose.prod.yml`, faça **recreate** do
+> container (`docker compose -f docker-compose.prod.yml --env-file .env.prod up -d nginx`)
+> e valide com `curl http://<dominio>/.well-known/acme-challenge/teste` (deve dar 200,
+> não 301) **antes** de qualquer emissão real.
 
-1. Exporte as variáveis:
+### Emissão manual (`letsencrypt.sh issue`)
+
+O `scripts/letsencrypt.sh` é a ferramenta de **emissão manual** (um domínio por vez,
+apex). Para o domínio com `www`, prefira `certbot certonly --webroot` repetindo os `-d`
+(ver abaixo). O script recarrega o nginx ao final (lê os certs direto de `/etc/letsencrypt`).
 
 ```bash
 export LETSENCRYPT_DOMAIN=grupojusprime.tech
 export LETSENCRYPT_EMAIL=admin@grupojusprime.tech
-```
-
-2. Emita o certificado (webroot, com containers rodando):
-
-```bash
 chmod +x scripts/letsencrypt.sh
 ./scripts/letsencrypt.sh issue
 ```
 
-3. Renove quando necessário:
+Emissão/reemissão com apex + www (rescreve o renewal config para webroot):
 
 ```bash
-./scripts/letsencrypt.sh renew
+sudo certbot certonly --webroot -w /opt/jusprime/certbot/www \
+  -d grupojusprime.tech -d www.grupojusprime.tech
 ```
 
-O script copia os certificados para `certs/` e recarrega o Nginx automaticamente.
+### Renovação automática (cron com `certbot renew`)
 
-Sugestão de cron (diário, 03:15):
+A renovação recorrente **não** usa o `letsencrypt.sh` — usa `certbot renew` puro, que
+renova todos os certs configurados e recarrega o nginx via `--deploy-hook`:
 
 ```bash
-15 3 * * * cd /caminho/do/projeto && LETSENCRYPT_DOMAIN=grupojusprime.tech ./scripts/letsencrypt.sh renew >> /var/log/jusprime-letsencrypt.log 2>&1
+0 3 * * * certbot renew --quiet --deploy-hook "docker exec jusprime_nginx_prod nginx -s reload"
 ```
+
+> Os renewal configs em `/etc/letsencrypt/renewal/*.conf` precisam estar em
+> `authenticator = webroot` (reemita com `certbot certonly --webroot` para que o
+> certbot reescreva o `.conf`). Valide com `sudo certbot renew --dry-run`.
 
 ## Backup e Restauração
 
@@ -212,7 +221,7 @@ O script valida:
 - variáveis críticas do `.env.prod`;
 - serviços `php`, `nginx`, `db` em execução;
 - saúde do PostgreSQL;
-- configuração do Nginx e presença/validade dos certificados em `certs/`;
+- configuração do Nginx e presença/validade dos certificados em `/etc/letsencrypt/live/<dominio>/`;
 - DNS, redirecionamento HTTP -> HTTPS e resposta do endpoint HTTPS;
 - status de migrations;
 - status do firewall (ufw).
