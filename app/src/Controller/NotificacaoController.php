@@ -104,20 +104,29 @@ class NotificacaoController extends AbstractController
         $html = '';
         if (count($notificacoes) > 0) {
             foreach ($notificacoes as $notif) {
-                $link = $notif->getTarefa() ? "/tarefas/{$notif->getTarefa()->getId()}" : '#';
-                $bgClass = !$notif->isLida() ? ' bg-light' : '';
-                $html .= "<a href=\"{$link}\" class=\"dropdown-item{$bgClass}\">";
-                $html .= '<div class="d-flex align-items-start">';
-                $html .= "<i class=\"bi {$notif->getIcone()} me-2 mt-1\"></i>";
-                $html .= '<div class="flex-grow-1">';
-                $html .= "<div class=\"fw-semibold small\">{$notif->getTitulo()}</div>";
-                $html .= "<div class=\"text-muted small text-truncate\" style=\"max-width: 250px;\">{$notif->getMensagem()}</div>";
-                $html .= "<div class=\"text-muted smaller\">{$notif->getTempoRelativo()}</div>";
-                $html .= '</div></div></a>';
-                $html .= '<div class="dropdown-divider"></div>';
+                $link = $notif->getUrl()
+                    ?? ($notif->getTarefa() ? "/tarefas/{$notif->getTarefa()->getId()}" : '#');
+                $link = htmlspecialchars($link, ENT_QUOTES);
+                $icone = htmlspecialchars($notif->getIcone(), ENT_QUOTES);
+                $titulo = htmlspecialchars($notif->getTitulo(), ENT_QUOTES);
+                $mensagem = (string) $notif->getMensagem();
+                $tempo = htmlspecialchars($notif->getTempoRelativo(), ENT_QUOTES);
+                $unreadClass = !$notif->isLida() ? ' notif-unread' : '';
+
+                $html .= "<a href=\"{$link}\" class=\"dropdown-item notif-item{$unreadClass}\">";
+                $html .= "<i class=\"bi {$icone} notif-icon\"></i>";
+                $html .= '<div class="notif-body">';
+                $html .= "<div class=\"notif-title\">{$titulo}</div>";
+                // Não duplica a mensagem quando é igual ao título (ponto/servicedesk gravam ambos iguais)
+                if ($mensagem !== '' && $mensagem !== $notif->getTitulo()) {
+                    $html .= '<div class="notif-msg">' . htmlspecialchars($mensagem, ENT_QUOTES) . '</div>';
+                }
+                $html .= "<div class=\"notif-time\">{$tempo}</div>";
+                $html .= '</div></a>';
+                $html .= '<div class="dropdown-divider m-0"></div>';
             }
         } else {
-            $html .= '<a href="#" class="dropdown-item text-center text-muted">';
+            $html .= '<a href="#" class="dropdown-item text-center text-muted py-3">';
             $html .= '<i class="bi bi-check-circle me-2"></i> Nenhuma notificação';
             $html .= '</a>';
         }

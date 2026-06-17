@@ -44,7 +44,9 @@
                                         <i class="bi {{ notif.icone }} me-3 fs-4"></i>
                                         <div>
                                             <h6 class="mb-1 {% if not notif.lida %}fw-bold{% endif %}">{{ notif.titulo }}</h6>
-                                            <p class="mb-1 text-muted">{{ notif.mensagem }}</p>
+                                            {% if notif.mensagem and notif.mensagem != notif.titulo %}
+                                                <p class="mb-1 text-muted">{{ notif.mensagem }}</p>
+                                            {% endif %}
                                             {% if notif.tarefa %}
                                                 <small class="text-primary">
                                                     <i class="bi bi-list-task me-1"></i> Tarefa #{{ notif.tarefa.id }}

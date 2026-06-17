@@ -131,7 +131,9 @@
                                                     <i class="bi {{ notif.icone }} notif-icon"></i>
                                                     <div class="notif-body">
                                                         <div class="notif-title">{{ notif.titulo }}</div>
-                                                        <div class="notif-msg">{{ notif.mensagem }}</div>
+                                                        {% if notif.mensagem and notif.mensagem != notif.titulo %}
+                                                            <div class="notif-msg">{{ notif.mensagem }}</div>
+                                                        {% endif %}
                                                         <div class="notif-time">{{ notif.tempoRelativo }}</div>
                                                     </div>
                                                 </a>

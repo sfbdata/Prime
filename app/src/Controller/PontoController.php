@@ -265,7 +265,12 @@ final class PontoController extends AbstractController
             $entityManager->flush();
 
             if (!$isFaltaNaoJustificada) {
-                $urlGestor = $this->generateUrl('app_tenant_users', ['id' => $tenant->getId()]);
+                // Leva o gestor direto à aba de justificativas do colaborador (aprovar/recusar)
+                $urlGestor = $this->generateUrl('app_tenant_user_edit_role', [
+                    'tenantId' => $tenant->getId(),
+                    'id' => $user->getId(),
+                    'tab' => 'justificativas',
+                ]);
                 foreach ($justificativasCriadas as $j) {
                     $notificacaoService->notificarJustificativaEnviada($j, $urlGestor, $tenant);
                 }

@@ -229,13 +229,15 @@ nav.app-header.navtop {
 /* ── Dropdowns ── */
 .notif-dropdown { min-width: 340px; max-width: 340px; padding: 0; overflow: hidden; }
 .notif-header   { padding: 10px 14px; font-size: 0.85rem; font-weight: 600; color: #444; background: #f8f9fa; }
+/* Lista rolável: mantém header e "Ver todas" sempre visíveis mesmo com muitas notificações */
+#notificacaoListContainer { max-height: 360px; overflow-y: auto; }
 .notif-item     { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; white-space: normal; }
 .notif-item.notif-unread { background: #f0f7fb; }
 .notif-item:hover        { background: #e8f4fb; }
 .notif-icon  { font-size: 1rem; color: #0078AA; margin-top: 2px; flex-shrink: 0; }
 .notif-body  { flex: 1; min-width: 0; }
-.notif-title { font-size: 0.82rem; font-weight: 600; color: #333; }
-.notif-msg   { font-size: 0.78rem; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.notif-title { font-size: 0.82rem; font-weight: 600; color: #333; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.notif-msg   { font-size: 0.78rem; color: #666; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .notif-time  { font-size: 0.72rem; color: #999; margin-top: 2px; }
 .notif-footer { padding: 9px; font-size: 0.82rem; border-top: 1px solid #dee2e6; color: #0078AA; }
 .notif-footer:hover { background: #f0f7fb; }
