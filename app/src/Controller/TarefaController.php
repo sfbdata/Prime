@@ -10,7 +10,9 @@ use App\Entity\Tarefa\TarefaMensagem;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Repository\TarefaRepository;
+use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
+use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
@@ -132,7 +134,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, UserRepository $userRepository): Response
+    public function show(Tarefa $tarefa, UserRepository $userRepository, ExcluirTarefaUseCase $excluirUseCase): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -145,11 +147,12 @@ final class TarefaController extends AbstractController
         $users = $userRepository->findTodosPorTenant($tenant);
 
         return $this->render('tarefa/show.html.twig', [
-            'tarefa'        => $tarefa,
-            'statusLabels'  => Tarefa::STATUS_LABELS,
-            'timelineItems' => $timelineItems,
-            'usuarioAtual'  => $usuario,
-            'users'         => $users,
+            'tarefa'         => $tarefa,
+            'statusLabels'   => Tarefa::STATUS_LABELS,
+            'timelineItems'  => $timelineItems,
+            'usuarioAtual'   => $usuario,
+            'users'          => $users,
+            'podeExcluirMeta' => $excluirUseCase->podeExcluir($tarefa, $usuario, $tenant),
         ]);
     }
 
@@ -286,6 +289,36 @@ final class TarefaController extends AbstractController
         }
 
         $pastaId = $tarefa->getPasta()->getId();
+
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'tarefas']);
+    }
+
+    /**
+     * Exclui uma meta — restrita ao criador e à janela de tempo após a criação.
+     */
+    #[Route('/{id}/excluir', name: 'tarefa_excluir', methods: ['POST'])]
+    public function excluir(Tarefa $tarefa, Request $request, ExcluirTarefaUseCase $useCase): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
+
+        if (!$this->isCsrfTokenValid('excluir_tarefa_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $pastaId = $tarefa->getPasta()->getId();
+
+        try {
+            $useCase->executar($tarefa, $usuario, $tenant);
+        } catch (MetaNaoExcluivelException) {
+            $this->addFlash('danger', 'Esta meta não pode ser excluída.');
+
+            return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+        }
+
+        $this->addFlash('success', 'Meta excluída.');
 
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'tarefas']);
     }

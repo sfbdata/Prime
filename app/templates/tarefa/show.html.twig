@@ -336,6 +336,19 @@
                         </div>
                         {% endif %}
 
+                        {# Excluir meta (somente criador, dentro da janela) #}
+                        {% if podeExcluirMeta %}
+                        <div class="mb-3">
+                            <form method="post" action="{{ path('tarefa_excluir', {id: tarefa.id}) }}"
+                                  onsubmit="return confirm('Excluir esta meta? Esta ação não pode ser desfeita.');">
+                                <input type="hidden" name="_token" value="{{ csrf_token('excluir_tarefa_' ~ tarefa.id) }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                    <i class="bi bi-trash me-1"></i>Excluir Meta
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+
                         {# Voltar #}
                         <div class="d-grid">
                             <a href="{{ path('pasta_show', {id: tarefa.pasta.id}) }}#tarefas"
