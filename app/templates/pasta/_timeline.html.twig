@@ -71,7 +71,16 @@
                                 </small>
                             </div>
 
-                            {% if item.detalhe %}
+                            {% if item.metaTitulo %}
+                                <div class="mt-1 small text-muted">
+                                    {% if item.metaId %}
+                                        <a href="{{ path('tarefa_show', {id: item.metaId}) }}" class="text-decoration-none fw-medium">«{{ item.metaTitulo }}»</a>
+                                    {% else %}
+                                        <span class="fw-medium">«{{ item.metaTitulo }}»</span>
+                                    {% endif %}
+                                    {% if item.detalhe %} — {{ item.detalhe }}{% endif %}
+                                </div>
+                            {% elseif item.detalhe %}
                                 <div class="mt-1 small {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}">
                                     {{ item.detalhe|nl2br }}
                                 </div>

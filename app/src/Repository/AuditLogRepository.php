@@ -172,6 +172,25 @@ class AuditLogRepository extends ServiceEntityRepository
                 OR (changes->'diff'->'after'->'pasta'->>'id')::text = :pastaIdStr
                 OR (changes->'diff'->'before'->'pasta'->>'id')::text = :pastaIdStr
               )
+            UNION ALL
+            SELECT id, action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at
+            FROM audit_log
+            WHERE entity_class = 'App\\Entity\\Tarefa\\Tarefa'
+              AND tenant_id = :tenantId
+              AND (
+                entity_id IN (SELECT id::text FROM tarefa WHERE pasta_id = :pastaId)
+                OR (changes->'diff'->'after'->'pasta'->>'id')::text = :pastaIdStr
+                OR (changes->'diff'->'before'->'pasta'->>'id')::text = :pastaIdStr
+              )
+            UNION ALL
+            SELECT id, action, entity_class, entity_id, changes, actor_user_id, actor_email, created_at
+            FROM audit_log
+            WHERE entity_class = 'App\\Entity\\Tarefa\\TarefaMensagem'
+              AND tenant_id = :tenantId
+              AND entity_id IN (
+                SELECT id::text FROM tarefa_mensagem
+                WHERE tarefa_id IN (SELECT id FROM tarefa WHERE pasta_id = :pastaId)
+              )
             {$processoClause}
             ORDER BY created_at DESC
             LIMIT :limit

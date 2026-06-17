@@ -17,5 +17,7 @@ final readonly class TimelineItemDTO
         public ?int $mensagemId = null,
         public ?\DateTimeImmutable $editadoEm = null,
         public ?int $usuarioId = null,
+        public ?int $metaId = null,
+        public ?string $metaTitulo = null,
     ) {}
 }
