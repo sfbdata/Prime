@@ -4,7 +4,7 @@ SaaS jurídico multi-tenant. PHP 8.2+, Symfony 7.4, Doctrine ORM 3.x, PostgreSQL
 
 ## Idioma
 
-Código, comentários e commits em **português brasileiro**.
+Código, comentários, explicações pensamentos e commits em **português brasileiro**.
 `camelCase` métodos/variáveis · `PascalCase` classes · `snake_case` rotas/templates/colunas DB.
 
 ## Arquitetura em uma frase
