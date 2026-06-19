@@ -230,18 +230,18 @@
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #6c757d;
-    border-bottom: 2px solid #dee2e6;
+    color: var(--bs-secondary-color);
+    border-bottom: 2px solid var(--bs-border-color);
     padding: 10px 8px;
 }
 #tabelaDemandas tbody td {
     vertical-align: middle;
     font-size: 0.85rem;
     padding: 8px 8px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--bs-border-color);
 }
 #tabelaDemandas tbody tr:last-child td { border-bottom: none; }
-#tabelaDemandas tbody tr:hover { background: #f8f9ff; }
+#tabelaDemandas tbody tr:hover { background: var(--bs-secondary-bg); }
 .clientes-resumo { cursor: default; white-space: nowrap; }
 .sortable { cursor: pointer; user-select: none; }
 .sortable:hover { background-color: rgba(0,0,0,0.04); }
@@ -269,8 +269,8 @@
 .pasta-cards-lista { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
 
 .pasta-card {
-    background: #fff;
-    border: 1px solid #dee2e6;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 10px;
     overflow: hidden;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
@@ -283,27 +283,27 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 14px 8px;
-    background: #f8f9fa;
-    border-bottom: 1px solid #e9ecef;
+    background: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
 }
 
-.pasta-card-nup { font-size: 0.92rem; color: #212529; display: flex; align-items: center; gap: 4px; }
+.pasta-card-nup { font-size: 0.92rem; color: var(--bs-body-color); display: flex; align-items: center; gap: 4px; }
 
 .pasta-card-body { padding: 8px 14px 4px; display: flex; flex-direction: column; gap: 5px; }
 
 .pasta-card-row { display: flex; align-items: center; gap: 6px; font-size: 0.84rem; min-height: 24px; }
 
-.pasta-card-label { color: #6c757d; flex-shrink: 0; font-size: 0.8rem; width: 18px; text-align: center; }
+.pasta-card-label { color: var(--bs-secondary-color); flex-shrink: 0; font-size: 0.8rem; width: 18px; text-align: center; }
 
-.pasta-card-value { color: #343a40; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pasta-card-value { color: var(--bs-body-color); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .pasta-card-footer {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 8px 14px;
-    border-top: 1px solid #f0f0f0;
-    background: #fafafa;
+    border-top: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
 }
 
 /* Filtro */

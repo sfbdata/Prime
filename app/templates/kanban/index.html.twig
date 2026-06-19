@@ -30,7 +30,7 @@
 .kb-board-card {
     border-radius: 12px;
     border: 1px solid rgba(0,0,0,.08);
-    background: #fff;
+    background: var(--bs-body-bg);
     box-shadow: 0 1px 3px rgba(0,0,0,.06);
     transition: box-shadow .2s, transform .15s;
     text-decoration: none;
@@ -66,7 +66,7 @@
 }
 .kb-board-desc {
     font-size: .8rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     margin: 0;
     overflow: hidden;
     display: -webkit-box;
@@ -80,7 +80,7 @@
     align-items: center;
     justify-content: space-between;
     font-size: .78rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
 }
 .kb-board-meta {
     display: flex;
@@ -102,7 +102,7 @@
     justify-content: center;
     gap: .5rem;
     min-height: 130px;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     cursor: pointer;
     transition: border-color .2s, background .2s;
     font-size: .9rem;
@@ -116,11 +116,11 @@
 .kb-empty-state {
     text-align: center;
     padding: 4rem 2rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
 }
 .kb-empty-icon {
     font-size: 4rem;
-    color: #dee2e6;
+    color: var(--bs-border-color);
     margin-bottom: 1rem;
 }
 
@@ -130,7 +130,7 @@
     overflow: hidden;
     border: 1px solid rgba(0,0,0,.06);
     min-height: 130px;
-    background: #f8f9fa;
+    background: var(--bs-tertiary-bg);
     animation: kb-shimmer 1.5s infinite;
 }
 @keyframes kb-shimmer {

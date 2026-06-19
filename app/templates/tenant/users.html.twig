@@ -74,7 +74,7 @@
                                                 {% for ra in userAccesses %}
                                                     {% set label = resourceLabels[ra.resourceType][ra.resourceId] ?? (ra.resourceType ~ ' #' ~ ra.resourceId) %}
                                                     <li class="mb-1 d-flex align-items-center gap-2 flex-wrap">
-                                                        <span class="badge text-bg-light border text-capitalize">{{ ra.resourceType }}</span>
+                                                        <span class="badge bg-body-tertiary text-body-secondary border text-capitalize">{{ ra.resourceType }}</span>
                                                         <span>{{ label }}</span>
                                                         <span class="ms-1">
                                                             {% if ra.canView %}
@@ -193,18 +193,18 @@
     font-size: 0.78rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #6c757d;
-    border-bottom: 2px solid #dee2e6;
+    color: var(--bs-secondary-color);
+    border-bottom: 2px solid var(--bs-border-color);
     padding: 10px 8px;
 }
 #tabelaUsuarios tbody td {
     vertical-align: middle;
     font-size: 0.85rem;
     padding: 8px 8px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--bs-border-color);
 }
 #tabelaUsuarios tbody tr:last-child td { border-bottom: none; }
-#tabelaUsuarios tbody tr:hover { background: #f8f9ff; }
+#tabelaUsuarios tbody tr:hover { background: var(--bs-secondary-bg); }
 .sortable { cursor: pointer; user-select: none; }
 .sortable:hover { background-color: rgba(0,0,0,0.04); }
 .sort-icon { font-size: 0.68em; opacity: 0.35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }

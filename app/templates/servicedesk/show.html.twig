@@ -39,7 +39,7 @@
                     <div class="card-body">
                         <div class="mb-3">
                             <label class="form-label text-muted">Descrição</label>
-                            <div class="p-3 bg-light rounded">
+                            <div class="p-3 bg-body-tertiary rounded">
                                 {{ chamado.descricao|nl2br }}
                             </div>
                         </div>
@@ -314,7 +314,7 @@
         top: 0;
         bottom: 0;
         width: 4px;
-        background: #dee2e6;
+        background: var(--bs-border-color);
         left: 31px;
         margin-left: -2px;
     }
@@ -330,25 +330,25 @@
         line-height: 30px;
         text-align: center;
         border-radius: 50%;
-        background: #fff;
+        background: var(--bs-body-bg);
         z-index: 1;
     }
     .timeline-item {
         margin-left: 60px;
-        background: #fff;
-        border: 1px solid #dee2e6;
+        background: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
         border-radius: 4px;
         padding: 10px 15px;
     }
     .timeline-item .time {
         float: right;
-        color: #999;
+        color: var(--bs-secondary-color);
         font-size: 12px;
     }
     .timeline-header {
         margin: 0;
         font-size: 14px;
-        border-bottom: 1px solid #f4f4f4;
+        border-bottom: 1px solid var(--bs-border-color);
         padding-bottom: 8px;
         margin-bottom: 8px;
     }

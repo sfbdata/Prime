@@ -42,7 +42,7 @@
                         {# Info Boxes #}
                         <div class="row">
                             <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
+                                <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
                                         <span class="info-box-text text-center text-muted">Tipo</span>
                                         <span class="info-box-number text-center text-muted mb-0">{{ cliente.cpf is defined ? 'PF' : 'PJ' }}</span>
@@ -507,8 +507,8 @@
     background-color: rgba(0,0,0,0.03);
 }
 .anexo-item {
-    background: #fafafa;
-    border: 1px solid #dee2e6;
+    background: var(--bs-tertiary-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 6px;
     padding: 12px 14px;
     margin-bottom: 10px;
@@ -520,7 +520,7 @@
 }
 .anexo-item .anexo-tamanho {
     font-size: .8rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
 }
 </style>
 

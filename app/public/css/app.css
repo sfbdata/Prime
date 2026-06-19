@@ -76,7 +76,7 @@
 body {
     font-family: 'Open Sans', Arial, sans-serif;
     font-size: 14px;
-    color: #454545;
+    color: var(--bs-body-color);
 }
 
 /* =============================================================
@@ -135,8 +135,8 @@ nav.app-header.navtop {
     height: var(--subnav-height) !important;
     width: 100% !important;
     padding: 0 16px !important;
-    background: #fff !important;
-    border-bottom: 2px solid #ddd !important;
+    background: var(--bs-body-bg) !important;
+    border-bottom: 2px solid var(--bs-border-color) !important;
     gap: 0;
     overflow-x: auto;
 }
@@ -148,7 +148,7 @@ nav.app-header.navtop {
     font-family: 'Open Sans', Arial, sans-serif;
     font-size: 12px;
     font-weight: 600;
-    color: #666 !important;
+    color: var(--bs-secondary-color) !important;
     text-decoration: none;
     text-transform: uppercase;
     line-height: 24px;
@@ -228,27 +228,32 @@ nav.app-header.navtop {
 
 /* ── Dropdowns ── */
 .notif-dropdown { min-width: 340px; max-width: 340px; padding: 0; overflow: hidden; }
-.notif-header   { padding: 10px 14px; font-size: 0.85rem; font-weight: 600; color: #444; background: #f8f9fa; }
-/* Lista rolável: mantém header e "Ver todas" sempre visíveis mesmo com muitas notificações */
-#notificacaoListContainer { max-height: 360px; overflow-y: auto; }
+.notif-header   { padding: 10px 14px; font-size: 0.85rem; font-weight: 600; color: var(--bs-body-color); background: var(--bs-tertiary-bg); }
+/* Lista rolável: mantém header, abas e "Ver todas" sempre visíveis mesmo com muitas notificações */
+.notif-list { max-height: 360px; overflow-y: auto; }
+/* Abas Minhas/Gestão dentro do dropdown */
+.notif-tabs { padding: 0 8px; gap: 4px; flex-wrap: nowrap; }
+.notif-tabs .nav-link { padding: 6px 10px; font-size: 0.8rem; color: var(--bs-secondary-color); border: 0; border-bottom: 2px solid transparent; }
+.notif-tabs .nav-link.active { color: #0078AA; border-bottom-color: #0078AA; background: transparent; font-weight: 600; }
+.notif-tab-badge { font-size: 0.7rem; }
 .notif-item     { display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px; white-space: normal; }
-.notif-item.notif-unread { background: #f0f7fb; }
-.notif-item:hover        { background: #e8f4fb; }
+.notif-item.notif-unread { background: var(--bs-secondary-bg); }
+.notif-item:hover        { background: var(--bs-secondary-bg); }
 .notif-icon  { font-size: 1rem; color: #0078AA; margin-top: 2px; flex-shrink: 0; }
 .notif-body  { flex: 1; min-width: 0; }
-.notif-title { font-size: 0.82rem; font-weight: 600; color: #333; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.notif-msg   { font-size: 0.78rem; color: #666; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.notif-time  { font-size: 0.72rem; color: #999; margin-top: 2px; }
-.notif-footer { padding: 9px; font-size: 0.82rem; border-top: 1px solid #dee2e6; color: #0078AA; }
-.notif-footer:hover { background: #f0f7fb; }
+.notif-title { font-size: 0.82rem; font-weight: 600; color: var(--bs-body-color); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.notif-msg   { font-size: 0.78rem; color: var(--bs-secondary-color); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.notif-time  { font-size: 0.72rem; color: var(--bs-secondary-color); margin-top: 2px; }
+.notif-footer { padding: 9px; font-size: 0.82rem; border-top: 1px solid var(--bs-border-color); color: #0078AA; }
+.notif-footer:hover { background: var(--bs-secondary-bg); }
 
 .usuario-dropdown        { min-width: 260px; padding: 0; overflow: hidden; }
-.usuario-dropdown-header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #f8f9fa; }
+.usuario-dropdown-header { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: var(--bs-tertiary-bg); }
 .usuario-avatar-lg { width: 48px; height: 48px; border-radius: 50%; background: var(--header-bg); color: #fff; font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .usuario-info  { min-width: 0; }
-.usuario-name  { font-weight: 600; font-size: 0.9rem; color: #222; }
-.usuario-email { font-size: 0.78rem; color: #777; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.usuario-dropdown .dropdown-item:hover { background: #f0f7fb; }
+.usuario-name  { font-weight: 600; font-size: 0.9rem; color: var(--bs-body-color); }
+.usuario-email { font-size: 0.78rem; color: var(--bs-secondary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.usuario-dropdown .dropdown-item:hover { background: var(--bs-secondary-bg); }
 .usuario-dropdown .dropdown-item.text-danger:hover { background: #fff0f0; color: #dc3545 !important; }
 
 /* =============================================================
@@ -285,8 +290,8 @@ body .app-sidebar {
     height: calc(100vh - var(--header-height) - var(--subnav-height)) !important;
     width: var(--sidebar-width) !important;
     z-index: 1040 !important;
-    background: #fff !important;
-    border-right: 1px solid #dde3e8 !important;
+    background: var(--bs-body-bg) !important;
+    border-right: 1px solid var(--bs-border-color) !important;
     overflow-y: auto;
     overflow-x: hidden;
     font-family: 'Open Sans', Arial, sans-serif;
@@ -308,39 +313,39 @@ body .app-sidebar {
 
 /* Sobrescreve cor do tema dark do AdminLTE */
 .app-sidebar.pje-sidebar,
-.app-sidebar.pje-sidebar * { color: #454545; }
+.app-sidebar.pje-sidebar * { color: var(--bs-body-color); }
 
 /* ── Busca rápida ── */
-.pje-sidebar-search { position: relative; padding: 10px 12px 8px; border-bottom: 1px solid #e8ecf0; background: #f5f7f9; }
-.pje-search-input-group { display: flex; align-items: center; background: #fff; border: 1px solid #cdd4da; border-radius: 3px; overflow: hidden; height: 34px; }
-.pje-search-icon  { display: flex; align-items: center; justify-content: center; width: 34px; color: #999; font-size: 0.85rem; flex-shrink: 0; }
-.pje-search-input { flex: 1; border: none; outline: none; font-family: 'Open Sans', Arial, sans-serif; font-size: 13px; color: #454545; background: transparent; padding: 0 8px 0 0; }
-.pje-search-input::placeholder { color: #aaa; }
+.pje-sidebar-search { position: relative; padding: 10px 12px 8px; border-bottom: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+.pje-search-input-group { display: flex; align-items: center; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 3px; overflow: hidden; height: 34px; }
+.pje-search-icon  { display: flex; align-items: center; justify-content: center; width: 34px; color: var(--bs-secondary-color); font-size: 0.85rem; flex-shrink: 0; }
+.pje-search-input { flex: 1; border: none; outline: none; font-family: 'Open Sans', Arial, sans-serif; font-size: 13px; color: var(--bs-body-color); background: transparent; padding: 0 8px 0 0; }
+.pje-search-input::placeholder { color: var(--bs-secondary-color); }
 
-.pje-search-results { position: absolute; top: calc(100% - 8px); left: 12px; right: 12px; background: #fff; border: 1px solid #cdd4da; border-top: none; border-radius: 0 0 3px 3px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 10; max-height: 220px; overflow-y: auto; }
+.pje-search-results { position: absolute; top: calc(100% - 8px); left: 12px; right: 12px; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-top: none; border-radius: 0 0 3px 3px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 10; max-height: 220px; overflow-y: auto; }
 .pje-search-list { list-style: none; margin: 0; padding: 0; }
-.pje-search-list li a { display: block; padding: 8px 12px; font-size: 13px; color: #333; text-decoration: none; border-bottom: 1px solid #f0f0f0; transition: background 0.15s; }
-.pje-search-list li a:hover { background: #f0f7fb; color: #0078AA; }
-.pje-search-empty { padding: 10px 12px; font-size: 13px; color: #999; }
+.pje-search-list li a { display: block; padding: 8px 12px; font-size: 13px; color: var(--bs-body-color); text-decoration: none; border-bottom: 1px solid var(--bs-border-color); transition: background 0.15s; }
+.pje-search-list li a:hover { background: var(--bs-secondary-bg); color: #0078AA; }
+.pje-search-empty { padding: 10px 12px; font-size: 13px; color: var(--bs-secondary-color); }
 
 /* ── Menu ── */
 .pje-menu-wrapper { padding: 4px 0; }
 .pje-menu-list    { list-style: none; margin: 0; padding: 0; }
 
-.pje-menu-separator { padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.6px; border-top: 1px solid #eef0f2; margin-top: 4px; }
+.pje-menu-separator { padding: 12px 16px 4px; font-size: 11px; font-weight: 700; color: var(--bs-secondary-color); text-transform: uppercase; letter-spacing: 0.6px; border-top: 1px solid var(--bs-border-color); margin-top: 4px; }
 .pje-menu-separator:first-child { border-top: none; margin-top: 0; }
 
 .pje-menu-item { margin: 0; }
-.pje-menu-link { display: flex; align-items: center; gap: 10px; padding: 9px 16px; font-family: 'Open Sans', Arial, sans-serif; font-size: 13px; color: #454545 !important; text-decoration: none !important; border-left: 3px solid transparent; transition: background 0.15s, color 0.15s, border-color 0.15s; line-height: 1.3; }
-.pje-menu-link:hover  { background: #f0f7fb; color: #0078AA !important; border-left-color: #b3d9ee; }
-.pje-menu-link.active { background: #e6f3fa; color: #0078AA !important; border-left-color: #0078AA; font-weight: 600; }
+.pje-menu-link { display: flex; align-items: center; gap: 10px; padding: 9px 16px; font-family: 'Open Sans', Arial, sans-serif; font-size: 13px; color: var(--bs-body-color) !important; text-decoration: none !important; border-left: 3px solid transparent; transition: background 0.15s, color 0.15s, border-color 0.15s; line-height: 1.3; }
+.pje-menu-link:hover  { background: var(--bs-secondary-bg); color: #0078AA !important; border-left-color: #b3d9ee; }
+.pje-menu-link.active { background: var(--bs-secondary-bg); color: #0078AA !important; border-left-color: #0078AA; font-weight: 600; }
 
 .pje-nav-icon { font-size: 1rem; width: 18px; text-align: center; flex-shrink: 0; color: #6c8fa8; }
 .pje-menu-link.active .pje-nav-icon,
 .pje-menu-link:hover  .pje-nav-icon { color: #0078AA; }
 
 .app-sidebar.pje-sidebar::-webkit-scrollbar       { width: 4px; }
-.app-sidebar.pje-sidebar::-webkit-scrollbar-thumb { background: #cdd4da; border-radius: 2px; }
+.app-sidebar.pje-sidebar::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 2px; }
 .app-sidebar.pje-sidebar::-webkit-scrollbar-track { background: transparent; }
 
 /* =============================================================
@@ -370,8 +375,8 @@ body .app-sidebar {
    ============================================================= */
 .no-sidebar { min-height: 100vh; }
 
-.login-wrapper { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; background: #f4f6f9; }
-.login-container { background: #fff; border-radius: 0.5rem; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); padding: 2rem; width: 100%; max-width: 420px; }
+.login-wrapper { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; background: var(--bs-tertiary-bg); }
+.login-container { background: var(--bs-body-bg); border-radius: 0.5rem; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); padding: 2rem; width: 100%; max-width: 420px; }
 .login-container h1 { text-align: center; margin-bottom: 1.5rem; font-size: 1.75rem; font-weight: 600; }
 .btn-login   { width: 100%; }
 .extra-links { text-align: center; margin-top: 1rem; font-size: 0.9rem; }
@@ -390,7 +395,7 @@ body .app-sidebar {
 /* =============================================================
    CARDS DE TAREFA
    ============================================================= */
-.tarefa-card { border-left: 4px solid #6c757d; }
+.tarefa-card { border-left: 4px solid var(--bs-secondary-color); }
 .tarefa-card:hover { box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15); transform: translateY(-2px); border-color: var(--bs-primary); }
 
 /* =============================================================
@@ -404,15 +409,32 @@ body .app-sidebar {
 /* =============================================================
    POST / ACTIVITY
    ============================================================= */
-.post { border-bottom: 1px solid #dee2e6; margin-bottom: 15px; padding-bottom: 15px; }
+.post { border-bottom: 1px solid var(--bs-border-color); margin-bottom: 15px; padding-bottom: 15px; }
 .post:last-child { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
 
 .user-block { position: relative; padding-left: 50px; min-height: 40px; }
 .user-block .img-circle,
 .user-block > span:first-child { position: absolute; left: 0; top: 0; border-radius: 50%; }
-.user-block .img-bordered-sm   { border: 2px solid #dee2e6; }
+.user-block .img-bordered-sm   { border: 2px solid var(--bs-border-color); }
 .user-block .username          { display: block; font-size: 1rem; font-weight: 600; margin-top: -2px; }
 .user-block .username a        { color: var(--bs-body-color); text-decoration: none; }
 .user-block .username a:hover  { color: var(--bs-primary); }
-.user-block .description       { display: block; font-size: 0.85rem; color: #6c757d; margin-top: 2px; }
+.user-block .description       { display: block; font-size: 0.85rem; color: var(--bs-secondary-color); margin-top: 2px; }
 .user-block .comment           { margin-left: 50px; }
+
+/* =============================================================
+   AJUSTES FINOS DO TEMA ESCURO
+   Só o que não tem variável Bootstrap perfeita; o resto inverte
+   sozinho via var(--bs-*). Marca/status permanecem.
+   ============================================================= */
+/* Hover do "Sair": rosa-claro fixo estoura no escuro → vermelho translúcido */
+html[data-bs-theme="dark"] .usuario-dropdown .dropdown-item.text-danger:hover {
+    background: rgba(220, 53, 69, 0.18);
+}
+
+/* .table-light (cabeçalhos de tabela) não inverte sozinho → adapta as vars do Bootstrap */
+html[data-bs-theme="dark"] .table-light {
+    --bs-table-bg: var(--bs-tertiary-bg);
+    --bs-table-color: var(--bs-body-color);
+    --bs-table-border-color: var(--bs-border-color);
+}

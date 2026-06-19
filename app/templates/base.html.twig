@@ -1,9 +1,19 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="light">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
         <meta name="color-scheme" content="light dark">
+        {# Anti-flash: aplica o tema salvo antes do render, evitando piscar branco #}
+        <script>
+            (function () {
+                try {
+                    if (localStorage.getItem('tema') === 'dark') {
+                        document.documentElement.setAttribute('data-bs-theme', 'dark');
+                    }
+                } catch (e) {}
+            })();
+        </script>
         {% block head_meta %}{% endblock %}
         <title>{% block title %}BlueJus{% endblock %}</title>
 
@@ -118,31 +128,65 @@
                                 </a>
                                 <div class="dropdown-menu dropdown-menu-end shadow notif-dropdown"
                                      id="notificacaoDropdownMenu">
-                                    <div class="notif-header">
-                                        <i class="bi bi-bell me-1"></i>
-                                        <span id="notificacaoCountText">{{ notificacoesCount }}</span> notificação(ões)
-                                    </div>
+                                    {% if podeVerGestao %}
+                                        <ul class="nav nav-tabs notif-tabs pt-2" role="tablist">
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link active" type="button" role="tab"
+                                                        data-categoria="pessoal" data-bs-toggle="tab" data-bs-target="#notifTabPessoal">
+                                                    Minhas
+                                                    <span class="badge text-bg-secondary notif-tab-badge" id="notifBadgePessoal"
+                                                          {% if notificacoesPessoaisCount == 0 %}style="display:none"{% endif %}>{{ notificacoesPessoaisCount }}</span>
+                                                </button>
+                                            </li>
+                                            <li class="nav-item" role="presentation">
+                                                <button class="nav-link" type="button" role="tab"
+                                                        data-categoria="gestao" data-bs-toggle="tab" data-bs-target="#notifTabGestao">
+                                                    Gestão
+                                                    <span class="badge text-bg-warning notif-tab-badge" id="notifBadgeGestao"
+                                                          {% if notificacoesGestaoCount == 0 %}style="display:none"{% endif %}>{{ notificacoesGestaoCount }}</span>
+                                                </button>
+                                            </li>
+                                        </ul>
+                                    {% else %}
+                                        <div class="notif-header">
+                                            <i class="bi bi-bell me-1"></i>
+                                            <span id="notificacaoCountText">{{ notificacoesCount }}</span> notificação(ões)
+                                        </div>
+                                    {% endif %}
                                     <div class="dropdown-divider m-0"></div>
-                                    <div id="notificacaoListContainer">
-                                        {% if notificacoes|length > 0 %}
-                                            {% for notif in notificacoes %}
-                                                <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
-                                                   class="dropdown-item notif-item{% if not notif.lida %} notif-unread{% endif %}">
-                                                    <i class="bi {{ notif.icone }} notif-icon"></i>
-                                                    <div class="notif-body">
-                                                        <div class="notif-title">{{ notif.titulo }}</div>
-                                                        {% if notif.mensagem and notif.mensagem != notif.titulo %}
-                                                            <div class="notif-msg">{{ notif.mensagem }}</div>
-                                                        {% endif %}
-                                                        <div class="notif-time">{{ notif.tempoRelativo }}</div>
+                                    <div class="tab-content">
+                                        <div class="tab-pane fade show active" id="notifTabPessoal" role="tabpanel">
+                                            <div class="notif-list" id="notifContainerPessoal" data-categoria="pessoal">
+                                                {% if notificacoes|length > 0 %}
+                                                    {% for notif in notificacoes %}
+                                                        <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
+                                                           class="dropdown-item notif-item{% if not notif.lida %} notif-unread{% endif %}">
+                                                            <i class="bi {{ notif.icone }} notif-icon"></i>
+                                                            <div class="notif-body">
+                                                                <div class="notif-title">{{ notif.titulo }}</div>
+                                                                {% if notif.mensagem and notif.mensagem != notif.titulo %}
+                                                                    <div class="notif-msg">{{ notif.mensagem }}</div>
+                                                                {% endif %}
+                                                                <div class="notif-time">{{ notif.tempoRelativo }}</div>
+                                                            </div>
+                                                        </a>
+                                                        <div class="dropdown-divider m-0"></div>
+                                                    {% endfor %}
+                                                {% else %}
+                                                    <a href="#" class="dropdown-item text-center text-muted py-3">
+                                                        <i class="bi bi-check-circle me-2"></i> Nenhuma notificação
+                                                    </a>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                        {% if podeVerGestao %}
+                                            <div class="tab-pane fade" id="notifTabGestao" role="tabpanel">
+                                                <div class="notif-list" id="notifContainerGestao" data-categoria="gestao" data-carregado="0">
+                                                    <div class="text-center text-muted py-3">
+                                                        <span class="spinner-border spinner-border-sm"></span>
                                                     </div>
-                                                </a>
-                                                <div class="dropdown-divider m-0"></div>
-                                            {% endfor %}
-                                        {% else %}
-                                            <a href="#" class="dropdown-item text-center text-muted py-3" id="notificacaoEmpty">
-                                                <i class="bi bi-check-circle me-2"></i> Nenhuma notificação
-                                            </a>
+                                                </div>
+                                            </div>
                                         {% endif %}
                                     </div>
                                     <a href="{{ path('notificacao_index') }}" class="dropdown-item text-center notif-footer">
@@ -205,6 +249,15 @@
                                         <a href="{{ path('app_profile') }}" class="dropdown-item d-flex align-items-center gap-2">
                                             <i class="bi bi-person"></i> Meu Perfil
                                         </a>
+                                    </li>
+                                    <li><hr class="dropdown-divider my-0"></li>
+                                    <li>
+                                        <button type="button" id="toggleTema"
+                                                class="dropdown-item d-flex align-items-center gap-2"
+                                                style="background:none; border:none; width:100%; text-align:left;">
+                                            <i class="bi bi-moon-stars" id="toggleTemaIcone"></i>
+                                            <span id="toggleTemaLabel">Tema escuro</span>
+                                        </button>
                                     </li>
                                     <li><hr class="dropdown-divider my-0"></li>
                                     <li>
@@ -302,43 +355,86 @@
         <script>
             document.addEventListener('DOMContentLoaded', function () {
 
-                // ── Polling de notificações a cada 30 s
+                // ── Toggle de tema claro/escuro (persiste em localStorage)
+                (function () {
+                    const botao = document.getElementById('toggleTema');
+                    const icone = document.getElementById('toggleTemaIcone');
+                    const label = document.getElementById('toggleTemaLabel');
+
+                    function sincronizarRotulo() {
+                        const escuro = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+                        if (label) label.textContent = escuro ? 'Tema claro' : 'Tema escuro';
+                        if (icone) icone.className = escuro ? 'bi bi-sun' : 'bi bi-moon-stars';
+                    }
+
+                    sincronizarRotulo();
+
+                    if (botao) {
+                        botao.addEventListener('click', function () {
+                            const escuro = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+                            const novo = escuro ? 'light' : 'dark';
+                            document.documentElement.setAttribute('data-bs-theme', novo);
+                            try { localStorage.setItem('tema', novo); } catch (e) {}
+                            sincronizarRotulo();
+                        });
+                    }
+                })();
+
+                // ── Polling do total no sino a cada 30 s
                 function atualizarNotificacoes() {
                     fetch('/notificacoes/count')
                         .then(r => r.json())
                         .then(data => {
                             const badge    = document.getElementById('notificacaoBadge');
                             const countTxt = document.getElementById('notificacaoCountText');
-                            if (!badge || !countTxt) return;
                             const n = data.count;
-                            countTxt.textContent = n;
-                            badge.textContent    = n > 9 ? '9+' : n;
-                            badge.style.display  = n > 0 ? '' : 'none';
+                            if (countTxt) countTxt.textContent = n;
+                            if (badge) {
+                                badge.textContent   = n > 9 ? '9+' : n;
+                                badge.style.display = n > 0 ? '' : 'none';
+                            }
                         })
                         .catch(e => console.log('Notificações:', e));
                 }
                 setInterval(atualizarNotificacoes, 30000);
 
-                // ── Atualiza dropdown ao abrir
+                // ── Carrega a lista de uma aba (categoria) do dropdown
+                function carregarAbaNotif(categoria) {
+                    const container = document.getElementById(
+                        categoria === 'gestao' ? 'notifContainerGestao' : 'notifContainerPessoal'
+                    );
+                    if (!container) return;
+                    fetch('/notificacoes/lista-dropdown?categoria=' + categoria)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.html) container.innerHTML = data.html;
+                            container.dataset.carregado = '1';
+                            const badge = document.getElementById(
+                                categoria === 'gestao' ? 'notifBadgeGestao' : 'notifBadgePessoal'
+                            );
+                            if (badge) {
+                                badge.textContent   = data.count;
+                                badge.style.display = data.count > 0 ? '' : 'none';
+                            }
+                        })
+                        .catch(e => console.log('Dropdown notif:', e));
+                }
+
+                // ── Atualiza dropdown ao abrir (aba ativa = Minhas) e total no sino
                 const dropToggle = document.getElementById('notificacaoDropdownToggle');
                 if (dropToggle) {
                     dropToggle.addEventListener('show.bs.dropdown', function () {
-                        fetch('/notificacoes/lista-dropdown')
-                            .then(r => r.json())
-                            .then(data => {
-                                const container = document.getElementById('notificacaoListContainer');
-                                const countTxt  = document.getElementById('notificacaoCountText');
-                                const badge     = document.getElementById('notificacaoBadge');
-                                if (container && data.html) container.innerHTML = data.html;
-                                if (countTxt) countTxt.textContent = data.count;
-                                if (badge) {
-                                    badge.textContent   = data.count > 9 ? '9+' : data.count;
-                                    badge.style.display = data.count > 0 ? '' : 'none';
-                                }
-                            })
-                            .catch(e => console.log('Dropdown notif:', e));
+                        carregarAbaNotif('pessoal');
+                        atualizarNotificacoes();
                     });
                 }
+
+                // ── Troca de aba carrega a categoria correspondente (Gestão é preguiçosa)
+                document.querySelectorAll('.notif-tabs [data-categoria]').forEach(function (btn) {
+                    btn.addEventListener('shown.bs.tab', function () {
+                        carregarAbaNotif(btn.dataset.categoria);
+                    });
+                });
             });
         </script>
         {# Modal de instalação para iOS #}

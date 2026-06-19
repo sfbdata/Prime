@@ -26,7 +26,7 @@
                         <i class="bi bi-folder2 me-1"></i><strong id="moverParaPastaNome"></strong>
                     </p>
                     <div class="input-group input-group-sm">
-                        <span class="input-group-text bg-white border-end-0 pe-1">
+                        <span class="input-group-text bg-body border-end-0 pe-1">
                             <i class="bi bi-search text-muted" style="font-size:.8rem;"></i>
                         </span>
                         <input type="text" id="moverParaBusca" class="form-control border-start-0 ps-1"
@@ -65,7 +65,7 @@
 <style>
 /* ── Scroll da lista ──────────────────────────────────────────── */
 #moverParaLista::-webkit-scrollbar { width: 4px; }
-#moverParaLista::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 4px; }
+#moverParaLista::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 4px; }
 
 /* ── Item de marcador (chip clicável) ─────────────────────────── */
 .mover-chip-wrap {
@@ -83,12 +83,12 @@
     user-select: none;
     transition: background .12s, border-color .12s, box-shadow .12s;
     position: relative;
-    background: #f8f9fa;
+    background: var(--bs-tertiary-bg);
 }
 
 .mover-chip:hover {
-    background: #eef2ff;
-    border-color: #c5d4fb;
+    background: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
 }
 
 /* Estado selecionado */
@@ -119,7 +119,7 @@
     min-width: 0;
     font-size: .85rem;
     font-weight: 500;
-    color: #212529;
+    color: var(--bs-body-color);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -128,8 +128,8 @@
 /* Badge com contagem de filhos */
 .mover-chip-count {
     font-size: .68rem;
-    color: #6c757d;
-    background: #e9ecef;
+    color: var(--bs-secondary-color);
+    background: var(--bs-border-color);
     border-radius: 10px;
     padding: 1px 6px;
     flex-shrink: 0;
@@ -150,12 +150,12 @@
     justify-content: center;
     border-radius: 4px;
     font-size: .72rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     transition: background .1s, color .1s, transform .18s;
     cursor: pointer;
     margin-left: -4px;
 }
-.mover-chip-chevron:hover { background: rgba(0,0,0,.08); color: #212529; }
+.mover-chip-chevron:hover { background: rgba(0,0,0,.08); color: var(--bs-body-color); }
 .mover-chip-chevron.expandido { transform: rotate(90deg); }
 
 /* Ícone de check (aparece quando selecionado) */
@@ -164,14 +164,14 @@
     width: 18px;
     height: 18px;
     border-radius: 50%;
-    border: 1.5px solid #ced4da;
+    border: 1.5px solid var(--bs-border-color);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: .72rem;
     color: transparent;
     transition: background .15s, border-color .15s, color .15s;
-    background: #fff;
+    background: var(--bs-body-bg);
 }
 .mover-chip.selecionado .mover-chip-check {
     background: #0d6efd;
@@ -192,22 +192,22 @@
 .mover-grupo-filhos {
     overflow: hidden;
     padding-left: 14px;
-    border-left: 2px solid #dee2e6;
+    border-left: 2px solid var(--bs-border-color);
     margin-left: 18px;
     margin-bottom: 3px;
 }
 .mover-grupo-filhos.oculto { display: none; }
 
 .mover-chip.filho {
-    background: #fff;
-    border-color: #f0f0f0;
+    background: var(--bs-body-bg);
+    border-color: var(--bs-border-color);
 }
 .mover-chip.filho:hover {
-    background: #f0f4ff;
-    border-color: #c5d4fb;
+    background: var(--bs-secondary-bg);
+    border-color: var(--bs-border-color);
 }
 .mover-chip.filho.selecionado {
-    background: #f0f4ff;
+    background: var(--bs-secondary-bg);
     border-color: #0d6efd;
 }
 

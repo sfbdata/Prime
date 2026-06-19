@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -18,67 +19,103 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Retorna notificações não lidas do usuário
-     * 
+     * Aplica o filtro de categoria (derivada do tipo) ao QueryBuilder.
+     * null = todas as categorias.
+     */
+    private function aplicarCategoria(QueryBuilder $qb, ?string $categoria): void
+    {
+        if ($categoria === Notificacao::CATEGORIA_GESTAO) {
+            $qb->andWhere('n.tipo IN (:tiposGestao)')
+                ->setParameter('tiposGestao', Notificacao::TIPOS_GESTAO);
+        } elseif ($categoria === Notificacao::CATEGORIA_PESSOAL) {
+            $qb->andWhere('n.tipo NOT IN (:tiposGestao)')
+                ->setParameter('tiposGestao', Notificacao::TIPOS_GESTAO);
+        }
+    }
+
+    /**
+     * Retorna notificações não lidas do usuário (opcionalmente de uma categoria)
+     *
      * @return Notificacao[]
      */
-    public function findNaoLidasByUsuario(User $usuario, int $limit = 10): array
+    public function findNaoLidasByUsuario(User $usuario, ?string $categoria = null, int $limit = 10): array
     {
-        return $this->createQueryBuilder('n')
+        $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
             ->andWhere('n.lida = false')
             ->setParameter('usuario', $usuario)
             ->orderBy('n.criadaEm', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
+            ->setMaxResults($limit);
+        $this->aplicarCategoria($qb, $categoria);
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
-     * Conta notificações não lidas do usuário
+     * Conta notificações não lidas do usuário (opcionalmente de uma categoria)
      */
-    public function countNaoLidasByUsuario(User $usuario): int
+    public function countNaoLidasByUsuario(User $usuario, ?string $categoria = null): int
     {
-        return (int) $this->createQueryBuilder('n')
+        $qb = $this->createQueryBuilder('n')
             ->select('COUNT(n.id)')
             ->where('n.usuario = :usuario')
             ->andWhere('n.lida = false')
-            ->setParameter('usuario', $usuario)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('usuario', $usuario);
+        $this->aplicarCategoria($qb, $categoria);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
-     * Retorna todas as notificações do usuário (lidas e não lidas)
-     * 
+     * Retorna todas as notificações do usuário (opcionalmente de uma categoria)
+     *
      * @return Notificacao[]
      */
-    public function findByUsuario(User $usuario, int $limit = 50): array
+    public function findByUsuario(User $usuario, ?string $categoria = null, int $limit = 50): array
     {
-        return $this->createQueryBuilder('n')
+        $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
             ->setParameter('usuario', $usuario)
             ->orderBy('n.criadaEm', 'DESC')
-            ->setMaxResults($limit)
-            ->getQuery()
-            ->getResult();
+            ->setMaxResults($limit);
+        $this->aplicarCategoria($qb, $categoria);
+
+        return $qb->getQuery()->getResult();
     }
 
     /**
-     * Marca todas as notificações do usuário como lidas
+     * Indica se o usuário possui alguma notificação de gestão (para liberar a aba)
      */
-    public function marcarTodasComoLidas(User $usuario): int
+    public function temNotificacaoGestao(User $usuario): bool
     {
-        return $this->createQueryBuilder('n')
+        $count = (int) $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->where('n.usuario = :usuario')
+            ->andWhere('n.tipo IN (:tiposGestao)')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('tiposGestao', Notificacao::TIPOS_GESTAO)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $count > 0;
+    }
+
+    /**
+     * Marca todas as notificações do usuário como lidas (opcionalmente de uma categoria)
+     */
+    public function marcarTodasComoLidas(User $usuario, ?string $categoria = null): int
+    {
+        $qb = $this->createQueryBuilder('n')
             ->update()
             ->set('n.lida', 'true')
             ->set('n.lidaEm', ':agora')
             ->where('n.usuario = :usuario')
             ->andWhere('n.lida = false')
             ->setParameter('usuario', $usuario)
-            ->setParameter('agora', new \DateTimeImmutable())
-            ->getQuery()
-            ->execute();
+            ->setParameter('agora', new \DateTimeImmutable());
+        $this->aplicarCategoria($qb, $categoria);
+
+        return $qb->getQuery()->execute();
     }
 
     /**

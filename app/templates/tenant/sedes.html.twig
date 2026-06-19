@@ -19,7 +19,7 @@
             align-items: center;
             justify-content: space-between;
             padding: 1.5rem 0 1.25rem;
-            border-bottom: 2px solid #f0f0f0;
+            border-bottom: 2px solid var(--bs-border-color);
             margin-bottom: 1.75rem;
         }
         .sedes-page-header-left {
@@ -43,13 +43,13 @@
         .sedes-page-title {
             font-size: 1.35rem;
             font-weight: 700;
-            color: #111827;
+            color: var(--bs-body-color);
             line-height: 1.2;
             margin: 0;
         }
         .sedes-page-subtitle {
             font-size: .82rem;
-            color: #6b7280;
+            color: var(--bs-secondary-color);
             margin: 2px 0 0;
         }
         .btn-back {
@@ -60,16 +60,16 @@
             border-radius: 8px;
             font-size: .82rem;
             font-weight: 600;
-            color: #374151;
-            background: #f3f4f6;
-            border: 1px solid #e5e7eb;
+            color: var(--bs-body-color);
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
             text-decoration: none;
             transition: background .18s, border-color .18s, color .18s;
             font-family: 'DM Sans', sans-serif;
         }
         .btn-back:hover {
-            background: #e5e7eb;
-            color: #111827;
+            background: var(--bs-border-color);
+            color: var(--bs-body-color);
         }
 
         /* ── Alertas refinados ── */
@@ -87,15 +87,15 @@
 
         /* ── Card base ── */
         .sedes-card {
-            background: #fff;
+            background: var(--bs-body-bg);
             border-radius: 14px;
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--bs-border-color);
             box-shadow: 0 1px 4px rgba(0,0,0,.05);
             overflow: hidden;
         }
         .sedes-card-header {
             padding: 1rem 1.25rem;
-            border-bottom: 1px solid #f3f4f6;
+            border-bottom: 1px solid var(--bs-border-color);
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -103,7 +103,7 @@
         .sedes-card-header-title {
             font-size: .95rem;
             font-weight: 700;
-            color: #111827;
+            color: var(--bs-body-color);
             display: flex;
             align-items: center;
             gap: .5rem;
@@ -126,8 +126,8 @@
         .form-section {
             padding: 1rem 1.125rem;
             border-radius: 10px;
-            background: #f9fafb;
-            border: 1px solid #f0f0f0;
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
             margin-bottom: 1rem;
         }
         .form-section-label {
@@ -135,19 +135,19 @@
             font-weight: 700;
             letter-spacing: .08em;
             text-transform: uppercase;
-            color: #9ca3af;
+            color: var(--bs-secondary-color);
             margin-bottom: .75rem;
         }
         .sedes-label {
             font-size: .82rem;
             font-weight: 600;
-            color: #374151;
+            color: var(--bs-body-color);
             margin-bottom: .35rem;
             display: block;
         }
         .sedes-input {
             border-radius: 8px !important;
-            border: 1.5px solid #e5e7eb !important;
+            border: 1.5px solid var(--bs-border-color) !important;
             font-size: .88rem !important;
             font-family: 'DM Sans', sans-serif !important;
             transition: border-color .18s, box-shadow .18s !important;
@@ -158,7 +158,7 @@
         }
         .form-hint {
             font-size: .76rem;
-            color: #9ca3af;
+            color: var(--bs-secondary-color);
             margin-top: .3rem;
             display: flex;
             align-items: center;
@@ -204,7 +204,7 @@
             position: relative;
             border-radius: 10px;
             overflow: hidden;
-            border: 1.5px solid #e5e7eb;
+            border: 1.5px solid var(--bs-border-color);
             margin-top: .75rem;
         }
         #sede-map {
@@ -218,7 +218,7 @@
             width: 34px;
             height: 34px;
             border-radius: 8px;
-            background: white;
+            background: var(--bs-body-bg);
             border: 1.5px solid rgba(0,0,0,0.15);
             cursor: pointer;
             display: flex;
@@ -227,12 +227,12 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             padding: 0;
             transition: background .18s;
-            color: #374151;
+            color: var(--bs-body-color);
         }
-        .map-locate-btn:hover { background: #f3f4f6; }
+        .map-locate-btn:hover { background: var(--bs-tertiary-bg); }
         .map-tip {
             font-size: .74rem;
-            color: #9ca3af;
+            color: var(--bs-secondary-color);
             margin-top: .5rem;
             display: flex;
             align-items: center;
@@ -267,21 +267,21 @@
             font-size: .85rem !important;
             font-family: 'DM Sans', sans-serif !important;
             padding: .55rem 1rem !important;
-            background: #f3f4f6 !important;
-            border: 1px solid #e5e7eb !important;
-            color: #374151 !important;
+            background: var(--bs-tertiary-bg) !important;
+            border: 1px solid var(--bs-border-color) !important;
+            color: var(--bs-body-color) !important;
             transition: background .18s !important;
         }
-        .btn-cancel-edit:hover { background: #e5e7eb !important; }
+        .btn-cancel-edit:hover { background: var(--bs-border-color) !important; }
 
         /* ── Lista de sedes ── */
         .sedes-list-body { padding: 1.25rem; }
         .sede-card {
-            border: 1.5px solid #e5e7eb;
+            border: 1.5px solid var(--bs-border-color);
             border-radius: 12px;
             padding: 1rem 1.1rem;
             margin-bottom: .75rem;
-            background: #fff;
+            background: var(--bs-body-bg);
             transition: border-color .2s, box-shadow .2s, transform .18s;
             position: relative;
             overflow: hidden;
@@ -299,7 +299,7 @@
             transition: opacity .2s;
         }
         .sede-card:hover {
-            border-color: #bfdbfe;
+            border-color: var(--bs-border-color);
             box-shadow: 0 4px 16px rgba(26,86,164,.1);
             transform: translateY(-1px);
         }
@@ -315,7 +315,7 @@
         .sede-nome {
             font-size: .97rem;
             font-weight: 700;
-            color: #111827;
+            color: var(--bs-body-color);
             line-height: 1.3;
             margin-bottom: .45rem;
         }
@@ -337,7 +337,7 @@
         .sede-badge-coords {
             background: #eff6ff;
             color: #1a56a4;
-            border: 1px solid #bfdbfe;
+            border: 1px solid var(--bs-border-color);
         }
         .sede-badge-raio {
             background: #f0fdf4;
@@ -345,9 +345,9 @@
             border: 1px solid #bbf7d0;
         }
         .sede-badge-nocoords {
-            background: #f9fafb;
-            color: #9ca3af;
-            border: 1px solid #e5e7eb;
+            background: var(--bs-tertiary-bg);
+            color: var(--bs-secondary-color);
+            border: 1px solid var(--bs-border-color);
         }
         .sede-actions {
             display: flex;
@@ -400,12 +400,12 @@
         .sedes-empty-title {
             font-size: .95rem;
             font-weight: 700;
-            color: #374151;
+            color: var(--bs-body-color);
             margin-bottom: .3rem;
         }
         .sedes-empty-sub {
             font-size: .8rem;
-            color: #9ca3af;
+            color: var(--bs-secondary-color);
         }
 
         /* ── Campos extras de endereço ── */

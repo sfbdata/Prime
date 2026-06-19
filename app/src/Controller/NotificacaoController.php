@@ -26,13 +26,23 @@ class NotificacaoController extends AbstractController
      * Lista todas as notificações do usuário
      */
     #[Route('', name: 'notificacao_index', methods: ['GET'])]
-    public function index(): Response
+    public function index(Request $request): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
+        $podeVerGestao = $this->notificacaoService->podeVerGestao($usuario);
+
+        $abaAtiva = ($request->query->get('tab') === Notificacao::CATEGORIA_GESTAO && $podeVerGestao)
+            ? Notificacao::CATEGORIA_GESTAO
+            : Notificacao::CATEGORIA_PESSOAL;
 
         return $this->render('notificacao/index.html.twig', [
-            'notificacoes' => $this->notificacaoRepository->findByUsuario($usuario, 100),
+            'notificacoesPessoais' => $this->notificacaoRepository->findByUsuario($usuario, Notificacao::CATEGORIA_PESSOAL, 100),
+            'notificacoesGestao'   => $podeVerGestao
+                ? $this->notificacaoRepository->findByUsuario($usuario, Notificacao::CATEGORIA_GESTAO, 100)
+                : [],
+            'podeVerGestao' => $podeVerGestao,
+            'abaAtiva'      => $abaAtiva,
         ]);
     }
 
@@ -68,11 +78,16 @@ class NotificacaoController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $this->notificacaoService->marcarTodasComoLidas($usuario);
+        $categoria = $request->request->get('categoria');
+        $categoria = in_array($categoria, [Notificacao::CATEGORIA_PESSOAL, Notificacao::CATEGORIA_GESTAO], true)
+            ? $categoria
+            : null;
+
+        $this->notificacaoService->marcarTodasComoLidas($usuario, $categoria);
 
         $this->addFlash('success', 'Todas as notificações foram marcadas como lidas.');
 
-        return $this->redirectToRoute('notificacao_index');
+        return $this->redirectToRoute('notificacao_index', $categoria !== null ? ['tab' => $categoria] : []);
     }
 
     /**
@@ -93,13 +108,22 @@ class NotificacaoController extends AbstractController
      * Retorna o HTML do dropdown de notificações atualizado (para AJAX)
      */
     #[Route('/lista-dropdown', name: 'notificacao_lista_dropdown', methods: ['GET'])]
-    public function listaDropdown(): JsonResponse
+    public function listaDropdown(Request $request): JsonResponse
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
 
-        $notificacoes = $this->notificacaoService->getNotificacoesNaoLidas($usuario, 10);
-        $count = $this->notificacaoService->contarNaoLidas($usuario);
+        $categoria = $request->query->get('categoria') === Notificacao::CATEGORIA_GESTAO
+            ? Notificacao::CATEGORIA_GESTAO
+            : Notificacao::CATEGORIA_PESSOAL;
+
+        // Só quem recebe notificações de gestão acessa essa aba
+        if ($categoria === Notificacao::CATEGORIA_GESTAO && !$this->notificacaoService->podeVerGestao($usuario)) {
+            return new JsonResponse(['html' => '', 'count' => 0], 403);
+        }
+
+        $notificacoes = $this->notificacaoService->getNotificacoesNaoLidas($usuario, $categoria, 10);
+        $count = $this->notificacaoService->contarNaoLidas($usuario, $categoria);
 
         $html = '';
         if (count($notificacoes) > 0) {

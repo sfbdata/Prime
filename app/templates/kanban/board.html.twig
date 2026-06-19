@@ -38,9 +38,9 @@
 }
 .kb-board-breadcrumb {
     font-size: .8rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
 }
-.kb-board-breadcrumb a { color: #6c757d; text-decoration: none; }
+.kb-board-breadcrumb a { color: var(--bs-secondary-color); text-decoration: none; }
 .kb-board-breadcrumb a:hover { text-decoration: underline; }
 
 /* ── Colunas ── */
@@ -56,7 +56,7 @@
 .kb-columns-area::-webkit-scrollbar-thumb { background: rgba(0,0,0,.2); border-radius: 3px; }
 
 .kb-column {
-    background: #f3f4f6;
+    background: var(--bs-tertiary-bg);
     border-radius: 12px;
     width: 280px;
     min-width: 280px;
@@ -71,7 +71,7 @@
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid rgba(0,0,0,.06);
-    background: #f3f4f6;
+    background: var(--bs-tertiary-bg);
     position: sticky;
     top: 0;
     z-index: 1;
@@ -81,7 +81,7 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .04em;
-    color: #374151;
+    color: var(--bs-body-color);
 }
 .kb-column-count {
     background: rgba(0,0,0,.08);
@@ -89,7 +89,7 @@
     padding: .1rem .5rem;
     font-size: .75rem;
     font-weight: 600;
-    color: #374151;
+    color: var(--bs-body-color);
 }
 .kb-cards-list {
     flex: 1;
@@ -105,7 +105,7 @@
 
 /* ── Cards ── */
 .kb-card {
-    background: #fff;
+    background: var(--bs-body-bg);
     border-radius: 8px;
     padding: .75rem;
     border: 1px solid rgba(0,0,0,.07);
@@ -120,7 +120,7 @@
 }
 .kb-card.sortable-ghost {
     opacity: .3;
-    background: #e5e7eb;
+    background: var(--bs-border-color);
 }
 .kb-card.sortable-drag {
     opacity: .95;
@@ -130,7 +130,7 @@
 .kb-card-title {
     font-size: .88rem;
     font-weight: 500;
-    color: #111827;
+    color: var(--bs-body-color);
     margin: 0 0 .5rem 0;
     line-height: 1.35;
 }
@@ -153,7 +153,7 @@
     align-items: center;
     justify-content: space-between;
     font-size: .75rem;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     margin-top: .35rem;
 }
 .kb-card-meta {
@@ -182,7 +182,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #fff;
+    border: 2px solid var(--bs-border-color);
     margin-left: -4px;
 }
 .kb-avatar:first-child { margin-left: 0; }
@@ -194,7 +194,7 @@
     border: 1px dashed rgba(0,0,0,.15);
     border-radius: 6px;
     background: transparent;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     font-size: .82rem;
     display: flex;
     align-items: center;
@@ -215,7 +215,7 @@
 }
 .kb-add-card-form textarea {
     width: 100%;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--bs-border-color);
     border-radius: 6px;
     padding: .5rem;
     font-size: .85rem;
@@ -229,7 +229,7 @@
 /* Progresso checklist */
 .kb-progress-bar {
     height: 4px;
-    background: #e5e7eb;
+    background: var(--bs-border-color);
     border-radius: 2px;
     overflow: hidden;
     margin-bottom: .35rem;
@@ -242,7 +242,7 @@
 }
 
 /* ── Modal de card ── */
-#kanbanCardModal .modal-header { border-bottom: 1px solid #e5e7eb; }
+#kanbanCardModal .modal-header { border-bottom: 1px solid var(--bs-border-color); }
 .kb-modal-grid {
     display: grid;
     grid-template-columns: 1fr 260px;
@@ -256,7 +256,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .06em;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     margin-bottom: .6rem;
     display: flex;
     align-items: center;
@@ -268,7 +268,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .06em;
-    color: #6c757d;
+    color: var(--bs-secondary-color);
     margin-bottom: .5rem;
 }
 </style>

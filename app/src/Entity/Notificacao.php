@@ -21,6 +21,17 @@ class Notificacao implements Auditavel
     public const TIPO_PONTO_JUSTIFICATIVA_ENVIADA    = 'ponto_justificativa_enviada';
     public const TIPO_PONTO_JUSTIFICATIVA_APROVADA  = 'ponto_justificativa_abonada';
     public const TIPO_PONTO_JUSTIFICATIVA_REJEITADA = 'ponto_justificativa_rejeitada';
+    public const TIPO_SERVICEDESK_ATRIBUICAO = 'servicedesk_atribuicao';
+
+    /** Categorias de notificação (derivadas do tipo). */
+    public const CATEGORIA_PESSOAL = 'pessoal';
+    public const CATEGORIA_GESTAO  = 'gestao';
+
+    /** Tipos que representam ações de gestão/admin (o resto é pessoal). */
+    public const TIPOS_GESTAO = [
+        self::TIPO_PONTO_JUSTIFICATIVA_ENVIADA,
+        self::TIPO_SERVICEDESK_ATRIBUICAO,
+    ];
 
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -168,8 +179,21 @@ class Notificacao implements Auditavel
             self::TIPO_PONTO_JUSTIFICATIVA_ENVIADA    => 'bi-file-earmark-text text-info',
             self::TIPO_PONTO_JUSTIFICATIVA_APROVADA  => 'bi-check2-circle text-success',
             self::TIPO_PONTO_JUSTIFICATIVA_REJEITADA => 'bi-x-circle text-danger',
+            self::TIPO_SERVICEDESK_ATRIBUICAO => 'bi-person-check text-info',
             default => 'bi-bell text-secondary',
         };
+    }
+
+    /**
+     * Categoria da notificação, derivada do tipo: "gestao" para ações
+     * administrativas (aprovar justificativa de ponto, chamado atribuído),
+     * "pessoal" para o restante (demandas, agenda, resultado do próprio ponto).
+     */
+    public function getCategoria(): string
+    {
+        return in_array($this->tipo, self::TIPOS_GESTAO, true)
+            ? self::CATEGORIA_GESTAO
+            : self::CATEGORIA_PESSOAL;
     }
 
     public function getTempoRelativo(): string

@@ -199,7 +199,7 @@
                                             {% if currentDate != lastDate %}
                                                 <div class="d-flex align-items-center gap-2 my-2">
                                                     <hr class="flex-grow-1 my-0 opacity-25">
-                                                    <span class="badge text-bg-light border text-muted small fw-normal px-2">
+                                                    <span class="badge bg-body-tertiary text-body-secondary border text-muted small fw-normal px-2">
                                                         {{ item.dataHora|date('d/m/Y') }}
                                                     </span>
                                                     <hr class="flex-grow-1 my-0 opacity-25">
@@ -286,7 +286,7 @@
                                             </div>
                                         {% endfor %}
                                         <div class="text-center py-2">
-                                            <span class="badge text-bg-light border text-muted small fw-normal">
+                                            <span class="badge bg-body-tertiary text-body-secondary border text-muted small fw-normal">
                                                 <i class="bi bi-check2-all me-1"></i>Início do histórico
                                             </span>
                                         </div>
@@ -448,20 +448,20 @@
     left: 11px;
     top: 50%;
     transform: translateY(-50%);
-    color: #adb5bd;
+    color: var(--bs-secondary-color);
     font-size: .9rem;
     pointer-events: none;
 }
 .resp-search-input {
     width: 100%;
-    border: 1.5px solid #dee2e6;
+    border: 1.5px solid var(--bs-border-color);
     border-radius: 8px;
     padding: 8px 12px 8px 34px;
     font-size: .88rem;
     outline: none;
     transition: border-color .15s, box-shadow .15s;
     box-sizing: border-box;
-    background: #fff;
+    background: var(--bs-body-bg);
 }
 .resp-search-input:focus {
     border-color: #0d6efd;
@@ -472,13 +472,13 @@
 .resp-lista {
     max-height: 260px;
     overflow-y: auto;
-    border: 1.5px solid #dee2e6;
+    border: 1.5px solid var(--bs-border-color);
     border-radius: 8px;
-    background: #fff;
+    background: var(--bs-body-bg);
 }
 .resp-lista::-webkit-scrollbar { width: 5px; }
 .resp-lista::-webkit-scrollbar-track { background: transparent; }
-.resp-lista::-webkit-scrollbar-thumb { background: #dee2e6; border-radius: 4px; }
+.resp-lista::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 4px; }
 
 /* Cada linha de usuário */
 .resp-item {
@@ -487,15 +487,15 @@
     gap: 10px;
     padding: 9px 14px;
     cursor: pointer;
-    border-bottom: 1px solid #f5f5f5;
+    border-bottom: 1px solid var(--bs-border-color);
     transition: background .12s;
     user-select: none;
     margin: 0;
 }
 .resp-item:last-of-type { border-bottom: none; }
-.resp-item:hover { background: #f5f8ff; }
-.resp-item--ativo { background: #edf3ff; }
-.resp-item--ativo:hover { background: #deeaff; }
+.resp-item:hover { background: var(--bs-secondary-bg); }
+.resp-item--ativo { background: var(--bs-secondary-bg); }
+.resp-item--ativo:hover { background: var(--bs-secondary-bg); }
 
 /* Esconde o checkbox nativo */
 .resp-checkbox { display: none; }
@@ -524,7 +524,7 @@
 .resp-nome {
     flex: 1;
     font-size: .88rem;
-    color: #212529;
+    color: var(--bs-body-color);
     font-weight: 400;
     min-width: 0;
     white-space: nowrap;
@@ -548,7 +548,7 @@
     padding: 20px 14px;
     text-align: center;
     font-size: .85rem;
-    color: #adb5bd;
+    color: var(--bs-secondary-color);
 }
 
 /* Chips de resumo (avatar sm) */
@@ -556,8 +556,8 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #f0f4ff;
-    border: 1px solid #c5d5f8;
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 20px;
     padding: 3px 10px 3px 4px;
     font-size: .8rem;
@@ -580,10 +580,10 @@
 
 /* ── Meta boxes ── */
 .tarefa-meta-box {
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--bs-border-color);
     border-radius: 8px;
     padding: 10px 12px;
-    background: #fafafa;
+    background: var(--bs-tertiary-bg);
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -593,12 +593,12 @@
     font-size: .72rem;
     text-transform: uppercase;
     letter-spacing: .04em;
-    color: #9aa0ac;
+    color: var(--bs-secondary-color);
     font-weight: 600;
 }
 .tarefa-meta-value {
     font-size: .88rem;
-    color: #212529;
+    color: var(--bs-body-color);
     font-weight: 500;
     display: block;
 }
@@ -610,29 +610,29 @@
     gap: 12px;
     padding: 14px 16px;
     border-radius: 10px;
-    border: 1px solid #dee2e6;
-    background: #f8f9fa;
+    border: 1px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg);
 }
-.tarefa-status-card.status-pendente { border-color: #adb5bd; background: #f8f9fa; }
-.tarefa-status-card.status-em_revisao { border-color: #ffc107; background: #fff9e6; }
-.tarefa-status-card.status-concluida { border-color: #198754; background: #edf7f1; }
+.tarefa-status-card.status-pendente { border-color: var(--bs-secondary-color); background: var(--bs-tertiary-bg); }
+.tarefa-status-card.status-em_revisao { border-color: #ffc107; background: rgba(255, 193, 7, 0.10); }
+.tarefa-status-card.status-concluida { border-color: #198754; background: rgba(25, 135, 84, 0.10); }
 
 .tarefa-status-icon {
     font-size: 1.5rem;
     flex-shrink: 0;
 }
-.status-pendente .tarefa-status-icon { color: #6c757d; }
+.status-pendente .tarefa-status-icon { color: var(--bs-secondary-color); }
 .status-em_revisao .tarefa-status-icon { color: #e6a500; }
 .status-concluida .tarefa-status-icon { color: #198754; }
 
 .tarefa-status-titulo {
     font-size: .9rem;
     font-weight: 600;
-    color: #212529;
+    color: var(--bs-body-color);
 }
 .tarefa-status-sub {
     font-size: .75rem;
-    color: #9aa0ac;
+    color: var(--bs-secondary-color);
     margin-top: 2px;
 }
 
@@ -647,10 +647,10 @@
     flex-shrink: 0;
 }
 .tarefa-timeline-body {
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--bs-border-color);
     border-radius: 6px;
     padding: 6px 10px;
-    background: #fafafa;
+    background: var(--bs-tertiary-bg);
     min-width: 0;
 }
 .tarefa-timeline-body--mensagem {
@@ -669,8 +669,8 @@
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: #f0f4ff;
-    border: 1px solid #c5d5f8;
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 20px;
     padding: 3px 8px 3px 10px;
     font-size: .78rem;

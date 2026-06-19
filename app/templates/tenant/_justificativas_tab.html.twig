@@ -40,7 +40,7 @@
                                 <div class="d-flex align-items-center gap-2 flex-wrap w-100 me-3">
                                     <span>
                                         {% for j in batch %}
-                                            <span class="badge text-bg-light border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
+                                            <span class="badge bg-body-tertiary text-body-secondary border text-dark me-1">{{ j.data|date('d/m/Y') }}</span>
                                         {% endfor %}
                                     </span>
                                     {% if hasAnyPendente and qtdPendente < batch|length %}
@@ -119,7 +119,7 @@
 
                                 {# Cada dia do lote com seu estado individual #}
                                 {% for j in batch %}
-                                    <div class="border rounded p-3 mb-2 {{ j.status == 'pendente' ? 'bg-light' : (j.status == 'abonado' ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10') }}">
+                                    <div class="border rounded p-3 mb-2 {{ j.status == 'pendente' ? 'bg-body-tertiary' : (j.status == 'abonado' ? 'bg-success bg-opacity-10' : 'bg-danger bg-opacity-10') }}">
                                         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
                                             <strong><i class="bi bi-calendar-day me-1"></i>{{ j.data|date('d/m/Y') }}</strong>
                                             {% if j.status == 'pendente' %}

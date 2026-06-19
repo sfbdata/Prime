@@ -131,4 +131,65 @@ final class NotificacaoDropdownControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('href="/tarefas/' . $tarefa->getId() . '"', $html);
         self::assertStringContainsString('notif-msg', $html);
     }
+
+    #[TestDox('Aba Gestão é bloqueada (403) para usuário sem notificações de gestão')]
+    public function testGestaoBloqueadaSemPermissao(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario($tenant);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $pessoal = (new Notificacao())
+            ->setUsuario($user)
+            ->setTipo(Notificacao::TIPO_TAREFA_CRIADA)
+            ->setTitulo('Minha demanda');
+        $em->persist($pessoal);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/notificacoes/lista-dropdown?categoria=gestao');
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Aba Gestão retorna só notificações de gestão; aba pessoal não as inclui')]
+    public function testSeparacaoPorCategoria(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuario($tenant);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $pessoal = (new Notificacao())
+            ->setUsuario($user)
+            ->setTipo(Notificacao::TIPO_TAREFA_CRIADA)
+            ->setTitulo('Minha demanda');
+        $gestao = (new Notificacao())
+            ->setUsuario($user)
+            ->setTipo(Notificacao::TIPO_PONTO_JUSTIFICATIVA_ENVIADA)
+            ->setTitulo('Justificativa para aprovar')
+            ->setUrl('/tenant/1/user/2/edit-role?tab=justificativas');
+        $em->persist($pessoal);
+        $em->persist($gestao);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Aba Gestão: só a de gestão
+        $client->request('GET', '/notificacoes/lista-dropdown?categoria=gestao');
+        self::assertResponseIsSuccessful();
+        $g = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('Justificativa para aprovar', $g['html']);
+        self::assertStringNotContainsString('Minha demanda', $g['html']);
+        self::assertSame(1, $g['count']);
+
+        // Aba Minhas: só a pessoal
+        $client->request('GET', '/notificacoes/lista-dropdown?categoria=pessoal');
+        self::assertResponseIsSuccessful();
+        $p = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('Minha demanda', $p['html']);
+        self::assertStringNotContainsString('Justificativa para aprovar', $p['html']);
+        self::assertSame(1, $p['count']);
+    }
 }

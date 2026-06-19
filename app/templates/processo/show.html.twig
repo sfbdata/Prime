@@ -42,7 +42,7 @@
                         {# Info Boxes #}
                         <div class="row">
                             <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
+                                <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
                                         <span class="info-box-text text-center text-muted">Tribunal</span>
                                         <span class="info-box-number text-center text-muted mb-0">{{ processo.siglaTribunal ? processo.siglaTribunal|upper : '-' }}</span>
@@ -50,7 +50,7 @@
                                 </div>
                             </div>
                             <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
+                                <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
                                         <span class="info-box-text text-center text-muted">Instância</span>
                                         <span class="info-box-number text-center text-muted mb-0">{{ processo.instancia ?: '-' }}</span>
@@ -58,7 +58,7 @@
                                 </div>
                             </div>
                             <div class="col-12 col-sm-4">
-                                <div class="info-box bg-light">
+                                <div class="info-box bg-body-tertiary">
                                     <div class="info-box-content">
                                         <span class="info-box-text text-center text-muted">Distribuição</span>
                                         <span class="info-box-number text-center text-muted mb-0">{% if processo.dataDistribuicao %}{{ processo.dataDistribuicao|date('d/m/Y') }}{% else %}-{% endif %}</span>
@@ -177,7 +177,7 @@
                                                     <tr>
                                                         <td>{% if mov.dataMovimentacao %}{{ mov.dataMovimentacao|date('d/m/Y') }}{% else %}-{% endif %}</td>
                                                         <td>{{ mov.descricao }}</td>
-                                                        <td><span class="badge text-bg-light">{{ mov.tipo ?: '-' }}</span></td>
+                                                        <td><span class="badge bg-body-tertiary text-body-secondary">{{ mov.tipo ?: '-' }}</span></td>
                                                         <td>{{ mov.orgao ?: '-' }}</td>
                                                     </tr>
                                                 {% endfor %}
@@ -350,7 +350,7 @@
                 
                 <div class="mb-0">
                     <p class="text-sm text-muted mb-1"><i class="bi bi-card-text me-1"></i> Descrição</p>
-                    <div class="p-3 bg-light rounded" id="modalTarefaDescricao" style="white-space: pre-wrap;"></div>
+                    <div class="p-3 bg-body-tertiary rounded" id="modalTarefaDescricao" style="white-space: pre-wrap;"></div>
                 </div>
             </div>
             <div class="modal-footer">

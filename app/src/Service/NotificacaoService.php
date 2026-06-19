@@ -139,21 +139,29 @@ class NotificacaoService
     }
 
     /**
-     * Retorna notificações não lidas do usuário
-     * 
+     * Retorna notificações não lidas do usuário (opcionalmente de uma categoria)
+     *
      * @return Notificacao[]
      */
-    public function getNotificacoesNaoLidas(User $usuario, int $limit = 10): array
+    public function getNotificacoesNaoLidas(User $usuario, ?string $categoria = null, int $limit = 10): array
     {
-        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $limit);
+        return $this->notificacaoRepository->findNaoLidasByUsuario($usuario, $categoria, $limit);
     }
 
     /**
-     * Conta notificações não lidas
+     * Conta notificações não lidas (opcionalmente de uma categoria)
      */
-    public function contarNaoLidas(User $usuario): int
+    public function contarNaoLidas(User $usuario, ?string $categoria = null): int
     {
-        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario);
+        return $this->notificacaoRepository->countNaoLidasByUsuario($usuario, $categoria);
+    }
+
+    /**
+     * Indica se o usuário deve ver a aba de Gestão (recebe notificações de gestão)
+     */
+    public function podeVerGestao(User $usuario): bool
+    {
+        return $this->notificacaoRepository->temNotificacaoGestao($usuario);
     }
 
     /**
@@ -168,9 +176,9 @@ class NotificacaoService
     /**
      * Marca todas as notificações do usuário como lidas
      */
-    public function marcarTodasComoLidas(User $usuario): void
+    public function marcarTodasComoLidas(User $usuario, ?string $categoria = null): void
     {
-        $this->notificacaoRepository->marcarTodasComoLidas($usuario);
+        $this->notificacaoRepository->marcarTodasComoLidas($usuario, $categoria);
     }
 
     public function notificarJustificativaEnviada(JustificativaPonto $justificativa, string $urlGestor, Tenant $tenant): void

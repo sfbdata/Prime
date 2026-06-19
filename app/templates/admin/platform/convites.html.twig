@@ -67,7 +67,7 @@
                             {% elseif convite.status == 'expired' %}
                                 <span class="badge bg-dark">Expirado</span>
                             {% else %}
-                                <span class="badge bg-light text-dark">{{ convite.status }}</span>
+                                <span class="badge bg-body-tertiary text-dark">{{ convite.status }}</span>
                             {% endif %}
                         </td>
                         <td>{{ convite.createdAt|date('d/m/Y H:i') }}</td>

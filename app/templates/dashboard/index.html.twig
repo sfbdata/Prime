@@ -6,8 +6,8 @@
 <style>
 /* ── Dashboard — estrutura (sem overrides de tipografia) ─────────── */
 .db-stat-card {
-    background: #fff;
-    border: 1px solid #e8eaf0;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 12px;
     padding: 1.4rem 1.5rem 1.3rem;
     box-shadow: 0 1px 3px rgba(15,20,40,.04), 0 4px 14px rgba(15,20,40,.06);
@@ -39,7 +39,7 @@
 /* ── Progress bar interno (card Meta Global) ───────────────────── */
 .db-prog-track {
     height: 5px;
-    background: #f3f4f6;
+    background: var(--bs-tertiary-bg);
     border-radius: 99px;
     overflow: hidden;
     margin-top: .85rem;
@@ -53,33 +53,33 @@
 
 /* ── Seção da tabela ───────────────────────────────────────────── */
 .db-table-card {
-    background: #fff;
-    border: 1px solid #e8eaf0;
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
     border-radius: 12px;
     box-shadow: 0 1px 3px rgba(15,20,40,.04), 0 4px 14px rgba(15,20,40,.06);
     overflow: hidden;
 }
 .db-table-header {
     padding: .85rem 1.25rem;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--bs-border-color);
     display: flex;
     align-items: center;
     gap: .45rem;
 }
 .db-table thead th {
     padding: .75rem 1rem;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--bs-border-color);
     border-top: none;
     white-space: nowrap;
-    background: #fafbfc;
+    background: var(--bs-tertiary-bg);
 }
 .db-table tbody td {
     padding: .75rem 1rem;
-    border-bottom: 1px solid #f7f8fa;
+    border-bottom: 1px solid var(--bs-border-color);
     vertical-align: middle;
 }
 .db-table tbody tr:last-child td { border-bottom: none; }
-.db-table tbody tr:hover td { background: #fafbff; }
+.db-table tbody tr:hover td { background: var(--bs-secondary-bg); }
 .db-empty {
     padding: 2.5rem 1rem;
     text-align: center;

@@ -46,7 +46,7 @@
                     {% if currentDate != lastDate %}
                         <div class="d-flex align-items-center gap-2 my-2 timeline-date-label">
                             <hr class="flex-grow-1 my-0 opacity-25">
-                            <span class="badge text-bg-light border text-muted small fw-normal px-2">
+                            <span class="badge bg-body-tertiary border text-body-secondary small fw-normal px-2">
                                 {{ item.dataHora|date('d/m/Y') }}
                             </span>
                             <hr class="flex-grow-1 my-0 opacity-25">
@@ -98,7 +98,7 @@
                 {% endfor %}
 
                 <div class="text-center py-2">
-                    <span class="badge text-bg-light border text-muted small fw-normal">
+                    <span class="badge bg-body-tertiary border text-body-secondary small fw-normal">
                         <i class="bi bi-check2-all me-1"></i>Início do histórico
                     </span>
                 </div>
@@ -120,15 +120,15 @@
 }
 
 #pasta-timeline-card .timeline-item-body {
-    border: 1px solid #e9ecef;
+    border: 1px solid var(--bs-border-color);
     border-radius: 6px;
     padding: 6px 10px;
-    background: #fafafa;
+    background: var(--bs-tertiary-bg);
     min-width: 0; /* evita overflow em mobile */
 }
 
 #pasta-timeline-card .timeline-item-body--mensagem {
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--bs-border-color);
     border-left: 3px solid #0dcaf0;
     background: rgba(13, 202, 240, 0.04);
     border-radius: 0 6px 6px 0;

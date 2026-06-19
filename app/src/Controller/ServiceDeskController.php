@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\ServiceDesk\ChamadoAnexo;
 use App\Entity\ServiceDesk\ChamadoInteracao;
@@ -441,7 +442,7 @@ class ServiceDeskController extends AbstractController
     {
         $this->notificacaoService->criarNotificacao(
             $responsavel,
-            'servicedesk',
+            Notificacao::TIPO_SERVICEDESK_ATRIBUICAO,
             "Chamado #{$chamado->getId()} atribuído a você: {$chamado->getTitulo()}",
             $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])
         );
