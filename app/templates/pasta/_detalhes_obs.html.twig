@@ -61,7 +61,7 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="obs-conteudo-det">{{ obs.conteudo|nl2br }}</div>
+                        <div class="obs-conteudo-det">{{ obs.conteudo }}</div>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -183,7 +183,7 @@
                     </button>
                 </div>
             </div>
-            <div class="obs-conteudo-det">${esc(data.conteudo).replace(/\n/g, '<br>')}</div>`;
+            <div class="obs-conteudo-det">${esc(data.conteudo)}</div>`;
         return div;
     }
 
@@ -225,7 +225,7 @@
                     acoesBtns.remove();
                     const div = document.createElement('div');
                     div.className = 'obs-conteudo-det';
-                    div.innerHTML = esc(conteudoAtual).replace(/\n/g, '<br>');
+                    div.textContent = conteudoAtual;
                     textarea.replaceWith(div);
                 });
 
@@ -248,10 +248,10 @@
                         const div = document.createElement('div');
                         div.className = 'obs-conteudo-det';
                         if (resp.ok) {
-                            div.innerHTML = esc(data.conteudo).replace(/\n/g, '<br>');
+                            div.textContent = data.conteudo;
                             btnEditar.dataset.conteudo = data.conteudo;
                         } else {
-                            div.innerHTML = esc(conteudoAtual).replace(/\n/g, '<br>');
+                            div.textContent = conteudoAtual;
                             alert(data.erro ?? 'Erro ao editar.');
                         }
                         textarea.replaceWith(div);
