@@ -17,6 +17,15 @@ services:
     volumes:
       - uploads_prod:/var/www/app/public/uploads
       - static_prod:/var/www/static
+    healthcheck:
+      # O entrypoint roda cache:warmup + migrations ANTES de exec php-fpm, então a
+      # porta 9000 só abre quando o app está realmente pronto: checar a porta é o
+      # gate de readiness que o deploy usa para sair do modo manutenção.
+      test: ["CMD-SHELL", "php -r 'exit(@fsockopen(\"127.0.0.1\", 9000) ? 0 : 1);'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
     networks:
       - saas_net
 
@@ -30,6 +39,9 @@ services:
       - uploads_prod:/var/www/app/public/uploads:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
+      # Página de manutenção + flag (maintenance.on). O :ro só impede escrita pelo
+      # container; o deploy cria/remove a flag no host e o nginx vê na hora.
+      - ./nginx/maintenance:/var/www/maintenance:ro
     ports:
       - "80:80"
       - "443:443"

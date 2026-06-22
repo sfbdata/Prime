@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Roda sempre a partir da raiz do repositório, independente de onde foi chamado.
+# Os caminhos relativos abaixo (.env.prod, docker-compose.prod.yml, nginx/maintenance)
+# precisam casar com o `./nginx/maintenance` do compose, senão a flag de manutenção
+# seria criada num caminho que o nginx não enxerga.
+cd "$(dirname "$0")/.."
+
 # ─── Detecta comando docker compose ───────────────────────────────────────────
 if docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD="docker compose"
@@ -40,16 +46,28 @@ fi
 echo "📦 Atualizando código do repositório..."
 git pull
 
-# ─── Sobe os containers ────────────────────────────────────────────────────────
-echo "🐳 Subindo containers..."
-$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE down --remove-orphans
-$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --build
+# ─── Entra em modo manutenção ──────────────────────────────────────────────────
+# O nginx continua no ar e passa a servir a página de manutenção amigável (503)
+# enquanto o php é reconstruído. Em caso de falha abaixo, a flag fica ligada de
+# propósito (melhor a página de manutenção do que um app meio-migrado).
+echo "🛠️  Ativando modo manutenção..."
+mkdir -p nginx/maintenance
+touch nginx/maintenance/maintenance.on
+
+# ─── Recria apenas o php (nginx/db seguem no ar) ─────────────────────────────────
+# Sem `down`: o `up -d --build` só recria containers cujo build/imagem mudou — o php
+# (código novo). nginx e db ficam intactos, então não há "conexão recusada" e o app
+# co-hospedado (grupojusprime.tech) não sofre blip.
+echo "🐳 Reconstruindo e subindo containers (recria só o php)..."
+$COMPOSE_CMD $COMPOSE_FILE $ENV_FILE up -d --build --remove-orphans
 
 # ─── Reconecta o nginx à rede do sistema co-hospedado (condomínio) ───
-# O container nginx é recriado no up acima, então perde a conexão com a rede do
-# condomínio. Reconectar para o proxy_pass de grupojusprime.tech resolver
-# condominio_app. Tolerante a falha: se a rede/condomínio não existir, o nginx
-# segue servindo bluejus normalmente (grupojusprime cai em 502 até o condomínio subir).
+# Em deploys normais o nginx NÃO é recriado (config inalterada), então este passo só
+# confirma que já está conectado. No primeiro deploy após mudança no compose, o nginx
+# é recriado e perde a conexão com a rede do condomínio — reconectar para o proxy_pass
+# de grupojusprime.tech resolver condominio_app. Tolerante a falha: se a rede/condomínio
+# não existir, o nginx segue servindo bluejus normalmente (grupojusprime cai em 502 até
+# o condomínio subir).
 echo "🔗 Reconectando nginx à rede do condomínio (se existir)..."
 docker network connect condominio_condominio_net jusprime_nginx_prod 2>/dev/null \
   && echo "   ✅ conectado" \
@@ -72,11 +90,36 @@ for i in {1..30}; do
   sleep 2
 done
 
+# ─── Aguarda PHP-FPM ficar pronto ───────────────────────────────────────────────
+# O healthcheck do container php fica `healthy` só quando a porta 9000 abre, o que
+# ocorre após o entrypoint terminar cache:warmup + migrations. Esse é o sinal de que
+# é seguro sair do modo manutenção.
+echo "⏳ Aguardando PHP-FPM ficar pronto..."
+for i in $(seq 1 90); do
+  status="$(docker inspect -f '{{.State.Health.Status}}' jusprime_php_prod 2>/dev/null || echo starting)"
+  if [[ "$status" == "healthy" ]]; then
+    echo "✅ PHP pronto."
+    break
+  fi
+  if [[ "$i" -eq 90 ]]; then
+    echo "❌ PHP não ficou pronto a tempo (180s). Mantendo modo manutenção ativo."
+    echo "   Investigue com: docker logs jusprime_php_prod"
+    exit 1
+  fi
+  sleep 2
+done
+
 # ─── Migrations ───────────────────────────────────────────────────────────────
+# Idempotente: o entrypoint do php já roda as migrations; aqui apenas confirmamos
+# (ainda dentro do modo manutenção, para o usuário nunca ver um app meio-migrado).
 echo "🗄️  Executando migrations..."
 $COMPOSE_CMD $COMPOSE_FILE $ENV_FILE exec -T php \
   php /var/www/app/bin/console doctrine:migrations:migrate \
   --no-interaction --allow-no-migration
+
+# ─── Sai do modo manutenção ─────────────────────────────────────────────────────
+echo "✅ Desativando modo manutenção..."
+rm -f nginx/maintenance/maintenance.on
 
 # ─── Verifica Nginx ───────────────────────────────────────────────────────────
 echo "🔍 Verificando Nginx..."
