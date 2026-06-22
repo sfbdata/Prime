@@ -436,6 +436,43 @@
                         carregarAbaNotif(btn.dataset.categoria);
                     });
                 });
+
+                // ── Tooltip automático em células de tabela truncadas
+                // Mostra o conteúdo completo ao passar o mouse, mas só quando a
+                // célula está de fato cortada. Usa delegação para cobrir todas as
+                // tabelas (inclusive linhas carregadas dinamicamente) sem editar
+                // cada template.
+                (function () {
+                    function estaTruncado(el) {
+                        return el.scrollWidth > el.clientWidth + 1;
+                    }
+
+                    document.addEventListener('mouseover', function (ev) {
+                        var celula = ev.target.closest('table td, table th');
+                        if (!celula) return;
+
+                        // O corte pode estar num filho (span.text-truncate) ou na própria célula.
+                        var alvo = ev.target.closest('.text-truncate, .text-nowrap');
+                        if (!alvo || !celula.contains(alvo)) alvo = celula;
+
+                        // Não interferir em quem já tem tooltip próprio.
+                        if (alvo.closest('[data-bs-toggle="tooltip"], [data-bs-original-title]')) return;
+                        if (bootstrap.Tooltip.getInstance(alvo)) return;
+
+                        if (!estaTruncado(alvo)) return;
+
+                        var texto = (alvo.textContent || '').trim();
+                        if (!texto) return;
+
+                        var tip = new bootstrap.Tooltip(alvo, {
+                            title: texto,
+                            trigger: 'hover',
+                            placement: 'top',
+                            container: 'body'
+                        });
+                        tip.show();
+                    });
+                })();
             });
         </script>
         {# Modal de instalação para iOS #}
