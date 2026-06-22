@@ -2688,6 +2688,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Exposta no escopo global para reuso por outros blocos <script> (ex.: render in-place do modal de processo).
+    window.attachCopyButtons = attachCopyButtons;
+
     attachCopyButtons();
 
     /* ── Anexos ── */
@@ -3065,6 +3068,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script>
 (function () {
+    var pastaId                 = '{{ pasta.id }}';
+    var csrfDesvincularProcesso = '{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}';
+
     /* ── Abas do modal de processo ── */
     document.querySelectorAll('.processo-modal-tab').forEach(function (tab) {
         tab.addEventListener('click', function () {
@@ -3167,12 +3173,17 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (dados.sucesso && dados.processo) {
-                var content = document.getElementById('processoTabContent');
-                if (content) {
-                    content.innerHTML = renderProcessoTab(dados.processo);
-                    attachCopyButtons();
+                try {
+                    var content = document.getElementById('processoTabContent');
+                    if (content) {
+                        content.innerHTML = renderProcessoTab(dados.processo);
+                        window.attachCopyButtons();
+                    }
+                    bootstrap.Modal.getInstance(modalEl)?.hide();
+                } catch (renderErr) {
+                    // Processo já foi persistido no backend; recarrega para refletir o estado.
+                    window.location.reload();
                 }
-                bootstrap.Modal.getInstance(modalEl)?.hide();
                 return;
             }
 
