@@ -110,12 +110,12 @@
         <table class="table table-hover mb-0" id="tabelaPastas">
             <colgroup>
                 <col style="width:66px">           <!-- NUP -->
-                <col style="width:24%">            <!-- Cliente (elástica dominante) -->
-                <col style="width:18%">            <!-- Ação (elástica, cede primeiro) -->
+                <col style="width:23%">            <!-- Cliente (elástica dominante) -->
+                <col style="width:17%">            <!-- Ação (elástica, cede primeiro) -->
                 <col style="width:100px">          <!-- Prioridade -->
                 <col style="width:140px">          <!-- Responsável -->
                 <col style="width:66px">           <!-- Metas -->
-                <col style="width:150px">          <!-- Marcadores -->
+                <col style="width:170px">          <!-- Marcadores (chip + badge + botão na mesma linha) -->
                 <col style="width:96px">           <!-- Situação -->
             </colgroup>
             <thead class="table-light">
@@ -196,10 +196,10 @@
                         {% endif %}
                     </td>
                     <td class="col-marc-tabela pasta-marcadores-col align-middle" data-pasta-id="{{ pasta.id }}" data-sort="{{ pasta.marcadores|length > 0 ? (pasta.marcadores|first).nome : '' }}">
-                        <div class="d-flex flex-wrap gap-1 align-items-center">
+                        <div class="d-flex flex-nowrap gap-1 align-items-center">
                             {% if pasta.marcadores|length > 0 %}
                                 {% set primeiro = pasta.marcadores|first %}
-                                <span class="badge rounded-pill px-2"
+                                <span class="badge rounded-pill px-2 marcador-principal"
                                       style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:#e9ecef;color:#333;{% endif %}font-size:.68rem;">
                                     {{ primeiro.nome }}
                                 </span>
@@ -407,6 +407,17 @@
 #tabelaPastas tbody td.col-marc-tabela .d-flex {
     justify-content: center;
 }
+/* Marcadores numa só linha: chip principal trunca, badge +N e botão não encolhem */
+#tabelaPastas tbody td.col-marc-tabela .marcador-principal {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+#tabelaPastas tbody td.col-marc-tabela .marcadores-extra,
+#tabelaPastas tbody td.col-marc-tabela .js-mover-para {
+    flex-shrink: 0;
+}
 /* Respiro simétrico na última coluna (Situação) sem desalinhar o centro */
 #tabelaPastas thead th:last-child,
 #tabelaPastas tbody td:last-child { padding-left: 14px; padding-right: 14px; }
@@ -422,8 +433,8 @@
 
 /* Telas médias: Cliente e Ação cedem mais antes do scroll entrar */
 @media (max-width: 1300px) and (min-width: 901px) {
-    #tabelaPastas colgroup col:nth-child(2) { width: 21%; }  /* Cliente */
-    #tabelaPastas colgroup col:nth-child(3) { width: 15%; }  /* Ação */
+    #tabelaPastas colgroup col:nth-child(2) { width: 20%; }  /* Cliente */
+    #tabelaPastas colgroup col:nth-child(3) { width: 14%; }  /* Ação */
 }
 
 /* Ocultar colunas secundárias em telas médias */
