@@ -1,5 +1,12 @@
 # Deploy e ambientes
 
+> **Domínio de produção do JusPrime/BlueJus: `https://bluejus.com.br`** (app na raiz `/`).
+> O `grupojusprime.tech` usado nos exemplos abaixo (certbot, trusted hosts, go-live-check)
+> é **infra compartilhada** — o mesmo container/VPS também hospeda **outra** aplicação
+> (gestão de condomínio, em `grupojusprime.tech/app/`). Para diagnosticar/validar a prod
+> do JusPrime, use **`bluejus.com.br`**, não `grupojusprime.tech`. Confira os nomes de
+> domínio nos comandos abaixo contra a config real da VPS antes de usar.
+
 ## Desenvolvimento
 
 ```bash
