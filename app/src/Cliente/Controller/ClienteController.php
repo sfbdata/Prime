@@ -63,6 +63,8 @@ class ClienteController extends AbstractController
         'image/png'                          => 3 * 1024 * 1024,
         'image/jpeg'                         => 3 * 1024 * 1024,
         'application/pdf'                    => 10 * 1024 * 1024,
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 10 * 1024 * 1024, // .docx
+        'application/msword'                 => 10 * 1024 * 1024, // .doc
         'application/vnd.google-earth.kml+xml' => 5 * 1024 * 1024,
         'application/xml'                    => 5 * 1024 * 1024,
         'text/xml'                           => 5 * 1024 * 1024,

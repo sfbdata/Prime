@@ -900,6 +900,9 @@ class PastaController extends AbstractController
         'image/jpeg'                         => 3 * 1024 * 1024,
         // Documentos
         'application/pdf'                    => 10 * 1024 * 1024,
+        // Documentos Word
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 10 * 1024 * 1024, // .docx
+        'application/msword'                                                      => 10 * 1024 * 1024, // .doc
         // KML — mimetypes alternativos que diferentes SOs podem detectar
         'application/vnd.google-earth.kml+xml' => 5 * 1024 * 1024,
         'application/xml'                    => 5 * 1024 * 1024,
