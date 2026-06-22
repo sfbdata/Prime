@@ -207,6 +207,22 @@
 {% block stylesheets %}
 {{ parent() }}
 <style>
+/* ── Mais largura para o conteúdo ─────────────────────────────────
+   Zera o padding lateral dos container-fluid aninhados desta página.
+   O respiro lateral da tabela passa a vir só do painel (.p-3 ≈ 1rem),
+   uniforme dos dois lados, igual ao respiro da 1ª coluna (ps-3). */
+.app-content > .container-fluid,
+section.content > .container-fluid {
+    padding-left: 0;
+    padding-right: 0;
+}
+/* Mantém o cabeçalho (título + flashes) com o mesmo respiro de ~1rem */
+.app-content-header > .container-fluid,
+section.content-header > .container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
 /* ── Layout geral ─────────────────────────────────────────────── */
 .expediente-sidebar {
     width: 260px;
