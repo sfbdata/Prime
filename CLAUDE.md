@@ -48,10 +48,19 @@ A skill `workflow` carrega no início de qualquer tarefa de implementação ou r
 ```bash
 docker exec jusprime_php_dev bash -c 'cd app && php bin/console <cmd>'
 docker exec jusprime_php_dev bash -c 'cd app && composer <cmd>'
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'
+docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'              # suíte completa
+docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --filter <Nome>'  # um teste/classe
+docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/<Dominio>/Unit'  # uma pasta
 docker exec -it jusprime_db_dev psql -U symfony -d saas          # interativo (humano)
 docker exec jusprime_db_dev psql -U symfony -d saas -c "<query>" # one-shot (automação)
 ```
+
+PHPUnit roda em `APP_ENV=test` com `failOnDeprecation/Notice/Warning` ativos: um
+deprecation derruba a suíte. DAMA faz rollback transacional por teste, Foundry v2
+para factories — detalhes em `app/tests/CLAUDE.md`.
+
+Testes E2E (Playwright, fora do container, na raiz `e2e/`): `cd e2e && npm test`
+(`npm run test:headed` / `npm run test:ui` para depurar).
 
 Nunca rodar `php`, `composer` ou `bin/console` fora do container.
 
@@ -62,3 +71,19 @@ Commits, push, merge, rebase, reset e demais comandos destrutivos são responsab
 Quando uma instrução implicar comando git de escrita, o orquestrador monta o(s) comando(s), explica o que cada um faz, e entrega em bloco markdown prefixado com `# Execute manualmente no terminal externo`. Mostra antes; você aprova e executa.
 
 Convenção de commit: imperativo em português, máx. 72 chars, sem ponto final. Branches: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`.
+
+## Mapa de documentação (CLAUDE.md por camada)
+
+O contexto detalhado mora nos arquivos da camada que você está tocando — leia o relevante antes de editar:
+
+| Onde | O que cobre |
+|---|---|
+| `app/src/CLAUDE.md` | layout de domínios, legado, regras transversais, padrões PHP/Symfony |
+| `app/src/Controller/CLAUDE.md` | padrões de controller, rotas, permissões |
+| `app/src/Entity/CLAUDE.md` | entidades Doctrine, UUID, multi-tenant, enums |
+| `app/src/Repository/CLAUDE.md` | filtro de tenant obrigatório, paginação, DTOs via DQL |
+| `app/src/Shared/CLAUDE.md` | código transversal |
+| `app/templates/CLAUDE.md` | convenções Twig |
+| `app/tests/CLAUDE.md` | tipos de teste, DAMA, Foundry, attributes PHPUnit |
+| `docs/AUTORIZACAO.md` | modelo de autorização (4 camadas, bypasses, falhas) |
+| `docs/specs/` | specs de features ALTO/MÉDIO risco |
