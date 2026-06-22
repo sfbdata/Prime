@@ -270,6 +270,16 @@ de referência se houver.
   - `app/phpunit.xml.dist`
   - Ref: `REFATORACAO-DOMINIOS.md:141`
 
+- **[BAIXA] Testes unit de UseCase do domínio Tarefa mockam `EntityManagerInterface` direto** —
+  `tests/CLAUDE.md` manda "nunca mockar EntityManager diretamente — crie uma interface e mocke ela",
+  mas os unit tests de UseCase de Tarefa fazem `createMock(EntityManagerInterface::class)`. É o
+  padrão de fato do domínio (não regressão de uma frente só), então corrigir exige uma frente
+  própria: introduzir uma abstração de persistência e ajustar todos os testes juntos. Sem impacto
+  funcional; só dívida de aderência ao guia de testes.
+  - `app/tests/Tarefa/Unit/ExcluirTarefaUseCaseTest.php`
+  - `app/tests/Tarefa/Unit/AtualizarPrazoTarefaUseCaseTest.php`
+  - Ref: `app/tests/CLAUDE.md` § "Regras obrigatórias" · revisão da frente de edição de prazo
+
 - **[DECISÃO] ~18 entidades nunca auditadas** — Kanban, Processo, Cliente, Expediente (Marcador),
   Profile (UserProfile) estão fora de `App\Entity\` e nunca foram auditadas; explícitas em
   `NAO_AUDITAVEIS` no `AuditavelCoberturaTest`. Ampliar auditoria nesses domínios é decisão do

@@ -11,6 +11,8 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
+use App\Tarefa\Exception\PrazoNaoEditavelException;
+use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Repository\UserRepository;
@@ -134,7 +136,7 @@ final class TarefaController extends AbstractController
      * Detalhe da tarefa.
      */
     #[Route('/{id}', name: 'tarefa_show', methods: ['GET'])]
-    public function show(Tarefa $tarefa, UserRepository $userRepository, ExcluirTarefaUseCase $excluirUseCase): Response
+    public function show(Tarefa $tarefa, UserRepository $userRepository, ExcluirTarefaUseCase $excluirUseCase, AtualizarPrazoTarefaUseCase $prazoUseCase): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -153,6 +155,7 @@ final class TarefaController extends AbstractController
             'usuarioAtual'   => $usuario,
             'users'          => $users,
             'podeExcluirMeta' => $excluirUseCase->podeExcluir($tarefa, $usuario, $tenant),
+            'podeEditarPrazo' => $prazoUseCase->podeEditarPrazo($tarefa, $usuario, $tenant),
         ]);
     }
 
@@ -182,6 +185,46 @@ final class TarefaController extends AbstractController
         $entityManager->flush();
 
         $this->addFlash('success', 'Responsáveis atualizados com sucesso.');
+
+        return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+    }
+
+    /**
+     * Atualiza o prazo da meta — restrito ao criador (sem janela de tempo).
+     */
+    #[Route('/{id}/prazo', name: 'tarefa_atualizar_prazo', methods: ['POST'])]
+    public function atualizarPrazo(Tarefa $tarefa, Request $request, AtualizarPrazoTarefaUseCase $useCase): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->assertAccess($usuario);
+        $this->verificarAcessoTarefa($usuario, $tarefa, $tenant);
+
+        if (!$this->isCsrfTokenValid('atualizar_prazo_tarefa_'.$tarefa->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
+        $prazoInput = trim((string) $request->request->get('prazo', ''));
+        $prazo = null;
+        if ($prazoInput !== '') {
+            try {
+                $prazo = new \DateTimeImmutable($prazoInput);
+            } catch (\Throwable) {
+                $this->addFlash('danger', 'Prazo inválido.');
+
+                return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+            }
+        }
+
+        try {
+            $useCase->executar($tarefa, $usuario, $tenant, $prazo);
+        } catch (PrazoNaoEditavelException) {
+            $this->addFlash('danger', 'Apenas o criador da meta pode alterar o prazo.');
+
+            return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
+        }
+
+        $this->addFlash('success', 'Prazo atualizado.');
 
         return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
     }

@@ -97,7 +97,16 @@
                             <div class="col-6 col-md-3">
                                 {% set prazoInfo = tarefa.prazoInfo %}
                                 <div class="tarefa-meta-box">
-                                    <span class="tarefa-meta-label">Prazo</span>
+                                    <span class="tarefa-meta-label">
+                                        Prazo
+                                        {% if podeEditarPrazo %}
+                                            <button type="button" class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                                                    data-bs-toggle="modal" data-bs-target="#modalEditarPrazo"
+                                                    title="Alterar prazo">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                        {% endif %}
+                                    </span>
                                     <span class="tarefa-meta-value">
                                         {% if prazoInfo.dias is not null %}
                                             <span class="badge text-bg-{{ prazoInfo.cor }}">{{ prazoInfo.texto }}</span>
@@ -435,6 +444,41 @@
         </div>
     </div>
 </div>
+
+{% if podeEditarPrazo %}
+{# Modal para alterar o prazo (apenas o criador) #}
+<div class="modal fade" id="modalEditarPrazo" tabindex="-1" aria-labelledby="modalEditarPrazoLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-bottom-0 pb-0">
+                <div>
+                    <h5 class="modal-title fw-semibold mb-0" id="modalEditarPrazoLabel">
+                        <i class="bi bi-calendar-event me-2 text-primary"></i>Prazo da Meta
+                    </h5>
+                    <p class="text-muted small mb-0 mt-1">Deixe em branco para remover o prazo</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <form method="post" action="{{ path('tarefa_atualizar_prazo', {id: tarefa.id}) }}">
+                <div class="modal-body pt-2 pb-2">
+                    <input type="hidden" name="_token" value="{{ csrf_token('atualizar_prazo_tarefa_' ~ tarefa.id) }}">
+                    <label for="campoPrazo" class="form-label form-label-sm fw-semibold">Prazo</label>
+                    <input type="date" id="campoPrazo" name="prazo" class="form-control form-control-sm"
+                           value="{{ tarefa.prazo ? tarefa.prazo|date('Y-m-d') : '' }}">
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">
+                        <i class="bi bi-x me-1"></i>Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check2 me-1"></i>Salvar Prazo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <style>
 /* ── Modal Responsáveis — lista nativa ── */
