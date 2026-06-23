@@ -20,6 +20,10 @@ final class TenantContextValidatorListener
         'app_logout',
         'tenant_selecionar',
         'admin_platform_dashboard',
+        // Aceite dos Termos é da plataforma e independe de tenant — a tela precisa
+        // ser alcançável antes da seleção de escritório (ver TermoAceiteListener).
+        'termo_aceite',
+        'termo_aceite_registrar',
     ];
 
     public function __construct(

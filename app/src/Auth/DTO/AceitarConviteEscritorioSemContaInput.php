@@ -10,5 +10,8 @@ readonly class AceitarConviteEscritorioSemContaInput
         public string $token,
         public string $fullName,
         public string $senha,
+        public bool $aceiteTermos = false,
+        public string $ip = '',
+        public ?string $userAgent = null,
     ) {}
 }

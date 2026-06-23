@@ -10,6 +10,9 @@ use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
+use App\Termo\Repository\AceiteTermoRepository;
+use App\Termo\TermoVigente;
+use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -31,11 +34,18 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
         $this->userRepo       = $this->createMock(UserRepository::class);
         $this->em             = $this->createMock(EntityManagerInterface::class);
         $this->hasher         = $this->createMock(UserPasswordHasherInterface::class);
-        $this->useCase        = new AceitarConvitePlataformaUseCase(
+
+        // Registrar real com repo curto-circuitado (já aceito) — sem efeitos no fluxo do convite.
+        $aceiteRepo = $this->createMock(AceiteTermoRepository::class);
+        $aceiteRepo->method('existeAceiteVigente')->willReturn(true);
+        $registrarAceite = new RegistrarAceiteTermoUseCase($aceiteRepo, new TermoVigente());
+
+        $this->useCase = new AceitarConvitePlataformaUseCase(
             $this->invitationRepo,
             $this->userRepo,
             $this->em,
             $this->hasher,
+            $registrarAceite,
         );
     }
 
@@ -63,6 +73,8 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
             senha: 'senha_segura',
             oabNumero: $oabNumero,
             oabUf: $oabUf,
+            aceiteTermos: true,
+            ip: '203.0.113.7',
         );
     }
 
@@ -160,6 +172,28 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
         $this->expectExceptionMessage('Já existe uma conta');
 
         $this->useCase->executar($this->validInput());
+    }
+
+    public function testSemAceitarTermosLancaExcecao(): void
+    {
+        $invitation = $this->makeInvitation();
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userRepo->method('findOneBy')->willReturn(null);
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Termos de Uso');
+
+        $input = new AceitarConvitePlataformaInput(
+            token: 'tok123',
+            fullName: 'Dr. Advogado',
+            senha: 'senha_segura',
+            oabNumero: '12345',
+            oabUf: 'SP',
+            aceiteTermos: false,
+        );
+
+        $this->useCase->executar($input);
     }
 
     public function testOabNumeroComLetrasLancaExcecao(): void

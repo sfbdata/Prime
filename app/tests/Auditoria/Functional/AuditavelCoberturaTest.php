@@ -24,6 +24,7 @@ use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
 use App\Profile\Entity\UserProfile;
 use App\Shared\Contract\Auditavel;
+use App\Termo\Entity\AceiteTermo;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -37,6 +38,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
     private const NAO_AUDITAVEIS = [
         // Excluída por design: seria recursão infinita auditar o próprio log
         AuditLog::class,
+
+        // Registro imutável append-only de consentimento — ele próprio é a prova/auditoria
+        AceiteTermo::class,
 
         // Domínios novos — auditoria não expandida nesta fatia (decisão de produto)
         UserProfile::class,

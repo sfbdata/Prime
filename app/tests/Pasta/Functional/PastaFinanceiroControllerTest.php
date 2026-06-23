@@ -226,6 +226,7 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/financeiro/upload", [
             '_token' => 'token_invalido',
@@ -245,6 +246,7 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/financeiro/upload", [
             '_token' => $this->gerarCsrf('pasta_financeiro_upload_' . $pasta->getId()),
@@ -264,6 +266,7 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $tmpPath = sys_get_temp_dir() . '/test_invalid_' . uniqid() . '.txt';
         file_put_contents($tmpPath, 'conteudo texto simples');

@@ -104,6 +104,7 @@ final class DemitirFuncionarioControllerTest extends JusPrimeWebTestCase
         $funcionario = $this->criarFuncionario($tenant);
 
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$funcionario->getId()}/demitir", [
             '_token' => 'token_invalido',
         ]);
@@ -121,6 +122,7 @@ final class DemitirFuncionarioControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$funcionario->getId()}/demitir", [
             '_token' => $this->gerarCsrf('demitir_' . $funcionario->getId()),
         ]);
@@ -152,6 +154,7 @@ final class DemitirFuncionarioControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$funcionario->getId()}/demitir", [
             '_token'       => $this->gerarCsrf('demitir_' . $funcionario->getId()),
             'substituto_id' => $substituto->getId(),
@@ -174,6 +177,7 @@ final class DemitirFuncionarioControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
         $client->request('POST', "/tenant/{$tenant->getId()}/user/{$admin->getId()}/demitir", [
             '_token' => $this->gerarCsrf('demitir_' . $admin->getId()),
         ]);

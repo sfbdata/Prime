@@ -90,6 +90,7 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/prioridade", [
             '_token'     => 'token_invalido',
@@ -110,6 +111,7 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/prioridade", [
             '_token'     => $this->gerarCsrf('pasta_prioridade_' . $pasta->getId()),
@@ -130,6 +132,7 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/prioridade", [
             '_token'     => $this->gerarCsrf('pasta_prioridade_' . $pasta->getId()),
@@ -151,6 +154,7 @@ final class AlterarPrioridadeControllerTest extends JusPrimeWebTestCase
 
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/prioridade", [
             '_token'     => $this->gerarCsrf('pasta_prioridade_' . $pasta->getId()),

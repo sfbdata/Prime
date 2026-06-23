@@ -103,6 +103,9 @@ final class ConviteController extends AbstractController
                 senha: (string) $request->request->get('senha', ''),
                 oabNumero: (string) $request->request->get('oab_numero', ''),
                 oabUf: strtoupper((string) $request->request->get('oab_uf', '')),
+                aceiteTermos: $request->request->getBoolean('aceite_termos'),
+                ip: (string) $request->getClientIp(),
+                userAgent: $request->headers->get('User-Agent'),
             ));
             $this->addFlash('sucesso', 'Conta criada com sucesso! Faça login para continuar.');
 
@@ -125,6 +128,9 @@ final class ConviteController extends AbstractController
                 token: $token,
                 fullName: (string) $request->request->get('full_name', ''),
                 senha: (string) $request->request->get('senha', ''),
+                aceiteTermos: $request->request->getBoolean('aceite_termos'),
+                ip: (string) $request->getClientIp(),
+                userAgent: $request->headers->get('User-Agent'),
             ));
             $this->addFlash('sucesso', 'Conta criada com sucesso! Faça login para continuar.');
 

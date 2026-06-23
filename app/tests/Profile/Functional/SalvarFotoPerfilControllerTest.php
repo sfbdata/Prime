@@ -116,6 +116,7 @@ final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $user   = $this->criarUsuario();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', '/perfil/foto', ['_token' => 'token_invalido']);
 
@@ -131,6 +132,7 @@ final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
         $user   = $this->criarUsuario();
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', '/perfil/foto', ['_token' => $this->gerarCsrf('profile_foto')]);
 
@@ -146,6 +148,7 @@ final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
         $user   = $this->criarUsuario();
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $tmpPath = sys_get_temp_dir() . '/test_txt_' . uniqid() . '.txt';
         file_put_contents($tmpPath, 'conteudo texto simples');
@@ -173,6 +176,7 @@ final class SalvarFotoPerfilControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         static::getContainer()->set(ArquivoStorageInterface::class, $this->storageFake('foto_teste.jpeg'));
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $tmpPath = $this->criarJpegTemporario();
         $arquivo = new UploadedFile($tmpPath, 'perfil.jpg', 'image/jpeg', null, true);

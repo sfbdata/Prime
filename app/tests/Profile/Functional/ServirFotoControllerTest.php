@@ -254,6 +254,7 @@ final class ServirFotoControllerTest extends JusPrimeWebTestCase
         // profundidade — não é alcançado via HTTP normal (o listener age primeiro).
         // Se o listener sumir, o guard do controller provê a segunda linha de proteção (404).
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
         $client->request('GET', '/perfil/foto/qualquer_foto.jpg');
 
         self::assertResponseRedirects('/escritorio/selecionar');

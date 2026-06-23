@@ -9,6 +9,8 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
+use App\Termo\DTO\RegistrarAceiteTermoInput;
+use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 
@@ -19,6 +21,7 @@ final class AceitarConviteEscritorioSemContaUseCase
         private readonly UserRepository $userRepository,
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $passwordHasher,
+        private readonly RegistrarAceiteTermoUseCase $registrarAceite,
     ) {}
 
     public function executar(AceitarConviteEscritorioSemContaInput $input): User
@@ -51,6 +54,10 @@ final class AceitarConviteEscritorioSemContaUseCase
             throw new \DomainException('Convite inválido: escritório não encontrado.');
         }
 
+        if (!$input->aceiteTermos) {
+            throw new \DomainException('É necessário aceitar os Termos de Uso para criar a conta.');
+        }
+
         $user = new User();
         $user->setEmail($invitation->getEmail());
         $user->setFullName($fullName);
@@ -68,6 +75,13 @@ final class AceitarConviteEscritorioSemContaUseCase
         $this->em->persist($user);
         $this->em->persist($userTenant);
         $this->em->flush();
+
+        $this->registrarAceite->executar(new RegistrarAceiteTermoInput(
+            user: $user,
+            ip: $input->ip,
+            userAgent: $input->userAgent,
+            tenant: $tenant,
+        ));
 
         return $user;
     }

@@ -12,15 +12,15 @@ use App\Entity\Permission\Permission;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
+use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
-use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 #[CoversClass(GerenciarConvitesController::class)]
-final class GerenciarConvitesControllerTest extends WebTestCase
+final class GerenciarConvitesControllerTest extends JusPrimeWebTestCase
 {
     private function criarTenant(): Tenant
     {
@@ -136,14 +136,6 @@ final class GerenciarConvitesControllerTest extends WebTestCase
     private function gerarCsrf(string $tokenId): string
     {
         return 'TOKEN_' . $tokenId;
-    }
-
-    private function logarComTenant($client, User $user, Tenant $tenant): void
-    {
-        $client->loginUser($user);
-        $session = $client->getSession();
-        $session->set('current_tenant_id', $tenant->getId());
-        $session->save();
     }
 
     #[TestDox('GET /escritorio/convites sem autenticação redireciona para login')]

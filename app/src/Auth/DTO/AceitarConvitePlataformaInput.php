@@ -12,5 +12,8 @@ readonly class AceitarConvitePlataformaInput
         public string $senha,
         public string $oabNumero,
         public string $oabUf,
+        public bool $aceiteTermos = false,
+        public string $ip = '',
+        public ?string $userAgent = null,
     ) {}
 }

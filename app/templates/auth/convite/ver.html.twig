@@ -54,6 +54,14 @@
                 </div>
             {% endif %}
 
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="aceite_termos" name="aceite_termos" value="1" required>
+                <label class="form-check-label" for="aceite_termos">
+                    Li e aceito os
+                    <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener">Termos e Condições Gerais de Uso</a>.
+                </label>
+            </div>
+
             <input type="hidden" name="_token" value="{{ csrf_token('convite_' ~ convite.token) }}">
             <button class="btn-login" type="submit">Criar conta e aceitar</button>
         </form>

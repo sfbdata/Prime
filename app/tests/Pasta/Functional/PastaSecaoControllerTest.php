@@ -109,6 +109,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/secao", [
             '_token' => 'token_invalido',
@@ -188,6 +189,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         [$user]  = $this->criarUsuarioAdmin();
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', '/pasta/secao/999999/renomear', [
             '_token' => $this->csrf('pasta_secao_renomear_999999'),
@@ -230,6 +232,7 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $secao           = $this->criarSecao($pasta, $tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/secao/{$secao->getId()}/excluir", [
             '_token' => 'token_invalido',

@@ -12,6 +12,9 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
+use App\Termo\Repository\AceiteTermoRepository;
+use App\Termo\TermoVigente;
+use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -34,11 +37,18 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->userRepo       = $this->createMock(UserRepository::class);
         $this->em             = $this->createMock(EntityManagerInterface::class);
         $this->hasher         = $this->createMock(UserPasswordHasherInterface::class);
-        $this->useCase        = new AceitarConviteEscritorioSemContaUseCase(
+
+        // Registrar real com repo curto-circuitado (já aceito) — sem efeitos no fluxo do convite.
+        $aceiteRepo = $this->createMock(AceiteTermoRepository::class);
+        $aceiteRepo->method('existeAceiteVigente')->willReturn(true);
+        $registrarAceite = new RegistrarAceiteTermoUseCase($aceiteRepo, new TermoVigente());
+
+        $this->useCase = new AceitarConviteEscritorioSemContaUseCase(
             $this->invitationRepo,
             $this->userRepo,
             $this->em,
             $this->hasher,
+            $registrarAceite,
         );
         $this->tenant = new Tenant();
     }
@@ -78,7 +88,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->em->expects($this->once())->method('flush');
 
         $resultado = $this->useCase->executar(
-            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome do Input', 'senha123')
+            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome do Input', 'senha123', aceiteTermos: true)
         );
 
         self::assertInstanceOf(User::class, $resultado);
@@ -98,7 +108,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->em->method('flush');
 
         $resultado = $this->useCase->executar(
-            new AceitarConviteEscritorioSemContaInput('tok123', '', 'senha123')
+            new AceitarConviteEscritorioSemContaInput('tok123', '', 'senha123', aceiteTermos: true)
         );
 
         self::assertSame('Nome da Invitation', $resultado->getFullName());
@@ -114,7 +124,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->em->method('flush');
 
         $resultado = $this->useCase->executar(
-            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome Prioritário', 'senha123')
+            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome Prioritário', 'senha123', aceiteTermos: true)
         );
 
         self::assertSame('Nome Prioritário', $resultado->getFullName());
@@ -138,7 +148,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->em->method('flush');
 
         $this->useCase->executar(
-            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123')
+            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123', aceiteTermos: true)
         );
 
         self::assertNotNull($userTenantCapturado);
@@ -224,6 +234,21 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
         $this->useCase->executar(new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha'));
     }
 
+    public function testSemAceitarTermosLancaExcecao(): void
+    {
+        $invitation = $this->makeInvitation();
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userRepo->method('findOneBy')->willReturn(null);
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\DomainException::class);
+        $this->expectExceptionMessage('Termos de Uso');
+
+        $this->useCase->executar(
+            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'senha123', aceiteTermos: false)
+        );
+    }
+
     public function testHashPasswordFoiChamado(): void
     {
         $invitation = $this->makeInvitation();
@@ -238,7 +263,7 @@ final class AceitarConviteEscritorioSemContaUseCaseTest extends TestCase
             ->willReturn('hashed_pass');
 
         $this->useCase->executar(
-            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'minhasenha')
+            new AceitarConviteEscritorioSemContaInput('tok123', 'Nome', 'minhasenha', aceiteTermos: true)
         );
     }
 }

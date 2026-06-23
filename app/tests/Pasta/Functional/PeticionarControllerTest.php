@@ -168,6 +168,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $this->criarDocumento($pasta, $tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('GET', "/pasta/{$pasta->getId()}/peticionar");
 
@@ -200,6 +201,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $client    = static::createClient();
         [$user]    = $this->criarUsuarioAdmin();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('GET', '/pasta/99999/peticionar');
 
@@ -225,6 +227,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/upload", [
             '_token' => 'token_invalido',
@@ -243,6 +246,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/upload", [
             '_token' => $this->csrf('peticionar_upload_' . $pasta->getId()),
@@ -389,6 +393,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', "/pasta/{$pasta->getId()}/peticionar/texto", [
             '_token'   => 'token_invalido',
@@ -490,6 +495,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         // Criar arquivo com magic bytes de JPEG para que getMimeType() retorne image/jpeg
         $tmpFile = tempnam(sys_get_temp_dir(), 'test_jpg_');
@@ -519,6 +525,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $tmpFile = tempnam(sys_get_temp_dir(), 'test_txt_');
         file_put_contents($tmpFile, 'Texto simples — não é imagem');
@@ -559,6 +566,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request(
             'PUT',
@@ -586,6 +594,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request(
             'PUT',
@@ -611,6 +620,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $doc             = $this->criarDocumento($pasta, $tenant); // MIME: application/pdf
         $this->instalarCsrfStorage();
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request(
             'PUT',
@@ -649,6 +659,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/docx");
 
@@ -671,6 +682,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/pdf");
 
@@ -690,6 +702,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $doc             = $this->criarDocumentoHtml($pasta, $tenant);
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/xml");
 
@@ -704,6 +717,7 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         $pasta           = $this->criarPasta($tenant);
         $doc             = $this->criarDocumento($pasta, $tenant); // MIME: application/pdf
         $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
 
         $client->request('GET', "/pasta/documento/{$doc->getId()}/exportar/docx");
 

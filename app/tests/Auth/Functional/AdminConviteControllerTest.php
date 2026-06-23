@@ -105,6 +105,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $admin  = $this->criarSuperAdmin();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
         $client->request('GET', '/admin/platform/convites');
 
         self::assertResponseIsSuccessful();
@@ -116,6 +117,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $admin  = $this->criarSuperAdmin();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
         $client->request('POST', '/admin/platform/convites/novo', [
             'email'    => 'novo@example.com',
             '_token'   => 'token_invalido',
@@ -131,6 +133,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $admin  = $this->criarSuperAdmin();
         $this->instalarCsrfStorage();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
 
         $email = 'plataforma_novo_' . uniqid() . '@example.com';
         $client->request('POST', '/admin/platform/convites/novo', [
@@ -156,6 +159,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         ['user' => $existente] = $this->criarUsuarioComTenant();
         $this->instalarCsrfStorage();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
 
         $client->request('POST', '/admin/platform/convites/novo', [
             'email'  => $existente->getEmail(),
@@ -175,6 +179,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $admin  = $this->criarSuperAdmin();
         $this->instalarCsrfStorage();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
@@ -204,6 +209,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $admin  = $this->criarSuperAdmin();
         $this->instalarCsrfStorage();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
@@ -233,6 +239,7 @@ final class AdminConviteControllerTest extends JusPrimeWebTestCase
         $admin  = $this->criarSuperAdmin();
         $this->instalarCsrfStorage();
         $client->loginUser($admin);
+        $this->marcarTermosAceitos($client);
 
         $em         = static::getContainer()->get(EntityManagerInterface::class);
         $invitation = new Invitation(
