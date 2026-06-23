@@ -12,7 +12,9 @@ use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
 use Symfony\Component\Routing\RouterInterface;
 
-#[AsEventListener(event: KernelEvents::REQUEST, priority: 7)]
+// Prioridade 6: roda depois do firewall (8) e do gate de Termos de Uso (7),
+// garantindo que o aceite da plataforma venha antes da seleção de escritório.
+#[AsEventListener(event: KernelEvents::REQUEST, priority: 6)]
 final class TenantContextValidatorListener
 {
     private const ROTAS_IGNORADAS = [

@@ -20,11 +20,12 @@ use Symfony\Component\Routing\RouterInterface;
 /**
  * Gate de aceite dos Termos de Uso.
  *
- * Roda antes do TenantContextValidatorListener (prioridade 7) — o aceite da plataforma vem
- * antes da seleção de escritório. Prioridade 8 ainda está dentro da janela em que o firewall
- * lazy já resolveu o usuário. Sem bypass de super admin: o termo vale para todos.
+ * Ordem em kernel.request: firewall do Symfony (prioridade 8) → este gate (7) →
+ * TenantContextValidatorListener (6). Precisa rodar DEPOIS do firewall (senão getUser()
+ * é null numa request real baseada em sessão) e ANTES do gate de tenant — o aceite da
+ * plataforma vem antes da seleção de escritório. Sem bypass de super admin: vale para todos.
  */
-#[AsEventListener(event: KernelEvents::REQUEST, priority: 8)]
+#[AsEventListener(event: KernelEvents::REQUEST, priority: 7)]
 final class TermoAceiteListener
 {
     /** Marcador de sessão que evita consultar o banco a cada request. */

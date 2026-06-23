@@ -35,10 +35,13 @@ do `User` → risco **ALTO**.
 
 `#[ORM\UniqueConstraint]` em `(user_id, versao)` — garante idempotência e indexa a leitura do gate.
 
-## Gate (`TermoAceiteListener`, `kernel.request` prioridade 8)
-Roda **antes** do `TenantContextValidatorListener` (prioridade 7) — o aceite da plataforma vem
-antes da seleção de escritório. Prioridade 8 está dentro da janela em que o firewall lazy já
-resolveu o usuário.
+## Gate (`TermoAceiteListener`, `kernel.request` prioridade 7)
+Ordem em `kernel.request`: **firewall do Symfony (8) → gate de aceite (7) →
+`TenantContextValidatorListener` (6)**. O gate precisa rodar **depois** do firewall — senão
+`Security::getUser()` é `null` numa request real baseada em sessão (o firewall também roda em
+prioridade 8 e popula o token) e o gate se autoignora — e **antes** do gate de tenant, para o
+aceite da plataforma vir antes da seleção de escritório. Por isso o `TenantContextValidatorListener`
+foi rebaixado de 7 para 6 (continua depois do firewall; nada mais ocupa a prioridade 6).
 
 Ignora (retorna sem agir) quando:
 - não é main request; ou `_route` começa com `_`; ou usuário não é `App\Entity\Auth\User`;
