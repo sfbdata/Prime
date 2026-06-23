@@ -304,10 +304,25 @@
 
                                     <div id="listaAnexosCliente"></div>
 
-                                    <div id="areaEnviarCliente" class="d-none mt-3 text-end">
-                                        <button type="submit" class="btn btn-sm btn-success">
-                                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-                                        </button>
+                                    <div id="areaEnviarCliente" class="d-none mt-3">
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="reduzirTamanhoCliente" name="reduzir_tamanho" value="1">
+                                            <label class="form-check-label" for="reduzirTamanhoCliente">
+                                                Reduzir tamanho dos arquivos (economiza espaço)
+                                            </label>
+                                        </div>
+                                        <div class="form-text text-muted mb-2">
+                                            Mantenha desligado para preservar a qualidade original.
+                                            <span class="d-block text-warning-emphasis">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                                PDFs assinados digitalmente podem ter a assinatura invalidada ao reduzir o tamanho.
+                                            </span>
+                                        </div>
+                                        <div class="text-end">
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                                            </button>
+                                        </div>
                                     </div>
                                 </form>
 

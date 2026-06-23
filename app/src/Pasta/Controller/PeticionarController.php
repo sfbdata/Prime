@@ -111,6 +111,7 @@ final class PeticionarController extends AbstractController
 
         $descricao = trim((string) $request->request->get('descricao', '')) ?: null;
         $numero    = trim((string) $request->request->get('numero', '')) ?: null;
+        $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
 
         $secao     = null;
         $secaoIdRaw = $request->request->get('secao_id');
@@ -128,10 +129,13 @@ final class PeticionarController extends AbstractController
         }
 
         try {
-            $doc = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant);
+            $resultado = $this->uploadPecaUseCase->executar($pasta, $secao, $arquivo, $categoria, $descricao, $numero, $tenant, $reduzirTamanho);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
+
+        $doc        = $resultado->documento;
+        $compressao = $resultado->compressao;
 
         return new JsonResponse([
             'success'   => true,
@@ -144,6 +148,14 @@ final class PeticionarController extends AbstractController
                 'downloadUrl' => $this->generateUrl('pasta_documento_download', ['id' => $doc->getId()]),
                 'mimeType'    => $doc->getMimeType(),
             ],
+            // Só enviamos o bloco quando a redução foi solicitada — assim o front
+            // distingue "não pediu" de "pediu mas não reduziu".
+            'compressao' => $reduzirTamanho ? [
+                'comprimido'      => $compressao->comprimido,
+                'tamanhoOriginal' => $compressao->tamanhoOriginal,
+                'tamanhoFinal'    => $compressao->tamanhoFinal,
+                'eraAssinado'     => $compressao->eraAssinado,
+            ] : null,
         ]);
     }
 

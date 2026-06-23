@@ -307,6 +307,22 @@
                 </select>
             </div>
 
+            <div class="mb-4">
+                <div class="form-check form-switch">
+                    <input type="checkbox" class="form-check-input" id="uploadReduzirTamanho" name="reduzir_tamanho" value="1">
+                    <label class="form-check-label fw-semibold" for="uploadReduzirTamanho">
+                        Reduzir tamanho do arquivo
+                    </label>
+                </div>
+                <div class="form-text text-muted">
+                    Economiza espaço comprimindo imagens e PDFs. Mantenha desligado para preservar a qualidade original.
+                    <span class="d-block text-warning-emphasis mt-1">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        PDFs assinados digitalmente podem ter a assinatura invalidada ao reduzir o tamanho.
+                    </span>
+                </div>
+            </div>
+
             <div id="uploadErro" class="alert alert-danger py-2 d-none" role="alert"></div>
 
             <div class="d-flex gap-2 justify-content-end">
@@ -603,6 +619,39 @@
         return d.innerHTML;
     }
 
+    function formatarBytes(bytes) {
+        if (!bytes || bytes <= 0) return '0 B';
+        const unidades = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(1024));
+        return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + unidades[i];
+    }
+
+    function mostrarAvisoCompressao(c) {
+        if (!c) return; // redução não foi solicitada
+
+        let linhas;
+        let cor;
+        if (c.comprimido) {
+            linhas = [`Arquivo reduzido de ${formatarBytes(c.tamanhoOriginal)} para ${formatarBytes(c.tamanhoFinal)}.`];
+            if (c.eraAssinado) {
+                linhas.push('Atenção: este PDF estava assinado digitalmente — a assinatura pode ter sido invalidada.');
+            }
+            cor = c.eraAssinado ? 'alert-warning' : 'alert-success';
+        } else {
+            linhas = ['Não foi possível reduzir o arquivo; mantida a qualidade original.'];
+            cor = 'alert-info';
+        }
+
+        const aviso = document.createElement('div');
+        aviso.className = `alert ${cor} shadow position-fixed bottom-0 end-0 m-3`;
+        aviso.style.zIndex = '2000';
+        aviso.style.maxWidth = '360px';
+        aviso.setAttribute('role', 'alert');
+        aviso.innerHTML = linhas.map(escHtml).join('<br>');
+        document.body.appendChild(aviso);
+        setTimeout(() => aviso.remove(), 6000);
+    }
+
     formUpload.addEventListener('submit', async function (e) {
         e.preventDefault();
 
@@ -631,6 +680,7 @@
 
             fecharModal();
             injetarItemTimeline(data.documento);
+            mostrarAvisoCompressao(data.compressao);
 
         } catch (err) {
             uploadErro.textContent = 'Erro de comunicação. Tente novamente.';

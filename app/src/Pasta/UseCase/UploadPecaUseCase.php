@@ -9,6 +9,8 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Service\CompressorArquivoInterface;
+use App\Shared\Service\ResultadoCompressao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -40,6 +42,7 @@ final class UploadPecaUseCase
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ArquivoStorageInterface $storage,
+        private readonly CompressorArquivoInterface $compressor,
         private readonly string $uploadsDir,
     ) {}
 
@@ -51,7 +54,8 @@ final class UploadPecaUseCase
         ?string $descricao,
         ?string $numero,
         Tenant $tenant,
-    ): PastaDocumento {
+        bool $reduzirTamanho = false,
+    ): ResultadoUploadPeca {
         if ($secao !== null && $secao->getTenant() !== $tenant) {
             throw new AccessDeniedException('Seção não pertence ao tenant do usuário.');
         }
@@ -79,6 +83,12 @@ final class UploadPecaUseCase
 
         $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
 
+        $compressao = ResultadoCompressao::naoComprimido((int) $tamanho);
+        if ($reduzirTamanho) {
+            $caminho    = $this->storage->caminho($this->uploadsDir, $nomeUnico);
+            $compressao = $this->compressor->comprimir($caminho, $mimeType);
+        }
+
         $doc = new PastaDocumento();
         $doc->setPasta($pasta);
         $doc->setTenant($tenant);
@@ -89,12 +99,12 @@ final class UploadPecaUseCase
         $doc->setCaminhoArquivo($nomeUnico);
         $doc->setNomeOriginal($file->getClientOriginalName());
         $doc->setMimeType($mimeType);
-        $doc->setTamanhoBytes($tamanho);
+        $doc->setTamanhoBytes($compressao->tamanhoFinal);
         $doc->setSecao($secao);
 
         $this->em->persist($doc);
         $this->em->flush();
 
-        return $doc;
+        return new ResultadoUploadPeca($doc, $compressao);
     }
 }

@@ -13,6 +13,8 @@ parameters:
     chamados_uploads_dir: '%kernel.project_dir%/public/uploads/chamados'
     clientes_uploads_dir: '%kernel.project_dir%/public/uploads/clientes'
     fotos_perfil_dir: '%kernel.project_dir%/public/uploads/perfil'
+    ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
+    default_ghostscript_bin: '/usr/bin/gs'
 
 services:
     # default configuration for services in *this* file
@@ -28,6 +30,7 @@ services:
             string $chamadosUploadsDir: '%chamados_uploads_dir%'
             string $clientesUploadsDir: '%clientes_uploads_dir%'
             string $fotosPerfilDir: '%fotos_perfil_dir%'
+            string $ghostscriptBin: '%ghostscript_bin%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

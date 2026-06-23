@@ -18,6 +18,7 @@ use App\Entity\Permission\AccessRequest;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageService;
+use App\Shared\Service\CompressorArquivoInterface;
 use Doctrine\DBAL\Exception\ForeignKeyConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -96,6 +97,7 @@ class ClienteController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly ArquivoStorageService $storage,
+        private readonly CompressorArquivoInterface $compressor,
         private readonly string $clientesUploadsDir,
     ) {}
 
@@ -310,9 +312,12 @@ class ClienteController extends AbstractController
         $categorias = $request->request->all('categorias');
         $descricoes = $request->request->all('descricoes');
         $numeros    = $request->request->all('numeros');
+        $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
 
-        $erros  = [];
-        $salvos = 0;
+        $erros                = [];
+        $salvos               = 0;
+        $bytesEconomizados    = 0;
+        $assinadosComprimidos = 0;
 
         foreach ($arquivos as $i => $file) {
             if ($file === null) {
@@ -345,6 +350,17 @@ class ClienteController extends AbstractController
 
             $nomeUnico = $this->storage->salvar($file, $this->clientesUploadsDir);
 
+            $tamanhoFinal = $tamanho;
+            if ($reduzirTamanho) {
+                $caminho    = $this->storage->caminho($this->clientesUploadsDir, $nomeUnico);
+                $compressao = $this->compressor->comprimir($caminho, $mimeType);
+                $tamanhoFinal = $compressao->tamanhoFinal;
+                $bytesEconomizados += $compressao->tamanhoOriginal - $compressao->tamanhoFinal;
+                if ($compressao->comprimido && $compressao->eraAssinado) {
+                    ++$assinadosComprimidos;
+                }
+            }
+
             $doc = new ClienteDocumento();
             $doc->setCliente($cliente);
             $doc->setTitulo($file->getClientOriginalName());
@@ -354,7 +370,7 @@ class ClienteController extends AbstractController
             $doc->setCaminhoArquivo($nomeUnico);
             $doc->setNomeOriginal($file->getClientOriginalName());
             $doc->setMimeType($mimeType);
-            $doc->setTamanhoBytes($tamanho);
+            $doc->setTamanhoBytes($tamanhoFinal);
 
             $this->em->persist($doc);
             ++$salvos;
@@ -367,15 +383,46 @@ class ClienteController extends AbstractController
         }
 
         if ($salvos > 0) {
-            $this->addFlash('success', sprintf(
+            $mensagem = sprintf(
                 '%d documento%s enviado%s com sucesso.',
                 $salvos,
                 $salvos > 1 ? 's' : '',
                 $salvos > 1 ? 's' : ''
+            );
+
+            if ($reduzirTamanho && $bytesEconomizados > 0) {
+                $mensagem .= sprintf(' Economia de %s.', $this->formatarBytes($bytesEconomizados));
+            }
+
+            $this->addFlash('success', $mensagem);
+
+            if ($reduzirTamanho && $bytesEconomizados <= 0) {
+                $this->addFlash('info', 'Não foi possível reduzir os arquivos; mantidos no tamanho original.');
+            }
+        }
+
+        if ($assinadosComprimidos > 0) {
+            $this->addFlash('warning', sprintf(
+                '%d PDF assinado%s foi comprimido — a assinatura pode ter sido invalidada.',
+                $assinadosComprimidos,
+                $assinadosComprimidos > 1 ? 's' : ''
             ));
         }
 
         return $this->redirectToRoute('cliente_show', ['id' => $cliente->getId()]);
+    }
+
+    private function formatarBytes(int $bytes): string
+    {
+        if ($bytes <= 0) {
+            return '0 B';
+        }
+
+        $unidades = ['B', 'KB', 'MB', 'GB'];
+        $i        = (int) floor(log($bytes) / log(1024));
+        $i        = min($i, count($unidades) - 1);
+
+        return sprintf('%.1f %s', $bytes / (1024 ** $i), $unidades[$i]);
     }
 
     #[Route('/documento/{id}/visualizar', name: 'cliente_documento_view', methods: ['GET'])]
