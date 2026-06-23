@@ -56,6 +56,7 @@ use App\Pasta\Entity\PastaSecao;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Service\CompressorArquivoInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -95,6 +96,7 @@ class PastaController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly string $uploadsDir,
         private readonly ArquivoStorageInterface $storage,
+        private readonly CompressorArquivoInterface $compressor,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly PastaTimelineAssembler $timelineAssembler,
@@ -956,6 +958,7 @@ class PastaController extends AbstractController
         $categorias  = $request->request->all('categorias');
         $descricoes  = $request->request->all('descricoes');
         $numeros     = $request->request->all('numeros');
+        $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
 
         $secaoIdRaw = $request->request->get('secao_id');
         $secaoId    = null;
@@ -966,8 +969,10 @@ class PastaController extends AbstractController
             }
         }
 
-        $erros    = [];
-        $salvos   = 0;
+        $erros                = [];
+        $salvos               = 0;
+        $bytesEconomizados    = 0;
+        $assinadosComprimidos = 0;
 
         foreach ($arquivos as $i => $file) {
             if ($file === null) {
@@ -1000,6 +1005,17 @@ class PastaController extends AbstractController
 
             $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
 
+            $tamanhoFinal = $tamanho;
+            if ($reduzirTamanho) {
+                $caminho    = $this->storage->caminho($this->uploadsDir, $nomeUnico);
+                $compressao = $this->compressor->comprimir($caminho, $mimeType);
+                $tamanhoFinal = $compressao->tamanhoFinal;
+                $bytesEconomizados += $compressao->tamanhoOriginal - $compressao->tamanhoFinal;
+                if ($compressao->comprimido && $compressao->eraAssinado) {
+                    ++$assinadosComprimidos;
+                }
+            }
+
             $doc = new PastaDocumento();
             $doc->setPasta($pasta);
             $doc->setTenant($tenant);
@@ -1010,7 +1026,7 @@ class PastaController extends AbstractController
             $doc->setCaminhoArquivo($nomeUnico);
             $doc->setNomeOriginal($file->getClientOriginalName());
             $doc->setMimeType($mimeType);
-            $doc->setTamanhoBytes($tamanho);
+            $doc->setTamanhoBytes($tamanhoFinal);
 
             if ($secaoId !== null) {
                 $doc->setSecao($secaoId);
@@ -1029,15 +1045,46 @@ class PastaController extends AbstractController
         }
 
         if ($salvos > 0) {
-            $this->addFlash('success', sprintf(
+            $mensagem = sprintf(
                 '%d documento%s enviado%s com sucesso.',
                 $salvos,
                 $salvos > 1 ? 's' : '',
                 $salvos > 1 ? 's' : ''
+            );
+
+            if ($reduzirTamanho && $bytesEconomizados > 0) {
+                $mensagem .= sprintf(' Economia de %s.', $this->formatarBytes($bytesEconomizados));
+            }
+
+            $this->addFlash('success', $mensagem);
+
+            if ($reduzirTamanho && $bytesEconomizados <= 0) {
+                $this->addFlash('info', 'Não foi possível reduzir os arquivos; mantidos no tamanho original.');
+            }
+        }
+
+        if ($assinadosComprimidos > 0) {
+            $this->addFlash('warning', sprintf(
+                '%d PDF assinado%s foi comprimido — a assinatura pode ter sido invalidada.',
+                $assinadosComprimidos,
+                $assinadosComprimidos > 1 ? 's' : ''
             ));
         }
 
         return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId()]);
+    }
+
+    private function formatarBytes(int $bytes): string
+    {
+        if ($bytes <= 0) {
+            return '0 B';
+        }
+
+        $unidades = ['B', 'KB', 'MB', 'GB'];
+        $i        = (int) floor(log($bytes) / log(1024));
+        $i        = min($i, count($unidades) - 1);
+
+        return sprintf('%.1f %s', $bytes / (1024 ** $i), $unidades[$i]);
     }
 
     #[Route('/documento/{id}/visualizar', name: 'pasta_documento_view', methods: ['GET'])]
@@ -1237,7 +1284,17 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Arquivo excede o limite de 10 MB.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
+        $reduzirTamanho = $request->request->getBoolean('reduzir_tamanho');
+
         $nomeUnico = $this->storage->salvar($file, $this->uploadsDir);
+
+        $tamanhoFinal = $tamanho;
+        $compressao   = null;
+        if ($reduzirTamanho) {
+            $caminho      = $this->storage->caminho($this->uploadsDir, $nomeUnico);
+            $compressao   = $this->compressor->comprimir($caminho, $mimeType);
+            $tamanhoFinal = $compressao->tamanhoFinal;
+        }
 
         $doc = new PastaDocumento();
         $doc->setPasta($pasta);
@@ -1247,7 +1304,7 @@ class PastaController extends AbstractController
         $doc->setCaminhoArquivo($nomeUnico);
         $doc->setNomeOriginal($file->getClientOriginalName());
         $doc->setMimeType($mimeType);
-        $doc->setTamanhoBytes($tamanho);
+        $doc->setTamanhoBytes($tamanhoFinal);
 
         $this->em->persist($doc);
         $this->em->flush();
@@ -1260,6 +1317,12 @@ class PastaController extends AbstractController
             'urlDownload'   => $this->generateUrl('pasta_financeiro_documento_download', ['id' => $pastaId, 'docId' => $doc->getId()]),
             'csrfRenomear' => $this->csrfTokenManager->getToken('pasta_financeiro_renomear_' . $doc->getId())->getValue(),
             'csrfExcluir'  => $this->csrfTokenManager->getToken('pasta_financeiro_excluir_' . $doc->getId())->getValue(),
+            'compressao'   => $compressao !== null ? [
+                'comprimido'      => $compressao->comprimido,
+                'tamanhoOriginal' => $compressao->tamanhoOriginal,
+                'tamanhoFinal'    => $compressao->tamanhoFinal,
+                'eraAssinado'     => $compressao->eraAssinado,
+            ] : null,
         ], Response::HTTP_CREATED);
     }
 

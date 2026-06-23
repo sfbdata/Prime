@@ -76,6 +76,12 @@
                        data-base-url-download="{{ path('pasta_financeiro_documento_download', {id: pasta.id, docId: 0})|replace({'/0/': '/__ID__/'}) }}">
             </label>
         </div>
+        <div class="form-check form-switch small mb-2">
+            <input type="checkbox" class="form-check-input" id="financeiro-reduzir-tamanho">
+            <label class="form-check-label text-muted" for="financeiro-reduzir-tamanho">
+                Reduzir tamanho ao enviar (PDF assinado pode perder a assinatura)
+            </label>
+        </div>
         <div id="financeiro-docs-lista" class="d-flex flex-column gap-1">
             {% if documentosContrato is empty %}
                 <p class="text-muted small mb-0" id="financeiro-docs-vazio">Nenhum arquivo.</p>
@@ -369,9 +375,12 @@
             uploadErro.classList.add('d-none');
             uploadSpinner.classList.remove('d-none');
 
+            const reduzirCb = document.getElementById('financeiro-reduzir-tamanho');
+
             const fd = new FormData();
             fd.append('_token', csrf);
             fd.append('arquivo', file);
+            fd.append('reduzir_tamanho', reduzirCb && reduzirCb.checked ? '1' : '0');
 
             try {
                 const resp = await fetch(url, {

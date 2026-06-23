@@ -528,6 +528,13 @@
 
                                                                     <div id="listaUploadCliente{{ cliente.id }}" class="mb-2"></div>
 
+                                                                    <div class="form-check form-switch small mb-1">
+                                                                        <input type="checkbox" class="form-check-input" id="reduzirTamanhoClienteInline{{ cliente.id }}" name="reduzir_tamanho" value="1">
+                                                                        <label class="form-check-label text-muted" for="reduzirTamanhoClienteInline{{ cliente.id }}">
+                                                                            Reduzir tamanho (PDF assinado pode perder a assinatura)
+                                                                        </label>
+                                                                    </div>
+
                                                                     <div class="d-flex align-items-center gap-2 mt-1">
                                                                         <button type="button"
                                                                                 class="btn btn-xs btn-outline-primary btn-escolher-arquivo-cliente"
@@ -958,10 +965,25 @@
 
                                     <div id="listaAnexos"></div>
 
-                                    <div id="areaEnviar" class="d-none mt-3 text-end">
-                                        <button type="submit" class="btn btn-sm btn-success">
-                                            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-                                        </button>
+                                    <div id="areaEnviar" class="d-none mt-3">
+                                        <div class="form-check form-switch">
+                                            <input type="checkbox" class="form-check-input" id="reduzirTamanhoGeral" name="reduzir_tamanho" value="1">
+                                            <label class="form-check-label" for="reduzirTamanhoGeral">
+                                                Reduzir tamanho dos arquivos (economiza espaço)
+                                            </label>
+                                        </div>
+                                        <div class="form-text text-muted mb-2">
+                                            Mantenha desligado para preservar a qualidade original.
+                                            <span class="d-block text-warning-emphasis">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                                PDFs assinados digitalmente podem ter a assinatura invalidada ao reduzir o tamanho.
+                                            </span>
+                                        </div>
+                                        <div class="text-end">
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                                            </button>
+                                        </div>
                                     </div>
                                 </form>
 
@@ -1080,10 +1102,25 @@
                                                    data-secao="{{ secao.id }}">
                                         </div>
                                         <div class="js-secao-lista-anexos" data-secao="{{ secao.id }}"></div>
-                                        <div class="js-secao-area-enviar d-none mt-2 text-end" data-secao="{{ secao.id }}">
-                                            <button type="submit" class="btn btn-sm btn-success">
-                                                <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-                                            </button>
+                                        <div class="js-secao-area-enviar d-none mt-2" data-secao="{{ secao.id }}">
+                                            <div class="form-check form-switch">
+                                                <input type="checkbox" class="form-check-input" id="reduzirTamanhoSecao{{ secao.id }}" name="reduzir_tamanho" value="1">
+                                                <label class="form-check-label small" for="reduzirTamanhoSecao{{ secao.id }}">
+                                                    Reduzir tamanho dos arquivos (economiza espaço)
+                                                </label>
+                                            </div>
+                                            <div class="form-text text-muted mb-2">
+                                                Mantenha desligado para preservar a qualidade original.
+                                                <span class="d-block text-warning-emphasis">
+                                                    <i class="bi bi-exclamation-triangle me-1"></i>
+                                                    PDFs assinados podem ter a assinatura invalidada ao reduzir o tamanho.
+                                                </span>
+                                            </div>
+                                            <div class="text-end">
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+                                                </button>
+                                            </div>
                                         </div>
                                     </form>
                                     <div class="js-secao-docs docs-list-scroll" data-secao-destino="{{ secao.id }}">
@@ -4183,10 +4220,25 @@ document.addEventListener('DOMContentLoaded', function () {
                  data-secao="${id}">
         </div>
         <div class="js-secao-lista-anexos" data-secao="${id}"></div>
-        <div class="js-secao-area-enviar d-none mt-2 text-end" data-secao="${id}">
-          <button type="submit" class="btn btn-sm btn-success">
-            <i class="bi bi-cloud-upload me-1"></i> Enviar todos
-          </button>
+        <div class="js-secao-area-enviar d-none mt-2" data-secao="${id}">
+          <div class="form-check form-switch">
+            <input type="checkbox" class="form-check-input" id="reduzirTamanhoSecao${id}" name="reduzir_tamanho" value="1">
+            <label class="form-check-label small" for="reduzirTamanhoSecao${id}">
+              Reduzir tamanho dos arquivos (economiza espaço)
+            </label>
+          </div>
+          <div class="form-text text-muted mb-2">
+            Mantenha desligado para preservar a qualidade original.
+            <span class="d-block text-warning-emphasis">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              PDFs assinados podem ter a assinatura invalidada ao reduzir o tamanho.
+            </span>
+          </div>
+          <div class="text-end">
+            <button type="submit" class="btn btn-sm btn-success">
+              <i class="bi bi-cloud-upload me-1"></i> Enviar todos
+            </button>
+          </div>
         </div>
       </form>
       <div class="js-secao-docs" data-secao-destino="${id}"></div>
