@@ -654,7 +654,7 @@ Tratar após a refatoração de identidade global:
 - Refatorar fixtures pra criarem UserTenant (advogado1, etc. estão sem vínculo após Etapa 4)
 - 6 testes E2E em `perfil.spec.js` falhando (cropper de foto / modal `#modalFotoEditar`) desde a troca do user de testes — investigar antes de fechar Etapa 5
 - Padronizar política de `final` em repositórios — alguns têm (`InvitationRepository`, `UserTenantRepository` tinham até a 5b.1), outros não; definir regra única e aplicar consistentemente
-- Implementar UseCases pendentes com testes já escritos: `MoverPastaMarcadoresUseCase` e `RemoverMarcadorDaPastaUseCase` (13 testes em erro no Grupo A)
+- ~~Implementar UseCases pendentes com testes já escritos: `MoverPastaMarcadoresUseCase` e `RemoverMarcadorDaPastaUseCase` (13 testes em erro no Grupo A)~~ **RESOLVIDO (2026-06-23):** testes órfãos removidos. O design definitivo é full-sync via `SincronizarMarcadoresDaPastaUseCase` (recebe a lista completa de marcadores selecionados) — não há necessidade de UseCases separados de adicionar/remover. Ver seção A3.
 - Garantir que migrations sejam aplicadas no banco de teste (`saas_test`) sempre que houver mudança de schema — investigar se há automação (hook de CI, script pré-teste) ou se depende de execução manual
 - DemitirFuncionarioUseCase mistura níveis de validação (6.D): validação do substituto checa `User::isActive` global em vez de `UserTenant::isActive` do tenant em questão. Pré-condição já garantida pelo controller via `existeVinculoAtivo`. Revisar coerência em sprint futura — todas as checagens deveriam operar no nível UserTenant para consistência da refatoração
 - Padrão de WebTestCase: documentar regra de sempre popular ambos os lados de associações bidirecionais após `persist` (lição da 5b.3b — falta do `$role->getTenantRolePermissions()->add($trp)` causou 3 falsos-negativos de permissão)
@@ -930,8 +930,18 @@ alguma fase anterior, mas os testes não foram atualizados. Pré-existente
 ao Lote 4b — confirmado por execução isolada do arquivo de teste no
 estado pré-4b.3 (mesma falha).
 
-**Status:** não-bloqueador. 441 dos 454 testes passam. Os 13 erros são
-sempre os mesmos e independem das mudanças do Lote 4b.
+**Status:** ~~não-bloqueador. 441 dos 454 testes passam. Os 13 erros são
+sempre os mesmos e independem das mudanças do Lote 4b.~~
+
+**RESOLVIDO (2026-06-23):** os dois arquivos de teste órfãos foram removidos.
+Investigação confirmou que a aplicação adotou o design **full-sync** —
+`SincronizarMarcadoresDaPastaUseCase` (única rota `expediente_pasta_marcadores`,
+modal de checkboxes que envia a lista completa `marcadores[]`) substitui as
+operações separadas de adicionar (`Mover`) e remover (`Remover`). Esses dois
+UseCases nunca foram implementados e não tinham nenhuma referência viva (rota,
+controller, template, JS ou DI); seus testes apenas duplicavam o que os testes do
+`Sincronizar` já cobrem. Decisão: apagar os testes em vez de implementar código
+morto. Suíte do Expediente passa a 17 testes, 100% verdes.
 
 **Ação:** triagem em momento dedicado (não durante a refatoração de
 identidade). Restaurar as classes ou deletar os testes — decisão de
