@@ -11,9 +11,9 @@
         <span title="Pasta">
             <i class="bi bi-folder me-1"></i>{{ tarefa.pasta.nup }}
         </span>
-        {% if tarefa.responsavel %}
-        <span title="Responsável">
-            <i class="bi bi-person-check me-1"></i>{{ tarefa.responsavel.fullName }}
+        {% if tarefa.responsaveis|length > 0 %}
+        <span title="Responsáveis: {{ tarefa.responsaveis|map(r => r.fullName)|join(', ') }}">
+            <i class="bi bi-person-check me-1"></i>{{ (tarefa.responsaveis|first).fullName }}{% if tarefa.responsaveis|length > 1 %} +{{ tarefa.responsaveis|length - 1 }}{% endif %}
         </span>
         {% endif %}
         {% if prazoInfo.texto != '-' %}

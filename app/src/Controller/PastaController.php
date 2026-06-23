@@ -176,7 +176,9 @@ class PastaController extends AbstractController
         $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
         $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
 
-        $usuarios = $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
+        $usuarios = $tenant !== null
+            ? $this->userRepository->findColaboradoresAtivosPorTenant($tenant)
+            : [];
 
         $documentosContrato      = $tenant !== null
             ? $this->pastaDocumentoRepository->findByPastaECategoria($pasta, PastaDocumento::CATEGORIA_CONTRATO)

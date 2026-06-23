@@ -118,12 +118,9 @@ final class TarefaController extends AbstractController
             }
         }
 
-        $responsavelId = (int) $request->request->get('responsavel_id', 0);
-        if ($responsavelId > 0) {
-            $responsavel = $userRepository->find($responsavelId);
-            if ($responsavel instanceof User && $this->userTenantRepo->existeVinculoAtivo($responsavel, $tenant)) {
-                $tarefa->addResponsavel($responsavel);
-            }
+        $responsavelIds = array_map('intval', $request->request->all('responsaveis'));
+        foreach ($userRepository->findPorIdsETenant($responsavelIds, $tenant) as $responsavel) {
+            $tarefa->addResponsavel($responsavel);
         }
 
         $entityManager->persist($tarefa);
