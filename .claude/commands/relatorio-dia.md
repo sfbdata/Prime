@@ -1,13 +1,15 @@
 ---
-description: Analisa os commits do dia e monta um relatório pronto para colar no WhatsApp, em linguagem simples para o chefe (não-T.I.), profissional, detalhado mas enxuto. Use ao pedir "relatório do dia", "recap do dia", "o que fiz hoje pro chefe" ou similar. Aceita uma data opcional (ex.: /relatorio-dia 19/06/2026).
+description: Analisa os commits do dia (lendo os diffs de verdade) e monta um relatório pronto para colar no WhatsApp, em linguagem simples para o chefe (não-T.I.), profissional, concreto e detalhado — refletindo o tamanho real do dia. Use ao pedir "relatório do dia", "recap do dia", "o que fiz hoje pro chefe" ou similar. Aceita uma data opcional (ex.: /relatorio-dia 19/06/2026).
 ---
 
 Gera o **relatório do dia** a partir dos commits do git, traduzido para
 linguagem simples e pronto para o humano **copiar e colar no WhatsApp** e
 enviar ao chefe — que **não é da área de T.I.**. O tom é profissional e
-confiável, detalhado o suficiente para mostrar valor, mas **sem ser extenso**
-nem usar jargão técnico. Você (orquestrador) só **lê** o git; nunca executa
-git de escrita.
+confiável, e o relatório deve ser **concreto e detalhado** — mostrar o
+tamanho real do dia, com os detalhes do que mudou na prática — **sem jargão
+técnico** e sem parágrafos longos. O inimigo a evitar é o relatório **raso**,
+que faz um dia cheio parecer pouca coisa. Você (orquestrador) só **lê** o git;
+nunca executa git de escrita.
 
 ## Passo a passo
 
@@ -23,10 +25,21 @@ git de escrita.
      ```
    - Se não houver commit no dia, diga isso de forma simples e não invente nada.
 
-2. **Entender de verdade cada mudança.** O assunto do commit às vezes é técnico
-   ou vago. Quando não der para descrever o impacto real só pelo título, abra o
-   diff (`git show <hash>` — leitura, permitido) para entender o que muda **na
-   prática para quem usa o sistema**. O relatório descreve benefícios, não código.
+2. **Abrir o diff de cada commit — sempre.** Nunca escreva um item só a partir
+   do título: ele esconde o tamanho real da mudança. Abra o diff (`git show
+   <hash>` — leitura, permitido) e leia o que importa em **todas** as camadas
+   tocadas (template, controller, use case), não só uma. De cada commit, extraia
+   os detalhes concretos que têm valor para quem usa o sistema:
+   - **O que mudou na prática** e, quando fizer sentido, o **antes → agora**
+     ("antes subia tudo de uma vez; agora vai um por um com barra de progresso").
+   - **Regras e limites** que o usuário percebe ("só o autor edita", "apenas nas
+     primeiras 24h", "separado em abas Pessoais e Gestão").
+   - **Tratamento de erro / robustez** ("se um arquivo falha, os outros
+     continuam; no fim mostra um resumo").
+   - **Onde aparece** ("na lista do computador e nos cartões do celular").
+   Um commit grande (muitos arquivos, novas telas/ações) rende um tema com
+   **vários sub-bullets**; um ajuste pequeno rende uma linha. O relatório
+   descreve benefícios e comportamento, nunca código.
 
 3. **Agrupar por tema, não por commit.** Junte commits relacionados num só item,
    funda merges/duplicatas e **remova redundância**. O leitor quer saber "o que
@@ -77,41 +90,48 @@ Resumo do que foi feito no sistema hoje:
   "tooltip" → "balãozinho que aparece ao passar o mouse".
 - **Profissional e confiável**, sem ser seco. Pode usar emojis de seção com
   parcimônia (um por tema), como no modelo.
-- **Detalhado, mas enxuto.** Mire em poucos temas e bullets diretos; cada bullet
-  começa com um *destaque em negrito* e uma explicação curta. Evite parágrafos
-  longos. Se o dia teve muita coisa, priorize o que importa ao chefe.
+- **Concreto e proporcional ao dia.** O relatório deve refletir o esforço real:
+  um dia cheio gera um relatório encorpado. Cada tema pode ter **vários
+  sub-bullets** detalhando comportamentos específicos; cada bullet começa com um
+  *destaque em negrito* seguido de uma explicação curta e direta (uma a três
+  linhas, sem parágrafos longos). Use o **antes → agora** para mostrar o ganho.
+  Não confunda detalhe com jargão: detalhe é *o que o usuário ganha*, não *como
+  foi feito*. Prefira pecar por mostrar valor a mais do que deixar o dia parecer
+  raso — mas sem inventar nada além do que o diff comprova.
 - **Datas em português:** "DD de Mês de AAAA" (ex.: "22 de Junho de 2026").
 
 ## Exemplo de referência (estilo aprovado)
 
-Este é o padrão de qualidade a imitar:
+Este é o padrão de qualidade a imitar — note o **detalhe real** extraído dos
+diffs: antes → agora, regras e limites, robustez e onde aparece. Cada commit
+relevante vira um tema com sub-bullets, e a abertura dá um tom do peso do dia.
 
 ```
-📋 *Relatório do Dia — 22 de Junho de 2026*
+📋 *Relatório do Dia — 24 de Junho de 2026*
 
-Resumo do que foi melhorado no sistema hoje:
+Hoje o foco foi deixar o sistema mais robusto e prático no dia a dia. Resumo das melhorias:
 
-📌 *Metas e tarefas*
-• *Mudar prazo de uma meta:* quem criou a meta agora pode alterar a data (ou remover) na tela da tarefa, clicando num lápis. Só o criador mexe; os outros apenas visualizam.
+📁 *Anexos das pastas — envio refeito*
+• *Um arquivo por vez, com barra de progresso:* antes os arquivos subiam todos de uma vez e, se algo falhasse, você não sabia o quê. Agora cada arquivo é enviado individualmente, com uma barrinha mostrando o progresso em tempo real — inclusive a etapa de compactação dos arquivos maiores.
+• *Mais resistente a falhas:* se um arquivo der erro, os outros continuam normalmente. No final aparece um resumo claro (ex.: "3 enviados com sucesso, 1 com erro"), em vez de perder tudo.
+• *Funciona dos dois jeitos:* tanto arrastando os arquivos para a tela quanto pelo botão de envio.
 
-📁 *Pastas e processos*
-• *Observações:* o texto agora aparece exatamente como foi digitado, sem formatação estranha.
-• *Vincular processo:* a tela atualiza sozinha; se algo falhar, recarrega para não perder nada.
+📝 *Relatórios da pasta (histórico)*
+• *Editar e excluir:* quem escreveu um relatório no histórico da pasta agora pode corrigi-lo ou removê-lo na hora, pelo lápis e pela lixeira. Só o próprio autor mexe, e apenas nas primeiras 24 horas — depois fica registrado de forma definitiva, preservando o histórico.
+• *Marca de "(editado)":* quando um texto é alterado, fica visível que houve correção, mantendo a transparência.
 
-🔔 *Notificações*
-• O painel do sino não fecha mais sozinho ao clicar nas abas ou marcar como lido — fica aberto até você terminar.
+🔔 *Notificações reorganizadas*
+• *Separadas em abas:* "Pessoais" e "Gestão", cada uma com seu contador, para você achar mais rápido o que importa.
+• *Divididas em páginas:* quando há muitas, aparecem em páginas numeradas, deixando a tela leve em vez de uma lista gigante.
+• *Excluir o que não precisa mais:* agora dá para selecionar notificações e apagá-las, com uma mensagem amigável quando a lista fica vazia.
 
-📊 *Tabelas mais organizadas*
-• *Processos:* colunas alinhadas; textos longos cortados com "…".
-• *Todas as tabelas:* ao passar o mouse sobre um texto cortado, aparece o conteúdo completo num balãozinho.
-
-📎 *Anexos*
-• O sistema agora aceita envio de arquivos do Word (.doc e .docx).
+🧹 *Tela mais limpa no Expediente*
+• Os botõezinhos de ação de cada item do menu do Expediente ficam escondidos e só aparecem ao passar o mouse, deixando a lista mais organizada.
 
 🛠️ *Bastidores* (sem impacto visível)
-• Página de manutenção mais amigável durante as atualizações.
+• Todas as novidades de hoje entraram acompanhadas de testes automáticos, garantindo que continuem funcionando e que nada quebre com as próximas atualizações.
 
-✅ *Resumo:* dia produtivo, com melhorias no dia a dia (prazos, notificações, tabelas) e a novidade do envio de documentos do Word. Tudo testado e funcionando.
+✅ *Resumo:* dia cheio e produtivo — destaque para o envio de anexos totalmente refeito (mais confiável e com progresso visível), a possibilidade de corrigir relatórios das pastas, e a reorganização das notificações em abas e páginas. Tudo testado e funcionando.
 ```
 
 ## Regras
