@@ -208,6 +208,8 @@
                                     <span class="ms-1 fst-italic">(editado)</span>
                                 {% endif %}
                             </div>
+                            {% set podeGerenciar = obs.autor and app.user and obs.autor.id == app.user.id and date(obs.criadaEm) > date('-24 hours') %}
+                            {% if podeGerenciar %}
                             <div class="d-flex gap-1 flex-shrink-0">
                                 <button type="button"
                                         class="btn btn-link btn-sm p-0 text-secondary btn-editar-obs"
@@ -227,6 +229,7 @@
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </div>
+                            {% endif %}
                         </div>
                         <div class="obs-conteudo">{{ obs.conteudo|nl2br }}</div>
                     </div>

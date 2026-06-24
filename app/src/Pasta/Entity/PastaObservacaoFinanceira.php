@@ -118,4 +118,18 @@ class PastaObservacaoFinanceira implements Auditavel
 
         return $this;
     }
+
+    /**
+     * Indica se a observação pertence ao usuário informado (comparação por
+     * instância e, como reforço, por id — útil quando há proxies do ORM).
+     */
+    public function pertenceAo(User $user): bool
+    {
+        if ($this->autor === null) {
+            return false;
+        }
+
+        return $this->autor === $user
+            || ($this->autor->getId() !== null && $this->autor->getId() === $user->getId());
+    }
 }

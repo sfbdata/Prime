@@ -33,6 +33,10 @@ use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaChecklistItem;
 use App\Pasta\Exception\MensagemPastaNaoEditavelException;
 use App\Pasta\Exception\MensagemPastaNaoExcluivelException;
+use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
+use App\Pasta\Exception\ObservacaoDetalhesNaoExcluivelException;
+use App\Pasta\Exception\ObservacaoFinanceiraNaoEditavelException;
+use App\Pasta\Exception\ObservacaoFinanceiraNaoExcluivelException;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
@@ -48,7 +52,9 @@ use App\Pasta\UseCase\EditarMensagemPastaUseCase;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use App\Pasta\UseCase\ExcluirMensagemPastaUseCase;
 use App\Pasta\UseCase\EnviarObservacaoDetalhesUseCase;
+use App\Pasta\UseCase\ExcluirObservacaoDetalhesUseCase;
 use App\Pasta\UseCase\EnviarObservacaoFinanceiraUseCase;
+use App\Pasta\UseCase\ExcluirObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
 use App\Pasta\UseCase\ExcluirPastaUseCase;
 use App\Pasta\UseCase\ReordenarChecklistItensUseCase;
@@ -113,9 +119,11 @@ class PastaController extends AbstractController
         private readonly AlterarSituacaoContratoUseCase $alterarSituacaoContratoUseCase,
         private readonly EnviarObservacaoFinanceiraUseCase $enviarObservacaoFinanceiraUseCase,
         private readonly EditarObservacaoFinanceiraUseCase $editarObservacaoFinanceiraUseCase,
+        private readonly ExcluirObservacaoFinanceiraUseCase $excluirObservacaoFinanceiraUseCase,
         private readonly PastaObservacaoFinanceiraRepository $observacaoFinanceiraRepository,
         private readonly EnviarObservacaoDetalhesUseCase $enviarObservacaoDetalhesUseCase,
         private readonly EditarObservacaoDetalhesUseCase $editarObservacaoDetalhesUseCase,
+        private readonly ExcluirObservacaoDetalhesUseCase $excluirObservacaoDetalhesUseCase,
         private readonly PastaObservacaoDetalhesRepository $observacaoDetalhesRepository,
         private readonly PastaChecklistItemRepository $checklistRepository,
         private readonly AdicionarChecklistItemUseCase $adicionarChecklistItemUseCase,
@@ -1572,8 +1580,9 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1589,7 +1598,9 @@ class PastaController extends AbstractController
         $conteudo = trim((string) $request->request->get('conteudo', ''));
 
         try {
-            $this->editarObservacaoFinanceiraUseCase->executar($obs, $conteudo);
+            $this->editarObservacaoFinanceiraUseCase->executar($obs, $currentUser, $tenant, $conteudo);
+        } catch (ObservacaoFinanceiraNaoEditavelException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -1608,8 +1619,9 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1622,8 +1634,11 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $this->em->remove($obs);
-        $this->em->flush();
+        try {
+            $this->excluirObservacaoFinanceiraUseCase->executar($obs, $currentUser, $tenant);
+        } catch (ObservacaoFinanceiraNaoExcluivelException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
 
         return $this->json(['sucesso' => true]);
     }
@@ -1675,8 +1690,9 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1692,7 +1708,9 @@ class PastaController extends AbstractController
         $conteudo = trim((string) $request->request->get('conteudo', ''));
 
         try {
-            $this->editarObservacaoDetalhesUseCase->executar($obs, $conteudo);
+            $this->editarObservacaoDetalhesUseCase->executar($obs, $currentUser, $tenant, $conteudo);
+        } catch (ObservacaoDetalhesNaoEditavelException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
         } catch (\InvalidArgumentException $e) {
             return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
@@ -1711,8 +1729,9 @@ class PastaController extends AbstractController
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
         $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $this->tenantContext->getCurrentTenant(), 'pasta', $pastaId, 'edit')) {
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
             return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -1725,8 +1744,11 @@ class PastaController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
         }
 
-        $this->em->remove($obs);
-        $this->em->flush();
+        try {
+            $this->excluirObservacaoDetalhesUseCase->executar($obs, $currentUser, $tenant);
+        } catch (ObservacaoDetalhesNaoExcluivelException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
 
         return $this->json(['sucesso' => true]);
     }

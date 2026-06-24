@@ -7,33 +7,33 @@ namespace App\Tests\Pasta\Unit;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\Entity\PastaObservacaoFinanceira;
-use App\Pasta\Exception\ObservacaoFinanceiraNaoEditavelException;
-use App\Pasta\UseCase\EditarObservacaoFinanceiraUseCase;
+use App\Pasta\Entity\PastaObservacaoDetalhes;
+use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
+use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
-#[CoversClass(EditarObservacaoFinanceiraUseCase::class)]
-final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
+#[CoversClass(EditarObservacaoDetalhesUseCase::class)]
+final class EditarObservacaoDetalhesUseCaseTest extends TestCase
 {
     private EntityManagerInterface&MockObject $em;
-    private EditarObservacaoFinanceiraUseCase $useCase;
+    private EditarObservacaoDetalhesUseCase $useCase;
     private Tenant $tenant;
     private User $autor;
 
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EditarObservacaoFinanceiraUseCase($this->em);
+        $this->useCase = new EditarObservacaoDetalhesUseCase($this->em);
         $this->tenant  = new Tenant();
         $this->autor   = (new User())->setEmail('autor@test.com');
     }
 
-    private function novaObservacao(string $conteudo = 'Original'): PastaObservacaoFinanceira
+    private function novaObservacao(string $conteudo = 'Original'): PastaObservacaoDetalhes
     {
-        return (new PastaObservacaoFinanceira())
+        return (new PastaObservacaoDetalhes())
             ->setPasta(new Pasta())
             ->setAutor($this->autor)
             ->setTenant($this->tenant)
@@ -58,7 +58,7 @@ final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
 
         $this->em->expects($this->never())->method('flush');
 
-        $this->expectException(ObservacaoFinanceiraNaoEditavelException::class);
+        $this->expectException(ObservacaoDetalhesNaoEditavelException::class);
 
         $this->useCase->executar($obs, $outro, $this->tenant, 'Corrigido');
     }
@@ -69,7 +69,7 @@ final class EditarObservacaoFinanceiraUseCaseTest extends TestCase
 
         $this->em->expects($this->never())->method('flush');
 
-        $this->expectException(ObservacaoFinanceiraNaoEditavelException::class);
+        $this->expectException(ObservacaoDetalhesNaoEditavelException::class);
 
         $this->useCase->executar($obs, $this->autor, new Tenant(), 'Corrigido');
     }
