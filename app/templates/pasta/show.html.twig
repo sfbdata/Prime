@@ -3104,6 +3104,130 @@ document.addEventListener('DOMContentLoaded', function () {
     const countBadge  = document.getElementById('timeline-count');
     const vazioMsg    = document.getElementById('timelineVazio');
     const urlEnviar   = '{{ path("pasta_enviar_mensagem", {id: pasta.id}) }}';
+    const urlEditarTpl  = '{{ path("pasta_editar_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
+    const urlExcluirTpl = '{{ path("pasta_excluir_mensagem", {id: pasta.id, msgId: 0})|replace({"/0/": "/__ID__/"}) }}';
+
+    {# Editar/excluir mensagem (autor, dentro de 24h) — delegado na lista #}
+    if (list) {
+        list.addEventListener('click', async function (e) {
+            const btnEditar = e.target.closest('.btn-editar-msg-pasta');
+            if (btnEditar) {
+                const msgId = btnEditar.dataset.msgId;
+                const item  = document.getElementById('pasta-msg-' + msgId);
+                if (!item) { return; }
+                const conteudoDiv = item.querySelector('.pasta-msg-conteudo');
+                if (!conteudoDiv || item.querySelector('.pasta-msg-edit-area')) { return; }
+
+                const conteudoAtual = btnEditar.dataset.conteudo;
+
+                const area = document.createElement('div');
+                area.className = 'pasta-msg-edit-area mt-1';
+
+                const textareaEd = document.createElement('textarea');
+                textareaEd.className = 'form-control form-control-sm mb-1';
+                textareaEd.rows = 3;
+                textareaEd.maxLength = 5000;
+                textareaEd.value = conteudoAtual;
+
+                const btnSalvar = document.createElement('button');
+                btnSalvar.type = 'button';
+                btnSalvar.className = 'btn btn-sm btn-success me-1';
+                btnSalvar.textContent = 'Salvar';
+
+                const btnCancelar = document.createElement('button');
+                btnCancelar.type = 'button';
+                btnCancelar.className = 'btn btn-sm btn-outline-secondary';
+                btnCancelar.textContent = 'Cancelar';
+
+                const acoes = document.createElement('div');
+                acoes.appendChild(btnSalvar);
+                acoes.appendChild(btnCancelar);
+                area.appendChild(textareaEd);
+                area.appendChild(acoes);
+
+                conteudoDiv.classList.add('d-none');
+                conteudoDiv.after(area);
+                textareaEd.focus();
+
+                btnCancelar.addEventListener('click', function () {
+                    area.remove();
+                    conteudoDiv.classList.remove('d-none');
+                });
+
+                btnSalvar.addEventListener('click', async function () {
+                    const novo = textareaEd.value.trim();
+                    if (novo === '') { alert('A mensagem não pode ser vazia.'); return; }
+
+                    btnSalvar.disabled = true;
+                    const fd = new FormData();
+                    fd.append('_token', btnEditar.dataset.csrf);
+                    fd.append('conteudo', novo);
+
+                    try {
+                        const resp = await fetch(btnEditar.dataset.url, {
+                            method: 'POST',
+                            body: fd,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                        });
+                        const data = await resp.json();
+                        if (resp.ok) {
+                            conteudoDiv.innerHTML = esc(data.conteudo).replace(/\n/g, '<br>');
+                            btnEditar.dataset.conteudo = data.conteudo;
+                            marcarEditado(item);
+                            area.remove();
+                            conteudoDiv.classList.remove('d-none');
+                        } else {
+                            alert(data.erro ?? 'Erro ao editar.');
+                            btnSalvar.disabled = false;
+                        }
+                    } catch (_) {
+                        alert('Erro de rede.');
+                        btnSalvar.disabled = false;
+                    }
+                });
+
+                return;
+            }
+
+            const btnExcluir = e.target.closest('.btn-excluir-msg-pasta');
+            if (btnExcluir) {
+                if (!confirm('Excluir esta mensagem? Esta ação não pode ser desfeita.')) { return; }
+
+                const msgId = btnExcluir.dataset.msgId;
+                const fd    = new FormData();
+                fd.append('_token', btnExcluir.dataset.csrf);
+
+                try {
+                    const resp = await fetch(btnExcluir.dataset.url, {
+                        method: 'POST',
+                        body: fd,
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    });
+                    if (resp.ok) {
+                        document.getElementById('pasta-msg-' + msgId)?.remove();
+                        if (countBadge) {
+                            countBadge.textContent = Math.max(0, parseInt(countBadge.textContent || '0', 10) - 1);
+                        }
+                    } else {
+                        const data = await resp.json();
+                        alert(data.erro ?? 'Erro ao excluir.');
+                    }
+                } catch (_) {
+                    alert('Erro de rede.');
+                }
+            }
+        });
+    }
+
+    function marcarEditado(item) {
+        if (item.querySelector('.pasta-msg-editado')) { return; }
+        const btn = item.querySelector('.btn-editar-msg-pasta');
+        if (!btn) { return; }
+        const marca = document.createElement('small');
+        marca.className = 'text-muted fst-italic pasta-msg-editado';
+        marca.textContent = '(editado)';
+        btn.parentNode.insertBefore(marca, btn);
+    }
 
     if (!form) { return; }
 
@@ -3159,8 +3283,11 @@ document.addEventListener('DOMContentLoaded', function () {
         const hora = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         const corpo = esc(data.conteudo).replace(/\n/g, '<br>');
 
+        const urlEditar  = urlEditarTpl.replace('__ID__', data.id);
+        const urlExcluir = urlExcluirTpl.replace('__ID__', data.id);
+
         const html = `
-        <div class="d-flex gap-2 mb-2 timeline-entry timeline-entry--mensagem timeline-entry--new">
+        <div class="d-flex gap-2 mb-2 timeline-entry timeline-entry--mensagem timeline-entry--new" id="pasta-msg-${data.id}">
             <div class="flex-shrink-0 pt-1">
                 <span class="badge rounded-circle timeline-icon text-bg-info">
                     <i class="bi bi-chat-left-text"></i>
@@ -3169,16 +3296,33 @@ document.addEventListener('DOMContentLoaded', function () {
             <div class="flex-grow-1 timeline-item-body timeline-item-body--mensagem" style="min-width:0">
                 <div class="d-flex justify-content-between align-items-start gap-1 flex-wrap">
                     <span class="fw-semibold small lh-sm">Mensagem</span>
-                    <small class="text-muted flex-shrink-0 lh-sm">
-                        <i class="bi bi-clock me-1"></i>${hora}
-                    </small>
+                    <span class="d-flex align-items-center gap-1 flex-shrink-0">
+                        <small class="text-muted lh-sm">
+                            <i class="bi bi-clock me-1"></i>${hora}
+                        </small>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg-pasta"
+                                title="Editar mensagem"
+                                data-msg-id="${data.id}"
+                                data-conteudo="${esc(data.conteudo)}"
+                                data-csrf="${esc(data.csrfEditar ?? '')}"
+                                data-url="${esc(urlEditar)}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-link btn-sm p-0 text-danger btn-excluir-msg-pasta"
+                                title="Excluir mensagem"
+                                data-msg-id="${data.id}"
+                                data-csrf="${esc(data.csrfExcluir ?? '')}"
+                                data-url="${esc(urlExcluir)}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </span>
                 </div>
                 <div class="lh-sm">
                     <small class="text-muted">
                         <i class="bi bi-person me-1"></i>${esc(data.autorNome ?? '')}
                     </small>
                 </div>
-                <div class="mt-1 small text-body">${corpo}</div>
+                <div class="mt-1 small text-body pasta-msg-conteudo">${corpo}</div>
             </div>
         </div>`;
 

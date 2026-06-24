@@ -41,6 +41,9 @@ class PastaMensagem implements Auditavel
     #[ORM\Column(name: 'criada_em')]
     private \DateTimeImmutable $criadaEm;
 
+    #[ORM\Column(name: 'editada_em', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $editadaEm = null;
+
     public function __construct()
     {
         $this->criadaEm = new \DateTimeImmutable();
@@ -98,5 +101,31 @@ class PastaMensagem implements Auditavel
     public function getCriadaEm(): \DateTimeImmutable
     {
         return $this->criadaEm;
+    }
+
+    public function getEditadaEm(): ?\DateTimeImmutable
+    {
+        return $this->editadaEm;
+    }
+
+    public function setEditadaEm(?\DateTimeImmutable $editadaEm): self
+    {
+        $this->editadaEm = $editadaEm;
+
+        return $this;
+    }
+
+    /**
+     * Indica se a mensagem pertence ao usuário informado (comparação por
+     * instância e, como reforço, por id — útil quando há proxies do ORM).
+     */
+    public function pertenceAo(User $user): bool
+    {
+        if ($this->autor === null) {
+            return false;
+        }
+
+        return $this->autor === $user
+            || ($this->autor->getId() !== null && $this->autor->getId() === $user->getId());
     }
 }

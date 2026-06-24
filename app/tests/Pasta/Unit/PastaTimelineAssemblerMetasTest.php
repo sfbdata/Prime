@@ -219,6 +219,22 @@ final class PastaTimelineAssemblerMetasTest extends TestCase
         self::assertSame('Embargos', $item->metaTitulo);
     }
 
+    #[TestDox('Mudança de prioridade da pasta vira "Prioridade alterada" com a transição em rótulos')]
+    public function testPrioridadeAlterada(): void
+    {
+        $itens = $this->montarComLinhas([
+            $this->linha('App\\Pasta\\Entity\\Pasta', 'update', '10', [
+                'diff' => ['changes' => ['prioridade' => ['from' => 'normal', 'to' => 'urgente']]],
+            ], '2026-06-17 20:00:00'),
+        ]);
+
+        $item = $this->porTitulo($itens, 'Prioridade alterada');
+        self::assertNotNull($item);
+        self::assertSame(TimelineItemType::EVENTO, $item->tipo);
+        self::assertSame('de Normal para Urgente', $item->detalhe);
+        self::assertNull($item->metaId);
+    }
+
     #[TestDox('Evento de Pasta (não-meta) não recebe metaId/metaTitulo')]
     public function testEventoNaoMetaSemReferenciaDeMeta(): void
     {

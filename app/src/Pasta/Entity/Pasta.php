@@ -182,11 +182,7 @@ $this->documentos = new ArrayCollection();
 
     public function getPrioridadeLabel(): string
     {
-        return match ($this->prioridade) {
-            PrioridadePasta::Normal     => 'Normal',
-            PrioridadePasta::Prioridade => 'Prioridade',
-            PrioridadePasta::Urgente    => 'Urgente',
-        };
+        return $this->prioridade->label();
     }
 
     public function getDataAbertura(): \DateTimeImmutable

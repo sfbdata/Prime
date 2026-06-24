@@ -27,9 +27,12 @@ use App\Expediente\Repository\MarcadorRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Pasta\Service\PastaTimelineAssembler;
+use App\Pasta\Entity\PastaMensagem;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Entity\PastaObservacaoFinanceira;
 use App\Pasta\Entity\PastaChecklistItem;
+use App\Pasta\Exception\MensagemPastaNaoEditavelException;
+use App\Pasta\Exception\MensagemPastaNaoExcluivelException;
 use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
@@ -41,7 +44,9 @@ use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\EditarChecklistItemUseCase;
 use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
 use App\Pasta\UseCase\EditarObservacaoFinanceiraUseCase;
+use App\Pasta\UseCase\EditarMensagemPastaUseCase;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
+use App\Pasta\UseCase\ExcluirMensagemPastaUseCase;
 use App\Pasta\UseCase\EnviarObservacaoDetalhesUseCase;
 use App\Pasta\UseCase\EnviarObservacaoFinanceiraUseCase;
 use App\Pasta\UseCase\ExcluirChecklistItemUseCase;
@@ -101,6 +106,8 @@ class PastaController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PastaTimelineAssembler $timelineAssembler,
         private readonly EnviarMensagemPastaUseCase $enviarMensagemUseCase,
+        private readonly EditarMensagemPastaUseCase $editarMensagemUseCase,
+        private readonly ExcluirMensagemPastaUseCase $excluirMensagemUseCase,
         private readonly CsrfTokenManagerInterface $csrfTokenManager,
         private readonly MarcadorRepository $marcadorRepository,
         private readonly AlterarSituacaoContratoUseCase $alterarSituacaoContratoUseCase,
@@ -585,12 +592,85 @@ class PastaController extends AbstractController
         }
 
         return $this->json([
-            'id'         => $mensagem->getId(),
-            'conteudo'   => $mensagem->getConteudo(),
-            'autorNome'  => $currentUser->getFullName(),
-            'criadaEm'   => $mensagem->getCriadaEm()->format('d/m/Y H:i'),
-            'criadaEmTs' => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
+            'id'          => $mensagem->getId(),
+            'conteudo'    => $mensagem->getConteudo(),
+            'autorNome'   => $currentUser->getFullName(),
+            'criadaEm'    => $mensagem->getCriadaEm()->format('d/m/Y H:i'),
+            'criadaEmTs'  => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
+            'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_mensagem_editar_' . $mensagem->getId())->getValue(),
+            'csrfExcluir' => $this->csrfTokenManager->getToken('pasta_mensagem_excluir_' . $mensagem->getId())->getValue(),
         ], Response::HTTP_CREATED);
+    }
+
+    // ── Editar mensagem do chat (autor, dentro de 24h) ────────────────────────
+
+    #[Route('/{id}/mensagem/{msgId}/editar', name: 'pasta_editar_mensagem', methods: ['POST'])]
+    public function editarMensagem(Pasta $pasta, int $msgId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $mensagem = $this->em->find(PastaMensagem::class, $msgId);
+        if ($mensagem === null || $mensagem->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Mensagem não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_mensagem_editar_' . $msgId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $conteudo = trim((string) $request->request->get('conteudo', ''));
+
+        try {
+            $this->editarMensagemUseCase->executar($mensagem, $currentUser, $tenant, $conteudo);
+        } catch (MensagemPastaNaoEditavelException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        } catch (\InvalidArgumentException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return $this->json([
+            'conteudo'  => $mensagem->getConteudo(),
+            'editadaEm' => $mensagem->getEditadaEm()?->format('d/m/Y H:i'),
+        ]);
+    }
+
+    // ── Excluir mensagem do chat (autor, dentro de 24h) ───────────────────────
+
+    #[Route('/{id}/mensagem/{msgId}/excluir', name: 'pasta_excluir_mensagem', methods: ['POST'])]
+    public function excluirMensagem(Pasta $pasta, int $msgId, Request $request): JsonResponse
+    {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+
+        $pastaId = (int) $pasta->getId();
+        $tenant  = $this->tenantContext->getCurrentTenant();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $this->json(['erro' => 'Sem permissão para acessar esta pasta.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $mensagem = $this->em->find(PastaMensagem::class, $msgId);
+        if ($mensagem === null || $mensagem->getPasta()?->getId() !== $pastaId) {
+            return $this->json(['erro' => 'Mensagem não encontrada.'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$this->isCsrfTokenValid('pasta_mensagem_excluir_' . $msgId, (string) $request->request->get('_token'))) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_FORBIDDEN);
+        }
+
+        try {
+            $this->excluirMensagemUseCase->executar($mensagem, $currentUser, $tenant);
+        } catch (MensagemPastaNaoExcluivelException $e) {
+            return $this->json(['erro' => $e->getMessage()], Response::HTTP_FORBIDDEN);
+        }
+
+        return $this->json(['sucesso' => true]);
     }
 
     #[Route('/{id}/processo/vincular', name: 'pasta_vincular_processo', methods: ['POST'])]

@@ -1,7 +1,7 @@
 <div class="card mt-4" id="pasta-timeline-card">
     <div class="card-header">
         <h3 class="card-title mb-0 d-flex align-items-center gap-2">
-            <i class="bi bi-clock-history me-1"></i>Histórico
+            <i class="bi bi-clock-history me-1"></i>Relatórios
             <span class="badge text-bg-secondary" id="timeline-count">{{ timelineItems|length }}</span>
         </h3>
     </div>
@@ -54,7 +54,9 @@
                         {% set lastDate = currentDate %}
                     {% endif %}
 
-                    <div class="d-flex gap-2 mb-2 timeline-entry {% if item.tipo.value == 'mensagem' %}timeline-entry--mensagem{% endif %}">
+                    {% set ehMensagem = item.tipo.value == 'mensagem' %}
+                    {% set podeGerenciarMsg = ehMensagem and item.mensagemId and app.user and item.usuarioId == app.user.id and date(item.dataHora) > date('-24 hours') %}
+                    <div class="d-flex gap-2 mb-2 timeline-entry {% if ehMensagem %}timeline-entry--mensagem{% endif %}"{% if ehMensagem and item.mensagemId %} id="pasta-msg-{{ item.mensagemId }}"{% endif %}>
                         {# Ícone #}
                         <div class="flex-shrink-0 pt-1">
                             <span class="badge rounded-circle timeline-icon {{ item.badgeCss }}">
@@ -63,12 +65,36 @@
                         </div>
 
                         {# Conteúdo #}
-                        <div class="flex-grow-1 timeline-item-body {% if item.tipo.value == 'mensagem' %}timeline-item-body--mensagem{% endif %}">
+                        <div class="flex-grow-1 timeline-item-body {% if ehMensagem %}timeline-item-body--mensagem{% endif %}">
                             <div class="d-flex justify-content-between align-items-start gap-1 flex-wrap">
                                 <span class="fw-semibold small lh-sm">{{ item.titulo }}</span>
-                                <small class="text-muted flex-shrink-0 lh-sm">
-                                    <i class="bi bi-clock me-1"></i>{{ item.dataHora|date('H:i') }}
-                                </small>
+                                <span class="d-flex align-items-center gap-1 flex-shrink-0">
+                                    <small class="text-muted lh-sm">
+                                        <i class="bi bi-clock me-1"></i>{{ item.dataHora|date('H:i') }}
+                                    </small>
+                                    {% if ehMensagem and item.editadoEm %}
+                                        <small class="text-muted fst-italic pasta-msg-editado">(editado)</small>
+                                    {% endif %}
+                                    {% if podeGerenciarMsg %}
+                                        <button type="button"
+                                                class="btn btn-link btn-sm p-0 text-secondary btn-editar-msg-pasta"
+                                                title="Editar mensagem"
+                                                data-msg-id="{{ item.mensagemId }}"
+                                                data-conteudo="{{ item.detalhe|e('html_attr') }}"
+                                                data-csrf="{{ csrf_token('pasta_mensagem_editar_' ~ item.mensagemId) }}"
+                                                data-url="{{ path('pasta_editar_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <button type="button"
+                                                class="btn btn-link btn-sm p-0 text-danger btn-excluir-msg-pasta"
+                                                title="Excluir mensagem"
+                                                data-msg-id="{{ item.mensagemId }}"
+                                                data-csrf="{{ csrf_token('pasta_mensagem_excluir_' ~ item.mensagemId) }}"
+                                                data-url="{{ path('pasta_excluir_mensagem', {id: pasta.id, msgId: item.mensagemId}) }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    {% endif %}
+                                </span>
                             </div>
 
                             {% if item.metaTitulo %}
@@ -81,7 +107,7 @@
                                     {% if item.detalhe %} — {{ item.detalhe }}{% endif %}
                                 </div>
                             {% elseif item.detalhe %}
-                                <div class="mt-1 small {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}">
+                                <div class="mt-1 small {% if ehMensagem %}text-body pasta-msg-conteudo{% else %}text-muted{% endif %}">
                                     {{ item.detalhe|nl2br }}
                                 </div>
                             {% endif %}
@@ -99,7 +125,7 @@
 
                 <div class="text-center py-2">
                     <span class="badge bg-body-tertiary border text-body-secondary small fw-normal">
-                        <i class="bi bi-check2-all me-1"></i>Início do histórico
+                        <i class="bi bi-check2-all me-1"></i>Início dos relatórios
                     </span>
                 </div>
             {% endif %}

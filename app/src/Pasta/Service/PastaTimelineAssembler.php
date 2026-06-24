@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Pasta\Service;
 
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PrioridadePasta;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Repository\MarcadorRepository;
@@ -72,6 +73,9 @@ class PastaTimelineAssembler
                     autorEmail: $msg->getAutor()?->getEmail(),
                     icone:      'bi-chat-left-text',
                     badgeCss:   'text-bg-info',
+                    mensagemId: $msg->getId(),
+                    editadoEm:  $msg->getEditadaEm(),
+                    usuarioId:  $msg->getAutor()?->getId(),
                 );
             }
         }
@@ -280,6 +284,9 @@ class PastaTimelineAssembler
                 if ((string) $field === 'status') {
                     return ['Status da pasta alterado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
                 }
+                if ((string) $field === 'prioridade') {
+                    return ['Prioridade alterada', 'bi-flag-fill', 'text-bg-secondary', $this->descreverTransicaoPrioridade($diff['prioridade'] ?? null)];
+                }
                 if ((string) $field === 'processo') {
                     return ['Processo vinculado atualizado', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
                 }
@@ -287,6 +294,30 @@ class PastaTimelineAssembler
         }
 
         return ['Pasta atualizada', 'bi-pencil-square', 'text-bg-secondary', $this->extractChangeSummary($changes)];
+    }
+
+    /**
+     * @param array<string, mixed>|null $change
+     */
+    private function descreverTransicaoPrioridade(?array $change): ?string
+    {
+        if (!is_array($change)) {
+            return null;
+        }
+
+        $para = isset($change['to']) && is_string($change['to']) && $change['to'] !== '' ? $this->labelPrioridade($change['to']) : null;
+        $de   = isset($change['from']) && is_string($change['from']) && $change['from'] !== '' ? $this->labelPrioridade($change['from']) : null;
+
+        if ($para === null) {
+            return null;
+        }
+
+        return $de !== null ? sprintf('de %s para %s', $de, $para) : sprintf('definida para %s', $para);
+    }
+
+    private function labelPrioridade(string $valor): string
+    {
+        return PrioridadePasta::tryFrom($valor)?->label() ?? $valor;
     }
 
     private function extractResponsavelTransicao(?array $changes): ?string
