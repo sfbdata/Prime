@@ -3,9 +3,13 @@
 {% block title %}Minhas Demandas{% endblock %}
 
 {% block body %}
+<div class="demandas-page">
 <section class="content-header">
     <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0"><i class="bi bi-inbox-fill me-2"></i>Minhas Demandas</h1>
+        <h1 class="m-0 d-flex align-items-center gap-2">
+            <i class="bi bi-inbox-fill"></i>Minhas Demandas
+            {% if pastas|length > 0 %}<span class="demandas-count-chip">{{ pastas|length }}</span>{% endif %}
+        </h1>
     </div>
 </section>
 
@@ -14,16 +18,14 @@
 
         {# ── Filtros ─────────────────────────────────────────────────── #}
         {% set temFiltro = filtros.cliente or filtros.prioridade %}
-        <div class="card card-outline card-primary mb-3">
-            <div class="card-header py-2" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosDemandas"
+        <div class="card demandas-card demandas-filtros mb-3">
+            <div class="demandas-filtros-head" data-bs-toggle="collapse" data-bs-target="#filtrosDemandas"
                  aria-expanded="{{ temFiltro ? 'true' : 'false' }}">
-                <div class="d-flex align-items-center justify-content-between">
-                    <span class="fw-semibold" style="font-size:.88rem;">
-                        <i class="bi bi-funnel me-1 text-primary"></i>Filtros
-                        {% if temFiltro %}<span class="badge text-bg-primary ms-1" style="font-size:.65rem;">Ativos</span>{% endif %}
-                    </span>
-                    <i class="bi bi-chevron-down filtro-chevron" style="font-size:.78rem;color:#6c757d;transition:transform .2s;"></i>
-                </div>
+                <span class="titulo">
+                    <i class="bi bi-funnel"></i>Filtros
+                    {% if temFiltro %}<span class="demandas-filtros-ativos">Ativos</span>{% endif %}
+                </span>
+                <i class="bi bi-chevron-down filtro-chevron"></i>
             </div>
             <div class="collapse{% if temFiltro %} show{% endif %}" id="filtrosDemandas">
                 <div class="card-body py-3">
@@ -54,7 +56,7 @@
                             <button type="submit" class="btn btn-primary btn-sm">
                                 <i class="bi bi-search me-1"></i>Filtrar
                             </button>
-                            <a href="{{ path('demandas_index') }}" class="btn btn-secondary btn-sm">
+                            <a href="{{ path('demandas_index') }}" class="btn btn-outline-secondary btn-sm">
                                 <i class="bi bi-x-lg me-1"></i>Limpar
                             </a>
                         </div>
@@ -64,17 +66,15 @@
         </div>
 
         {% if pastas|length > 0 %}
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="text-muted">
-                <i class="bi bi-list-ul me-1"></i> {{ pastas|length }} demanda(s) encontrada(s)
-            </span>
+        <div class="demandas-count">
+            <i class="bi bi-list-ul"></i> <strong>{{ pastas|length }}</strong>&nbsp;demanda(s) encontrada(s)
         </div>
 
         {# ── Tabela desktop ─────────────────────────────────────────── #}
-        <div class="card d-none d-md-block">
-            <div class="card-body table-responsive p-0">
-                <table class="table table-hover mb-0" id="tabelaDemandas">
-                    <thead class="table-light">
+        <div class="card demandas-card d-none d-md-block">
+            <div class="table-responsive">
+                <table class="table mb-0" id="tabelaDemandas">
+                    <thead>
                         <tr>
                             <th class="sortable ps-3" data-col="0" style="width:90px"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
@@ -90,7 +90,7 @@
                         <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}"
                             style="cursor:pointer;"
                             data-href="{{ path('pasta_show', {id: pasta.id}) }}">
-                            <td class="fw-semibold ps-3 align-middle">{{ pasta.nup }}</td>
+                            <td class="nup-cell ps-3 align-middle">{{ pasta.nup }}</td>
                             <td class="align-middle">
                                 {% if pasta.clientes|length > 0 %}
                                     {% if pasta.clientes|length == 1 %}
@@ -153,11 +153,12 @@
         <div class="d-md-none pasta-cards-lista">
             {% for pasta in pastas %}
             {% set dias = date().diff(pasta.dataAbertura).days %}
-            <div class="pasta-card" style="cursor:pointer;" onclick="window.location.href='{{ path('pasta_show', {id: pasta.id}) }}'">
+            <div class="pasta-card{% if pasta.prioridade.value == 'urgente' %} pasta-card-urgente{% endif %}"
+                 style="cursor:pointer;" onclick="window.location.href='{{ path('pasta_show', {id: pasta.id}) }}'">
                 <div class="pasta-card-header">
                     <div class="pasta-card-nup">
-                        <i class="bi bi-folder2 me-1 text-primary"></i>
-                        <span class="fw-bold">{{ pasta.nup }}</span>
+                        <i class="bi bi-folder2"></i>
+                        <span>{{ pasta.nup }}</span>
                     </div>
                     <div class="d-flex gap-1 align-items-center">
                         <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.7rem;">
@@ -168,7 +169,7 @@
 
                 <div class="pasta-card-body">
                     <div class="pasta-card-row">
-                        <span class="pasta-card-label"><i class="bi bi-person me-1"></i></span>
+                        <span class="pasta-card-label"><i class="bi bi-person"></i></span>
                         <span class="pasta-card-value">
                             {% if pasta.clientes|length > 0 %}
                                 {{ pasta.clientes[0].nomeExibicao }}{% if pasta.clientes|length > 1 %} <span class="text-muted">(+{{ pasta.clientes|length - 1 }})</span>{% endif %}
@@ -183,13 +184,13 @@
                     {% set acaoTexto = pasta.processo ? (pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso) : pasta.nomeAcao %}
                     {% if acaoTexto %}
                     <div class="pasta-card-row">
-                        <span class="pasta-card-label"><i class="bi bi-briefcase me-1"></i></span>
+                        <span class="pasta-card-label"><i class="bi bi-briefcase"></i></span>
                         <span class="pasta-card-value text-truncate">{{ acaoTexto }}</span>
                     </div>
                     {% endif %}
 
                     <div class="pasta-card-row">
-                        <span class="pasta-card-label"><i class="bi bi-clock-history me-1"></i></span>
+                        <span class="pasta-card-label"><i class="bi bi-clock-history"></i></span>
                         <span class="pasta-card-value text-muted" style="font-size:.8rem;">
                             {% if dias == 0 %}Hoje{% elseif dias == 1 %}1 dia atrás{% else %}{{ dias }}d atrás{% endif %}
                         </span>
@@ -206,108 +207,152 @@
         </div>
 
         {% else %}
-        <div class="alert alert-info mb-0">
-            <i class="bi bi-info-circle me-1"></i>
-            {% if filtros.cliente or filtros.prioridade %}
-                Nenhuma demanda encontrada com os filtros aplicados.
-            {% else %}
-                Você não possui demandas ativas no momento.
-            {% endif %}
+        <div class="card demandas-card">
+            <div class="demandas-empty">
+                <div class="empty-ico"><i class="bi bi-inbox"></i></div>
+                {% if filtros.cliente or filtros.prioridade %}
+                    <p class="empty-title">Nenhuma demanda encontrada</p>
+                    <p class="text-muted small mb-0">Tente ajustar ou limpar os filtros aplicados.</p>
+                {% else %}
+                    <p class="empty-title">Tudo em dia por aqui</p>
+                    <p class="text-muted small mb-0">Você não possui demandas ativas no momento.</p>
+                {% endif %}
+            </div>
         </div>
         {% endif %}
 
     </div>
 </section>
+</div>
 {% endblock %}
 
 {% block stylesheets %}
 {{ parent() }}
 <style>
-/* ── Tabela desktop ──────────────────────────────────────────── */
-#tabelaDemandas thead th {
-    white-space: nowrap;
-    vertical-align: middle;
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--bs-secondary-color);
-    border-bottom: 2px solid var(--bs-border-color);
-    padding: 10px 8px;
+.demandas-page {
+    --jp-accent: #0078AA;
+    --jp-accent-rgb: 0, 120, 170;
 }
-#tabelaDemandas tbody td {
-    vertical-align: middle;
-    font-size: 0.85rem;
-    padding: 8px 8px;
+html[data-bs-theme="dark"] .demandas-page {
+    --jp-accent: #4aa6d8;
+    --jp-accent-rgb: 74, 166, 216;
+}
+
+/* ── Cabeçalho ──────────────────────────────────────────────── */
+.demandas-page .content-header h1 { font-weight: 700; letter-spacing: -.01em; }
+.demandas-page .content-header h1 > .bi { color: var(--jp-accent); }
+.demandas-page .demandas-count-chip {
+    font-size: .8rem; font-weight: 700; color: var(--jp-accent);
+    background: rgba(var(--jp-accent-rgb), .13); padding: .15rem .55rem; border-radius: 999px;
+}
+
+/* ── Cartões ────────────────────────────────────────────────── */
+.demandas-page .demandas-card {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .85rem; overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 18px 38px -28px rgba(0,0,0,.45);
+}
+
+/* ── Filtros ────────────────────────────────────────────────── */
+.demandas-page .demandas-filtros-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .75rem 1rem; cursor: pointer; user-select: none;
+    background: var(--bs-tertiary-bg);
+}
+.demandas-page .demandas-filtros-head .titulo {
+    font-size: .88rem; font-weight: 600; color: var(--bs-body-color);
+    display: inline-flex; align-items: center; gap: .45rem;
+}
+.demandas-page .demandas-filtros-head .titulo .bi-funnel { color: var(--jp-accent); }
+.demandas-page .demandas-filtros-ativos {
+    font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+    color: var(--jp-accent); background: rgba(var(--jp-accent-rgb), .15);
+    padding: .15rem .45rem; border-radius: 999px;
+}
+.demandas-page .filtro-chevron { transition: transform .2s; color: var(--bs-secondary-color); font-size: .8rem; }
+.demandas-page .form-label-sm { font-size: .78rem; font-weight: 600; color: var(--bs-secondary-color); margin-bottom: .2rem; }
+
+/* ── Contador ───────────────────────────────────────────────── */
+.demandas-page .demandas-count {
+    display: flex; align-items: center; gap: .4rem;
+    margin: 0 .15rem .7rem; font-size: .85rem; color: var(--bs-secondary-color);
+}
+.demandas-page .demandas-count .bi { color: var(--jp-accent); }
+.demandas-page .demandas-count strong { color: var(--bs-body-color); }
+
+/* ── Tabela desktop ─────────────────────────────────────────── */
+.demandas-page #tabelaDemandas { margin: 0; }
+.demandas-page #tabelaDemandas thead th {
+    white-space: nowrap; vertical-align: middle;
+    font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--bs-secondary-color);
+    background: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    padding: .7rem .6rem;
+}
+.demandas-page #tabelaDemandas thead th > .bi:first-child { color: var(--jp-accent); opacity: .85; }
+.demandas-page #tabelaDemandas tbody td {
+    vertical-align: middle; font-size: .86rem; padding: .7rem .6rem;
     border-bottom: 1px solid var(--bs-border-color);
 }
-#tabelaDemandas tbody tr:last-child td { border-bottom: none; }
-#tabelaDemandas tbody tr:hover { background: var(--bs-secondary-bg); }
-.clientes-resumo { cursor: default; white-space: nowrap; }
-.sortable { cursor: pointer; user-select: none; }
-.sortable:hover { background-color: rgba(0,0,0,0.04); }
-.sort-icon { font-size: 0.68em; opacity: 0.35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
-.sortable.asc .sort-icon, .sortable.desc .sort-icon { opacity: 1; color: #0d6efd; }
-.sortable.asc .sort-icon::before { content: "\F148"; }
-.sortable.desc .sort-icon::before { content: "\F128"; }
+.demandas-page #tabelaDemandas tbody tr:last-child td { border-bottom: none; }
+.demandas-page #tabelaDemandas tbody tr { transition: background-color .12s ease; }
+.demandas-page #tabelaDemandas tbody tr:hover { background: var(--bs-tertiary-bg); }
+.demandas-page #tabelaDemandas .nup-cell { font-weight: 700; color: var(--jp-accent); }
+
+.demandas-page .clientes-resumo { cursor: default; white-space: nowrap; }
+
+/* Ordenação */
+.demandas-page .sortable { cursor: pointer; user-select: none; }
+.demandas-page .sortable:hover { color: var(--bs-body-color); }
+.demandas-page .sort-icon { font-size: .68em; opacity: .35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
+.demandas-page .sortable.asc .sort-icon, .demandas-page .sortable.desc .sort-icon { opacity: 1; color: var(--jp-accent); }
+.demandas-page .sortable.asc .sort-icon::before { content: "\F148"; }
+.demandas-page .sortable.desc .sort-icon::before { content: "\F128"; }
 
 /* Urgente */
-.pasta-row-urgente {
-}
-@keyframes urgente-pulso {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: .35; }
-}
-.badge-urgente-pulso {
-    animation: urgente-pulso 1.2s ease-in-out infinite;
-}
+.demandas-page .pasta-row-urgente { background: rgba(var(--bs-danger-rgb), .05); }
+.demandas-page .pasta-row-urgente:hover { background: rgba(var(--bs-danger-rgb), .09); }
+.demandas-page .pasta-row-urgente td:first-child { box-shadow: inset 3px 0 0 var(--bs-danger); }
+@keyframes urgente-pulso { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.demandas-page .badge-urgente-pulso { animation: urgente-pulso 1.2s ease-in-out infinite; }
 
 /* Ocultar colunas secundárias em telas menores */
-@media (max-width: 1100px) { .col-data-tabela { display: none; } }
-@media (max-width: 900px)  { .col-acao-tabela, .col-tarefas-tabela { display: none; } }
+@media (max-width: 1100px) { .demandas-page .col-data-tabela { display: none; } }
+@media (max-width: 900px)  { .demandas-page .col-acao-tabela, .demandas-page .col-tarefas-tabela { display: none; } }
 
-/* ── Cards mobile ────────────────────────────────────────────── */
-.pasta-cards-lista { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
-
-.pasta-card {
-    background: var(--bs-body-bg);
-    border: 1px solid var(--bs-border-color);
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    transition: box-shadow 0.15s;
+/* ── Cards mobile ───────────────────────────────────────────── */
+.demandas-page .pasta-cards-lista { display: flex; flex-direction: column; gap: .6rem; padding: 2px; }
+.demandas-page .pasta-card {
+    position: relative; background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color); border-radius: .75rem; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06); transition: box-shadow .15s ease;
 }
-.pasta-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.10); }
-
-.pasta-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px 8px;
-    background: var(--bs-tertiary-bg);
-    border-bottom: 1px solid var(--bs-border-color);
+.demandas-page .pasta-card:hover { box-shadow: 0 6px 18px -8px rgba(0,0,0,.28); }
+.demandas-page .pasta-card.pasta-card-urgente::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--bs-danger);
 }
-
-.pasta-card-nup { font-size: 0.92rem; color: var(--bs-body-color); display: flex; align-items: center; gap: 4px; }
-
-.pasta-card-body { padding: 8px 14px 4px; display: flex; flex-direction: column; gap: 5px; }
-
-.pasta-card-row { display: flex; align-items: center; gap: 6px; font-size: 0.84rem; min-height: 24px; }
-
-.pasta-card-label { color: var(--bs-secondary-color); flex-shrink: 0; font-size: 0.8rem; width: 18px; text-align: center; }
-
-.pasta-card-value { color: var(--bs-body-color); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.pasta-card-footer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    border-top: 1px solid var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
+.demandas-page .pasta-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .6rem .85rem; background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color);
 }
+.demandas-page .pasta-card-nup { font-size: .92rem; font-weight: 700; color: var(--bs-body-color); display: flex; align-items: center; gap: .35rem; }
+.demandas-page .pasta-card-nup .bi { color: var(--jp-accent); }
+.demandas-page .pasta-card-body { padding: .6rem .85rem; display: flex; flex-direction: column; gap: .35rem; }
+.demandas-page .pasta-card-row { display: flex; align-items: center; gap: .5rem; font-size: .84rem; min-height: 24px; }
+.demandas-page .pasta-card-label { color: var(--bs-secondary-color); flex-shrink: 0; width: 18px; text-align: center; }
+.demandas-page .pasta-card-label .bi { color: var(--jp-accent); }
+.demandas-page .pasta-card-value { color: var(--bs-body-color); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.demandas-page .pasta-card-footer { display: flex; align-items: center; gap: 8px; padding: .55rem .85rem; border-top: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
 
-/* Filtro */
-.filtro-chevron { transition: transform .2s; }
+/* ── Estado vazio ───────────────────────────────────────────── */
+.demandas-page .demandas-empty { text-align: center; padding: 3.5rem 1rem; }
+.demandas-page .demandas-empty .empty-ico {
+    width: 66px; height: 66px; border-radius: 20px; margin: 0 auto 1rem;
+    display: grid; place-items: center; font-size: 1.9rem;
+    background: var(--bs-secondary-bg); color: var(--bs-secondary-color);
+}
+.demandas-page .demandas-empty .empty-title { font-weight: 600; color: var(--bs-body-color); margin-bottom: .15rem; }
 </style>
 {% endblock %}
 
