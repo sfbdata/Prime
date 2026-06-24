@@ -2641,6 +2641,118 @@
 }
 </style>
 
+{# ── Upload por arquivo com barra de progresso (compartilhado: drag-drop + seção) ── #}
+<script>
+    const URL_UPLOAD_PECA  = {{ path('pasta_peticionar_upload', {id: pasta.id})|json_encode|raw }};
+    const CSRF_UPLOAD_PECA = {{ csrf_token('peticionar_upload_' ~ pasta.id)|json_encode|raw }};
+
+    function formatBytesPeca(b) {
+        if (!b || b <= 0) return '0 B';
+        if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+        return (b / 1024 / 1024).toFixed(2) + ' MB';
+    }
+
+    // Envia 1 arquivo via XHR, reportando progresso de upload e fase de compressão.
+    window.enviarArquivoComProgresso = function (file, opts) {
+        return new Promise(function (resolve, reject) {
+            const fd = new FormData();
+            fd.append('arquivo', file);
+            fd.append('_token', opts.csrf);
+            fd.append('categoria', opts.categoria || '');
+            fd.append('descricao', opts.descricao || '');
+            fd.append('numero', opts.numero || '');
+            if (opts.secaoId) fd.append('secao_id', opts.secaoId);
+            fd.append('reduzir_tamanho', opts.reduzir ? '1' : '0');
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', opts.url);
+            xhr.upload.addEventListener('progress', function (ev) {
+                if (ev.lengthComputable && typeof opts.onProgress === 'function') {
+                    opts.onProgress(Math.round((ev.loaded / ev.total) * 100));
+                }
+            });
+            xhr.upload.addEventListener('load', function () {
+                if (typeof opts.onComprimindo === 'function') opts.onComprimindo();
+            });
+            xhr.addEventListener('load', function () {
+                let data = null;
+                try { data = JSON.parse(xhr.responseText); } catch (_) {}
+                if (xhr.status >= 200 && xhr.status < 300 && data && data.success) {
+                    resolve(data);
+                } else {
+                    reject(new Error((data && data.error) ? data.error : 'Erro ao enviar o arquivo.'));
+                }
+            });
+            xhr.addEventListener('error', function () { reject(new Error('Erro de comunicação.')); });
+            xhr.send(fd);
+        });
+    };
+
+    // Processa um item .anexo-item: lê os campos, mostra a barra e devolve true/false.
+    window.processarItemUploadPeca = function (item, secaoId, reduzir) {
+        const file      = item._file;
+        const categoria = (item.querySelector('[name^="categorias"]') || {}).value || '';
+        const descricao = (item.querySelector('[name^="descricoes"]') || {}).value || '';
+        const numero    = (item.querySelector('[name^="numeros"]') || {}).value || '';
+
+        const campos = item.querySelector('.anexo-campos');
+        const btnRm  = item.querySelector('.btn-remover-anexo');
+        const prog   = item.querySelector('.anexo-progresso');
+        const bar    = prog.querySelector('.progress-bar');
+        const status = prog.querySelector('.anexo-status');
+
+        if (campos) campos.classList.add('d-none');
+        if (btnRm)  btnRm.classList.add('d-none');
+        prog.classList.remove('d-none');
+        bar.className = 'progress-bar';
+        bar.style.width = '0%';
+
+        return window.enviarArquivoComProgresso(file, {
+            url: URL_UPLOAD_PECA,
+            csrf: CSRF_UPLOAD_PECA,
+            categoria: categoria,
+            descricao: descricao,
+            numero: numero,
+            secaoId: secaoId,
+            reduzir: reduzir,
+            onProgress: function (pct) {
+                bar.style.width = pct + '%';
+                status.textContent = 'Enviando… ' + pct + '%';
+            },
+            onComprimindo: function () {
+                bar.style.width = '100%';
+                status.textContent = reduzir ? 'Comprimindo…' : 'Processando…';
+            }
+        }).then(function (data) {
+            const c = data.compressao;
+            bar.style.width = '100%';
+            if (c && c.comprimido) {
+                bar.classList.add('bg-success');
+                status.className = 'anexo-status text-success d-block mt-1';
+                status.textContent = 'Reduzido de ' + formatBytesPeca(c.tamanhoOriginal)
+                    + ' para ' + formatBytesPeca(c.tamanhoFinal) + '.'
+                    + (c.eraAssinado ? ' Atenção: PDF assinado — a assinatura pode ter sido invalidada.' : '');
+            } else if (reduzir) {
+                bar.classList.add('bg-warning');
+                status.className = 'anexo-status text-warning-emphasis d-block mt-1';
+                status.textContent = 'Não foi possível reduzir — enviado no tamanho original.';
+            } else {
+                bar.classList.add('bg-success');
+                status.className = 'anexo-status text-success d-block mt-1';
+                status.textContent = 'Enviado.';
+            }
+            item.dataset.enviado = '1';
+            return true;
+        }).catch(function (err) {
+            bar.style.width = '100%';
+            bar.classList.add('bg-danger');
+            status.className = 'anexo-status text-danger d-block mt-1';
+            status.textContent = '✗ ' + err.message;
+            return false;
+        });
+    };
+</script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
@@ -2769,7 +2881,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="anexo-nome text-truncate">${file.name}</div>
                     <div class="anexo-tamanho mb-2">${formatarTamanho(file.size)}</div>
 
-                    <div class="row g-2 align-items-end">
+                    <div class="row g-2 align-items-end anexo-campos">
                         <div class="col-12 col-sm-5 col-lg-4">
                             <label class="form-label form-label-sm mb-1">Tipo de documento</label>
                             <select name="categorias[${idx}]" class="form-select form-select-sm" required>
@@ -2786,6 +2898,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             <input type="text" name="numeros[${idx}]" class="form-control form-control-sm"
                                    placeholder="Número" maxlength="255">
                         </div>
+                    </div>
+
+                    <div class="anexo-progresso d-none mt-2">
+                        <div class="progress" style="height:6px;">
+                            <div class="progress-bar" role="progressbar" style="width:0%"></div>
+                        </div>
+                        <small class="anexo-status text-muted d-block mt-1"></small>
                     </div>
                 </div>
 
@@ -2830,32 +2949,41 @@ document.addEventListener('DOMContentLoaded', function () {
         atualizarVisibilidade();
     });
 
-    // No submit: reindexar campos e reconstruir FileList a partir dos elementos
-    document.getElementById('formAnexos').addEventListener('submit', function (e) {
-        const itens = Array.from(listaAnexos.querySelectorAll('.anexo-item'));
+    // No submit: envia 1 arquivo por vez via AJAX, com barra de progresso por arquivo.
+    document.getElementById('formAnexos').addEventListener('submit', async function (e) {
+        e.preventDefault();
 
-        if (itens.length === 0) {
-            e.preventDefault();
-            return;
+        const itens = Array.from(listaAnexos.querySelectorAll('.anexo-item'))
+            .filter(function (it) { return it.dataset.enviado !== '1'; });
+        if (itens.length === 0) return;
+
+        const reduzir   = (document.getElementById('reduzirTamanhoGeral') || {}).checked || false;
+        const btnEnviar = this.querySelector('button[type="submit"]');
+        const aviso     = this.querySelector('.upload-lote-aviso');
+        if (aviso) aviso.remove();
+        if (btnEnviar) btnEnviar.disabled = true;
+        btnAdicionar.disabled = true;
+        btnLimpar.disabled = true;
+
+        let ok = 0, falhas = 0;
+        for (const item of itens) {
+            const sucesso = await window.processarItemUploadPeca(item, null, reduzir);
+            sucesso ? ok++ : falhas++;
         }
 
-        // Reindexar campos de metadados para 0,1,2... na ordem atual da lista
-        itens.forEach(function (item, novoIdx) {
-            const oldIdx = parseInt(item.dataset.idx, 10);
-            ['categorias', 'descricoes', 'numeros'].forEach(function (campo) {
-                const el = item.querySelector(`[name^="${campo}["]`);
-                if (el) el.name = `${campo}[${novoIdx}]`;
-            });
-        });
+        btnAdicionar.disabled = false;
+        btnLimpar.disabled = false;
+        if (btnEnviar) btnEnviar.classList.add('d-none');
 
-        // Reconstruir FileList com os arquivos na mesma ordem
-        const dt = new DataTransfer();
-        itens.forEach(function (item) {
-            if (item._file) dt.items.add(item._file);
-        });
-
-        inputOculto.name = 'arquivos[]';
-        inputOculto.files = dt.files;
+        const classe = falhas === 0 ? 'alert-success' : 'alert-warning';
+        const msg = falhas === 0
+            ? `${ok} arquivo(s) enviado(s) com sucesso.`
+            : `${ok} enviado(s), ${falhas} com erro.`;
+        areaEnviar.insertAdjacentHTML('beforeend',
+            `<div class="alert ${classe} mt-2 mb-0 py-2 small upload-lote-aviso d-flex flex-wrap align-items-center justify-content-between gap-2">
+               <span>${msg} Confira os detalhes acima.</span>
+               <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">Atualizar lista</button>
+             </div>`);
     });
 
     /* ── Drop zone desktop no card geral ── */
@@ -4387,7 +4515,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="flex-grow-1 min-w-0">
                     <div class="anexo-nome text-truncate">${escapeHtml(file.name)}</div>
                     <div class="anexo-tamanho mb-2">${formatarTamanhoSecao(file.size)}</div>
-                    <div class="row g-2 align-items-end">
+                    <div class="row g-2 align-items-end anexo-campos">
                         <div class="col-12 col-sm-5 col-lg-4">
                             <label class="form-label form-label-sm mb-1">Tipo de documento</label>
                             <select name="categorias[${idx}]" class="form-select form-select-sm" required>
@@ -4404,6 +4532,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             <input type="text" name="numeros[${idx}]" class="form-control form-control-sm"
                                    placeholder="Número" maxlength="255">
                         </div>
+                    </div>
+                    <div class="anexo-progresso d-none mt-2">
+                        <div class="progress" style="height:6px;">
+                            <div class="progress-bar" role="progressbar" style="width:0%"></div>
+                        </div>
+                        <small class="anexo-status text-muted d-block mt-1"></small>
                     </div>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-danger flex-shrink-0 mt-1 btn-remover-anexo" title="Remover">
@@ -4448,21 +4582,41 @@ document.addEventListener('DOMContentLoaded', function () {
             atualizar();
         });
 
-        form.addEventListener('submit', function (e) {
-            const itens = Array.from(listaDiv.querySelectorAll('.anexo-item'));
-            if (itens.length === 0) { e.preventDefault(); return; }
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
 
-            itens.forEach(function (item, novoIdx) {
-                ['categorias', 'descricoes', 'numeros'].forEach(function (campo) {
-                    const el = item.querySelector(`[name^="${campo}["]`);
-                    if (el) el.name = `${campo}[${novoIdx}]`;
-                });
-            });
+            const itens = Array.from(listaDiv.querySelectorAll('.anexo-item'))
+                .filter(function (it) { return it.dataset.enviado !== '1'; });
+            if (itens.length === 0) return;
 
-            const dt = new DataTransfer();
-            itens.forEach(function (item) { if (item._file) dt.items.add(item._file); });
-            fileInput.name = 'arquivos[]';
-            fileInput.files = dt.files;
+            const secaoId   = (form.querySelector('input[name="secao_id"]') || {}).value || null;
+            const reduzir   = (card.querySelector('input[name="reduzir_tamanho"]') || {}).checked || false;
+            const btnEnviar = form.querySelector('button[type="submit"]');
+            const avisoOld  = areaEnviar.querySelector('.upload-lote-aviso');
+            if (avisoOld) avisoOld.remove();
+            if (btnEnviar) btnEnviar.disabled = true;
+            btnAdd.disabled = true;
+            btnLimpar.disabled = true;
+
+            let ok = 0, falhas = 0;
+            for (const item of itens) {
+                const sucesso = await window.processarItemUploadPeca(item, secaoId, reduzir);
+                sucesso ? ok++ : falhas++;
+            }
+
+            btnAdd.disabled = false;
+            btnLimpar.disabled = false;
+            if (btnEnviar) btnEnviar.classList.add('d-none');
+
+            const classe = falhas === 0 ? 'alert-success' : 'alert-warning';
+            const msg = falhas === 0
+                ? `${ok} arquivo(s) enviado(s) com sucesso.`
+                : `${ok} enviado(s), ${falhas} com erro.`;
+            areaEnviar.insertAdjacentHTML('beforeend',
+                `<div class="alert ${classe} mt-2 mb-0 py-2 small upload-lote-aviso d-flex flex-wrap align-items-center justify-content-between gap-2">
+                   <span>${msg} Confira os detalhes acima.</span>
+                   <button type="button" class="btn btn-sm btn-primary" onclick="location.reload()">Atualizar lista</button>
+                 </div>`);
         });
     }
 
