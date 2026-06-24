@@ -181,6 +181,17 @@ class NotificacaoService
         $this->notificacaoRepository->marcarTodasComoLidas($usuario, $categoria);
     }
 
+    /**
+     * Exclui as notificações selecionadas do usuário.
+     *
+     * @param int[] $ids
+     * @return int quantidade excluída
+     */
+    public function excluir(User $usuario, array $ids): int
+    {
+        return $this->notificacaoRepository->excluirDoUsuario($usuario, $ids);
+    }
+
     public function notificarJustificativaEnviada(JustificativaPonto $justificativa, string $urlGestor, Tenant $tenant): void
     {
         $user = $justificativa->getUser();

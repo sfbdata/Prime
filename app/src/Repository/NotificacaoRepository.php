@@ -67,20 +67,37 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Retorna todas as notificações do usuário (opcionalmente de uma categoria)
+     * Retorna uma página de notificações do usuário (opcionalmente de uma categoria),
+     * ordenadas da mais recente para a mais antiga.
      *
      * @return Notificacao[]
      */
-    public function findByUsuario(User $usuario, ?string $categoria = null, int $limit = 50): array
+    public function findPaginadasByUsuario(User $usuario, ?string $categoria, int $page, int $perPage): array
     {
         $qb = $this->createQueryBuilder('n')
             ->where('n.usuario = :usuario')
             ->setParameter('usuario', $usuario)
             ->orderBy('n.criadaEm', 'DESC')
-            ->setMaxResults($limit);
+            ->setFirstResult(($page - 1) * $perPage)
+            ->setMaxResults($perPage);
         $this->aplicarCategoria($qb, $categoria);
 
         return $qb->getQuery()->getResult();
+    }
+
+    /**
+     * Conta o total de notificações do usuário (opcionalmente de uma categoria),
+     * para o cálculo de páginas.
+     */
+    public function countByUsuario(User $usuario, ?string $categoria = null): int
+    {
+        $qb = $this->createQueryBuilder('n')
+            ->select('COUNT(n.id)')
+            ->where('n.usuario = :usuario')
+            ->setParameter('usuario', $usuario);
+        $this->aplicarCategoria($qb, $categoria);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
@@ -116,6 +133,29 @@ class NotificacaoRepository extends ServiceEntityRepository
         $this->aplicarCategoria($qb, $categoria);
 
         return $qb->getQuery()->execute();
+    }
+
+    /**
+     * Exclui as notificações informadas que pertençam ao usuário.
+     * O filtro por usuário garante que IDs de outro usuário sejam ignorados.
+     *
+     * @param int[] $ids
+     * @return int quantidade efetivamente excluída
+     */
+    public function excluirDoUsuario(User $usuario, array $ids): int
+    {
+        if ($ids === []) {
+            return 0;
+        }
+
+        return $this->createQueryBuilder('n')
+            ->delete()
+            ->where('n.usuario = :usuario')
+            ->andWhere('n.id IN (:ids)')
+            ->setParameter('usuario', $usuario)
+            ->setParameter('ids', $ids)
+            ->getQuery()
+            ->execute();
     }
 
     /**

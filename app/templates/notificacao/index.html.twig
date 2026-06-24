@@ -2,118 +2,316 @@
 
 {% block title %}Notificações{% endblock %}
 
+{% block stylesheets %}
+{{ parent() }}
+<style>
+.notif-page {
+    --jp-accent: #0078AA;
+    --jp-accent-rgb: 0, 120, 170;
+}
+html[data-bs-theme="dark"] .notif-page {
+    --jp-accent: #4aa6d8;
+    --jp-accent-rgb: 74, 166, 216;
+}
+
+/* ── Cartão ─────────────────────────────────────────────── */
+.notif-page .notif-card {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .85rem;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 18px 38px -28px rgba(0,0,0,.45);
+}
+.notif-page .notif-card-head {
+    display: flex; align-items: center; gap: .8rem;
+    padding: 1.05rem 1.25rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.notif-page .notif-card-head .head-ico {
+    width: 42px; height: 42px; flex-shrink: 0;
+    border-radius: 12px; display: grid; place-items: center;
+    background: rgba(var(--jp-accent-rgb), .12);
+    color: var(--jp-accent); font-size: 1.25rem;
+}
+.notif-page .notif-card-head h2 {
+    font-size: 1.08rem; font-weight: 700; margin: 0; letter-spacing: -.01em;
+    color: var(--bs-emphasis-color);
+}
+.notif-page .notif-card-head .sub { font-size: .82rem; color: var(--bs-secondary-color); margin: 0; }
+
+/* ── Abas ───────────────────────────────────────────────── */
+.notif-page-tabs { border-bottom: 1px solid var(--bs-border-color); padding: 0 .6rem; gap: .15rem; flex-wrap: nowrap; }
+.notif-page-tabs .nav-link {
+    border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+    color: var(--bs-secondary-color); font-weight: 600; font-size: .9rem;
+    padding: .75rem .95rem; display: inline-flex; align-items: center; gap: .45rem;
+}
+.notif-page-tabs .nav-link:hover { color: var(--bs-body-color); border-bottom-color: var(--bs-border-color); }
+.notif-page-tabs .nav-link.active { color: var(--jp-accent); border-bottom-color: var(--jp-accent); background: transparent; }
+.notif-page-tabs .tab-count {
+    font-size: .68rem; font-weight: 700; line-height: 1;
+    background: var(--bs-secondary-bg); color: var(--bs-secondary-color);
+    padding: .22rem .42rem; border-radius: 999px; min-width: 1.5em; text-align: center;
+}
+.notif-page-tabs .nav-link.active .tab-count { background: rgba(var(--jp-accent-rgb), .16); color: var(--jp-accent); }
+
+/* ── Barra de ações ─────────────────────────────────────── */
+.notif-page .notif-toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: .5rem; padding: .6rem .95rem;
+    background: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.notif-page .notif-toolbar .form-check { margin: 0; }
+.notif-page .notif-toolbar .form-check-label {
+    font-size: .84rem; font-weight: 600; color: var(--bs-secondary-color); cursor: pointer;
+}
+
+/* ── Linha de notificação ───────────────────────────────── */
+.notif-page .notif-list { animation: notifFade .3s ease both; }
+.notif-page .notif-row {
+    position: relative;
+    display: flex; align-items: flex-start; gap: .85rem;
+    padding: .9rem 1.15rem .9rem 1.25rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    transition: background-color .15s ease;
+}
+.notif-page .notif-row:last-child { border-bottom: 0; }
+.notif-page .notif-row:hover { background: var(--bs-tertiary-bg); }
+
+.notif-page .notif-row.notif-unread { background: rgba(var(--jp-accent-rgb), .055); }
+.notif-page .notif-row.notif-unread::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--jp-accent);
+}
+.notif-page .notif-row.notif-unread:hover { background: rgba(var(--jp-accent-rgb), .09); }
+
+.notif-page .notif-row .form-check { margin: 0; min-height: auto; padding-left: 1.6em; }
+.notif-page .notif-check { margin-top: .15rem; cursor: pointer; }
+
+.notif-page .notif-ico {
+    flex-shrink: 0; width: 42px; height: 42px;
+    border-radius: 12px; display: grid; place-items: center; font-size: 1.2rem;
+    background: var(--bs-secondary-bg);
+}
+
+.notif-page .notif-main { flex: 1 1 auto; min-width: 0; color: inherit; }
+.notif-page a.notif-main:hover .notif-title { color: var(--jp-accent); }
+.notif-page .notif-title {
+    font-size: .93rem; font-weight: 600; color: var(--bs-body-color);
+    margin: 0 0 .15rem; transition: color .15s ease;
+}
+.notif-page .notif-row.notif-unread .notif-title { font-weight: 700; }
+.notif-page .notif-text {
+    font-size: .85rem; color: var(--bs-secondary-color); margin: 0 0 .25rem;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.notif-page .notif-meta { font-size: .78rem; font-weight: 600; color: var(--jp-accent); }
+
+.notif-page .notif-aside {
+    flex-shrink: 0; text-align: right;
+    display: flex; flex-direction: column; align-items: flex-end; gap: .4rem;
+}
+.notif-page .notif-time { font-size: .75rem; color: var(--bs-secondary-color); white-space: nowrap; }
+.notif-page .notif-tag {
+    font-size: .66rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+    padding: .22rem .55rem; border-radius: 999px; line-height: 1;
+}
+.notif-page .notif-tag-nova { background: rgba(var(--jp-accent-rgb), .15); color: var(--jp-accent); }
+.notif-page .notif-tag-lida { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
+.notif-page .btn-marcar-lida { --bs-btn-padding-y: .12rem; --bs-btn-padding-x: .42rem; border-radius: 8px; }
+
+/* ── Estado vazio ───────────────────────────────────────── */
+.notif-page .notif-empty { text-align: center; padding: 3.5rem 1rem; }
+.notif-page .notif-empty .empty-ico {
+    width: 66px; height: 66px; border-radius: 20px; margin: 0 auto 1rem;
+    display: grid; place-items: center; font-size: 1.9rem;
+    background: var(--bs-secondary-bg); color: var(--bs-secondary-color);
+}
+.notif-page .notif-empty .empty-title { font-weight: 600; color: var(--bs-body-color); margin-bottom: .15rem; }
+
+/* ── Paginação ──────────────────────────────────────────── */
+.notif-page .notif-pager { padding: .85rem; border-top: 1px solid var(--bs-border-color); }
+.notif-page .pagination {
+    --bs-pagination-color: var(--jp-accent);
+    --bs-pagination-hover-color: #fff;
+    --bs-pagination-hover-bg: var(--jp-accent);
+    --bs-pagination-hover-border-color: var(--jp-accent);
+    --bs-pagination-active-bg: var(--jp-accent);
+    --bs-pagination-active-border-color: var(--jp-accent);
+    --bs-pagination-focus-color: var(--jp-accent);
+}
+
+@keyframes notifFade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .notif-page .notif-list { animation: none; } }
+</style>
+{% endblock %}
+
 {% macro notifItem(notif) %}
-    <div class="list-group-item{% if not notif.lida %} list-group-item-light{% endif %}" id="notif-{{ notif.id }}">
-        <div class="d-flex w-100 justify-content-between align-items-start">
-            <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
-               class="d-flex align-items-start text-decoration-none text-dark flex-grow-1">
-                <i class="bi {{ notif.icone }} me-3 fs-4"></i>
-                <div>
-                    <h6 class="mb-1 {% if not notif.lida %}fw-bold{% endif %}">{{ notif.titulo }}</h6>
-                    {% if notif.mensagem and notif.mensagem != notif.titulo %}
-                        <p class="mb-1 text-muted">{{ notif.mensagem }}</p>
-                    {% endif %}
-                    {% if notif.tarefa %}
-                        <small class="text-primary">
-                            <i class="bi bi-list-task me-1"></i> Tarefa #{{ notif.tarefa.id }}
-                        </small>
-                    {% elseif notif.url %}
-                        <small class="text-primary">
-                            <i class="bi bi-calendar-event me-1"></i> Ver detalhes
-                        </small>
-                    {% endif %}
-                </div>
-            </a>
-            <div class="text-end ms-3">
-                <small class="text-muted d-block">{{ notif.tempoRelativo }}</small>
-                {% if not notif.lida %}
-                    <span class="badge text-bg-primary mt-1">Nova</span>
-                    <button type="button" class="btn btn-sm btn-outline-secondary mt-1 btn-marcar-lida"
-                            data-notif-id="{{ notif.id }}" title="Marcar como lida">
-                        <i class="bi bi-check2"></i>
-                    </button>
-                {% else %}
-                    <span class="badge text-bg-secondary mt-1">Lida</span>
-                {% endif %}
-            </div>
+    <div class="notif-row{% if not notif.lida %} notif-unread{% endif %}" id="notif-{{ notif.id }}">
+        <div class="form-check flex-shrink-0">
+            <input class="form-check-input notif-check" type="checkbox"
+                   value="{{ notif.id }}" data-notif-id="{{ notif.id }}"
+                   aria-label="Selecionar notificação">
+        </div>
+        <span class="notif-ico"><i class="bi {{ notif.icone }}"></i></span>
+        <a href="{{ notif.url ?? (notif.tarefa ? path('tarefa_show', {id: notif.tarefa.id}) : '#') }}"
+           class="notif-main text-decoration-none">
+            <h6 class="notif-title">{{ notif.titulo }}</h6>
+            {% if notif.mensagem and notif.mensagem != notif.titulo %}
+                <p class="notif-text">{{ notif.mensagem }}</p>
+            {% endif %}
+            {% if notif.tarefa %}
+                <span class="notif-meta"><i class="bi bi-list-task me-1"></i>Tarefa #{{ notif.tarefa.id }}</span>
+            {% elseif notif.url %}
+                <span class="notif-meta"><i class="bi bi-box-arrow-up-right me-1"></i>Ver detalhes</span>
+            {% endif %}
+        </a>
+        <div class="notif-aside">
+            <small class="notif-time d-block">{{ notif.tempoRelativo }}</small>
+            {% if not notif.lida %}
+                <span class="notif-tag notif-tag-nova">Nova</span>
+                <button type="button" class="btn btn-sm btn-outline-secondary btn-marcar-lida"
+                        data-notif-id="{{ notif.id }}" title="Marcar como lida">
+                    <i class="bi bi-check2"></i>
+                </button>
+            {% else %}
+                <span class="notif-tag notif-tag-lida">Lida</span>
+            {% endif %}
         </div>
     </div>
 {% endmacro %}
 
-{% macro listaNotif(itens, categoria) %}
+{% macro paginacao(pag, categoria) %}
+    {% if pag and pag.total_pages > 1 %}
+        {% set inicio = max(1, pag.current_page - 3) %}
+        {% set fim = min(pag.total_pages, pag.current_page + 3) %}
+        <nav aria-label="Paginação das notificações" class="notif-pager">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+                <li class="page-item {{ pag.current_page <= 1 ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ path('notificacao_index', {tab: categoria, page: pag.current_page - 1}) }}" aria-label="Anterior">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% for p in inicio..fim %}
+                    <li class="page-item {{ p == pag.current_page ? 'active' : '' }}">
+                        <a class="page-link" href="{{ path('notificacao_index', {tab: categoria, page: p}) }}">{{ p }}</a>
+                    </li>
+                {% endfor %}
+                <li class="page-item {{ pag.current_page >= pag.total_pages ? 'disabled' : '' }}">
+                    <a class="page-link" href="{{ path('notificacao_index', {tab: categoria, page: pag.current_page + 1}) }}" aria-label="Próxima">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    {% endif %}
+{% endmacro %}
+
+{% macro listaNotif(itens, categoria, pag) %}
     {% import _self as ui %}
     {% if itens|length > 0 %}
-        {% if itens|filter(n => not n.lida)|length > 0 %}
-            <form method="post" action="{{ path('notificacao_marcar_todas_lidas') }}" class="text-end p-2 border-bottom">
-                <input type="hidden" name="_token" value="{{ csrf_token('marcar_todas_lidas') }}">
-                <input type="hidden" name="categoria" value="{{ categoria }}">
-                <button type="submit" class="btn btn-sm btn-outline-primary">
-                    <i class="bi bi-check-all me-1"></i> Marcar todas como lidas
+        <div class="notif-toolbar">
+            <div class="form-check">
+                <input class="form-check-input selecionar-todos" type="checkbox"
+                       id="selecionarTodos-{{ categoria }}" data-categoria="{{ categoria }}">
+                <label class="form-check-label" for="selecionarTodos-{{ categoria }}">Selecionar todos</label>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                {% if itens|filter(n => not n.lida)|length > 0 %}
+                    <form method="post" action="{{ path('notificacao_marcar_todas_lidas') }}" class="m-0">
+                        <input type="hidden" name="_token" value="{{ csrf_token('marcar_todas_lidas') }}">
+                        <input type="hidden" name="categoria" value="{{ categoria }}">
+                        <button type="submit" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-check-all me-1"></i> Marcar todas como lidas
+                        </button>
+                    </form>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-outline-danger btn-excluir-selecionadas" disabled
+                        data-categoria="{{ categoria }}" data-csrf="{{ csrf_token('excluir_notificacoes') }}"
+                        data-pagina="{{ pag ? pag.current_page : 1 }}">
+                    <i class="bi bi-trash me-1"></i> Excluir<span class="contador-selecionadas"></span>
                 </button>
-            </form>
-        {% endif %}
-        <div class="list-group list-group-flush">
+            </div>
+        </div>
+        <div class="notif-lista notif-list" data-categoria="{{ categoria }}">
             {% for notif in itens %}{{ ui.notifItem(notif) }}{% endfor %}
         </div>
+        {{ ui.paginacao(pag, categoria) }}
     {% else %}
-        <div class="text-center py-5">
-            <i class="bi bi-bell-slash fs-1 text-muted"></i>
-            <p class="text-muted mt-3">Nenhuma notificação aqui.</p>
+        <div class="notif-empty">
+            <div class="empty-ico"><i class="bi bi-bell-slash"></i></div>
+            <p class="empty-title">Tudo em dia por aqui</p>
+            <p class="text-muted small mb-0">Você não tem notificações nesta aba.</p>
         </div>
     {% endif %}
 {% endmacro %}
 
 {% block body %}
 {% import _self as ui %}
-<section class="content-header">
-    <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-sm-6">
-                <h1 class="m-0"><i class="bi bi-bell me-2"></i>Notificações</h1>
-            </div>
-            <div class="col-sm-6">
-                <ol class="breadcrumb float-sm-end">
-                    <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
-                    <li class="breadcrumb-item active">Notificações</li>
-                </ol>
+<div class="notif-page">
+    <section class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0"><i class="bi bi-bell me-2"></i>Notificações</h1>
+                </div>
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-end">
+                        <li class="breadcrumb-item"><a href="{{ path('homepage') }}">Home</a></li>
+                        <li class="breadcrumb-item active">Notificações</li>
+                    </ol>
+                </div>
             </div>
         </div>
-    </div>
-</section>
+    </section>
 
-<section class="content">
-    <div class="container-fluid">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title"><i class="bi bi-list-ul me-1"></i> Todas as Notificações</h3>
-            </div>
-            <div class="card-body p-0">
-                {% if podeVerGestao %}
-                    <ul class="nav nav-tabs px-2 pt-2" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link {{ abaAtiva == 'gestao' ? '' : 'active' }}" type="button" role="tab"
-                                    data-bs-toggle="tab" data-bs-target="#tabPessoal">Minhas</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link {{ abaAtiva == 'gestao' ? 'active' : '' }}" type="button" role="tab"
-                                    data-bs-toggle="tab" data-bs-target="#tabGestao">Gestão</button>
-                        </li>
-                    </ul>
-                    <div class="tab-content">
-                        <div class="tab-pane fade {{ abaAtiva == 'gestao' ? '' : 'show active' }}" id="tabPessoal" role="tabpanel">
-                            {{ ui.listaNotif(notificacoesPessoais, 'pessoal') }}
-                        </div>
-                        <div class="tab-pane fade {{ abaAtiva == 'gestao' ? 'show active' : '' }}" id="tabGestao" role="tabpanel">
-                            {{ ui.listaNotif(notificacoesGestao, 'gestao') }}
-                        </div>
+    <section class="content">
+        <div class="container-fluid">
+            <div class="card notif-card">
+                <div class="notif-card-head">
+                    <span class="head-ico"><i class="bi bi-bell-fill"></i></span>
+                    <div>
+                        <h2>Central de notificações</h2>
+                        <p class="sub">Acompanhe demandas, prazos e atualizações do escritório</p>
                     </div>
-                {% else %}
-                    {{ ui.listaNotif(notificacoesPessoais, 'pessoal') }}
-                {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    {% if podeVerGestao %}
+                        <ul class="nav notif-page-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link {{ abaAtiva == 'gestao' ? '' : 'active' }}" type="button" role="tab"
+                                        data-bs-toggle="tab" data-bs-target="#tabPessoal">
+                                    <i class="bi bi-person"></i> Minhas
+                                    {% if paginacaoPessoal and paginacaoPessoal.total_items > 0 %}
+                                        <span class="tab-count">{{ paginacaoPessoal.total_items }}</span>
+                                    {% endif %}
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link {{ abaAtiva == 'gestao' ? 'active' : '' }}" type="button" role="tab"
+                                        data-bs-toggle="tab" data-bs-target="#tabGestao">
+                                    <i class="bi bi-people"></i> Gestão
+                                    {% if paginacaoGestao and paginacaoGestao.total_items > 0 %}
+                                        <span class="tab-count">{{ paginacaoGestao.total_items }}</span>
+                                    {% endif %}
+                                </button>
+                            </li>
+                        </ul>
+                        <div class="tab-content">
+                            <div class="tab-pane fade {{ abaAtiva == 'gestao' ? '' : 'show active' }}" id="tabPessoal" role="tabpanel">
+                                {{ ui.listaNotif(notificacoesPessoais, 'pessoal', paginacaoPessoal) }}
+                            </div>
+                            <div class="tab-pane fade {{ abaAtiva == 'gestao' ? 'show active' : '' }}" id="tabGestao" role="tabpanel">
+                                {{ ui.listaNotif(notificacoesGestao, 'gestao', paginacaoGestao) }}
+                            </div>
+                        </div>
+                    {% else %}
+                        {{ ui.listaNotif(notificacoesPessoais, 'pessoal', paginacaoPessoal) }}
+                    {% endif %}
+                </div>
             </div>
         </div>
-    </div>
-</section>
+    </section>
+</div>
 {% endblock %}
 
 {% block javascripts %}
@@ -140,21 +338,99 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Atualizar visual da notificação
-                    notifElement.classList.remove('list-group-item-light');
+                    // Tira o destaque de não lida e troca a coluna de status por "Lida"
+                    notifElement.classList.remove('notif-unread');
 
-                    // Remover badge "Nova" e botão
-                    const badgeContainer = btnElement.parentElement;
-                    badgeContainer.innerHTML = '<small class="text-muted d-block">' + badgeContainer.querySelector('small').textContent + '</small><span class="badge text-bg-secondary mt-1">Lida</span>';
-
-                    // Remover negrito do título
-                    const titulo = notifElement.querySelector('h6');
-                    if (titulo) {
-                        titulo.classList.remove('fw-bold');
-                    }
+                    const aside = btnElement.parentElement;
+                    const tempo = aside.querySelector('small') ? aside.querySelector('small').textContent : '';
+                    aside.innerHTML =
+                        '<small class="notif-time d-block">' + tempo + '</small>' +
+                        '<span class="notif-tag notif-tag-lida">Lida</span>';
                 }
             })
             .catch(err => console.log('Erro ao marcar como lida:', err));
+        });
+    });
+
+    // ── Seleção e exclusão em massa (escopada por aba/categoria) ──
+    function checksDaCategoria(categoria) {
+        return document.querySelectorAll(
+            '.notif-lista[data-categoria="' + categoria + '"] .notif-check'
+        );
+    }
+
+    function atualizarBarra(categoria) {
+        const checks = checksDaCategoria(categoria);
+        const marcados = Array.prototype.filter.call(checks, c => c.checked).length;
+        const btn = document.querySelector('.btn-excluir-selecionadas[data-categoria="' + categoria + '"]');
+        const master = document.querySelector('.selecionar-todos[data-categoria="' + categoria + '"]');
+
+        if (btn) {
+            btn.disabled = marcados === 0;
+            const contador = btn.querySelector('.contador-selecionadas');
+            if (contador) contador.textContent = marcados > 0 ? ' (' + marcados + ')' : '';
+        }
+        if (master) {
+            master.checked = checks.length > 0 && marcados === checks.length;
+            master.indeterminate = marcados > 0 && marcados < checks.length;
+        }
+    }
+
+    document.querySelectorAll('.selecionar-todos').forEach(function(master) {
+        master.addEventListener('change', function() {
+            const categoria = this.dataset.categoria;
+            checksDaCategoria(categoria).forEach(function(c) { c.checked = master.checked; });
+            atualizarBarra(categoria);
+        });
+    });
+
+    document.querySelectorAll('.notif-check').forEach(function(chk) {
+        chk.addEventListener('change', function() {
+            const lista = this.closest('.notif-lista');
+            if (lista) atualizarBarra(lista.dataset.categoria);
+        });
+    });
+
+    document.querySelectorAll('.btn-excluir-selecionadas').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            const categoria = this.dataset.categoria;
+            const pagina = this.dataset.pagina || '1';
+            const ids = Array.prototype.filter
+                .call(checksDaCategoria(categoria), c => c.checked)
+                .map(c => c.value);
+
+            if (ids.length === 0) return;
+            if (!confirm('Excluir ' + ids.length + ' notificação(ões)? Esta ação não pode ser desfeita.')) {
+                return;
+            }
+
+            const body = new URLSearchParams();
+            body.append('_token', this.dataset.csrf);
+            ids.forEach(function(id) { body.append('ids[]', id); });
+
+            btn.disabled = true;
+            fetch('{{ path('notificacao_excluir') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body.toString()
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location = '{{ path('notificacao_index') }}?tab=' + categoria + '&page=' + pagina;
+                    return;
+                }
+                alert(data.error || 'Erro ao excluir notificações.');
+                btn.disabled = false;
+            })
+            .catch(err => {
+                console.log('Erro ao excluir:', err);
+                alert('Erro ao excluir notificações.');
+                btn.disabled = false;
+            });
         });
     });
 });

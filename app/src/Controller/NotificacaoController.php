@@ -16,6 +16,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/notificacoes')]
 class NotificacaoController extends AbstractController
 {
+    private const PER_PAGE = 20;
+
     public function __construct(
         private readonly NotificacaoService $notificacaoService,
         private readonly NotificacaoRepository $notificacaoRepository
@@ -36,13 +38,36 @@ class NotificacaoController extends AbstractController
             ? Notificacao::CATEGORIA_GESTAO
             : Notificacao::CATEGORIA_PESSOAL;
 
+        $page = max(1, $request->query->getInt('page', 1));
+
+        // Monta itens + metadados de paginação de uma categoria. O ?page= só
+        // vale para a aba ativa; a outra aba sempre renderiza a primeira página.
+        $montarPaginacao = function (string $categoria) use ($usuario, $page, $abaAtiva): array {
+            $total      = $this->notificacaoRepository->countByUsuario($usuario, $categoria);
+            $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
+            $atual      = $categoria === $abaAtiva ? min($page, $totalPages) : 1;
+
+            return [
+                'itens' => $this->notificacaoRepository->findPaginadasByUsuario($usuario, $categoria, $atual, self::PER_PAGE),
+                'meta'  => [
+                    'current_page' => $atual,
+                    'per_page'     => self::PER_PAGE,
+                    'total_items'  => $total,
+                    'total_pages'  => $totalPages,
+                ],
+            ];
+        };
+
+        $pessoal = $montarPaginacao(Notificacao::CATEGORIA_PESSOAL);
+        $gestao  = $podeVerGestao ? $montarPaginacao(Notificacao::CATEGORIA_GESTAO) : ['itens' => [], 'meta' => null];
+
         return $this->render('notificacao/index.html.twig', [
-            'notificacoesPessoais' => $this->notificacaoRepository->findByUsuario($usuario, Notificacao::CATEGORIA_PESSOAL, 100),
-            'notificacoesGestao'   => $podeVerGestao
-                ? $this->notificacaoRepository->findByUsuario($usuario, Notificacao::CATEGORIA_GESTAO, 100)
-                : [],
-            'podeVerGestao' => $podeVerGestao,
-            'abaAtiva'      => $abaAtiva,
+            'notificacoesPessoais' => $pessoal['itens'],
+            'paginacaoPessoal'     => $pessoal['meta'],
+            'notificacoesGestao'   => $gestao['itens'],
+            'paginacaoGestao'      => $gestao['meta'],
+            'podeVerGestao'        => $podeVerGestao,
+            'abaAtiva'             => $abaAtiva,
         ]);
     }
 
@@ -88,6 +113,33 @@ class NotificacaoController extends AbstractController
         $this->addFlash('success', 'Todas as notificações foram marcadas como lidas.');
 
         return $this->redirectToRoute('notificacao_index', $categoria !== null ? ['tab' => $categoria] : []);
+    }
+
+    /**
+     * Exclui as notificações selecionadas do usuário (via AJAX)
+     */
+    #[Route('/excluir', name: 'notificacao_excluir', methods: ['POST'])]
+    public function excluir(Request $request): JsonResponse
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+
+        if (!$this->isCsrfTokenValid('excluir_notificacoes', (string) $request->request->get('_token'))) {
+            return new JsonResponse(['error' => 'Token CSRF inválido.'], 403);
+        }
+
+        // ids[] vindos do form-data; normaliza para inteiros válidos
+        $ids = array_values(array_filter(
+            array_map(
+                static fn ($v) => filter_var($v, FILTER_VALIDATE_INT),
+                $request->request->all('ids')
+            ),
+            static fn ($v) => $v !== false
+        ));
+
+        $excluidas = $this->notificacaoService->excluir($usuario, $ids);
+
+        return new JsonResponse(['success' => true, 'excluidas' => $excluidas]);
     }
 
     /**
