@@ -1,9 +1,17 @@
 # Spec — Modo escuro/claro (tema)
 
-> **Status:** planejado, não implementado. Risco: BAIXO (frontend puro).
-> **Como executar:** leia esta spec inteira e implemente seguindo a ordem da seção
-> "Execução". Não é preciso re-investigar — a auditoria já está condensada aqui.
-> Rode tudo no container: `docker exec jusprime_php_dev bash -c 'cd app && ...'`.
+> **Status:** ✅ IMPLEMENTADO (jun/2026). Risco: BAIXO (frontend puro).
+> Toggle no dropdown do usuário, script anti-flash no `<head>` e persistência em
+> `localStorage` estão no ar (ver `app/templates/base.html.twig`). A conversão de cores
+> fixas → variáveis do Bootstrap foi concluída em `app/public/css/app.css` e nos
+> templates com `<style>`/JS inline.
+> **Acabamento final (jun/2026):** últimos badges de marcador e toolbar do editor
+> convertidos — `pasta/_tabela.html.twig`, `expediente/index.html.twig`,
+> `expediente/_painel_marcador.html.twig`, `pasta/peticionar.html.twig`,
+> `_partials/modal_mover_marcador.html.twig` e `app.css:257`. Regra mantida: badges com
+> cor custom do marcador conservam texto `#333` (legível sobre o pastel em ambos os
+> temas); apenas o fallback "sem cor" usa variáveis do tema.
+> A spec abaixo é mantida como registro histórico da estratégia.
 
 ## Objetivo
 Alternância de tema claro/escuro no sistema, com:

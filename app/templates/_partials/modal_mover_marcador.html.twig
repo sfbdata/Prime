@@ -277,7 +277,7 @@
 
         var chip = document.createElement('div');
         chip.className = 'mover-chip' + (ativo ? ' selecionado' : '') + (ehFilho ? ' filho' : '');
-        chip.style.setProperty('background-color', ativo ? (cor !== '#e9ecef' ? cor + '22' : '#eef2ff') : '');
+        chip.style.setProperty('background-color', ativo ? (cor !== '#e9ecef' ? cor + '22' : 'rgba(13,110,253,.12)') : '');
 
         var cb = document.createElement('input');
         cb.type = 'checkbox';
@@ -299,7 +299,7 @@
             if (e.target.closest('.mover-chip-chevron')) return;
             cb.checked = !cb.checked;
             chip.classList.toggle('selecionado', cb.checked);
-            chip.style.setProperty('background-color', cb.checked ? (cor !== '#e9ecef' ? cor + '22' : '#eef2ff') : '');
+            chip.style.setProperty('background-color', cb.checked ? (cor !== '#e9ecef' ? cor + '22' : 'rgba(13,110,253,.12)') : '');
             atualizarContador();
         });
 

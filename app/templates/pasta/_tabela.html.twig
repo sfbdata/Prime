@@ -200,12 +200,12 @@
                             {% if pasta.marcadores|length > 0 %}
                                 {% set primeiro = pasta.marcadores|first %}
                                 <span class="badge rounded-pill px-2 marcador-principal"
-                                      style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:#e9ecef;color:#333;{% endif %}font-size:.68rem;">
+                                      style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;">
                                     {{ primeiro.nome }}
                                 </span>
                                 {% if pasta.marcadores|length > 1 %}
                                     <span class="badge rounded-pill px-2 marcadores-extra"
-                                          style="background:#e9ecef;color:#333;font-size:.68rem;cursor:default;"
+                                          style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;"
                                           data-marcadores-json="{{ pasta.marcadores|slice(1)|map(m => {nome: m.nome, cor: m.cor})|json_encode }}">
                                         +{{ pasta.marcadores|length - 1 }}
                                     </span>
@@ -309,12 +309,12 @@
                 <div class="d-flex flex-wrap gap-1 align-items-center flex-grow-1">
                     {% set primeiroMobile = pasta.marcadores|first %}
                     <span class="badge rounded-pill px-2"
-                          style="{% if primeiroMobile.cor %}background:{{ primeiroMobile.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:#e9ecef;color:#333;{% endif %}font-size:.68rem;">
+                          style="{% if primeiroMobile.cor %}background:{{ primeiroMobile.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;">
                         {{ primeiroMobile.nome }}
                     </span>
                     {% if pasta.marcadores|length > 1 %}
                         <span class="badge rounded-pill px-2 marcadores-extra"
-                              style="background:#e9ecef;color:#333;font-size:.68rem;cursor:default;"
+                              style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;"
                               data-marcadores-json="{{ pasta.marcadores|slice(1)|map(m => {nome: m.nome, cor: m.cor})|json_encode }}">
                             +{{ pasta.marcadores|length - 1 }}
                         </span>
@@ -604,9 +604,10 @@
             if (!el) return;
 
             el.innerHTML = marcadores.map(function (m) {
-                var bg    = m.cor || '#e9ecef';
+                var bg    = m.cor || 'var(--bs-tertiary-bg)';
+                var cor   = m.cor ? 'color:#333;' : '';
                 var borda = m.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
-                return '<span class="marcadores-popover-badge" style="background:' + bg + ';' + borda + '">' +
+                return '<span class="marcadores-popover-badge" style="background:' + bg + ';' + cor + borda + '">' +
                        escHtmlSimples(m.nome) +
                        '</span>';
             }).join('');

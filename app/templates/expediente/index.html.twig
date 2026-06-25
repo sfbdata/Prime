@@ -1643,9 +1643,10 @@ document.addEventListener('DOMContentLoaded', function () {
             var el = document.getElementById('marcadores-popover');
             if (!el) return;
             el.innerHTML = marcadores.map(function (m) {
-                var bg    = m.cor || '#e9ecef';
+                var bg    = m.cor || 'var(--bs-tertiary-bg)';
+                var cor   = m.cor ? '#333' : 'var(--bs-body-color)';
                 var borda = m.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
-                return '<span style="display:inline-block;border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:500;color:#333;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;background:' + bg + ';' + borda + '">' + escHtmlPop(m.nome) + '</span>';
+                return '<span style="display:inline-block;border-radius:20px;padding:2px 10px;font-size:.72rem;font-weight:500;color:' + cor + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;background:' + bg + ';' + borda + '">' + escHtmlPop(m.nome) + '</span>';
             }).join('');
             posicionarPopover(badge);
         });
@@ -1711,12 +1712,13 @@ document.addEventListener('DOMContentLoaded', function () {
         var novosHtml = '';
         if (data.marcadores.length > 0) {
             var primeiro = data.marcadores[0];
-            var bg0    = primeiro.cor || '#e9ecef';
+            var bg0    = primeiro.cor || 'var(--bs-tertiary-bg)';
+            var cor0   = primeiro.cor ? '#333' : 'var(--bs-body-color)';
             var borda0 = primeiro.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
-            novosHtml += '<span class="badge rounded-pill px-2" style="background:' + bg0 + ';color:#333;' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
+            novosHtml += '<span class="badge rounded-pill px-2" style="background:' + bg0 + ';color:' + cor0 + ';' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
             if (data.marcadores.length > 1) {
                 var extrasJson = JSON.stringify(data.marcadores.slice(1).map(function (m) { return { nome: m.nome, cor: m.cor || '' }; }));
-                novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:#e9ecef;color:#333;font-size:.68rem;cursor:default;" data-marcadores-json=\'' + extrasJson.replace(/'/g, '&#39;') + '\'>+' + (data.marcadores.length - 1) + '</span>';
+                novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;" data-marcadores-json=\'' + extrasJson.replace(/'/g, '&#39;') + '\'>+' + (data.marcadores.length - 1) + '</span>';
             }
         }
         var wrapper = colMarcadores.querySelector('.d-flex');

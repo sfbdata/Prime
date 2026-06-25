@@ -254,7 +254,7 @@ nav.app-header.navtop {
 .usuario-name  { font-weight: 600; font-size: 0.9rem; color: var(--bs-body-color); }
 .usuario-email { font-size: 0.78rem; color: var(--bs-secondary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .usuario-dropdown .dropdown-item:hover { background: var(--bs-secondary-bg); }
-.usuario-dropdown .dropdown-item.text-danger:hover { background: #fff0f0; color: #dc3545 !important; }
+.usuario-dropdown .dropdown-item.text-danger:hover { background: var(--bs-secondary-bg); color: #dc3545 !important; }
 
 /* =============================================================
    NEUTRALIZA O ADMINLTE 4
