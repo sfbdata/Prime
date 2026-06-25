@@ -8,11 +8,12 @@ use App\Repository\ChamadoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ChamadoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Chamado implements Auditavel
+class Chamado implements Auditavel, TenantAware
 {
     // Status
     public const STATUS_ABERTO = 'aberto';

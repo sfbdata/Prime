@@ -17,6 +17,10 @@ doctrine:
         identity_generation_preferences:
             Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
         auto_mapping: true
+        filters:
+            tenant:
+                class: App\Shared\Doctrine\Filter\TenantFilter
+                enabled: false
         mappings:
             App:
                 type: attribute

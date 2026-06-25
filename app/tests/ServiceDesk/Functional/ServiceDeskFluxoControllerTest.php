@@ -189,8 +189,12 @@ final class ServiceDeskFluxoControllerTest extends JusPrimeWebTestCase
         $client->request('POST', "/servicedesk/{$id}/status", ['status' => Chamado::STATUS_FECHADO]);
         self::assertResponseStatusCodeSame(404, 'status não pode alterar chamado de outro tenant');
 
-        // O chamado do tenant B permanece intacto.
+        // O chamado do tenant B permanece intacto. Desliga o TenantFilter (ligado para o
+        // tenant A pela request) para conseguir lê-lo na verificação de integridade.
         $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
         $em->clear();
         self::assertSame(Chamado::STATUS_ABERTO, $em->find(Chamado::class, $id)->getStatus());
     }

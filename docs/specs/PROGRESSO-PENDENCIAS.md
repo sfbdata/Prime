@@ -35,8 +35,31 @@ endereço, telefone, documentos). Vazamento cross-tenant sistêmico da base de c
 - **NÃO é hotfix:** corrigir exige adicionar `tenant` a `Cliente` + migration + backfill
   (provável via `criadoPor`→tenant) + filtrar TODAS as queries de cliente + testes amplos +
   decisão de produção. Aguarda planejamento e decisão do responsável.
-- Verificar também se Processo/Pasta e outros domínios têm o mesmo problema (Pasta tem
-  `tenant`? confirmar). Pode ser um padrão.
+- **Auditoria completa concluída** → `docs/specs/auditoria-multitenant.md`. O problema é
+  SISTÊMICO, não só do Cliente:
+  - 🔴 **P0 catastrófico** (entidade sem tenant + listagem vaza tudo): **Cliente, Processo,
+    Agenda** — vazam base de clientes, carteira de processos e calendários inteiros.
+  - 🟠 **P1** (tenant existe, mas IDOR/queries parciais): Pasta, Expediente.
+  - 🟡 **P2** (frágil/IDOR mitigado): Tarefa, Ponto, Profile.
+  - ✅ **OK**: Kanban (isolado); ServiceDesk (corrigido no H1 desta sessão).
+  - Causa-raiz: entidades sem coluna `tenant` + sem Doctrine SQL filter + ParamConverter por
+    id sem validar tenant + `canAccessResource` não valida tenant do recurso (F1).
+  - Remediação é um programa de risco ALTO (modelo de dados, migrations, backfill, testes) —
+    aguarda decisão do dono sobre ordem e eventual mitigação imediata em produção.
+
+## Remediação sistêmica (em andamento)
+Decisões do dono: **fix-forward**, **abordagem sistêmica primeiro**, recomendações aprovadas
+(coluna tenant em tudo + filtro global + guard por-id como defesa em profundidade). Design:
+`docs/specs/isolamento-tenant-sistemico.md`.
+
+- **S1 ✅ Infra do filtro de tenant (validada):** `App\Shared\Contract\TenantAware`,
+  `App\Shared\Doctrine\Filter\TenantFilter`, `App\Shared\EventListener\TenantFilterListener`
+  (liga por request, prioridade 5), registro em `doctrine.yaml` (`enabled: false`). `Chamado`
+  marcado como cobaia. Teste `tests/Shared/Functional/TenantFilterTest`:
+  **o filtro cobre findBy E find() por id** (IDOR fecha automático). Suíte **722/722**.
+- **Próximo (S2+):** aplicar por domínio, P0 primeiro (Cliente → Processo → Agenda): adicionar
+  coluna `tenant` + migration + backfill (via criadoPor/criador/user) + `implements TenantAware`
+  + testes cross-tenant. O filtro já cuida de listagens e by-id. Depois P1/P2.
 
 ## Detalhamento por etapa
 
