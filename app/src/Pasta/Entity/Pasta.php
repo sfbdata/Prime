@@ -14,14 +14,16 @@ use App\Pasta\Repository\PastaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: PastaRepository::class)]
 #[ORM\Table(name: 'pasta')]
 #[ORM\Index(name: 'idx_pasta_tenant', columns: ['tenant_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_pasta_tenant_nup', columns: ['tenant_id', 'nup'])]
 #[ORM\HasLifecycleCallbacks]
-class Pasta implements Auditavel
+class Pasta implements Auditavel, TenantAware
 {
     public const SITUACAO_ATIVA     = 'ativo';
     public const SITUACAO_ARQUIVADA = 'arquivado';
@@ -33,7 +35,8 @@ class Pasta implements Auditavel
 
     #[Assert\NotBlank]
     #[Assert\Length(max: 50)]
-    #[ORM\Column(length: 255, unique: true)]
+    // Unicidade do NUP é por escritório (UniqueConstraint composto tenant_id+nup).
+    #[ORM\Column(length: 255)]
     private ?string $nup = null;
 
     #[Assert\Choice(choices: [self::SITUACAO_ATIVA, self::SITUACAO_ARQUIVADA])]

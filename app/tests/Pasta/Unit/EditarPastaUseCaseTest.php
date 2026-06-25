@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\UseCase\EditarPastaUseCase;
@@ -46,8 +47,9 @@ final class EditarPastaUseCaseTest extends TestCase
     #[TestDox('NUP duplicado de outra pasta lança InvalidArgumentException')]
     public function testNupDuplicadoDeOutraPastaLancaExcecao(): void
     {
+        $tenant   = new Tenant();
         $pasta    = new Pasta();
-        $pasta->setTenant(null);
+        $pasta->setTenant($tenant);
         // Simula ID da pasta sendo editada
         $refPasta = new \ReflectionClass($pasta);
         $refId    = $refPasta->getProperty('id');
@@ -58,10 +60,11 @@ final class EditarPastaUseCaseTest extends TestCase
 
         $dto = new EditarPastaDTO(nup: 'NUP-001', situacao: Pasta::SITUACAO_ATIVA);
 
+        // A checagem de duplicidade deve ser escopada pelo tenant da própria pasta.
         $this->pastaRepository
             ->expects($this->once())
             ->method('findOneBy')
-            ->with(['nup' => 'NUP-001'])
+            ->with(['nup' => 'NUP-001', 'tenant' => $tenant])
             ->willReturn($outra);
 
         $this->em->expects($this->never())->method('flush');
@@ -75,7 +78,9 @@ final class EditarPastaUseCaseTest extends TestCase
     #[TestDox('NUP igual ao da própria pasta não lança exceção e persiste')]
     public function testNupIgualAoProprioPastaPermiteEdicao(): void
     {
+        $tenant = new Tenant();
         $pasta = new Pasta();
+        $pasta->setTenant($tenant);
         $ref   = new \ReflectionClass($pasta);
         $refId = $ref->getProperty('id');
         $refId->setValue($pasta, 42);
@@ -89,7 +94,7 @@ final class EditarPastaUseCaseTest extends TestCase
         $this->pastaRepository
             ->expects($this->once())
             ->method('findOneBy')
-            ->with(['nup' => 'NUP-001'])
+            ->with(['nup' => 'NUP-001', 'tenant' => $tenant])
             ->willReturn($pasta);
 
         $this->em->expects($this->once())->method('flush');

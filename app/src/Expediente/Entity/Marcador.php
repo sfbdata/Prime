@@ -5,13 +5,14 @@ namespace App\Expediente\Entity;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Expediente\Repository\MarcadorRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: MarcadorRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Marcador
+class Marcador implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]

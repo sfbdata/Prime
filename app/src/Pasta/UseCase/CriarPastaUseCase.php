@@ -29,7 +29,9 @@ final class CriarPastaUseCase
         // NOTA: findOneBy busca pelo valor cru (pré-normalização da entidade).
         // setNup() faz mb_strtoupper(), então "abc" e "ABC" geram conflito silencioso na DB.
         // Bug latente replicado fielmente do controller legado — não corrigir aqui.
-        $existente = $this->pastaRepository->findOneBy(['nup' => $nup]);
+        // Escopo explícito por tenant: o NUP é único por escritório (uniq_pasta_tenant_nup).
+        // Não dependemos só do filtro global, que fica desligado em CLI (ex.: ImportarAcervoCommand).
+        $existente = $this->pastaRepository->findOneBy(['nup' => $nup, 'tenant' => $tenant]);
         if ($existente !== null) {
             throw new \InvalidArgumentException(sprintf('O NUP "%s" já está em uso por outra pasta.', $nup));
         }

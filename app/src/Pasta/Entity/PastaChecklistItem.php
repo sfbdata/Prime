@@ -7,6 +7,7 @@ namespace App\Pasta\Entity;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaChecklistItemRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -14,7 +15,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Table(name: 'pasta_checklist_item')]
 #[ORM\Index(name: 'idx_pasta_checklist_item_pasta', columns: ['pasta_id'])]
 #[ORM\Index(name: 'idx_pasta_checklist_item_tenant', columns: ['tenant_id'])]
-class PastaChecklistItem implements Auditavel
+class PastaChecklistItem implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
