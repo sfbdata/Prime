@@ -56,7 +56,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         // =============================================
         // 5. PROCESSOS
         // =============================================
-        $processos = $this->loadProcessos($manager);
+        $processos = $this->loadProcessos($manager, $users);
         $manager->flush();
 
         // =============================================
@@ -382,8 +382,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
     // -----------------------------------------------
     // PROCESSOS
     // -----------------------------------------------
-    private function loadProcessos(ObjectManager $manager): array
+    private function loadProcessos(ObjectManager $manager, array $users): array
     {
+        $autor  = $users[0];
+        $tenant = $manager->getRepository(UserTenant::class)->findOneBy(['user' => $autor])?->getTenant();
+
         $dados = [
             [
                 'numero'         => '0001234-56.2024.5.02.0001',
@@ -507,6 +510,8 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $p->setInstancia($dado['instancia']);
             $p->setDataDistribuicao(new \DateTime($dado['distribuicao']));
             $p->setDataAtualizacao(new \DateTimeImmutable());
+            $p->setCriadoPor($autor);
+            $p->setTenant($tenant);
 
             // Partes
             foreach ($dado['partes'] as $parteData) {
@@ -515,6 +520,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
                 $parte->setNome($parteData['nome']);
                 $parte->setDocumento($parteData['documento']);
                 $parte->setPapel($parteData['papel']);
+                $parte->setTenant($tenant);
                 $p->addParte($parte);
                 $manager->persist($parte);
             }
@@ -526,6 +532,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
                 $mov->setDescricao($movData['descricao']);
                 $mov->setTipo($movData['tipo']);
                 $mov->setOrgao($movData['orgao']);
+                $mov->setTenant($tenant);
                 $p->addMovimentacao($mov);
                 $manager->persist($mov);
             }
@@ -538,6 +545,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
                 $doc->setCaminhoArquivo('fixtures/' . $docData['nome']);
                 $doc->setMimeType('application/pdf');
                 $doc->setTamanho(1024);
+                $doc->setTenant($tenant);
                 $p->addDocumento($doc);
                 $manager->persist($doc);
             }

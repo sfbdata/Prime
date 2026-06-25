@@ -111,6 +111,7 @@ class ProcessoController extends AbstractController
                 }
             }
 
+            $processo->setTenant($tenant);
             $this->fillProcessoFromRequest($processo, $data);
             $processo->setCriadoPor($this->getUser());
 
@@ -388,6 +389,7 @@ class ProcessoController extends AbstractController
 
             if (!$processo->getPartes()->contains($parte)) {
                 $processo->addParte($parte);
+                $parte->setTenant($processo->getTenant());
             }
 
             $tipo = (string) ($parteData['tipo'] ?? 'PARTE');
@@ -442,6 +444,7 @@ class ProcessoController extends AbstractController
 
             if (!$processo->getMovimentacoes()->contains($movimentacao)) {
                 $processo->addMovimentacao($movimentacao);
+                $movimentacao->setTenant($processo->getTenant());
             }
 
             if ($movimentacao->getDescricao() !== $descricao) {

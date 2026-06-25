@@ -724,6 +724,7 @@ class PastaController extends AbstractController
                 $pasta->setProcesso($existente);
             } else {
                 $processo = new Processo();
+                $processo->setTenant($this->tenantContext->getCurrentTenant());
                 $this->fillProcessoFromData($processo, $data);
                 $processo->setCriadoPor($this->getUser());
                 $this->em->persist($processo);
@@ -1968,6 +1969,7 @@ class PastaController extends AbstractController
             $parte->setNome($nome);
             $parte->setDocumento(($parteData['documento'] ?? '') !== '' ? (string) $parteData['documento'] : null);
             $parte->setPapel(($parteData['papel'] ?? '') !== '' ? (string) $parteData['papel'] : null);
+            $parte->setTenant($processo->getTenant());
             $processo->addParte($parte);
         }
 
@@ -1981,6 +1983,7 @@ class PastaController extends AbstractController
             $mov->setTipo(($movData['tipo'] ?? '') !== '' ? (string) $movData['tipo'] : null);
             $mov->setOrgao(($movData['orgao'] ?? '') !== '' ? (string) $movData['orgao'] : null);
             $mov->setDataMovimentacao($this->parseDateOrNull($movData['dataMovimentacao'] ?? null));
+            $mov->setTenant($processo->getTenant());
             $processo->addMovimentacao($mov);
         }
     }

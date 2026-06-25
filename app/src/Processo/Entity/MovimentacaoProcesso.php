@@ -2,11 +2,13 @@
 
 namespace App\Processo\Entity;
 
+use App\Entity\Tenant\Tenant;
 use App\Processo\Repository\MovimentacaoProcessoRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: MovimentacaoProcessoRepository::class)]
-class MovimentacaoProcesso
+class MovimentacaoProcesso implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -28,6 +30,10 @@ class MovimentacaoProcesso
     #[ORM\ManyToOne(targetEntity: Processo::class, inversedBy: 'movimentacoes')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Processo $processo = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     public function getId(): ?int
     {
@@ -86,6 +92,17 @@ class MovimentacaoProcesso
     public function setProcesso(?Processo $processo): self
     {
         $this->processo = $processo;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 }

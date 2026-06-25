@@ -3,21 +3,25 @@
 namespace App\Processo\Entity;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Processo\Repository\ProcessoRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ProcessoRepository::class)]
+#[ORM\UniqueConstraint(name: 'uniq_processo_tenant_numero', columns: ['tenant_id', 'numero_processo'])]
 #[ORM\HasLifecycleCallbacks]
-class Processo
+class Processo implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
 
-    #[ORM\Column(length: 50, unique: true)]
+    // Unicidade do número é por escritório (UniqueConstraint composto tenant_id+numero_processo).
+    #[ORM\Column(length: 50)]
     private string $numeroProcesso = '';
 
     #[ORM\Column(length: 255)]
@@ -76,6 +80,10 @@ class Processo
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true)]
     private ?User $criadoPor = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     public function __construct()
     {
@@ -383,6 +391,17 @@ class Processo
     public function setCriadoPor(?User $criadoPor): self
     {
         $this->criadoPor = $criadoPor;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

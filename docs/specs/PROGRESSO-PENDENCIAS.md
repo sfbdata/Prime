@@ -68,7 +68,19 @@ Decisões do dono: **fix-forward**, **abordagem sistêmica primeiro**, recomenda
   global de cpf/cnpj vs por-tenant, guard por-id deferido). **Deploy prod:** rodar a migration;
   conferir antes `SELECT COUNT(*) FROM tenant` e órfãos pós-backfill (se multi-tenant com órfão,
   a migration aborta de propósito).
-- **Próximo (S3+):** P0 Processo → P0 Agenda (mesmo padrão), depois P1/P2.
+- **S3 ✅ P0 Processo (entregue):** `Processo` (raiz) + `DocumentoProcesso`/`MovimentacaoProcesso`/
+  `ParteProcesso` → `TenantAware` + coluna `tenant` NOT NULL. Migration `Version20260625192651`
+  (processo: backfill autor → fallback tenant único → NOT NULL + FK/índice; filhas herdam do pai;
+  **unique de `numero_processo`: GLOBAL → composto `(tenant_id, numero_processo)`**). Aplicada no
+  dev: 3 processos → tenant 4, filhas 13/13/6 herdaram, 0 órfãos. 8 write-sites com `setTenant`
+  (ProcessoController new+sync, PastaController vincular+fill, DatajudProcessoMapper c/ guard,
+  Command CLI via processoBase, AppFixtures). Testes: filtro + **4 dropdowns de metadados** +
+  IDOR de Processo e de cada filha + número único por-tenant + HTTP show/edit/delete 404. Suíte
+  **752/752**. Spec: `docs/specs/processo-isolamento-tenant.md`. Revisão adversarial aprovada
+  (follow-ups: down() pós-colisão, CLI cross-tenant, api/search sem permissão). **Deploy prod:**
+  rodar a migration; conferir antes `SELECT COUNT(*) FROM tenant` e órfãos pós-backfill natural.
+- **Próximo (S4+):** P0 Agenda (`Evento`/`LegendaCor`, mesmo padrão; decidir dono das legendas),
+  depois P1 (Pasta/Expediente) e P2 (Tarefa/Ponto/Profile).
 
 ## Detalhamento por etapa
 

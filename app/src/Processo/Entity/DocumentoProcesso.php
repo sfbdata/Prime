@@ -2,11 +2,13 @@
 
 namespace App\Processo\Entity;
 
+use App\Entity\Tenant\Tenant;
 use App\Processo\Repository\DocumentoProcessoRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: DocumentoProcessoRepository::class)]
-class DocumentoProcesso
+class DocumentoProcesso implements TenantAware
 {
     public const TIPO_PECA = 'PECA';
     public const TIPO_PROCURACAO = 'PROCURACAO';
@@ -23,6 +25,10 @@ class DocumentoProcesso
     #[ORM\ManyToOne(targetEntity: Processo::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Processo $processo = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\Column(length: 40)]
     private string $tipo;
@@ -127,5 +133,17 @@ class DocumentoProcesso
     public function getCriadoEm(): \DateTimeImmutable
     {
         return $this->criadoEm;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
+
+        return $this;
     }
 }

@@ -79,6 +79,8 @@ class AtualizarProcessoDatajudCommand extends Command
             if (!$processo) {
                 $processo = new Processo();
                 $processo->setNumeroProcesso($numero);
+                // CLI não tem tenant na sessão: herda do processo base informado.
+                $processo->setTenant($processoBase->getTenant());
             }
 
             $processosPorNumero[$numero] = $processo;

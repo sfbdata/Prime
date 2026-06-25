@@ -77,6 +77,10 @@ class DatajudProcessoMapper
             $parte->setNome($this->stringOrDefault($parteData['nome'] ?? 'Desconhecido'));
             $parte->setDocumento($parteData['documento'] ?? $parteData['cpfCnpj'] ?? null);
             $parte->setPapel($parteData['papel'] ?? $parteData['qualificacao'] ?? null);
+            // Busca efêmera da API (processo não persistido) não tem tenant; só propaga quando há.
+            if ($processo->getTenant() !== null) {
+                $parte->setTenant($processo->getTenant());
+            }
             $processo->addParte($parte);
         }
     }
@@ -98,6 +102,9 @@ class DatajudProcessoMapper
             $orgaoMovimento = $movimento['orgaoJulgador']['nomeOrgao'] ?? $movimento['orgaoJulgador']['nome'] ?? null;
             $movimentacao->setOrgao($this->fixOrgaoJulgador($orgaoMovimento));
             $movimentacao->setDataMovimentacao($this->parseDateOnly($movimento['dataHora'] ?? null));
+            if ($processo->getTenant() !== null) {
+                $movimentacao->setTenant($processo->getTenant());
+            }
             $processo->addMovimentacao($movimentacao);
         }
     }
