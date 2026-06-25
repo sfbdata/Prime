@@ -606,7 +606,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             ],
         ];
 
+        $userTenantRepo = $manager->getRepository(UserTenant::class);
+
         foreach ($dados as $dado) {
+            $tenant = $userTenantRepo->findOneBy(['user' => $dado['solicitante']])?->getTenant();
+
             $chamado = new Chamado();
             $chamado->setTitulo($dado['titulo']);
             $chamado->setDescricao($dado['descricao']);
@@ -614,6 +618,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $chamado->setPrioridade($dado['prioridade']);
             $chamado->setStatus($dado['status']);
             $chamado->setDepartamento($dado['departamento']);
+            $chamado->setTenant($tenant);
             $chamado->setSolicitante($dado['solicitante']);
             $chamado->setResponsavel($dado['responsavel']);
             $manager->persist($chamado);

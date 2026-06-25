@@ -3,6 +3,7 @@
 namespace App\Entity\ServiceDesk;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Repository\ChamadoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
@@ -56,6 +57,10 @@ class Chamado implements Auditavel
 
     #[ORM\Column(length: 100, nullable: true)]
     private ?string $departamento = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -176,6 +181,17 @@ class Chamado implements Auditavel
     public function setDepartamento(?string $departamento): self
     {
         $this->departamento = $departamento;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

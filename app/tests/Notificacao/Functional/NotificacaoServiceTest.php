@@ -55,6 +55,7 @@ final class NotificacaoServiceTest extends KernelTestCase
 
         $chamado = new Chamado();
         $chamado->setTitulo('Impressora não funciona');
+        $chamado->setTenant($tenant);
         $chamado->setSolicitante($solicitante);
         $this->em->persist($chamado);
         $this->em->flush();
@@ -105,6 +106,7 @@ final class NotificacaoServiceTest extends KernelTestCase
 
         $chamado = new Chamado();
         $chamado->setTitulo('Chamado do tenant A');
+        $chamado->setTenant($tenantA);
         $chamado->setSolicitante($solicitante);
         $this->em->persist($chamado);
         $this->em->flush();
@@ -137,6 +139,7 @@ final class NotificacaoServiceTest extends KernelTestCase
 
         $chamado = new Chamado();
         $chamado->setTitulo('Sem gestores');
+        $chamado->setTenant($tenant);
         $chamado->setSolicitante($solicitante);
         $this->em->persist($chamado);
         $this->em->flush();

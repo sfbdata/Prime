@@ -7,6 +7,7 @@ use App\Entity\Notificacao;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\ServiceDesk\ChamadoAnexo;
 use App\Entity\ServiceDesk\ChamadoInteracao;
+use App\Entity\Tenant\Tenant;
 use App\Form\ChamadoInteracaoType;
 use App\Form\ChamadoType;
 use App\Repository\ChamadoRepository;
@@ -89,6 +90,7 @@ class ServiceDeskController extends AbstractController
         ];
 
         $chamados = $chamadoRepository->findAllFiltered(
+            $tenant,
             $filtros['status'],
             $filtros['categoria'],
             $filtros['prioridade'],
@@ -100,16 +102,16 @@ class ServiceDeskController extends AbstractController
         $tecnicos = $userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
 
         // Estatísticas
-        $countsByStatus = $chamadoRepository->countByStatus();
+        $countsByStatus = $chamadoRepository->countByStatus($tenant);
         $stats = [
             'total' => count($chamados),
             'abertos' => $countsByStatus[Chamado::STATUS_ABERTO] ?? 0,
             'em_andamento' => $countsByStatus[Chamado::STATUS_EM_ANDAMENTO] ?? 0,
             'resolvidos' => $countsByStatus[Chamado::STATUS_RESOLVIDO] ?? 0,
-            'nao_atribuidos' => count($chamadoRepository->findAbertosNaoAtribuidos()),
-            'urgentes' => count($chamadoRepository->findUrgentes()),
-            'tempo_medio' => $chamadoRepository->getTempoMedioResolucao(),
-            'por_categoria' => $chamadoRepository->countByCategoria(),
+            'nao_atribuidos' => count($chamadoRepository->findAbertosNaoAtribuidos($tenant)),
+            'urgentes' => count($chamadoRepository->findUrgentes($tenant)),
+            'tempo_medio' => $chamadoRepository->getTempoMedioResolucao($tenant),
+            'por_categoria' => $chamadoRepository->countByCategoria($tenant),
         ];
 
         return $this->render('servicedesk/index.html.twig', [
@@ -160,6 +162,7 @@ class ServiceDeskController extends AbstractController
 
         $chamado = new Chamado();
         $chamado->setSolicitante($usuario);
+        $chamado->setTenant($tenant);
 
         $form = $this->createForm(ChamadoType::class, $chamado, [
             'is_edit' => false,
@@ -207,6 +210,7 @@ class ServiceDeskController extends AbstractController
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
+        $this->garantirChamadoDoTenant($chamado, $tenant);
         $isAdmin = $permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage');
 
         // Verificar permissão
@@ -244,6 +248,7 @@ class ServiceDeskController extends AbstractController
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
+        $this->garantirChamadoDoTenant($chamado, $tenant);
         $isAdmin = $permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage');
 
         // Verificar permissão
@@ -284,6 +289,7 @@ class ServiceDeskController extends AbstractController
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
+        $this->garantirChamadoDoTenant($chamado, $tenant);
         if (!$permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para atribuir chamados.');
         }
@@ -331,6 +337,7 @@ class ServiceDeskController extends AbstractController
         /** @var User $usuario */
         $usuario = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
+        $this->garantirChamadoDoTenant($chamado, $tenant);
         if (!$permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para alterar o status de chamados.');
         }
@@ -365,6 +372,16 @@ class ServiceDeskController extends AbstractController
 
         $this->addFlash('success', 'Status alterado com sucesso!');
         return $this->redirectToRoute('servicedesk_show', ['id' => $chamado->getId()]);
+    }
+
+    /**
+     * Garante que o chamado pertence ao tenant atual (evita acesso cross-tenant por ID).
+     */
+    private function garantirChamadoDoTenant(Chamado $chamado, ?Tenant $tenant): void
+    {
+        if ($tenant === null || $chamado->getTenant()?->getId() !== $tenant->getId()) {
+            throw $this->createNotFoundException('Chamado não encontrado.');
+        }
     }
 
     /**
