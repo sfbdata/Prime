@@ -21,6 +21,8 @@ class Notificacao implements Auditavel
     public const TIPO_PONTO_JUSTIFICATIVA_ENVIADA    = 'ponto_justificativa_enviada';
     public const TIPO_PONTO_JUSTIFICATIVA_APROVADA  = 'ponto_justificativa_abonada';
     public const TIPO_PONTO_JUSTIFICATIVA_REJEITADA = 'ponto_justificativa_rejeitada';
+    public const TIPO_SERVICEDESK = 'servicedesk';
+    public const TIPO_SERVICEDESK_NOVO = 'servicedesk_novo';
     public const TIPO_SERVICEDESK_ATRIBUICAO = 'servicedesk_atribuicao';
 
     /** Categorias de notificação (derivadas do tipo). */
@@ -30,6 +32,7 @@ class Notificacao implements Auditavel
     /** Tipos que representam ações de gestão/admin (o resto é pessoal). */
     public const TIPOS_GESTAO = [
         self::TIPO_PONTO_JUSTIFICATIVA_ENVIADA,
+        self::TIPO_SERVICEDESK_NOVO,
         self::TIPO_SERVICEDESK_ATRIBUICAO,
     ];
 
@@ -179,6 +182,7 @@ class Notificacao implements Auditavel
             self::TIPO_PONTO_JUSTIFICATIVA_ENVIADA    => 'bi-file-earmark-text text-info',
             self::TIPO_PONTO_JUSTIFICATIVA_APROVADA  => 'bi-check2-circle text-success',
             self::TIPO_PONTO_JUSTIFICATIVA_REJEITADA => 'bi-x-circle text-danger',
+            self::TIPO_SERVICEDESK_NOVO => 'bi-ticket-detailed text-primary',
             self::TIPO_SERVICEDESK_ATRIBUICAO => 'bi-person-check text-info',
             default => 'bi-bell text-secondary',
         };

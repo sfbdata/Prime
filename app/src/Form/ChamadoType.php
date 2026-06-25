@@ -77,9 +77,9 @@ class ChamadoType extends AbstractType
                 ],
                 'constraints' => [
                     new All([
-                        new File([
-                            'maxSize' => '10M',
-                            'mimeTypes' => [
+                        new File(
+                            maxSize: '10M',
+                            mimeTypes: [
                                 'application/pdf',
                                 'application/msword',
                                 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -91,8 +91,8 @@ class ChamadoType extends AbstractType
                                 'application/zip',
                                 'text/plain',
                             ],
-                            'mimeTypesMessage' => 'Arquivo não permitido. Tipos aceitos: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, ZIP, TXT',
-                        ])
+                            mimeTypesMessage: 'Arquivo não permitido. Tipos aceitos: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF, ZIP, TXT',
+                        )
                     ])
                 ],
             ]);

@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Entity\Ponto\JustificativaPonto;
+use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
@@ -218,6 +219,45 @@ class NotificacaoService
                 Notificacao::TIPO_PONTO_JUSTIFICATIVA_ENVIADA,
                 sprintf('%s enviou uma justificativa de ponto para %s.', $user->getFullName(), $data),
                 $urlGestor
+            );
+        }
+    }
+
+    /**
+     * Notifica os gestores de TI do tenant (permissão admin.servicedesk.manage) sobre a
+     * abertura de um novo chamado. O solicitante é excluído, mesmo que seja gestor.
+     *
+     * O $tenant DEVE ser o tenant do solicitante do chamado: a entidade Chamado ainda não
+     * carrega o tenant (legado), então o isolamento depende de quem chama passar o tenant
+     * correto (hoje resolvido via TenantContext no controller). Ao migrar o ServiceDesk
+     * (E4), persistir o tenant no Chamado e derivá-lo daqui.
+     */
+    public function notificarNovoChamado(Chamado $chamado, Tenant $tenant, string $url): void
+    {
+        $usuarios = $this->userRepository->createQueryBuilder('u')
+            ->join(
+                'App\Entity\Auth\UserTenant',
+                'ut',
+                'WITH',
+                'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true'
+            )
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getResult();
+
+        $solicitanteId = $chamado->getSolicitante()?->getId();
+
+        $gestores = array_filter($usuarios, fn(User $u) =>
+            $u->getId() !== $solicitanteId
+            && $this->permissionChecker->canAdminister($u, $tenant, 'admin.servicedesk.manage')
+        );
+
+        foreach ($gestores as $gestor) {
+            $this->criarNotificacao(
+                $gestor,
+                Notificacao::TIPO_SERVICEDESK_NOVO,
+                sprintf('Novo chamado #%d: %s', $chamado->getId(), $chamado->getTitulo()),
+                $url
             );
         }
     }

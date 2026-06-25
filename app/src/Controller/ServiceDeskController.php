@@ -178,7 +178,7 @@ class ServiceDeskController extends AbstractController
             // Criar interação de abertura
             $interacao = new ChamadoInteracao();
             $interacao->setChamado($chamado);
-            $interacao->setUsuario($usuario);
+            $interacao->setAutor($usuario);
             $interacao->setTipo(ChamadoInteracao::TIPO_SISTEMA);
             $interacao->setMensagem("Chamado aberto por {$usuario->getFullName()}");
 
@@ -260,7 +260,7 @@ class ServiceDeskController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $interacao->setChamado($chamado);
-            $interacao->setUsuario($usuario);
+            $interacao->setAutor($usuario);
             $interacao->setTipo($isAdmin ? ChamadoInteracao::TIPO_RESPOSTA : ChamadoInteracao::TIPO_COMENTARIO);
 
             $em->persist($interacao);
@@ -306,7 +306,7 @@ class ServiceDeskController extends AbstractController
 
         $interacao = new ChamadoInteracao();
         $interacao->setChamado($chamado);
-        $interacao->setUsuario($usuario);
+        $interacao->setAutor($usuario);
         $interacao->setTipo(ChamadoInteracao::TIPO_ATRIBUICAO);
         $interacao->setMensagem($mensagem);
 
@@ -353,7 +353,7 @@ class ServiceDeskController extends AbstractController
         // Criar interação de mudança de status
         $interacao = new ChamadoInteracao();
         $interacao->setChamado($chamado);
-        $interacao->setUsuario($usuario);
+        $interacao->setAutor($usuario);
         $interacao->setTipo(ChamadoInteracao::TIPO_STATUS);
         $interacao->setMensagem("Status alterado de \"{$chamado->getStatusLabel()}\" para \"{$this->getStatusLabel($novoStatus)}\" por {$usuario->getFullName()}");
 
@@ -381,7 +381,7 @@ class ServiceDeskController extends AbstractController
 
             $anexo = new ChamadoAnexo();
             $anexo->setChamado($chamado);
-            $anexo->setUsuario($usuario);
+            $anexo->setEnviadoPor($usuario);
             $anexo->setNomeOriginal($arquivo->getClientOriginalName());
             $anexo->setNomeArquivo($nomeArquivo);
             $anexo->setMimeType($arquivo->getClientMimeType() ?? 'application/octet-stream');
@@ -396,8 +396,16 @@ class ServiceDeskController extends AbstractController
      */
     private function notificarNovoChamado(Chamado $chamado): void
     {
-        // TODO: Implementar notificação para admins/equipe TI
-        // Por enquanto apenas log
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
+            return;
+        }
+
+        $this->notificacaoService->notificarNovoChamado(
+            $chamado,
+            $tenant,
+            $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])
+        );
     }
 
     /**
@@ -411,13 +419,13 @@ class ServiceDeskController extends AbstractController
         }
 
         $solicitante = $chamado->getSolicitante();
-        $autor = $interacao->getUsuario();
+        $autor = $interacao->getAutor();
 
         // Se o autor não é o solicitante, notifica o solicitante
         if ($solicitante && $autor !== $solicitante) {
             $this->notificacaoService->criarNotificacao(
                 $solicitante,
-                'servicedesk',
+                Notificacao::TIPO_SERVICEDESK,
                 "Nova resposta no chamado #{$chamado->getId()}: {$chamado->getTitulo()}",
                 $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])
             );
@@ -428,7 +436,7 @@ class ServiceDeskController extends AbstractController
         if ($responsavel && $autor === $solicitante) {
             $this->notificacaoService->criarNotificacao(
                 $responsavel,
-                'servicedesk',
+                Notificacao::TIPO_SERVICEDESK,
                 "Nova mensagem no chamado #{$chamado->getId()}: {$chamado->getTitulo()}",
                 $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])
             );
@@ -467,7 +475,7 @@ class ServiceDeskController extends AbstractController
         if (isset($mensagens[$novoStatus])) {
             $this->notificacaoService->criarNotificacao(
                 $solicitante,
-                'servicedesk',
+                Notificacao::TIPO_SERVICEDESK,
                 $mensagens[$novoStatus],
                 $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])
             );
