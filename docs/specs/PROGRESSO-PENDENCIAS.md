@@ -21,6 +21,23 @@ Status: ⬜ pendente · 🟡 em andamento · ✅ feito · ⏭️ pulado
 
 ---
 
+## 🔴🔴 ACHADO CRÍTICO (descoberto durante o follow-up de uploads) — Cliente sem isolamento de tenant
+
+A entidade `App\Cliente\Entity\Cliente` (e subclasses PF/PJ) **não possui campo/relação
+`tenant`** (só `criadoPor`). Não há Doctrine SQL filter global de tenant no projeto. O
+`ClienteController::index()` lista via `ClienteRepository::findAll()`/`findByFilters()`, e
+`findByFilters()` **não filtra por tenant**. Resultado: **qualquer usuário com
+`modules.clientes.view` enxerga a base de clientes de TODOS os escritórios** (nome, CPF/CNPJ,
+endereço, telefone, documentos). Vazamento cross-tenant sistêmico da base de clientes.
+
+- Severidade: **CRÍTICA** (dados pessoais/sensíveis de clientes entre escritórios).
+- Relação: é a causa-raiz do IDOR de `cliente_documento_download` e maior que ele.
+- **NÃO é hotfix:** corrigir exige adicionar `tenant` a `Cliente` + migration + backfill
+  (provável via `criadoPor`→tenant) + filtrar TODAS as queries de cliente + testes amplos +
+  decisão de produção. Aguarda planejamento e decisão do responsável.
+- Verificar também se Processo/Pasta e outros domínios têm o mesmo problema (Pasta tem
+  `tenant`? confirmar). Pode ser um padrão.
+
 ## Detalhamento por etapa
 
 ### E1 — Finalizar tema escuro ✅
