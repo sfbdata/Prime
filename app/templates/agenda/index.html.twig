@@ -417,6 +417,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
+                _token: '{{ csrf_token('agenda_atualizar_datas') }}',
                 start: event.start.toISOString(),
                 end: event.end ? event.end.toISOString() : event.start.toISOString(),
                 allDay: event.allDay

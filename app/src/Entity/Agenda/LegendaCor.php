@@ -2,19 +2,25 @@
 
 namespace App\Entity\Agenda;
 
+use App\Entity\Tenant\Tenant;
 use App\Repository\LegendaCorRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: LegendaCorRepository::class)]
 #[ORM\Table(name: 'legenda_cor')]
 #[ORM\HasLifecycleCallbacks]
-class LegendaCor implements Auditavel
+class LegendaCor implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column(type: 'integer')]
     private ?int $id = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\Column(length: 100)]
     private string $nome;
@@ -89,5 +95,16 @@ class LegendaCor implements Auditavel
     public function getModificadoEm(): ?\DateTimeImmutable
     {
         return $this->modificadoEm;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
+        return $this;
     }
 }

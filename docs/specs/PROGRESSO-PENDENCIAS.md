@@ -79,8 +79,24 @@ Decisões do dono: **fix-forward**, **abordagem sistêmica primeiro**, recomenda
   **752/752**. Spec: `docs/specs/processo-isolamento-tenant.md`. Revisão adversarial aprovada
   (follow-ups: down() pós-colisão, CLI cross-tenant, api/search sem permissão). **Deploy prod:**
   rodar a migration; conferir antes `SELECT COUNT(*) FROM tenant` e órfãos pós-backfill natural.
-- **Próximo (S4+):** P0 Agenda (`Evento`/`LegendaCor`, mesmo padrão; decidir dono das legendas),
-  depois P1 (Pasta/Expediente) e P2 (Tarefa/Ponto/Profile).
+- **S4 ✅ P0 Agenda (entregue):** `Evento` + `LegendaCor` → `TenantAware`. Migration
+  `Version20260625200952` (evento: backfill via `criador` + fallback tenant único; `legenda_cor`:
+  config por-tenant, fallback tenant único — vazia no dev). Aplicada: 6 eventos → tenant 4, 0
+  órfãos. Além do filtro: **dropdown de participantes** escopado por tenant (3 vetores + modal,
+  via `UserRepository::findColaboradoresAtivosPorTenant`/`findPorIdsETenant`), **legendas**
+  edição/remoção só do tenant (sem `find($id)` cru), **CSRF** em `atualizar-datas`, **permissão**
+  em `agenda_legendas`. Testes: calendário (incl. ramo `visibilidade=todos`), IDOR de Evento e
+  LegendaCor, salvarLegendas não apaga de outro tenant, participante de outro tenant rejeitado.
+  Suíte **760/760**. Spec: `docs/specs/agenda-isolamento-tenant.md`. Revisão adversarial aprovada.
+  ⚠️ Follow-up achado: `DemitirFuncionarioUseCase` faz SQL nativo cross-tenant em
+  `evento_participante` (frente própria).
+
+## 🎉 P0 catastrófico COMPLETO
+Os três P0 da `auditoria-multitenant.md` (Cliente, Processo, Agenda) estão isolados por tenant
+(coluna + filtro + migration + testes cross-tenant). Falta o **P1** (Pasta/Expediente: marcar
+`TenantAware` + fechar queries/rotas parciais) e o **P2** (Tarefa/Ponto/Profile), de menor
+severidade. Itens sistêmicos pendentes: SQL nativo cross-tenant (`DemitirFuncionarioUseCase`),
+unique global de `cpf/cnpj` (Cliente), bulk DQL `updatePastEventsStatus`, CSRF em endpoints JSON.
 
 ## Detalhamento por etapa
 

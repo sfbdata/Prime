@@ -3,15 +3,17 @@
 namespace App\Entity\Agenda;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Repository\EventoRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: EventoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Evento implements Auditavel
+class Evento implements Auditavel, TenantAware
 {
     public const STATUS_AGENDADO = 'agendado';
     public const STATUS_CONCLUIDO = 'concluido';
@@ -71,6 +73,10 @@ class Evento implements Auditavel
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $criador = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\ManyToMany(targetEntity: User::class)]
     #[ORM\JoinTable(name: 'evento_participante')]
@@ -239,6 +245,17 @@ class Evento implements Auditavel
     public function setCriador(User $criador): self
     {
         $this->criador = $criador;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

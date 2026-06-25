@@ -650,6 +650,8 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
     // -----------------------------------------------
     private function loadEventos(ObjectManager $manager, array $users): void
     {
+        $tenant = $manager->getRepository(UserTenant::class)->findOneBy(['user' => $users[0]])?->getTenant();
+
         $dados = [
             [
                 'titulo'      => 'Audiência Trabalhista - João Ferreira x Empresa XYZ',
@@ -745,6 +747,7 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $evento->setDiaInteiro($dado['diaInteiro']);
             $evento->setRecorrente($dado['recorrente']);
             $evento->setCriador($dado['criador']);
+            $evento->setTenant($tenant);
 
             if (!empty($dado['tipoRecorrencia'])) {
                 $evento->setTipoRecorrencia($dado['tipoRecorrencia']);

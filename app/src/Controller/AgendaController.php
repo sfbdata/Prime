@@ -61,7 +61,7 @@ class AgendaController extends AbstractController
             return $this->redirectToRoute('homepage');
         }
 
-        $usuarios = $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
+        $usuarios = $this->userRepository->findColaboradoresAtivosPorTenant($tenant);
         $legendas = $this->legendaCorRepository->findAllOrdered();
         
         return $this->render('agenda/index.html.twig', [
@@ -151,6 +151,7 @@ class AgendaController extends AbstractController
 
             $evento = new Evento();
             $evento->setCriador($user);
+            $evento->setTenant($tenant);
             $evento->setTitulo($data['titulo']);
             $evento->setDescricao($data['descricao'] ?? null);
             $evento->setLocal($data['local'] ?? null);
@@ -176,13 +177,11 @@ class AgendaController extends AbstractController
                 }
             }
 
-            // Participantes
+            // Participantes — só usuários do tenant atual (rejeita ids de outro escritório)
             if (!empty($data['participantes']) && is_array($data['participantes'])) {
-                foreach ($data['participantes'] as $userId) {
-                    $participante = $this->userRepository->find($userId);
-                    if ($participante) {
-                        $evento->addParticipante($participante);
-                    }
+                $ids = array_map('intval', $data['participantes']);
+                foreach ($this->userRepository->findPorIdsETenant($ids, $tenant) as $participante) {
+                    $evento->addParticipante($participante);
                 }
             }
 
@@ -224,6 +223,7 @@ class AgendaController extends AbstractController
 
         $evento = new Evento();
         $evento->setCriador($user);
+        $evento->setTenant($tenant);
 
         // Se veio data do clique no calendário
         if ($request->query->has('data')) {
@@ -236,7 +236,7 @@ class AgendaController extends AbstractController
             $evento->setDataFim($now->modify('+1 hour'));
         }
 
-        $form = $this->createForm(EventoType::class, $evento);
+        $form = $this->createForm(EventoType::class, $evento, ['tenant' => $tenant]);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
@@ -311,6 +311,7 @@ class AgendaController extends AbstractController
 
         $form = $this->createForm(EventoType::class, $evento, [
             'duracao_inicial' => max(0.5, $duracaoAtual),
+            'tenant' => $tenant,
         ]);
         $form->handleRequest($request);
 
@@ -412,6 +413,10 @@ class AgendaController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
 
+        if (!$this->isCsrfTokenValid('agenda_atualizar_datas', $data['_token'] ?? '')) {
+            return $this->json(['success' => false, 'message' => 'Token de segurança inválido'], 403);
+        }
+
         if (isset($data['start'])) {
             $evento->setDataInicio(new \DateTimeImmutable($data['start']));
         }
@@ -446,9 +451,14 @@ class AgendaController extends AbstractController
             return $this->json(['success' => false, 'message' => 'Dados inválidos'], 400);
         }
 
-        // Obter IDs existentes
+        // Legendas do tenant atual (findAll já é filtrado pelo TenantFilter). O lookup por id
+        // usa só este conjunto: ids de outro escritório são ignorados (find() por PK não é
+        // filtrado, então NÃO usamos o repositório direto para editar por id).
         $legendasExistentes = $this->legendaCorRepository->findAll();
-        $idsExistentes = array_map(fn($l) => $l->getId(), $legendasExistentes);
+        $porId = [];
+        foreach ($legendasExistentes as $l) {
+            $porId[$l->getId()] = $l;
+        }
         $idsRecebidos = [];
 
         foreach ($data['legendas'] as $index => $legendaData) {
@@ -461,8 +471,9 @@ class AgendaController extends AbstractController
             }
 
             if ($id && is_numeric($id)) {
-                $legenda = $this->legendaCorRepository->find($id);
-                if ($legenda) {
+                // Edição: só se a legenda pertencer ao tenant atual.
+                if (isset($porId[(int) $id])) {
+                    $legenda = $porId[(int) $id];
                     $legenda->setNome($nome);
                     $legenda->setCor($cor);
                     $legenda->setOrdem($index);
@@ -473,11 +484,12 @@ class AgendaController extends AbstractController
                 $legenda->setNome($nome);
                 $legenda->setCor($cor);
                 $legenda->setOrdem($index);
+                $legenda->setTenant($tenant);
                 $em->persist($legenda);
             }
         }
 
-        // Remover legendas que não foram enviadas
+        // Remover legendas do tenant atual que não foram enviadas.
         foreach ($legendasExistentes as $legenda) {
             if (!in_array($legenda->getId(), $idsRecebidos)) {
                 $em->remove($legenda);
@@ -503,6 +515,13 @@ class AgendaController extends AbstractController
     #[Route('/legendas', name: 'agenda_legendas', methods: ['GET'])]
     public function getLegendas(): JsonResponse
     {
+        /** @var \App\Entity\Auth\User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if (!$this->permissionChecker->canAccessModule($currentUser, $tenant, 'agenda')) {
+            return $this->json(['error' => 'Sem permissão'], 403);
+        }
+
         $legendas = $this->legendaCorRepository->findAllOrdered();
         $legendasArray = array_map(fn($l) => [
             'id' => $l->getId(),

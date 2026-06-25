@@ -4,6 +4,7 @@ namespace App\Form;
 
 use App\Entity\Agenda\Evento;
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Repository\LegendaCorRepository;
 use App\Repository\UserRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
@@ -20,7 +21,8 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 class EventoType extends AbstractType
 {
     public function __construct(
-        private readonly LegendaCorRepository $legendaCorRepository
+        private readonly LegendaCorRepository $legendaCorRepository,
+        private readonly UserRepository $userRepository,
     ) {
     }
 
@@ -106,12 +108,8 @@ class EventoType extends AbstractType
                 'label' => 'Participantes',
                 'multiple' => true,
                 'required' => false,
-                'query_builder' => function (UserRepository $repo) {
-                    return $repo->createQueryBuilder('u')
-                        ->where('u.isActive = :active')
-                        ->setParameter('active', true)
-                        ->orderBy('u.fullName', 'ASC');
-                },
+                // Só usuários ativos do tenant atual (evita vazar/selecionar pessoas de outro escritório).
+                'choices' => $this->userRepository->findColaboradoresAtivosPorTenant($options['tenant']),
                 'attr' => ['class' => 'select2-participantes'],
             ])
             ->add('recorrente', CheckboxType::class, [
@@ -144,5 +142,7 @@ class EventoType extends AbstractType
             'data_class' => Evento::class,
             'duracao_inicial' => 1,
         ]);
+        $resolver->setRequired('tenant');
+        $resolver->setAllowedTypes('tenant', Tenant::class);
     }
 }
