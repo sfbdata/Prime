@@ -3,16 +3,18 @@
 namespace App\Entity\Tarefa;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Tarefa\Repository\TarefaRepository;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Tarefa implements Auditavel
+class Tarefa implements Auditavel, TenantAware
 {
     public const STATUS_PENDENTE    = 'pendente';
     public const STATUS_EM_REVISAO  = 'em_revisao';
@@ -53,6 +55,10 @@ class Tarefa implements Auditavel
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'tarefas')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private Pasta $pasta;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
@@ -157,6 +163,17 @@ class Tarefa implements Auditavel
     public function setPasta(Pasta $pasta): self
     {
         $this->pasta = $pasta;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

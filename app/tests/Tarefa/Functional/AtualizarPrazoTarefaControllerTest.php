@@ -78,6 +78,7 @@ final class AtualizarPrazoTarefaControllerTest extends JusPrimeWebTestCase
         $tarefa->setTitulo('Meta com prazo');
         $tarefa->setDescricao('Descrição');
         $tarefa->setPasta($pasta);
+        $tarefa->setTenant($tenant);
         $tarefa->setCriadoPor($criadorMeta);
         $tarefa->setPrazo($prazo);
         $em->persist($tarefa);
@@ -195,14 +196,20 @@ final class AtualizarPrazoTarefaControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $atacante, $tenantB);
 
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear(); // identity map vazia, como em produção por request → ParamConverter consulta o banco com o filtro
+
         $client->request('POST', "/tarefas/{$id}/prazo", [
             '_token' => $this->gerarCsrf('atualizar_prazo_tarefa_' . $id),
             'prazo'  => '2026-12-31',
         ]);
 
-        self::assertResponseStatusCodeSame(403);
+        // Com o filtro de tenant, o find() cross-tenant retorna null → 404 antes do guard
+        self::assertResponseStatusCodeSame(404);
 
-        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
         $em->clear();
         $recarregada = $em->find(Tarefa::class, $id);
         self::assertSame('2026-01-01', $recarregada->getPrazo()?->format('Y-m-d'), 'meta do tenant A deve permanecer intacta');

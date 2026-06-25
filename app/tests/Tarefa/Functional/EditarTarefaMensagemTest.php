@@ -83,12 +83,14 @@ final class EditarTarefaMensagemTest extends JusPrimeWebTestCase
         $tarefa->setTitulo('Meta de teste');
         $tarefa->setDescricao('Descrição');
         $tarefa->setPasta($pasta);
+        $tarefa->setTenant($tenant);
         $em->persist($tarefa);
 
         $mensagem = new TarefaMensagem();
         $mensagem->setTarefa($tarefa);
         $mensagem->setUsuario($autor);
         $mensagem->setMensagem('Conteúdo original');
+        $mensagem->setTenant($tenant);
         $em->persist($mensagem);
         $em->flush();
 
@@ -180,8 +182,10 @@ final class EditarTarefaMensagemTest extends JusPrimeWebTestCase
     /**
      * IDOR cross-tenant: um usuário do tenant B, mesmo com acesso legítimo ao
      * módulo no SEU tenant, não pode editar uma mensagem cuja tarefa pertence
-     * ao tenant A (onde ele não tem vínculo). A guarda verificarAcessoTarefa
-     * barra ANTES da regra de autoria → AccessDenied (403, resposta não-JSON).
+     * ao tenant A (onde ele não tem vínculo). Com o TenantFilter ligado, o
+     * find()/ParamConverter da mensagem (TenantAware) retorna null → 404 antes
+     * mesmo da guarda verificarAcessoTarefa. em->clear() antes do request emula
+     * o início de request em produção (identity map vazia).
      */
     #[TestDox('Usuário do tenant B não edita mensagem do tenant A (IDOR cross-tenant)')]
     public function testCrossTenantNaoEditaMensagemDeOutroTenant(): void
@@ -198,15 +202,20 @@ final class EditarTarefaMensagemTest extends JusPrimeWebTestCase
         // Atacante autenticado no PRÓPRIO tenant (B), onde tem acesso ao módulo
         $this->logarComTenant($client, $atacante, $tenantB);
 
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear(); // identity map vazia, como em produção por request → ParamConverter consulta o banco com o filtro
+
         $client->request('POST', "/tarefas/mensagem/{$msgId}/editar", [
             '_token'   => $this->gerarCsrf('editar_mensagem_tarefa_' . $msgId),
             'conteudo' => 'Sequestro cross-tenant',
         ]);
 
-        self::assertResponseStatusCodeSame(403);
+        self::assertResponseStatusCodeSame(404);
 
-        // O dado do tenant A permanece intacto
-        $em = static::getContainer()->get(EntityManagerInterface::class);
+        // O dado do tenant A permanece intacto (verificado com o filtro desligado)
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
         $em->clear();
         $intacta = $em->find(TarefaMensagem::class, $msgId);
         self::assertSame('Conteúdo original', $intacta->getMensagem());

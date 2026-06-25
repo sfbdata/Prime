@@ -27,6 +27,12 @@ final class TarefaFactory extends PersistentProxyObjectFactory
 
     protected function initialize(): static
     {
-        return $this;
+        // Tarefa é TenantAware (coluna tenant NOT NULL). Quando o teste não informa um tenant
+        // explícito, derivamos o da pasta dona — garante tarefa.tenant == pasta.tenant.
+        return $this->afterInstantiate(function (Tarefa $tarefa): void {
+            if ($tarefa->getTenant() === null) {
+                $tarefa->setTenant($tarefa->getPasta()->getTenant());
+            }
+        });
     }
 }

@@ -3,12 +3,14 @@
 namespace App\Entity\Tarefa;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Repository\TarefaMensagemRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: TarefaMensagemRepository::class)]
-class TarefaMensagem implements Auditavel
+class TarefaMensagem implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -18,6 +20,10 @@ class TarefaMensagem implements Auditavel
     #[ORM\ManyToOne(targetEntity: Tarefa::class, inversedBy: 'mensagens')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?Tarefa $tarefa = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
@@ -53,6 +59,17 @@ class TarefaMensagem implements Auditavel
     public function setTarefa(?Tarefa $tarefa): self
     {
         $this->tarefa = $tarefa;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

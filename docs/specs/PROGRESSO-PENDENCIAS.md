@@ -101,9 +101,36 @@ Decisões do dono: **fix-forward**, **abordagem sistêmica primeiro**, recomenda
   `docs/specs/pasta-expediente-isolamento-tenant.md`. Revisão adversarial: reprovou o NUP/CLI →
   corrigido. Kanban fora de escopo (já isolado por board).
 
-## 🎉 P0 catastrófico COMPLETO + P1 entregue
-Os três P0 (Cliente, Processo, Agenda) **e o P1 (Pasta/Expediente)** estão isolados por tenant.
-Falta o **P2** (Tarefa direta/Ponto/Profile), de menor severidade. Itens sistêmicos pendentes
+- **P2.1 ✅ Tarefa (entregue):** `Tarefa` + `TarefaMensagem` → `TenantAware` + coluna `tenant`
+  NOT NULL. Migration `Version20260625212332` (tarefa: backfill via `pasta.tenant`, pasta_id NOT
+  NULL → 0 órfãos + fallback tenant único; tarefa_mensagem: herda via `tarefa`). **Aplicada no dev
+  via `migrations:execute --up` (NÃO `migrate` — há 2 migrations antigas de Ponto não aplicadas no
+  ledger: `Version20260401000000`/`Version20260408180237`)** + teste sincronizado via `schema:update`.
+  Achado da revisão: `TarefaMensagem` é carregada por id direto (rotas editar/visualizar-anexo da
+  mensagem), então ganhou coluna PRÓPRIA (não só herança) — senão o IDOR só falharia como 500.
+  `setTenant` em `criarParaPasta` + `mensagem`; `TarefaFactory` deriva tenant da pasta via
+  `afterInstantiate`; 6 testes legados ajustados (setTenant). Testes: `findByResponsavel`/
+  `findByProcesso` isolados, IDOR de Tarefa e TarefaMensagem (find→null), HTTP 404 cross-tenant em
+  show/editarMensagem/excluir/prazo (antes davam 403 por cache de identity map — agora 404 reflete
+  produção). Suíte **771/771**. Spec: `docs/specs/tarefa-isolamento-tenant.md`. Revisão adversarial
+  (3 lentes, Opus): aprovada, sem correção de código exigida. **Deploy prod:** rodar a migration
+  ISOLADA (execute --up); conferir antes que a cadeia Cliente/Processo/Pasta já esteja aplicada
+  (backfill lê `pasta.tenant_id`) e `SELECT COUNT(*) FROM tenant` + órfãos.
+
+- **P2.2 ✅ Profile (entregue):** **sem migration / sem mudança de código de produção.** `UserProfile`
+  é 1:1 com `User` (estrutural/compartilhado) → coluna `tenant` seria modelagem errada; o `TenantFilter`
+  não cobre Profile. Verificação read-only: as rotas admin de perfil (`salvarDadosPessoais`,
+  `editUserRole`) já rodam os 2 guards (user-alvo ∈ tenant + admin controla o tenant) ANTES de tocar o
+  perfil → **já isolado**, sem IDOR explorável. O gap era **teste**. Entregue: `PerfilAdminIsolamentoControllerTest`
+  (6 casos: 403/404 nos dois ramos de cada rota, não-criação e não-mutação de perfil; admin `isSystem`
+  como controle). Spec: `docs/specs/profile-isolamento-tenant.md`. Revisão adversarial (Opus): "já isolado"
+  confirmado; achados de completude endereçados (incluída a via `PontoController::exportarFolha→getProfile`,
+  guardada). Suíte **777/777**. Follow-up: `editUserName`/`demitir` (gerência de User, não tocam perfil)
+  usam os mesmos guards mas sem teste cross-tenant — hardening separado.
+
+## 🎉 P0 COMPLETO + P1 + P2.1 (Tarefa) + P2.2 (Profile)
+Os três P0 (Cliente, Processo, Agenda), o P1 (Pasta/Expediente), o P2.1 (Tarefa) **e o P2.2 (Profile)**
+estão isolados por tenant. Falta só o **P2.3 Ponto** (risco ALTO). Itens sistêmicos pendentes
 (follow-ups registrados): SQL nativo cross-tenant + bulk DQL (`DemitirFuncionarioUseCase` em
 `evento_participante` e `pasta.responsavel`), `updatePastEventsStatus` (bulk), unique global de
 `cpf/cnpj` (Cliente), CSRF em endpoints JSON, conferência de NUP duplicado em prod.

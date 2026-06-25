@@ -80,6 +80,7 @@ final class AuditLogRepositoryMetasTimelineTest extends KernelTestCase
         $tarefa->setDescricao('Descrição da meta');
         $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
         $tarefa->setPasta($pasta);
+        $tarefa->setTenant($pasta->getTenant());
         $this->em->persist($tarefa);
 
         return $tarefa;
@@ -127,6 +128,7 @@ final class AuditLogRepositoryMetasTimelineTest extends KernelTestCase
         $mensagemA = new TarefaMensagem();
         $mensagemA->setUsuario($usuario);
         $mensagemA->setMensagem('Observação na meta A');
+        $mensagemA->setTenant($tenant);
         $tarefaA->addMensagem($mensagemA);
         $this->em->persist($mensagemA);
         $this->em->flush();

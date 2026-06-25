@@ -78,6 +78,7 @@ final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
         $tarefa->setTitulo('Meta a excluir');
         $tarefa->setDescricao('Descrição');
         $tarefa->setPasta($pasta);
+        $tarefa->setTenant($tenant);
         $tarefa->setCriadoPor($criadorMeta);
         $em->persist($tarefa);
         $em->flush();
@@ -165,13 +166,19 @@ final class ExcluirTarefaControllerTest extends JusPrimeWebTestCase
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $atacante, $tenantB);
 
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear(); // identity map vazia, como em produção por request → ParamConverter consulta o banco com o filtro
+
         $client->request('POST', "/tarefas/{$id}/excluir", [
             '_token' => $this->gerarCsrf('excluir_tarefa_' . $id),
         ]);
 
-        self::assertResponseStatusCodeSame(403);
+        // Com o filtro de tenant, o find() cross-tenant retorna null → 404 antes do guard
+        self::assertResponseStatusCodeSame(404);
 
-        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
         $em->clear();
         self::assertNotNull($em->find(Tarefa::class, $id), 'meta do tenant A deve permanecer intacta');
     }

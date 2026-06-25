@@ -114,6 +114,7 @@ final class NotificacaoDropdownControllerTest extends JusPrimeWebTestCase
         $tarefa->setTitulo('Meta X');
         $tarefa->setDescricao('...');
         $tarefa->setPasta($pasta);
+        $tarefa->setTenant($tenant);
         $em->persist($tarefa);
 
         $notif = new Notificacao();

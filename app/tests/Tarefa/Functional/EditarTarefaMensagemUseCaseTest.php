@@ -56,12 +56,14 @@ final class EditarTarefaMensagemUseCaseTest extends KernelTestCase
         $tarefa->setTitulo('Meta UC');
         $tarefa->setDescricao('Desc');
         $tarefa->setPasta($pasta);
+        $tarefa->setTenant($tenant);
         $this->em->persist($tarefa);
 
         $mensagem = new TarefaMensagem();
         $mensagem->setTarefa($tarefa);
         $mensagem->setUsuario($autor);
         $mensagem->setMensagem($conteudoInicial);
+        $mensagem->setTenant($tenant);
         $this->em->persist($mensagem);
         $this->em->flush();
 

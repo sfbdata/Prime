@@ -107,6 +107,7 @@ final class TarefaController extends AbstractController
         $tarefa->setDescricao($descricao);
         $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
         $tarefa->setPasta($pasta);
+        $tarefa->setTenant($tenant);
         $tarefa->setCriadoPor($usuario);
 
         $prazo = trim((string) $request->request->get('prazo', ''));
@@ -258,6 +259,7 @@ final class TarefaController extends AbstractController
             $mensagem->setUsuario($usuario);
             $mensagem->setMensagem($texto !== '' ? $texto : '[Arquivo anexado]');
             $mensagem->setArquivoAnexo($arquivoAnexoPath);
+            $mensagem->setTenant($tarefa->getTenant());
             $tarefa->addMensagem($mensagem);
             $entityManager->persist($mensagem);
         }
