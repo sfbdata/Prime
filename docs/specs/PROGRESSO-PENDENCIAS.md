@@ -91,12 +91,22 @@ Decisões do dono: **fix-forward**, **abordagem sistêmica primeiro**, recomenda
   ⚠️ Follow-up achado: `DemitirFuncionarioUseCase` faz SQL nativo cross-tenant em
   `evento_participante` (frente própria).
 
-## 🎉 P0 catastrófico COMPLETO
-Os três P0 da `auditoria-multitenant.md` (Cliente, Processo, Agenda) estão isolados por tenant
-(coluna + filtro + migration + testes cross-tenant). Falta o **P1** (Pasta/Expediente: marcar
-`TenantAware` + fechar queries/rotas parciais) e o **P2** (Tarefa/Ponto/Profile), de menor
-severidade. Itens sistêmicos pendentes: SQL nativo cross-tenant (`DemitirFuncionarioUseCase`),
-unique global de `cpf/cnpj` (Cliente), bulk DQL `updatePastEventsStatus`, CSRF em endpoints JSON.
+- **P1 ✅ Pasta + Expediente (entregue):** 7 entidades de Pasta + `Marcador` → `TenantAware`
+  (já tinham coluna `tenant`; **zero migration de coluna, zero write-site**). Isso fecha pelo
+  filtro os IDORs de peticionar/sincronizar-marcadores/mover-reordenar-documento/renomear-excluir-
+  seção (`find()`/ParamConverter cross-tenant → 404). NUP da pasta: global → composto
+  `(tenant_id, nup)` (migration `Version20260625203433`) + `findOneBy(['nup','tenant'])` escopado
+  nos UseCases (corrige o importador CLI). Testes: find() IDOR de Pasta/Marcador, listagem isolada,
+  NUP por-tenant, HTTP peticionar 404. Suíte **765/765**. Spec:
+  `docs/specs/pasta-expediente-isolamento-tenant.md`. Revisão adversarial: reprovou o NUP/CLI →
+  corrigido. Kanban fora de escopo (já isolado por board).
+
+## 🎉 P0 catastrófico COMPLETO + P1 entregue
+Os três P0 (Cliente, Processo, Agenda) **e o P1 (Pasta/Expediente)** estão isolados por tenant.
+Falta o **P2** (Tarefa direta/Ponto/Profile), de menor severidade. Itens sistêmicos pendentes
+(follow-ups registrados): SQL nativo cross-tenant + bulk DQL (`DemitirFuncionarioUseCase` em
+`evento_participante` e `pasta.responsavel`), `updatePastEventsStatus` (bulk), unique global de
+`cpf/cnpj` (Cliente), CSRF em endpoints JSON, conferência de NUP duplicado em prod.
 
 ## Detalhamento por etapa
 
