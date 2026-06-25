@@ -50,8 +50,8 @@
                             <label class="form-label text-muted">Anexos</label>
                             <div class="list-group">
                                 {% for anexo in chamado.anexos %}
-                                <a href="{{ asset('uploads/chamados/' ~ anexo.nomeArquivo) }}" 
-                                   target="_blank" 
+                                <a href="{{ path('servicedesk_anexo', {id: chamado.id, anexoId: anexo.id}) }}"
+                                   target="_blank"
                                    class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                                     <span>
                                         <i class="{{ anexo.icone }} me-2"></i>

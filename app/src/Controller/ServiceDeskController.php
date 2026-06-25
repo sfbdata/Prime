@@ -375,6 +375,43 @@ class ServiceDeskController extends AbstractController
     }
 
     /**
+     * Faz o download de um anexo do chamado, servido pela aplicação (não como arquivo
+     * público estático): valida tenant, permissão de acesso ao chamado e posse do anexo.
+     */
+    #[Route('/{id}/anexo/{anexoId}', name: 'servicedesk_anexo', methods: ['GET'], requirements: ['id' => '\d+', 'anexoId' => '\d+'])]
+    public function downloadAnexo(Chamado $chamado, int $anexoId, PermissionChecker $permissionChecker): Response
+    {
+        /** @var User $usuario */
+        $usuario = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $this->garantirChamadoDoTenant($chamado, $tenant);
+
+        $isAdmin = $permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage');
+        if (!$isAdmin && $chamado->getSolicitante() !== $usuario) {
+            throw $this->createAccessDeniedException('Você não tem permissão para acessar este anexo.');
+        }
+
+        $anexo = null;
+        foreach ($chamado->getAnexos() as $candidato) {
+            if ($candidato->getId() === $anexoId) {
+                $anexo = $candidato;
+                break;
+            }
+        }
+
+        if ($anexo === null) {
+            throw $this->createNotFoundException('Anexo não encontrado.');
+        }
+
+        $caminho = $this->storage->caminho($this->chamadosUploadsDir, $anexo->getNomeArquivo());
+        if (!$this->storage->existe($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado.');
+        }
+
+        return $this->storage->servir($caminho, $anexo->getNomeOriginal(), inline: true);
+    }
+
+    /**
      * Garante que o chamado pertence ao tenant atual (evita acesso cross-tenant por ID).
      */
     private function garantirChamadoDoTenant(Chamado $chamado, ?Tenant $tenant): void

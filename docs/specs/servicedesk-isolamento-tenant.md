@@ -53,14 +53,10 @@ Premissas e limites:
   tenant alvo (isolamento cross-tenant). Substitui o teste skipped do E4.1.
 - Atualizar helpers de teste que criam `Chamado` para gravar o tenant.
 
-## Problema em aberto (NÃO resolvido aqui — fix separado)
-🔴 **Anexos servidos como arquivo público estático, sem auth e sem tenant.** O template
-`templates/servicedesk/show.html.twig` linka o anexo via `asset('uploads/chamados/' ~
-anexo.nomeArquivo)` — não há rota controladora de download. Qualquer um que saiba/adivinhe
-o nome do arquivo baixa o anexo (PII de chamado de qualquer escritório). É um vazamento
-cross-tenant pré-existente, **fora do escopo deste hotfix** (precisa de rota de download com
-permissão + tenant + tirar os arquivos do diretório público). Registrar como item de
-segurança próprio (candidato a hotfix dedicado ou E4.2).
+## Problema relacionado — RESOLVIDO no hotfix H2
+✅ **Anexos servidos como arquivo público estático** (sem auth/tenant) foi corrigido em
+`docs/specs/servicedesk-anexo-download-seguro.md`: arquivos saíram do `public/` e passaram a
+ser servidos por rota controlada (`servicedesk_anexo`) com tenant + permissão + posse.
 
 ## Não-objetivos
 - Não migra o domínio (isso é E4.2+). Edição cirúrgica no legado por ser hotfix de segurança.

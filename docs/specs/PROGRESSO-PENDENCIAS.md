@@ -12,6 +12,7 @@
 | E2 | Corrigir bug tipo notificação evento + atualizar 2 specs | Baixa | ✅ feito | lint PHP OK; 17/17 testes Notificacao |
 | E3 | `notificarNovoChamado()` + conserto de bug crítico do ServiceDesk | Média | ✅ feito | suíte 705/705; revisão adversarial OK |
 | H1 | Hotfix: isolamento multi-tenant do ServiceDesk (dashboard + IDOR) | Alta | ✅ feito | coluna tenant + migration + filtros + guard 404; suíte 715/715 |
+| H2 | Hotfix: download seguro de anexos do ServiceDesk | Alta | ✅ feito | fora do public + rota controlada (auth/tenant/posse); suíte 718/718 |
 | E4 | Migrar ServiceDesk → `src/ServiceDesk/` | Alta | 🟡 em andamento | E4.1 feito; E4.2 liberado (schema decidido) |
 | E5 | Migrar Agenda → `src/Agenda/` | Alta | ⬜ pendente | ~2.374 linhas, sem testes |
 | E6 | Migrar Ponto → `src/Ponto/` | Alta (risco ALTO) | ⬜ pendente | ~10.500 linhas, 0 testes funcionais |
@@ -96,10 +97,17 @@ Spec: `docs/specs/servicedesk-isolamento-tenant.md`. Entregue:
   `ServiceDeskFluxoControllerTest`. Suíte 715/715; `schema:validate` OK (dev+teste);
   `fixtures:load` OK. Revisão `feature-review-agent` endereçada (fixtures + spec + IDOR).
 
-🔴 **Item de segurança AINDA ABERTO (fix separado):** anexos de chamado são servidos como
-arquivo público estático (`asset('uploads/chamados/...')`) sem auth nem tenant — qualquer um
-baixa anexo de qualquer escritório sabendo o nome. Precisa de rota de download com
-permissão + tenant + tirar do diretório público. Candidato a hotfix dedicado.
+**H2 ✅ Download seguro de anexos** (`docs/specs/servicedesk-anexo-download-seguro.md`):
+`chamados_uploads_dir` saiu do `public/` (→ `var/uploads/chamados`), rota controlada
+`servicedesk_anexo` (tenant + permissão + posse), template via `path()`. Testes em
+`AnexoDownloadControllerTest` (200 dono / 404 cross-tenant / 403 estranho).
+
+⚠️ **Follow-up de segurança app-wide (aberto):** os demais módulos ainda guardam uploads em
+`public/uploads/*` (`pastas`, `justificativas`, `clientes`, `perfil`). Mesmo padrão (fora do
+public + rota controlada) deveria ser aplicado a eles — esforço próprio.
+
+**Deploy H1/H2:** rodar a migration do tenant em prod; mover arquivos de
+`public/uploads/chamados` → `var/uploads/chamados` (provável ~vazio).
 
 Achados para o E4.2 (sem bloqueio): bug do label em `status()` (monta após `setStatus`) e
 ausência de CSRF em `atribuir`/`status`.

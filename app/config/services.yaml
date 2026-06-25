@@ -10,7 +10,8 @@ parameters:
     mailer_from: '%env(MAILER_FROM)%'
     uploads_dir: '%kernel.project_dir%/public/uploads/pastas'
     justificativas_uploads_dir: '%kernel.project_dir%/public/uploads/justificativas'
-    chamados_uploads_dir: '%kernel.project_dir%/public/uploads/chamados'
+    # Fora do public/: anexos de chamado só são servidos pela rota controlada (auth + tenant).
+    chamados_uploads_dir: '%kernel.project_dir%/var/uploads/chamados'
     clientes_uploads_dir: '%kernel.project_dir%/public/uploads/clientes'
     fotos_perfil_dir: '%kernel.project_dir%/public/uploads/perfil'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
