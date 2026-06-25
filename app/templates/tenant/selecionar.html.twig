@@ -12,9 +12,34 @@
     </div>
 
     {% if vinculos is empty %}
-        <div class="alert alert-warning">
-            Você não está vinculado a nenhum escritório. Contate seu administrador.
-        </div>
+        {% set convites_escritorio = convites|default([])|filter(c => c.tenant is not null) %}
+        {% if convites_escritorio is empty %}
+            <div class="alert alert-warning text-center">
+                <i class="bi bi-building-x d-block fs-3 mb-2"></i>
+                Você ainda não faz parte de nenhum escritório.<br>
+                <small class="text-muted">Peça a um administrador para te convidar.</small>
+            </div>
+        {% else %}
+            <p class="text-center text-muted mb-3">
+                <i class="bi bi-envelope-paper me-1"></i>
+                Você tem {{ convites_escritorio|length }} convite(s) pendente(s):
+            </p>
+            {% for convite in convites_escritorio %}
+                <a href="{{ path('auth_aceite_convite', {token: convite.token}) }}"
+                   class="card mb-2 text-decoration-none text-body">
+                    <div class="card-body d-flex align-items-center gap-3">
+                        <i class="bi bi-building fs-4 text-primary"></i>
+                        <div class="flex-grow-1">
+                            <div class="fw-semibold">{{ convite.tenant.name }}</div>
+                            {% if convite.tenantRole %}
+                                <small class="text-muted">{{ convite.tenantRole.name }}</small>
+                            {% endif %}
+                        </div>
+                        <span class="btn btn-sm btn-outline-primary">Ver convite</span>
+                    </div>
+                </a>
+            {% endfor %}
+        {% endif %}
     {% else %}
         {% for vinculo in vinculos %}
             <form method="post" action="{{ path('tenant_selecionar') }}" class="mb-3">

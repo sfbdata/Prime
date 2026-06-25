@@ -256,6 +256,32 @@ Funcionalidade: Sair e Excluir escritório
 
 ---
 
+## 🔗 Dependências & coordenação com `isolamento-tenant-sistemico.md`
+
+Outra frente trabalha o **isolamento de tenant sistêmico** (Doctrine SQL Filter global). Os escopos
+se tocam pouco, mas há pontos a coordenar:
+
+- **Sem colisão de modelo:** a spec de isolamento declara que `User`, `Tenant`, `UserTenant`,
+  `Permission`, `TenantRole` **não** são tenant-aware — o filtro não os toca. Toda a minha camada
+  estrutural está fora do filtro deles. Migrations também não colidem (eles mexem em
+  Cliente/Processo/Agenda/Ponto).
+- **Fase 1 (Switcher) é independente** do filtro — pode ser implementada em paralelo. Só compartilha o
+  ciclo de request do `TenantContextValidatorListener` (ordenação de listener, não conflito de lógica).
+- **Fase 2/3 dependem do filtro:** criar um Tenant novo roda dentro de um request cujo filtro pode estar
+  escopado no tenant atual. O seed (`TenantBootstrapService`) **escreve** sem problema (o filtro só afeta
+  SELECT), mas qualquer leitura de entidade de negócio durante a criação sairia escopada errada.
+  → Implementar Fase 2/3 **após** o filtro aterrissar, ou validar explicitamente o comportamento do
+  bootstrap sob filtro ativo.
+- **`TenantController`:** eles adicionam guards `garantirRecursoDoTenant` em rotas `{id}`; eu altero
+  `app_tenant_new` (autorização) e `app_tenant_delete` (soft delete). Métodos distintos no mesmo arquivo —
+  coordenar o merge.
+- **Soft delete (RS06) é responsabilidade desta spec:** o filtro deles é por `tenant_id`, não por
+  `isActive`. Esconder tenant inativo de listagens/dropdown/seleção **não** é coberto pelo mecanismo deles.
+- **Dívida conhecida da Fase 1 → fechar na Fase 2:** `InvitationRepository::encontrarPendentesPorEmail`
+  (usado no estado vazio para listar convites) **não filtra `tenant.isActive`**. Hoje não vaza (soft delete
+  de tenant só nasce na Fase 2), mas ao implementar o soft delete é obrigatório filtrar tenant inativo
+  nessa query — senão um convite para escritório excluído reaparece na seleção (viola RS06).
+
 ## ✅ Decisões registradas (todas confirmadas)
 
 1. Criar escritório: **livre e instantâneo** (sem pagamento/aprovação).

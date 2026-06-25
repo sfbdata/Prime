@@ -256,6 +256,13 @@ nav.app-header.navtop {
 .usuario-dropdown .dropdown-item:hover { background: var(--bs-secondary-bg); }
 .usuario-dropdown .dropdown-item.text-danger:hover { background: var(--bs-secondary-bg); color: #dc3545 !important; }
 
+/* ── Seletor de escritório ── */
+.escritorio-dropdown { min-width: 260px; max-width: 320px; padding: 6px 0; }
+.escritorio-dropdown form { margin: 0; }
+.escritorio-dropdown .dropdown-item.active,
+.escritorio-dropdown .dropdown-item.active:hover { background: var(--bs-secondary-bg); font-weight: 600; color: var(--bs-body-color); }
+.navtop-escritorio-nome { font-size: 0.9rem; font-weight: 600; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 /* =============================================================
    NEUTRALIZA O ADMINLTE 4
    Zeramos tudo que ele usa para empurrar conteúdo / mostrar

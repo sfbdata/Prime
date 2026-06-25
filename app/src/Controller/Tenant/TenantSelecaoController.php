@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Controller\Tenant;
 
 use App\Entity\Auth\User;
+use App\Repository\InvitationRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -16,6 +17,7 @@ final class TenantSelecaoController extends AbstractController
     public function __construct(
         private readonly UserTenantRepository $userTenantRepository,
         private readonly TenantContext $tenantContext,
+        private readonly InvitationRepository $invitationRepository,
     ) {}
 
     #[Route('/escritorio/selecionar', name: 'tenant_selecionar', methods: ['GET', 'POST'])]
@@ -63,6 +65,7 @@ final class TenantSelecaoController extends AbstractController
 
         return $this->render('tenant/selecionar.html.twig', [
             'vinculos' => $vinculos,
+            'convites' => $this->invitationRepository->encontrarPendentesPorEmail($user->getEmail()),
         ]);
     }
 }

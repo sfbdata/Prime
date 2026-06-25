@@ -146,4 +146,14 @@ class UserTenant implements Auditavel
         $this->isActive   = true;
         $this->demitidoEm = null;
     }
+
+    /**
+     * Saída voluntária do escritório (o próprio colaborador sai).
+     * Diferente de demitir(): não preenche demitidoEm, distinguindo
+     * saída espontânea de demissão.
+     */
+    public function sair(): void
+    {
+        $this->isActive = false;
+    }
 }

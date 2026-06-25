@@ -115,6 +115,46 @@
                         {# Lado direito: notificações + fullscreen + usuário #}
                         <div class="navtop-right">
 
+                            {# Seletor de escritório #}
+                            {% set _escritorios = meus_escritorios() %}
+                            {% if current_tenant() and _escritorios|length > 0 %}
+                                <div class="navtop-action dropdown">
+                                    <a href="#" class="navtop-avatar-btn dropdown-toggle"
+                                       data-bs-toggle="dropdown" aria-expanded="false"
+                                       aria-label="Trocar de escritório" title="{{ current_tenant().name }}">
+                                        <i class="bi bi-building"></i>
+                                        <span class="navtop-escritorio-nome d-none d-lg-inline">{{ current_tenant().name }}</span>
+                                    </a>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow escritorio-dropdown">
+                                        <li><h6 class="dropdown-header">Seus escritórios</h6></li>
+                                        {% for ut in _escritorios %}
+                                            <li>
+                                                <form method="post" action="{{ path('tenant_selecionar') }}">
+                                                    <input type="hidden" name="tenant_id" value="{{ ut.tenant.id }}">
+                                                    <input type="hidden" name="_csrf_token" value="{{ csrf_token('tenant_selecionar') }}">
+                                                    <button type="submit"
+                                                            class="dropdown-item d-flex align-items-center gap-2{{ ut.tenant.id == current_tenant().id ? ' active' : '' }}">
+                                                        <i class="bi {{ ut.tenant.id == current_tenant().id ? 'bi-check-circle-fill text-success' : 'bi-building' }}"></i>
+                                                        <span class="flex-grow-1 text-truncate">{{ ut.tenant.name }}</span>
+                                                        {% if ut.tenantRole %}<small class="text-muted">{{ ut.tenantRole.name }}</small>{% endif %}
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        {% endfor %}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li>
+                                            <form method="post" action="{{ path('escritorio_sair', {id: current_tenant().id}) }}"
+                                                  onsubmit="return confirm('Deseja realmente sair de {{ current_tenant().name|e('js') }}? Você perderá o acesso a este escritório.');">
+                                                <input type="hidden" name="_token" value="{{ csrf_token('sair_' ~ current_tenant().id) }}">
+                                                <button type="submit" class="dropdown-item d-flex align-items-center gap-2 text-danger">
+                                                    <i class="bi bi-box-arrow-left"></i> Sair deste escritório
+                                                </button>
+                                            </form>
+                                        </li>
+                                    </ul>
+                                </div>
+                            {% endif %}
+
                             {# Notificações #}
                             <div class="navtop-action dropdown">
                                 <a href="#" class="navtop-action-btn"

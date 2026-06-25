@@ -47,4 +47,22 @@ class UserTenantRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['user' => $user, 'tenant' => $tenant]);
     }
+
+    /**
+     * Conta quantos administradores (vínculo ativo com TenantRole de
+     * sistema) o escritório possui. Usado para impedir que o último
+     * admin saia e deixe o escritório órfão.
+     */
+    public function contarAdminsAtivos(Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('ut')
+            ->select('COUNT(ut.id)')
+            ->join('ut.tenantRole', 'r')
+            ->andWhere('ut.tenant = :tenant')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('r.isSystem = true')
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }
