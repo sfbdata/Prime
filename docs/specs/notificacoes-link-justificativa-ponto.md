@@ -12,7 +12,7 @@ As notificações precisavam levar o usuário direto à página relacionada. O c
 | `ponto_justificativa_abonada` / `_rejeitada` | colaborador | página de ponto do colaborador (`ponto_index`) |
 | `servicedesk` | solicitante/responsável | `servicedesk_show` do chamado |
 | `tarefa_*` | atribuídos | `tarefa_show` (via relação `tarefa`) |
-| `evento_*` (agenda) | — | não há criação hoje; sem link (item futuro) |
+| `evento_criado` / `evento_cancelado` (agenda) | participantes do evento | `agenda_show` do evento |
 
 ## Como o link é resolvido
 - A notificação guarda o destino no campo `Notificacao.url` (para ponto/servicedesk),
@@ -30,4 +30,8 @@ permissão — usuário sem acesso não consegue abrir, apenas vê a notificaç�
 
 ## Não-objetivos
 - Não altera o fluxo de aprovação/recusa de ponto em si, apenas o destino do link.
-- Não cria notificações de agenda/evento (inexistentes hoje).
+
+> **Atualização (jun/2026):** notificações de agenda **existem** — `AgendaController`
+> cria `evento_criado`/`evento_cancelado` para os participantes, com link `agenda_show`.
+> Antes usavam string literal incorreta (`'EVENTO_CRIADO'`); corrigido para as constantes
+> `Notificacao::TIPO_EVENTO_CRIADO`/`..._CANCELADO`.

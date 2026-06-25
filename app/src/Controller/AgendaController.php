@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Entity\Agenda\Evento;
 use App\Entity\Agenda\LegendaCor;
 use App\Entity\Auth\User;
+use App\Entity\Notificacao;
 use App\Form\EventoType;
 use App\Repository\EventoRepository;
 use App\Repository\LegendaCorRepository;
@@ -192,7 +193,7 @@ class AgendaController extends AbstractController
             foreach ($evento->getParticipantes() as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
-                    'EVENTO_CRIADO',
+                    Notificacao::TIPO_EVENTO_CRIADO,
                     'Você foi convidado para o evento: ' . $evento->getTitulo(),
                     $this->generateUrl('agenda_show', ['id' => $evento->getId()])
                 );
@@ -253,7 +254,7 @@ class AgendaController extends AbstractController
             foreach ($evento->getParticipantes() as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
-                    'EVENTO_CRIADO',
+                    Notificacao::TIPO_EVENTO_CRIADO,
                     'Você foi convidado para o evento: ' . $evento->getTitulo(),
                     $this->generateUrl('agenda_show', ['id' => $evento->getId()])
                 );
@@ -382,7 +383,7 @@ class AgendaController extends AbstractController
             foreach ($evento->getParticipantes() as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
-                    'EVENTO_CANCELADO',
+                    Notificacao::TIPO_EVENTO_CANCELADO,
                     'O evento foi cancelado: ' . $evento->getTitulo(),
                     $this->generateUrl('agenda_show', ['id' => $evento->getId()])
                 );
