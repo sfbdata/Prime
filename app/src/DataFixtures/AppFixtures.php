@@ -44,13 +44,13 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
         // =============================================
         // 2. CLIENTES PF
         // =============================================
-        $this->loadClientesPF($manager);
+        $this->loadClientesPF($manager, $users);
         $manager->flush();
 
         // =============================================
         // 3. CLIENTES PJ
         // =============================================
-        $this->loadClientesPJ($manager);
+        $this->loadClientesPJ($manager, $users);
         $manager->flush();
 
         // =============================================
@@ -149,8 +149,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
     // -----------------------------------------------
     // CLIENTES PF
     // -----------------------------------------------
-    private function loadClientesPF(ObjectManager $manager): array
+    private function loadClientesPF(ObjectManager $manager, array $users): array
     {
+        $autor  = $users[0];
+        $tenant = $manager->getRepository(UserTenant::class)->findOneBy(['user' => $autor])?->getTenant();
+
         $dados = [
             [
                 'nomeCompleto'    => 'João Carlos Ferreira',
@@ -261,7 +264,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $c->setEndereco($dado['endereco']);
             $c->setCidade($dado['cidade']);
             $c->setEstado($dado['estado']);
-            
+            $c->setCriadoPor($autor);
+            $c->setTenant($tenant);
+
             $clientes[] = $c;
         }
 
@@ -271,8 +276,11 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
     // -----------------------------------------------
     // CLIENTES PJ
     // -----------------------------------------------
-    private function loadClientesPJ(ObjectManager $manager): array
+    private function loadClientesPJ(ObjectManager $manager, array $users): array
     {
+        $autor  = $users[0];
+        $tenant = $manager->getRepository(UserTenant::class)->findOneBy(['user' => $autor])?->getTenant();
+
         $dados = [
             [
                 'razaoSocial'        => 'Construtora Horizonte Ltda.',
@@ -359,7 +367,9 @@ class AppFixtures extends Fixture implements DependentFixtureInterface
             $c->setEndereco($dado['endereco']);
             $c->setCidade($dado['cidade']);
             $c->setEstado($dado['estado']);
-            
+            $c->setCriadoPor($autor);
+            $c->setTenant($tenant);
+
             $clientes[] = $c;
         }
 

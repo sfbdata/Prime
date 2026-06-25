@@ -3,7 +3,9 @@
 namespace App\Cliente\Entity;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Cliente\Repository\ClienteRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -13,7 +15,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\DiscriminatorColumn(name: "tipo", type: "string")]
 #[ORM\DiscriminatorMap(["pf" => "ClientePF", "pj" => "ClientePJ"])]
 #[ORM\HasLifecycleCallbacks]
-abstract class Cliente
+abstract class Cliente implements TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -53,6 +55,10 @@ abstract class Cliente
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: true)]
     private ?User $criadoPor = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\OneToMany(targetEntity: ClienteDocumento::class, mappedBy: 'cliente', cascade: ['persist', 'remove'], orphanRemoval: true)]
     private Collection $documentos;
@@ -193,6 +199,17 @@ abstract class Cliente
     public function setCriadoPor(?User $criadoPor): self
     {
         $this->criadoPor = $criadoPor;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

@@ -60,7 +60,7 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         return $user;
     }
 
-    private function criarClientePF(string $nomeCompleto = 'Cliente ISO Test'): ClientePF
+    private function criarClientePF(Tenant $tenant, string $nomeCompleto = 'Cliente ISO Test'): ClientePF
     {
         $cpf = substr(str_replace('.', '', uniqid('', true)), 0, 14);
         $cliente = new ClientePF();
@@ -73,12 +73,13 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         $cliente->setRg('00.000.000-0');
         $cliente->setRgOrgaoExpedidor('SSP');
         $cliente->setNomeCompleto($nomeCompleto);
+        $cliente->setTenant($tenant);
         $this->em->persist($cliente);
 
         return $cliente;
     }
 
-    private function criarClientePJ(string $razaoSocial = 'Empresa ISO Test Ltda'): ClientePJ
+    private function criarClientePJ(Tenant $tenant, string $razaoSocial = 'Empresa ISO Test Ltda'): ClientePJ
     {
         $cnpj = substr(str_replace('.', '', uniqid('', true)), 0, 14);
         $cliente = new ClientePJ();
@@ -94,6 +95,7 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
         $cliente->setRepresentanteCpf('00000000000000');
         $cliente->setRepresentanteRg('00.000.000-0');
         $cliente->setRepresentanteCargo('Diretor');
+        $cliente->setTenant($tenant);
         $this->em->persist($cliente);
 
         return $cliente;
@@ -154,7 +156,7 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
     {
         $tenant  = $this->criarTenant();
         $sufixo  = uniqid();
-        $cliente = $this->criarClientePF('Filtro PF ' . $sufixo);
+        $cliente = $this->criarClientePF($tenant, 'Filtro PF ' . $sufixo);
         $pasta   = $this->criarPasta($tenant, 'FILT-PF');
         $pasta->addCliente($cliente);
         $this->em->flush();
@@ -173,7 +175,7 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
     {
         $tenant  = $this->criarTenant();
         $sufixo  = uniqid();
-        $cliente = $this->criarClientePJ('Empresa Filtro PJ ' . $sufixo);
+        $cliente = $this->criarClientePJ($tenant, 'Empresa Filtro PJ ' . $sufixo);
         $pasta   = $this->criarPasta($tenant, 'FILT-PJ');
         $pasta->addCliente($cliente);
         $this->em->flush();
@@ -192,7 +194,7 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
     {
         $tenant  = $this->criarTenant();
         $sufixo  = uniqid();
-        $cliente = $this->criarClientePJ(mb_strtoupper('Empresa Case PJ ' . $sufixo));
+        $cliente = $this->criarClientePJ($tenant, mb_strtoupper('Empresa Case PJ ' . $sufixo));
         $pasta   = $this->criarPasta($tenant, 'CASE-PJ');
         $pasta->addCliente($cliente);
         $this->em->flush();
@@ -211,7 +213,7 @@ final class PastaRepositoryIsolamentoTest extends KernelTestCase
     {
         $tenantA  = $this->criarTenant();
         $tenantB  = $this->criarTenant();
-        $cliente  = $this->criarClientePF();
+        $cliente  = $this->criarClientePF($tenantA);
         $pastaA   = $this->criarPasta($tenantA, 'CLI-A');
         $pastaA->addCliente($cliente);
         $pastaB   = $this->criarPasta($tenantB, 'CLI-B');

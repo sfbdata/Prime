@@ -57,9 +57,18 @@ Decisões do dono: **fix-forward**, **abordagem sistêmica primeiro**, recomenda
   (liga por request, prioridade 5), registro em `doctrine.yaml` (`enabled: false`). `Chamado`
   marcado como cobaia. Teste `tests/Shared/Functional/TenantFilterTest`:
   **o filtro cobre findBy E find() por id** (IDOR fecha automático). Suíte **722/722**.
-- **Próximo (S2+):** aplicar por domínio, P0 primeiro (Cliente → Processo → Agenda): adicionar
-  coluna `tenant` + migration + backfill (via criadoPor/criador/user) + `implements TenantAware`
-  + testes cross-tenant. O filtro já cuida de listagens e by-id. Depois P1/P2.
+- **S2 ✅ P0 Cliente (entregue):** `Cliente` (base JOINED) e `ClienteDocumento` → `TenantAware`
+  + coluna `tenant` NOT NULL. Migration `Version20260625183049` (add nullable → backfill via
+  `criado_por_id`→user_tenant ativo → fallback p/ tenant único → NOT NULL + FK/índice; doc herda
+  do cliente pai). Aplicada no dev: 8 órfãos → tenant 4, 0 órfãos; `schema:validate` OK dev+teste.
+  `setTenant` nos 4 sites de escrita (ClienteController newPF/newPJ/upload, PastaController,
+  AppFixtures). Testes cross-tenant (repo + HTTP, PF/PJ/documento) — suíte **731/731**. Revisão
+  adversarial: aprovada; achados "findOneBy/UniqueEntity vazam" refutados por prova empírica
+  (são filtrados). Spec: `docs/specs/cliente-isolamento-tenant.md` (inclui follow-ups: unique
+  global de cpf/cnpj vs por-tenant, guard por-id deferido). **Deploy prod:** rodar a migration;
+  conferir antes `SELECT COUNT(*) FROM tenant` e órfãos pós-backfill (se multi-tenant com órfão,
+  a migration aborta de propósito).
+- **Próximo (S3+):** P0 Processo → P0 Agenda (mesmo padrão), depois P1/P2.
 
 ## Detalhamento por etapa
 

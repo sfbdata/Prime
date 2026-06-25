@@ -2,11 +2,13 @@
 
 namespace App\Cliente\Entity;
 
+use App\Entity\Tenant\Tenant;
 use App\Repository\ClienteDocumentoRepository;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ClienteDocumentoRepository::class)]
-class ClienteDocumento
+class ClienteDocumento implements TenantAware
 {
     public const CATEGORIA_IDENTIFICACAO          = 'IDENTIFICACAO';
     public const CATEGORIA_PROCURACAO             = 'PROCURACAO';
@@ -49,6 +51,10 @@ class ClienteDocumento
     #[ORM\ManyToOne(targetEntity: Cliente::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Cliente $cliente = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     public function __construct()
     {
@@ -169,6 +175,18 @@ class ClienteDocumento
     public function setCliente(?Cliente $cliente): self
     {
         $this->cliente = $cliente;
+
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
 
         return $this;
     }

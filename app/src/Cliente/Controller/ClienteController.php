@@ -147,6 +147,7 @@ class ClienteController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $cliente->setCriadoPor($this->getUser());
+            $cliente->setTenant($tenant);
             $this->clientePFRepository->save($cliente, true);
             return $this->redirectToRoute('cliente_index');
         }
@@ -173,6 +174,7 @@ class ClienteController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             $cliente->setCriadoPor($this->getUser());
+            $cliente->setTenant($tenant);
             $this->clientePJRepository->save($cliente, true);
             return $this->redirectToRoute('cliente_index');
         }
@@ -363,6 +365,7 @@ class ClienteController extends AbstractController
 
             $doc = new ClienteDocumento();
             $doc->setCliente($cliente);
+            $doc->setTenant($cliente->getTenant());
             $doc->setTitulo($file->getClientOriginalName());
             $doc->setCategoria($categoria);
             $doc->setDescricao($descricao !== '' ? $descricao : null);

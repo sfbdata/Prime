@@ -415,6 +415,7 @@ class PastaController extends AbstractController
         }
 
         $cliente->setCriadoPor($currentUser);
+        $cliente->setTenant($this->tenantContext->getCurrentTenant());
 
         $this->em->persist($cliente);
         $pasta->addCliente($cliente);
