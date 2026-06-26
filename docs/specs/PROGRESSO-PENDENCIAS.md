@@ -188,8 +188,21 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
   vazio), sem cron/scheduler/messenger, sem invocação dinâmica, nenhum teste o referencia — nasceu com
   a feature de calendário (`7295020`) e nunca foi ligado a nada. **Removido** (edição cirúrgica). Risco
   BAIXO (inerte por não ter chamador). Suíte **792/792** (nada quebrou). Sem spec dedicada (trivial).
-- **Próximo:** C3 (unique global cpf/cnpj → composto por tenant — **TEM migration** → freio, pedir
-  aprovação do dono antes de aplicar).
+- **C3 ✅ cpf/cnpj de Cliente únicos por escritório (entregue).** Unique de cpf/cnpj era GLOBAL → o 1º
+  escritório a cadastrar trancava o documento no sistema (INSERT cross-tenant → 500). `Cliente` é JOINED
+  (tenant_id na base `cliente`; cpf/cnpj em `cliente_pf`/`cliente_pj`) → composto `(tenant_id, cpf)` no
+  banco é inviável sem denormalizar. **Decisão do dono = Opção B:** remover unique global do banco
+  (migration `Version20260626150000`, só DROP de 2 índices, sem dados) + unicidade POR TENANT na
+  aplicação (`#[UniqueEntity(['cpf','tenant'])]`/`['cnpj','tenant']` + `setTenant` antes da validação em
+  `ClienteController::newPF/newPJ`). **2º caminho** `PastaController::novoCliente` (findOneBy manual)
+  também escopado por tenant explícito. Migration **aprovada pelo dono** e aplicada no dev ISOLADA +
+  `schema:update --env=test`. Testes: `ClienteUnicidadePorTenantTest` (validação+banco, filtro desligado)
+  + `ClienteUnicidadeViaPastaControllerTest` (HTTP). **Mutação confirmada** (validação global → cross-tenant
+  viola; unique global recriado → 4 testes cross-tenant quebram). Suíte **801/801**. Risco MÉDIO. Spec:
+  `docs/specs/cliente-cpf-cnpj-por-tenant.md`. **Deploy prod:** conferir antes que não haja cpf/cnpj
+  duplicado DENTRO do mesmo tenant (a remoção do unique não cria trava nova que pegue isso).
+- **Próximo:** C4 (CSRF ausente em endpoints JSON — enumerar primeiro os POST/DELETE mutantes com
+  `JsonResponse` sem `isCsrfTokenValid`). Depois C5 (uploads fora do public, ALTO).
 
 ## Detalhamento por etapa
 

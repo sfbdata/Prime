@@ -6,10 +6,10 @@ use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Validator\Constraints\UniqueEntity;
 
 #[ORM\Entity]
-#[UniqueEntity('cnpj', message: 'Este CNPJ já está cadastrado.')]
+#[UniqueEntity(fields: ['cnpj', 'tenant'], message: 'Este CNPJ já está cadastrado.')]
 class ClientePJ extends Cliente
 {
-    #[ORM\Column(length: 14, unique: true)]
+    #[ORM\Column(length: 14)]
     private string $cnpj;
 
     #[ORM\Column(length: 255)]

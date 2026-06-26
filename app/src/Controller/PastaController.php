@@ -392,8 +392,15 @@ class PastaController extends AbstractController
             $cliente->setTelefoneFixo($fixo);
         }
 
+        // tenant setado ANTES da checagem de duplicidade e escopado explicitamente no findOneBy:
+        // cpf/cnpj são únicos POR ESCRITÓRIO (C3). Sem 'tenant' no critério, a checagem dependeria
+        // só do TenantFilter de sessão — vazaria existência cross-tenant e bloquearia indevidamente
+        // quando o filtro estivesse desligado (super-admin/CLI).
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $cliente->setTenant($tenant);
+
         if ($cliente instanceof ClientePF) {
-            $cpfExistente = $this->clientePFRepository->findOneBy(['cpf' => $cliente->getCpf()]);
+            $cpfExistente = $this->clientePFRepository->findOneBy(['cpf' => $cliente->getCpf(), 'tenant' => $tenant]);
             if ($cpfExistente !== null) {
                 $msg = sprintf('Já existe um cliente cadastrado com o CPF %s.', $cliente->getCpf());
                 if ($isXhr) {
@@ -403,7 +410,7 @@ class PastaController extends AbstractController
                 return $this->redirectToRoute('pasta_show', ['id' => $pasta->getId(), '_fragment' => 'partes']);
             }
         } elseif ($cliente instanceof ClientePJ) {
-            $cnpjExistente = $this->clientePJRepository->findOneBy(['cnpj' => $cliente->getCnpj()]);
+            $cnpjExistente = $this->clientePJRepository->findOneBy(['cnpj' => $cliente->getCnpj(), 'tenant' => $tenant]);
             if ($cnpjExistente !== null) {
                 $msg = sprintf('Já existe um cliente cadastrado com o CNPJ %s.', $cliente->getCnpj());
                 if ($isXhr) {
@@ -415,7 +422,6 @@ class PastaController extends AbstractController
         }
 
         $cliente->setCriadoPor($currentUser);
-        $cliente->setTenant($this->tenantContext->getCurrentTenant());
 
         $this->em->persist($cliente);
         $pasta->addCliente($cliente);

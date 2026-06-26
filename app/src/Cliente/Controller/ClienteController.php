@@ -142,12 +142,14 @@ class ClienteController extends AbstractController
         }
 
         $cliente = new ClientePF();
+        // tenant setado ANTES da validação: o UniqueEntity(['cpf','tenant']) escopa o cpf
+        // por escritório (e funciona mesmo com o TenantFilter desligado).
+        $cliente->setTenant($tenant);
         $form = $this->createForm(ClientePFType::class, $cliente);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $cliente->setCriadoPor($this->getUser());
-            $cliente->setTenant($tenant);
             $this->clientePFRepository->save($cliente, true);
             return $this->redirectToRoute('cliente_index');
         }
@@ -169,12 +171,14 @@ class ClienteController extends AbstractController
         }
 
         $cliente = new ClientePJ();
+        // tenant setado ANTES da validação: o UniqueEntity(['cnpj','tenant']) escopa o cnpj
+        // por escritório (e funciona mesmo com o TenantFilter desligado).
+        $cliente->setTenant($tenant);
         $form = $this->createForm(ClientePJType::class, $cliente);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             $cliente->setCriadoPor($this->getUser());
-            $cliente->setTenant($tenant);
             $this->clientePJRepository->save($cliente, true);
             return $this->redirectToRoute('cliente_index');
         }
