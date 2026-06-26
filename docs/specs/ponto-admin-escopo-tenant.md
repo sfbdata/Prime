@@ -66,11 +66,12 @@ A checagem `$registro->getUser()?->getId() === $user->getId()` permanece como de
 terceiro via `?userId=`). Não há `{tenantId}` na URL — o tenant vem da **sessão** via `assertAccess`
 (que lança se não houver tenant na sessão). Logo o C6-puro (super-admin sem tenant) é barrado por
 `assertAccess`, e o guard (`existeVinculoAtivo($alvo, $tenant)`) e o filtro usam a **mesma** fonte
-(sessão) — sem a divergência URL-vs-sessão. `JornadaColaboradorController` (save/delete jornada) usa o
-guard `$tenant?->getId() === $tenantId`, que **barra** admin comum com sessão≠URL; `JornadaColaborador`
-não é TenantAware nem é carregada por id (navegação via `$user->getJornadaColaborador()`), então não há
-IDOR por id a fechar. Resta apenas a mutação ampla de **super-admin** sobre jornada de terceiro — que
-cai na decisão de poderes do super-admin (não-objetivo abaixo).
+(sessão) — sem a divergência URL-vs-sessão. **`JornadaColaboradorController`** (get/save/delete jornada): o guard `$tenant?->getId() === $tenantId`
+já barrava admin comum com sessão≠URL, MAS a checagem de vínculo do alvo era **pulada para super-admin**
+→ super-admin podia ler/mutar a jornada de qualquer alvo. **Corrigido nesta frente** (decisão do dono):
+resolve o tenant da URL (`tenantRepository->find($tenantId)`) e exige `existeVinculoAtivo($alvo, $urlTenant)`
+**incondicionalmente** (vale p/ super-admin) → 404 se o alvo não pertence ao tenant da URL. `JornadaColaborador`
+não é TenantAware (não há filtro a re-apontar); o escopo é por guard explícito.
 
 ## Testes
 

@@ -8,6 +8,7 @@ use App\Ponto\Entity\BlocoJornadaColaborador;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Entity\Auth\User;
 use App\Ponto\Repository\JornadaColaboradorRepository;
+use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -24,6 +25,7 @@ final class JornadaColaboradorController extends AbstractController
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly TenantRepository $tenantRepository,
     ) {}
 
     #[Route('/jornada-colaborador', name: 'app_jornada_colaborador_get', methods: ['GET'])]
@@ -46,12 +48,15 @@ final class JornadaColaboradorController extends AbstractController
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
-        if (!$isSuperAdmin && ($tenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $tenant))) {
-            throw $this->createAccessDeniedException('Usuário não pertence a este tenant.');
+        // O usuário-alvo precisa pertencer ao tenant da URL — vale também para super-admin
+        // (escopo pela URL, consistente com as rotas admin de ponto).
+        $urlTenant = $this->tenantRepository->find($tenantId);
+        if ($urlTenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $urlTenant)) {
+            throw $this->createNotFoundException('Usuário não pertence a este tenant.');
         }
 
         $jornada       = $user->getJornadaColaborador();
-        $jornadaTenant = $tenant?->getJornadaTenant();
+        $jornadaTenant = $urlTenant->getJornadaTenant();
 
         $blocosTenant = [];
         if ($jornadaTenant !== null) {
@@ -126,8 +131,11 @@ final class JornadaColaboradorController extends AbstractController
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
-        if (!$isSuperAdmin && ($tenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $tenant))) {
-            throw $this->createAccessDeniedException('Usuário não pertence a este tenant.');
+        // O usuário-alvo precisa pertencer ao tenant da URL — vale também para super-admin
+        // (escopo pela URL, consistente com as rotas admin de ponto).
+        $urlTenant = $this->tenantRepository->find($tenantId);
+        if ($urlTenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $urlTenant)) {
+            throw $this->createNotFoundException('Usuário não pertence a este tenant.');
         }
 
         $data = json_decode((string) $request->getContent(), true);
@@ -205,8 +213,11 @@ final class JornadaColaboradorController extends AbstractController
             throw $this->createAccessDeniedException('Sem permissão para gerenciar jornadas.');
         }
 
-        if (!$isSuperAdmin && ($tenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $tenant))) {
-            throw $this->createAccessDeniedException('Usuário não pertence a este tenant.');
+        // O usuário-alvo precisa pertencer ao tenant da URL — vale também para super-admin
+        // (escopo pela URL, consistente com as rotas admin de ponto).
+        $urlTenant = $this->tenantRepository->find($tenantId);
+        if ($urlTenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $urlTenant)) {
+            throw $this->createNotFoundException('Usuário não pertence a este tenant.');
         }
 
         $jornada = $user->getJornadaColaborador();
