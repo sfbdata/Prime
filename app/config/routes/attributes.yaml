@@ -6,6 +6,9 @@ profile_controllers:
     resource: ../../src/Profile/Controller/
     type: attribute
 
+# NECESSÁRIO (não redundante): sem este bloco as rotas de Feriado/Jornada/Ponto somem
+# (debug:router cai de 20 para 11). O loader `routing.controllers` (routes.yaml) não cobre
+# os controllers em src/Ponto/Controller/ — confirmado empiricamente removendo e re-rodando.
 ponto_controllers:
     resource: ../../src/Ponto/Controller/
     type: attribute

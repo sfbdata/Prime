@@ -9,7 +9,7 @@ use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity]
+#[ORM\Entity(repositoryClass: \App\Ponto\Repository\RegistroPontoRepository::class)]
 class RegistroPonto implements Auditavel, TenantAware
 {
     public const TIPO_ENTRADA = 'entrada';
