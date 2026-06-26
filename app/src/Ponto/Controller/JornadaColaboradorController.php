@@ -12,6 +12,7 @@ use App\Repository\TenantRepository;
 use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -22,6 +23,8 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/tenant/{tenantId}/user/{id}')]
 final class JornadaColaboradorController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly TenantContext $tenantContext,
         private readonly UserTenantRepository $userTenantRepository,
@@ -138,6 +141,9 @@ final class JornadaColaboradorController extends AbstractController
             throw $this->createNotFoundException('Usuário não pertence a este tenant.');
         }
 
+        // CSRF após os guards de autorização (a falha de autz/tenant tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
+
         $data = json_decode((string) $request->getContent(), true);
 
         if (!is_array($data)) {
@@ -219,6 +225,9 @@ final class JornadaColaboradorController extends AbstractController
         if ($urlTenant === null || !$this->userTenantRepository->existeVinculoAtivo($user, $urlTenant)) {
             throw $this->createNotFoundException('Usuário não pertence a este tenant.');
         }
+
+        // CSRF após os guards de autorização (a falha de autz/tenant tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {

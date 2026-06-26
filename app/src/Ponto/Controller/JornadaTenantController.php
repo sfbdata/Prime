@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Ponto\Repository\JornadaTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,6 +20,8 @@ use Symfony\Component\Routing\Annotation\Route;
 #[Route('/tenant')]
 final class JornadaTenantController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly TenantContext $tenantContext,
     ) {}
@@ -99,6 +102,9 @@ final class JornadaTenantController extends AbstractController
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenantCtx, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para configurar jornada.');
         }
+
+        // CSRF após os guards de autorização (a falha de autz/tenant tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $data = json_decode((string) $request->getContent(), true);
 

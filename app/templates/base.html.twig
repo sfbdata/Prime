@@ -14,6 +14,47 @@
                 } catch (e) {}
             })();
         </script>
+        {# CSRF para AJAX: token único 'ajax' + interceptador que injeta o header X-CSRF-Token
+           em toda requisição same-origin de método inseguro (fetch e XMLHttpRequest/jQuery). #}
+        <meta name="csrf-token" content="{{ csrf_token('ajax') }}">
+        <script>
+            (function () {
+                var meta = document.querySelector('meta[name="csrf-token"]');
+                var token = meta ? meta.getAttribute('content') : '';
+                if (!token) { return; }
+                var unsafe = /^(POST|PUT|PATCH|DELETE)$/i;
+                function sameOrigin(url) {
+                    try { return new URL(url, window.location.origin).origin === window.location.origin; }
+                    catch (e) { return true; }
+                }
+                if (window.fetch) {
+                    var origFetch = window.fetch;
+                    window.fetch = function (input, init) {
+                        init = init || {};
+                        var method = init.method || (input && typeof input !== 'string' && input.method) || 'GET';
+                        var url = (typeof input === 'string') ? input : (input && input.url) || '';
+                        if (unsafe.test(method) && sameOrigin(url)) {
+                            var headers = new Headers(init.headers || (typeof input !== 'string' && input ? input.headers : null) || {});
+                            if (!headers.has('X-CSRF-Token')) { headers.set('X-CSRF-Token', token); }
+                            init.headers = headers;
+                        }
+                        return origFetch.call(this, input, init);
+                    };
+                }
+                var origOpen = XMLHttpRequest.prototype.open;
+                var origSend = XMLHttpRequest.prototype.send;
+                XMLHttpRequest.prototype.open = function (method, url) {
+                    this.__csrfUnsafe = unsafe.test(method || '') && sameOrigin(url || '');
+                    return origOpen.apply(this, arguments);
+                };
+                XMLHttpRequest.prototype.send = function () {
+                    if (this.__csrfUnsafe) {
+                        try { this.setRequestHeader('X-CSRF-Token', token); } catch (e) {}
+                    }
+                    return origSend.apply(this, arguments);
+                };
+            })();
+        </script>
         {% block head_meta %}{% endblock %}
         <title>{% block title %}BlueJus{% endblock %}</title>
 

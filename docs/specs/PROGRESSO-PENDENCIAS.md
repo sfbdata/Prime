@@ -201,8 +201,23 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
   viola; unique global recriado → 4 testes cross-tenant quebram). Suíte **801/801**. Risco MÉDIO. Spec:
   `docs/specs/cliente-cpf-cnpj-por-tenant.md`. **Deploy prod:** conferir antes que não haja cpf/cnpj
   duplicado DENTRO do mesmo tenant (a remoção do unique não cria trava nova que pegue isso).
-- **Próximo:** C4 (CSRF ausente em endpoints JSON — enumerar primeiro os POST/DELETE mutantes com
-  `JsonResponse` sem `isCsrfTokenValid`). Depois C5 (uploads fora do public, ALTO).
+- **C4a ✅ CSRF em endpoints AJAX de jornada/ponto (ALTO) (entregue).** Enumeração via workflow
+  read-only (19 controllers): 20 endpoints AJAX mutantes sem CSRF (o resto já protegido por form CSRF
+  ou `isCsrfTokenValid`). Mecanismo definitivo (decisão do dono "o mais profissional"): **token CSRF
+  único `'ajax'` no header `X-CSRF-Token`** — `<meta>` + interceptador JS global (fetch + XHR) no
+  `base.html.twig` + trait `App\Shared\Trait\ValidaCsrfAjaxTrait` no backend. C4a aplicou a validação
+  nos endpoints **ALTO** (ponto eletrônico): `app_jornada_tenant_save`, `app_jornada_colaborador_save`,
+  `app_jornada_colaborador_delete` **e `ponto_batida`** (este foi PERDIDO pela enumeração Haiku e
+  pego pela revisão adversarial — lição: não confiar no resumo do subagente). CSRF checado **após** os
+  guards de autz/tenant (404/403 de tenant têm prioridade e ficam testáveis). Testes
+  `JornadaCsrfControllerTest` + `BatidaCsrfControllerTest` (sem token→403; com token→sucesso/422);
+  mutação confirmada. Suíte **809/809**. Spec `docs/specs/csrf-ajax-endpoints.md`. Revisão adversarial:
+  aprovado com ressalvas → todas endereçadas (batida, local do trait, teste do delete). **Smoke do
+  interceptador no browser: PENDENTE** (Chrome ausente no ambiente) — passo manual do dono.
+- **Próximo:** C4b (Kanban — 14 endpoints) e C4c (Agenda/Notificação — 3) reusam a MESMA infra (só
+  ligam a validação por endpoint + garantem que o frontend passa pelo interceptador). ⚠️ **A
+  enumeração Haiku perdeu `ponto_batida`** → re-verificar com rigor (grep + leitura) os endpoints de
+  C4b/C4c antes de implementar, não confiar só na lista do workflow. Depois C5 (uploads, ALTO).
 
 ## Detalhamento por etapa
 

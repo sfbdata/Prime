@@ -31,6 +31,7 @@ use Dompdf\Dompdf;
 use Dompdf\Options;
 use App\Ponto\Service\FolhaPontoXlsxExporter;
 use App\Shared\Service\ArquivoStorageService;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -42,6 +43,8 @@ use Twig\Environment;
 #[Route('/ponto')]
 final class PontoController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly string $justificativasUploadsDir,
         private readonly VerificadorAlertaPonto $verificadorAlerta,
@@ -437,6 +440,9 @@ final class PontoController extends AbstractController
         if ($tenant === null) {
             return $this->json(['success' => false, 'message' => 'Usuário sem tenant configurado.'], 403);
         }
+
+        // CSRF após os guards de autorização (a falha de autz tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $jornadaTenant = $tenant->getJornadaTenant();
 
