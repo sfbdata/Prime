@@ -160,9 +160,28 @@ Os três P0 (Cliente, Processo, Agenda), o P1 (Pasta/Expediente), o P2.1 (Tarefa
 P2.3 Ponto Fase 1 (isolamento)** estão isolados por tenant. Falta a **Fase 2 do Ponto** (migração estrutural
 E6 → `src/Ponto/`). Itens sistêmicos pendentes (follow-ups registrados): **frestinha super-admin no Ponto
 (IDOR residual só p/ super-admin sem tenant na sessão — DECISÃO ADIADA p/ o fim, junto da definição de
-poderes do super-admin; fechamento = guard por-id nas rotas admin + teste do vetor)**; SQL nativo cross-tenant
-+ bulk DQL (`DemitirFuncionarioUseCase` em `evento_participante` e `pasta.responsavel`), `updatePastEventsStatus`
-(bulk), unique global de `cpf/cnpj` (Cliente), CSRF em endpoints JSON, conferência de NUP duplicado em prod.
+poderes do super-admin; fechamento = guard por-id nas rotas admin + teste do vetor)**;
+~~SQL nativo cross-tenant + bulk DQL (`DemitirFuncionarioUseCase`)~~ **✅ fechado em C1**;
+`updatePastEventsStatus` (bulk, C2), unique global de `cpf/cnpj` (Cliente, C3), CSRF em endpoints JSON (C4),
+uploads fora do public (C5), conferência de NUP duplicado em prod.
+
+## Frente C — segurança residual (em andamento)
+Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin bloqueado por decisão de produto).
+
+- **C1 ✅ `DemitirFuncionarioUseCase` cross-tenant (entregue).** As 4 operações de
+  `removerResponsabilidades`/`transferirResponsabilidades` filtravam só por `user`, sem tenant — bulk DQL
+  (UPDATE Pasta/Chamado) e SQL nativo (`tarefa_responsaveis`/`evento_participante`) **escapam do TenantFilter**,
+  então demitir um funcionário multi-tenant de UM escritório apagava/transferia as responsabilidades dele em
+  TODOS. Fix: escopar cada operação por `$input->tenant` (DQL `AND p.tenant/c.tenant`; join tables via
+  `... IN (SELECT id FROM tarefa/evento WHERE tenant_id = :tid)`); `NOT IN` anti-duplicata mantido global de
+  propósito. **Sem migration / sem mudança no controller** (já valida CSRF + vínculo + permissão). Risco MÉDIO.
+  Teste `DemitirFuncionarioIsolamentoTest` (KernelTestCase, filtro DESLIGADO = pior caso): remover, transferir e
+  substituto-já-responsável (caminho `NOT IN`) — B intacto após demitir de A. **Mutation test confirmado** (fix
+  neutralizado → RED; `NOT IN` removido → colisão de PK). Suíte **792/792**. Spec:
+  `docs/specs/demitir-funcionario-cross-tenant.md`. Revisão adversarial: aprovado com ressalvas, todas
+  endereçadas (mutation test registrado na spec; caso do `NOT IN` adicionado; substituto-sem-vínculo-em-A
+  aceito como está — guarda mora no controller por design).
+- **Próximo:** C2 (`updatePastEventsStatus` — confirmar chamador; provável morto → remover).
 
 ## Detalhamento por etapa
 

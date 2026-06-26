@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tenant\UseCase;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Repository\UserTenantRepository;
 use App\Tenant\DTO\DemitirFuncionarioInput;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,9 +22,9 @@ final class DemitirFuncionarioUseCase
         $this->validarInput($input);
 
         if ($input->substituto !== null) {
-            $this->transferirResponsabilidades($input->funcionario, $input->substituto);
+            $this->transferirResponsabilidades($input->funcionario, $input->substituto, $input->tenant);
         } else {
-            $this->removerResponsabilidades($input->funcionario);
+            $this->removerResponsabilidades($input->funcionario, $input->tenant);
         }
 
         $userTenant = $this->userTenantRepository->findAtivoPorUserETenant(
@@ -65,43 +66,62 @@ final class DemitirFuncionarioUseCase
         }
     }
 
-    private function removerResponsabilidades(User $funcionario): void
+    /**
+     * Escopa TODAS as operações por $tenant: bulk DQL (UPDATE) e SQL nativo escapam do
+     * TenantFilter, então demitir um funcionário multi-tenant de UM escritório não pode tocar
+     * suas responsabilidades nos demais. As join tables são escopadas via subselect no tenant
+     * da tarefa/evento dona.
+     */
+    private function removerResponsabilidades(User $funcionario, Tenant $tenant): void
     {
         $uid = $funcionario->getId();
+        $tid = $tenant->getId();
 
         $this->em->createQuery(
-            'UPDATE App\Pasta\Entity\Pasta p SET p.responsavel = NULL WHERE p.responsavel = :user'
-        )->setParameter('user', $funcionario)->execute();
+            'UPDATE App\Pasta\Entity\Pasta p SET p.responsavel = NULL WHERE p.responsavel = :user AND p.tenant = :tenant'
+        )->setParameter('user', $funcionario)->setParameter('tenant', $tenant)->execute();
 
         $this->em->createQuery(
-            'UPDATE App\Entity\ServiceDesk\Chamado c SET c.responsavel = NULL WHERE c.responsavel = :user'
-        )->setParameter('user', $funcionario)->execute();
+            'UPDATE App\Entity\ServiceDesk\Chamado c SET c.responsavel = NULL WHERE c.responsavel = :user AND c.tenant = :tenant'
+        )->setParameter('user', $funcionario)->setParameter('tenant', $tenant)->execute();
 
         $conn = $this->em->getConnection();
 
         $conn->executeStatement(
-            'DELETE FROM tarefa_responsaveis WHERE user_id = :uid',
-            ['uid' => $uid]
+            'DELETE FROM tarefa_responsaveis
+             WHERE user_id = :uid
+               AND tarefa_id IN (SELECT id FROM tarefa WHERE tenant_id = :tid)',
+            ['uid' => $uid, 'tid' => $tid]
         );
 
         $conn->executeStatement(
-            'DELETE FROM evento_participante WHERE user_id = :uid',
-            ['uid' => $uid]
+            'DELETE FROM evento_participante
+             WHERE user_id = :uid
+               AND evento_id IN (SELECT id FROM evento WHERE tenant_id = :tid)',
+            ['uid' => $uid, 'tid' => $tid]
         );
     }
 
-    private function transferirResponsabilidades(User $funcionario, User $substituto): void
+    /**
+     * Mesma regra de escopo de tenant da remoção (ver removerResponsabilidades): o INSERT só
+     * copia linhas do tenant demitido e o DELETE só remove as do tenant demitido — as
+     * responsabilidades do funcionário em outros escritórios ficam intactas. O NOT IN
+     * anti-duplicata fica global de propósito (evita colisão de PK quando o substituto já é
+     * responsável).
+     */
+    private function transferirResponsabilidades(User $funcionario, User $substituto, Tenant $tenant): void
     {
         $uid = $funcionario->getId();
         $sub = $substituto->getId();
+        $tid = $tenant->getId();
 
         $this->em->createQuery(
-            'UPDATE App\Pasta\Entity\Pasta p SET p.responsavel = :sub WHERE p.responsavel = :user'
-        )->setParameter('sub', $substituto)->setParameter('user', $funcionario)->execute();
+            'UPDATE App\Pasta\Entity\Pasta p SET p.responsavel = :sub WHERE p.responsavel = :user AND p.tenant = :tenant'
+        )->setParameter('sub', $substituto)->setParameter('user', $funcionario)->setParameter('tenant', $tenant)->execute();
 
         $this->em->createQuery(
-            'UPDATE App\Entity\ServiceDesk\Chamado c SET c.responsavel = :sub WHERE c.responsavel = :user'
-        )->setParameter('sub', $substituto)->setParameter('user', $funcionario)->execute();
+            'UPDATE App\Entity\ServiceDesk\Chamado c SET c.responsavel = :sub WHERE c.responsavel = :user AND c.tenant = :tenant'
+        )->setParameter('sub', $substituto)->setParameter('user', $funcionario)->setParameter('tenant', $tenant)->execute();
 
         $conn = $this->em->getConnection();
 
@@ -109,30 +129,36 @@ final class DemitirFuncionarioUseCase
             'INSERT INTO tarefa_responsaveis (tarefa_id, user_id)
              SELECT tarefa_id, :sub FROM tarefa_responsaveis
              WHERE user_id = :uid
+               AND tarefa_id IN (SELECT id FROM tarefa WHERE tenant_id = :tid)
                AND tarefa_id NOT IN (
                    SELECT tarefa_id FROM tarefa_responsaveis WHERE user_id = :sub2
                )',
-            ['sub' => $sub, 'uid' => $uid, 'sub2' => $sub]
+            ['sub' => $sub, 'uid' => $uid, 'tid' => $tid, 'sub2' => $sub]
         );
 
         $conn->executeStatement(
-            'DELETE FROM tarefa_responsaveis WHERE user_id = :uid',
-            ['uid' => $uid]
+            'DELETE FROM tarefa_responsaveis
+             WHERE user_id = :uid
+               AND tarefa_id IN (SELECT id FROM tarefa WHERE tenant_id = :tid)',
+            ['uid' => $uid, 'tid' => $tid]
         );
 
         $conn->executeStatement(
             'INSERT INTO evento_participante (evento_id, user_id)
              SELECT evento_id, :sub FROM evento_participante
              WHERE user_id = :uid
+               AND evento_id IN (SELECT id FROM evento WHERE tenant_id = :tid)
                AND evento_id NOT IN (
                    SELECT evento_id FROM evento_participante WHERE user_id = :sub2
                )',
-            ['sub' => $sub, 'uid' => $uid, 'sub2' => $sub]
+            ['sub' => $sub, 'uid' => $uid, 'tid' => $tid, 'sub2' => $sub]
         );
 
         $conn->executeStatement(
-            'DELETE FROM evento_participante WHERE user_id = :uid',
-            ['uid' => $uid]
+            'DELETE FROM evento_participante
+             WHERE user_id = :uid
+               AND evento_id IN (SELECT id FROM evento WHERE tenant_id = :tid)',
+            ['uid' => $uid, 'tid' => $tid]
         );
     }
 }
