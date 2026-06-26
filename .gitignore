@@ -9,6 +9,7 @@
 # Histórico e cache locais
 .bash_history
 .composer/
+/.cache/
 
 # Dependências (instaladas via composer)
 /vendor/
