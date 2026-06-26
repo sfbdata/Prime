@@ -46,6 +46,7 @@ use App\Service\Tenant\TenantContext;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\FolhaPontoBuilder;
 use App\Service\TenantBootstrapService;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
@@ -427,6 +428,17 @@ final class TenantController extends AbstractController
         return null;
     }
 
+    /**
+     * Re-aponta o TenantFilter para o tenant da URL ({tenantId}), independentemente do tenant da
+     * sessão. As rotas admin de ponto operam sobre o escritório da URL; sem isso, um admin
+     * multi-tenant veria a folha do tenant da sessão e o super-admin (sem tenant na sessão → filtro
+     * off) teria IDOR cross-tenant nos find() por id. Chamar SEMPRE após o guard de acesso ao tenant.
+     */
+    private function escoparFiltroNoTenant(EntityManagerInterface $em, Tenant $tenant): void
+    {
+        $em->getFilters()->enable('tenant')->setParameter('tenant', (int) $tenant->getId(), Types::INTEGER);
+    }
+
     #[Route('/{tenantId}/user/{id}/edit-role', name: 'app_tenant_user_edit_role', methods: ['GET','POST'])]
     public function editUserRole(
         int $tenantId,
@@ -473,6 +485,9 @@ final class TenantController extends AbstractController
         if ($userTenant === null) {
             throw $this->createNotFoundException();
         }
+
+        // A folha e os recursos exibidos são do escritório da URL, não do tenant da sessão.
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
 
         $tenantRoles = $tenantRoleRepository->findByTenantId($tenantId);
         $cargos      = $cargoRepository->findBy(['tenant' => $tenant], ['nome' => 'ASC']);
@@ -796,6 +811,9 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Sem permissão para editar batidas.');
         }
 
+        // Escopa o find() ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
+
         $registro = $registroPontoRepository->find($registroId);
 
         if ($registro === null || $registro->getUser()?->getId() !== $user->getId()) {
@@ -892,6 +910,9 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        // Escopa o find() ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
+
         $registro = $registroPontoRepository->find($registroId);
 
         if ($registro === null || $registro->getUser()?->getId() !== $user->getId()) {
@@ -950,6 +971,9 @@ final class TenantController extends AbstractController
         if (!$this->isCsrfTokenValid('justificativa_aprovar_' . $justificativaId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
+
+        // Escopa o find() ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
 
         $justificativa = $justificativaRepository->find($justificativaId);
 
@@ -1042,6 +1066,9 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        // Escopa o find() ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
+
         $justificativa = $justificativaRepository->find($justificativaId);
 
         if ($justificativa === null || $justificativa->getUser()?->getId() !== $user->getId()) {
@@ -1114,6 +1141,9 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        // Escopa o findBy ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
+
         $pendentes = $justificativaRepository->findBy(['user' => $user, 'batchId' => $batchId, 'status' => 'pendente']);
 
         if (empty($pendentes)) {
@@ -1174,6 +1204,9 @@ final class TenantController extends AbstractController
         if (!$this->isCsrfTokenValid('justificativa_reverter_' . $justificativaId, (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
+
+        // Escopa o find() ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
 
         $justificativa = $justificativaRepository->find($justificativaId);
 
