@@ -23,7 +23,12 @@ C1 (pronto, concreto) → C2 (rápido) → C3 (migration) → C4 (enumerar) → 
   `debug:router` (não confiou no workflow). Suíte **825/825**; mutação confirmada (15/16 vermelhos ao
   neutralizar o trait). Detalhes em `docs/specs/csrf-ajax-endpoints.md`. Follow-up aberto: IDOR de
   `kanban_card_mover` (frente própria).
-- ⬜ **C5** uploads fora do `public/` (ALTO) — não iniciado.
+- 🟡 **C5** uploads fora do `public/` (ALTO) — **EM ANDAMENTO**. ✅ **C5.1** (defesa-em-profundidade)
+  ENTREGUE não-commitado: nginx (dev+prod) deixa de servir `/uploads/` estático → front controller +
+  firewall (fecha o bypass anônimo de TODOS os módulos, inclusive prod); rota autenticada das imagens do
+  editor de peças (`PecaImagemController`); faxina dos leftovers no runbook. Provado por curl (200→404/302).
+  Suíte 829/829. Spec `docs/specs/uploads-fora-do-public.md`. Falta: **C5.2** pastas→var (fecha o residual de
+  tenant das imagens), **C5.3** perfil→var (MÉDIO), **C5.4** tarefas→var (refactor do legado).
 - ⛔ **C6** frestinha super-admin — BLOQUEADO (decisão de produto). Só o Ponto foi fechado.
 - **Pendência manual:** smoke no browser do interceptador CSRF do C4a (Chrome ausente no ambiente da sessão).
 - **Deploy:** a migration do C3 (`Version20260626150000`) precisa entrar no runbook `DEPLOY-PROD-multitenant.md`.

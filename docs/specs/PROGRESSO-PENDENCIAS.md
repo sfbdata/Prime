@@ -8,9 +8,10 @@
 > `docs/specs/DEPLOY-PROD-multitenant.md` (ordem, pré-checks, travas de abort, H2 uploads).
 >
 > ➡️ **FRENTE C — segurança residual:** `docs/specs/followups-seguranca-residual.md`.
-> ✅ C1 (`cd95d52`) · C2 (`f344653`) · C3 (`787c97b`) · C4a CSRF jornada+batida (`79798d4`) COMMITADOS.
-> ✅ **C4b (Kanban, 12 endpoints) + C4c (Agenda/Notificação, 3) ENTREGUES — não commitadas** (suíte 825/825;
-> mutação confirmada). C4 COMPLETO. 🟡 **PRÓXIMO = commit C4b/C4c → C5 (uploads, ALTO)**. C6 super-admin BLOQUEADO.
+> ✅ C1 (`cd95d52`) · C2 (`f344653`) · C3 (`787c97b`) · C4a (`79798d4`) · C4b (`3f695d2`) · C4c (`9185b79`) COMMITADOS.
+> ✅ **C5.1 (defesa nginx + rota de imagem do editor + faxina) ENTREGUE — não commitada** (suíte 829/829;
+> bypass provado fechado por curl). 🟡 **PRÓXIMO = commit C5.1 → C5.2 pastas→var / C5.3 perfil→var / C5.4 tarefas→var**.
+> C6 super-admin BLOQUEADO.
 
 ## Tabela mestre
 
@@ -233,8 +234,24 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
   `notificacao_excluir` JÁ têm CSRF — não tocados. Testes `AgendaCsrfControllerTest` (2) + `NotificacaoCsrfControllerTest`
   (1). 2 testes legados de isolamento da Agenda passaram a mandar o token CSRF. **Suíte 825/825; mutação confirmada
   (15/16 vermelhos ao neutralizar o trait).** Spec atualizada: `docs/specs/csrf-ajax-endpoints.md`.
-- **Próximo:** commit C4b/C4c → **C5 (uploads app-wide fora do public, ALTO)**. C6 frestinha super-admin nos
-  outros domínios BLOQUEADO (decisão de produto).
+- **C5.1 ✅ Defesa-em-profundidade dos uploads (ALTO) ENTREGUE — NÃO COMMITADO.** Investigação read-only
+  (workflow, 5 módulos) + verificação empírica: arquivos com PII em `public/uploads/*` eram baixáveis SEM auth
+  por URL direta — e o nginx de prod (`try_files $uri /index.php`) servia o arquivo **se existisse** (só caía no
+  PHP quando ausente), então a exposição era real em prod, não só dev. **Decisão do dono:** defesa nginx + faxina
+  primeiro; endurecer `nginx.prod.conf` no escopo. Entregue: `nginx.conf`+`nginx.prod.conf` trocam o bloco
+  `location ^~ /uploads/` para `rewrite ^ /index.php last` (nunca serve estático → front controller; firewall
+  `^/ ROLE_USER` exige login) + `PecaImagemController` (rota autenticada `GET /uploads/pastas/{nome}`, só
+  imagens, p/ as imagens do editor de peças embutidas no HTML). **Provado por curl** (justificativa/pasta/perfil
+  `.pdf`/`.jpg`: 200→404/302). Teste `PecaImagemControllerTest` (anônimo→302; logado+imagem→200; inexistente→404;
+  não-imagem→404). Suíte **829/829**. Spec `docs/specs/uploads-fora-do-public.md`. Revisão adversarial: APROVADO
+  COM RESSALVAS (residual de tenant das imagens = aceite consciente, fecha no C5.2; teste de não-imagem adicionado).
+  **Residual conhecido:** a rota de imagem é auth-only (não isola por tenant) — fecha no C5.2. **Deploy:** recriar
+  o container nginx (não só reload — bind-mount de arquivo único) + faxina `rm` dos leftovers órfãos
+  (justificativas/clientes) + smoke do peticionamento logado. Arquivos a commitar: `nginx.conf`, `nginx.prod.conf`,
+  `app/src/Pasta/Controller/PecaImagemController.php`, `app/tests/Pasta/Functional/PecaImagemControllerTest.php`,
+  `docs/specs/uploads-fora-do-public.md`, `docs/specs/followups-seguranca-residual.md`, `docs/specs/PROGRESSO-PENDENCIAS.md`.
+- **Próximo:** commit C5.1 → **C5.2 (pastas→var, fecha o residual)** / C5.3 (perfil→var, MÉDIO) / C5.4 (tarefas→var,
+  refactor legado). C6 frestinha super-admin nos outros domínios BLOQUEADO (decisão de produto).
 
 ## Detalhamento por etapa
 
