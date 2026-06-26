@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\Feriado;
-use App\Entity\Ponto\JornadaColaborador;
-use App\Entity\Ponto\RegistroPonto;
-use App\Repository\Ponto\JustificativaPontoRepository;
-use App\Repository\Ponto\RegistroPontoRepository;
-use App\Service\Ponto\CalculadoraJornada;
-use App\Service\Ponto\FolhaPontoBuilder;
-use App\Service\Ponto\JornadaResolver;
+use App\Ponto\Entity\Feriado;
+use App\Ponto\Entity\JornadaColaborador;
+use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 

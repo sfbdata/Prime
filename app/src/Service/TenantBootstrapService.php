@@ -5,7 +5,7 @@ namespace App\Service;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\Permission;
-use App\Entity\Ponto\Feriado;
+use App\Ponto\Entity\Feriado;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;

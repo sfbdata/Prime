@@ -2,9 +2,9 @@
 
 namespace App\Command;
 
-use App\Entity\Ponto\Feriado;
+use App\Ponto\Entity\Feriado;
 use App\Entity\Tenant\Tenant;
-use App\Repository\Ponto\FeriadoRepository;
+use App\Ponto\Repository\FeriadoRepository;
 use App\Repository\TenantRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;

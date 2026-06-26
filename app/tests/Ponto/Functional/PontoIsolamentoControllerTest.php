@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Ponto\Functional;
 
-use App\Controller\PontoController;
+use App\Ponto\Controller\PontoController;
 use App\Controller\TenantController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
-use App\Entity\Ponto\JustificativaPonto;
-use App\Entity\Ponto\RegistroPonto;
+use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Entity\RegistroPonto;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Tests\Functional\JusPrimeWebTestCase;

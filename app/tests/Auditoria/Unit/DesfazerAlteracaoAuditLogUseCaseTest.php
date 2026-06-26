@@ -66,7 +66,7 @@ final class DesfazerAlteracaoAuditLogUseCaseTest extends TestCase
 
     public function testUpdateRegistroPontoRetornaFalsePorRiscoMedio(): void
     {
-        $log = $this->criarLog('update', \App\Entity\Ponto\RegistroPonto::class, '1');
+        $log = $this->criarLog('update', \App\Ponto\Entity\RegistroPonto::class, '1');
 
         self::assertFalse($this->sut->podeReverter($log));
     }

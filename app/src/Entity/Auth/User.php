@@ -2,7 +2,7 @@
 
 namespace App\Entity\Auth;
 
-use App\Entity\Ponto\JornadaColaborador;
+use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Repository\UserRepository;
 use App\Shared\Contract\Auditavel;

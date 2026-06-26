@@ -3,11 +3,11 @@
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\BlocoJornadaColaborador;
-use App\Entity\Ponto\BlocoJornada;
-use App\Entity\Ponto\JornadaColaborador;
-use App\Entity\Ponto\JornadaTenant;
-use App\Service\Ponto\JornadaResolver;
+use App\Ponto\Entity\BlocoJornadaColaborador;
+use App\Ponto\Entity\BlocoJornada;
+use App\Ponto\Entity\JornadaColaborador;
+use App\Ponto\Entity\JornadaTenant;
+use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\TestCase;
 
 class JornadaResolverTest extends TestCase

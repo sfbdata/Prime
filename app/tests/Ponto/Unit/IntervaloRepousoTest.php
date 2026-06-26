@@ -2,7 +2,7 @@
 
 namespace App\Tests\Ponto\Unit;
 
-use App\Entity\Ponto\RegistroPonto;
+use App\Ponto\Entity\RegistroPonto;
 use PHPUnit\Framework\TestCase;
 
 /**

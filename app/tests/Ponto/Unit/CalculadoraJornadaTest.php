@@ -3,14 +3,14 @@
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\BlocoJornadaColaborador;
-use App\Entity\Ponto\BlocoJornada;
-use App\Entity\Ponto\Feriado;
-use App\Entity\Ponto\JornadaColaborador;
-use App\Entity\Ponto\JornadaTenant;
-use App\Entity\Ponto\RegistroPonto;
-use App\Service\Ponto\CalculadoraJornada;
-use App\Service\Ponto\JornadaResolver;
+use App\Ponto\Entity\BlocoJornadaColaborador;
+use App\Ponto\Entity\BlocoJornada;
+use App\Ponto\Entity\Feriado;
+use App\Ponto\Entity\JornadaColaborador;
+use App\Ponto\Entity\JornadaTenant;
+use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Service\JornadaResolver;
 use PHPUnit\Framework\TestCase;
 
 class CalculadoraJornadaTest extends TestCase

@@ -2,17 +2,17 @@
 
 namespace App\Controller;
 
-use App\Entity\Ponto\JornadaColaborador;
-use App\Entity\Ponto\JustificativaPonto;
+use App\Ponto\Entity\JornadaColaborador;
+use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
-use App\Entity\Ponto\RegistroPonto;
+use App\Ponto\Entity\RegistroPonto;
 use App\Entity\Tenant\Sede;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Form\EditUserTenantRoleType;
 use App\Profile\Entity\UserProfile;
-use App\Form\RegistroPontoManualType;
+use App\Ponto\Form\RegistroPontoManualType;
 use App\Form\SedeType;
 use App\Form\TenantCargosLotacoesType;
 use App\Form\TenantCargosType;
@@ -22,9 +22,9 @@ use App\Form\TenantNameType;
 use App\Form\TenantPasswordType;
 use App\Cliente\Repository\ClienteRepository;
 use App\Pasta\Repository\PastaRepository;
-use App\Repository\Ponto\FeriadoRepository;
-use App\Repository\Ponto\JustificativaPontoRepository;
-use App\Repository\Ponto\RegistroPontoRepository;
+use App\Ponto\Repository\FeriadoRepository;
+use App\Ponto\Repository\JustificativaPontoRepository;
+use App\Ponto\Repository\RegistroPontoRepository;
 use App\Processo\Repository\ProcessoRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Repository\SedeRepository;
@@ -43,8 +43,8 @@ use App\Service\InvitationService;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
-use App\Service\Ponto\CalculadoraJornada;
-use App\Service\Ponto\FolhaPontoBuilder;
+use App\Ponto\Service\CalculadoraJornada;
+use App\Ponto\Service\FolhaPontoBuilder;
 use App\Service\TenantBootstrapService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -409,7 +409,7 @@ final class TenantController extends AbstractController
     /**
      * @return array{cargaHorariaSemanal: int, fonte: string}|null
      */
-    private function resolverJornadaInfoAdmin(User $user, ?\App\Entity\Ponto\JornadaTenant $jornadaTenant): ?array
+    private function resolverJornadaInfoAdmin(User $user, ?\App\Ponto\Entity\JornadaTenant $jornadaTenant): ?array
     {
         $jornada = $user->getJornadaColaborador();
 

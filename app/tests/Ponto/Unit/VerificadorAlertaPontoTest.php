@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Unit;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\JornadaTenant;
-use App\Entity\Ponto\RegistroPonto;
-use App\Repository\Ponto\RegistroPontoRepository;
-use App\Service\Ponto\JornadaResolver;
-use App\Service\Ponto\VerificadorAlertaPonto;
+use App\Ponto\Entity\JornadaTenant;
+use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Repository\RegistroPontoRepository;
+use App\Ponto\Service\JornadaResolver;
+use App\Ponto\Service\VerificadorAlertaPonto;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;

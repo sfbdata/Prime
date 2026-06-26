@@ -3,7 +3,7 @@
 namespace App\Entity\Tenant;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\JornadaTenant;
+use App\Ponto\Entity\JornadaTenant;
 use App\Entity\Tenant\Cargo;
 use App\Entity\Tenant\Lotacao;
 use App\Entity\Tenant\Sede;

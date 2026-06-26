@@ -5,3 +5,7 @@ controllers:
 profile_controllers:
     resource: ../../src/Profile/Controller/
     type: attribute
+
+ponto_controllers:
+    resource: ../../src/Ponto/Controller/
+    type: attribute

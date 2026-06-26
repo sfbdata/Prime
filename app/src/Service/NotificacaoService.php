@@ -4,7 +4,7 @@ namespace App\Service;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
-use App\Entity\Ponto\JustificativaPonto;
+use App\Ponto\Entity\JustificativaPonto;
 use App\Entity\ServiceDesk\Chamado;
 use App\Entity\Tarefa\Tarefa;
 use App\Entity\Tenant\Tenant;

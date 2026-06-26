@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Ponto\Functional;
 
 use App\Entity\Auth\User;
-use App\Entity\Ponto\JustificativaPonto;
-use App\Entity\Ponto\RegistroPonto;
+use App\Ponto\Entity\JustificativaPonto;
+use App\Ponto\Entity\RegistroPonto;
 use App\Entity\Tenant\Tenant;
-use App\Repository\Ponto\RegistroPontoRepository;
+use App\Ponto\Repository\RegistroPontoRepository;
 use App\Shared\Doctrine\Filter\TenantFilter;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
