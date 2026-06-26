@@ -18,6 +18,7 @@ use App\Kanban\UseCase\MarcarItemChecklistUseCase;
 use App\Kanban\UseCase\RemoverItemChecklistUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -26,6 +27,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/kanban')]
 final class KanbanChecklistController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly CriarChecklistUseCase $criarChecklist,
         private readonly ExcluirChecklistUseCase $excluirChecklist,
@@ -51,6 +54,9 @@ final class KanbanChecklistController extends AbstractController
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
+
+        // CSRF após o guard de tenant/acesso (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $data   = $request->toArray();
         $input  = new CriarChecklistInput(titulo: trim((string) ($data['titulo'] ?? 'Checklist')));
@@ -92,6 +98,9 @@ final class KanbanChecklistController extends AbstractController
             return $this->json(['sucesso' => false, 'mensagem' => 'Checklist não encontrada.'], 404);
         }
 
+        // CSRF após o guard de tenant (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
+
         $data   = $request->toArray();
         $input  = new AdicionarItemChecklistInput(texto: trim((string) ($data['texto'] ?? '')));
         $output = $this->adicionarItem->executar($input, $checklist);
@@ -100,7 +109,7 @@ final class KanbanChecklistController extends AbstractController
     }
 
     #[Route('/checklist/item/{id}/toggle', name: 'kanban_checklist_item_toggle', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function toggleItem(int $id): JsonResponse
+    public function toggleItem(int $id, Request $request): JsonResponse
     {
         /** @var User $user */
         $user   = $this->getUser();
@@ -110,6 +119,9 @@ final class KanbanChecklistController extends AbstractController
         if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $tenant) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Item não encontrado.'], 404);
         }
+
+        // CSRF após o guard de tenant (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $output = $this->marcarItem->executar($item);
 

@@ -14,6 +14,7 @@ use App\Kanban\UseCase\CriarComentarioUseCase;
 use App\Kanban\UseCase\ExcluirComentarioUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +23,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/kanban')]
 final class KanbanComentarioController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly CriarComentarioUseCase $criarComentario,
         private readonly AtualizarComentarioUseCase $atualizarComentario,
@@ -44,6 +47,9 @@ final class KanbanComentarioController extends AbstractController
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
+
+        // CSRF após o guard de tenant/acesso (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $data  = $request->toArray();
         $input = new CriarComentarioInput(conteudo: (string) ($data['conteudo'] ?? ''));
@@ -69,6 +75,9 @@ final class KanbanComentarioController extends AbstractController
         if ($comentario === null) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Comentário não encontrado.'], 404);
         }
+
+        // CSRF após o guard de tenant (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $data  = $request->toArray();
         $input = new CriarComentarioInput(conteudo: (string) ($data['conteudo'] ?? ''));

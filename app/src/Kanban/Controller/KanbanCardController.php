@@ -20,6 +20,7 @@ use App\Kanban\UseCase\ExcluirCardUseCase;
 use App\Kanban\UseCase\MoverCardUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,6 +29,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/kanban')]
 final class KanbanCardController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly CriarCardUseCase $criarCard,
         private readonly AtualizarCardUseCase $atualizarCard,
@@ -67,6 +70,9 @@ final class KanbanCardController extends AbstractController
         if (!$coluna->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Sem acesso ao mural.'], 403);
         }
+
+        // CSRF após os guards de tenant/acesso (404/403 têm prioridade e ficam testáveis).
+        $this->validarCsrfAjax($request);
 
         $cardId = $this->criarCard->executar($input, $coluna, $user);
 
@@ -128,6 +134,9 @@ final class KanbanCardController extends AbstractController
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
 
+        // CSRF após o guard de tenant/acesso (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
+
         $data  = $request->toArray();
         $input = new AtualizarCardInput(
             titulo: trim((string) ($data['titulo'] ?? '')),
@@ -156,6 +165,9 @@ final class KanbanCardController extends AbstractController
         if ($card === null) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
+
+        // CSRF após o guard de tenant (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $data = $request->toArray();
 

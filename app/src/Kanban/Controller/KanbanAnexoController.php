@@ -13,6 +13,7 @@ use App\Kanban\UseCase\ExcluirAnexoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageInterface;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +23,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/kanban')]
 final class KanbanAnexoController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly AdicionarAnexoUseCase $adicionarAnexo,
         private readonly ExcluirAnexoUseCase $excluirAnexo,
@@ -44,6 +47,9 @@ final class KanbanAnexoController extends AbstractController
         if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
+
+        // CSRF após o guard de tenant/acesso (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $arquivo = $request->files->get('arquivo');
         if ($arquivo === null) {

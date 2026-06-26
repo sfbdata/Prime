@@ -16,6 +16,7 @@ use App\Kanban\UseCase\ExcluirMarcadorUseCase;
 use App\Kanban\UseCase\ToggleMarcadorNoCardUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +25,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/kanban')]
 final class KanbanMarcadorController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly CriarMarcadorUseCase $criarMarcador,
         private readonly AtualizarMarcadorUseCase $atualizarMarcador,
@@ -49,6 +52,9 @@ final class KanbanMarcadorController extends AbstractController
             return $this->json(['sucesso' => false, 'mensagem' => 'Mural não encontrado.'], 404);
         }
 
+        // CSRF após o guard de tenant/acesso (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
+
         $data  = $request->toArray();
         $input = new CriarMarcadorInput(
             nome: trim((string) ($data['nome'] ?? '')),
@@ -71,6 +77,9 @@ final class KanbanMarcadorController extends AbstractController
         if ($marcador === null || $marcador->getBoard()->getTenant() !== $tenant) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Marcador não encontrado.'], 404);
         }
+
+        // CSRF após o guard de tenant (o 404 tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $data  = $request->toArray();
         $input = new CriarMarcadorInput(
@@ -121,6 +130,9 @@ final class KanbanMarcadorController extends AbstractController
         if ($marcador === null) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Marcador não encontrado.'], 404);
         }
+
+        // CSRF após os guards de tenant/acesso (os 404 têm prioridade e ficam testáveis).
+        $this->validarCsrfAjax($request);
 
         $adicionado = $this->toggleMarcador->executar($card, $marcador);
 
