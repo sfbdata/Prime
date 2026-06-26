@@ -109,10 +109,45 @@ Aplicar no dev: `migrations:execute 'DoctrineMigrations\VersionXXX' --up`. Depoi
 ### 1.8 Revisão (risco ALTO → dupla)
 `/review` (feature-review-agent) contra esta spec → corrigir → **re-revisar** antes de seguir p/ Fase 2.
 
-## Fase 2 — Migração estrutural E6 (só após Fase 1 verde)
-Mover Ponto → `src/Ponto/` (`Entity/ Repository/ Controller/ UseCase/ Service/ DTO/ Form/`),
-comportamento preservado, protegido pelos testes da Fase 1. UseCases extraídos do controller legado.
-~5500 linhas → várias sub-etapas, commits separados (mover ≠ reescrever). Detalhamento ao iniciar.
+## Fase 2 — Migração estrutural E6 (escopo 2a "move puro", decidido pelo dono)
+
+> **✅ Fase 2a ENTREGUE (não commitada):** 30 arquivos movidos para `src/Ponto/{Entity,Repository,Service,Form,Controller}`,
+> 0 referências remanescentes ao namespace antigo, bloco `AppPonto` no `doctrine.yaml`, bloco
+> `ponto_controllers` no `routes/attributes.yaml` (o loader `routing.controllers` só pegava o PontoController;
+> os outros 3 controllers precisaram do scan por diretório). Verificação: `schema:validate` OK, `lint:container`
+> OK, `lint:twig` OK, `debug:router` 20 rotas ponto/feriado/jornada, **suíte 784/784**. Templates NÃO moveram.
+> Pendente: smoke manual (TenantBootstrapService cria tenant com Feriado/JornadaTenant; forms de ponto). Detalhes ↓
+
+**Natureza:** MOVE puro, comportamento preservado (regra `src/CLAUDE.md` #6 — não misturar com reescrita).
+Rede de segurança: testes da Fase 1 + suíte 784. `strict_types` e extração de UseCase ficam de FORA
+(viram follow-up). Mapeamento completo via workflow read-only `mapear-move-ponto`.
+
+**O que move para `src/Ponto/`:**
+- 7 entidades `App\Entity\Ponto\*` → `App\Ponto\Entity\*`.
+- 7 repositories `App\Repository\Ponto\*` → `App\Ponto\Repository\*`.
+- 6 services `App\Service\Ponto\*` → `App\Ponto\Service\*`.
+- 4 forms `App\Form\{RegistroPontoManual,JustificativaPonto,Feriado,JornadaColaborador}Type` → `App\Ponto\Form\*`.
+- 4 controllers próprios `App\Controller\{Ponto,Feriado,JornadaColaborador,JornadaTenant}Controller` → `App\Ponto\Controller\*`.
+
+**Config obrigatória no mesmo passo:**
+- `doctrine.yaml`: adicionar bloco `AppPonto` (dir `src/Ponto/Entity`, prefix `App\Ponto\Entity`) — sem ele o ORM perde as entidades.
+- `repositoryClass` das 6 entidades que o declaram → novo namespace.
+- Relações `User→JornadaColaborador` e `Tenant→JornadaTenant` (corrigir `use`/targetEntity).
+- `cache:clear` (dev+test) + `composer dump-autoload` (proxies e container guardam FQCN antigo).
+- Rotas: provavelmente nada (Cliente/Pasta carregam de `src/<Dominio>/Controller` via `routing.controllers`);
+  conferir `debug:router`; bloco em `config/routes/attributes.yaml` é fallback.
+
+**Decisões travadas:**
+- `editUserRole` FICA no `TenantController` (tela de gestão do usuário; passa a importar de `App\Ponto\`).
+- `Sede` (entidade + ações de sede no TenantController) FICA no domínio Tenant.
+- Ações de ponto/justificativa dentro do `TenantController` (pontoAdd/Edit/Delete, aprovar/rejeitar/
+  reverter/aprovarTodos/novaJustificativaAdmin/anexo) FICAM lá nesta fase (só atualizam `use`) — extração
+  é follow-up (2b, refactor separado). `calcularCargaDiaria` (morto) pode ser removido depois, não agora.
+
+**Templates NÃO movem** (Twig resolve por diretório; todas as rotas têm `name` explícito → `path()` intacto).
+
+**Follow-ups pós-2a:** 2b (extrair ponto do TenantController), 2c (UseCases), `strict_types` nas classes
+movidas, remover `GeofencingService` (morto) e `calcularCargaDiaria`.
 
 ## Revisão adversarial (jun/2026) — Fase 1
 `feature-review-agent` (risco ALTO). Aprovou o núcleo: 6 write-sites com `setTenant` corretos,

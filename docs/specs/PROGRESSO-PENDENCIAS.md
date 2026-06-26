@@ -3,6 +3,9 @@
 > Documento vivo. Ponto de retomada entre sessões. Atualizar ao fim de cada sub-etapa,
 > **antes** de pedir o commit ao humano. Plano completo:
 > `.claude/plans/atualize-a-questao-do-humming-newell.md`.
+>
+> 🚀 **Deploy em produção:** checklist consolidado de TODAS as migrations da remediação em
+> `docs/specs/DEPLOY-PROD-multitenant.md` (ordem, pré-checks, travas de abort, H2 uploads).
 
 ## Tabela mestre
 
@@ -140,6 +143,14 @@ Decisões do dono: **fix-forward**, **abordagem sistêmica primeiro**, recomenda
   super-admin (adiada por decisão do dono). Spec: `docs/specs/ponto-isolamento-tenant.md`.
   **Deploy prod:** conferir cadeia anterior + `SELECT COUNT(*) FROM tenant`; conferir que nenhum
   registro/justificativa tem user com ≠1 tenant ativo (senão a migration aborta); rodar a migration ISOLADA.
+
+- **P2.3 Ponto — Fase 2a (migração estrutural) ENTREGUE (não commitada).** Escopo 2a "move puro"
+  (decidido pelo dono): 30 arquivos (7 entidades, 7 repos, 6 services, 4 forms, 4 controllers próprios)
+  movidos para `src/Ponto/`; namespaces `App\Ponto\*`; bloco `AppPonto` no `doctrine.yaml`; bloco
+  `ponto_controllers` no `routes/attributes.yaml`. `editUserRole`, ações de ponto no `TenantController`
+  e `Sede` FICARAM (importam do novo namespace). Verificação: `schema:validate`/`lint:container`/`lint:twig`
+  OK, 20 rotas, **suíte 784/784**. Falta smoke manual. Follow-ups: 2b (extrair ponto do TenantController),
+  2c (UseCases), `strict_types`, remover `GeofencingService`+`calcularCargaDiaria` mortos.
 
 ## 🎉 P0 COMPLETO + P1 + P2.1 (Tarefa) + P2.2 (Profile) + P2.3 Ponto Fase 1
 Os três P0 (Cliente, Processo, Agenda), o P1 (Pasta/Expediente), o P2.1 (Tarefa), o P2.2 (Profile) **e o
