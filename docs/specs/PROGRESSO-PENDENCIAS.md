@@ -6,6 +6,9 @@
 >
 > 🚀 **Deploy em produção:** checklist consolidado de TODAS as migrations da remediação em
 > `docs/specs/DEPLOY-PROD-multitenant.md` (ordem, pré-checks, travas de abort, H2 uploads).
+>
+> ➡️ **PRÓXIMA FRENTE (C) — segurança residual:** `docs/specs/followups-seguranca-residual.md`
+> (C1 `DemitirFuncionarioUseCase` cross-tenant → começar por aqui; depois C2–C5; C6 super-admin bloqueado).
 
 ## Tabela mestre
 
@@ -18,7 +21,7 @@
 | H2 | Hotfix: download seguro de anexos do ServiceDesk | Alta | ✅ feito | fora do public + rota controlada (auth/tenant/posse); suíte 718/718 |
 | E4 | Migrar ServiceDesk → `src/ServiceDesk/` | Alta | 🟡 em andamento | E4.1 feito; E4.2 liberado (schema decidido) |
 | E5 | Migrar Agenda → `src/Agenda/` | Alta | ⬜ pendente | ~2.374 linhas, sem testes |
-| E6 | Migrar Ponto → `src/Ponto/` | Alta (risco ALTO) | ⬜ pendente | ~10.500 linhas, 0 testes funcionais |
+| E6 | Migrar Ponto → `src/Ponto/` | Alta (risco ALTO) | ✅ feito | P2.3 Fase 1 (isolamento) + Fase 2a (move estrutural, escopo "move puro"); suíte 784/784. Follow-ups: 2b/2c/strict_types |
 
 Status: ⬜ pendente · 🟡 em andamento · ✅ feito · ⏭️ pulado
 
