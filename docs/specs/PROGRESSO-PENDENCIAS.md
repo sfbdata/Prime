@@ -162,7 +162,8 @@ E6 → `src/Ponto/`). Itens sistêmicos pendentes (follow-ups registrados): **fr
 (IDOR residual só p/ super-admin sem tenant na sessão — DECISÃO ADIADA p/ o fim, junto da definição de
 poderes do super-admin; fechamento = guard por-id nas rotas admin + teste do vetor)**;
 ~~SQL nativo cross-tenant + bulk DQL (`DemitirFuncionarioUseCase`)~~ **✅ fechado em C1**;
-`updatePastEventsStatus` (bulk, C2), unique global de `cpf/cnpj` (Cliente, C3), CSRF em endpoints JSON (C4),
+~~`updatePastEventsStatus` (bulk)~~ **✅ fechado em C2 (era morto, removido)**;
+unique global de `cpf/cnpj` (Cliente, C3), CSRF em endpoints JSON (C4),
 uploads fora do public (C5), conferência de NUP duplicado em prod.
 
 ## Frente C — segurança residual (em andamento)
@@ -181,7 +182,14 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
   `docs/specs/demitir-funcionario-cross-tenant.md`. Revisão adversarial: aprovado com ressalvas, todas
   endereçadas (mutation test registrado na spec; caso do `NOT IN` adicionado; substituto-sem-vínculo-em-A
   aceito como está — guarda mora no controller por design).
-- **Próximo:** C2 (`updatePastEventsStatus` — confirmar chamador; provável morto → remover).
+- **C2 ✅ `updatePastEventsStatus` (entregue).** Bulk DQL `UPDATE Evento SET status` sem escopo de
+  tenant em `EventoRepository`. Investigação read-only exaustiva: **zero chamadores** em todo o repo
+  (grep), **nenhum em commit algum** da história (pickaxe `git log --all -S` em `AgendaController` veio
+  vazio), sem cron/scheduler/messenger, sem invocação dinâmica, nenhum teste o referencia — nasceu com
+  a feature de calendário (`7295020`) e nunca foi ligado a nada. **Removido** (edição cirúrgica). Risco
+  BAIXO (inerte por não ter chamador). Suíte **792/792** (nada quebrou). Sem spec dedicada (trivial).
+- **Próximo:** C3 (unique global cpf/cnpj → composto por tenant — **TEM migration** → freio, pedir
+  aprovação do dono antes de aplicar).
 
 ## Detalhamento por etapa
 

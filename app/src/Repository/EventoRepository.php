@@ -240,23 +240,6 @@ class EventoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Atualiza status de eventos passados para concluído
-     */
-    public function updatePastEventsStatus(): int
-    {
-        return $this->createQueryBuilder('e')
-            ->update()
-            ->set('e.status', ':statusConcluido')
-            ->where('e.dataFim < :now')
-            ->andWhere('e.status = :statusAgendado')
-            ->setParameter('now', new \DateTimeImmutable())
-            ->setParameter('statusConcluido', Evento::STATUS_CONCLUIDO)
-            ->setParameter('statusAgendado', Evento::STATUS_AGENDADO)
-            ->getQuery()
-            ->execute();
-    }
-
-    /**
      * Busca todos os eventos para o calendário (com filtros opcionais, respeitando visibilidade)
      */
     public function findForCalendar(?string $status = null, ?User $criador = null, ?User $user = null): array
