@@ -35,7 +35,7 @@ não serviria).
    no `<head>` + um **interceptador JS** (vanilla, sem dependência) que injeta `X-CSRF-Token` em toda
    requisição AJAX **same-origin** de método inseguro (POST/PUT/PATCH/DELETE), cobrindo `fetch` **e**
    `XMLHttpRequest` (jQuery). É inofensivo para endpoints que ainda não validam o token.
-2. **Backend (`App\Shared\Controller\ValidaCsrfAjaxTrait`):** `validarCsrfAjax(Request $request)` →
+2. **Backend (`App\Shared\Trait\ValidaCsrfAjaxTrait`):** `validarCsrfAjax(Request $request)` →
    `isCsrfTokenValid('ajax', $request->headers->get('X-CSRF-Token'))`; lança 403 se inválido.
    Endpoints-alvo chamam o helper logo após a checagem de autenticação.
 
@@ -67,8 +67,60 @@ frontend → validado no smoke manual / E2E, não no teste funcional.)
 Abrir a tela de jornada (modal do tenant + aba do colaborador), salvar e excluir → deve funcionar
 (o interceptador injeta o header). Sem o interceptador, salvar daria 403.
 
+## C4b — Kanban (entregue)
+
+Re-enumeração **verificada** (leitura dos 6 controllers + `debug:router`, 26 rotas), não confiando só na
+lista do workflow. Resultado: **12 endpoints** mutantes JSON sem CSRF (não 14 — ver abaixo). Em cada um,
+`use App\Shared\Trait\ValidaCsrfAjaxTrait;` + `$this->validarCsrfAjax($request)` **após** o guard de
+tenant/acesso (404/403) e **antes** da mutação. `toggleItem` ganhou `Request $request` na assinatura.
+
+| Controller | Endpoints ligados |
+|---|---|
+| `KanbanCardController` | `kanban_card_criar`, `kanban_card_atualizar`, `kanban_card_mover` |
+| `KanbanChecklistController` | `kanban_checklist_criar`, `kanban_checklist_item_criar`, `kanban_checklist_item_toggle` |
+| `KanbanAnexoController` | `kanban_anexo_upload` |
+| `KanbanMarcadorController` | `kanban_marcador_criar`, `kanban_marcador_editar`, `kanban_marcador_toggle` |
+| `KanbanComentarioController` | `kanban_comentario_criar`, `kanban_comentario_editar` |
+
+**Já protegidos — NÃO tocados (verificado):**
+- Os 6 `*_excluir` (board/card/checklist/item/anexo/marcador/comentário) usam token por-intenção no
+  corpo (`isCsrfTokenValid('kanban_..._excluir_'.$id, _token)`).
+- `kanban_board_criar` / `kanban_board_editar` usam **Symfony Form** (`KanbanBoardType`/`KanbanBoardEditType`
+  com `csrf_token_id` e `csrf_protection` ligado por padrão) → o `_token` do form é validado no `isValid()`.
+  Por isso a spec dizia "14"; 14 − 2 (board, já cobertos) = **12 reais**. `KanbanBoardController` ficou intocado.
+
+## C4c — Agenda/Notificação (entregue)
+
+Legado (`src/Controller/`) — edição cirúrgica (Opção A), sem migrar o domínio. **3 endpoints**:
+
+| Controller | Endpoint | Obs |
+|---|---|---|
+| `AgendaController` | `agenda_criar_ajax` | CSRF após o guard `canAccessModule('agenda')`, antes do `try` |
+| `AgendaController` | `agenda_legendas_salvar` | CSRF após o guard, antes do `json_decode` |
+| `NotificacaoController` | `notificacao_marcar_lida` | ganhou `Request $request`; CSRF após o guard de posse |
+
+**Já protegidos — NÃO tocados (confirmado lendo, varredura do `debug:router`):** `agenda_excluir`
+(`delete{id}`), `agenda_cancelar` (`cancelar{id}`), `agenda_atualizar_datas` (`agenda_atualizar_datas`,
+feito no S4), `agenda_novo`/`agenda_editar` (form `EventoType`), `notificacao_marcar_todas_lidas`
+(`marcar_todas_lidas`), `notificacao_excluir` (`excluir_notificacoes`). A varredura achou esses 2 últimos
+POSTs de Notificação — mutam, mas já têm CSRF; adicioná-los seria falso-positivo.
+
+### Testes (C4b/C4c)
+
+- `tests/Kanban/Functional/KanbanCsrfControllerTest.php` (13 testes): par discriminante por endpoint
+  (sem token → 403; com token `TOKEN_ajax` via storage fake → sucesso + `sucesso:true`). Cenário inline
+  (gestor `isSystem` → acesso ao módulo; board do próprio user → `temAcesso`; coluna/card/checklist/item/
+  marcador/comentário). `kanban_anexo_upload`: com token mas sem arquivo → 422 (CSRF passou; mesmo padrão da
+  batida no C4a). +1 teste prova que `kanban_board_criar` sem `_token` do form → 422 (form CSRF ativo).
+  Usa `disableReboot()` p/ o storage fake sobreviver às 2 requisições do par.
+- `tests/Agenda/Functional/AgendaCsrfControllerTest.php` (2) + `tests/Notificacao/Functional/NotificacaoCsrfControllerTest.php` (1).
+- 2 testes legados de isolamento (`AgendaIsolamentoControllerTest::testSalvarLegendas...`/`testCriarAjaxRejeita...`)
+  passaram a instalar o storage CSRF + header (exercem os endpoints agora protegidos; continuam testando isolamento).
+- **Mutação confirmada:** neutralizando o `throw` do trait, **15/16** testes CSRF ficam vermelhos (os 15 que usam o
+  trait); o 16º (board form) continua verde — prova que aquele teste é independente do trait. Suíte **825/825**.
+
 ## Fora de escopo
 
-- C4b/C4c (reusam a infra).
-- IDOR de `kanban_card_mover` (follow-up).
+- IDOR de `kanban_card_mover` (não valida acesso ao board, só existência do card) — follow-up à parte.
 - Migração para listener global de CSRF (follow-up, após cobertura total).
+- Smoke do interceptador no browser (pendência manual herdada do C4a, Chrome ausente no ambiente).

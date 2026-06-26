@@ -6,6 +6,7 @@ use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Repository\NotificacaoRepository;
 use App\Service\NotificacaoService;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,6 +17,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/notificacoes')]
 class NotificacaoController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     private const PER_PAGE = 20;
 
     public function __construct(
@@ -75,7 +78,7 @@ class NotificacaoController extends AbstractController
      * Marca uma notificação como lida (via AJAX)
      */
     #[Route('/{id}/ler', name: 'notificacao_marcar_lida', methods: ['POST'])]
-    public function marcarComoLida(Notificacao $notificacao, EntityManagerInterface $em): JsonResponse
+    public function marcarComoLida(Notificacao $notificacao, Request $request, EntityManagerInterface $em): JsonResponse
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -84,6 +87,9 @@ class NotificacaoController extends AbstractController
         if ($notificacao->getUsuario()->getId() !== $usuario->getId()) {
             return new JsonResponse(['error' => 'Acesso negado'], 403);
         }
+
+        // CSRF após o guard de posse (o 403 de posse tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         $this->notificacaoService->marcarComoLida($notificacao);
 

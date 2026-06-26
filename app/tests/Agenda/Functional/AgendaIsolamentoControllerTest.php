@@ -16,6 +16,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Isolamento multi-tenant do AgendaController via HTTP. Gestores isSystem (que bypassam o
@@ -82,6 +83,7 @@ final class AgendaIsolamentoControllerTest extends JusPrimeWebTestCase
     public function testSalvarLegendasNaoApagaDeOutroTenant(): void
     {
         $client = static::createClient();
+        $this->instalarCsrfStorage();
         $tenantA = $this->criarTenant();
         $tenantB = $this->criarTenant();
         $gestorA = $this->criarGestor($tenantA, 'gestorA_' . uniqid() . '@test.com');
@@ -91,7 +93,7 @@ final class AgendaIsolamentoControllerTest extends JusPrimeWebTestCase
 
         // Gestor A salva uma lista vazia: o mass-delete só pode tocar legendas de A.
         $this->logarComTenant($client, $gestorA, $tenantA);
-        $client->request('POST', '/agenda/legendas/salvar', [], [], ['CONTENT_TYPE' => 'application/json'], json_encode(['legendas' => []]));
+        $client->request('POST', '/agenda/legendas/salvar', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], json_encode(['legendas' => []]));
         self::assertResponseIsSuccessful();
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -106,6 +108,7 @@ final class AgendaIsolamentoControllerTest extends JusPrimeWebTestCase
     public function testCriarAjaxRejeitaParticipanteDeOutroTenant(): void
     {
         $client = static::createClient();
+        $this->instalarCsrfStorage();
         $tenantA = $this->criarTenant();
         $tenantB = $this->criarTenant();
         $gestorA = $this->criarGestor($tenantA, 'gestorA_' . uniqid() . '@test.com');
@@ -121,7 +124,7 @@ final class AgendaIsolamentoControllerTest extends JusPrimeWebTestCase
             'duracao' => 1,
             'participantes' => [$idUserB],
         ]);
-        $client->request('POST', '/agenda/criar-ajax', [], [], ['CONTENT_TYPE' => 'application/json'], $payload);
+        $client->request('POST', '/agenda/criar-ajax', [], [], ['CONTENT_TYPE' => 'application/json', 'HTTP_X_CSRF_TOKEN' => 'TOKEN_ajax'], $payload);
         self::assertResponseIsSuccessful();
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -139,6 +142,19 @@ final class AgendaIsolamentoControllerTest extends JusPrimeWebTestCase
     private function limparIdentityMap(): void
     {
         static::getContainer()->get(EntityManagerInterface::class)->clear();
+    }
+
+    private function instalarCsrfStorage(): void
+    {
+        $storage = new class implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string { return 'TOKEN_' . $tokenId; }
+            public function setToken(string $tokenId, string $token): void {}
+            public function removeToken(string $tokenId): ?string { return null; }
+            public function hasToken(string $tokenId): bool { return true; }
+            public function clear(): void {}
+        };
+
+        static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 
     private function criarTenant(): Tenant

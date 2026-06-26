@@ -16,11 +16,13 @@ C1 (pronto, concreto) → C2 (rápido) → C3 (migration) → C4 (enumerar) → 
 - ✅ **C1** `DemitirFuncionarioUseCase` cross-tenant — COMMITADO `cd95d52`.
 - ✅ **C2** `updatePastEventsStatus` (era morto) removido — COMMITADO `f344653`.
 - ✅ **C3** cpf/cnpj de Cliente únicos por escritório (Opção B, migration `Version20260626150000`) — COMMITADO `787c97b`.
-- 🟡 **C4** CSRF em endpoints AJAX/JSON — EM ANDAMENTO. **C4a** (jornada + `ponto_batida`, ALTO) COMMITADO `79798d4`.
-  Falta **C4b** (Kanban, 14 endpoints) e **C4c** (Agenda/Notificação, 3) — reusam a infra do C4a
-  (interceptador em `base.html.twig` + trait `App\Shared\Trait\ValidaCsrfAjaxTrait`). Detalhes e a
-  enumeração completa em `docs/specs/csrf-ajax-endpoints.md`. ⚠️ Re-verificar a enumeração (grep+leitura)
-  antes de C4b/C4c — o workflow Haiku perdeu `ponto_batida`.
+- ✅ **C4** CSRF em endpoints AJAX/JSON — **COMPLETO** (pendente commit de C4b/C4c). **C4a** (jornada +
+  `ponto_batida`, ALTO) COMMITADO `79798d4`. **C4b** (Kanban, **12** endpoints — não 14: board criar/editar
+  já usam form CSRF) + **C4c** (Agenda/Notificação, 3) ENTREGUES, reusando a infra do C4a (interceptador em
+  `base.html.twig` + trait `App\Shared\Trait\ValidaCsrfAjaxTrait`). Enumeração re-verificada por leitura +
+  `debug:router` (não confiou no workflow). Suíte **825/825**; mutação confirmada (15/16 vermelhos ao
+  neutralizar o trait). Detalhes em `docs/specs/csrf-ajax-endpoints.md`. Follow-up aberto: IDOR de
+  `kanban_card_mover` (frente própria).
 - ⬜ **C5** uploads fora do `public/` (ALTO) — não iniciado.
 - ⛔ **C6** frestinha super-admin — BLOQUEADO (decisão de produto). Só o Ponto foi fechado.
 - **Pendência manual:** smoke no browser do interceptador CSRF do C4a (Chrome ausente no ambiente da sessão).

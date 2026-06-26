@@ -9,8 +9,8 @@
 >
 > ➡️ **FRENTE C — segurança residual:** `docs/specs/followups-seguranca-residual.md`.
 > ✅ C1 (`cd95d52`) · C2 (`f344653`) · C3 (`787c97b`) · C4a CSRF jornada+batida (`79798d4`) COMMITADOS.
-> 🟡 **PRÓXIMO = C4b (Kanban) + C4c (Agenda/Notificação)** — reusam a infra CSRF do C4a; ver
-> `docs/specs/csrf-ajax-endpoints.md`. Depois C5 (uploads, ALTO). C6 super-admin BLOQUEADO.
+> ✅ **C4b (Kanban, 12 endpoints) + C4c (Agenda/Notificação, 3) ENTREGUES — não commitadas** (suíte 825/825;
+> mutação confirmada). C4 COMPLETO. 🟡 **PRÓXIMO = commit C4b/C4c → C5 (uploads, ALTO)**. C6 super-admin BLOQUEADO.
 
 ## Tabela mestre
 
@@ -217,10 +217,24 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
   mutação confirmada. Suíte **809/809**. Spec `docs/specs/csrf-ajax-endpoints.md`. Revisão adversarial:
   aprovado com ressalvas → todas endereçadas (batida, local do trait, teste do delete). **Smoke do
   interceptador no browser: PENDENTE** (Chrome ausente no ambiente) — passo manual do dono.
-- **Próximo:** C4b (Kanban — 14 endpoints) e C4c (Agenda/Notificação — 3) reusam a MESMA infra (só
-  ligam a validação por endpoint + garantem que o frontend passa pelo interceptador). ⚠️ **A
-  enumeração Haiku perdeu `ponto_batida`** → re-verificar com rigor (grep + leitura) os endpoints de
-  C4b/C4c antes de implementar, não confiar só na lista do workflow. Depois C5 (uploads, ALTO).
+- **C4b ✅ CSRF AJAX do Kanban (BAIXO) ENTREGUE — NÃO COMMITADO.** Enumeração re-verificada por leitura dos 6
+  controllers + `debug:router` (26 rotas), não confiando no workflow. **12 endpoints** mutantes JSON sem CSRF
+  (não 14): card criar/atualizar/mover, checklist criar / item criar / item toggle, anexo upload, marcador
+  criar/editar/toggle, comentário criar/editar — em 5 controllers (`Card/Checklist/Anexo/Marcador/Comentario`).
+  Ligaram `App\Shared\Trait\ValidaCsrfAjaxTrait` + `validarCsrfAjax($request)` após o guard de tenant/acesso.
+  `toggleItem` ganhou `Request $request`. **Já protegidos, NÃO tocados:** os 6 `*_excluir` (token por-intenção no
+  corpo) e `kanban_board_criar`/`editar` (Symfony Form `KanbanBoardType`/`KanbanBoardEditType`, CSRF do form) —
+  por isso "14" virou 12. `KanbanBoardController` intocado. Teste `KanbanCsrfControllerTest` (13: par sem/com token
+  por endpoint + board form 422). Follow-up aberto: IDOR de `kanban_card_mover` (não valida acesso ao board).
+- **C4c ✅ CSRF AJAX de Agenda/Notificação (BAIXO/MÉDIO) ENTREGUE — NÃO COMMITADO.** Legado (`src/Controller/`),
+  edição cirúrgica. **3 endpoints:** `agenda_criar_ajax`, `agenda_legendas_salvar` (CSRF após `canAccessModule`),
+  `notificacao_marcar_lida` (ganhou `Request $request`; CSRF após o guard de posse). **Varredura confirmou** que
+  `agenda_excluir/cancelar/atualizar-datas`, `agenda_novo/editar` (form), `notificacao_marcar_todas_lidas` e
+  `notificacao_excluir` JÁ têm CSRF — não tocados. Testes `AgendaCsrfControllerTest` (2) + `NotificacaoCsrfControllerTest`
+  (1). 2 testes legados de isolamento da Agenda passaram a mandar o token CSRF. **Suíte 825/825; mutação confirmada
+  (15/16 vermelhos ao neutralizar o trait).** Spec atualizada: `docs/specs/csrf-ajax-endpoints.md`.
+- **Próximo:** commit C4b/C4c → **C5 (uploads app-wide fora do public, ALTO)**. C6 frestinha super-admin nos
+  outros domínios BLOQUEADO (decisão de produto).
 
 ## Detalhamento por etapa
 

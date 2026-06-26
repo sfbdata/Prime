@@ -13,6 +13,7 @@ use App\Repository\UserRepository;
 use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -38,6 +39,8 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/agenda')]
 class AgendaController extends AbstractController
 {
+    use ValidaCsrfAjaxTrait;
+
     public function __construct(
         private readonly NotificacaoService $notificacaoService,
         private readonly UserRepository $userRepository,
@@ -141,6 +144,9 @@ class AgendaController extends AbstractController
         if (!$this->permissionChecker->canAccessModule($user, $tenant, 'agenda')) {
             return $this->json(['success' => false, 'error' => 'Sem permissão'], 403);
         }
+
+        // CSRF após o guard de autorização (a falha de permissão tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
 
         try {
             $data = json_decode($request->getContent(), true);
@@ -445,8 +451,11 @@ class AgendaController extends AbstractController
             return $this->json(['success' => false, 'error' => 'Sem permissão'], 403);
         }
 
+        // CSRF após o guard de autorização (a falha de permissão tem prioridade e fica testável).
+        $this->validarCsrfAjax($request);
+
         $data = json_decode($request->getContent(), true);
-        
+
         if (!isset($data['legendas']) || !is_array($data['legendas'])) {
             return $this->json(['success' => false, 'message' => 'Dados inválidos'], 400);
         }
