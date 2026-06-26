@@ -12,6 +12,20 @@
 ## Ordem recomendada
 C1 (pronto, concreto) → C2 (rápido) → C3 (migration) → C4 (enumerar) → C5 (maior). **C6 está BLOQUEADO** (decisão de produto).
 
+## STATUS (atualizar ao avançar) — jun/2026
+- ✅ **C1** `DemitirFuncionarioUseCase` cross-tenant — COMMITADO `cd95d52`.
+- ✅ **C2** `updatePastEventsStatus` (era morto) removido — COMMITADO `f344653`.
+- ✅ **C3** cpf/cnpj de Cliente únicos por escritório (Opção B, migration `Version20260626150000`) — COMMITADO `787c97b`.
+- 🟡 **C4** CSRF em endpoints AJAX/JSON — EM ANDAMENTO. **C4a** (jornada + `ponto_batida`, ALTO) COMMITADO `79798d4`.
+  Falta **C4b** (Kanban, 14 endpoints) e **C4c** (Agenda/Notificação, 3) — reusam a infra do C4a
+  (interceptador em `base.html.twig` + trait `App\Shared\Trait\ValidaCsrfAjaxTrait`). Detalhes e a
+  enumeração completa em `docs/specs/csrf-ajax-endpoints.md`. ⚠️ Re-verificar a enumeração (grep+leitura)
+  antes de C4b/C4c — o workflow Haiku perdeu `ponto_batida`.
+- ⬜ **C5** uploads fora do `public/` (ALTO) — não iniciado.
+- ⛔ **C6** frestinha super-admin — BLOQUEADO (decisão de produto). Só o Ponto foi fechado.
+- **Pendência manual:** smoke no browser do interceptador CSRF do C4a (Chrome ausente no ambiente da sessão).
+- **Deploy:** a migration do C3 (`Version20260626150000`) precisa entrar no runbook `DEPLOY-PROD-multitenant.md`.
+
 ---
 
 ## C1 — `DemitirFuncionarioUseCase` escreve cross-tenant 🔴 (começar por aqui)

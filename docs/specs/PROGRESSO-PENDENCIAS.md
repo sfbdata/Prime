@@ -7,8 +7,10 @@
 > 🚀 **Deploy em produção:** checklist consolidado de TODAS as migrations da remediação em
 > `docs/specs/DEPLOY-PROD-multitenant.md` (ordem, pré-checks, travas de abort, H2 uploads).
 >
-> ➡️ **PRÓXIMA FRENTE (C) — segurança residual:** `docs/specs/followups-seguranca-residual.md`
-> (C1 `DemitirFuncionarioUseCase` cross-tenant → começar por aqui; depois C2–C5; C6 super-admin bloqueado).
+> ➡️ **FRENTE C — segurança residual:** `docs/specs/followups-seguranca-residual.md`.
+> ✅ C1 (`cd95d52`) · C2 (`f344653`) · C3 (`787c97b`) · C4a CSRF jornada+batida (`79798d4`) COMMITADOS.
+> 🟡 **PRÓXIMO = C4b (Kanban) + C4c (Agenda/Notificação)** — reusam a infra CSRF do C4a; ver
+> `docs/specs/csrf-ajax-endpoints.md`. Depois C5 (uploads, ALTO). C6 super-admin BLOQUEADO.
 
 ## Tabela mestre
 
@@ -168,6 +170,7 @@ uploads fora do public (C5), conferência de NUP duplicado em prod.
 
 ## Frente C — segurança residual (em andamento)
 Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin bloqueado por decisão de produto).
+**Commits:** C1 `cd95d52` · C2 `f344653` · C3 `787c97b` · C4a `79798d4` (todos COMMITADOS, árvore limpa).
 
 - **C1 ✅ `DemitirFuncionarioUseCase` cross-tenant (entregue).** As 4 operações de
   `removerResponsabilidades`/`transferirResponsabilidades` filtravam só por `user`, sem tenant — bulk DQL
