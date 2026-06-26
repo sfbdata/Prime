@@ -74,7 +74,7 @@ final class PontoController extends AbstractController
         $limiteMinimo = $agora->modify('first day of last month')->format('Y-m');
 
         $competenciasPonto = array_values(array_filter(
-            $repository->findCompetenciasComRegistroPorUsuario($user),
+            $repository->findCompetenciasComRegistroPorUsuario($user, $tenant),
             fn($c) => $c['valor'] >= $limiteMinimo
         ));
         $competenciasDisponiveis = array_column($competenciasPonto, 'valor');
@@ -243,6 +243,7 @@ final class PontoController extends AbstractController
             foreach ($datasValidas as $dataObj) {
                 $justificativa = new JustificativaPonto();
                 $justificativa->setUser($user);
+                $justificativa->setTenant($tenant);
                 $justificativa->setData($dataObj);
                 $justificativa->setTipo($tipo);
                 $justificativa->setAnexoPath($anexoPath);
@@ -595,6 +596,7 @@ final class PontoController extends AbstractController
         // Cria o registro de ponto
         $registro = new RegistroPonto();
         $registro->setUser($user);
+        $registro->setTenant($tenant);
         $registro->setSede($sedeEncontrada);
         $registro->setSedeNomeSnapshot($sedeEncontrada->getNome());
         $registro->setTipo($tipo);

@@ -4,11 +4,13 @@ namespace App\Entity\Ponto;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Sede;
+use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
-class RegistroPonto implements Auditavel
+class RegistroPonto implements Auditavel, TenantAware
 {
     public const TIPO_ENTRADA = 'entrada';
     public const TIPO_REPOUSO = 'repouso';
@@ -29,6 +31,10 @@ class RegistroPonto implements Auditavel
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\Column(type: 'datetime')]
     private ?\DateTimeInterface $dataHora = null;
@@ -73,6 +79,17 @@ class RegistroPonto implements Auditavel
     public function setUser(?User $user): static
     {
         $this->user = $user;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): static
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

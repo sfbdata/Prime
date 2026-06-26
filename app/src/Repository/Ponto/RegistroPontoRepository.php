@@ -5,6 +5,7 @@ namespace App\Repository\Ponto;
 use App\Entity\Auth\User;
 use App\Entity\Ponto\RegistroPonto;
 use App\Entity\Tenant\Sede;
+use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -40,8 +41,9 @@ class RegistroPontoRepository extends ServiceEntityRepository
     /**
      * @return array<int, array{valor: string, label: string, ano: int, mes: int}>
      */
-    public function findCompetenciasComRegistroPorUsuario(User $user): array
+    public function findCompetenciasComRegistroPorUsuario(User $user, Tenant $tenant): array
     {
+        // SQL nativo NÃO passa pelo TenantFilter: o escopo de tenant é manual e obrigatório.
         $sql = <<<'SQL'
 SELECT DISTINCT
     TO_CHAR(data_hora, 'YYYY-MM') AS valor,
@@ -49,13 +51,13 @@ SELECT DISTINCT
     EXTRACT(YEAR FROM data_hora)::int AS ano,
     EXTRACT(MONTH FROM data_hora)::int AS mes
 FROM registro_ponto
-WHERE user_id = :userId
+WHERE user_id = :userId AND tenant_id = :tenantId
 ORDER BY valor DESC
 SQL;
 
         $rows = $this->getEntityManager()
             ->getConnection()
-            ->executeQuery($sql, ['userId' => $user->getId()])
+            ->executeQuery($sql, ['userId' => $user->getId(), 'tenantId' => $tenant->getId()])
             ->fetchAllAssociative();
 
         return array_map(static function (array $row): array {
@@ -120,13 +122,17 @@ SQL;
     {
         $nomeSede = $sede->getNome();
 
+        // UPDATE em massa (DQL) NÃO aplica o TenantFilter: escopo de tenant manual via a
+        // própria sede (defesa em profundidade — a sede já delimita o tenant).
         return $this->createQueryBuilder('r')
             ->update()
             ->set('r.sede', 'NULL')
             ->set('r.sedeNomeSnapshot', 'COALESCE(r.sedeNomeSnapshot, :nomeSede)')
             ->where('r.sede = :sede')
+            ->andWhere('r.tenant = :tenant')
             ->setParameter('nomeSede', $nomeSede)
             ->setParameter('sede', $sede)
+            ->setParameter('tenant', $sede->getTenant())
             ->getQuery()
             ->execute();
     }

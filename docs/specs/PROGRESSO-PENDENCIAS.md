@@ -128,12 +128,27 @@ Decisões do dono: **fix-forward**, **abordagem sistêmica primeiro**, recomenda
   guardada). Suíte **777/777**. Follow-up: `editUserName`/`demitir` (gerência de User, não tocam perfil)
   usam os mesmos guards mas sem teste cross-tenant — hardening separado.
 
-## 🎉 P0 COMPLETO + P1 + P2.1 (Tarefa) + P2.2 (Profile)
-Os três P0 (Cliente, Processo, Agenda), o P1 (Pasta/Expediente), o P2.1 (Tarefa) **e o P2.2 (Profile)**
-estão isolados por tenant. Falta só o **P2.3 Ponto** (risco ALTO). Itens sistêmicos pendentes
-(follow-ups registrados): SQL nativo cross-tenant + bulk DQL (`DemitirFuncionarioUseCase` em
-`evento_participante` e `pasta.responsavel`), `updatePastEventsStatus` (bulk), unique global de
-`cpf/cnpj` (Cliente), CSRF em endpoints JSON, conferência de NUP duplicado em prod.
+- **P2.3 🟡 Ponto — Fase 1 (isolamento) ENTREGUE; Fase 2 (estrutural) pendente.** Decisões do dono:
+  modelo **POR VÍNCULO** (coluna tenant); escopo isolamento + migração estrutural, **isolamento primeiro**.
+  `RegistroPonto` e `JustificativaPonto` → `TenantAware` + coluna `tenant` NOT NULL; `JornadaTenant`/`Feriado`
+  só marcados `TenantAware`. `JornadaColaborador`/blocos FORA (não vazam — guardados/herdados). Migration
+  `Version20260626103111` (backfill via `user_tenant` ativo; aborta se ambíguo; fallback tenant único).
+  **Aplicada no dev ISOLADA via `execute --up`** (ledger sem as 2 migrations antigas do Ponto). `setTenant`
+  nos 6 write-sites; SQL nativo `findCompetencias` agora recebe `Tenant`; bulk `desvincularSede` escopado.
+  Testes: `PontoIsolamentoControllerTest` + `PontoIsolamentoRepositoryTest` (controle positivo + IDOR via
+  usuário compartilhado + find()). Suíte **784/784**. Revisão adversarial: aprovada, único ALTO = frestinha
+  super-admin (adiada por decisão do dono). Spec: `docs/specs/ponto-isolamento-tenant.md`.
+  **Deploy prod:** conferir cadeia anterior + `SELECT COUNT(*) FROM tenant`; conferir que nenhum
+  registro/justificativa tem user com ≠1 tenant ativo (senão a migration aborta); rodar a migration ISOLADA.
+
+## 🎉 P0 COMPLETO + P1 + P2.1 (Tarefa) + P2.2 (Profile) + P2.3 Ponto Fase 1
+Os três P0 (Cliente, Processo, Agenda), o P1 (Pasta/Expediente), o P2.1 (Tarefa), o P2.2 (Profile) **e o
+P2.3 Ponto Fase 1 (isolamento)** estão isolados por tenant. Falta a **Fase 2 do Ponto** (migração estrutural
+E6 → `src/Ponto/`). Itens sistêmicos pendentes (follow-ups registrados): **frestinha super-admin no Ponto
+(IDOR residual só p/ super-admin sem tenant na sessão — DECISÃO ADIADA p/ o fim, junto da definição de
+poderes do super-admin; fechamento = guard por-id nas rotas admin + teste do vetor)**; SQL nativo cross-tenant
++ bulk DQL (`DemitirFuncionarioUseCase` em `evento_participante` e `pasta.responsavel`), `updatePastEventsStatus`
+(bulk), unique global de `cpf/cnpj` (Cliente), CSRF em endpoints JSON, conferência de NUP duplicado em prod.
 
 ## Detalhamento por etapa
 

@@ -515,7 +515,7 @@ final class TenantController extends AbstractController
             $processoRepository,
         );
 
-        $competenciasPonto = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user);
+        $competenciasPonto = $registroPontoRepository->findCompetenciasComRegistroPorUsuario($user, $tenant);
         $competenciaSelecionada = (string) $request->query->get('competencia', '');
         $competenciasDisponiveis = array_column($competenciasPonto, 'valor');
 
@@ -738,6 +738,7 @@ final class TenantController extends AbstractController
 
             $registro = new RegistroPonto();
             $registro->setUser($user);
+            $registro->setTenant($tenant);
             $registro->setDataHora($dataHora);
             $registro->setTipo($form->get('tipo')->getData());
             $registro->setObservacao($form->get('observacao')->getData());
@@ -983,6 +984,7 @@ final class TenantController extends AbstractController
             );
             $registro = new RegistroPonto();
             $registro->setUser($justificativa->getUser());
+            $registro->setTenant($tenant);
             $registro->setDataHora($dataHora);
             $registro->setTipo($justificativa->getTipoRegistroEsquecido());
             $registro->setObservacao('Criado por aprovação de justificativa (Esquecimento de Registro)');
@@ -1322,6 +1324,7 @@ final class TenantController extends AbstractController
         foreach ($datasValidas as $dataObj) {
             $justificativa = new JustificativaPonto();
             $justificativa->setUser($user);
+            $justificativa->setTenant($tenant);
             $justificativa->setData($dataObj);
             $justificativa->setTipo($tipo);
             $justificativa->setAnexoPath($anexoPath);
@@ -1346,6 +1349,7 @@ final class TenantController extends AbstractController
                 );
                 $registro = new RegistroPonto();
                 $registro->setUser($user);
+                $registro->setTenant($tenant);
                 $registro->setDataHora($dataHora);
                 $registro->setTipo($tipoRegEsquecido);
                 $registro->setObservacao('Criado pelo administrador via justificativa (Esquecimento de Registro)');

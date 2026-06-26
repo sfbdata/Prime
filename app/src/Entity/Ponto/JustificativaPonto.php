@@ -3,13 +3,15 @@
 namespace App\Entity\Ponto;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: \App\Repository\Ponto\JustificativaPontoRepository::class)]
 #[ORM\Index(fields: ['batchId'], name: 'IDX_JUST_BATCH')]
-class JustificativaPonto implements Auditavel
+class JustificativaPonto implements Auditavel, TenantAware
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
@@ -19,6 +21,10 @@ class JustificativaPonto implements Auditavel
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\Column(type: 'date')]
     private ?\DateTimeInterface $data = null;
@@ -73,6 +79,17 @@ class JustificativaPonto implements Auditavel
     public function setUser(?User $user): static
     {
         $this->user = $user;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): static
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 
