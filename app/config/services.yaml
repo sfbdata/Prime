@@ -43,3 +43,15 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+# Em teste, os uploads vão para var/uploads-test/* — gravável pelo usuário que roda os testes,
+# isolando-os dos diretórios reais public/uploads/* (que em dev pertencem ao www-data e não são
+# graváveis pelo runner). Sem isto, testes que gravam arquivo (ex.: AnexoDownloadControllerTest,
+# PecaImagemControllerTest) quebram ou poluem os dados reais.
+when@test:
+    parameters:
+        uploads_dir: '%kernel.project_dir%/var/uploads-test/pastas'
+        justificativas_uploads_dir: '%kernel.project_dir%/var/uploads-test/justificativas'
+        chamados_uploads_dir: '%kernel.project_dir%/var/uploads-test/chamados'
+        clientes_uploads_dir: '%kernel.project_dir%/var/uploads-test/clientes'
+        fotos_perfil_dir: '%kernel.project_dir%/var/uploads-test/perfil'
