@@ -254,6 +254,29 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
 - **Próximo:** commit C5.1 → **C5.2 (pastas→var, fecha o residual)** / C5.3 (perfil→var, MÉDIO) / C5.4 (tarefas→var,
   refactor legado). C6 frestinha super-admin nos outros domínios BLOQUEADO (decisão de produto).
 
+## Auditoria pós-remediação (jun/2026) — correção dos achados
+Spec desta frente: `docs/specs/auditoria-pos-remediacao-multitenant.md` (29 achados rankeados, file:line + fix).
+Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross-tenant → fix → mutação → /review.
+
+- **A1 ✅ Isolamento do diretório de usuários por tenant (ServiceDesk + Expediente) — ALTO.**
+  `User` não é TenantAware → o `TenantFilter` não toca queries de User. Os dropdowns de técnico/
+  responsável usavam `findBy(['isActive'=>true])` (sem tenant), vazando TODOS os usuários de TODOS
+  os escritórios; e `atribuir` resolvia `responsavel_id` com `find()` cru (write + notificação
+  cross-tenant). Fix: novo `UserRepository::findColaboradorAtivoPorIdETenant`; dropdowns →
+  `findColaboradoresAtivosPorTenant($tenant)` em `ServiceDeskController:102/:230` (guard `null ? []`
+  p/ super-admin sem sessão) e `ExpedienteController:203/:275` (tenant vem de `assertAccess`, não-nulo);
+  `atribuir` valida o responsável contra `$chamado->getTenant()` (autoritativo) → 404 se não for
+  colaborador ativo do escritório dono. **6º site achado na revisão:** `ChamadoType` (EntityType
+  `responsavel`, hoje dead code por `is_admin:false`) escopado por tenant (opção `tenant`, fail-closed).
+  7 testes (`ServiceDeskUsuariosIsolamentoControllerTest` 5 + `ExpedienteUsuariosIsolamentoControllerTest`
+  2); mutação confirmada 2×. Suíte **836/836**. Revisão adversarial + re-revisão do delta: aprovadas.
+  **Deferidos (sem leak):** `find()` :82 do filtro do dashboard; comentário stale em `NotificacaoService`.
+  **Fora desta frente (achados separados):** M1 (CSRF atribuir/status), B5 (frestinha super-admin).
+- **A2 ⬜ CSRF no lançamento/edição manual de ponto (ALTO)** — próximo. Decisão do dono: token
+  por-intenção stateful explícito (`isCsrfTokenValid('ponto_manual_add'/'..._edit', _token)`) nos dois
+  templates, em vez do `submit` stateless (determinístico e testável com o storage fake).
+- **Demais (MÉDIO/BAIXO):** M1–M8, B1–B10 conforme o doc da auditoria.
+
 ## Detalhamento por etapa
 
 ### E1 — Finalizar tema escuro ✅

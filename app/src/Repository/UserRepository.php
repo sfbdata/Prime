@@ -127,6 +127,22 @@ class UserRepository extends ServiceEntityRepository
     }
 
     /**
+     * Resolve um colaborador ATIVO do tenant por id — mesmo join (UserTenant + isActive) que
+     * findColaboradoresAtivosPorTenant, para casar exatamente com o que os dropdowns mostram.
+     * Usado para validar atribuições (id de outro escritório → null → 404 no controller).
+     */
+    public function findColaboradorAtivoPorIdETenant(int $id, Tenant $tenant): ?User
+    {
+        return $this->createQueryBuilder('u')
+            ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true')
+            ->andWhere('u.id = :id')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('id', $id)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * @param int[] $ids
      * @return User[]
      */

@@ -200,7 +200,7 @@ final class ExpedienteController extends AbstractController
             'pastas'       => $pastas,
             'filters'      => $filters,
             'nups'         => $this->pastaRepository->findAllNups($tenant),
-            'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
+            'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
             'formAction'   => $urlPainel,
             'limparUrl'    => $urlPainel,
             'pagination'   => [
@@ -272,7 +272,7 @@ final class ExpedienteController extends AbstractController
             'pastas'       => $this->pastaRepository->findByFilters($filters, $tenant, $page, self::PER_PAGE),
             'filters'      => $filters,
             'nups'         => $this->pastaRepository->findAllNups($tenant),
-            'responsaveis' => $this->userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']),
+            'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
             'formAction'   => $this->generateUrl('expediente_acervo_geral'),
             'limparUrl'    => $this->generateUrl('expediente_acervo_geral'),
             'pagination'   => [

@@ -3,7 +3,9 @@
 namespace App\Form;
 
 use App\Entity\Auth\User;
+use App\Entity\Auth\UserTenant;
 use App\Entity\ServiceDesk\Chamado;
+use App\Entity\Tenant\Tenant;
 use App\Repository\UserRepository;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
@@ -22,6 +24,7 @@ class ChamadoType extends AbstractType
     {
         $isEdit = $options['is_edit'];
         $isAdmin = $options['is_admin'];
+        $tenant = $options['tenant'];
 
         $builder
             ->add('titulo', TextType::class, [
@@ -115,10 +118,13 @@ class ChamadoType extends AbstractType
                     'label' => 'Responsável',
                     'required' => false,
                     'placeholder' => 'Não atribuído',
-                    'query_builder' => function (UserRepository $repo) {
+                    // User não é TenantAware → escopar manualmente por vínculo ATIVO no tenant
+                    // (mesmo join de UserRepository::findColaboradoresAtivosPorTenant). Sem tenant
+                    // (ex.: super-admin sem sessão) → nenhuma opção; fail-closed em vez de vazar.
+                    'query_builder' => function (UserRepository $repo) use ($tenant) {
                         return $repo->createQueryBuilder('u')
-                            ->where('u.isActive = :active')
-                            ->setParameter('active', true)
+                            ->join(UserTenant::class, 'ut', 'WITH', 'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true')
+                            ->setParameter('tenant', $tenant)
                             ->orderBy('u.fullName', 'ASC');
                     },
                 ]);
@@ -131,9 +137,11 @@ class ChamadoType extends AbstractType
             'data_class' => Chamado::class,
             'is_edit' => false,
             'is_admin' => false,
+            'tenant' => null,
         ]);
 
         $resolver->setAllowedTypes('is_edit', 'bool');
         $resolver->setAllowedTypes('is_admin', 'bool');
+        $resolver->setAllowedTypes('tenant', [Tenant::class, 'null']);
     }
 }

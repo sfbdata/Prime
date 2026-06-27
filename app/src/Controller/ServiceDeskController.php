@@ -98,8 +98,8 @@ class ServiceDeskController extends AbstractController
             $filtros['busca']
         );
 
-        // Lista de técnicos para filtro
-        $tecnicos = $userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
+        // Lista de técnicos para filtro (somente colaboradores ativos do escritório atual)
+        $tecnicos = $tenant !== null ? $userRepository->findColaboradoresAtivosPorTenant($tenant) : [];
 
         // Estatísticas
         $countsByStatus = $chamadoRepository->countByStatus($tenant);
@@ -167,6 +167,7 @@ class ServiceDeskController extends AbstractController
         $form = $this->createForm(ChamadoType::class, $chamado, [
             'is_edit' => false,
             'is_admin' => false,
+            'tenant' => $tenant,
         ]);
 
         $form->handleRequest($request);
@@ -227,7 +228,7 @@ class ServiceDeskController extends AbstractController
         // Lista de técnicos para atribuição (apenas para admin)
         $tecnicos = [];
         if ($isAdmin) {
-            $tecnicos = $userRepository->findBy(['isActive' => true], ['fullName' => 'ASC']);
+            $tecnicos = $tenant !== null ? $userRepository->findColaboradoresAtivosPorTenant($tenant) : [];
         }
 
         return $this->render('servicedesk/show.html.twig', [
@@ -294,8 +295,17 @@ class ServiceDeskController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para atribuir chamados.');
         }
 
+        // O responsável precisa ser colaborador ATIVO do escritório DONO do chamado.
+        // $chamado->getTenant() é autoritativo e não-nulo após garantirChamadoDoTenant.
+        // ID de outro escritório → 404 (não revela existência); vazio → remove o responsável.
         $responsavelId = $request->request->get('responsavel_id');
-        $responsavel = $responsavelId ? $userRepository->find($responsavelId) : null;
+        $responsavel = null;
+        if ($responsavelId !== null && $responsavelId !== '') {
+            $responsavel = $userRepository->findColaboradorAtivoPorIdETenant((int) $responsavelId, $chamado->getTenant());
+            if ($responsavel === null) {
+                throw $this->createNotFoundException('Responsável não encontrado neste escritório.');
+            }
+        }
 
         $responsavelAnterior = $chamado->getResponsavel();
         $chamado->setResponsavel($responsavel);
