@@ -9,10 +9,13 @@
 parameters:
     mailer_from: '%env(MAILER_FROM)%'
     uploads_dir: '%kernel.project_dir%/public/uploads/pastas'
-    justificativas_uploads_dir: '%kernel.project_dir%/var/uploads/justificativas'
-    # Fora do public/: anexos de chamado só são servidos pela rota controlada (auth + tenant).
-    chamados_uploads_dir: '%kernel.project_dir%/var/uploads/chamados'
-    clientes_uploads_dir: '%kernel.project_dir%/var/uploads/clientes'
+    # Uploads ficam em public/uploads/* (volume persistido uploads_prod). A defesa contra
+    # acesso direto é o bloqueio de /uploads/ estático no nginx (C5.1) — todos são servidos
+    # só por rota controlada (auth+tenant+posse). var/uploads NÃO é volume persistido em prod,
+    # então apontar para lá perderia os arquivos no deploy seguinte.
+    justificativas_uploads_dir: '%kernel.project_dir%/public/uploads/justificativas'
+    chamados_uploads_dir: '%kernel.project_dir%/public/uploads/chamados'
+    clientes_uploads_dir: '%kernel.project_dir%/public/uploads/clientes'
     fotos_perfil_dir: '%kernel.project_dir%/public/uploads/perfil'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
