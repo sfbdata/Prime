@@ -8,10 +8,11 @@
 > `docs/specs/DEPLOY-PROD-multitenant.md` (ordem, pré-checks, travas de abort, H2 uploads).
 >
 > ➡️ **FRENTE C — segurança residual:** `docs/specs/followups-seguranca-residual.md`.
-> ✅ C1 (`cd95d52`) · C2 (`f344653`) · C3 (`787c97b`) · C4a (`79798d4`) · C4b (`3f695d2`) · C4c (`9185b79`) COMMITADOS.
-> ✅ **C5.1 (defesa nginx + rota de imagem do editor + faxina) ENTREGUE — não commitada** (suíte 829/829;
-> bypass provado fechado por curl). 🟡 **PRÓXIMO = commit C5.1 → C5.2 pastas→var / C5.3 perfil→var / C5.4 tarefas→var**.
-> C6 super-admin BLOQUEADO.
+> ✅✅ **DEPLOY EM PRODUÇÃO EXECUTADO E VALIDADO — 2026-06-27 (bluejus.com.br).** Toda a remediação
+> (P0-P2.3, C1-C3, C4a/b/c, C5.1) está LIVE. 1 tenant em prod, 8 migrations aplicadas (2 antigas de Ponto
+> pulam sozinhas), C5.1 provado `200→404`. Config de uploads revertido p/ public (`16fc10d`) — ver abaixo.
+> 🟡 **Falta:** smoke logado em prod. **C5.2/C5.3/C5.4 CANCELADOS** (nginx do C5.1 cobre tudo; `var/uploads`
+> não é volume). C6 super-admin BLOQUEADO. Follow-up aberto: IDOR `kanban_card_mover`.
 
 ## Tabela mestre
 

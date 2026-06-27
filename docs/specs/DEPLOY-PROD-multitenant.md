@@ -5,6 +5,28 @@
 > `docs/specs/*-isolamento-tenant.md`). O ambiente dev (1 tenant) nunca disparou os casos perigosos —
 > **prod pode ter >1 tenant**, então as travas de abort abaixo são reais aqui.
 
+## ✅ DEPLOY EXECUTADO E VALIDADO — 2026-06-27
+
+Toda a remediação (P0-P2.3, C1-C3, C4a/b/c, C5.1) foi pra prod via `scripts/deploy-prod-tls.sh`. Como foi:
+- **Prod tem 1 tenant** → todos os backfills caíram no fallback de tenant único, **sem abort**, sem
+  necessidade dos pré-checks de >1 tenant. Backup do banco feito antes (16M).
+- As **8 migrations da remediação aplicaram** (até `Version20260626150000`). As 2 antigas de Ponto
+  (`Version20260401000000`/`Version20260408180237`) **pularam sozinhas** (skip/abortIf — "tabelas já existem").
+  Por isso, mesmo o script rodando `doctrine:migrations:migrate` (que a Regra de ouro #2 desaconselha), com
+  1 tenant + os 2 skips foi seguro. `up-to-date` sempre mostra "2 available" = esses 2 skippers (cosmético).
+- **C5.1 (nginx):** o script **NÃO recria o nginx**, então a mudança no `nginx.prod.conf` (bind-mount) só
+  entrou com **`docker restart jusprime_nginx_prod`** (reload NÃO pega o inode novo). Provado live: `curl`
+  anônimo num PDF de pasta foi de **200 → 404**.
+- **🔴 Achado: `var/uploads` NÃO é volume persistido em prod** (compose só monta `uploads_prod` em
+  `public/uploads`). Os commits `dcceb14`/`7f269e4` tinham apontado os configs de chamados/clientes/
+  justificativas p/ `var/` mas sem mover arquivos nem criar volume → documentos existentes ficaram órfãos
+  (404). **Conserto:** reverter os 3 configs p/ `public/` (`16fc10d`); a defesa é o bloqueio `/uploads/` do
+  nginx (C5.1). **Todos os uploads ficam em `public/uploads/` (volume `uploads_prod`).** C5.2/3/4 cancelados.
+- Pós-deploy: `schema:validate` OK, home 302. **Pendente:** smoke logado (cliente doc, kanban, ponto).
+
+> O runbook abaixo fica como **referência** (foi seguido). Para um próximo deploy de migrations, a Regra de
+> ouro segue válida; mas note que o `deploy-prod-tls.sh` roda `migrate` automático no entrypoint do php.
+
 ## ⚠️ Regra de ouro
 
 1. **Backup do banco ANTES de qualquer migration.** Toda migration mexe em estrutura + dados.

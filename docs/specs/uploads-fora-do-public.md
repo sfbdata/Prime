@@ -3,7 +3,26 @@
 > Frente **C5** da segurança residual (`followups-seguranca-residual.md`). Uploads com PII servidos
 > como arquivo estático de dentro do `public/` são baixáveis por URL direta **sem auth/tenant/posse**.
 > O H2 (`servicedesk-anexo-download-seguro.md`) tratou só o ServiceDesk. Aqui fechamos o resto.
-> **Risco ALTO** (PII exposta). Sem migration de banco; envolve mover arquivos no deploy.
+> **Risco ALTO** (PII exposta). Sem migration de banco.
+
+> ## ✅ STATUS FINAL (deploy 2026-06-27) — C5.1 LIVE, C5.2/3/4 CANCELADOS
+> **C5.1 está em produção e provado (`200→404`).** Defesa = bloqueio de `/uploads/` estático no nginx
+> (`nginx.prod.conf`/`nginx.conf`: `location ^~ /uploads/ { rewrite ^ /index.php last; }`) + firewall
+> `^/ ROLE_USER` → toda URL `/uploads/*` exige login; o que é servido legitimamente passa por rota
+> controlada (PHP lê o arquivo do disco). Rota `PecaImagemController` (`/uploads/pastas/{nome}`, só imagens)
+> mantém as imagens do editor de peças funcionando.
+>
+> **C5.2/C5.3/C5.4 (mover pastas/perfil/tarefas para `var/uploads`) foram CANCELADOS.** No deploy
+> descobriu-se que **`var/uploads` NÃO é volume persistido** em prod (o `docker-compose.prod.yml` só monta
+> `uploads_prod` em `/var/www/app/public/uploads`) — apontar para `var/` perderia os arquivos no rebuild e
+> deixava os existentes órfãos (404). Como o bloqueio do nginx já protege todo o `/uploads/`,
+> **a decisão é manter TODOS os uploads em `public/uploads/` (volume persistido), protegidos pelo nginx.**
+> Os configs de clientes/justificativas/chamados que `dcceb14`/`7f269e4` haviam apontado para `var/` foram
+> **revertidos para `public/`** (`16fc10d`). Nenhum arquivo foi movido (já estavam todos em public).
+>
+> ⚠️ Se um dia se quiser de fato tirar os arquivos do web root (defesa-em-profundidade além do nginx),
+> o pré-requisito é **adicionar um volume persistido para `var/uploads`** no compose de prod — só então a
+> abordagem "mover para var" faz sentido. O conteúdo abaixo (mapa/plano original) fica como HISTÓRICO.
 
 ## Mapa de exposição (investigação read-only + verificação empírica, jun/2026)
 
