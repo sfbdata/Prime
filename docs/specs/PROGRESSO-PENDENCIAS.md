@@ -309,7 +309,19 @@ Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross
   `mover` (404), antes do CSRF/UseCase (o UseCase mantém o `temAcesso` como defesa-em-profundidade). Teste
   `KanbanMembershipControllerTest::testCardMover` (estranho → 404; dono → move); mutação (neutralizar →
   estranho volta a 403 = RED). Suíte **852/852**.
-- **Demais (MÉDIO/BAIXO):** M1, M2, M4–M8, B1–B10 conforme o doc da auditoria.
+- **M1 ✅ CSRF em `ServiceDeskController::atribuir`/`status` (form HTML cru).** As duas ações POST de form
+  HTML cru (não-Symfony-Form) liam o request sem CSRF (a C4 cobriu AJAX/JSON e forms Symfony; estas duas
+  escaparam). Fix: token por-intenção stateful por-chamado — `isCsrfTokenValid('servicedesk_atribuir_<id>'/
+  '..._status_<id>')` APÓS os guards tenant(404)/permissão(403), 403 na falha (idiom `delete_ponto_<id>`).
+  `_token` nos **7 forms** de `show.html.twig` que disparam essas rotas (1 atribuir + 1 status dropdown +
+  **5 de "Ações Rápidas"**). Testes: `ServiceDeskCsrfControllerTest` (atribuir/status sem token→403, com
+  token→ok; + data-provider crawler cobrindo os **5 botões** de ação rápida renderizando o template real),
+  ajustes em `ServiceDeskFluxoControllerTest` (3 POSTs de gestor) e `ServiceDeskUsuariosIsolamentoControllerTest`
+  (2 atribuir do A1, que agora passam pelo CSRF antes da resolução). Mutação 2× + por-form. **Revisão
+  adversarial REPROVOU a 1ª versão** (tokenizei só os 2 dropdowns e esqueci os 5 forms de Ações Rápidas →
+  gestor levaria 403; suíte verde mascarava) → corrigido + crawler test que pega a classe da regressão →
+  re-revisão APROVOU. Suíte **859/859**.
+- **Demais (MÉDIO/BAIXO):** M2, M4–M8, B1–B10 conforme o doc da auditoria.
 
 ## Detalhamento por etapa
 

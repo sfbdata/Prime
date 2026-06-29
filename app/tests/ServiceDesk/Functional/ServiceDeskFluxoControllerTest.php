@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Rede de testes do comportamento ATUAL do ServiceDesk legado, antes da migração (E4.1).
@@ -99,8 +100,9 @@ final class ServiceDeskFluxoControllerTest extends JusPrimeWebTestCase
         $id = (int) $chamado->getId();
         $tecnicoId = (int) $tecnico->getId();
 
+        $this->instalarCsrfStorage();
         $this->logarComTenant($client, $gestor, $tenant);
-        $client->request('POST', "/servicedesk/{$id}/atribuir", ['responsavel_id' => $tecnicoId]);
+        $client->request('POST', "/servicedesk/{$id}/atribuir", ['responsavel_id' => $tecnicoId, '_token' => 'TOKEN_servicedesk_atribuir_' . $id]);
         self::assertResponseRedirects();
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -138,8 +140,9 @@ final class ServiceDeskFluxoControllerTest extends JusPrimeWebTestCase
         $chamado = $this->criarChamado($tenant, $dono);
         $id = (int) $chamado->getId();
 
+        $this->instalarCsrfStorage();
         $this->logarComTenant($client, $gestor, $tenant);
-        $client->request('POST', "/servicedesk/{$id}/status", ['status' => Chamado::STATUS_RESOLVIDO]);
+        $client->request('POST', "/servicedesk/{$id}/status", ['status' => Chamado::STATUS_RESOLVIDO, '_token' => 'TOKEN_servicedesk_status_' . $id]);
         self::assertResponseRedirects();
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -161,8 +164,9 @@ final class ServiceDeskFluxoControllerTest extends JusPrimeWebTestCase
         $chamado = $this->criarChamado($tenant, $dono);
         $id = (int) $chamado->getId();
 
+        $this->instalarCsrfStorage();
         $this->logarComTenant($client, $gestor, $tenant);
-        $client->request('POST', "/servicedesk/{$id}/status", ['status' => 'status_inexistente']);
+        $client->request('POST', "/servicedesk/{$id}/status", ['status' => 'status_inexistente', '_token' => 'TOKEN_servicedesk_status_' . $id]);
         self::assertResponseRedirects();
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
@@ -273,5 +277,18 @@ final class ServiceDeskFluxoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $chamado;
+    }
+
+    private function instalarCsrfStorage(): void
+    {
+        $storage = new class implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string { return 'TOKEN_' . $tokenId; }
+            public function setToken(string $tokenId, string $token): void {}
+            public function removeToken(string $tokenId): ?string { return null; }
+            public function hasToken(string $tokenId): bool { return true; }
+            public function clear(): void {}
+        };
+
+        static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 }

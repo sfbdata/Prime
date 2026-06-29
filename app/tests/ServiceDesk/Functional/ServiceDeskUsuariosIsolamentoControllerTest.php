@@ -17,6 +17,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * A1 — o diretório de usuários (dropdowns de técnico/responsável do ServiceDesk) vazava TODOS os
@@ -86,8 +87,9 @@ final class ServiceDeskUsuariosIsolamentoControllerTest extends JusPrimeWebTestC
         $chamadoId = (int) $chamado->getId();
         $userBId   = (int) $userB->getId();
 
+        $this->instalarCsrfStorage();
         $this->logarComTenant($client, $adminA, $tenantA);
-        $client->request('POST', "/servicedesk/{$chamadoId}/atribuir", ['responsavel_id' => $userBId]);
+        $client->request('POST', "/servicedesk/{$chamadoId}/atribuir", ['responsavel_id' => $userBId, '_token' => 'TOKEN_servicedesk_atribuir_' . $chamadoId]);
 
         self::assertResponseStatusCodeSame(404, 'atribuir a um usuário de outro escritório deveria dar 404');
 
@@ -110,8 +112,9 @@ final class ServiceDeskUsuariosIsolamentoControllerTest extends JusPrimeWebTestC
         $chamadoId = (int) $chamado->getId();
         $colabAId  = (int) $colabA->getId();
 
+        $this->instalarCsrfStorage();
         $this->logarComTenant($client, $adminA, $tenantA);
-        $client->request('POST', "/servicedesk/{$chamadoId}/atribuir", ['responsavel_id' => $colabAId]);
+        $client->request('POST', "/servicedesk/{$chamadoId}/atribuir", ['responsavel_id' => $colabAId, '_token' => 'TOKEN_servicedesk_atribuir_' . $chamadoId]);
 
         self::assertResponseRedirects();
 
@@ -140,6 +143,19 @@ final class ServiceDeskUsuariosIsolamentoControllerTest extends JusPrimeWebTestC
     }
 
     // ----------------------------------------------------------------- helpers
+
+    private function instalarCsrfStorage(): void
+    {
+        $storage = new class implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string { return 'TOKEN_' . $tokenId; }
+            public function setToken(string $tokenId, string $token): void {}
+            public function removeToken(string $tokenId): ?string { return null; }
+            public function hasToken(string $tokenId): bool { return true; }
+            public function clear(): void {}
+        };
+
+        static::getContainer()->set('security.csrf.token_storage', $storage);
+    }
 
     /**
      * @template T of object

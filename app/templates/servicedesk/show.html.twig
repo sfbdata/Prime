@@ -208,6 +208,7 @@
                     <div class="card-body">
                         {# Atribuir responsável #}
                         <form action="{{ path('servicedesk_atribuir', {id: chamado.id}) }}" method="POST" class="mb-3">
+                            <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_atribuir_' ~ chamado.id) }}">
                             <label class="form-label">Atribuir para</label>
                             <div class="input-group">
                                 <select name="responsavel_id" class="form-select">
@@ -227,6 +228,7 @@
 
                         {# Alterar status #}
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <label class="form-label">Alterar Status</label>
                             <div class="input-group">
                                 <select name="status" class="form-select">
@@ -252,6 +254,7 @@
                     <div class="card-body d-grid gap-2">
                         {% if chamado.status == 'aberto' %}
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="em_andamento">
                             <button type="submit" class="btn btn-primary w-100">
                                 <i class="bi bi-play-fill me-1"></i> Iniciar Atendimento
@@ -261,6 +264,7 @@
 
                         {% if chamado.status == 'em_andamento' %}
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="resolvido">
                             <button type="submit" class="btn btn-success w-100">
                                 <i class="bi bi-check-lg me-1"></i> Marcar como Resolvido
@@ -270,12 +274,14 @@
 
                         {% if chamado.status == 'resolvido' %}
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="fechado">
                             <button type="submit" class="btn btn-secondary w-100">
                                 <i class="bi bi-archive me-1"></i> Fechar Chamado
                             </button>
                         </form>
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="em_andamento">
                             <button type="submit" class="btn btn-outline-warning w-100">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir
@@ -285,6 +291,7 @@
 
                         {% if chamado.status == 'fechado' %}
                         <form action="{{ path('servicedesk_status', {id: chamado.id}) }}" method="POST">
+                            <input type="hidden" name="_token" value="{{ csrf_token('servicedesk_status_' ~ chamado.id) }}">
                             <input type="hidden" name="status" value="aberto">
                             <button type="submit" class="btn btn-outline-primary w-100">
                                 <i class="bi bi-arrow-counterclockwise me-1"></i> Reabrir Chamado

@@ -295,6 +295,11 @@ class ServiceDeskController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para atribuir chamados.');
         }
 
+        // CSRF após os guards de tenant/permissão (form HTML cru; token por-intenção stateful).
+        if (!$this->isCsrfTokenValid('servicedesk_atribuir_' . $chamado->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
         // O responsável precisa ser colaborador ATIVO do escritório DONO do chamado.
         // $chamado->getTenant() é autoritativo e não-nulo após garantirChamadoDoTenant.
         // ID de outro escritório → 404 (não revela existência); vazio → remove o responsável.
@@ -350,6 +355,11 @@ class ServiceDeskController extends AbstractController
         $this->garantirChamadoDoTenant($chamado, $tenant);
         if (!$permissionChecker->canAdminister($usuario, $tenant, 'admin.servicedesk.manage')) {
             throw $this->createAccessDeniedException('Você não tem permissão para alterar o status de chamados.');
+        }
+
+        // CSRF após os guards de tenant/permissão (form HTML cru; token por-intenção stateful).
+        if (!$this->isCsrfTokenValid('servicedesk_status_' . $chamado->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
         $novoStatus = $request->request->get('status');
