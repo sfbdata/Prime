@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Auth\User;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -38,20 +39,19 @@ class AccessRequestRepository extends ServiceEntityRepository
 
     /**
      * Lista todas as solicitações pendentes de um tenant (isolamento obrigatório).
-     * O admin vê apenas solicitações de usuários do seu próprio tenant.
+     * O admin vê apenas solicitações feitas no próprio escritório.
+     *
+     * Escopo pelo `tenant` da própria solicitação (preenchido no submit). Antes o vínculo do
+     * solicitante (JOIN UserTenant) era usado como proxy, o que vazava a solicitação para os
+     * painéis de TODOS os escritórios de um usuário multi-tenant.
      *
      * @return AccessRequest[]
      */
     public function findPendingByTenant(Tenant $tenant): array
     {
         return $this->createQueryBuilder('ar')
-            ->join(
-                'App\Entity\Auth\UserTenant',
-                'ut',
-                'WITH',
-                'ut.user = ar.user AND ut.tenant = :tenant'
-            )
-            ->where('ar.status = :status')
+            ->where('ar.tenant = :tenant')
+            ->andWhere('ar.status = :status')
             ->setParameter('tenant', $tenant)
             ->setParameter('status', AccessRequest::STATUS_PENDING)
             ->orderBy('ar.requestedAt', 'ASC')

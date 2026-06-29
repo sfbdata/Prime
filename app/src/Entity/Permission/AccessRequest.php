@@ -3,8 +3,10 @@
 namespace App\Entity\Permission;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Repository\AccessRequestRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -18,7 +20,7 @@ use Doctrine\ORM\Mapping as ORM;
 // Unicidade de solicitações pendentes garantida por partial index no banco
 // (WHERE status = 'pending') — ver migration Version20260331120000.
 // Não usar UniqueConstraint do Doctrine aqui pois ele não suporta partial index.
-class AccessRequest implements Auditavel
+class AccessRequest implements Auditavel, TenantAware
 {
     public const STATUS_PENDING  = 'pending';
     public const STATUS_APPROVED = 'approved';
@@ -40,6 +42,11 @@ class AccessRequest implements Auditavel
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?User $user = null;
+
+    /** Escritório onde a solicitação foi feita (isola o painel de aprovação por tenant). */
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     /** Tipo do recurso: "cliente", "pasta" ou "processo". */
     #[ORM\Column(length: 50)]
@@ -91,6 +98,17 @@ class AccessRequest implements Auditavel
     public function setUser(?User $user): static
     {
         $this->user = $user;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): static
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

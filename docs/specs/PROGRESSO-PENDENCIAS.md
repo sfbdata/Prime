@@ -326,7 +326,7 @@ que é WIP do DONO — NÃO commitar junto — e `.playwright-mcp/` descartável
   adversarial REPROVOU a 1ª versão** (tokenizei só os 2 dropdowns e esqueci os 5 forms de Ações Rápidas →
   gestor levaria 403; suíte verde mascarava) → corrigido + crawler test que pega a classe da regressão →
   re-revisão APROVOU. Suíte **859/859**.
-- **M4 ✅ `Notificacao` isolada por tenant — IMPLEMENTADO E REVISADO, NÃO COMMITADO (🔴 migration aguarda OK do dono).**
+- **M4 ✅ `Notificacao` isolada por tenant — COMMITADO (`bd121c0`); migration `Version20260629120000` APLICADA no dev.**
   Spec dedicada: `docs/specs/notificacao-isolamento-tenant.md`. `Notificacao implements TenantAware` +
   coluna `tenant` NOT NULL; `setTenant` nos 2 métodos do `NotificacaoService` (`criar`/`criarNotificacao`,
   que ganharam param `Tenant`) cobre 100% das criações (zero `new Notificacao` fora do service); write-sites
@@ -374,7 +374,21 @@ que é WIP do DONO — NÃO commitar junto — e `.playwright-mcp/` descartável
     Faltou só confirmar se aplica a migration no dev direto ou mostra o SQL antes → próximo chat: escreve a
     migration, MOSTRA o SQL, aplica no dev após OK rápido. Investigação 100% feita (não re-investigar).
 - **Demais (MÉDIO/BAIXO):** M2, M5–M8, B1, B3–B10 conforme o doc da auditoria.
-  - **M2** (AccessRequest sem tenant — admin do escritório errado aprova): 🔴 precisa migration → FREIO.
+  - **M2 ✅ IMPLEMENTADO E REVISADO, NÃO COMMITADO (🔴 migration aguarda OK do dono).** Spec
+    `docs/specs/access-request-isolamento-tenant.md`. `AccessRequest implements TenantAware` + coluna
+    `tenant` NOT NULL; `submit` seta o tenant da sessão (guard null→400); `findPendingByTenant` escopa por
+    `ar.tenant = :tenant` (substitui o JOIN no vínculo que vazava p/ todos os escritórios do usuário);
+    `approve`/`deny` fecham IDOR via filtro (find→404) + guard `getTenant() === $tenant` (404); removida a dep
+    `UserTenantRepository` do controller; **corrigido bug latente** (import `User` ausente no repo). Migration
+    `Version20260629130000` (backfill vínculo→fallback→NOT NULL aborta; FK `FK_F3B2558A9033212A`/IDX
+    `IDX_F3B2558A9033212A`) escrita + **schema test sincronizado** + **dev NÃO tocado** (dev=0 solicitações).
+    Testes `AccessRequestIsolamento{Repository,Controller}Test` (7: findPendingByTenant/IDOR/submit-tenant/
+    approve-deny-404/painel/submit-duplicado-per-tenant). Mutação 3× (filtro / ar.tenant / guard). Suíte
+    **876/876**. Revisão: APROVADA COM RESSALVAS (strict_types legado, drift do índice, sugestão de teste —
+    endereçada). **Follow-ups (B-series):** (a) índice parcial `uniq_access_request_pending` em drift (ledger
+    sem banco) — recriar COM `tenant_id`; (b) **gap de autoridade residual:** `submit` não valida que o
+    `resourceId` pertence ao tenant da sessão (admin pode conceder acesso a recurso de outro escritório se o
+    solicitante enviar id estrangeiro) — fecha visibilidade do painel, não a posse do recurso no submit.
   - **M5** PecaImagemController auth-only (resíduo aceito); **M6** F1 módulo (decisão); **M7** migration
     Agenda aborta multi-tenant (antes do 2º tenant); **M8** uploads dev (parcial via A3).
   - **B1** CLI Datajud; **B3** ResourceAccess sem tenant; **B4** índice `audit_log` (migration); **B5**

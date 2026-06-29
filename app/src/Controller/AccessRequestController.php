@@ -8,7 +8,6 @@ use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Repository\AccessRequestRepository;
 use App\Repository\ResourceAccessRepository;
-use App\Repository\UserTenantRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,7 +29,6 @@ final class AccessRequestController extends AbstractController
 {
     public function __construct(
         private readonly TenantContext $tenantContext,
-        private readonly UserTenantRepository $userTenantRepository,
     ) {}
 
     private function assertAccess(PermissionChecker $checker): Tenant
@@ -54,16 +52,15 @@ final class AccessRequestController extends AbstractController
         return $tenant;
     }
 
+    /**
+     * Guard autoritativo de tenant: a solicitação só pode ser decidida pelo escritório onde
+     * foi feita. Defesa-em-profundidade — o TenantFilter já zera o find() por id cross-tenant
+     * (→ 404 antes daqui); 404 (não 403) p/ não revelar a existência da solicitação por status.
+     */
     private function assertBelongsToAdminTenant(AccessRequest $accessRequest, Tenant $tenant): void
     {
-        $requestingUser = $accessRequest->getUser();
-
-        if ($requestingUser === null) {
-            throw $this->createAccessDeniedException('Esta solicitação não pertence ao seu escritório.');
-        }
-
-        if (!$this->userTenantRepository->existeVinculoAtivo($requestingUser, $tenant)) {
-            throw $this->createAccessDeniedException('Esta solicitação não pertence ao seu escritório.');
+        if ($accessRequest->getTenant()?->getId() !== $tenant->getId()) {
+            throw $this->createNotFoundException('Solicitação não encontrada.');
         }
     }
 
@@ -101,8 +98,13 @@ final class AccessRequestController extends AbstractController
             return $this->json(['error' => 'Parâmetros inválidos.'], 400);
         }
 
-        // Verifica se já tem acesso
+        // Escritório atual = dono da solicitação (isola o painel de aprovação por tenant).
         $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
+            return $this->json(['error' => 'Selecione um escritório para solicitar acesso.'], 400);
+        }
+
+        // Verifica se já tem acesso
         if ($checker->canAccessResource($user, $tenant, $resourceType, $resourceId, $action)) {
             return $this->json(['error' => 'Você já tem acesso a este recurso.'], 400);
         }
@@ -115,6 +117,7 @@ final class AccessRequestController extends AbstractController
 
         $accessRequest = (new AccessRequest())
             ->setUser($user)
+            ->setTenant($tenant)
             ->setResourceType($resourceType)
             ->setResourceId($resourceId)
             ->setAction($action)
