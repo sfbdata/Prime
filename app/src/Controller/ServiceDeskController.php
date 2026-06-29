@@ -499,6 +499,7 @@ class ServiceDeskController extends AbstractController
         if ($solicitante && $autor !== $solicitante) {
             $this->notificacaoService->criarNotificacao(
                 $solicitante,
+                $chamado->getTenant(),
                 Notificacao::TIPO_SERVICEDESK,
                 "Nova resposta no chamado #{$chamado->getId()}: {$chamado->getTitulo()}",
                 $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])
@@ -510,6 +511,7 @@ class ServiceDeskController extends AbstractController
         if ($responsavel && $autor === $solicitante) {
             $this->notificacaoService->criarNotificacao(
                 $responsavel,
+                $chamado->getTenant(),
                 Notificacao::TIPO_SERVICEDESK,
                 "Nova mensagem no chamado #{$chamado->getId()}: {$chamado->getTitulo()}",
                 $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])
@@ -524,6 +526,7 @@ class ServiceDeskController extends AbstractController
     {
         $this->notificacaoService->criarNotificacao(
             $responsavel,
+            $chamado->getTenant(),
             Notificacao::TIPO_SERVICEDESK_ATRIBUICAO,
             "Chamado #{$chamado->getId()} atribuído a você: {$chamado->getTitulo()}",
             $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])
@@ -549,6 +552,7 @@ class ServiceDeskController extends AbstractController
         if (isset($mensagens[$novoStatus])) {
             $this->notificacaoService->criarNotificacao(
                 $solicitante,
+                $chamado->getTenant(),
                 Notificacao::TIPO_SERVICEDESK,
                 $mensagens[$novoStatus],
                 $this->generateUrl('servicedesk_show', ['id' => $chamado->getId()])

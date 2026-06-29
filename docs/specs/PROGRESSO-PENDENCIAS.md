@@ -326,7 +326,21 @@ que é WIP do DONO — NÃO commitar junto — e `.playwright-mcp/` descartável
   adversarial REPROVOU a 1ª versão** (tokenizei só os 2 dropdowns e esqueci os 5 forms de Ações Rápidas →
   gestor levaria 403; suíte verde mascarava) → corrigido + crawler test que pega a classe da regressão →
   re-revisão APROVOU. Suíte **859/859**.
-- **M4 🟡 `Notificacao` isolada por tenant — PLANO APROVADO PELO DONO, NÃO IMPLEMENTADO (retomar aqui).**
+- **M4 ✅ `Notificacao` isolada por tenant — IMPLEMENTADO E REVISADO, NÃO COMMITADO (🔴 migration aguarda OK do dono).**
+  Spec dedicada: `docs/specs/notificacao-isolamento-tenant.md`. `Notificacao implements TenantAware` +
+  coluna `tenant` NOT NULL; `setTenant` nos 2 métodos do `NotificacaoService` (`criar`/`criarNotificacao`,
+  que ganharam param `Tenant`) cobre 100% das criações (zero `new Notificacao` fora do service); write-sites
+  derivam o tenant da entidade (`$tarefa/$evento/$chamado/$justificativa->getTenant()`; Agenda 3 + ServiceDesk 4);
+  bulk `marcarTodasComoLidas`/`excluirDoUsuario` escopados explicitamente (escapam o filtro) + `NotificacaoController`
+  injeta `TenantContext` (fail-closed se sem tenant). **B2 junto:** `removerAntigas` removido (morto). Migration
+  `Version20260629120000` (backfill tarefa→fallback tenant único→NOT NULL aborta; FK `FK_5ACD93869033212A`,
+  índice `IDX_5ACD93869033212A`) ESCRITA, **schema test sincronizado**, mas **NÃO aplicada no dev** (dev=1 tenant/0
+  notif → trivial). Testes `NotificacaoIsolamento{Repository,Controller}Test` (leitura/IDOR/dropdown/gestão/bulk
+  cross-tenant) + 4 testes legados ajustados p/ `setTenant`. Mutação 2× (remover TenantAware; inverter escopo bulk).
+  Suíte **869/869**. Revisão adversarial: APROVADA COM RESSALVAS (lacuna dropdown/gestão ENDEREÇADA; código morto
+  `notificarTarefa*` e higiene de commit registrados). **PRÓXIMO:** aplicar migration no dev via `execute --up` após
+  OK, depois commit (só os 14 arquivos da frente — NÃO o `sincronizacao-drive-bidirecional.md` nem `.playwright-mcp/`).
+- **M4 (plano original, mantido para referência):**
   **Vazamento:** `Notificacao` (`src/Entity/Notificacao.php`) não tem `tenant`; todas as queries do sino
   (`NotificacaoRepository`) filtram só por `usuario` → usuário multi-tenant logado em B vê notif. geradas
   em A (título/URL de tarefa/chamado/evento/ponto). **Insight verificado:** TODA notif. nasce por

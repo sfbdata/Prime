@@ -56,12 +56,13 @@ final class NotificacaoExcluirControllerTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    private function criarNotificacao(User $usuario): Notificacao
+    private function criarNotificacao(User $usuario, Tenant $tenant): Notificacao
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $notif = new Notificacao();
         $notif->setUsuario($usuario);
+        $notif->setTenant($tenant);
         $notif->setTipo(Notificacao::TIPO_TAREFA_CRIADA);
         $notif->setTitulo('Notificação ' . uniqid());
         $em->persist($notif);
@@ -94,8 +95,8 @@ final class NotificacaoExcluirControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario($tenant);
-        $a      = (int) $this->criarNotificacao($user)->getId();
-        $b      = (int) $this->criarNotificacao($user)->getId();
+        $a      = (int) $this->criarNotificacao($user, $tenant)->getId();
+        $b      = (int) $this->criarNotificacao($user, $tenant)->getId();
 
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
@@ -123,8 +124,8 @@ final class NotificacaoExcluirControllerTest extends JusPrimeWebTestCase
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario($tenant);
         $outro  = $this->criarUsuario($tenant);
-        $minha  = (int) $this->criarNotificacao($user)->getId();
-        $alheia = (int) $this->criarNotificacao($outro)->getId();
+        $minha  = (int) $this->criarNotificacao($user, $tenant)->getId();
+        $alheia = (int) $this->criarNotificacao($outro, $tenant)->getId();
 
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
@@ -151,7 +152,7 @@ final class NotificacaoExcluirControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario($tenant);
-        $id     = (int) $this->criarNotificacao($user)->getId();
+        $id     = (int) $this->criarNotificacao($user, $tenant)->getId();
 
         $this->logarComTenant($client, $user, $tenant);
 

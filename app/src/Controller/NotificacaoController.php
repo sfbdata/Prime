@@ -6,6 +6,7 @@ use App\Entity\Auth\User;
 use App\Entity\Notificacao;
 use App\Repository\NotificacaoRepository;
 use App\Service\NotificacaoService;
+use App\Service\Tenant\TenantContext;
 use App\Shared\Trait\ValidaCsrfAjaxTrait;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -23,7 +24,8 @@ class NotificacaoController extends AbstractController
 
     public function __construct(
         private readonly NotificacaoService $notificacaoService,
-        private readonly NotificacaoRepository $notificacaoRepository
+        private readonly NotificacaoRepository $notificacaoRepository,
+        private readonly TenantContext $tenantContext
     ) {
     }
 
@@ -109,12 +111,20 @@ class NotificacaoController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
+        // O bulk UPDATE escapa o TenantFilter: o escopo por escritório é explícito.
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
+            $this->addFlash('warning', 'Selecione um escritório para gerenciar suas notificações.');
+
+            return $this->redirectToRoute('notificacao_index');
+        }
+
         $categoria = $request->request->get('categoria');
         $categoria = in_array($categoria, [Notificacao::CATEGORIA_PESSOAL, Notificacao::CATEGORIA_GESTAO], true)
             ? $categoria
             : null;
 
-        $this->notificacaoService->marcarTodasComoLidas($usuario, $categoria);
+        $this->notificacaoService->marcarTodasComoLidas($usuario, $tenant, $categoria);
 
         $this->addFlash('success', 'Todas as notificações foram marcadas como lidas.');
 
@@ -134,6 +144,12 @@ class NotificacaoController extends AbstractController
             return new JsonResponse(['error' => 'Token CSRF inválido.'], 403);
         }
 
+        // O bulk DELETE escapa o TenantFilter: o escopo por escritório é explícito.
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
+            return new JsonResponse(['error' => 'Escritório não selecionado.'], 400);
+        }
+
         // ids[] vindos do form-data; normaliza para inteiros válidos
         $ids = array_values(array_filter(
             array_map(
@@ -143,7 +159,7 @@ class NotificacaoController extends AbstractController
             static fn ($v) => $v !== false
         ));
 
-        $excluidas = $this->notificacaoService->excluir($usuario, $ids);
+        $excluidas = $this->notificacaoService->excluir($usuario, $tenant, $ids);
 
         return new JsonResponse(['success' => true, 'excluidas' => $excluidas]);
     }

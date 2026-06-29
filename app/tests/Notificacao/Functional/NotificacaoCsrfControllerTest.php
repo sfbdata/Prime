@@ -35,7 +35,7 @@ final class NotificacaoCsrfControllerTest extends JusPrimeWebTestCase
 
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario($tenant);
-        $id     = (int) $this->criarNotificacao($user)->getId();
+        $id     = (int) $this->criarNotificacao($user, $tenant)->getId();
         $url    = "/notificacoes/{$id}/ler";
 
         $this->logarComTenant($client, $user, $tenant);
@@ -101,12 +101,13 @@ final class NotificacaoCsrfControllerTest extends JusPrimeWebTestCase
         return $user;
     }
 
-    private function criarNotificacao(User $usuario): Notificacao
+    private function criarNotificacao(User $usuario, Tenant $tenant): Notificacao
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $notif = new Notificacao();
         $notif->setUsuario($usuario);
+        $notif->setTenant($tenant);
         $notif->setTipo(Notificacao::TIPO_TAREFA_CRIADA);
         $notif->setTitulo('Notificação ' . uniqid());
         $em->persist($notif);

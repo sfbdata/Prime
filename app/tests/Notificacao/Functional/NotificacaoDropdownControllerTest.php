@@ -77,6 +77,7 @@ final class NotificacaoDropdownControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $notif = new Notificacao();
         $notif->setUsuario($user);
+        $notif->setTenant($tenant);
         $notif->setTipo('servicedesk');
         $notif->setTitulo('Chamado <b>#5</b>');   // título == mensagem (caso ponto/servicedesk)
         $notif->setMensagem('Chamado <b>#5</b>');
@@ -119,6 +120,7 @@ final class NotificacaoDropdownControllerTest extends JusPrimeWebTestCase
 
         $notif = new Notificacao();
         $notif->setUsuario($user);
+        $notif->setTenant($tenant);
         $notif->setTipo(Notificacao::TIPO_TAREFA_CRIADA);
         $notif->setTitulo('Nova tarefa atribuída');
         $notif->setMensagem('A tarefa "Meta X" foi atribuída a você.');
@@ -143,6 +145,7 @@ final class NotificacaoDropdownControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $pessoal = (new Notificacao())
             ->setUsuario($user)
+            ->setTenant($tenant)
             ->setTipo(Notificacao::TIPO_TAREFA_CRIADA)
             ->setTitulo('Minha demanda');
         $em->persist($pessoal);
@@ -164,10 +167,12 @@ final class NotificacaoDropdownControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $pessoal = (new Notificacao())
             ->setUsuario($user)
+            ->setTenant($tenant)
             ->setTipo(Notificacao::TIPO_TAREFA_CRIADA)
             ->setTitulo('Minha demanda');
         $gestao = (new Notificacao())
             ->setUsuario($user)
+            ->setTenant($tenant)
             ->setTipo(Notificacao::TIPO_PONTO_JUSTIFICATIVA_ENVIADA)
             ->setTitulo('Justificativa para aprovar')
             ->setUrl('/tenant/1/user/2/edit-role?tab=justificativas');

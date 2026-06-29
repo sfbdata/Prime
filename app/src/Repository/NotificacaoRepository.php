@@ -4,6 +4,7 @@ namespace App\Repository;
 
 use App\Entity\Auth\User;
 use App\Entity\Notificacao;
+use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -118,17 +119,21 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Marca todas as notificações do usuário como lidas (opcionalmente de uma categoria)
+     * Marca todas as notificações do usuário (no escritório) como lidas (opcionalmente de
+     * uma categoria). O escopo por tenant é EXPLÍCITO: este UPDATE em massa em DQL não passa
+     * pelo TenantFilter, então sem o andWhere "marcar todas" logado em B zeraria as de A.
      */
-    public function marcarTodasComoLidas(User $usuario, ?string $categoria = null): int
+    public function marcarTodasComoLidas(User $usuario, Tenant $tenant, ?string $categoria = null): int
     {
         $qb = $this->createQueryBuilder('n')
             ->update()
             ->set('n.lida', 'true')
             ->set('n.lidaEm', ':agora')
             ->where('n.usuario = :usuario')
+            ->andWhere('n.tenant = :tenant')
             ->andWhere('n.lida = false')
             ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
             ->setParameter('agora', new \DateTimeImmutable());
         $this->aplicarCategoria($qb, $categoria);
 
@@ -136,13 +141,15 @@ class NotificacaoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Exclui as notificações informadas que pertençam ao usuário.
-     * O filtro por usuário garante que IDs de outro usuário sejam ignorados.
+     * Exclui as notificações informadas que pertençam ao usuário no escritório informado.
+     * O filtro por usuário garante que IDs de outro usuário sejam ignorados; o filtro por
+     * tenant (explícito, pois o DELETE em massa escapa o TenantFilter) impede excluir, por
+     * id, notificações do mesmo usuário em outro escritório.
      *
      * @param int[] $ids
      * @return int quantidade efetivamente excluída
      */
-    public function excluirDoUsuario(User $usuario, array $ids): int
+    public function excluirDoUsuario(User $usuario, Tenant $tenant, array $ids): int
     {
         if ($ids === []) {
             return 0;
@@ -151,24 +158,11 @@ class NotificacaoRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('n')
             ->delete()
             ->where('n.usuario = :usuario')
+            ->andWhere('n.tenant = :tenant')
             ->andWhere('n.id IN (:ids)')
             ->setParameter('usuario', $usuario)
+            ->setParameter('tenant', $tenant)
             ->setParameter('ids', $ids)
-            ->getQuery()
-            ->execute();
-    }
-
-    /**
-     * Remove notificações antigas (mais de 30 dias)
-     */
-    public function removerAntigas(int $dias = 30): int
-    {
-        $limite = new \DateTimeImmutable("-{$dias} days");
-
-        return $this->createQueryBuilder('n')
-            ->delete()
-            ->where('n.criadaEm < :limite')
-            ->setParameter('limite', $limite)
             ->getQuery()
             ->execute();
     }

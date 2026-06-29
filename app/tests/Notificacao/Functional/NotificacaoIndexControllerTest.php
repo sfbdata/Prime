@@ -62,13 +62,14 @@ final class NotificacaoIndexControllerTest extends JusPrimeWebTestCase
      * Cria $quantidade notificações pessoais (tipo tarefa_criada → não habilita a
      * aba de Gestão, então só a lista pessoal é renderizada).
      */
-    private function criarNotificacoesPessoais(User $usuario, int $quantidade): void
+    private function criarNotificacoesPessoais(User $usuario, Tenant $tenant, int $quantidade): void
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         for ($i = 0; $i < $quantidade; $i++) {
             $notif = new Notificacao();
             $notif->setUsuario($usuario);
+            $notif->setTenant($tenant);
             $notif->setTipo(Notificacao::TIPO_TAREFA_CRIADA);
             $notif->setTitulo('Notificação ' . $i);
             $em->persist($notif);
@@ -83,7 +84,7 @@ final class NotificacaoIndexControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario($tenant);
-        $this->criarNotificacoesPessoais($user, self::PER_PAGE + 5);
+        $this->criarNotificacoesPessoais($user, $tenant, self::PER_PAGE + 5);
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/notificacoes');
@@ -99,7 +100,7 @@ final class NotificacaoIndexControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario($tenant);
-        $this->criarNotificacoesPessoais($user, self::PER_PAGE + 5);
+        $this->criarNotificacoesPessoais($user, $tenant, self::PER_PAGE + 5);
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/notificacoes?page=2');
@@ -114,7 +115,7 @@ final class NotificacaoIndexControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $tenant = $this->criarTenant();
         $user   = $this->criarUsuario($tenant);
-        $this->criarNotificacoesPessoais($user, self::PER_PAGE + 5);
+        $this->criarNotificacoesPessoais($user, $tenant, self::PER_PAGE + 5);
 
         $this->logarComTenant($client, $user, $tenant);
         $crawler = $client->request('GET', '/notificacoes?page=999');

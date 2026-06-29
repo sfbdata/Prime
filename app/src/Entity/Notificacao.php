@@ -4,13 +4,15 @@ namespace App\Entity;
 
 use App\Entity\Auth\User;
 use App\Entity\Tarefa\Tarefa;
+use App\Entity\Tenant\Tenant;
 use App\Repository\NotificacaoRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: NotificacaoRepository::class)]
 #[ORM\HasLifecycleCallbacks]
-class Notificacao implements Auditavel
+class Notificacao implements Auditavel, TenantAware
 {
     public const TIPO_TAREFA_CRIADA = 'tarefa_criada';
     public const TIPO_TAREFA_EM_REVISAO = 'tarefa_em_revisao';
@@ -44,6 +46,10 @@ class Notificacao implements Auditavel
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?User $usuario = null;
+
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     #[ORM\Column(length: 50)]
     private string $tipo;
@@ -88,6 +94,17 @@ class Notificacao implements Auditavel
     public function setUsuario(?User $usuario): self
     {
         $this->usuario = $usuario;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): self
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

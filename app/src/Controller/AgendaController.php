@@ -198,6 +198,7 @@ class AgendaController extends AbstractController
             foreach ($evento->getParticipantes() as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
+                    $evento->getTenant(),
                     Notificacao::TIPO_EVENTO_CRIADO,
                     'Você foi convidado para o evento: ' . $evento->getTitulo(),
                     $this->generateUrl('agenda_show', ['id' => $evento->getId()])
@@ -260,6 +261,7 @@ class AgendaController extends AbstractController
             foreach ($evento->getParticipantes() as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
+                    $evento->getTenant(),
                     Notificacao::TIPO_EVENTO_CRIADO,
                     'Você foi convidado para o evento: ' . $evento->getTitulo(),
                     $this->generateUrl('agenda_show', ['id' => $evento->getId()])
@@ -390,6 +392,7 @@ class AgendaController extends AbstractController
             foreach ($evento->getParticipantes() as $participante) {
                 $this->notificacaoService->criarNotificacao(
                     $participante,
+                    $evento->getTenant(),
                     Notificacao::TIPO_EVENTO_CANCELADO,
                     'O evento foi cancelado: ' . $evento->getTitulo(),
                     $this->generateUrl('agenda_show', ['id' => $evento->getId()])

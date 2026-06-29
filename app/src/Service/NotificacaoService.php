@@ -33,12 +33,17 @@ class NotificacaoService
     }
 
     /**
-     * Cria uma notificação genérica
+     * Cria uma notificação genérica.
+     *
+     * O $tenant é o escritório dono da notificação (Notificacao é TenantAware): isola o sino
+     * por escritório para usuários multi-tenant. Quem chama deriva o tenant da entidade de
+     * origem (a tarefa, o evento, o chamado).
      */
-    public function criar(User $usuario, string $tipo, string $titulo, ?string $mensagem = null, ?Tarefa $tarefa = null): Notificacao
+    public function criar(User $usuario, Tenant $tenant, string $tipo, string $titulo, ?string $mensagem = null, ?Tarefa $tarefa = null): Notificacao
     {
         $notificacao = new Notificacao();
         $notificacao->setUsuario($usuario);
+        $notificacao->setTenant($tenant);
         $notificacao->setTipo($tipo);
         $notificacao->setTitulo($titulo);
         $notificacao->setMensagem($mensagem);
@@ -50,12 +55,17 @@ class NotificacaoService
     }
 
     /**
-     * Cria uma notificação com URL personalizada (para eventos e outros)
+     * Cria uma notificação com URL personalizada (para eventos e outros).
+     *
+     * O $tenant é o escritório dono da notificação (Notificacao é TenantAware): isola o sino
+     * por escritório para usuários multi-tenant. Quem chama deriva o tenant da entidade de
+     * origem (o evento, o chamado, a justificativa).
      */
-    public function criarNotificacao(User $usuario, string $tipo, string $mensagem, ?string $url = null): Notificacao
+    public function criarNotificacao(User $usuario, Tenant $tenant, string $tipo, string $mensagem, ?string $url = null): Notificacao
     {
         $notificacao = new Notificacao();
         $notificacao->setUsuario($usuario);
+        $notificacao->setTenant($tenant);
         $notificacao->setTipo($tipo);
         $notificacao->setTitulo($mensagem);
         $notificacao->setMensagem($mensagem);
@@ -73,6 +83,7 @@ class NotificacaoService
      */
     public function notificarTarefaCriada(Tarefa $tarefa): void
     {
+        $tenant = $tarefa->getTenant();
         foreach ($tarefa->getAtribuicoes() as $atribuicao) {
             $usuario = $atribuicao->getUsuario();
             if ($usuario === null) {
@@ -81,6 +92,7 @@ class NotificacaoService
 
             $this->criar(
                 $usuario,
+                $tenant,
                 Notificacao::TIPO_TAREFA_CRIADA,
                 'Nova tarefa atribuída',
                 "A tarefa \"{$tarefa->getTitulo()}\" foi atribuída a você.",
@@ -97,6 +109,7 @@ class NotificacaoService
      */
     public function notificarTarefaPendente(Tarefa $tarefa): void
     {
+        $tenant = $tarefa->getTenant();
         foreach ($tarefa->getAtribuicoes() as $atribuicao) {
             $usuario = $atribuicao->getUsuario();
             if ($usuario === null) {
@@ -105,6 +118,7 @@ class NotificacaoService
 
             $this->criar(
                 $usuario,
+                $tenant,
                 Notificacao::TIPO_TAREFA_PENDENTE,
                 'Tarefa devolvida para ajustes',
                 "A tarefa \"{$tarefa->getTitulo()}\" precisa de ajustes.",
@@ -121,6 +135,7 @@ class NotificacaoService
      */
     public function notificarTarefaConcluida(Tarefa $tarefa): void
     {
+        $tenant = $tarefa->getTenant();
         foreach ($tarefa->getAtribuicoes() as $atribuicao) {
             $usuario = $atribuicao->getUsuario();
             if ($usuario === null) {
@@ -129,6 +144,7 @@ class NotificacaoService
 
             $this->criar(
                 $usuario,
+                $tenant,
                 Notificacao::TIPO_TAREFA_CONCLUIDA,
                 'Tarefa concluída',
                 "A tarefa \"{$tarefa->getTitulo()}\" foi concluída com sucesso!",
@@ -175,22 +191,28 @@ class NotificacaoService
     }
 
     /**
-     * Marca todas as notificações do usuário como lidas
+     * Marca todas as notificações do usuário (no escritório informado) como lidas.
+     *
+     * O $tenant escopa a operação em massa: como o bulk UPDATE em DQL NÃO passa pelo
+     * TenantFilter, sem ele "marcar todas" logado em B zeraria também as não-lidas de A.
      */
-    public function marcarTodasComoLidas(User $usuario, ?string $categoria = null): void
+    public function marcarTodasComoLidas(User $usuario, Tenant $tenant, ?string $categoria = null): void
     {
-        $this->notificacaoRepository->marcarTodasComoLidas($usuario, $categoria);
+        $this->notificacaoRepository->marcarTodasComoLidas($usuario, $tenant, $categoria);
     }
 
     /**
-     * Exclui as notificações selecionadas do usuário.
+     * Exclui as notificações selecionadas do usuário, restritas ao escritório informado.
+     *
+     * O $tenant escopa o bulk DELETE (que escapa o TenantFilter) — impede excluir, por id,
+     * notificações do mesmo usuário em outro escritório.
      *
      * @param int[] $ids
      * @return int quantidade excluída
      */
-    public function excluir(User $usuario, array $ids): int
+    public function excluir(User $usuario, Tenant $tenant, array $ids): int
     {
-        return $this->notificacaoRepository->excluirDoUsuario($usuario, $ids);
+        return $this->notificacaoRepository->excluirDoUsuario($usuario, $tenant, $ids);
     }
 
     public function notificarJustificativaEnviada(JustificativaPonto $justificativa, string $urlGestor, Tenant $tenant): void
@@ -216,6 +238,7 @@ class NotificacaoService
         foreach ($gestores as $gestor) {
             $this->criarNotificacao(
                 $gestor,
+                $tenant,
                 Notificacao::TIPO_PONTO_JUSTIFICATIVA_ENVIADA,
                 sprintf('%s enviou uma justificativa de ponto para %s.', $user->getFullName(), $data),
                 $urlGestor
@@ -227,10 +250,9 @@ class NotificacaoService
      * Notifica os gestores de TI do tenant (permissão admin.servicedesk.manage) sobre a
      * abertura de um novo chamado. O solicitante é excluído, mesmo que seja gestor.
      *
-     * O $tenant DEVE ser o tenant do solicitante do chamado: a entidade Chamado ainda não
-     * carrega o tenant (legado), então o isolamento depende de quem chama passar o tenant
-     * correto (hoje resolvido via TenantContext no controller). Ao migrar o ServiceDesk
-     * (E4), persistir o tenant no Chamado e derivá-lo daqui.
+     * O $tenant DEVE ser o tenant do chamado (que já é TenantAware): além de filtrar os
+     * gestores destinatários, ele vira o tenant das notificações criadas. O controller
+     * resolve via TenantContext, consistente com $chamado->getTenant().
      */
     public function notificarNovoChamado(Chamado $chamado, Tenant $tenant, string $url): void
     {
@@ -255,6 +277,7 @@ class NotificacaoService
         foreach ($gestores as $gestor) {
             $this->criarNotificacao(
                 $gestor,
+                $tenant,
                 Notificacao::TIPO_SERVICEDESK_NOVO,
                 sprintf('Novo chamado #%d: %s', $chamado->getId(), $chamado->getTitulo()),
                 $url
@@ -266,6 +289,7 @@ class NotificacaoService
     {
         $this->criarNotificacao(
             $justificativa->getUser(),
+            $justificativa->getTenant(),
             Notificacao::TIPO_PONTO_JUSTIFICATIVA_APROVADA,
             'Sua justificativa de ponto foi abonada.',
             $urlPonto
@@ -276,6 +300,7 @@ class NotificacaoService
     {
         $this->criarNotificacao(
             $justificativa->getUser(),
+            $justificativa->getTenant(),
             Notificacao::TIPO_PONTO_JUSTIFICATIVA_REJEITADA,
             'Sua justificativa de ponto foi rejeitada.',
             $urlPonto
