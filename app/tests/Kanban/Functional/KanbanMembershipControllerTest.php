@@ -9,6 +9,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Kanban\Controller\KanbanAnexoController;
+use App\Kanban\Controller\KanbanBoardController;
 use App\Kanban\Controller\KanbanChecklistController;
 use App\Kanban\Controller\KanbanComentarioController;
 use App\Kanban\Controller\KanbanMarcadorController;
@@ -46,6 +47,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(KanbanAnexoController::class)]
 #[CoversClass(KanbanMarcadorController::class)]
 #[CoversClass(KanbanComentarioController::class)]
+#[CoversClass(KanbanBoardController::class)]
 final class KanbanMembershipControllerTest extends JusPrimeWebTestCase
 {
     /** @var string[] */
@@ -214,6 +216,25 @@ final class KanbanMembershipControllerTest extends JusPrimeWebTestCase
         $this->logar($client, $c['estranho'], $c['tenant']);
         $client->request('POST', $url, ['_token' => $token]);
         self::assertResponseStatusCodeSame(404, 'admin do módulo não-participante não modera comentário de board que não participa');
+
+        $this->logar($client, $c['dono'], $c['tenant']);
+        $client->request('POST', $url, ['_token' => $token]);
+        $this->assertSucessoJson($client);
+    }
+
+    #[TestDox('board excluir: admin do módulo não-participante leva 404; dono (criador) exclui')]
+    public function testBoardExcluir(): void
+    {
+        [$client, $c] = $this->preparar();
+        $url = "/kanban/{$c['boardId']}/excluir";
+        $token = 'TOKEN_kanban_board_excluir_' . $c['boardId'];
+
+        // estranho é isSystem → canAdminister('kanban') = true. Antes deste alinhamento, o ramo admin
+        // do ExcluirBoardUseCase o deixava excluir um board que ele nem pode ver (view → 404). Agora o
+        // temAcesso no controller barra antes (404), coerente com view/editar do board.
+        $this->logar($client, $c['estranho'], $c['tenant']);
+        $client->request('POST', $url, ['_token' => $token]);
+        self::assertResponseStatusCodeSame(404, 'admin do módulo não-participante não exclui board privado que não participa');
 
         $this->logar($client, $c['dono'], $c['tenant']);
         $client->request('POST', $url, ['_token' => $token]);

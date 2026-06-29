@@ -296,9 +296,13 @@ Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross
   (`KanbanMembershipControllerTest`: estranho isSystem não-participante → 404; dono criador → sucesso);
   mutação 10× (neutralizar → estranho vira 200 = RED). Suíte **850/850**. Revisão adversarial: aprovada.
   **Follow-ups apontados (fora do M3):** (a) `kanban_card_mover` devolve 403 (checa no UseCase) vs 404 das
-  demais — divergência de enumeração, sem leak; (b) `kanban_board_excluir` mantém bypass `canAdminister`
-  no `ExcluirBoardUseCase` (admin não-participante exclui board privado) — assimetria vs comentário,
-  decisão de produto pendente.
+  demais — divergência de enumeração, sem leak (**aberto**); (b) `kanban_board_excluir` — **✅ fechado em M3.1**.
+- **M3.1 ✅ `kanban_board_excluir` exige participação (alinhamento do M3).** O controller só checava null →
+  `ExcluirBoardUseCase` (criador OU `canAdminister('kanban')`) deixava um admin do módulo NÃO-participante
+  excluir um board privado que ele nem podia ver (`view`/`editar` já usam `temAcesso`). Fix: somar
+  `!$board->temAcesso($user)` à guarda do `excluir` (404), parelho a view/editar e ao comentário do M3.
+  Teste `KanbanMembershipControllerTest::testBoardExcluir` (estranho admin não-participante → 404; dono
+  criador → exclui); mutação confirmada (sem a guarda, o estranho exclui o board). Suíte **851/851**.
 - **Demais (MÉDIO/BAIXO):** M1, M2, M4–M8, B1–B10 conforme o doc da auditoria.
 
 ## Detalhamento por etapa

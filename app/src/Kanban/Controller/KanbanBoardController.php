@@ -153,7 +153,7 @@ final class KanbanBoardController extends AbstractController
         }
 
         $board = $this->boardRepository->findPorTenantEId($id, $tenant);
-        if ($board === null) {
+        if ($board === null || !$board->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Mural não encontrado.'], 404);
         }
 
