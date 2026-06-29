@@ -71,3 +71,6 @@ relatorio-commits-10-11-jun-2026.md
 
 # Flag de manutenção gerada pelo deploy (a página em si é versionada)
 /nginx/maintenance/maintenance.on
+
+# Snapshots/saída do Playwright MCP (descartável, fora do git)
+/.playwright-mcp/
