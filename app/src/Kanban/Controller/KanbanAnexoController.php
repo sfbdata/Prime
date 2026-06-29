@@ -78,7 +78,7 @@ final class KanbanAnexoController extends AbstractController
         $tenant = $this->assertAccess($user);
 
         $anexo = $this->anexoRepository->findPorTenantEId($id, $tenant);
-        if ($anexo === null) {
+        if ($anexo === null || !$anexo->getCard()->getBoard()->temAcesso($user)) {
             throw $this->createNotFoundException('Anexo não encontrado.');
         }
 
@@ -97,7 +97,7 @@ final class KanbanAnexoController extends AbstractController
         }
 
         $anexo = $this->anexoRepository->findPorTenantEId($id, $tenant);
-        if ($anexo === null) {
+        if ($anexo === null || !$anexo->getCard()->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Anexo não encontrado.'], 404);
         }
 

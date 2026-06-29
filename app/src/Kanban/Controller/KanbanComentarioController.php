@@ -72,7 +72,7 @@ final class KanbanComentarioController extends AbstractController
         $tenant = $this->assertAccess($user);
 
         $comentario = $this->comentarioRepository->findPorTenantEId($id, $tenant);
-        if ($comentario === null) {
+        if ($comentario === null || !$comentario->getCard()->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Comentário não encontrado.'], 404);
         }
 
@@ -99,7 +99,7 @@ final class KanbanComentarioController extends AbstractController
         }
 
         $comentario = $this->comentarioRepository->findPorTenantEId($id, $tenant);
-        if ($comentario === null) {
+        if ($comentario === null || !$comentario->getCard()->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Comentário não encontrado.'], 404);
         }
 

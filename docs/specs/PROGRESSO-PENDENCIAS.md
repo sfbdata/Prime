@@ -283,7 +283,23 @@ Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross
   add/edit sem token → 403 sem gravar; com token → 302 grava) — primeira cobertura functional desses POSTs;
   mutação 2× (neutralizar → sem-token vira 302 = RED). Suíte **840/840**. Revisão adversarial: APROVADA
   (varredura confirmou os 4 write-sites de `RegistroPonto` cobertos; nada pendurado).
-- **Demais (MÉDIO/BAIXO):** M1–M8, B1–B10 conforme o doc da auditoria.
+- **M3 ✅ BAC horizontal intra-tenant no Kanban (membership nos sub-recursos).** Checklist/item/anexo/
+  marcador/comentário carregados por id checavam só o TENANT do board, não a MEMBERSHIP (`temAcesso` =
+  criador OU participante) → no mesmo escritório, um não-participante de board PRIVADO acessava/editava/
+  excluía o sub-recurso só pelo id (anexo `servir` baixa o arquivo). Fix: somar `!...->temAcesso($user)`
+  à guarda de **10 actions** (4 controllers): `KanbanChecklistController` (excluir/adicionarItem/
+  toggleItem/excluirItem), `KanbanAnexoController` (servir/excluir), `KanbanMarcadorController` (editar/
+  excluir), `KanbanComentarioController` (editar/excluir). Inclui os **2 de comentário** que a auditoria
+  não listou (decisão do dono = uniformizar): **mudança de comportamento intencional** — admin do módulo
+  não-participante deixa de moderar (editar/excluir) comentário em board que não participa (passa a 404).
+  Enumeração via workflow (6 controllers, Opus) + reverificação no código literal. 10 testes
+  (`KanbanMembershipControllerTest`: estranho isSystem não-participante → 404; dono criador → sucesso);
+  mutação 10× (neutralizar → estranho vira 200 = RED). Suíte **850/850**. Revisão adversarial: aprovada.
+  **Follow-ups apontados (fora do M3):** (a) `kanban_card_mover` devolve 403 (checa no UseCase) vs 404 das
+  demais — divergência de enumeração, sem leak; (b) `kanban_board_excluir` mantém bypass `canAdminister`
+  no `ExcluirBoardUseCase` (admin não-participante exclui board privado) — assimetria vs comentário,
+  decisão de produto pendente.
+- **Demais (MÉDIO/BAIXO):** M1, M2, M4–M8, B1–B10 conforme o doc da auditoria.
 
 ## Detalhamento por etapa
 

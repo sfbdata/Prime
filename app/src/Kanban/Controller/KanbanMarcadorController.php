@@ -74,7 +74,7 @@ final class KanbanMarcadorController extends AbstractController
         $tenant = $this->assertAccess($user);
 
         $marcador = $this->marcadorRepository->find($id);
-        if ($marcador === null || $marcador->getBoard()->getTenant() !== $tenant) {
+        if ($marcador === null || $marcador->getBoard()->getTenant() !== $tenant || !$marcador->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Marcador não encontrado.'], 404);
         }
 
@@ -104,7 +104,7 @@ final class KanbanMarcadorController extends AbstractController
         }
 
         $marcador = $this->marcadorRepository->find($id);
-        if ($marcador === null || $marcador->getBoard()->getTenant() !== $tenant) {
+        if ($marcador === null || $marcador->getBoard()->getTenant() !== $tenant || !$marcador->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Marcador não encontrado.'], 404);
         }
 

@@ -77,7 +77,7 @@ final class KanbanChecklistController extends AbstractController
         }
 
         $checklist = $this->checklistRepository->find($id);
-        if ($checklist === null || $checklist->getCard()->getBoard()->getTenant() !== $tenant) {
+        if ($checklist === null || $checklist->getCard()->getBoard()->getTenant() !== $tenant || !$checklist->getCard()->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Checklist não encontrada.'], 404);
         }
 
@@ -94,7 +94,7 @@ final class KanbanChecklistController extends AbstractController
         $tenant = $this->assertAccess($user);
 
         $checklist = $this->checklistRepository->find($checklistId);
-        if ($checklist === null || $checklist->getCard()->getBoard()->getTenant() !== $tenant) {
+        if ($checklist === null || $checklist->getCard()->getBoard()->getTenant() !== $tenant || !$checklist->getCard()->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Checklist não encontrada.'], 404);
         }
 
@@ -116,7 +116,7 @@ final class KanbanChecklistController extends AbstractController
         $tenant = $this->assertAccess($user);
 
         $item = $this->itemRepository->find($id);
-        if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $tenant) {
+        if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $tenant || !$item->getChecklist()->getCard()->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Item não encontrado.'], 404);
         }
 
@@ -140,7 +140,7 @@ final class KanbanChecklistController extends AbstractController
         }
 
         $item = $this->itemRepository->find($id);
-        if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $tenant) {
+        if ($item === null || $item->getChecklist()->getCard()->getBoard()->getTenant() !== $tenant || !$item->getChecklist()->getCard()->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Item não encontrado.'], 404);
         }
 
