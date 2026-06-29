@@ -272,9 +272,17 @@ Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross
   2); mutação confirmada 2×. Suíte **836/836**. Revisão adversarial + re-revisão do delta: aprovadas.
   **Deferidos (sem leak):** `find()` :82 do filtro do dashboard; comentário stale em `NotificacaoService`.
   **Fora desta frente (achados separados):** M1 (CSRF atribuir/status), B5 (frestinha super-admin).
-- **A2 ⬜ CSRF no lançamento/edição manual de ponto (ALTO)** — próximo. Decisão do dono: token
-  por-intenção stateful explícito (`isCsrfTokenValid('ponto_manual_add'/'..._edit', _token)`) nos dois
-  templates, em vez do `submit` stateless (determinístico e testável com o storage fake).
+- **A2 ✅ CSRF no lançamento/edição manual de ponto (ALTO).** `RegistroPontoManualType` tinha
+  `csrf_protection=>false` e `pontoAdd`/`pontoEdit` (`TenantController`) gravavam batidas sem CSRF de
+  reserva (as irmãs `delete_ponto_`/`justificativa_*` já checavam). Fix (decisão do dono): token
+  por-intenção STATEFUL explícito no controller — `isCsrfTokenValid('ponto_manual_add')` em `pontoAdd` e
+  `isCsrfTokenValid('ponto_manual_edit')` só no POST de `pontoEdit`, após os guards de autz/tenant, 403 na
+  falha (espelha `delete_ponto_<id>`). `_token` top-level renderizado no modal "Adicionar Batida"
+  (`edit_user_role.html.twig`) e no `ponto_edit.html.twig`. `csrf_protection=>false` MANTIDO de propósito
+  (com comentário) p/ não duplicar com o `submit` stateless. 4 testes (`PontoManualCsrfControllerTest`:
+  add/edit sem token → 403 sem gravar; com token → 302 grava) — primeira cobertura functional desses POSTs;
+  mutação 2× (neutralizar → sem-token vira 302 = RED). Suíte **840/840**. Revisão adversarial: APROVADA
+  (varredura confirmou os 4 write-sites de `RegistroPonto` cobertos; nada pendurado).
 - **Demais (MÉDIO/BAIXO):** M1–M8, B1–B10 conforme o doc da auditoria.
 
 ## Detalhamento por etapa

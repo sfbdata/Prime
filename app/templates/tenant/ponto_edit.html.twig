@@ -45,6 +45,7 @@
                             {{ form_errors(form.observacao) }}
                         </div>
                         <input type="hidden" name="competencia" value="{{ competencia }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('ponto_manual_edit') }}">
                     </div>
                     <div class="card-footer d-flex justify-content-between gap-2">
                         <a href="{{ path('app_tenant_user_edit_role', {tenantId: tenantId, id: user.id, competencia: competencia}) }}#tab-ponto"

@@ -299,6 +299,7 @@
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
             <form method="post" action="{{ path('app_tenant_user_ponto_add', {tenantId: tenantId, id: user.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('ponto_manual_add') }}">
                 <div class="modal-header">
                     <h5 class="modal-title" id="modalAddBatidaLabel"><i class="bi bi-plus-circle me-2"></i>Adicionar Batida</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>

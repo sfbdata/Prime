@@ -738,6 +738,12 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Sem permissão para lançar batidas.');
         }
 
+        // CSRF por-intenção stateful (form tem csrf_protection=>false). Token renderizado no
+        // modal de "Adicionar Batida" em edit_user_role.html.twig.
+        if (!$this->isCsrfTokenValid('ponto_manual_add', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
+        }
+
         $form = $this->createForm(RegistroPontoManualType::class);
         $form->handleRequest($request);
 
@@ -809,6 +815,12 @@ final class TenantController extends AbstractController
 
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão para editar batidas.');
+        }
+
+        // CSRF por-intenção stateful só no POST (form tem csrf_protection=>false; no GET não há
+        // token). Token renderizado em tenant/ponto_edit.html.twig.
+        if ($request->isMethod('POST') && !$this->isCsrfTokenValid('ponto_manual_edit', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
         // Escopa o find() ao escritório da URL: fecha o IDOR do super-admin (filtro off na sessão).

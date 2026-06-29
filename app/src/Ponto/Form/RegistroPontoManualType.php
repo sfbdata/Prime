@@ -51,6 +51,9 @@ class RegistroPontoManualType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class'      => null,
+            // CSRF é validado explicitamente no controller (token por-intenção stateful
+            // 'ponto_manual_add'/'ponto_manual_edit'), NÃO pelo form — evita mecanismo duplo
+            // com o token 'submit' stateless. Ver TenantController::pontoAdd/pontoEdit.
             'csrf_protection' => false,
             'with_seconds'    => false,
         ]);
