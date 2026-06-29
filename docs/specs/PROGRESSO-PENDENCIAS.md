@@ -295,14 +295,20 @@ Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross
   Enumeração via workflow (6 controllers, Opus) + reverificação no código literal. 10 testes
   (`KanbanMembershipControllerTest`: estranho isSystem não-participante → 404; dono criador → sucesso);
   mutação 10× (neutralizar → estranho vira 200 = RED). Suíte **850/850**. Revisão adversarial: aprovada.
-  **Follow-ups apontados (fora do M3):** (a) `kanban_card_mover` devolve 403 (checa no UseCase) vs 404 das
-  demais — divergência de enumeração, sem leak (**aberto**); (b) `kanban_board_excluir` — **✅ fechado em M3.1**.
+  **Follow-ups apontados (fora do M3):** (a) `kanban_card_mover` — **✅ fechado em M3.2**; (b) `kanban_board_excluir` — **✅ fechado em M3.1**. Kanban agora uniforme: `temAcesso` no controller (404) em TODA action sobre board/sub-recurso por id.
 - **M3.1 ✅ `kanban_board_excluir` exige participação (alinhamento do M3).** O controller só checava null →
   `ExcluirBoardUseCase` (criador OU `canAdminister('kanban')`) deixava um admin do módulo NÃO-participante
   excluir um board privado que ele nem podia ver (`view`/`editar` já usam `temAcesso`). Fix: somar
   `!$board->temAcesso($user)` à guarda do `excluir` (404), parelho a view/editar e ao comentário do M3.
   Teste `KanbanMembershipControllerTest::testBoardExcluir` (estranho admin não-participante → 404; dono
   criador → exclui); mutação confirmada (sem a guarda, o estranho exclui o board). Suíte **851/851**.
+- **M3.2 ✅ `kanban_card_mover` devolve 404 (não 403) p/ não-participante (alinhamento do M3).** O controller
+  só checava null e delegava ao `MoverCardUseCase`, que dava `AccessDeniedException` (403) — divergência de
+  enumeração vs as outras 9 actions de card (404). Sem leak (o não-participante já era barrado), mas o 403
+  revelava existência do card por status code. Fix: somar `!$card->getBoard()->temAcesso($user)` à guarda do
+  `mover` (404), antes do CSRF/UseCase (o UseCase mantém o `temAcesso` como defesa-em-profundidade). Teste
+  `KanbanMembershipControllerTest::testCardMover` (estranho → 404; dono → move); mutação (neutralizar →
+  estranho volta a 403 = RED). Suíte **852/852**.
 - **Demais (MÉDIO/BAIXO):** M1, M2, M4–M8, B1–B10 conforme o doc da auditoria.
 
 ## Detalhamento por etapa

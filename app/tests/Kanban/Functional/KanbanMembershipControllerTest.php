@@ -10,6 +10,7 @@ use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Kanban\Controller\KanbanAnexoController;
 use App\Kanban\Controller\KanbanBoardController;
+use App\Kanban\Controller\KanbanCardController;
 use App\Kanban\Controller\KanbanChecklistController;
 use App\Kanban\Controller\KanbanComentarioController;
 use App\Kanban\Controller\KanbanMarcadorController;
@@ -48,6 +49,7 @@ use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 #[CoversClass(KanbanMarcadorController::class)]
 #[CoversClass(KanbanComentarioController::class)]
 #[CoversClass(KanbanBoardController::class)]
+#[CoversClass(KanbanCardController::class)]
 final class KanbanMembershipControllerTest extends JusPrimeWebTestCase
 {
     /** @var string[] */
@@ -241,6 +243,24 @@ final class KanbanMembershipControllerTest extends JusPrimeWebTestCase
         $this->assertSucessoJson($client);
     }
 
+    #[TestDox('card mover: estranho ao board privado leva 404 (não 403); dono move')]
+    public function testCardMover(): void
+    {
+        [$client, $c] = $this->preparar();
+        $url = "/kanban/card/{$c['cardId']}/mover";
+        $payload = ['novaColunaId' => $c['colunaId'], 'novaPosicao' => 0];
+
+        // Antes: o controller só checava null e o MoverCardUseCase 403-ava (revela existência).
+        // Agora o temAcesso no controller dá 404, coerente com as outras 9 actions de card.
+        $this->logar($client, $c['estranho'], $c['tenant']);
+        $this->postJson($client, $url, $payload, 'TOKEN_ajax');
+        self::assertResponseStatusCodeSame(404, 'não-participante não pode mover card de board privado (404, não 403)');
+
+        $this->logar($client, $c['dono'], $c['tenant']);
+        $this->postJson($client, $url, $payload, 'TOKEN_ajax');
+        $this->assertSucessoJson($client);
+    }
+
     // ----------------------------------------------------------------- helpers
 
     /** @return array{0: KernelBrowser, 1: array<string,mixed>} */
@@ -343,6 +363,7 @@ final class KanbanMembershipControllerTest extends JusPrimeWebTestCase
             'dono'         => $dono,
             'estranho'     => $estranho,
             'boardId'      => $board->getId(),
+            'colunaId'     => $coluna->getId(),
             'cardId'       => $card->getId(),
             'checklistId'  => $checklist->getId(),
             'itemId'       => $item->getId(),

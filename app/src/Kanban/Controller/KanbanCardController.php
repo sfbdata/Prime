@@ -162,11 +162,11 @@ final class KanbanCardController extends AbstractController
         $tenant = $this->assertAccess($user);
 
         $card = $this->cardRepository->findPorTenantEId($id, $tenant);
-        if ($card === null) {
+        if ($card === null || !$card->getBoard()->temAcesso($user)) {
             return $this->json(['sucesso' => false, 'mensagem' => 'Card não encontrado.'], 404);
         }
 
-        // CSRF após o guard de tenant (o 404 tem prioridade e fica testável).
+        // CSRF após o guard de tenant/acesso (o 404 tem prioridade e fica testável).
         $this->validarCsrfAjax($request);
 
         $data = $request->toArray();
