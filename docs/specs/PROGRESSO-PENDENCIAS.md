@@ -258,6 +258,11 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
 Spec desta frente: `docs/specs/auditoria-pos-remediacao-multitenant.md` (29 achados rankeados, file:line + fix).
 Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross-tenant → fix → mutação → /review.
 
+➡️ **RETOMAR EM M4** (plano completo + aprovado abaixo; 🔴 FREIO na migration). **Feitos e COMMITADOS:**
+A1 (`20dfcb6`), A2 (`8e9f0a6`), M3 (`2eddbae`), M3.1 (`c68654f`), M3.2 (`5be4786`), M1 (`07da912`).
+Suíte no último commit (M1): **859/859**. Working tree limpo (exceto `docs/specs/sincronizacao-drive-bidirecional.md`,
+que é WIP do DONO — NÃO commitar junto — e `.playwright-mcp/` descartável).
+
 - **A1 ✅ Isolamento do diretório de usuários por tenant (ServiceDesk + Expediente) — ALTO.**
   `User` não é TenantAware → o `TenantFilter` não toca queries de User. Os dropdowns de técnico/
   responsável usavam `findBy(['isActive'=>true])` (sem tenant), vazando TODOS os usuários de TODOS
@@ -321,7 +326,46 @@ Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross
   adversarial REPROVOU a 1ª versão** (tokenizei só os 2 dropdowns e esqueci os 5 forms de Ações Rápidas →
   gestor levaria 403; suíte verde mascarava) → corrigido + crawler test que pega a classe da regressão →
   re-revisão APROVOU. Suíte **859/859**.
-- **Demais (MÉDIO/BAIXO):** M2, M4–M8, B1–B10 conforme o doc da auditoria.
+- **M4 🟡 `Notificacao` isolada por tenant — PLANO APROVADO PELO DONO, NÃO IMPLEMENTADO (retomar aqui).**
+  **Vazamento:** `Notificacao` (`src/Entity/Notificacao.php`) não tem `tenant`; todas as queries do sino
+  (`NotificacaoRepository`) filtram só por `usuario` → usuário multi-tenant logado em B vê notif. geradas
+  em A (título/URL de tarefa/chamado/evento/ponto). **Insight verificado:** TODA notif. nasce por
+  `NotificacaoService::criar`/`criarNotificacao` (zero `new Notificacao` fora do service) → `setTenant`
+  nesses 2 métodos cobre 100% das criações.
+  - **DESIGN (padrão isolamento P0/P2):** `Notificacao implements TenantAware` + coluna `tenant` NOT NULL
+    (o atributo PHP TEM de se chamar `tenant`). O `TenantFilter` auto-escopa TODAS as SELECTs (sino via
+    `NotificacaoExtension`; `NotificacaoController::index/count/listaDropdown`) e o `find()` por id (fecha
+    o IDOR do `marcarComoLida`). Só os bulk DQL escapam o filtro → escopo explícito.
+  - **WRITE-SITES (passar `Tenant` aos 2 métodos do service + `setTenant`):** fontes do tenant —
+    `notificarTarefa{Criada,Pendente,Concluida}`→`$tarefa->getTenant()`; `notificarJustificativaEnviada`/
+    `notificarNovoChamado`→`$tenant` (já recebem); `notificarJustificativa{Aprovada,Rejeitada}`→
+    `$justificativa->getTenant()`; `AgendaController:199/261/391`→`$evento->getTenant()`;
+    `ServiceDeskController:500/511/525/550` (notificarNovaInteracao/Atribuicao/MudancaStatus)→
+    `$chamado->getTenant()`. (Evento/Chamado/Tarefa/JustificativaPonto já são TenantAware.)
+  - **BULK (escopo explícito por tenant da sessão):** `NotificacaoRepository::marcarTodasComoLidas` e
+    `excluirDoUsuario` ganham `Tenant $tenant` + `andWhere('n.tenant=:tenant')`; idem no
+    `NotificacaoService`; `NotificacaoController` injeta `TenantContext` e passa o tenant da sessão (sem
+    isso, "marcar todas" em B zera as não-lidas de A). **Read-sites: SEM mudança** (filtro cobre).
+  - **B2 (aprovado junto):** remover `NotificacaoRepository::removerAntigas` (bulk DELETE morto, sem
+    chamador, sem tenant — footgun num TenantAware).
+  - **MIGRATION (🔴 FREIO — aplicar SÓ no dev, ISOLADA, após confirmar com o dono):** `notificacao`
+    +`tenant_id`: add nullable → backfill (1) `tarefa.tenant_id` p/ notif de tarefa; (2) fallback **tenant
+    único** p/ o resto (prod=1 tenant → cobre tudo) → NOT NULL + FK + índice; **aborta** se sobrar null
+    (multi-tenant não-derivável). Aplicar via `migrations:execute '<Version>' --up` (NUNCA `migrate` puro —
+    2 migrations antigas de Ponto fora do ledger) + `schema:update --force --env=test`.
+  - **TESTES cross-tenant:** usuário em A **e** B, 1 notif em cada; logado em B → sino/índice/contador só
+    de B; `marcarTodasComoLidas` em B não toca A; IDOR de notif. de A logado em B → 404. Mutação: desligar
+    filtro/escopo → vaza. **Depois:** suíte + `/review` + commit (código + migration + testes + PROGRESSO).
+  - **Estado na interrupção:** dono APROVOU plano + estratégia da migration + remoção do `removerAntigas`.
+    Faltou só confirmar se aplica a migration no dev direto ou mostra o SQL antes → próximo chat: escreve a
+    migration, MOSTRA o SQL, aplica no dev após OK rápido. Investigação 100% feita (não re-investigar).
+- **Demais (MÉDIO/BAIXO):** M2, M5–M8, B1, B3–B10 conforme o doc da auditoria.
+  - **M2** (AccessRequest sem tenant — admin do escritório errado aprova): 🔴 precisa migration → FREIO.
+  - **M5** PecaImagemController auth-only (resíduo aceito); **M6** F1 módulo (decisão); **M7** migration
+    Agenda aborta multi-tenant (antes do 2º tenant); **M8** uploads dev (parcial via A3).
+  - **B1** CLI Datajud; **B3** ResourceAccess sem tenant; **B4** índice `audit_log` (migration); **B5**
+    frestinha super-admin (🔒 BLOQUEADO, decisão de produto); **B6** permissões fantasma; **B7/B8** sem
+    leak; **B9** migration SD fallback; **B10** cpf/cnpj sem trava no banco.
 
 ## Detalhamento por etapa
 
