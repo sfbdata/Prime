@@ -43,6 +43,8 @@ Decididas no brainstorming de 2026-06-26. São o contrato deste documento.
 | D8 | **Arquivos grandes** | Sincronizados **intactos** via upload resumável (sem limite de 65 MB, **sem recompressão**). Preserva o original de prova e a assinatura digital. Compressão continua opt-in e separada do sync. |
 | D9 | **Pasta do Drive sem NUP extraível** | **Pular + relatório** (não cria automaticamente). Tratamento manual com o Dr. Farlei, como na Fase 0 do acervo. |
 | D10 | **Divergência de nome entre os lados** | **Só reporta** (vínculo é por ID, divergência é cosmética). Sem renomeação automática nesta frente. |
+| D11 | **Fase 3 (Drive→sistema instantâneo)** | **Opcional e por último.** Só será considerada depois que Fases 0–2 estiverem prontas; a decisão de implementá-la (ou não) é **posterior**. Deferir não quebra a bidirecionalidade — a reconciliação (Fase 1) já cobre Drive→sistema em latência periódica. |
+| D12 | **Carga inicial manual antes do automático** | A primeira convergência dos dois lados é **manual e supervisionada** (Fase 1a), com a disciplina da carga de maio (backup → dry-run → amostra → conferência → lote). O cron (automático, Fase 1b) **só liga depois** que a carga manual provar que está tudo alinhado. |
 
 ## 3. Visão do programa (4 fases)
 
@@ -52,11 +54,17 @@ quase instantâneo). A ordem segue D4.
 | Fase | Entrega | Infra nova |
 |---|---|---|
 | **Fase 0 — Fundação** | Service account + `GoogleDriveClient` + vínculo nas entidades + backfill não-destrutivo das 941 pastas e ~10.560 arquivos. | dependência `google/apiclient`, secret montado, migration |
-| **Fase 1 — Motor de Reconciliação** | Comando `app:sync:reconciliar` por cron: converge os dois lados (cria/atualiza, nunca apaga). **Primeiro sync funcional** (bidirecional, periódico). | cron na VPS, lock de execução |
+| **Fase 1a — Reconciliação manual** | Comando `app:sync:reconciliar` rodado **à mão, supervisionado** (dry-run → amostra → lote), converge os dois lados uma vez. **Primeiro sync funcional.** | — (usa o motor; sem cron ainda) |
+| **Fase 1b — Reconciliação automática** | Mesmo comando, agora **agendado por cron**. Só liga depois da 1a provar (D12). | cron na VPS, lock de execução |
 | **Fase 2 — Baixa latência sistema→Drive** | Hook assíncrono na criação/upload → reflete no Drive em segundos. | Symfony Messenger + container worker em prod |
-| **Fase 3 — Baixa latência Drive→sistema** | Push notification (watch channel) do Drive → reflete no sistema em segundos. | endpoint webhook público, renovação de canal |
+| **Fase 3 — Baixa latência Drive→sistema** *(opcional, por último — D11)* | Push notification (watch channel) do Drive → reflete no sistema em segundos. **Só se decidido depois.** | endpoint webhook público, renovação de canal |
 
-**Esta spec implementa Fase 0 + Fase 1.** Fases 2 e 3 estão em §13.
+**Esta spec implementa Fase 0 + Fase 1 (1a manual e 1b automática).** Fases 2 e 3 estão em §15.
+
+**Estado final realista (sem a Fase 3):** após Fases 0–2, sistema→Drive fica
+instantâneo (segundos) e Drive→sistema fica periódico (~15 min, via
+reconciliação). É o perfil "misto". A Fase 3 só existe se, mais tarde, o
+Drive→sistema instantâneo se provar necessário.
 
 ## 4. Princípio nº 1 — Não-destruição (D7)
 
@@ -122,13 +130,7 @@ Motor de reconciliação (aditivo, nunca apaga):
 - Motor de reconciliação por cron, bidirecional, aditivo (§10).
 - Políticas de borda D8/D9/D10 (§11).
 
-**Fora (não-objetivos desta frente):**
-- Baixa latência / eventos / Messenger / webhooks (Fases 2 e 3).
-- Renomeação automática entre lados (D10 — só reporta).
-- Compressão dentro do sync (D8 — fica opt-in e separada).
-- Propagação de exclusão (D5 — nunca).
-- Multi-tenant generalizado (D6 — só tenant 1).
-- Sincronização de metas/observações/mensagens/marcadores (não existem no Drive).
+**Fora:** ver a lista canônica de não-objetivos em **§14**.
 
 ## 6. Pré-requisitos de ops (tarefas humanas, fora do código)
 
@@ -144,6 +146,15 @@ Bloqueiam a Fase 0; precisam ser feitos antes de qualquer execução em prod.
    público). Caminho exposto via env var.
 6. **Cota do Shared Drive:** confirmar espaço suficiente para o acervo
    (~15–24 GB + crescimento).
+7. **Backup de uploads + disco (BLOQUEANTE da Fase 1a):** o backup de uploads
+   está desligado desde jun/2026 por **disco subdimensionado** (pendência CRÍTICA
+   em `PENDENCIAS.md`). O pull-down Drive→sistema cresce o volume, então **disco e
+   backup precisam ser resolvidos juntos antes do passo 1 da Fase 1a** (§10.6). É
+   frente de ops, não código desta feature; pode correr em paralelo à construção
+   da Fase 0, mas **trava a execução da carga manual**.
+
+> Os itens 1–5 destravam a **construção** da Fase 0. Os itens 6–7 destravam a
+> **execução** da carga manual (Fase 1a). As duas frentes podem correr em paralelo.
 
 ## 7. Modelo de dados
 
@@ -180,11 +191,11 @@ checagem sai**.
 Consequências documentadas:
 - O teste unitário do UseCase muda junto (o caso "NUP duplicado lança exceção"
   deixa de valer).
-- O `ImportarAcervoCommand` dependia desse throw para idempotência por NUP. Aquele
-  import é one-time e **já terminou** (maio/2026); re-rodá-lo passaria a duplicar.
-  Mitigação: a dedup do futuro é por `drive_folder_id`, feita pelo motor — o
-  `ImportarAcervoCommand` é legado de uma frente concluída e não deve ser
-  re-executado. Documentar no cabeçalho do comando.
+- O `ImportarAcervoCommand` dependia desse throw para idempotência por NUP. Com a
+  unicidade removida, re-executá-lo cria duplicatas → **risco de produção R2 no
+  registro de riscos (§17)**. Comportamento: a dedup do futuro é por
+  `drive_folder_id` (feita pelo motor); o `ImportarAcervoCommand` é legado de uma
+  frente concluída. Documentar aviso no cabeçalho do comando.
 
 ### 7.4 Migration
 
@@ -301,6 +312,32 @@ Identidade por ID guardado + backfill prévio (§4.1) + nunca apaga (D5). NUP
 repetido no Drive vira duas Pastas distintas (cada uma com seu
 `drive_folder_id`), sem conflito.
 
+### 10.6 Rollout supervisionado — Fase 1a (manual) antes da 1b (cron) — D12
+
+A primeira convergência é a rodada mais perigosa (maior volume; remove o UNIQUE
+de NUP; primeiro pull-down em massa). Por isso ela é **manual e supervisionada**,
+repetindo a disciplina que deu certo na carga de maio (0 erros). Só depois de
+provar é que o cron (Fase 1b) liga.
+
+🔒 = portão humano bloqueante (STOP — exige aprovação explícita para prosseguir).
+
+```
+🔒 PRÉ: backup de uploads + disco resolvidos (§6 item 7) · service account pronta (§6)
+   1. Backup (banco + uploads)
+   2. Backfill pastas + arquivos      → dry-run, depois real (vincula o que já existe; §9)
+🔒 3. Conferir relatório do backfill  → ~941 vínculos esperados; órfãos dentro do previsto
+🔒 4. reconciliar --dry-run           → aprovar o que SERÁ criado nos dois lados
+🔒 5. reconciliar --limit=N           → amostra; conferência visual no bluejus
+🔒 6. reconciliar (lote completo)     → conferência final
+        │  (só depois que todos os portões 🔒 passarem)
+   7. Ligar o cron                    → Fase 1b (sincronização automática)
+```
+
+O passo 2 (backfill **antes** de qualquer criação) é inegociável: é o que impede a
+duplicação dos ~10.560 arquivos (§4.1, risco R1). Cada portão 🔒 é um ponto onde a
+execução **para** até aprovação humana — nenhum passo seguinte roda sem o anterior
+ter sido conferido.
+
 ## 11. Políticas de borda
 
 ### 11.1 Convenção de nome (sistema→Drive)
@@ -331,10 +368,19 @@ quebra a pendência dos 19 arquivos > 65 MB de maio.
 Permitido por design (§7.2). Cada pasta tem identidade própria por
 `drive_folder_id`.
 
-### 11.6 Profundidade de pastas no Drive
+### 11.6 Hierarquia de pastas no Drive (declaração canônica)
 
-Reaproveita as regras de maio: subpasta imediata → `PastaSecao`; sub-subpasta →
-achatada na seção avó; arquivo na raiz da pasta → sem seção.
+Mapeamento de níveis entre o Shared Drive e o sistema (referenciado por §10.3):
+
+| Nível no Drive | Vira no sistema |
+|---|---|
+| Raiz do Shared Drive | — (contêiner das pastas de caso) |
+| Pasta filha da raiz | **`Pasta`** (caso jurídico; NUP no nome) |
+| Subpasta da pasta de caso | **`PastaSecao`** |
+| Sub-subpasta (e mais fundo) | achatada → arquivos vão para a **seção avó** |
+| Arquivo na raiz da pasta de caso | `PastaDocumento` **sem seção** (Documentação Geral) |
+
+Reaproveita as regras da carga de maio (`CopiarArquivosAcervoCommand`).
 
 ## 12. Transversais
 
@@ -353,9 +399,10 @@ os tenants) é trivial. Isolamento de tenant preservado (§7.2).
 ### 12.3 Pré-condição de risco — backup de uploads
 
 A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads estão
-**sem backup desde jun/2026** (pendência CRÍTICA em `PENDENCIAS.md`). **Resolver o
-backup de uploads ANTES** de ligar a via Drive→sistema em massa. Bloqueante para a
-carga grande, não para o desenvolvimento.
+**sem backup desde jun/2026** por **disco subdimensionado** (pendência CRÍTICA em
+`PENDENCIAS.md`). Disco e backup se gatilham e precisam ser resolvidos juntos.
+**Bloqueante da execução da Fase 1a** (pré-requisito §6 item 7, passo PRÉ do
+§10.6), não da construção da Fase 0.
 
 ## 13. Testes
 
@@ -391,11 +438,14 @@ carga grande, não para o desenvolvimento.
   `GoogleDriveClient`. Não bloqueia a request; falha do Drive não derruba o
   usuário (retry pela fila). O motor de reconciliação continua como rede de segurança.
 
-### Fase 3 — Baixa latência Drive→sistema
-- **Push notification** do Drive (watch channel) → endpoint webhook público HTTPS
-  → enfileira import. Renovação periódica do canal (expira). Usa o `listarMudancas`
-  (changes feed) já previsto no client. Reconciliação periódica permanece como
-  rede de segurança (webhooks falham/perdem eventos).
+### Fase 3 — Baixa latência Drive→sistema *(opcional, por último — D11)*
+- **Deferida por decisão (D11):** só será considerada depois que Fases 0–2
+  estiverem prontas, e a decisão de implementá-la é posterior. Enquanto não
+  existir, Drive→sistema continua funcionando em latência periódica pela Fase 1.
+- Se implementada: **push notification** do Drive (watch channel) → endpoint
+  webhook público HTTPS → enfileira import. Renovação periódica do canal (expira).
+  Usa o `listarMudancas` (changes feed) já previsto no client. Reconciliação
+  periódica permanece como rede de segurança (webhooks falham/perdem eventos).
 
 ## 16. A confirmar na implementação (não bloqueiam a spec)
 
@@ -404,3 +454,58 @@ carga grande, não para o desenvolvimento.
 - Formato/local do relatório de reconciliação (stdout + arquivo? persistir
   resumo da última rodada?).
 - Confirmar o `driveId` raiz correto do Shared Drive "GRUPO PRIME".
+
+## 17. Registro de riscos consolidado
+
+| # | Risco | Mitigação | Residual |
+|---|---|---|---|
+| **R1** | Duplicação dos ~10.560 arquivos na 1ª reconciliação (sistema tem o arquivo, mas sem `drive_file_id`). | Backfill por `nome_original` **antes** do motor (§4.1, §9). | Arquivos renomeados no Drive desde maio podem não casar e duplicar → o portão 🔒 de conferência do backfill (§9/§10.6) detecta antes do lote. |
+| **R2** | Re-executar `ImportarAcervoCommand` cria duplicatas (NUP não é mais único) (§7.3). | Comando é legado de frente concluída; aviso no cabeçalho; dedup futura por `drive_folder_id`. | Erro humano rodando o comando legado. Mitigar com guarda/aviso explícito no comando. |
+| **R3** | Backup de uploads ausente + disco subdimensionado durante o pull-down Drive→sistema (§12.3). | Pré-requisito bloqueante §6 item 7; portão 🔒 PRÉ do §10.6. | Eliminado enquanto o portão PRÉ for respeitado (carga não roda sem backup+disco). |
+| **R4** | `down()` da migration falha se já houver NUP duplicado (§7.4). | Rollback documentado como condicional; backup pré-migration. | Rollback de schema indisponível após existirem duplicatas — aceito (raro em prod; backup cobre a recuperação). |
+| **R5** | Remoção do UNIQUE de NUP afeta buscas "por NUP" na UI (podem retornar mais de uma pasta). | Identidade de sync por `drive_folder_id`; isolamento de tenant preservado (§7.2). | Telas que assumem NUP único podem precisar de ajuste — **fora do escopo desta spec**; registrado como follow-up. |
+| **R6** | Rate limit / indisponibilidade da API do Drive na carga grande. | Backoff/retry; erros por item não abortam a rodada; idempotência permite re-rodar. | Carga longa pode exigir múltiplas passadas — aceitável. |
+
+## 18. Critério de aceite por fase (DoD)
+
+**Fase 0 — Fundação — pronta quando:**
+- Migration aplicada em DEV: UNIQUE de NUP removido; `drive_folder_id`,
+  `drive_synced_at`, `drive_file_id` + índices criados; `down()` reversível.
+- `GoogleDriveClient` + `GoogleDriveClientInterface` implementados, com *fake* para testes.
+- `CriarPastaUseCase` ajustado (checagem de NUP duplicado removida) + teste unitário atualizado verde.
+- Comandos `backfill-pastas` e `backfill-arquivos` existem, com `--dry-run` e relatório.
+- Comando `reconciliar` existe, com `--dry-run` / `--limit` / `--pasta-id` e lock.
+- Suíte unit verde (motor com *fake*, backfills, UseCase).
+- `GoogleDriveClient` validado manualmente contra um Shared Drive de teste.
+
+**Fase 1a — Reconciliação manual — pronta quando:**
+- Pré-requisitos §6 (incl. backup + disco, item 7) verdes.
+- Backfill executado em prod; relatório conferido (≈941 vínculos de pasta;
+  vínculos de arquivo dentro do previsto) — **portão 🔒**.
+- `reconciliar --dry-run` revisado e aprovado — **portão 🔒**.
+- Amostra (`--limit=N`) com 0 erros e conferência visual no bluejus — **portão 🔒**.
+- Lote completo com 0 erros e conferência final — **portão 🔒**.
+- Nenhuma duplicação de pasta/arquivo detectada.
+
+**Fase 1b — Automático (cron) — pronta quando:**
+- Cron configurado com lock (flock).
+- Rodadas em regime estáveis (deltas pequenos, 0 erros) por período acordado.
+- Relatório de cada rodada acessível.
+
+**Fases 2 e 3:** DoD definido nas specs próprias.
+
+## 19. Acompanhamento (estado por fase)
+
+> Tracker específico deste programa. O `PENDENCIAS.md` continua sendo o tracker
+> global do projeto. **Atualizar esta tabela no mesmo commit da mudança que ela
+> descreve.** Legenda: ✅ concluída · ◐ em curso · ⬜ não iniciada · ⏸ adiada.
+
+| Item | Estado | Nota |
+|---|---|---|
+| Design / spec | ✅ | 2026-06-26 (este documento) |
+| Pré-requisitos de ops (§6: service account, Shared Drive, backup+disco) | ⬜ | bloqueia execução da Fase 1a |
+| Fase 0 — Fundação | ⬜ | próximo passo após aprovação da spec |
+| Fase 1a — Reconciliação manual | ⬜ | depende de Fase 0 + pré-requisitos ops |
+| Fase 1b — Automático (cron) | ⬜ | só após 1a provar (D12) |
+| Fase 2 — Baixa latência sistema→Drive | ⬜ | spec própria |
+| Fase 3 — Baixa latência Drive→sistema | ⏸ | adiada/opcional (D11) |
