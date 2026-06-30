@@ -174,6 +174,12 @@ parecido (sem âncora) é dívida de robustez. **Fix:** na duplicação por-tena
 dono; ou tornar a coluna nullable até o seed; documentar no runbook.
 
 #### M8 — Revert de uploads (`16fc10d`) quebra escrita de cliente/justificativa/chamado em DEV
+> **✅ RESOLVIDO (2026-06-30).** Causa-raiz confirmada no container: roda como **uid 1000**, mas
+> `public/uploads/{clientes,justificativas,perfil}` eram **uid 33 (www-data da img prod), modo 755** →
+> uid 1000 não escrevia (e `chamados` nem existia). **Test já estava OK** (A3 → `var/uploads-test/*`).
+> **Fix aplicado no DEV:** `chown -R 1000:1000 public/uploads` (via root no container; reflete no host pelo
+> bind-mount) + `mkdir chamados` → os 6 dirs ficaram graváveis (verificado). Documentado no root `CLAUDE.md`
+> (§Docker, troubleshooting de permissão). Prod inalterado (volume `uploads_prod` é www-data-gravável).
 **Prova:** `config/services.yaml:16-18` aponta `clientes`/`justificativas`/`chamados` para `public/uploads/*`.
 Em DEV/teste o container roda como `uid 1000`, mas `public/uploads` e subpastas são `uid 33 / mode 755-775`
 → não graváveis (confirmado por `mkdir` → `Permission denied`). **Vetor:** além das 2 falhas de teste (A3),

@@ -474,7 +474,10 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
     (rebaixada de crítica)/§5b/§F3 (Processo corrigido p/ wired). ~~**M7** migration Agenda aborta multi-tenant~~ **✅ FECHADO
     (aceito/verificado, sem código)** — abort = mesmo freio consciente dos outros 8 backfills (só num banco
     multi-tenant pré-existente, não ocorre); 2º tenant SEGURO (legenda criada sob demanda c/ setTenant, sem
-    seed no bootstrap, agenda ok c/ zero). Documentado no runbook §Riscos. **M8** uploads dev (parcial via A3).
+    seed no bootstrap, agenda ok c/ zero). Documentado no runbook §Riscos. ~~**M8** uploads dev~~ **✅ FECHADO** —
+    causa: container uid 1000 vs `public/uploads/*` uid 33/755 (test já OK via `var/uploads-test`); fix DEV =
+    `chown -R 1000:1000 public/uploads` + criar `chamados` (graváveis, verificado); troubleshooting no root
+    `CLAUDE.md` §Docker. **TODOS OS M1–M8 FECHADOS.**
   - **B5 🎯 DESTRAVADO — EM ANDAMENTO** (frente 1 commitada `7fcb827`; ver seção "🎯 B5" acima e
     `docs/specs/super-admin-escopo-tenant.md`). **B3** ResourceAccess sem tenant = **frente 4 do B5**.
   - **B1** CLI Datajud; **B4** índice `audit_log` (migration); **B6** permissões fantasma; **B7/B8** sem

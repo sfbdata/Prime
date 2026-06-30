@@ -64,6 +64,12 @@ Testes E2E (Playwright, fora do container, na raiz `e2e/`): `cd e2e && npm test`
 
 Nunca rodar `php`, `composer` ou `bin/console` fora do container.
 
+**Uploads em DEV (permissão):** o container roda como `${UID:-1000}` (bind-mount do repo). Os diretórios
+`app/public/uploads/*` (clientes, justificativas, chamados, pastas, perfil, tarefas) precisam ser graváveis
+por esse uid. Se um upload falhar com *Permission denied* (dirs como `uid 33`/`www-data` da imagem prod),
+alinhe o dono: `docker exec -u 0 jusprime_php_dev chown -R 1000:1000 /var/www/app/public/uploads`. Em
+ambiente de **teste** isso não acontece (config aponta para `var/uploads-test/*`, gravável).
+
 ## Git — controle humano direto
 
 Commits, push, merge, rebase, reset e demais comandos destrutivos são responsabilidade exclusiva do desenvolvedor humano. Comandos de leitura (`status`, `diff`, `log`, `show`, `branch`) podem ser executados livremente. `block-git-writes.py` permanece ativo como garantia.
