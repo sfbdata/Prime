@@ -136,6 +136,10 @@ final class ExportarPecaTextoUseCase
         $options = new Options();
         $options->set('isHtml5ParserEnabled', true);
         $options->set('isRemoteEnabled', false);
+        // Sem o chroot o Dompdf bloqueia a leitura do arquivo de imagem local (segurança) e a imagem
+        // da peça sai quebrada no PDF. Libera a leitura sob `public/` (web root; já público), onde a
+        // reescrita `reescreverImagensParaDisco` aponta as imagens (`public/uploads/pastas/<tenant>/`).
+        $options->set('chroot', $this->projectDir . '/public');
 
         $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);

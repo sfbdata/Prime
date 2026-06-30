@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\DTO\ExportarPecaTextoOutput;
 use App\Pasta\UseCase\ExportarPecaTextoUseCase;
@@ -227,6 +228,42 @@ final class ExportarPecaTextoUseCaseTest extends TestCase
         self::assertSame(
             '<img src="' . sys_get_temp_dir() . '/public/uploads/pastas/foto.png">',
             $resultado,
+        );
+    }
+
+    #[TestDox('M5/PDF: a imagem do disco é EMBUTIDA no PDF (o chroot do Dompdf libera a leitura)')]
+    public function testPdfEmbuteImagemDoDisco(): void
+    {
+        // doc no tenant 99 → a reescrita aponta p/ {projectDir}/public/uploads/pastas/99/
+        $tenant = new Tenant();
+        (new \ReflectionProperty(Tenant::class, 'id'))->setValue($tenant, 99);
+        $this->doc->setTenant($tenant);
+
+        $dir = sys_get_temp_dir() . '/public/uploads/pastas/99';
+        @mkdir($dir, 0775, true);
+        $img = $dir . '/foto.png';
+        $gd  = imagecreatetruecolor(80, 80);
+        imagefill($gd, 0, 0, imagecolorallocate($gd, 12, 120, 200));
+        imagepng($gd, $img);
+        imagedestroy($gd);
+
+        $html = '<p>Peça com imagem</p><img src="/uploads/pastas/foto.png">';
+
+        file_put_contents($this->arquivoHtml, $html);
+        $comImagem = $this->useCase->executar($this->doc, 'pdf')->conteudo;
+
+        // baseline: mesma peça, arquivo de imagem AUSENTE → Dompdf não embute → PDF menor
+        @unlink($img);
+        file_put_contents($this->arquivoHtml, $html);
+        $semImagem = $this->useCase->executar($this->doc, 'pdf')->conteudo;
+
+        @rmdir($dir);
+
+        self::assertStringStartsWith('%PDF-', $comImagem);
+        self::assertGreaterThan(
+            strlen($semImagem),
+            strlen($comImagem),
+            'com o arquivo presente o PDF deve ser maior (imagem embutida) que sem — prova o chroot',
         );
     }
 

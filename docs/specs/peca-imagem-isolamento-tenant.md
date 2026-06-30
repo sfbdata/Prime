@@ -63,6 +63,11 @@ muito mais superfície e risco; contradiz o "sem migration".
    isto é correção colateral, não regressão.) **Guard:** tenant null (degenerado/unit sem DB) → caminho sem
    subpasta. Sem a reescrita, a imagem embutida quebraria no DOCX/PDF exportado (regressão de
    funcionalidade, não de segurança).
+   **Follow-up (PDF/Dompdf, pós-deploy prod):** a reescrita dá o caminho CERTO, mas o Dompdf bloqueava a
+   leitura do arquivo local por segurança (sem `chroot` → imagem quebrada só no PDF; docx/odt via PhpWord
+   liam o disco direto). Fix: `gerarPdf` seta `$options->set('chroot', $projectDir.'/public')`. Bug
+   pré-existente (independe do tenant). Teste `testPdfEmbuteImagemDoDisco` (PDF com arquivo presente é maior
+   que sem → imagem embutida; mutação remove o chroot → RED).
 
 ### Legado / deploy (sem migration; passo de DADOS em prod)
 
