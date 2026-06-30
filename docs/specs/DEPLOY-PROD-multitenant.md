@@ -175,6 +175,16 @@ confirmar que cada escritório vê só o próprio (e que nada sumiu indevidament
 - **Abort no meio da cadeia:** se a #N abortar, as #1..#N-1 já aplicadas permanecem (cada uma é
   transacional e isolada). Resolva os dados da #N e continue a partir dela. O sistema fica consistente
   (entidades já isoladas continuam isoladas; as não-migradas seguem como antes).
+- **M7 — backfill de `legenda_cor` é single-tenant POR DESIGN (freio consciente, já deployado).**
+  `Version20260625200952` (Agenda, S4) backfilla `legenda_cor.tenant_id` **só** pelo fallback de tenant
+  único (`(SELECT COUNT(*) FROM tenant) = 1`), pois a legenda não tem âncora (nem autor, nem FK p/ evento).
+  É o **mesmo padrão dos outros 8 backfills** da remediação. Cenários: deploy do zero = tabela vazia →
+  `SET NOT NULL` em 0 linhas = OK; prod (1 tenant) = fallback resolveu. **Só abortaria** num banco
+  multi-tenant pré-existente com legendas globais (não ocorre aqui) — aí a decisão de negócio é **duplicar
+  o catálogo por tenant manualmente** antes do `SET NOT NULL`, não adivinhar dono por cor.
+  **O 2º tenant em prod é SEGURO (verificado):** legendas são criadas **sob demanda** com `setTenant`
+  (`AgendaController::salvarLegendas`), o `TenantBootstrapService` **não faz seed** de legenda (logo nenhum
+  INSERT sem tenant no bootstrap), e a agenda renderiza com **zero legendas**. Nada a fazer no deploy.
 
 ## Pendências de segurança conhecidas (NÃO bloqueiam o deploy, mas registrar)
 

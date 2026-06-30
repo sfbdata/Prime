@@ -159,6 +159,12 @@ pelo filtro. **Fix:** decidir o modelo sequencial (módulo ⇒ recurso) e checar
 item-actions, ou documentar como aceito.
 
 #### M7 — Migration da Agenda aborta ao migrar um banco **multi-tenant**
+> **✅ RESOLVIDO (2026-06-30) — ACEITO/VERIFICADO, sem mudança de código.** O abort é o **mesmo freio
+> consciente** dos outros 8 backfills (single-tenant fallback) e só ocorre num banco multi-tenant
+> pré-existente com legendas globais (não acontece: deploy do zero = tabela vazia = `NOT NULL` em 0
+> linhas OK; prod = 1 tenant = fallback resolveu). **2º tenant verificado SEGURO:** legendas criadas sob
+> demanda com `setTenant` (`AgendaController::salvarLegendas:499`), `TenantBootstrapService` não faz seed
+> de legenda, agenda renderiza com zero legendas. Documentado em `DEPLOY-PROD-multitenant.md` (§Riscos).
 **Prova:** `app/migrations/Version20260625200952.php:50-56` — `legenda_cor` não tem dono/autor, então o
 backfill de `tenant_id` depende **exclusivamente** do fallback de tenant único
 (`WHERE ... AND (SELECT COUNT(*) FROM tenant) = 1`). Em banco com >1 tenant e legendas existentes, o UPDATE
