@@ -192,6 +192,27 @@ em ambiente de teste.
 
 ### 🔵 BAIXO
 
+> **✅ STATUS B-SERIES (2026-06-30, sweep + correção):**
+> - **B1** ✅ **CORRIGIDO** (era o único leak real: corrupção cross-tenant no CLI). Escopado por tenant os
+>   2 `findOneBy(['numeroProcesso'])`: `AtualizarProcessoDatajudCommand` (lookup pelo tenant do base) e
+>   `DatajudProcessoMapper::mapProcessoPai` (escopa quando o processo tem tenant; no web efêmero o filtro
+>   ON já cobre). Teste `DatajudIsolamentoTest` (2: não-sobrescreve homônimo de outro tenant; pai não vaza);
+>   mutação 2×.
+> - **B6** ✅ **CORRIGIDO (higiene):** removido `PermissionChecker::canActOnResource` (morto) + termo
+>   `admin.tarefas.manage` do OR da seção admin no `_sidebar.html.twig`. (A permissão fantasma segue no
+>   catálogo/role-form como inerte — limpeza total = follow-up com migration; F4 já a documenta.)
+> - **B7** ✅ **CORRIGIDO:** `DemandasController::index` ganhou guard `canAccessModule('pastas')` (alinha a
+>   porta de entrada ao modelo paralelo do M6; dado já era escopado por tenant+responsável). Teste add.
+> - **B8** ✅ **CORRIGIDO:** `ProcessoController::datajudSearch` ganhou guard `canAccessModule('processos')`
+>   (anti-abuso da API externa do CNJ; não persiste nada). Teste add (403 sem módulo).
+> - **B4** ⏳ índice `audit_log(tenant_id)` — migration trivial (só perf, sem leak); **aguardando OK** p/ aplicar.
+> - **B9** ✅ **ACEITO** (robustez de migration, igual M7): `Version20260625120342` (ServiceDesk) sem fallback
+>   de tenant único; **já aplicada em prod** — não reescrever migration aplicada. Aborta só em re-aplicação
+>   num ambiente novo com chamado órfão (solicitante sem vínculo ativo).
+> - **B10** ✅ **ACEITO** (custo consciente do C3): cpf/cnpj sem unique no banco (herança JOINED inviabiliza
+>   o composto); unicidade intra-tenant garantida no app (`#[UniqueEntity]` nos 2 forms + `findOneBy` escopado
+>   no caminho legado do `PastaController::novoCliente`). Corrida fora do form poderia duplicar — aceito.
+
 - **B1 — CLI Datajud `findOneBy` cross-tenant.** `AtualizarProcessoDatajudCommand.php:77` e
   `DatajudProcessoMapper.php:60` fazem `findOneBy(['numeroProcesso'=>...])` sem tenant; no CLI o filtro está
   OFF e `numero_processo` só é único **por** tenant → pode casar/atualizar processo de outro tenant. **Só por

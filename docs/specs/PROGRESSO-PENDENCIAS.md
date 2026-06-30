@@ -480,8 +480,13 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
     `CLAUDE.md` §Docker. **TODOS OS M1–M8 FECHADOS.**
   - **B5 🎯 DESTRAVADO — EM ANDAMENTO** (frente 1 commitada `7fcb827`; ver seção "🎯 B5" acima e
     `docs/specs/super-admin-escopo-tenant.md`). **B3** ResourceAccess sem tenant = **frente 4 do B5**.
-  - **B1** CLI Datajud; **B4** índice `audit_log` (migration); **B6** permissões fantasma; **B7/B8** sem
-    leak; **B9** migration SD fallback; **B10** cpf/cnpj sem trava no banco.
+  - **B-series ✅ (sweep 2026-06-30):** **B1** ✅ CORRIGIDO (único leak real — corrupção cross-tenant no CLI;
+    2 `findOneBy` escopados por tenant + teste `DatajudIsolamentoTest` + mutação 2×); **B6** ✅ higiene
+    (removido `canActOnResource` + termo fantasma `admin.tarefas.manage` do OR da sidebar); **B7** ✅ guard
+    `canAccessModule('pastas')` no `DemandasController`; **B8** ✅ guard `canAccessModule('processos')` no
+    `datajudSearch`; **B9** ✅ ACEITO (robustez migration SD, igual M7, já em prod); **B10** ✅ ACEITO (custo
+    C3, app garante unicidade). **B4** ⏳ índice `audit_log(tenant_id)` — migration (só perf), aguardando OK.
+    **Suíte 906/906.**
 
 ## Detalhamento por etapa
 
