@@ -318,6 +318,7 @@ final class TenantController extends AbstractController
         PastaRepository $pastaRepository,
         ProcessoRepository $processoRepository,
         UserTenantRepository $userTenantRepository,
+        EntityManagerInterface $entityManager,
     ): Response {
         $user = $this->getUser();
 
@@ -331,6 +332,12 @@ final class TenantController extends AbstractController
         if (!$isSuperAdmin && !($isOwnTenant && $permissionChecker->canAdminister($user, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Você não tem permissão para ver os usuários deste Tenant.');
         }
+
+        // Remendo (B5 frente 3): re-aponta o filtro p/ o tenant da URL antes de resolver os labels de
+        // recursos TenantAware (cliente/pasta/processo) em resolveResourceLabels. É o cinto da trava
+        // automática (TenantUrlScopeListener): se o listener for desativado, o super-admin sem tenant
+        // na sessão ainda não vê o label de um recurso de outro escritório.
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
 
         $vinculos = $userTenantRepository->findBy(['tenant' => $tenant]);
         $users    = array_map(fn($vt) => $vt->getUser(), $vinculos);
@@ -1426,7 +1433,8 @@ final class TenantController extends AbstractController
         JustificativaPontoRepository $justificativaRepository,
         PermissionChecker $permissionChecker,
         TenantRepository $tenantRepository,
-        UserTenantRepository $userTenantRepository
+        UserTenantRepository $userTenantRepository,
+        EntityManagerInterface $entityManager,
     ): Response {
         $tenant = $tenantRepository->find($tenantId);
         if (!$tenant) {
@@ -1448,6 +1456,11 @@ final class TenantController extends AbstractController
         if (!$isSuperAdmin && !($userTenantRepository->existeVinculoAtivo($currentUser, $tenant) && $permissionChecker->canAdminister($currentUser, $tenant, 'admin.users.manage'))) {
             throw $this->createAccessDeniedException('Sem permissão.');
         }
+
+        // Remendo (B5 frente 3): escopa o filtro no tenant da URL antes de carregar a justificativa
+        // (TenantAware) por id. Cinto da trava automática: super-admin sem tenant na sessão não baixa o
+        // atestado de outro escritório pela URL errada nem se o listener (TenantUrlScopeListener) cair.
+        $this->escoparFiltroNoTenant($entityManager, $tenant);
 
         $justificativa = $justificativaRepository->find($justificativaId);
 
@@ -1524,6 +1537,10 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para remover acessos.');
         }
 
+        // NOTA (B5): ResourceAccess NÃO é TenantAware → escoparFiltroNoTenant seria no-op aqui, então
+        // não é aplicado. O isolamento hoje vem da guarda abaixo (o acesso pertence ao $userId, já
+        // validado como membro do tenant da URL). O isolamento por tenant do próprio ResourceAccess
+        // (coluna + filtro, fechando o caso do usuário multi-tenant) é a frente 4 (B3).
         $resourceAccess = $resourceAccessRepository->find($raId);
 
         // Garante que o acesso pertence ao usuário correto do tenant

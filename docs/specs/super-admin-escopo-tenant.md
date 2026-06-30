@@ -5,10 +5,13 @@ Risco: **ALTO** (mexe no mecanismo global de escopo por tenant — o `TenantFilt
 ## Status
 - **Frente 1 ✅ COMMITADA (`7fcb827`)** — listener `TenantUrlScopeListener` (prio 4) + teste. Suíte 880/880.
   Plano: `docs/superpowers/plans/2026-06-29-b5-frente1-listener-trava-tenant.md`.
-- **Frente 2 ✅ ENTREGUE+REVISADA (APROVADA), não commitada** — 5 rotas `{id}`→`{tenantId}` + `MapEntity` + 23 callers; teste
-  `TenantRotasTenantIdControllerTest`; suíte 887/887. A trava (frente 1) agora cobre as 5 rotas sem marcador. Detalhe em
-  `docs/specs/PROGRESSO-PENDENCIAS.md` §"🎯 B5".
-- **Frente 3 ⬜ PRÓXIMA** — remendo explícito + testes por-rota. **Frente 4 ⬜** — B3 (ResourceAccess TenantAware, migration 🔴).
+- **Frente 2 ✅ COMMITADA (`87f2fb5`)** — 5 rotas `{id}`→`{tenantId}` + `MapEntity` + 23 callers; teste
+  `TenantRotasTenantIdControllerTest`. A trava (frente 1) agora cobre as 5 rotas sem marcador.
+- **Frente 3 ✅ ENTREGUE+REVISADA (APROVADA), não commitada** — remendo `escoparFiltroNoTenant` em `listUsers` e
+  `downloadAnexoJustificativa` (defesa-em-profundidade; testes desligam a trava p/ isolar o remendo). **`removeResourceAccess` deferido
+  p/ frente 4** (ResourceAccess NÃO é TenantAware → helper seria no-op). Teste `TenantEscopoRemendoControllerTest`; suíte 890/890.
+  Detalhe em `docs/specs/PROGRESSO-PENDENCIAS.md` §"🎯 B5".
+- **Frente 4 ⬜ PRÓXIMA** — B3 (ResourceAccess TenantAware, migration 🔴).
 
 ## Problema (a "frestinha super-admin")
 

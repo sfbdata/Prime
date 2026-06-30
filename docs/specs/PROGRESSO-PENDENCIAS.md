@@ -258,13 +258,13 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
 Spec desta frente: `docs/specs/auditoria-pos-remediacao-multitenant.md` (29 achados rankeados, file:line + fix).
 Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross-tenant → fix → mutação → /review.
 
-➡️ **RETOMAR EM B5 FRENTE 3** (remendo explícito `escoparFiltroNoTenant` + testes por-rota — ver seção "🎯 B5"). **Feitos e COMMITADOS:**
+➡️ **RETOMAR EM B5 FRENTE 4** (B3 — `ResourceAccess` TenantAware, com migration 🔴 FREIO; ver seção "🎯 B5"). **Feitos e COMMITADOS:**
 A1 (`20dfcb6`), A2 (`8e9f0a6`), M3 (`2eddbae`), M3.1 (`c68654f`), M3.2 (`5be4786`), M1 (`07da912`),
 **M4** (`bd121c0`, Notificacao TenantAware + B2), **M2** (`06576d6`, AccessRequest TenantAware),
-**B5 spec** (`04c5124`), **B5 frente 1** (`7fcb827`, listener da trava automática).
-**B5 frente 2 ✅ ENTREGUE+REVISADA (APROVADA), NÃO commitada** — rename das 5 rotas `{id}`→`{tenantId}` + 9 redirects + 14 callers
-em 10 templates + `MapEntity`; teste novo `TenantRotasTenantIdControllerTest`. Suíte **887/887** (880 + 7). Working tree limpo
-(`.playwright-mcp/` está no `.gitignore`; se aparecer `docs/specs/sincronizacao-drive-bidirecional.md`, é WIP do DONO — NÃO commitar junto).
+**B5 spec** (`04c5124`), **B5 frente 1** (`7fcb827`, listener da trava), **B5 frente 2** (`87f2fb5`, rename 5 rotas `{id}`→`{tenantId}`).
+**B5 frente 3 ✅ ENTREGUE+REVISADA (APROVADA c/ ressalva fechada), NÃO commitada** — remendo explícito `escoparFiltroNoTenant` em
+`listUsers` e `downloadAnexoJustificativa` + nota no `removeResourceAccess` (defer p/ frente 4); teste novo `TenantEscopoRemendoControllerTest`.
+Suíte **890/890** (887 + 3). Working tree limpo (`.playwright-mcp/` no `.gitignore`; `sincronizacao-drive-bidirecional.md` se aparecer = WIP do DONO, NÃO commitar).
 
 ### 🎯 B5 — escopo do super-admin (DESTRAVADO via brainstorming) — em andamento
 Spec: `docs/specs/super-admin-escopo-tenant.md`. Plano frente 1: `docs/superpowers/plans/2026-06-29-b5-frente1-listener-trava-tenant.md`.
@@ -286,9 +286,19 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
   (incluído em nenhum template → `app_tenant_delete` sem caller de UI; só o teste POST a exercita) — decisão pendente do dono: remover
   ou religar a uma futura gestão de tenants do super-admin; (b) `TenantController.php` sem `declare(strict_types=1)` (não corrigido de
   propósito = seria refactor oportunista numa frente de rename); (c) 404 do MapEntity testado só em `/users` (cosmético, actions idênticas).
-- **Frente 3 ⬜ PRÓXIMA — remendo explícito** `escoparFiltroNoTenant` em `listUsers`, `downloadAnexoJustificativa:1408`,
-  `removeResourceAccess` + testes por-rota de não-vazamento (super-admin sem sessão → 404/escopado).
-- **Frente 4 ⬜ — B3 `ResourceAccess` TenantAware** (fecha o vazamento concreto): write-site único `approve:202` (setTenant);
+- **Frente 3 ✅ ENTREGUE+REVISADA (APROVADA), NÃO commitada — remendo explícito `escoparFiltroNoTenant` (defesa-em-profundidade).**
+  Adicionado em `listUsers` e `downloadAnexoJustificativa` (após o guard, antes da leitura TenantAware por id: labels Cliente/Pasta/Processo
+  e `JustificativaPonto`), ambos com `EntityManagerInterface` injetado. **`removeResourceAccess` NÃO recebeu o helper** (achado:
+  `ResourceAccess` implementa só `Auditavel`, **não `TenantAware`** → `escoparFiltroNoTenant` seria no-op; isolamento real = frente 4);
+  só ganhou uma NOTA. Teste `TenantEscopoRemendoControllerTest` (3): os 2 do remendo **desligam a trava** (`TenantUrlScopeListener` removido
+  do dispatcher + `disableReboot`) p/ ISOLAR o remendo — provam que ele sozinho escopa (super-admin: download de B via URL de A → 404 e
+  positivo via B → 200; NUP de pasta de B não vaza na lista de A). 3º teste trava o guard atual do `removeResourceAccess`. Mutação 2× (neutralizar
+  os 2 remendos → ambos RED; revert → GREEN). Achado de teste: `Pasta` normaliza o NUP p/ MAIÚSCULAS → agulha usa `$pasta->getNup()`.
+  Suíte **890/890**. Revisão `feature-review-agent` (ALTO): enumerou as **20 rotas `{tenantId}`** e confirmou **zero gap real** além do
+  `removeResourceAccess` (deferido) e `editSede`/`deleteSede` (Sede não-TenantAware, já com guard `$sede->getTenant()`). Ressalva única
+  (RED não re-executável read-only) FECHADA pela mutação. Achado pré-existente fora do diff: ordem dos guards em `downloadAnexoJustificativa`
+  (não vaza). **Arquivos a commitar:** `app/src/Controller/TenantController.php`, `app/tests/Tenant/Functional/TenantEscopoRemendoControllerTest.php`, docs.
+- **Frente 4 ⬜ PRÓXIMA — B3 `ResourceAccess` TenantAware** (fecha o vazamento concreto): write-site único `approve:202` (setTenant);
   read-sites cobertos pela trava; migration 🔴 FREIO (backfill por recurso cliente/pasta/processo→fallback tenant único);
   unique composto `(tenant,user,type,id)`; B3-mínimo NÃO mais necessário (a trava resolveu o acoplamento).
 
