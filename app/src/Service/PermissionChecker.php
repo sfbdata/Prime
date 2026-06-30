@@ -61,29 +61,6 @@ class PermissionChecker
         return $this->hasPermissionFromUserTenant($userTenant, $permission);
     }
 
-    public function canActOnResource(User $user, ?Tenant $tenant, string $resourceType, string $action): bool
-    {
-        if ($this->isGlobalSuperAdmin($user)) {
-            return true;
-        }
-
-        if ($tenant === null) {
-            return false;
-        }
-
-        $userTenant = $this->resolveUserTenant($user, $tenant);
-
-        if ($userTenant?->getTenantRole()?->isSystem() === true) {
-            return true;
-        }
-
-        if ($userTenant === null) {
-            return false;
-        }
-
-        return $this->hasPermissionFromUserTenant($userTenant, sprintf('resources.%s.%s', $resourceType, $action));
-    }
-
     public function canAccessResource(User $user, ?Tenant $tenant, string $resourceType, int $resourceId, string $action): bool
     {
         if ($this->isGlobalSuperAdmin($user)) {

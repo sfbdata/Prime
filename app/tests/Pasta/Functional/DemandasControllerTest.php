@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
+use App\Entity\Tenant\TenantRole;
 use App\Pasta\Controller\DemandasController;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -37,7 +38,15 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
 
+        // Papel isSystem (admin do escritório) → passa o guard de módulo do B7.
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Admin ' . uniqid());
+        $role->setIsSystem(true);
+        $em->persist($role);
+
         $userTenant = new UserTenant($user, $tenant);
+        $userTenant->setTenantRole($role);
         $em->persist($userTenant);
 
         $em->flush();
@@ -45,6 +54,44 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         $this->logarComTenant($client, $user, $tenant);
 
         return [$user, $tenant];
+    }
+
+    #[TestDox('B7: GET /demandas sem o módulo de pastas é bloqueado (redirect, não 200)')]
+    public function testSemModuloPastasBloqueia(): void
+    {
+        $client    = static::createClient();
+        $container = static::getContainer();
+        $em        = $container->get(EntityManagerInterface::class);
+
+        $tenant = new Tenant();
+        $tenant->setName('Tenant Demandas SemMod ' . uniqid());
+        $em->persist($tenant);
+
+        $user = new User();
+        $user->setEmail('demandas_semmod_' . uniqid() . '@test.com');
+        $user->setFullName('Sem Módulo');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword('dummy_hash');
+        $em->persist($user);
+
+        // Papel NÃO-system e sem permissões → não tem modules.pastas.view.
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Comum ' . uniqid());
+        $role->setIsSystem(false);
+        $em->persist($role);
+
+        $userTenant = new UserTenant($user, $tenant);
+        $userTenant->setTenantRole($role);
+        $em->persist($userTenant);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/demandas');
+
+        self::assertResponseRedirects();
+        self::assertStringNotContainsString('/login', (string) $client->getResponse()->headers->get('Location'), 'deve desviar por falta de módulo (homepage), não por falta de login');
     }
 
     private function criarPastaParaResponsavel(User $responsavel, Tenant $tenant): Pasta

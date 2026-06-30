@@ -231,8 +231,16 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/api/search', name: 'api_datajud_search', methods: ['POST'])]
-    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em): JsonResponse
+    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker): JsonResponse
     {
+        // Gateia pela permissão do módulo: a action dispara consulta à API externa do CNJ — sem
+        // guard, qualquer logado abusaria do custo/rate-limit. Não persiste nada (B8).
+        /** @var \App\Entity\Auth\User $user */
+        $user = $this->getUser();
+        if (!$permissionChecker->canAccessModule($user, $this->tenantContext->getCurrentTenant(), 'processos')) {
+            return new JsonResponse(['error' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
         $data = json_decode($request->getContent(), true);
         $numeroProcesso = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
         $tribunalAlias = $data['tribunalAlias'] ?? '';

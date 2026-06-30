@@ -48,6 +48,27 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404, 'show não pode revelar processo de outro tenant');
     }
 
+    #[TestDox('B8: POST /processos/api/search sem o módulo de processos retorna 403 (anti-abuso da API externa)')]
+    public function testDatajudSearchExigeModulo(): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $usuario = $this->criarUsuarioComum($tenant);
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $usuario, $tenant);
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['numeroProcesso' => '00010203020255500', 'tribunalAlias' => 'api_publica_tjsp']),
+        );
+
+        self::assertResponseStatusCodeSame(403, 'sem o módulo de processos não pode disparar a API externa');
+    }
+
     #[TestDox('Editar/deletar processo de outro tenant retorna 404')]
     public function testEditarEDeletarIsolamPorTenant(): void
     {
@@ -133,6 +154,35 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         $role->setTenant($tenant);
         $role->setName('Gestor ' . uniqid());
         $role->setIsSystem(true);
+        $em->persist($role);
+
+        $userTenant = new UserTenant($user, $tenant);
+        $userTenant->setTenantRole($role);
+        $em->persist($userTenant);
+        $em->flush();
+
+        return $user;
+    }
+
+    private function criarUsuarioComum(Tenant $tenant): User
+    {
+        $container = static::getContainer();
+        $em        = $container->get(EntityManagerInterface::class);
+        $hasher    = $container->get(UserPasswordHasherInterface::class);
+
+        $user = new User();
+        $user->setEmail('comum_' . uniqid() . '@test.com');
+        $user->setFullName('Comum ' . uniqid());
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        $em->persist($user);
+
+        // Papel NÃO-system e sem permissões → não tem modules.processos.view.
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Comum ' . uniqid());
+        $role->setIsSystem(false);
         $em->persist($role);
 
         $userTenant = new UserTenant($user, $tenant);
