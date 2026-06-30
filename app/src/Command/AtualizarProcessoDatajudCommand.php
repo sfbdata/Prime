@@ -74,7 +74,13 @@ class AtualizarProcessoDatajudCommand extends Command
             }
 
             $numero = (string) ($source['numeroProcesso'] ?? $numeroProcesso);
-            $processo = $this->processoRepository->findOneBy(['numeroProcesso' => $numero]);
+            // CLI roda com o TenantFilter OFF e numero_processo é único só POR tenant: escopar o
+            // lookup pelo tenant do processo base, senão um processo homônimo de OUTRO escritório
+            // seria casado e sobrescrito (corrupção cross-tenant). B1.
+            $processo = $this->processoRepository->findOneBy([
+                'numeroProcesso' => $numero,
+                'tenant'         => $processoBase->getTenant(),
+            ]);
 
             if (!$processo) {
                 $processo = new Processo();

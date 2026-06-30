@@ -57,7 +57,15 @@ class DatajudProcessoMapper
             return;
         }
 
-        $processoPai = $this->processoRepository->findOneBy(['numeroProcesso' => $processoPaiNumero]);
+        // Escopar o processo-pai pelo tenant do processo (B1). No CLI (TenantFilter OFF) isso evita
+        // linkar a um processo homônimo de outro escritório; no caminho web efêmero (datajudSearch,
+        // processo sem tenant) o filtro está ON e já escopa — mesma guarda de partes/movimentações.
+        $criteria = ['numeroProcesso' => $processoPaiNumero];
+        if ($processo->getTenant() !== null) {
+            $criteria['tenant'] = $processo->getTenant();
+        }
+
+        $processoPai = $this->processoRepository->findOneBy($criteria);
         $processo->setProcessoPaiRef($processoPai);
     }
 
