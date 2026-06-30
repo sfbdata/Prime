@@ -97,6 +97,7 @@ uma ISOLADA via `migrations:execute '<Version>' --up --no-interaction`, na ordem
 | 8 | `Version20260629120000` | M4 Notificacao | tenant_id em `notificacao` | `tarefa.tenant_id`; resto via fallback tenant único | notificações sem tarefa em multi-tenant (cobertas só pelo fallback) |
 | 9 | `Version20260629130000` | M2 AccessRequest | tenant_id em `access_request` | `user_tenant` ativo **só se exatamente 1 vínculo** | solicitante com >1 vínculo ativo (ambíguo → aborta) ou sem vínculo |
 | 10 | `Version20260630120000` | B5-f4 ResourceAccess | tenant_id em `resource_access` | tenant do recurso (`cliente`/`pasta`/`processo`.tenant_id); resto via fallback | RA cujo recurso (resource_id) não existe mais em multi-tenant (órfão não-derivável → aborta) |
+| 11 | `Version20260630130000` | B4 índice audit_log | `CREATE INDEX idx_audit_tenant_created ON audit_log (tenant_id, created_at)` | — (só índice, sem backfill) | nenhum — aditivo. Se a tabela for grande, considerar `CREATE INDEX CONCURRENTLY` manual (fora de transação) |
 
 ```sql
 -- #9 AccessRequest: solicitantes com >1 vínculo ativo (backfill ambíguo → aborta)

@@ -10,6 +10,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_audit_entity', columns: ['entity_class', 'entity_id'])]
 #[ORM\Index(name: 'idx_audit_created_at', columns: ['created_at'])]
 #[ORM\Index(name: 'idx_audit_actor_user_id', columns: ['actor_user_id'])]
+#[ORM\Index(name: 'idx_audit_tenant_created', columns: ['tenant_id', 'created_at'])]
 class AuditLog
 {
     #[ORM\Id]

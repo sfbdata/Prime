@@ -205,7 +205,9 @@ em ambiente de teste.
 >   porta de entrada ao modelo paralelo do M6; dado já era escopado por tenant+responsável). Teste add.
 > - **B8** ✅ **CORRIGIDO:** `ProcessoController::datajudSearch` ganhou guard `canAccessModule('processos')`
 >   (anti-abuso da API externa do CNJ; não persiste nada). Teste add (403 sem módulo).
-> - **B4** ⏳ índice `audit_log(tenant_id)` — migration trivial (só perf, sem leak); **aguardando OK** p/ aplicar.
+> - **B4** ✅ **CORRIGIDO:** índice `idx_audit_tenant_created` em `audit_log (tenant_id, created_at)` —
+>   `#[ORM\Index]` na entidade + migration `Version20260630130000` **APLICADA no dev** + schema teste sync +
+>   `schema:validate` OK. Só performance, sem leak. Deploy prod: runbook #11.
 > - **B9** ✅ **ACEITO** (robustez de migration, igual M7): `Version20260625120342` (ServiceDesk) sem fallback
 >   de tenant único; **já aplicada em prod** — não reescrever migration aplicada. Aborta só em re-aplicação
 >   num ambiente novo com chamado órfão (solicitante sem vínculo ativo).

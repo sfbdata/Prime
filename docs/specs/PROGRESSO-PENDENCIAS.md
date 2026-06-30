@@ -485,8 +485,8 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
     (removido `canActOnResource` + termo fantasma `admin.tarefas.manage` do OR da sidebar); **B7** ✅ guard
     `canAccessModule('pastas')` no `DemandasController`; **B8** ✅ guard `canAccessModule('processos')` no
     `datajudSearch`; **B9** ✅ ACEITO (robustez migration SD, igual M7, já em prod); **B10** ✅ ACEITO (custo
-    C3, app garante unicidade). **B4** ⏳ índice `audit_log(tenant_id)` — migration (só perf), aguardando OK.
-    **Suíte 906/906.**
+    C3, app garante unicidade). **B4** ✅ CORRIGIDO (índice `idx_audit_tenant_created` em `audit_log`;
+    migration `Version20260630130000` aplicada no dev; só perf). **Suíte 906/906. TODO O B-SERIES FECHADO.**
 
 ## Detalhamento por etapa
 
