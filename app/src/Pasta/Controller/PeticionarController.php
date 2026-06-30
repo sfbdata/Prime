@@ -231,7 +231,7 @@ final class PeticionarController extends AbstractController
         $currentUser = $this->getUser();
         $tenant = $this->tenantContext->getCurrentTenant();
 
-        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
+        if ($tenant === null || !$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', (int) $pasta->getId(), 'edit')) {
             return new JsonResponse(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
         }
 
@@ -245,8 +245,11 @@ final class PeticionarController extends AbstractController
         }
 
         try {
+            // Isolamento por tenant (M5): grava na subpasta do tenant dono. A URL retornada é o
+            // basename (sem o tenant), e o PecaImagemController re-injeta a subpasta do tenant da
+            // sessão ao servir — o HTML salvo da peça continua `/uploads/pastas/<hex>`.
             $output = $this->uploadImagemEditorUseCase->executar(
-                new UploadImagemEditorInput($arquivo, $this->uploadsDir),
+                new UploadImagemEditorInput($arquivo, $this->uploadsDir . '/' . $tenant->getId()),
             );
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['erro' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);

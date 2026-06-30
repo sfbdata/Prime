@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Pasta\Controller;
 
+use App\Service\Tenant\TenantContext;
 use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,20 +15,23 @@ use Symfony\Component\Routing\Attribute\Route;
  * `<img src="/uploads/pastas/<hex>.<ext>">` (e o ExportarPecaTextoUseCase reescreve `/uploads/`
  * para caminho de disco no export). Antes do C5 essa URL era servida ESTÁTICA pelo nginx, sem
  * qualquer auth; agora o nginx roteia `/uploads/` ao front controller e esta rota entrega o
- * arquivo SOMENTE a usuário autenticado (firewall `^/ ROLE_USER`), via ArquivoStorageInterface.
+ * arquivo via ArquivoStorageInterface.
+ *
+ * Isolamento por tenant (M5): a imagem mora em `%uploads_dir%/<tenantId>/` (gravada lá pelo upload
+ * em `PeticionarController::uploadImagemEditor`) e esta rota só resolve sob a subpasta do tenant da
+ * SESSÃO. Um logado do escritório A não baixa a imagem de B mesmo sabendo o nome hex → 404. A URL
+ * embutida no HTML continua `/uploads/pastas/<hex>` (o tenant é injetado aqui, no disco, não na URL).
+ * Fail-closed: sem tenant na sessão (super-admin) → 404. Fecha de quebra o caminho paralelo às
+ * imagens de documento (que só ficam acessíveis pela rota de entidade `pasta_documento_*`).
  *
  * Restrita a extensões de imagem: documentos/peças (pdf/html/docx) NÃO são servidos por aqui —
  * eles têm rotas próprias por entidade (pasta_documento_*), com checagem de tenant/posse.
- *
- * Residual conhecido (fecha no C5.2, ao mover pastas para var/ + servir imagens por entidade):
- * a checagem é só de autenticação, não de tenant/posse — um usuário logado consegue buscar uma
- * imagem de pasta pelo nome (hex aleatório de 16 bytes). É uma redução grande frente ao acesso
- * anônimo anterior, mas ainda não isola por tenant.
  */
 final class PecaImagemController extends AbstractController
 {
     public function __construct(
         private readonly ArquivoStorageInterface $storage,
+        private readonly TenantContext $tenantContext,
         private readonly string $uploadsDir,
     ) {
     }
@@ -45,7 +49,13 @@ final class PecaImagemController extends AbstractController
             throw $this->createNotFoundException();
         }
 
-        $caminho = $this->storage->caminho($this->uploadsDir, $nome);
+        // Isolamento por tenant: só resolve sob a subpasta do tenant da sessão (fail-closed se ausente).
+        $tenant = $this->tenantContext->getCurrentTenant();
+        if ($tenant === null) {
+            throw $this->createNotFoundException();
+        }
+
+        $caminho = $this->storage->caminho($this->uploadsDir . '/' . $tenant->getId(), $nome);
         if (!$this->storage->existe($caminho)) {
             throw $this->createNotFoundException();
         }

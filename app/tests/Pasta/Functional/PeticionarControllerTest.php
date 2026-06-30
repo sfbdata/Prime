@@ -494,8 +494,8 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
-        $this->marcarTermosAceitos($client);
+        // M5: o upload exige tenant na sessão (grava na subpasta do tenant) — loga COM tenant.
+        $this->logarComTenant($client, $user, $tenant);
 
         // Criar arquivo com magic bytes de JPEG para que getMimeType() retorne image/jpeg
         $tmpFile = tempnam(sys_get_temp_dir(), 'test_jpg_');
@@ -512,7 +512,18 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $data = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertArrayHasKey('url', $data);
-        self::assertStringStartsWith('/uploads/', $data['url']);
+        // URL inalterada: basename sem o tenant (o serve re-injeta a subpasta do tenant da sessão).
+        self::assertStringStartsWith('/uploads/pastas/', $data['url']);
+
+        // M5: o arquivo aterrissa na subpasta do tenant dono, NÃO no diretório plano.
+        $uploadsDir = rtrim((string) static::getContainer()->getParameter('uploads_dir'), '/');
+        $nomeArquivo = basename((string) $data['url']);
+        $caminhoSubpasta = $uploadsDir . '/' . $tenant->getId() . '/' . $nomeArquivo;
+        $caminhoPlano    = $uploadsDir . '/' . $nomeArquivo;
+        $this->arquivosParaLimpar[] = $caminhoSubpasta;
+
+        self::assertFileExists($caminhoSubpasta, 'a imagem do editor deve morar em pastas/<tenantId>/');
+        self::assertFileDoesNotExist($caminhoPlano, 'a imagem não pode ficar no diretório plano (vazaria cross-tenant)');
 
         @unlink($tmpFile);
     }
@@ -524,8 +535,8 @@ final class PeticionarControllerTest extends JusPrimeWebTestCase
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $this->instalarCsrfStorage();
-        $client->loginUser($user);
-        $this->marcarTermosAceitos($client);
+        // M5: o upload exige tenant na sessão (grava na subpasta do tenant) — loga COM tenant.
+        $this->logarComTenant($client, $user, $tenant);
 
         $tmpFile = tempnam(sys_get_temp_dir(), 'test_txt_');
         file_put_contents($tmpFile, 'Texto simples — não é imagem');

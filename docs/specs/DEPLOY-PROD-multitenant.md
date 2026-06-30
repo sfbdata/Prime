@@ -118,6 +118,45 @@ Dev (1 tenant): M4 0 notif / M2 0 solicitações / B5-f4 0 RAs → todas triviai
 - **Follow-up app-wide de uploads (NÃO bloqueia este deploy):** `pastas`, `justificativas`, `clientes`,
   `perfil` ainda guardam em `public/uploads/*` — mover para fora do public é frente própria futura.
 
+- **🟠 M5 — isolar por tenant as imagens do editor de peças (mover ARQUIVOS, sem migration).**
+  Spec: `docs/specs/peca-imagem-isolamento-tenant.md`. O `PecaImagemController` passou a servir a
+  imagem só da subpasta `public/uploads/pastas/<tenantId>/` (tenant da sessão); o upload novo já
+  grava lá. **As imagens já existentes estão planas em `public/uploads/pastas/` e precisam ser
+  MOVIDAS para a subpasta do tenant dono, senão o próprio dono perde a imagem nas peças antigas.**
+  Prod = 1 tenant `T` → todas as órfãs do editor são de `T`. Critério **DB-backed** (sem parsear
+  HTML): mover só os arquivos de imagem que **não** são `PastaDocumento.caminho_arquivo` (isso exclui
+  os HTMLs de peça e as imagens de DOCUMENTO — RG/procuração — que ficam planas e seguem servidas pela
+  rota de entidade `pasta_documento_*`). **Ordem copy → deploy → cleanup (zero janela de imagem
+  quebrada).** Rodar DENTRO do container php de prod (volume `uploads_prod` montado em
+  `public/uploads/pastas`); **fazer backup antes** (regra de ouro). Conferir `SELECT count(*) FROM tenant = 1`.
+
+  ```bash
+  set -euo pipefail
+  DIR=public/uploads/pastas
+  TENANT=$(psql -U symfony -d saas -tAc "SELECT id FROM tenant LIMIT 1")   # prod = 1 tenant
+  # trava de segurança: aborta se o psql não está no PATH/retornou vazio (senão criaria pastas/ e cp falharia)
+  [ -n "${TENANT:-}" ] || { echo "ERRO: TENANT vazio (psql ausente? >1 tenant?) — abortar"; exit 1; }
+  IMG='( -iname *.jpg -o -iname *.jpeg -o -iname *.png -o -iname *.gif -o -iname *.webp )'
+  mkdir -p "$DIR/$TENANT"
+
+  # conjunto de exclusão: TODOS os caminho_arquivo de documento (HTML de peça, PDF, imagem de doc)
+  psql -U symfony -d saas -tAc "SELECT caminho_arquivo FROM pasta_documento" | sort -u > /tmp/docs.txt
+
+  # (1) COPY: cada imagem PLANA que NÃO é caminho_arquivo de doc = imagem órfã do editor → copia p/ <T>/
+  eval find "$DIR" -maxdepth 1 -type f $IMG -printf '%f\\n' \
+    | grep -vxF -f /tmp/docs.txt \
+    | while IFS= read -r f; do cp -n "$DIR/$f" "$DIR/$TENANT/$f"; done
+
+  # (2) DEPLOY do código (git push + script). Smoke: abrir peça antiga com imagem → renderiza (logado).
+
+  # (3) CLEANUP (só após o smoke OK): remove os planos órfãos já copiados (inalcançáveis pelo
+  #     controller novo + bloqueio nginx de /uploads/). NÃO toca os doc files (excluídos pelo grep).
+  eval find "$DIR" -maxdepth 1 -type f $IMG -printf '%f\\n' \
+    | grep -vxF -f /tmp/docs.txt \
+    | while IFS= read -r f; do rm -f "$DIR/$f"; done
+  ```
+  Em deploys novos (multi-tenant do zero) **não há legado** — toda imagem já nasce em `<tenantId>/`.
+
 ## Pós-deploy (validar)
 
 ```bash

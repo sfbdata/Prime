@@ -258,7 +258,7 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
 Spec desta frente: `docs/specs/auditoria-pos-remediacao-multitenant.md` (29 achados rankeados, file:line + fix).
 Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross-tenant → fix → mutação → /review.
 
-➡️ **B5 COMPLETO (4 frentes).** RETOMAR nos demais achados da auditoria (M5–M8, B-series) — ver §"Demais (MÉDIO/BAIXO)". **Feitos e COMMITADOS:**
+➡️ **B5 COMPLETO (4 frentes); M5 ENTREGUE (não commitado).** RETOMAR nos demais achados da auditoria (M6–M8, B-series) — ver §"Demais (MÉDIO/BAIXO)". **Feitos e COMMITADOS:**
 A1 (`20dfcb6`), A2 (`8e9f0a6`), M3 (`2eddbae`), M3.1 (`c68654f`), M3.2 (`5be4786`), M1 (`07da912`),
 **M4** (`bd121c0`, Notificacao TenantAware + B2), **M2** (`06576d6`, AccessRequest TenantAware),
 **B5 spec** (`04c5124`), **B5 f1** (`7fcb827`, listener da trava), **B5 f2** (`87f2fb5`, rename 5 rotas `{id}`→`{tenantId}`),
@@ -421,7 +421,33 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
   - **Estado na interrupção:** dono APROVOU plano + estratégia da migration + remoção do `removerAntigas`.
     Faltou só confirmar se aplica a migration no dev direto ou mostra o SQL antes → próximo chat: escreve a
     migration, MOSTRA o SQL, aplica no dev após OK rápido. Investigação 100% feita (não re-investigar).
-- **Demais (MÉDIO/BAIXO):** M2, M5–M8, B1, B3–B10 conforme o doc da auditoria.
+- **M5 ✅ Isolamento por tenant da imagem de peça (MÉDIO) — ENTREGUE+RE-REVISADA (APROVADA c/ ressalvas
+  BAIXAS), NÃO commitada. Sem migration.** Spec `docs/specs/peca-imagem-isolamento-tenant.md`. O
+  `PecaImagemController` (`GET /uploads/pastas/{nome}`) servia a imagem do editor a QUALQUER logado, sem
+  tenant (resíduo do C5.1). Investigação (workflow read-only + reverificação): imagem é arquivo solto
+  (`bin2hex(16)`) **plano** em `public/uploads/pastas`, sem entidade; o mesmo flat dir guarda HTMLs de peça
+  e uploads de documento (procuração/RG/contrato — **inclusive PNG/JPEG**, `UploadPecaUseCase`), então o
+  controller era caminho **paralelo não-protegido até imagens de documento**. **Decisão do dono: Opção A —
+  subpasta por tenant, URL inalterada** (rejeitada a Opção B = entidade+migration+backfill). Fix: upload
+  (`PeticionarController::uploadImagemEditor`) grava em `pastas/<tenantId>/` (fail-closed: tenant null →
+  403); serve (`PecaImagemController`, agora injeta `TenantContext`) resolve só `pastas/<tenantSessão>/`
+  (fail-closed null → 404; cross-tenant → 404; fecha também o paralelo p/ doc-images); export
+  (`ExportarPecaTextoUseCase`) reescreve `.../uploads/pastas/` → subpasta do tenant do doc via
+  `preg_replace_callback('#(?:\.{1,2}/)*/?uploads/pastas/#')` — trata URL absoluta E relativa do TinyMCE
+  (o `str_replace` antigo **já quebrava** o caso relativo). Testes: `PecaImagemControllerTest` (owner 200 /
+  cross-tenant 404 / flat-residue 404 / sem-tenant-super-admin 404 / inexistente / não-imagem) +
+  `PeticionarControllerTest` (upload aterrissa em `<tenantId>/`, não no flat) + `ExportarPecaTextoUseCaseTest`
+  (absoluto/relativo/multi-imagem/null via reflection). **Mutação 2× confirmada:** serve flat → owner+cross+flat
+  RED; upload flat → `assertFileExists(<tenantId>/)` RED. Suíte **902/902**. Revisão `feature-review-agent`:
+  REPROVOU 1ª (runbook ausente + teste cross-tenant não-discriminante + export relativo não-tratado +
+  determinismo de disco) → endereçados → re-revisão do delta **APROVADO c/ ressalvas BAIXAS** (guard `$TENANT`
+  no snippet add; over-match http externo = aceite-consciente). **Passo de DADOS em prod (não-migration):**
+  mover imagens órfãs do editor p/ `pastas/<T>/` via critério DB-backed `{imagens} − {PastaDocumento.caminho_arquivo}`,
+  ordem copy→deploy→cleanup — runbook em `DEPLOY-PROD-multitenant.md` (§Passos NÃO-migration). **Arquivos a
+  commitar:** `PecaImagemController.php`, `PeticionarController.php`, `ExportarPecaTextoUseCase.php`,
+  `tests/Pasta/Functional/{PecaImagem,Peticionar}ControllerTest.php`, `tests/Pasta/Unit/ExportarPecaTextoUseCaseTest.php`,
+  `docs/specs/peca-imagem-isolamento-tenant.md`, `docs/specs/DEPLOY-PROD-multitenant.md`, `docs/specs/PROGRESSO-PENDENCIAS.md`.
+- **Demais (MÉDIO/BAIXO):** M2, M6–M8, B1, B3–B10 conforme o doc da auditoria.
   - **M2 ✅ IMPLEMENTADO E REVISADO, NÃO COMMITADO (🔴 migration aguarda OK do dono).** Spec
     `docs/specs/access-request-isolamento-tenant.md`. `AccessRequest implements TenantAware` + coluna
     `tenant` NOT NULL; `submit` seta o tenant da sessão (guard null→400); `findPendingByTenant` escopa por
@@ -441,8 +467,9 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
     + 2 testes do M2 reescritos p/ recurso real (ids fake 4242/8888 quebrariam o check); mutação confirmada.
     Suíte **895/895**. Revisão `feature-review-agent`: aprovada (achados endereçados: comentário do código
     corrigido p/ "find por PK escapa via identity map"; vetor do approve fechado; spec do M2 atualizada).
-  - **M5** PecaImagemController auth-only (resíduo aceito); **M6** F1 módulo (decisão); **M7** migration
-    Agenda aborta multi-tenant (antes do 2º tenant); **M8** uploads dev (parcial via A3).
+  - ~~**M5** PecaImagemController auth-only~~ **✅ FECHADO** (entrada dedicada acima; subpasta por tenant).
+    **M6** F1 módulo (decisão); **M7** migration Agenda aborta multi-tenant (antes do 2º tenant);
+    **M8** uploads dev (parcial via A3).
   - **B5 🎯 DESTRAVADO — EM ANDAMENTO** (frente 1 commitada `7fcb827`; ver seção "🎯 B5" acima e
     `docs/specs/super-admin-escopo-tenant.md`). **B3** ResourceAccess sem tenant = **frente 4 do B5**.
   - **B1** CLI Datajud; **B4** índice `audit_log` (migration); **B6** permissões fantasma; **B7/B8** sem

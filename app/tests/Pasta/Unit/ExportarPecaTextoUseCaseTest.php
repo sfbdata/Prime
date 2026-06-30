@@ -170,4 +170,70 @@ final class ExportarPecaTextoUseCaseTest extends TestCase
         self::assertStringEndsWith('.pdf', $this->useCase->executar($this->doc, 'pdf')->nomeArquivo);
         self::assertStringEndsWith('.txt', $this->useCase->executar($this->doc, 'txt')->nomeArquivo);
     }
+
+    #[TestDox('M5: reescrita de imagem aponta /uploads/pastas/ para a subpasta do tenant do doc')]
+    public function testReescritaApontaParaSubpastaDoTenant(): void
+    {
+        $html = '<p>Peça</p><img src="/uploads/pastas/foto.png" alt="">';
+
+        $resultado = $this->invocarReescrita($html, 77);
+
+        self::assertSame(
+            '<p>Peça</p><img src="' . sys_get_temp_dir() . '/public/uploads/pastas/77/foto.png" alt="">',
+            $resultado,
+        );
+    }
+
+    #[TestDox('M5: reescrita normaliza caminho RELATIVO (../../uploads/pastas/) do TinyMCE para a subpasta')]
+    public function testReescritaNormalizaCaminhoRelativo(): void
+    {
+        // O TinyMCE grava URL relativa por default (convert_urls). O str_replace antigo deixava o
+        // `../..` para trás e quebrava a imagem no export; o regex consome o prefixo inteiro.
+        $html = '<p>X</p><img src="../../uploads/pastas/foto.png" alt="">';
+
+        $resultado = $this->invocarReescrita($html, 77);
+
+        self::assertSame(
+            '<p>X</p><img src="' . sys_get_temp_dir() . '/public/uploads/pastas/77/foto.png" alt="">',
+            $resultado,
+        );
+    }
+
+    #[TestDox('M5: reescrita troca TODAS as imagens do HTML (absoluta, relativa e ./) na mesma peça')]
+    public function testReescritaTrocaMultiplasImagens(): void
+    {
+        $base = sys_get_temp_dir() . '/public/uploads/pastas/77/';
+        $html = '<img src="/uploads/pastas/a.png">texto'
+            . '<img src="../../uploads/pastas/b.jpg">mais'
+            . '<img src="./uploads/pastas/c.png">';
+
+        $resultado = $this->invocarReescrita($html, 77);
+
+        self::assertSame(
+            '<img src="' . $base . 'a.png">texto'
+            . '<img src="' . $base . 'b.jpg">mais'
+            . '<img src="' . $base . 'c.png">',
+            $resultado,
+        );
+    }
+
+    #[TestDox('Reescrita sem tenant (degenerado) cai no caminho sem subpasta')]
+    public function testReescritaSemTenantUsaCaminhoSemSubpasta(): void
+    {
+        $html = '<img src="/uploads/pastas/foto.png">';
+
+        $resultado = $this->invocarReescrita($html, null);
+
+        self::assertSame(
+            '<img src="' . sys_get_temp_dir() . '/public/uploads/pastas/foto.png">',
+            $resultado,
+        );
+    }
+
+    private function invocarReescrita(string $html, ?int $tenantId): string
+    {
+        $metodo = new \ReflectionMethod($this->useCase, 'reescreverImagensParaDisco');
+
+        return (string) $metodo->invoke($this->useCase, $html, $tenantId);
+    }
 }

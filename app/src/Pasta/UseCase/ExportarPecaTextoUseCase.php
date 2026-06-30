@@ -28,11 +28,7 @@ final class ExportarPecaTextoUseCase
         $caminho = $this->storage->caminho($this->uploadsDir, $doc->getCaminhoArquivo());
         $html    = (string) file_get_contents($caminho);
 
-        $htmlExport = str_replace(
-            '/uploads/',
-            $this->projectDir . '/public/uploads/',
-            $html,
-        );
+        $htmlExport = $this->reescreverImagensParaDisco($html, $doc->getTenant()?->getId());
 
         return match ($formato) {
             'docx'  => $this->gerarDocx($doc, $htmlExport),
@@ -41,6 +37,33 @@ final class ExportarPecaTextoUseCase
             'txt'   => $this->gerarTxt($doc, $html),
             default => throw new \InvalidArgumentException("Formato não suportado: {$formato}"),
         };
+    }
+
+    /**
+     * Reescreve as referências às imagens do editor embutidas no HTML da peça para caminho de disco,
+     * para que Dompdf/PhpWord encontrem os arquivos no export.
+     *
+     * Isolamento por tenant (M5): as imagens do editor moram em `pastas/<tenantId>/`, então a
+     * reescrita aponta o prefixo `.../uploads/pastas/` para a subpasta do tenant do doc — senão a
+     * imagem embutida quebraria no DOCX/PDF exportado.
+     *
+     * O TinyMCE grava a URL como ABSOLUTA (`/uploads/pastas/<hex>`) ou RELATIVA
+     * (`../../uploads/pastas/<hex>`, default `convert_urls`); o regex normaliza ambas, consumindo o
+     * prefixo `./`/`../`/`/` inteiro — o `str_replace('/uploads/'...)` antigo deixava o `../..` para
+     * trás e quebrava o caso relativo. `preg_replace_callback` (callback fixo) evita interpretação de
+     * `$`/`\` do projectDir no valor de substituição. Guard: tenant null (caso degenerado / unit sem
+     * DB) mantém o caminho sem subpasta.
+     */
+    private function reescreverImagensParaDisco(string $html, ?int $tenantId): string
+    {
+        $prefixoDisco = $this->projectDir . '/public/uploads/pastas/'
+            . ($tenantId !== null ? $tenantId . '/' : '');
+
+        return (string) preg_replace_callback(
+            '#(?:\.{1,2}/)*/?uploads/pastas/#',
+            static fn (): string => $prefixoDisco,
+            $html,
+        );
     }
 
     private function sanitizarParaXhtml(string $html): string
