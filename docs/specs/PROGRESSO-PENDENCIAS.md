@@ -258,13 +258,14 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
 Spec desta frente: `docs/specs/auditoria-pos-remediacao-multitenant.md` (29 achados rankeados, file:line + fix).
 Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross-tenant → fix → mutação → /review.
 
-➡️ **RETOMAR EM B5 FRENTE 4** (B3 — `ResourceAccess` TenantAware, com migration 🔴 FREIO; ver seção "🎯 B5"). **Feitos e COMMITADOS:**
+➡️ **B5 COMPLETO (4 frentes).** RETOMAR nos demais achados da auditoria (M5–M8, B-series) — ver §"Demais (MÉDIO/BAIXO)". **Feitos e COMMITADOS:**
 A1 (`20dfcb6`), A2 (`8e9f0a6`), M3 (`2eddbae`), M3.1 (`c68654f`), M3.2 (`5be4786`), M1 (`07da912`),
 **M4** (`bd121c0`, Notificacao TenantAware + B2), **M2** (`06576d6`, AccessRequest TenantAware),
-**B5 spec** (`04c5124`), **B5 frente 1** (`7fcb827`, listener da trava), **B5 frente 2** (`87f2fb5`, rename 5 rotas `{id}`→`{tenantId}`).
-**B5 frente 3 ✅ ENTREGUE+REVISADA (APROVADA c/ ressalva fechada), NÃO commitada** — remendo explícito `escoparFiltroNoTenant` em
-`listUsers` e `downloadAnexoJustificativa` + nota no `removeResourceAccess` (defer p/ frente 4); teste novo `TenantEscopoRemendoControllerTest`.
-Suíte **890/890** (887 + 3). Working tree limpo (`.playwright-mcp/` no `.gitignore`; `sincronizacao-drive-bidirecional.md` se aparecer = WIP do DONO, NÃO commitar).
+**B5 spec** (`04c5124`), **B5 f1** (`7fcb827`, listener da trava), **B5 f2** (`87f2fb5`, rename 5 rotas `{id}`→`{tenantId}`),
+**B5 f3** (`911eeaa`, remendo `escoparFiltroNoTenant` em listUsers/downloadAnexo).
+**B5 frente 4 / B3 ✅ ENTREGUE+REVISADA (APROVADA c/ ressalvas BAIXAS), NÃO commitada** — `ResourceAccess` TenantAware + migration
+`Version20260630120000` **APLICADA no dev** (1 tenant/0 RAs → trivial; `schema:validate` OK). Fecha o IDOR/write cross-tenant residual da f3.
+Suíte **893/893** (890 + 3). Working tree limpo (`.playwright-mcp/` no `.gitignore`; `sincronizacao-drive-bidirecional.md` se aparecer = WIP do DONO, NÃO commitar).
 
 ### 🎯 B5 — escopo do super-admin (DESTRAVADO via brainstorming) — em andamento
 Spec: `docs/specs/super-admin-escopo-tenant.md`. Plano frente 1: `docs/superpowers/plans/2026-06-29-b5-frente1-listener-trava-tenant.md`.
@@ -298,9 +299,17 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
   `removeResourceAccess` (deferido) e `editSede`/`deleteSede` (Sede não-TenantAware, já com guard `$sede->getTenant()`). Ressalva única
   (RED não re-executável read-only) FECHADA pela mutação. Achado pré-existente fora do diff: ordem dos guards em `downloadAnexoJustificativa`
   (não vaza). **Arquivos a commitar:** `app/src/Controller/TenantController.php`, `app/tests/Tenant/Functional/TenantEscopoRemendoControllerTest.php`, docs.
-- **Frente 4 ⬜ PRÓXIMA — B3 `ResourceAccess` TenantAware** (fecha o vazamento concreto): write-site único `approve:202` (setTenant);
-  read-sites cobertos pela trava; migration 🔴 FREIO (backfill por recurso cliente/pasta/processo→fallback tenant único);
-  unique composto `(tenant,user,type,id)`; B3-mínimo NÃO mais necessário (a trava resolveu o acoplamento).
+- **Frente 4 / B3 ✅ ENTREGUE+REVISADA (APROVADA c/ ressalvas BAIXAS), NÃO commitada — `ResourceAccess` TenantAware.** Spec dedicada:
+  `docs/specs/resource-access-isolamento-tenant.md`. `ResourceAccess implements TenantAware` + coluna `tenant` NOT NULL (derivada do recurso
+  dono). Write-site único `approve` ganhou `setTenant($tenant)`; `removeResourceAccess` só NOTA (a trava escopa o `find($raId)` → fecha o
+  IDOR/write cross-tenant residual da f3, inclusive p/ usuário multi-tenant); read-sites (`findForUserAndResource`/`findByUsers`/`find`) cobertos
+  pelo filtro sem mudança de repo; `canAccessResource` escopado sem quebrar acesso legítimo (super-admin/`isSystem` curto-circuitam). **Unique
+  `(user,type,id)` MANTIDA** (resource_id é PK global → tenant funcionalmente determinado; trocar enfraqueceria). Migration `Version20260630120000`
+  (backfill por recurso cliente/pasta/processo→fallback tenant único→NOT NULL aborta; FK `FK_CE95C1AE9033212A`/IDX) **APLICADA no dev** isolada +
+  schema teste sincronizado. Testes `ResourceAccessIsolamentoControllerTest` (IDOR fechado / lookup escopado / approve grava tenant) + ajuste no
+  teste da f3 (helper recebe `Tenant`; desliga filtro antes do `find`). Mutação 2× (remover TenantAware → testes 1+2 RED). Suíte **893/893**. Smoke
+  OK (users/edit-role/clientes 200). Revisão `feature-review-agent`: APROVADO c/ ressalvas BAIXAS (runbook de prod ENDEREÇADO; gap M2 fica inócuo,
+  não fechado = follow-up M2; backup pré-deploy no runbook). Runbook `DEPLOY-PROD-multitenant.md` atualizado (lote auditoria M4/M2/B5-f4, #8–#10).
 
 - **A1 ✅ Isolamento do diretório de usuários por tenant (ServiceDesk + Expediente) — ALTO.**
   `User` não é TenantAware → o `TenantFilter` não toca queries de User. Os dropdowns de técnico/

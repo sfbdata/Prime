@@ -203,6 +203,7 @@ final class AccessRequestController extends AbstractController
             $resourceAccess->setUser($requestingUser);
             $resourceAccess->setResourceType($resourceType);
             $resourceAccess->setResourceId($resourceId);
+            $resourceAccess->setTenant($tenant);
         }
 
         $resourceAccess->setCanView($canView);

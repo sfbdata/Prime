@@ -86,6 +86,29 @@ SELECT COUNT(*) FROM justificativa_ponto j WHERE NOT EXISTS (SELECT 1 FROM user_
 Qualquer um desses retornando linhas em prod multi-tenant → **resolver os dados manualmente antes** de
 aplicar a migration correspondente (a migration aborta de propósito).
 
+## Migrations pós-remediação (auditoria — PRÓXIMO deploy, ainda NÃO aplicadas em prod)
+
+Lote da correção dos achados da auditoria. Mesma regra de ouro: **backup do banco antes**, aplicar cada
+uma ISOLADA via `migrations:execute '<Version>' --up --no-interaction`, na ordem abaixo. Prod = 1 tenant
+→ todos os backfills caem no fallback de tenant único e rodam liso.
+
+| # | Versão | Frente | O que faz | Backfill (fonte) | Pré-check em prod (se >1 tenant) |
+|---|--------|--------|-----------|------------------|----------------------------------|
+| 8 | `Version20260629120000` | M4 Notificacao | tenant_id em `notificacao` | `tarefa.tenant_id`; resto via fallback tenant único | notificações sem tarefa em multi-tenant (cobertas só pelo fallback) |
+| 9 | `Version20260629130000` | M2 AccessRequest | tenant_id em `access_request` | `user_tenant` ativo **só se exatamente 1 vínculo** | solicitante com >1 vínculo ativo (ambíguo → aborta) ou sem vínculo |
+| 10 | `Version20260630120000` | B5-f4 ResourceAccess | tenant_id em `resource_access` | tenant do recurso (`cliente`/`pasta`/`processo`.tenant_id); resto via fallback | RA cujo recurso (resource_id) não existe mais em multi-tenant (órfão não-derivável → aborta) |
+
+```sql
+-- #9 AccessRequest: solicitantes com >1 vínculo ativo (backfill ambíguo → aborta)
+SELECT user_id, COUNT(*) FROM user_tenant WHERE is_active = true GROUP BY user_id HAVING COUNT(*) > 1;
+-- #10 ResourceAccess: grants cujo recurso não existe (só problemático em multi-tenant; em 1 tenant o fallback cobre)
+SELECT ra.id, ra.resource_type, ra.resource_id FROM resource_access ra
+WHERE (ra.resource_type='cliente'  AND NOT EXISTS (SELECT 1 FROM cliente  c  WHERE c.id =ra.resource_id))
+   OR (ra.resource_type='pasta'    AND NOT EXISTS (SELECT 1 FROM pasta    p  WHERE p.id =ra.resource_id))
+   OR (ra.resource_type='processo' AND NOT EXISTS (SELECT 1 FROM processo pr WHERE pr.id=ra.resource_id));
+```
+Dev (1 tenant): M4 0 notif / M2 0 solicitações / B5-f4 0 RAs → todas triviais, já aplicadas no dev.
+
 ## Passos NÃO-migration
 
 - **H2 — anexos do ServiceDesk fora do public:** mover os arquivos de

@@ -3,8 +3,10 @@
 namespace App\Entity\Permission;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Repository\ResourceAccessRepository;
 use App\Shared\Contract\Auditavel;
+use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -20,7 +22,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: ResourceAccessRepository::class)]
 #[ORM\Table(name: 'resource_access')]
 #[ORM\UniqueConstraint(name: 'uniq_resource_access_user_resource', columns: ['user_id', 'resource_type', 'resource_id'])]
-class ResourceAccess implements Auditavel
+class ResourceAccess implements Auditavel, TenantAware
 {
     public const RESOURCE_CLIENTE  = 'cliente';
     public const RESOURCE_PASTA    = 'pasta';
@@ -38,6 +40,15 @@ class ResourceAccess implements Auditavel
     #[ORM\ManyToOne]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ?User $user = null;
+
+    /**
+     * Escritório dono do recurso ao qual este acesso se refere — isola o ResourceAccess por tenant
+     * (frente 4/B3). Derivado do tenant do recurso (cliente/pasta/processo) no backfill da migration
+     * e do tenant da sessão na concessão (AccessRequestController::approve).
+     */
+    #[ORM\ManyToOne(targetEntity: Tenant::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Tenant $tenant = null;
 
     /**
      * Tipo do recurso: "cliente", "pasta" ou "processo".
@@ -94,6 +105,17 @@ class ResourceAccess implements Auditavel
     public function setUser(?User $user): static
     {
         $this->user = $user;
+        return $this;
+    }
+
+    public function getTenant(): ?Tenant
+    {
+        return $this->tenant;
+    }
+
+    public function setTenant(Tenant $tenant): static
+    {
+        $this->tenant = $tenant;
         return $this;
     }
 

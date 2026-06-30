@@ -1537,10 +1537,10 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Você não tem permissão para remover acessos.');
         }
 
-        // NOTA (B5): ResourceAccess NÃO é TenantAware → escoparFiltroNoTenant seria no-op aqui, então
-        // não é aplicado. O isolamento hoje vem da guarda abaixo (o acesso pertence ao $userId, já
-        // validado como membro do tenant da URL). O isolamento por tenant do próprio ResourceAccess
-        // (coluna + filtro, fechando o caso do usuário multi-tenant) é a frente 4 (B3).
+        // ResourceAccess é TenantAware (frente 4/B3): a rota é {tenantId} → a trava (TenantUrlScopeListener)
+        // pina o filtro no tenant da URL → este find($raId) é escopado → RA de outro escritório vira null →
+        // 404 (fecha o IDOR/write cross-tenant, inclusive p/ usuário multi-tenant). As guardas abaixo
+        // (acesso pertence ao $userId, membro do tenant da URL) permanecem como defesa-em-profundidade.
         $resourceAccess = $resourceAccessRepository->find($raId);
 
         // Garante que o acesso pertence ao usuário correto do tenant

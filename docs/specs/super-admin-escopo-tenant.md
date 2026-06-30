@@ -7,11 +7,15 @@ Risco: **ALTO** (mexe no mecanismo global de escopo por tenant — o `TenantFilt
   Plano: `docs/superpowers/plans/2026-06-29-b5-frente1-listener-trava-tenant.md`.
 - **Frente 2 ✅ COMMITADA (`87f2fb5`)** — 5 rotas `{id}`→`{tenantId}` + `MapEntity` + 23 callers; teste
   `TenantRotasTenantIdControllerTest`. A trava (frente 1) agora cobre as 5 rotas sem marcador.
-- **Frente 3 ✅ ENTREGUE+REVISADA (APROVADA), não commitada** — remendo `escoparFiltroNoTenant` em `listUsers` e
-  `downloadAnexoJustificativa` (defesa-em-profundidade; testes desligam a trava p/ isolar o remendo). **`removeResourceAccess` deferido
-  p/ frente 4** (ResourceAccess NÃO é TenantAware → helper seria no-op). Teste `TenantEscopoRemendoControllerTest`; suíte 890/890.
-  Detalhe em `docs/specs/PROGRESSO-PENDENCIAS.md` §"🎯 B5".
-- **Frente 4 ⬜ PRÓXIMA** — B3 (ResourceAccess TenantAware, migration 🔴).
+- **Frente 3 ✅ COMMITADA (`911eeaa`)** — remendo `escoparFiltroNoTenant` em `listUsers` e `downloadAnexoJustificativa`
+  (defesa-em-profundidade; testes desligam a trava p/ isolar o remendo). `removeResourceAccess` deferido p/ frente 4.
+  Teste `TenantEscopoRemendoControllerTest`.
+- **Frente 4 / B3 ✅ ENTREGUE+REVISADA (APROVADA), não commitada** — `ResourceAccess` TenantAware (coluna + migration
+  `Version20260630120000` aplicada no dev) → fecha o IDOR/write cross-tenant residual do `removeResourceAccess` e escopa
+  `canAccessResource`. Spec dedicada: `docs/specs/resource-access-isolamento-tenant.md`. Suíte 893/893.
+
+**B5 COMPLETO** — o super-admin (e qualquer admin) fica preso ao `{tenantId}` da URL nas rotas de escritório, inclusive nos
+acessos granulares; a visão global só sobrevive nas rotas de plataforma (sem tenant na URL).
 
 ## Problema (a "frestinha super-admin")
 

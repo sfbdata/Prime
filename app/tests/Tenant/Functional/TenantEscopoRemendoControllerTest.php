@@ -93,7 +93,7 @@ final class TenantEscopoRemendoControllerTest extends JusPrimeWebTestCase
 
         $pastaB     = PastaFactory::createOne(['tenant' => $tenantB, 'nup' => 'SECRETO-B-' . uniqid()]);
         $nupSecreto = (string) $pastaB->getNup(); // valor REAL armazenado (a entidade normaliza p/ maiúsculas)
-        $this->criarResourceAccess($user, ResourceAccess::RESOURCE_PASTA, (int) $pastaB->getId());
+        $this->criarResourceAccess($user, $tenantB, ResourceAccess::RESOURCE_PASTA, (int) $pastaB->getId());
         $this->limparIdentityMap();
 
         $client->loginUser($superAdmin);
@@ -120,7 +120,7 @@ final class TenantEscopoRemendoControllerTest extends JusPrimeWebTestCase
         $tenantB    = $this->criarTenant();
         $userB      = $this->criarUsuario([$tenantB]); // só em B
         $superAdmin = $this->criarSuperAdmin();
-        $ra         = $this->criarResourceAccess($userB, ResourceAccess::RESOURCE_PASTA, 123);
+        $ra         = $this->criarResourceAccess($userB, $tenantB, ResourceAccess::RESOURCE_PASTA, 123);
         $raId       = (int) $ra->getId();
         $this->limparIdentityMap();
 
@@ -133,7 +133,11 @@ final class TenantEscopoRemendoControllerTest extends JusPrimeWebTestCase
         ]);
         self::assertResponseStatusCodeSame(404, 'não pode remover grant de usuário que não é do tenant da URL');
 
+        // ResourceAccess virou TenantAware (frente 4) → verifica a sobrevivência com o filtro desligado.
         $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
         $em->clear();
         self::assertNotNull($em->find(ResourceAccess::class, $raId), 'o ResourceAccess não deveria ter sido removido');
     }
@@ -244,12 +248,13 @@ final class TenantEscopoRemendoControllerTest extends JusPrimeWebTestCase
         return $justificativa;
     }
 
-    private function criarResourceAccess(User $user, string $type, int $resourceId): ResourceAccess
+    private function criarResourceAccess(User $user, Tenant $tenant, string $type, int $resourceId): ResourceAccess
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $ra = new ResourceAccess();
         $ra->setUser($user);
+        $ra->setTenant($tenant);
         $ra->setResourceType($type);
         $ra->setResourceId($resourceId);
         $ra->setCanView(true);
