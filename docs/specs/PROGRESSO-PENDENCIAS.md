@@ -258,10 +258,35 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
 Spec desta frente: `docs/specs/auditoria-pos-remediacao-multitenant.md` (29 achados rankeados, file:line + fix).
 Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross-tenant → fix → mutação → /review.
 
-➡️ **RETOMAR EM M4** (plano completo + aprovado abaixo; 🔴 FREIO na migration). **Feitos e COMMITADOS:**
-A1 (`20dfcb6`), A2 (`8e9f0a6`), M3 (`2eddbae`), M3.1 (`c68654f`), M3.2 (`5be4786`), M1 (`07da912`).
-Suíte no último commit (M1): **859/859**. Working tree limpo (exceto `docs/specs/sincronizacao-drive-bidirecional.md`,
-que é WIP do DONO — NÃO commitar junto — e `.playwright-mcp/` descartável).
+➡️ **RETOMAR EM B5 FRENTE 2** (padronizar 5 rotas `{id}`→`{tenantId}` — work-list abaixo). **Feitos e COMMITADOS:**
+A1 (`20dfcb6`), A2 (`8e9f0a6`), M3 (`2eddbae`), M3.1 (`c68654f`), M3.2 (`5be4786`), M1 (`07da912`),
+**M4** (`bd121c0`, Notificacao TenantAware + B2), **M2** (`06576d6`, AccessRequest TenantAware),
+**B5 spec** (`04c5124`), **B5 frente 1** (`7fcb827`, listener da trava automática).
+Suíte no último commit (B5 f1): **880/880**. Working tree limpo (exceto `docs/specs/sincronizacao-drive-bidirecional.md`,
+que é WIP do DONO — NÃO commitar junto; `.playwright-mcp/` agora está no `.gitignore`).
+
+### 🎯 B5 — escopo do super-admin (DESTRAVADO via brainstorming) — em andamento
+Spec: `docs/specs/super-admin-escopo-tenant.md`. Plano frente 1: `docs/superpowers/plans/2026-06-29-b5-frente1-listener-trava-tenant.md`.
+**Decisão (dono):** super-admin = visão global SÓ nas rotas de plataforma (sem tenant na URL); nas rotas de
+escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava automática (listener) + remendo explícito.
+- **Frente 1 ✅ COMMITADA (`7fcb827`):** `App\Shared\EventListener\TenantUrlScopeListener` (prio 4) pina o filtro no
+  `{tenantId}`. Suíte 880/880.
+- **Frente 2 ⬜ PRÓXIMA — padronizar as 5 rotas legadas `{id}`→`{tenantId}` (habilita a trava markerless).**
+  Rotas no `TenantController`: `app_tenant_show` (:163 `/{id}`), `app_tenant_edit` (:182 `/{id}/edit`),
+  `app_tenant_delete` (:290 `/{id}` POST), `app_tenant_users` (:311 `/{id}/users`), `app_tenant_sedes` (:1545 `/{id}/sedes`).
+  Ao renomear o placeholder, ajustar a **assinatura** de cada action (se usa `Tenant $tenant` via param-converter →
+  `#[MapEntity(id: 'tenantId')]` ou `find($tenantId)` explícito) e **os 23 callers** (`{'id': ...}`→`{'tenantId': ...}`):
+  - PHP (redirects no `TenantController`): :211, :243, :252, :278 (edit); :519, :706 (users); :1580, :1636, :1716 (sedes).
+  - Templates (14): `_sidebar.html.twig` :152(users) :162(show) :203(sedes); `feriado/index.html.twig` :10(show);
+    `tenant/_delete_form.html.twig` :1(delete); `tenant/edit.html.twig` :195(show); `tenant/edit_user_role.html.twig`
+    :131(users); `tenant/index.html.twig` :35(edit); `tenant/sedes.html.twig` :435(edit) :469(sedes) :678(sedes);
+    `tenant/show.html.twig` :42(edit); `tenant/users.html.twig` :18(show); `tenant_role/index.html.twig` :10(show).
+  - Após: `debug:router` (rotas batem), suíte completa, **smoke manual** dessas telas (links pegam os 20% que o grep perde), `/review`.
+- **Frente 3 ⬜ — remendo explícito** `escoparFiltroNoTenant` em `listUsers`, `downloadAnexoJustificativa:1408`,
+  `removeResourceAccess` + testes por-rota de não-vazamento (super-admin sem sessão → 404/escopado).
+- **Frente 4 ⬜ — B3 `ResourceAccess` TenantAware** (fecha o vazamento concreto): write-site único `approve:202` (setTenant);
+  read-sites cobertos pela trava; migration 🔴 FREIO (backfill por recurso cliente/pasta/processo→fallback tenant único);
+  unique composto `(tenant,user,type,id)`; B3-mínimo NÃO mais necessário (a trava resolveu o acoplamento).
 
 - **A1 ✅ Isolamento do diretório de usuários por tenant (ServiceDesk + Expediente) — ALTO.**
   `User` não é TenantAware → o `TenantFilter` não toca queries de User. Os dropdowns de técnico/
@@ -391,8 +416,9 @@ que é WIP do DONO — NÃO commitar junto — e `.playwright-mcp/` descartável
     solicitante enviar id estrangeiro) — fecha visibilidade do painel, não a posse do recurso no submit.
   - **M5** PecaImagemController auth-only (resíduo aceito); **M6** F1 módulo (decisão); **M7** migration
     Agenda aborta multi-tenant (antes do 2º tenant); **M8** uploads dev (parcial via A3).
-  - **B1** CLI Datajud; **B3** ResourceAccess sem tenant; **B4** índice `audit_log` (migration); **B5**
-    frestinha super-admin (🔒 BLOQUEADO, decisão de produto); **B6** permissões fantasma; **B7/B8** sem
+  - **B5 🎯 DESTRAVADO — EM ANDAMENTO** (frente 1 commitada `7fcb827`; ver seção "🎯 B5" acima e
+    `docs/specs/super-admin-escopo-tenant.md`). **B3** ResourceAccess sem tenant = **frente 4 do B5**.
+  - **B1** CLI Datajud; **B4** índice `audit_log` (migration); **B6** permissões fantasma; **B7/B8** sem
     leak; **B9** migration SD fallback; **B10** cpf/cnpj sem trava no banco.
 
 ## Detalhamento por etapa
