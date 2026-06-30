@@ -15,7 +15,7 @@
                     data-jornada-url="{{ path('app_jornada_tenant_get', {id: tenant.id}) }}">
                 <i class="bi bi-clock-history me-1"></i> Configurar Jornada
             </button>
-            <a href="{{ path('app_tenant_show', {id: tenant.id}) }}" class="btn btn-secondary">
+            <a href="{{ path('app_tenant_show', {tenantId: tenant.id}) }}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Voltar
             </a>
         </div>

@@ -5,9 +5,10 @@ Risco: **ALTO** (mexe no mecanismo global de escopo por tenant — o `TenantFilt
 ## Status
 - **Frente 1 ✅ COMMITADA (`7fcb827`)** — listener `TenantUrlScopeListener` (prio 4) + teste. Suíte 880/880.
   Plano: `docs/superpowers/plans/2026-06-29-b5-frente1-listener-trava-tenant.md`.
-- **Frente 2 ⬜ PRÓXIMA** — padronizar 5 rotas `{id}`→`{tenantId}`. **Work-list exato (rotas + 23 callers)** em
+- **Frente 2 ✅ ENTREGUE+REVISADA (APROVADA), não commitada** — 5 rotas `{id}`→`{tenantId}` + `MapEntity` + 23 callers; teste
+  `TenantRotasTenantIdControllerTest`; suíte 887/887. A trava (frente 1) agora cobre as 5 rotas sem marcador. Detalhe em
   `docs/specs/PROGRESSO-PENDENCIAS.md` §"🎯 B5".
-- **Frente 3 ⬜** — remendo explícito + testes por-rota. **Frente 4 ⬜** — B3 (ResourceAccess TenantAware, migration 🔴).
+- **Frente 3 ⬜ PRÓXIMA** — remendo explícito + testes por-rota. **Frente 4 ⬜** — B3 (ResourceAccess TenantAware, migration 🔴).
 
 ## Problema (a "frestinha super-admin")
 

@@ -258,12 +258,13 @@ Plano: `docs/specs/followups-seguranca-residual.md` (C1→C5; C6 super-admin blo
 Spec desta frente: `docs/specs/auditoria-pos-remediacao-multitenant.md` (29 achados rankeados, file:line + fix).
 Ordem ALTO → MÉDIO → BAIXO; por achado: confirmar na fonte → testes cross-tenant → fix → mutação → /review.
 
-➡️ **RETOMAR EM B5 FRENTE 2** (padronizar 5 rotas `{id}`→`{tenantId}` — work-list abaixo). **Feitos e COMMITADOS:**
+➡️ **RETOMAR EM B5 FRENTE 3** (remendo explícito `escoparFiltroNoTenant` + testes por-rota — ver seção "🎯 B5"). **Feitos e COMMITADOS:**
 A1 (`20dfcb6`), A2 (`8e9f0a6`), M3 (`2eddbae`), M3.1 (`c68654f`), M3.2 (`5be4786`), M1 (`07da912`),
 **M4** (`bd121c0`, Notificacao TenantAware + B2), **M2** (`06576d6`, AccessRequest TenantAware),
 **B5 spec** (`04c5124`), **B5 frente 1** (`7fcb827`, listener da trava automática).
-Suíte no último commit (B5 f1): **880/880**. Working tree limpo (exceto `docs/specs/sincronizacao-drive-bidirecional.md`,
-que é WIP do DONO — NÃO commitar junto; `.playwright-mcp/` agora está no `.gitignore`).
+**B5 frente 2 ✅ ENTREGUE+REVISADA (APROVADA), NÃO commitada** — rename das 5 rotas `{id}`→`{tenantId}` + 9 redirects + 14 callers
+em 10 templates + `MapEntity`; teste novo `TenantRotasTenantIdControllerTest`. Suíte **887/887** (880 + 7). Working tree limpo
+(`.playwright-mcp/` está no `.gitignore`; se aparecer `docs/specs/sincronizacao-drive-bidirecional.md`, é WIP do DONO — NÃO commitar junto).
 
 ### 🎯 B5 — escopo do super-admin (DESTRAVADO via brainstorming) — em andamento
 Spec: `docs/specs/super-admin-escopo-tenant.md`. Plano frente 1: `docs/superpowers/plans/2026-06-29-b5-frente1-listener-trava-tenant.md`.
@@ -271,18 +272,21 @@ Spec: `docs/specs/super-admin-escopo-tenant.md`. Plano frente 1: `docs/superpowe
 escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava automática (listener) + remendo explícito.
 - **Frente 1 ✅ COMMITADA (`7fcb827`):** `App\Shared\EventListener\TenantUrlScopeListener` (prio 4) pina o filtro no
   `{tenantId}`. Suíte 880/880.
-- **Frente 2 ⬜ PRÓXIMA — padronizar as 5 rotas legadas `{id}`→`{tenantId}` (habilita a trava markerless).**
-  Rotas no `TenantController`: `app_tenant_show` (:163 `/{id}`), `app_tenant_edit` (:182 `/{id}/edit`),
-  `app_tenant_delete` (:290 `/{id}` POST), `app_tenant_users` (:311 `/{id}/users`), `app_tenant_sedes` (:1545 `/{id}/sedes`).
-  Ao renomear o placeholder, ajustar a **assinatura** de cada action (se usa `Tenant $tenant` via param-converter →
-  `#[MapEntity(id: 'tenantId')]` ou `find($tenantId)` explícito) e **os 23 callers** (`{'id': ...}`→`{'tenantId': ...}`):
-  - PHP (redirects no `TenantController`): :211, :243, :252, :278 (edit); :519, :706 (users); :1580, :1636, :1716 (sedes).
-  - Templates (14): `_sidebar.html.twig` :152(users) :162(show) :203(sedes); `feriado/index.html.twig` :10(show);
-    `tenant/_delete_form.html.twig` :1(delete); `tenant/edit.html.twig` :195(show); `tenant/edit_user_role.html.twig`
-    :131(users); `tenant/index.html.twig` :35(edit); `tenant/sedes.html.twig` :435(edit) :469(sedes) :678(sedes);
-    `tenant/show.html.twig` :42(edit); `tenant/users.html.twig` :18(show); `tenant_role/index.html.twig` :10(show).
-  - Após: `debug:router` (rotas batem), suíte completa, **smoke manual** dessas telas (links pegam os 20% que o grep perde), `/review`.
-- **Frente 3 ⬜ — remendo explícito** `escoparFiltroNoTenant` em `listUsers`, `downloadAnexoJustificativa:1408`,
+- **Frente 2 ✅ ENTREGUE+REVISADA (APROVADA), NÃO commitada — padronizadas as 5 rotas legadas `{id}`→`{tenantId}` (a trava
+  markerless agora as cobre).** As 5 rotas (`app_tenant_show`/`edit`/`delete`/`users`/`sedes`) viraram `{tenantId}`; as 5 actions
+  ganharam `#[MapEntity(id: 'tenantId')]` (eram param-converter implícito por `{id}`); import `MapEntity` add. **23 callers** atualizados
+  (`'id'`→`'tenantId'`, valor inalterado): 9 redirects no `TenantController` (`_fragment` preservado em tab-cargos/tab-lotacoes) + 14
+  `path()` em 10 templates (`_sidebar` 3, `feriado/index`, `tenant/_delete_form`, `tenant/edit`, `tenant/edit_user_role`,
+  `tenant/index`, `tenant/sedes` 3, `tenant/show`, `tenant/users`, `tenant_role/index`). Sidebar `currentRoute == 'app_tenant_xxx'`
+  NÃO tocada (compara nome de rota). Teste `TenantRotasTenantIdControllerTest` (7: 5 de gerador RED→GREEN + render-net das 5 rotas+index
+  + 404 do MapEntity + POST delete). **Verificação:** `debug:router` mostra `{tenantId}`, `lint:twig` OK (10), `php -l` OK, suíte
+  **887/887**, mutação da rede confirmada (caller `'id'` → render-net RED), smoke browser das 8 telas + sidebar (URLs `{tenantId}` ok).
+  Revisão adversarial (`feature-review-agent`, ALTO): **APROVADO**, 0 achado ALTO/MÉDIO; 3 observações BAIXAS pré-existentes (abaixo).
+  **Observações (não imputáveis a esta frente — dívida pré-existente, follow-ups):** (a) `tenant/_delete_form.html.twig` é **órfão**
+  (incluído em nenhum template → `app_tenant_delete` sem caller de UI; só o teste POST a exercita) — decisão pendente do dono: remover
+  ou religar a uma futura gestão de tenants do super-admin; (b) `TenantController.php` sem `declare(strict_types=1)` (não corrigido de
+  propósito = seria refactor oportunista numa frente de rename); (c) 404 do MapEntity testado só em `/users` (cosmético, actions idênticas).
+- **Frente 3 ⬜ PRÓXIMA — remendo explícito** `escoparFiltroNoTenant` em `listUsers`, `downloadAnexoJustificativa:1408`,
   `removeResourceAccess` + testes por-rota de não-vazamento (super-admin sem sessão → 404/escopado).
 - **Frente 4 ⬜ — B3 `ResourceAccess` TenantAware** (fecha o vazamento concreto): write-site único `approve:202` (setTenant);
   read-sites cobertos pela trava; migration 🔴 FREIO (backfill por recurso cliente/pasta/processo→fallback tenant único);

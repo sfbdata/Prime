@@ -7,7 +7,7 @@
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0"><i class="bi bi-calendar-check me-2"></i>Feriados e Folgas</h1>
         <div class="d-flex gap-2">
-            <a href="{{ path('app_tenant_show', {id: tenantId}) }}" class="btn btn-secondary">
+            <a href="{{ path('app_tenant_show', {tenantId: tenantId}) }}" class="btn btn-secondary">
                 <i class="bi bi-arrow-left me-1"></i> Voltar
             </a>
             <a href="{{ path('app_feriado_new', {tenantId: tenantId}) }}" class="btn btn-primary">

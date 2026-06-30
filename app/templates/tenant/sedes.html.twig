@@ -432,7 +432,7 @@
                 <div class="sedes-page-subtitle">{{ tenant.name }}</div>
             </div>
         </div>
-        <a href="{{ path('app_tenant_edit', {'id': tenant.id}) }}" class="btn-back">
+        <a href="{{ path('app_tenant_edit', {'tenantId': tenant.id}) }}" class="btn-back">
             <i class="bi bi-arrow-left"></i> Voltar
         </a>
     </div>
@@ -466,7 +466,7 @@
                     {% set activeForm = editSede is defined ? editForm : form %}
                     {% set formAction = editSede is defined
                         ? path('app_tenant_sede_edit', {'tenantId': tenant.id, 'sedeId': editSede.id})
-                        : path('app_tenant_sedes', {'id': tenant.id}) %}
+                        : path('app_tenant_sedes', {'tenantId': tenant.id}) %}
 
                     {{ form_start(activeForm, {'action': formAction}) }}
 
@@ -675,7 +675,7 @@
             const nomeInput    = document.getElementById('{{ activeForm.nome.vars.id }}');
             const raioInput    = document.getElementById('{{ activeForm.raioPermitido.vars.id }}');
             const sedeForm     = latInput?.closest('form');
-            const CREATE_URL   = '{{ path('app_tenant_sedes', {'id': tenant.id}) }}';
+            const CREATE_URL   = '{{ path('app_tenant_sedes', {'tenantId': tenant.id}) }}';
             const cardTitle    = document.getElementById('form-card-title');
             const btnSalvar    = document.getElementById('btn-salvar');
             const btnCancelar  = document.getElementById('btn-cancelar-sede');

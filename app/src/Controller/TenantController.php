@@ -48,6 +48,7 @@ use App\Ponto\Service\FolhaPontoBuilder;
 use App\Service\TenantBootstrapService;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormError;
 use App\Shared\Service\ArquivoStorageService;
@@ -160,8 +161,8 @@ final class TenantController extends AbstractController
         ]);
     }
 
-    #[Route('/{id}', name: 'app_tenant_show', methods: ['GET'])]
-    public function show(Tenant $tenant, PermissionChecker $permissionChecker, UserTenantRepository $userTenantRepository): Response
+    #[Route('/{tenantId}', name: 'app_tenant_show', methods: ['GET'])]
+    public function show(#[MapEntity(id: 'tenantId')] Tenant $tenant, PermissionChecker $permissionChecker, UserTenantRepository $userTenantRepository): Response
     {
         $user = $this->getUser();
 
@@ -179,10 +180,10 @@ final class TenantController extends AbstractController
         return $this->render('tenant/show.html.twig', ['tenant' => $tenant]);
     }
 
-    #[Route('/{id}/edit', name: 'app_tenant_edit', methods: ['GET', 'POST'])]
+    #[Route('/{tenantId}/edit', name: 'app_tenant_edit', methods: ['GET', 'POST'])]
     public function edit(
         Request $request,
-        Tenant $tenant,
+        #[MapEntity(id: 'tenantId')] Tenant $tenant,
         EntityManagerInterface $entityManager,
         UserPasswordHasherInterface $passwordHasher,
         PermissionChecker $permissionChecker,
@@ -208,7 +209,7 @@ final class TenantController extends AbstractController
         if ($nameForm->isSubmitted() && $nameForm->isValid()) {
             $entityManager->flush();
             $this->addFlash('success', 'Nome do Tenant atualizado com sucesso!');
-            return $this->redirectToRoute('app_tenant_edit', ['id' => $tenant->getId()]);
+            return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId()]);
         }
 
         // Form para alterar senha
@@ -240,7 +241,7 @@ final class TenantController extends AbstractController
                     $this->addFlash('success', 'Senha do administrador alterada com sucesso!');
                 }
             }
-            return $this->redirectToRoute('app_tenant_edit', ['id' => $tenant->getId()]);
+            return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId()]);
         }
 
         // Form para gerenciar cargos
@@ -249,7 +250,7 @@ final class TenantController extends AbstractController
         if ($cargosForm->isSubmitted() && $cargosForm->isValid()) {
             $entityManager->flush();
             $this->addFlash('success', 'Cargos atualizados com sucesso!');
-            return $this->redirectToRoute('app_tenant_edit', ['id' => $tenant->getId(), '_fragment' => 'tab-cargos']);
+            return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-cargos']);
         }
 
         // Form para gerenciar lotações
@@ -275,7 +276,7 @@ final class TenantController extends AbstractController
             }
             $entityManager->flush();
             $this->addFlash('success', 'Lotações atualizadas com sucesso!');
-            return $this->redirectToRoute('app_tenant_edit', ['id' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
+            return $this->redirectToRoute('app_tenant_edit', ['tenantId' => $tenant->getId(), '_fragment' => 'tab-lotacoes']);
         }
 
         return $this->render('tenant/edit.html.twig', [
@@ -287,8 +288,8 @@ final class TenantController extends AbstractController
         ]);
     }
 
-    #[Route('/{id}', name: 'app_tenant_delete', methods: ['POST'])]
-    public function delete(Request $request, Tenant $tenant, EntityManagerInterface $entityManager): Response
+    #[Route('/{tenantId}', name: 'app_tenant_delete', methods: ['POST'])]
+    public function delete(Request $request, #[MapEntity(id: 'tenantId')] Tenant $tenant, EntityManagerInterface $entityManager): Response
     {
         $user = $this->getUser();
 
@@ -308,9 +309,9 @@ final class TenantController extends AbstractController
         return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);
     }
 
-    #[Route('/{id}/users', name: 'app_tenant_users', methods: ['GET'])]
+    #[Route('/{tenantId}/users', name: 'app_tenant_users', methods: ['GET'])]
     public function listUsers(
-        Tenant $tenant,
+        #[MapEntity(id: 'tenantId')] Tenant $tenant,
         PermissionChecker $permissionChecker,
         ResourceAccessRepository $resourceAccessRepository,
         ClienteRepository $clienteRepository,
@@ -516,7 +517,7 @@ final class TenantController extends AbstractController
 
             $entityManager->flush();
             $this->addFlash('success', 'Usuário atualizado com sucesso!');
-            return $this->redirectToRoute('app_tenant_users', ['id' => $tenantId]);
+            return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenantId]);
         }
 
         $jornada                  = $user->getJornadaColaborador();
@@ -703,7 +704,7 @@ final class TenantController extends AbstractController
             $this->addFlash('danger', $e->getMessage());
         }
 
-        return $this->redirectToRoute('app_tenant_users', ['id' => $tenantId]);
+        return $this->redirectToRoute('app_tenant_users', ['tenantId' => $tenantId]);
     }
 
     #[Route('/{tenantId}/user/{id}/ponto/add', name: 'app_tenant_user_ponto_add', methods: ['POST'])]
@@ -1542,9 +1543,9 @@ final class TenantController extends AbstractController
         ]);
     }
 
-    #[Route('/{id}/sedes', name: 'app_tenant_sedes', methods: ['GET', 'POST'])]
+    #[Route('/{tenantId}/sedes', name: 'app_tenant_sedes', methods: ['GET', 'POST'])]
     public function manageSedes(
-        Tenant $tenant,
+        #[MapEntity(id: 'tenantId')] Tenant $tenant,
         Request $request,
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
@@ -1577,7 +1578,7 @@ final class TenantController extends AbstractController
             $entityManager->flush();
 
             $this->addFlash('success', 'Sede cadastrada com sucesso!');
-            return $this->redirectToRoute('app_tenant_sedes', ['id' => $tenant->getId()]);
+            return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenant->getId()]);
         }
 
         $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
@@ -1633,7 +1634,7 @@ final class TenantController extends AbstractController
             $entityManager->flush();
             $this->addFlash('success', 'Sede atualizada com sucesso!');
 
-            return $this->redirectToRoute('app_tenant_sedes', ['id' => $tenantId]);
+            return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenantId]);
         }
 
         // Falha de validação: re-renderizar a página com o form de edição com erros
@@ -1713,7 +1714,7 @@ final class TenantController extends AbstractController
             $this->addFlash('danger', 'Não foi possível remover a sede neste momento. Tente novamente.');
         }
 
-        return $this->redirectToRoute('app_tenant_sedes', ['id' => $tenantId]);
+        return $this->redirectToRoute('app_tenant_sedes', ['tenantId' => $tenantId]);
     }
 
 }
