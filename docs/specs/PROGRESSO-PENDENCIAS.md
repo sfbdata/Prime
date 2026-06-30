@@ -468,8 +468,11 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
     Suíte **895/895**. Revisão `feature-review-agent`: aprovada (achados endereçados: comentário do código
     corrigido p/ "find por PK escapa via identity map"; vetor do approve fechado; spec do M2 atualizada).
   - ~~**M5** PecaImagemController auth-only~~ **✅ FECHADO** (entrada dedicada acima; subpasta por tenant).
-    **M6** F1 módulo (decisão); **M7** migration Agenda aborta multi-tenant (antes do 2º tenant);
-    **M8** uploads dev (parcial via A3).
+    ~~**M6** F1 módulo~~ **✅ FECHADO (aceito por design, sem código)** — decisão do dono: modelo PARALELO
+    (grant granular = autorização do item; módulo gateia só descoberta). `ResourceAccess` só concedido por
+    admin e tenant-scoped → o grant é a autorização. Documentado em `AUTORIZACAO.md` §7 (reescrita)/§F1
+    (rebaixada de crítica)/§5b/§F3 (Processo corrigido p/ wired). **M7** migration Agenda aborta multi-tenant
+    (antes do 2º tenant); **M8** uploads dev (parcial via A3).
   - **B5 🎯 DESTRAVADO — EM ANDAMENTO** (frente 1 commitada `7fcb827`; ver seção "🎯 B5" acima e
     `docs/specs/super-admin-escopo-tenant.md`). **B3** ResourceAccess sem tenant = **frente 4 do B5**.
   - **B1** CLI Datajud; **B4** índice `audit_log` (migration); **B6** permissões fantasma; **B7/B8** sem

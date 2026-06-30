@@ -145,6 +145,11 @@ C5.2/3/4 foram cancelados. **Fix (deferido):** servir a imagem por entidade (val
 pasta) em vez de por nome de arquivo.
 
 #### M6 — F1: `show/edit/delete` de Cliente/Pasta/Processo não checam o módulo (escalada intra-tenant)
+> **✅ RESOLVIDO (2026-06-30) — ACEITO POR DESIGN, sem mudança de código.** Decisão do dono (brainstorming):
+> modelo **paralelo** — o `ResourceAccess` é concedido só por admin e só sobre recurso do próprio tenant
+> (`recursoPertenceAoTenant` + `ResourceAccess` TenantAware), então o **grant explícito JÁ é a autorização**
+> do item; o módulo gateia só a descoberta/listagem. F1 rebaixada de "crítica" a comportamento aceito.
+> Documentado em `docs/AUTORIZACAO.md` §7 (reescrita) e §F1 (rebaixada); §5b/§F3 corrigidas (Processo agora wired).
 **Prova:** `ClienteController.php:204,224`; `ProcessoController.php:139,168,219`; `PastaController` (show/editar/delete) —
 chamam só `denyResourceAccessUnlessGranted` → `canAccessResource` (`ResourceAccessTrait.php:23`), nunca
 `canAccessModule`. **Vetor:** Cliente/Pasta/Processo **são TenantAware** → cross-tenant já fecha (find→null→404);

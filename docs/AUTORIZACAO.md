@@ -268,9 +268,9 @@ sobre item específico (show, edit, delete, upload, download).
 
 | Recurso | Catálogo | Código (`canAccessResource`) |
 |---|---|---|
-| `pasta` | ✅ view/edit/delete | ✅ 50+ chamadas em `PastaController`, `PastaSecaoController`, `PeticionarController` |
+| `pasta` | ✅ view/edit/delete | ✅ 20+ chamadas em `PastaController`, `PastaSecaoController`, `PeticionarController` |
 | `cliente` | ✅ view/edit/delete | ✅ 8+ chamadas em `ClienteController` |
-| `processo` | ✅ view/edit/delete | ❌ zero chamadas — definido, não implementado |
+| `processo` | ✅ view/edit/delete | ✅ show/edit/delete em `ProcessoController` (l. 168/139/219, via `AccessRequest::RESOURCE_PROCESSO`) |
 
 Nenhum outro módulo (ponto, agenda, kanban, tarefas, servicedesk,
 expediente) tem permissões `resources.*` no catálogo.
@@ -343,49 +343,65 @@ não via `UniqueConstraint` do Doctrine. Criado em
 
 ---
 
-## 7. Intenção do Dono vs Implementação Atual
+## 7. Modelo decidido: módulo e recurso são eixos PARALELOS
 
-O dono do sistema entende módulo e recurso como camadas **em sequência**:
-para abrir um item (pasta, cliente), o usuário precisa primeiro ter
-acesso ao módulo (ver a lista) e depois ter acesso àquele item
-específico. Módulo seria pré-requisito do recurso.
+> **Decisão do dono (2026-06-30, achado M6 da auditoria pós-remediação).** Antes
+> este documento registrava a *intenção* de um modelo **sequencial** (módulo como
+> pré-requisito do recurso). Essa intenção foi **revista**: o modelo é, por
+> decisão, **paralelo** — e o código já o implementa.
 
-O código atual **não implementa isso**. As duas checagens são
-mutuamente exclusivas por tipo de ação:
+Módulo e recurso-item são **dois eixos independentes**, cada um com seu papel:
+
+| Eixo | Papel | Onde é checado |
+|---|---|---|
+| **Módulo** (`canAccessModule`) | **Descoberta**: quem vê a listagem e cria itens | index (listagem) e new (criação) |
+| **Recurso-item** (`canAccessResource`) | **Autorização do item**: quem abre/edita/exclui aquele item específico | show / edit / delete e demais ações por id |
 
 | Ação | O que é checado |
 |---|---|
 | index (listagem) | apenas `canAccessModule` |
 | new (criação) | apenas `canAccessModule` |
-| show (item) | apenas `canAccessResource` — sem verificar módulo |
-| edit (item) | apenas `canAccessResource` — sem verificar módulo |
-| delete (item) | apenas `canAccessResource` — sem verificar módulo |
+| show (item) | apenas `canAccessResource` |
+| edit (item) | apenas `canAccessResource` |
+| delete (item) | apenas `canAccessResource` |
 
-Não há dupla checagem. Módulo e recurso são caminhos paralelos, não
-sequenciais. Esta divergência entre intenção e implementação é a raiz
-da Falha F1 e deve guiar qualquer refatoração futura do modelo de
-autorização.
+**Não há dupla checagem, e isso é intencional.** Um `ResourceAccess` é concedido
+**somente** por um admin (`admin.access_requests.approve`) e **somente** sobre um
+recurso do próprio tenant (validado em `AccessRequestController::submit`/`approve`
+via `recursoPertenceAoTenant`; `ResourceAccess` é `TenantAware`). Logo, **o grant
+explícito JÁ é a autorização daquele item** — não faz sentido exigir também o
+módulo, que governa apenas a descoberta/listagem. O caso de uso suportado é
+"compartilhar um item isolado com quem não tem o módulo inteiro" (ex.: colaborador
+que deve ver só uma pasta). Ver Falha F1 (rebaixada a comportamento aceito).
 
 ---
 
 ## 8. Falhas Conhecidas
 
-### F1 (crítica) — show/edit/delete não verificam o módulo
+### F1 — show/edit/delete não verificam o módulo (COMPORTAMENTO ACEITO, não é falha)
 
-**Afeta: Cliente e Pasta (os dois recursos com implementação ativa).**
+> **Status: aceito por design** (decisão do dono, 2026-06-30 — achado M6 da
+> auditoria pós-remediação). Antes classificado "crítico"; **rebaixado** após a
+> decisão do modelo paralelo (seção 7). Mantido aqui para registro técnico.
 
-`ClienteController::show()` (l. ~194) e `::edit()` (l. ~219) chamam
-apenas `canAccessResource`, sem chamar `canAccessModule`.
-Idem para `PastaController::show()` (l. 165), `::editar()` (l. 721)
-e `::delete()` (l. 859).
+**Afeta: Cliente, Pasta e Processo (os recursos com `canAccessResource` ativo).**
+
+`ClienteController::show()` (l. 204), `::edit()` (l. 229), `::delete()` (l. 272);
+`PastaController::show()` (l. 185), `::editar()` (l. 824), `::delete()` (l. 952);
+`ProcessoController::show()` (l. 168), `::edit()` (l. 139), `::delete()` (l. 219)
+chamam apenas `canAccessResource`, sem chamar `canAccessModule`.
 
 Efeito: um usuário com `ResourceAccess` para `pasta#42` mas sem
-`modules.pastas.view` consegue acessar `/pasta/42` diretamente pela
-URL. Ele não vê a listagem (que bloqueia), mas acessa o item se souber
-o id. Como Pasta tem 50+ chamadas de `canAccessResource` no código,
-esta superfície de exposição é ampla.
+`modules.pastas.view` consegue acessar `/pasta/42` diretamente pela URL. Ele não
+vê a listagem (que bloqueia), mas acessa o item.
 
-Esta falha é consequência direta da divergência descrita na seção 7.
+**Por que isso é aceito e não um vazamento:** o `ResourceAccess` só existe porque
+um **admin o concedeu** (`AccessRequestController::approve`), e **só** sobre um
+recurso do próprio tenant (`recursoPertenceAoTenant`; `ResourceAccess` é
+`TenantAware`). O acesso é exatamente o que o admin autorizou para aquele item — o
+módulo governa só a descoberta/listagem, não a autorização do item concedido.
+Cross-tenant continua fechado pelo `TenantFilter` (Cliente/Pasta/Processo são
+TenantAware → `find()` por id de outro tenant → 404). Ver seção 7.
 
 ### F2 — canActOnResource é código morto
 
@@ -396,13 +412,16 @@ de `canAccessResource`. O painel de perfis permite atribuí-las a roles,
 mas atribuir `resources.pasta.view` a um role não garante acesso a
 nenhuma pasta específica — é apenas o fallback genérico.
 
-### F3 — resources.processo.* são permissões fantasma
+### F3 — resources.processo.* fantasma → CORRIGIDO (Processo agora é wired)
 
-`resources.processo.view`, `.edit` e `.delete` estão no catálogo
-(`PermissionFixture.php`, `Version20260401130000.php`) e aparecem no
-painel de perfis, mas não há nenhuma chamada de
-`canAccessResource(..., 'processo', ...)` no código. Atribuir essas
-permissões não tem efeito observável.
+> **Desatualizado.** Quando este doc foi escrito, não havia chamada de
+> `canAccessResource(..., 'processo', ...)`. **Hoje há:** `ProcessoController`
+> show/edit/delete (l. 168/139/219) usam `canAccessResource` com
+> `AccessRequest::RESOURCE_PROCESSO` (`= 'processo'`). Logo o item-level
+> (`ResourceAccess` de processo) funciona, e a permissão de tipo
+> `resources.processo.*` no TenantRole passa a ter efeito como **fallback** de
+> `canAccessResource` (passo 5). Processo deixou de ser fantasma; equipara-se a
+> Cliente/Pasta.
 
 ### F4 — admin.tarefas.manage é permissão fantasma
 
