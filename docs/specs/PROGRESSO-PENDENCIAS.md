@@ -434,9 +434,13 @@ escritório fica PRESO ao `{tenantId}` da URL. Mecanismo "os dois": trava autom�
     approve-deny-404/painel/submit-duplicado-per-tenant). Mutação 3× (filtro / ar.tenant / guard). Suíte
     **876/876**. Revisão: APROVADA COM RESSALVAS (strict_types legado, drift do índice, sugestão de teste —
     endereçada). **Follow-ups (B-series):** (a) índice parcial `uniq_access_request_pending` em drift (ledger
-    sem banco) — recriar COM `tenant_id`; (b) **gap de autoridade residual:** `submit` não valida que o
-    `resourceId` pertence ao tenant da sessão (admin pode conceder acesso a recurso de outro escritório se o
-    solicitante enviar id estrangeiro) — fecha visibilidade do painel, não a posse do recurso no submit.
+    sem banco) — recriar COM `tenant_id`; (b) ~~gap de autoridade residual: `submit` não valida posse do
+    recurso~~ **✅ FECHADO (não commitado)** — `submit` E `approve` validam que o `resourceId` pertence ao
+    tenant da sessão (helper `recursoPertenceAoTenant`, compara o tenant do recurso TenantAware explícito;
+    404 se estrangeiro; cobre solicitação legada no approve). Testes `testSubmit/ApproveRejeitaRecursoDeOutroTenant`
+    + 2 testes do M2 reescritos p/ recurso real (ids fake 4242/8888 quebrariam o check); mutação confirmada.
+    Suíte **895/895**. Revisão `feature-review-agent`: aprovada (achados endereçados: comentário do código
+    corrigido p/ "find por PK escapa via identity map"; vetor do approve fechado; spec do M2 atualizada).
   - **M5** PecaImagemController auth-only (resíduo aceito); **M6** F1 módulo (decisão); **M7** migration
     Agenda aborta multi-tenant (antes do 2º tenant); **M8** uploads dev (parcial via A3).
   - **B5 🎯 DESTRAVADO — EM ANDAMENTO** (frente 1 commitada `7fcb827`; ver seção "🎯 B5" acima e

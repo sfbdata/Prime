@@ -8,10 +8,12 @@ use App\Controller\AccessRequestController;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Permission\AccessRequest;
+use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\AccessRequestRepository;
 use App\Repository\ResourceAccessRepository;
+use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -32,17 +34,19 @@ final class AccessRequestIsolamentoControllerTest extends JusPrimeWebTestCase
         $client = static::createClient();
         $tenant = $this->criarTenant();
         // Role NÃO-system: canAccessResource retorna false → o submit prossegue.
-        $user = $this->criarUsuario($tenant, isSystem: false);
+        $user  = $this->criarUsuario($tenant, isSystem: false);
+        $pasta = PastaFactory::createOne(['tenant' => $tenant]); // recurso REAL do escritório
+        $pastaId = (int) $pasta->getId();
 
         $this->instalarCsrfStorage();
         $this->logarComTenant($client, $user, $tenant);
 
         $client->request('POST', '/access-requests/submit', [
             '_token'       => 'TOKEN_access_request_submit',
-            'resourceType' => AccessRequest::RESOURCE_CLIENTE,
-            'resourceId'   => 4242,
+            'resourceType' => AccessRequest::RESOURCE_PASTA,
+            'resourceId'   => $pastaId,
             'action'       => AccessRequest::ACTION_VIEW,
-            'description'  => 'Preciso ver este cliente',
+            'description'  => 'Preciso ver esta pasta',
         ]);
 
         self::assertResponseIsSuccessful();
@@ -50,10 +54,42 @@ final class AccessRequestIsolamentoControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->getFilters()->disable('tenant');
         $em->clear();
-        $req = $em->getRepository(AccessRequest::class)->findOneBy(['resourceId' => 4242]);
+        $req = $em->getRepository(AccessRequest::class)->findOneBy(['resourceId' => $pastaId]);
 
         self::assertNotNull($req, 'a solicitação deveria ter sido criada');
         self::assertSame($tenant->getId(), $req->getTenant()?->getId(), 'a solicitação deveria herdar o tenant da sessão');
+    }
+
+    #[TestDox('submit de recurso de OUTRO escritório responde 404 e não cria solicitação (fecha o gap M2)')]
+    public function testSubmitRejeitaRecursoDeOutroTenant(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $user    = $this->criarUsuario($tenantA, isSystem: false); // usuário do escritório A
+        $pastaB  = PastaFactory::createOne(['tenant' => $tenantB]); // recurso do escritório B
+        $pastaBId = (int) $pastaB->getId();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenantA);
+
+        // tenta solicitar acesso a uma pasta de B estando logado em A → o find escopado em A dá null → 404
+        $client->request('POST', '/access-requests/submit', [
+            '_token'       => 'TOKEN_access_request_submit',
+            'resourceType' => AccessRequest::RESOURCE_PASTA,
+            'resourceId'   => $pastaBId,
+            'action'       => AccessRequest::ACTION_VIEW,
+        ]);
+
+        self::assertResponseStatusCodeSame(404, 'não pode solicitar acesso a recurso de outro escritório');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->getFilters()->disable('tenant');
+        $em->clear();
+        self::assertNull(
+            $em->getRepository(AccessRequest::class)->findOneBy(['resourceId' => $pastaBId]),
+            'nenhuma solicitação para o recurso de B pode ter sido criada',
+        );
     }
 
     #[TestDox('approve de solicitação de outro escritório responde 404 e não concede acesso')]
@@ -91,6 +127,50 @@ final class AccessRequestIsolamentoControllerTest extends JusPrimeWebTestCase
                 555,
             ),
             'nenhum ResourceAccess pode ter sido concedido',
+        );
+    }
+
+    #[TestDox('approve de solicitação LEGADA apontando p/ recurso de outro escritório responde 404 e não concede acesso')]
+    public function testApproveRejeitaRecursoDeOutroTenant(): void
+    {
+        $client = static::createClient();
+        $this->instalarCsrfStorage();
+
+        $tenantA     = $this->criarTenant();
+        $tenantB     = $this->criarTenant();
+        $admin       = $this->criarUsuario($tenantA, isSystem: true);
+        $solicitante = $this->criarUsuario($tenantA, isSystem: false);
+        $pastaB      = PastaFactory::createOne(['tenant' => $tenantB]);
+        $pastaBId    = (int) $pastaB->getId();
+
+        // AccessRequest LEGADA: no tenant A (passa pelo assertBelongsToAdminTenant), mas o recurso é de B
+        // (cenário pré-fix do submit — o id estrangeiro só é barrado pela autoridade de recurso no approve).
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $req = (new AccessRequest())
+            ->setUser($solicitante)
+            ->setTenant($tenantA)
+            ->setResourceType(AccessRequest::RESOURCE_PASTA)
+            ->setResourceId($pastaBId)
+            ->setAction(AccessRequest::ACTION_VIEW);
+        $em->persist($req);
+        $em->flush();
+        $idReq = (int) $req->getId();
+        $em->clear();
+
+        $this->logarComTenant($client, $admin, $tenantA);
+        $client->request('POST', "/access-requests/{$idReq}/approve", [
+            '_token'  => 'TOKEN_approve_request_' . $idReq,
+            'canView' => '1',
+        ]);
+
+        self::assertResponseStatusCodeSame(404, 'não pode aprovar grant para recurso de outro escritório');
+
+        $em2 = static::getContainer()->get(EntityManagerInterface::class);
+        $em2->getFilters()->disable('tenant');
+        $em2->clear();
+        self::assertNull(
+            $em2->getRepository(ResourceAccess::class)->findOneBy(['resourceId' => $pastaBId]),
+            'nenhum ResourceAccess para o recurso de B pode ter sido criado',
         );
     }
 
@@ -151,8 +231,8 @@ final class AccessRequestIsolamentoControllerTest extends JusPrimeWebTestCase
         );
     }
 
-    #[TestDox('submit do mesmo recurso em escritórios diferentes gera solicitações distintas (anti-duplicata é per-tenant)')]
-    public function testSubmitDuplicadoEscopaPorTenant(): void
+    #[TestDox('usuário multi-escritório solicita o recurso de CADA escritório — cada solicitação fica no seu tenant')]
+    public function testSubmitMultiTenantCadaSolicitacaoNoSeuTenant(): void
     {
         $client = static::createClient();
         $client->disableReboot();
@@ -164,25 +244,34 @@ final class AccessRequestIsolamentoControllerTest extends JusPrimeWebTestCase
         $user = $this->criarUsuario($tenantA, isSystem: false);
         $this->vincular($user, $tenantB, isSystem: false);
 
-        $payload = [
-            '_token'       => 'TOKEN_access_request_submit',
-            'resourceType' => AccessRequest::RESOURCE_CLIENTE,
-            'resourceId'   => 8888,
-            'action'       => AccessRequest::ACTION_VIEW,
-        ];
+        // Cada escritório tem o SEU recurso — um id pertence a exatamente um tenant (a frente 4 fechou isso).
+        $pastaA  = PastaFactory::createOne(['tenant' => $tenantA]);
+        $pastaB  = PastaFactory::createOne(['tenant' => $tenantB]);
+        $pastaAId = (int) $pastaA->getId();
+        $pastaBId = (int) $pastaB->getId();
 
         $this->logarComTenant($client, $user, $tenantA);
-        $client->request('POST', '/access-requests/submit', $payload);
-        self::assertResponseIsSuccessful('1ª solicitação (escritório A)');
+        $client->request('POST', '/access-requests/submit', [
+            '_token'       => 'TOKEN_access_request_submit',
+            'resourceType' => AccessRequest::RESOURCE_PASTA,
+            'resourceId'   => $pastaAId,
+            'action'       => AccessRequest::ACTION_VIEW,
+        ]);
+        self::assertResponseIsSuccessful('solicitação do recurso de A');
 
         $this->logarComTenant($client, $user, $tenantB);
-        $client->request('POST', '/access-requests/submit', $payload);
-        self::assertResponseIsSuccessful('2ª solicitação (escritório B) — anti-duplicata é per-tenant, não pode bloquear');
+        $client->request('POST', '/access-requests/submit', [
+            '_token'       => 'TOKEN_access_request_submit',
+            'resourceType' => AccessRequest::RESOURCE_PASTA,
+            'resourceId'   => $pastaBId,
+            'action'       => AccessRequest::ACTION_VIEW,
+        ]);
+        self::assertResponseIsSuccessful('solicitação do recurso de B');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->getFilters()->disable('tenant');
         $em->clear();
-        $reqs = $em->getRepository(AccessRequest::class)->findBy(['resourceId' => 8888]);
+        $reqs = $em->getRepository(AccessRequest::class)->findBy(['resourceId' => [$pastaAId, $pastaBId]]);
 
         self::assertCount(2, $reqs, 'deveria existir uma solicitação por escritório');
         $tenantIds = array_map(static fn (AccessRequest $r) => $r->getTenant()?->getId(), $reqs);

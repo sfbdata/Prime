@@ -42,15 +42,14 @@ solicitações, 0 testes). Import adicionado (necessário para os testes do `sub
   A unicidade de pendentes hoje depende do app (`findPendingForUserAndResource`, que com o filtro
   passa a ser per-tenant). **Ao fechar o drift (B-series), recriar o índice COM `tenant_id`** —
   restaurar o antigo (sem tenant) bloquearia um usuário multi-tenant de solicitar o mesmo recurso
-  em A e B, conflitando com o modelo per-escritório (ver teste `testSubmitDuplicadoEscopaPorTenant`).
+  em A e B, conflitando com o modelo per-escritório (ver teste `testSubmitMultiTenantCadaSolicitacaoNoSeuTenant`).
 - `ResourceAccess` segue não-TenantAware (B3, fora do escopo).
-- **Gap residual de autoridade (NÃO fechado pelo M2 — follow-up):** o `submit` valida que o usuário
-  não tem acesso (`canAccessResource`), mas **não** valida que o `resourceId` pertence ao escritório
-  da sessão. Um usuário pode enviar um `resourceId` de outro tenant; a solicitação nasce no tenant
-  da sessão e o admin desse tenant pode aprová-la, gerando um `ResourceAccess` para um recurso de
-  outro escritório (só vira acesso efetivo no tenant dono, gateado pelo filtro). M2 fecha a
-  **visibilidade cruzada do painel** (vetor da auditoria); a validação de posse do recurso no
-  submit é achado separado. Mitigado hoje pela dormência da feature.
+- **Gap residual de autoridade ✅ FECHADO (follow-up pós-frente-4, jun/2026):** o `submit` agora valida
+  que o `resourceId` pertence ao escritório da sessão (helper `recursoPertenceAoTenant` — compara o
+  tenant do recurso TenantAware EXPLICITAMENTE; robusto independente do filtro, pois `find()` por PK
+  pode resolver pelo identity map sem reaplicá-lo), e o `approve` aplica a MESMA checagem (cobre
+  solicitação legada criada antes do fix). Recurso de outro escritório → 404. Testes
+  `testSubmitRejeitaRecursoDeOutroTenant` + `testApproveRejeitaRecursoDeOutroTenant`; mutação confirmada.
 
 ## Migration `Version20260629130000` (🔴 aplicar só no dev, isolada, após OK)
 
@@ -70,9 +69,10 @@ solicitações, 0 testes). Import adicionado (necessário para os testes do `sub
   guard explícito — sem `em->clear()`, depende dele); painel não lista solicitação de outro
   escritório (e lista a do próprio).
 
-  Inclui `testSubmitDuplicadoEscopaPorTenant` (revisão): mesmo usuário multi-escritório submete o
-  mesmo recurso em A e B → 2 solicitações distintas (a anti-duplicata `findPendingForUserAndResource`
-  é per-tenant via filtro). Guarda o invariante hoje sem trava de índice no banco.
+  Inclui `testSubmitMultiTenantCadaSolicitacaoNoSeuTenant` (era `testSubmitDuplicadoEscopaPorTenant`,
+  reescrito após o gap-fix): usuário multi-escritório submete o recurso de CADA escritório (um id
+  pertence a 1 tenant — frente 4) → 2 solicitações, cada uma no seu tenant. E os 2 testes de rejeição
+  cross-tenant (`testSubmit/ApproveRejeitaRecursoDeOutroTenant`) fecham o gap de autoridade acima.
 
 **Mutação 3×:** (A) remover `TenantAware` → IDOR find-by-id + submit-duplicado vermelhos; (B) inverter
 `ar.tenant = :tenant` → `!=` → findPendingByTenant + painel vermelhos; (C) inverter o guard

@@ -13,6 +13,7 @@ use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Repository\ResourceAccessRepository;
+use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
@@ -103,7 +104,9 @@ final class ResourceAccessIsolamentoControllerTest extends JusPrimeWebTestCase
         $tenant      = $this->criarTenant();
         $admin       = $this->criarUsuario($tenant, isSystem: true);
         $solicitante = $this->criarUsuario($tenant, isSystem: false);
-        $req         = $this->criarAccessRequest($solicitante, $tenant, 7777);
+        $pasta       = PastaFactory::createOne(['tenant' => $tenant]); // recurso REAL do escritório
+        $pastaId     = (int) $pasta->getId();
+        $req         = $this->criarAccessRequest($solicitante, $tenant, AccessRequest::RESOURCE_PASTA, $pastaId);
         $idReq       = (int) $req->getId();
         $this->limparIdentityMap();
 
@@ -118,7 +121,7 @@ final class ResourceAccessIsolamentoControllerTest extends JusPrimeWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->getFilters()->disable('tenant');
         $em->clear();
-        $ra = $em->getRepository(ResourceAccess::class)->findOneBy(['resourceId' => 7777]);
+        $ra = $em->getRepository(ResourceAccess::class)->findOneBy(['resourceId' => $pastaId]);
 
         self::assertNotNull($ra, 'o ResourceAccess deveria ter sido concedido');
         self::assertSame($tenant->getId(), $ra->getTenant()?->getId(), 'o acesso deveria herdar o tenant da sessão do admin');
@@ -210,14 +213,14 @@ final class ResourceAccessIsolamentoControllerTest extends JusPrimeWebTestCase
         return $ra;
     }
 
-    private function criarAccessRequest(User $user, Tenant $tenant, int $resourceId): AccessRequest
+    private function criarAccessRequest(User $user, Tenant $tenant, string $resourceType, int $resourceId): AccessRequest
     {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
         $req = (new AccessRequest())
             ->setUser($user)
             ->setTenant($tenant)
-            ->setResourceType(AccessRequest::RESOURCE_CLIENTE)
+            ->setResourceType($resourceType)
             ->setResourceId($resourceId)
             ->setAction(AccessRequest::ACTION_VIEW);
         $em->persist($req);

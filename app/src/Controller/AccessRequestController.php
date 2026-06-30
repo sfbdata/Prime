@@ -3,9 +3,12 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
+use App\Cliente\Repository\ClienteRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Entity\Permission\ResourceAccess;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Repository\PastaRepository;
+use App\Processo\Repository\ProcessoRepository;
 use App\Repository\AccessRequestRepository;
 use App\Repository\ResourceAccessRepository;
 use App\Service\PermissionChecker;
@@ -65,6 +68,30 @@ final class AccessRequestController extends AbstractController
     }
 
     /**
+     * Autoridade de recurso (M2): o item (cliente/pasta/processo) referenciado pertence ao escritório?
+     * Compara o tenant do recurso EXPLICITAMENTE — `find()` por PK pode resolver pelo identity map sem
+     * reaplicar o TenantFilter, então não dependo do estado do filtro. Fail-closed (tipo inesperado →
+     * recurso null → false). Usado no submit (origem) e no approve (cobre solicitação legada pré-fix).
+     */
+    private function recursoPertenceAoTenant(
+        string $resourceType,
+        int $resourceId,
+        Tenant $tenant,
+        ClienteRepository $clienteRepository,
+        PastaRepository $pastaRepository,
+        ProcessoRepository $processoRepository,
+    ): bool {
+        $recurso = match ($resourceType) {
+            AccessRequest::RESOURCE_CLIENTE  => $clienteRepository->find($resourceId),
+            AccessRequest::RESOURCE_PASTA    => $pastaRepository->find($resourceId),
+            AccessRequest::RESOURCE_PROCESSO => $processoRepository->find($resourceId),
+            default                          => null,
+        };
+
+        return $recurso !== null && $recurso->getTenant()?->getId() === $tenant->getId();
+    }
+
+    /**
      * Endpoint AJAX: usuário submete solicitação de acesso com justificativa.
      *
      * POST /access-requests/submit
@@ -75,6 +102,9 @@ final class AccessRequestController extends AbstractController
         Request $httpRequest,
         AccessRequestRepository $accessRequestRepository,
         PermissionChecker $checker,
+        ClienteRepository $clienteRepository,
+        PastaRepository $pastaRepository,
+        ProcessoRepository $processoRepository,
     ): JsonResponse {
         $user = $this->getUser();
 
@@ -102,6 +132,16 @@ final class AccessRequestController extends AbstractController
         $tenant = $this->tenantContext->getCurrentTenant();
         if ($tenant === null) {
             return $this->json(['error' => 'Selecione um escritório para solicitar acesso.'], 400);
+        }
+
+        // Autoridade (fecha o gap residual do M2): o recurso solicitado precisa pertencer ao escritório
+        // da sessão. Sem isto, um usuário pediria — e um admin aprovaria — acesso a recurso de outro
+        // escritório (a frente 4 já tornava o grant inócuo, mas a solicitação ainda nascia/aparecia).
+        // Compara o tenant do recurso EXPLICITAMENTE (Cliente/Pasta/Processo são TenantAware) em vez de
+        // confiar só no TenantFilter — `find()` por PK pode resolver pelo identity map sem reaplicar o
+        // filtro, então a comparação explícita é robusta independentemente do estado do filtro.
+        if (!$this->recursoPertenceAoTenant($resourceType, $resourceId, $tenant, $clienteRepository, $pastaRepository, $processoRepository)) {
+            return $this->json(['error' => 'Recurso não encontrado neste escritório.'], 404);
         }
 
         // Verifica se já tem acesso
@@ -160,6 +200,9 @@ final class AccessRequestController extends AbstractController
         ResourceAccessRepository $resourceAccessRepository,
         EntityManagerInterface $em,
         PermissionChecker $checker,
+        ClienteRepository $clienteRepository,
+        PastaRepository $pastaRepository,
+        ProcessoRepository $processoRepository,
     ): Response {
         $tenant = $this->assertAccess($checker);
 
@@ -170,6 +213,12 @@ final class AccessRequestController extends AbstractController
         }
 
         $this->assertBelongsToAdminTenant($accessRequest, $tenant);
+
+        // Autoridade de recurso (M2): cobre AccessRequest LEGADA criada antes do check do submit — não
+        // aprova grant para recurso de outro escritório (a frente 4 já o tornaria inócuo; fecha na raiz).
+        if (!$this->recursoPertenceAoTenant((string) $accessRequest->getResourceType(), (int) $accessRequest->getResourceId(), $tenant, $clienteRepository, $pastaRepository, $processoRepository)) {
+            throw $this->createNotFoundException('Recurso não encontrado neste escritório.');
+        }
 
         if (!$accessRequest->isPending()) {
             $this->addFlash('warning', 'Esta solicitação já foi decidida.');
