@@ -237,7 +237,8 @@ Funcionalidade: Sair e Excluir escritório
 | Fase | Escopo | Risco | Valor |
 |---|---|---|---|
 | **1 — Switcher** | Dropdown de escritórios no topo + "Sair" + estado vazio decente | Baixo (UI/sessão) | Imediato p/ quem já é multi-escritório |
-| **2 — Criar por dentro** | "＋ Criar escritório" no dropdown (logado) + guard de OAB + limite + soft delete em `app_tenant_show` | Médio/Alto | Advogado abre banca adicional |
+| **2a — Criar por dentro** ✅ | "＋ Criar escritório" no dropdown + estado vazio (logado) + guard de OAB + limite configurável | Médio/Alto | Advogado abre banca adicional |
+| **2b — Soft delete** ⏳ | `app_tenant_delete` vira soft delete + botão em `app_tenant_show` (dono) + **RS06** (não vazar tenant inativo no switcher/seleção/`setCurrentTenant`) + fecha dívida **I3** (`encontrarPendentesPorEmail` filtra `tenant.isActive`) | Alto | Excluir com segurança |
 | **3 — Cadastro público** | Página pública + confirmação de e-mail + criação na confirmação | Alto | Funil self-service de aquisição |
 | **Futura** | Job de purga pós-quarentena; transferência de titularidade; badge multi-escritório agregado | — | Higiene e UX avançada |
 

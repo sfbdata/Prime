@@ -1,0 +1,32 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Criar escritório{% endblock %}
+
+{% block body %}
+<div class="container py-5" style="max-width: 560px">
+    <div class="text-center mb-4">
+        <h3>Criar escritório</h3>
+        <p class="text-muted">Você será o administrador do novo escritório.</p>
+    </div>
+
+    {{ form_start(form) }}
+        {{ form_row(form.nome) }}
+        {% if exigirOab %}
+            <div class="alert alert-info py-2 small">
+                <i class="bi bi-info-circle me-1"></i>
+                Para criar um escritório é preciso informar sua OAB.
+            </div>
+            <div class="row">
+                <div class="col-8">{{ form_row(form.oabNumero) }}</div>
+                <div class="col-4">{{ form_row(form.oabUf) }}</div>
+            </div>
+        {% endif %}
+        <div class="d-flex gap-2 justify-content-end mt-3">
+            <a href="{{ path('tenant_selecionar') }}" class="btn btn-outline-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-building-add me-1"></i> Criar escritório
+            </button>
+        </div>
+    {{ form_end(form) }}
+</div>
+{% endblock %}

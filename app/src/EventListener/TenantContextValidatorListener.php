@@ -21,6 +21,9 @@ final class TenantContextValidatorListener
         'app_login',
         'app_logout',
         'tenant_selecionar',
+        // Criar escritório não exige tenant ativo — quem tem 0 escritórios precisa
+        // alcançar esta tela para abrir o primeiro.
+        'escritorio_criar',
         'admin_platform_dashboard',
         // Aceite dos Termos é da plataforma e independe de tenant — a tela precisa
         // ser alcançável antes da seleção de escritório (ver TermoAceiteListener).

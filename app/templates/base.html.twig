@@ -184,6 +184,11 @@
                                         {% endfor %}
                                         <li><hr class="dropdown-divider"></li>
                                         <li>
+                                            <a href="{{ path('escritorio_criar') }}" class="dropdown-item d-flex align-items-center gap-2">
+                                                <i class="bi bi-plus-circle"></i> Criar escritório
+                                            </a>
+                                        </li>
+                                        <li>
                                             <form method="post" action="{{ path('escritorio_sair', {id: current_tenant().id}) }}"
                                                   onsubmit="return confirm('Deseja realmente sair de {{ current_tenant().name|e('js') }}? Você perderá o acesso a este escritório.');">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('sair_' ~ current_tenant().id) }}">

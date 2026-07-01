@@ -2,6 +2,7 @@
 
 namespace App\Repository;
 
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -16,28 +17,19 @@ class TenantRepository extends ServiceEntityRepository
         parent::__construct($registry, Tenant::class);
     }
 
-    //    /**
-    //     * @return Tenant[] Returns an array of Tenant objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('t')
-    //            ->andWhere('t.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('t.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?Tenant
-    //    {
-    //        return $this->createQueryBuilder('t')
-    //            ->andWhere('t.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    /**
+     * Conta os escritórios ATIVOS criados por um usuário (dos quais ele é dono).
+     * Base do limite de escritórios próprios (RN08). Escritórios excluídos
+     * (soft delete, isActive=false) não contam — liberam vaga.
+     */
+    public function contarPorCriador(User $criador): int
+    {
+        return (int) $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->andWhere('t.criadoPor = :criador')
+            ->andWhere('t.isActive = true')
+            ->setParameter('criador', $criador)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

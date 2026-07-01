@@ -8,6 +8,8 @@ use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
+use App\Expediente\Entity\Marcador;
+use App\Ponto\Entity\Feriado;
 use App\Tenant\Controller\EscritorioController;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -188,5 +190,158 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         $vinculoB = $em2->getRepository(UserTenant::class)->findOneBy(['user' => $user, 'tenant' => $tenantB]);
         self::assertNotNull($vinculoB);
         self::assertFalse($vinculoB->isActive());
+    }
+
+    private function novoUsuario(bool $comOab): User
+    {
+        $container = static::getContainer();
+        $em        = $container->get(EntityManagerInterface::class);
+        $hasher    = $container->get(UserPasswordHasherInterface::class);
+
+        $user = new User();
+        $user->setEmail('criar_' . uniqid() . '@test.com');
+        $user->setFullName('Usuário Criar');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        if ($comOab) {
+            $user->setOabNumero('12345');
+            $user->setOabUf('SP');
+        }
+        $em->persist($user);
+        $em->flush();
+
+        return $user;
+    }
+
+    #[TestDox('GET criar é acessível para usuário SEM escritório (bypass do validador de tenant)')]
+    public function testCriarAcessivelSemTenant(): void
+    {
+        $client = static::createClient();
+        $user   = $this->novoUsuario(comOab: false);
+
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+        $client->request('GET', '/escritorio/criar');
+
+        self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('POST criar (de dentro de outro escritório) cria, torna o usuário dono e ativa o novo')]
+    public function testCriarPostCriaEscritorio(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant();
+        [$user]  = $this->criarUsuarioComVinculo($tenantA);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $user->setOabNumero('12345');
+        $user->setOabUf('SP');
+        $em->flush();
+
+        // current = A: o TenantFilter fica ativo em A durante a criação do B (valida o gotcha).
+        $this->logarComTenant($client, $user, $tenantA);
+        $crawler = $client->request('GET', '/escritorio/criar');
+        self::assertResponseIsSuccessful();
+
+        $form = $crawler->selectButton('Criar escritório')->form();
+        $form['criar_escritorio[nome]'] = 'Banca Nova';
+        $client->submit($form);
+
+        self::assertResponseRedirects();
+
+        $novo = $em->getRepository(Tenant::class)->findOneBy(['name' => 'Banca Nova']);
+        self::assertNotNull($novo);
+        self::assertSame($user->getId(), $novo->getCriadoPor()?->getId());
+        self::assertTrue($novo->isActive());
+
+        // Poder de detecção do gotcha do filtro: o seed (13 marcadores + 9 feriados) tem que
+        // pertencer ao NOVO tenant B, não ter sido escopado/perdido pelo filtro ativo em A.
+        // Desligo o filtro (ligado em A durante o request) para contar sem escopo.
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        self::assertSame(13, $em->getRepository(Marcador::class)->count(['tenant' => $novo]));
+        self::assertSame(9, $em->getRepository(Feriado::class)->count(['tenant' => $novo]));
+    }
+
+    #[TestDox('POST criar é bloqueado quando o limite de escritórios próprios foi atingido (RN08)')]
+    public function testCriarBloqueiaQuandoLimiteAtingido(): void
+    {
+        $client = static::createClient();
+        $user   = $this->novoUsuario(comOab: true);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        for ($i = 0; $i < 3; $i++) {
+            $t = new Tenant();
+            $t->setName('Own ' . uniqid());
+            $t->setCriadoPor($user);
+            $em->persist($t);
+        }
+        $em->flush();
+
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+        $crawler = $client->request('GET', '/escritorio/criar');
+        self::assertResponseIsSuccessful();
+
+        $form = $crawler->selectButton('Criar escritório')->form();
+        $form['criar_escritorio[nome]'] = 'Quarta Banca';
+        $client->submit($form);
+
+        // Bloqueado: re-renderiza o formulário (não redireciona) e nada é criado.
+        self::assertResponseIsSuccessful();
+        self::assertNull($em->getRepository(Tenant::class)->findOneBy(['name' => 'Quarta Banca']));
+    }
+
+    #[TestDox('POST criar com OAB inválida não cria e não grava OAB no usuário')]
+    public function testCriarComOabInvalidaNaoCria(): void
+    {
+        $client = static::createClient();
+        $user   = $this->novoUsuario(comOab: false);
+
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+        $crawler = $client->request('GET', '/escritorio/criar');
+        self::assertResponseIsSuccessful();
+
+        $form = $crawler->selectButton('Criar escritório')->form();
+        $form['criar_escritorio[nome]']      = 'Banca X';
+        $form['criar_escritorio[oabNumero]'] = '12A3';
+        $form['criar_escritorio[oabUf]']     = 'SP';
+        $client->submit($form);
+
+        self::assertResponseIsSuccessful();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertNull($em->getRepository(Tenant::class)->findOneBy(['name' => 'Banca X']));
+        self::assertNull($em->getRepository(User::class)->find($user->getId())->getOabNumero());
+    }
+
+    #[TestDox('Colaborador sem OAB cria com OAB válida no form: grava a OAB no User e cria o escritório')]
+    public function testColaboradorSemOabCriaEGravaOab(): void
+    {
+        $client = static::createClient();
+        $user   = $this->novoUsuario(comOab: false);
+
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+        $crawler = $client->request('GET', '/escritorio/criar');
+
+        $form = $crawler->selectButton('Criar escritório')->form();
+        $form['criar_escritorio[nome]']      = 'Banca do Colaborador';
+        $form['criar_escritorio[oabNumero]'] = '54321';
+        $form['criar_escritorio[oabUf]']     = 'RJ';
+        $client->submit($form);
+
+        self::assertResponseRedirects();
+
+        $em   = static::getContainer()->get(EntityManagerInterface::class);
+        $novo = $em->getRepository(Tenant::class)->findOneBy(['name' => 'Banca do Colaborador']);
+        self::assertNotNull($novo);
+
+        $u = $em->getRepository(User::class)->find($user->getId());
+        self::assertSame('54321', $u->getOabNumero());
+        self::assertSame('RJ', $u->getOabUf());
     }
 }

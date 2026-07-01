@@ -19,6 +19,10 @@ parameters:
     fotos_perfil_dir: '%kernel.project_dir%/public/uploads/perfil'
     ghostscript_bin: '%env(default:default_ghostscript_bin:GHOSTSCRIPT_BIN)%'
     default_ghostscript_bin: '/usr/bin/gs'
+    # Limite de escritórios que um usuário pode CRIAR (ser dono). Sobrescrevível por env
+    # em produção, sem deploy de código. Escritórios excluídos (soft delete) não contam.
+    tenant_max_por_usuario: '%env(default:default_tenant_max_por_usuario:int:TENANT_MAX_POR_USUARIO)%'
+    default_tenant_max_por_usuario: 3
 
 services:
     # default configuration for services in *this* file
@@ -35,6 +39,7 @@ services:
             string $clientesUploadsDir: '%clientes_uploads_dir%'
             string $fotosPerfilDir: '%fotos_perfil_dir%'
             string $ghostscriptBin: '%ghostscript_bin%'
+            int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name
