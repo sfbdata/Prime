@@ -76,6 +76,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Ponto/Entity'
                 prefix: 'App\Ponto\Entity'
                 alias: AppPonto
+            AppAuth:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Auth/Entity'
+                prefix: 'App\Auth\Entity'
+                alias: AppAuth
         controller_resolver:
             auto_mapping: false
         dql:

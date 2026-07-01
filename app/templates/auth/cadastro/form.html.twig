@@ -1,0 +1,31 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Crie sua conta e seu escritório{% endblock %}
+
+{% block body %}
+<div class="container py-5" style="max-width: 560px">
+    <div class="text-center mb-4">
+        <h3>Crie sua conta e seu escritório</h3>
+        <p class="text-muted">Comece agora. Você será o administrador do seu escritório.</p>
+    </div>
+
+    {{ form_start(form) }}
+        {{ form_row(form.nomeCompleto) }}
+        {{ form_row(form.email) }}
+        {{ form_row(form.senha) }}
+        <div class="row">
+            <div class="col-8">{{ form_row(form.oabNumero) }}</div>
+            <div class="col-4">{{ form_row(form.oabUf) }}</div>
+        </div>
+        {{ form_row(form.nomeEscritorio) }}
+        {{ form_row(form.aceiteTermos) }}
+        <button type="submit" class="btn btn-primary w-100 mt-3">
+            <i class="bi bi-building-add me-1"></i> Criar conta e escritório
+        </button>
+    {{ form_end(form) }}
+
+    <p class="text-center text-muted mt-3">
+        Já tem conta? <a href="{{ path('app_login') }}">Entrar</a>
+    </p>
+</div>
+{% endblock %}

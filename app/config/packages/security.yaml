@@ -38,6 +38,7 @@ security:
         - { path: ^/register/confirm, roles: PUBLIC_ACCESS }  # redirect legado
         - { path: ^/invite$,          roles: ROLE_USER }       # redirect legado para auth_gerenciar_convites
         - { path: ^/convite,          roles: PUBLIC_ACCESS }  # aceite de convite
+        - { path: ^/cadastro,         roles: PUBLIC_ACCESS }  # auto-cadastro público (conta + escritório)
         - { path: ^/login,            roles: PUBLIC_ACCESS }
 
         # A partir daqui: apenas usuário autenticado.

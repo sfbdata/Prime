@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Auditoria\Functional;
 
+use App\Auth\Entity\CadastroPendente;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
@@ -42,6 +43,9 @@ final class AuditavelCoberturaTest extends KernelTestCase
 
         // Registro imutável append-only de consentimento — ele próprio é a prova/auditoria
         AceiteTermo::class,
+
+        // Cadastro público efêmero (pré-conta, some em 24h na confirmação/expiração) — sem valor de auditoria
+        CadastroPendente::class,
 
         // Domínios novos — auditoria não expandida nesta fatia (decisão de produto)
         UserProfile::class,

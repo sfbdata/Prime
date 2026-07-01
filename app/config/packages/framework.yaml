@@ -23,6 +23,10 @@ framework:
             policy: sliding_window
             limit: 10
             interval: '1 minute'
+        cadastro_auto:
+            policy: sliding_window
+            limit: 5
+            interval: '1 hour'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true
@@ -35,3 +39,9 @@ when@test:
         test: true
         session:
             storage_factory_id: session.storage.factory.mock_file
+        # Rate limiters em memória (reset por boot) — isola o estado entre testes,
+        # senão o cadastro_auto (5/hora por IP) acumula entre runs e dá 429.
+        cache:
+            pools:
+                cache.rate_limiter:
+                    adapter: cache.adapter.array

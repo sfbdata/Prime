@@ -239,8 +239,13 @@ Funcionalidade: Sair e Excluir escritório
 | **1 — Switcher** | Dropdown de escritórios no topo + "Sair" + estado vazio decente | Baixo (UI/sessão) | Imediato p/ quem já é multi-escritório |
 | **2a — Criar por dentro** ✅ | "＋ Criar escritório" no dropdown + estado vazio (logado) + guard de OAB + limite configurável | Médio/Alto | Advogado abre banca adicional |
 | **2b — Soft delete** ✅ | `app_tenant_delete` vira soft delete (RS08) + botão em `app_tenant_show` (dono, confirma digitando o nome) + **RS06/RS07** (tenant inativo não vaza em switcher/seleção/`setCurrentTenant`/login **e** o `TenantContextValidatorListener` derruba a sessão de quem já estava no escritório excluído por outro admin) + fecha **I3** (`encontrarPendentesPorEmail` filtra `tenant.isActive`) | Alto | Excluir com segurança |
-| **3 — Cadastro público** | Página pública + confirmação de e-mail + criação na confirmação | Alto | Funil self-service de aquisição |
-| **Futura** | Job de purga pós-quarentena; transferência de titularidade; badge multi-escritório agregado | — | Higiene e UX avançada |
+| **3 — Cadastro público** ✅ | `/cadastro` público (`CadastroPendente`, senha hasheada, token, 24h) + e-mail de confirmação (`CadastroMailer`) + criação atômica na confirmação (`ConfirmarCadastroUseCase`: User+Tenant+dono+termos) + rate limiter `cadastro_auto` (5/h/IP) | Alto | Funil self-service de aquisição |
+| **Futura** | Job de purga pós-quarentena (tenant soft-deletado **e** `cadastro_pendente` expirado — ver dívidas); transferência de titularidade; badge multi-escritório agregado; validação real da OAB (RS03) | — | Higiene e UX avançada |
+
+### ⚠️ Notas de deploy / dívidas da Fase 3 (revisão)
+- **Deploy (rate limiter):** o `cadastro_auto` usa `getClientIp()`. Em prod (bluejus.com.br atrás de proxy/LB), **`SYMFONY_TRUSTED_PROXIES` precisa estar configurado** (`.env.prod` está comentado) — senão todos os cadastros caem num único bucket de 5/h (nega serviço) ou o IP é do proxy. **Verificar antes de considerar o anti-abuso efetivo.**
+- **Dívida (PII):** não há purga de `cadastro_pendente` expirado — cada linha guarda `senha_hash` + e-mail + nome + IP + OAB. A limpeza só ocorre no reinício do mesmo e-mail. Criar job de purga (junto do de quarentena de tenant).
+- **Enumeração de e-mail:** o cadastro revela "já existe conta com este e-mail" (consistente com AceitarConvitePlataforma). Aceito no MVP; mitigar só se virar preocupação.
 
 ---
 
@@ -297,6 +302,6 @@ se tocam pouco, mas há pontos a coordenar:
 ## ⏭ Fora de escopo (defaults aprovados)
 
 - Notificações agregadas entre escritórios (MVP é por escritório ativo).
-- Validação real na API da OAB (só formato por enquanto).
+- **DÍVIDA (RS03) — validação real da OAB:** hoje é só formato (`^\d+$` / `^[A-Z]{2}$`), então OAB inventada mas bem-formatada passa. **Decisão do dono (2026-07-01): manter validação fraca no MVP e adicionar consulta à API oficial da OAB/CNA DEPOIS de concluir o self-service (pós-Fase 3).** Fecha o buraco de escritório criado com OAB falsa.
 - Dados do escritório (CNPJ, endereço, sede) no cadastro — preenchidos depois, nas configurações.
 - Transferência de titularidade e job de purga ficam para fase futura.

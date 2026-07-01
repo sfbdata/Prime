@@ -1,0 +1,18 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Confirme seu e-mail{% endblock %}
+
+{% block body %}
+<div class="container py-5 text-center" style="max-width: 520px">
+    <i class="bi bi-envelope-check display-4 text-primary"></i>
+    <h3 class="mt-3">Confirme seu e-mail</h3>
+    <p class="text-muted">
+        Enviamos um link de confirmação{% if email %} para <strong>{{ email }}</strong>{% endif %}.
+        Clique nele para ativar sua conta e seu escritório. O link expira em 24 horas.
+    </p>
+    <p class="text-muted small">
+        Não recebeu? Verifique a caixa de spam ou <a href="{{ path('auth_cadastro') }}">tente novamente</a>.
+    </p>
+    <a href="{{ path('app_login') }}" class="btn btn-outline-secondary mt-2">Ir para o login</a>
+</div>
+{% endblock %}
