@@ -13,6 +13,12 @@
 > pulam sozinhas), C5.1 provado `200→404`. Config de uploads revertido p/ public (`16fc10d`) — ver abaixo.
 > 🟡 **Falta:** smoke logado em prod. **C5.2/C5.3/C5.4 CANCELADOS** (nginx do C5.1 cobre tudo; `var/uploads`
 > não é volume). C6 super-admin BLOQUEADO. Follow-up aberto: IDOR `kanban_card_mover`.
+>
+> 🆕 **FRENTE SELF-SERVICE DE ESCRITÓRIOS (2026-07-01): COMPLETA e commitada (Fases 1→3).**
+> Handoff/spec: `docs/specs/self-service-escritorios.md` (bloco "🧭 Estado atual / Handoff" no topo).
+> Commits: `576c093` (F1 switcher), `bf4af10` (2a criar), `beb2f5b` (2b soft delete), `3d8cc95` (3 cadastro
+> público). Suíte 961/961. Dívidas na spec: trusted-proxies em prod (rate limit), purga de PII/quarentena,
+> validação real da OAB (RS03), extrair validação OAB. Futuro: transferir titularidade, badge agregado.
 
 ## Tabela mestre
 

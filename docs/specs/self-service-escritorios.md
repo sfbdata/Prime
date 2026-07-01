@@ -1,9 +1,37 @@
 # Spec — Self-service de Escritórios & Identidade Multi-escritório
 
 > **Risco:** ALTO (identidade User/Tenant, multi-tenancy)
-> **Data:** 2026-06-25
-> **Status:** Desenho aprovado — pronto para plano de implementação
-> **Domínios tocados:** Auth (User, Invitation), Tenant (legado), Sessão (TenantContext)
+> **Data:** 2026-06-25 · **Última atualização:** 2026-07-01
+> **Status:** ✅ **IMPLEMENTADO E COMMITADO — Fases 1, 2a, 2b e 3.** Suíte 961/961 verde.
+> **Domínios tocados:** Auth (User, Invitation, CadastroPendente), Tenant (legado), Sessão (TenantContext)
+
+---
+
+## 🧭 Estado atual / Handoff (leia primeiro)
+
+**A feature está COMPLETA e commitada no master.** Cada fase foi implementada seguindo o ciclo do
+projeto (UseCase+testes → resto → `feature-review-agent` → correção) e passou por revisão adversarial.
+
+| Fase | Commit | Entrega |
+|---|---|---|
+| **1 — Switcher** | `576c093` | Dropdown de escritórios no header + "Sair" + estado vazio com convites |
+| **2a — Criar por dentro** | `bf4af10` | `/escritorio/criar` (OAB obrigatória, limite configurável) + CTA no dropdown/estado vazio |
+| **2b — Soft delete** | `beb2f5b` | Excluir = soft delete + RS06/RS07 (não vazar tenant inativo) + fecha I3 |
+| **3 — Cadastro público** | `3d8cc95` | `/cadastro` público + confirmação de e-mail + criação atômica na confirmação |
+
+**Migrations:** `Version20260701120000` (tenant.excluido_em) e `Version20260701130000` (cadastro_pendente)
+— aplicadas em dev+test; rodam em prod no deploy normal.
+
+**O que FALTA (nada bloqueia a feature; são dívidas/futuro):** ver §"Notas de deploy / dívidas da Fase 3"
+e a linha "Futura" no §Faseamento. Resumo: (1) `SYMFONY_TRUSTED_PROXIES` em prod p/ o rate limiter,
+(2) job de purga de PII (`cadastro_pendente` expirado + tenant em quarentena), (3) validação real da OAB
+via API (RS03), (4) extrair a validação de OAB (duplicada em 3 UseCases), (5) transferir titularidade
+(fase futura), (6) badge multi-escritório agregado (fase futura).
+
+**Como continuar:** siga o ciclo do projeto (ver `.claude/skills/workflow` e CLAUDE.md). Isolamento
+multi-tenant é **inegociável** — nenhum dado vaza entre escritórios (todo código novo confia no
+`TenantFilter` + guard de posse + teste cross-tenant). Git é do humano: monte o comando e entregue em
+bloco `# Execute manualmente no terminal externo`.
 
 ---
 
