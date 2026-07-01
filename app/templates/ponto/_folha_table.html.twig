@@ -114,6 +114,11 @@
                                 {% else %}
                                     {{ linha.diaSemana }}
                                 {% endif %}
+                                {% if linha.homeOffice|default(false) %}
+                                    <span class="badge text-bg-info text-dark ms-1" title="Batida em home office">
+                                        <i class="bi bi-house-laptop"></i> Home Office
+                                    </span>
+                                {% endif %}
                             </td>
 
                             {# Macro para célula editável #}

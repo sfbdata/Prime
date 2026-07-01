@@ -10,6 +10,7 @@ use App\Ponto\Entity\JornadaTenant;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
+use App\Ponto\Service\HomeOfficeResolver;
 use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
 use App\Ponto\Repository\FeriadoRepository;
@@ -62,7 +63,8 @@ final class PontoController extends AbstractController
         RegistroPontoRepository $repository,
         FeriadoRepository $feriadoRepository,
         JustificativaPontoRepository $justificativaRepository,
-        FolhaPontoBuilder $folhaPontoBuilder
+        FolhaPontoBuilder $folhaPontoBuilder,
+        HomeOfficeResolver $homeOfficeResolver
     ): Response {
         /** @var User $user */
         $user = $this->getUser();
@@ -139,7 +141,10 @@ final class PontoController extends AbstractController
 
         $justificativaForm = $this->createForm(JustificativaPontoType::class);
 
+        $homeOfficeHoje = $homeOfficeResolver->estaLiberado($user, $tenant, $agora);
+
         return $this->render('ponto/index.html.twig', [
+            'homeOfficeHoje' => $homeOfficeHoje,
             'folhaRows' => $folhaRows,
             'mesAtual' => $mesSelecionado,
             'anoAtual' => $anoSelecionado,
@@ -424,6 +429,7 @@ final class PontoController extends AbstractController
         EntityManagerInterface $entityManager,
         SedeRepository $sedeRepository,
         RegistroPontoRepository $registroRepository,
+        HomeOfficeResolver $homeOfficeResolver,
     ): JsonResponse {
         /** @var User $user */
         $user = $this->getUser();
@@ -476,85 +482,94 @@ final class PontoController extends AbstractController
 
         $hoje = new \DateTimeImmutable();
 
-        if ($latitude === null || $longitude === null) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Geolocalização é obrigatória para registrar o ponto.',
-            ], 422);
-        }
-
-        if (!is_numeric($latitude) || !is_numeric($longitude)) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Coordenadas inválidas para registro do ponto.',
-            ], 422);
-        }
-
-        $latitudeFloat = (float) $latitude;
-        $longitudeFloat = (float) $longitude;
-
-        if (!is_finite($latitudeFloat) || !is_finite($longitudeFloat) || $latitudeFloat < -90 || $latitudeFloat > 90 || $longitudeFloat < -180 || $longitudeFloat > 180) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Coordenadas fora da faixa válida.',
-            ], 422);
-        }
-
-        if (!is_numeric($precisaoGps)) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Precisão do GPS inválida.',
-            ], 422);
-        }
-
-        $precisaoGpsFloat = (float) $precisaoGps;
-
-        if (!is_finite($precisaoGpsFloat) || $precisaoGpsFloat <= 0) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Precisão do GPS inválida.',
-            ], 422);
-        }
-
-        $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
-        if (empty($sedes)) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Nenhuma sede configurada para o tenant.',
-            ], 403);
-        }
+        // Home office: se o colaborador está liberado hoje (config do tenant atual), pula o geofencing —
+        // a batida entra sem GPS nem sede. O resolver reautoriza sempre no servidor.
+        $homeOfficeHoje = $homeOfficeResolver->estaLiberado($user, $tenant, $hoje);
 
         $sedeEncontrada = null;
         $distanciaSedeEncontrada = null;
+        $latitudeFloat = null;
+        $longitudeFloat = null;
+        $precisaoGpsFloat = null;
 
-        foreach ($sedes as $sede) {
-            if ($sede->getLatitude() === null || $sede->getLongitude() === null) {
-                continue;
+        if (!$homeOfficeHoje) {
+            if ($latitude === null || $longitude === null) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Geolocalização é obrigatória para registrar o ponto.',
+                ], 422);
             }
 
-            $distancia = $this->calcularDistanciaMetros(
-                $latitudeFloat,
-                $longitudeFloat,
-                (float) $sede->getLatitude(),
-                (float) $sede->getLongitude()
-            );
-
-            $raioPermitido = (float) $sede->getRaioPermitido();
-            if ($raioPermitido <= 0) {
-                continue;
+            if (!is_numeric($latitude) || !is_numeric($longitude)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Coordenadas inválidas para registro do ponto.',
+                ], 422);
             }
 
-            if ($distancia <= $raioPermitido && ($distanciaSedeEncontrada === null || $distancia < $distanciaSedeEncontrada)) {
-                $sedeEncontrada = $sede;
-                $distanciaSedeEncontrada = $distancia;
-            }
-        }
+            $latitudeFloat = (float) $latitude;
+            $longitudeFloat = (float) $longitude;
 
-        if ($sedeEncontrada === null) {
-            return $this->json([
-                'success' => false,
-                'message' => 'Você está fora da área permitida das sedes para registrar o ponto.',
-            ], 403);
+            if (!is_finite($latitudeFloat) || !is_finite($longitudeFloat) || $latitudeFloat < -90 || $latitudeFloat > 90 || $longitudeFloat < -180 || $longitudeFloat > 180) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Coordenadas fora da faixa válida.',
+                ], 422);
+            }
+
+            if (!is_numeric($precisaoGps)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Precisão do GPS inválida.',
+                ], 422);
+            }
+
+            $precisaoGpsFloat = (float) $precisaoGps;
+
+            if (!is_finite($precisaoGpsFloat) || $precisaoGpsFloat <= 0) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Precisão do GPS inválida.',
+                ], 422);
+            }
+
+            $sedes = $sedeRepository->findBy(['tenant' => $tenant]);
+            if (empty($sedes)) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Nenhuma sede configurada para o tenant.',
+                ], 403);
+            }
+
+            foreach ($sedes as $sede) {
+                if ($sede->getLatitude() === null || $sede->getLongitude() === null) {
+                    continue;
+                }
+
+                $distancia = $this->calcularDistanciaMetros(
+                    $latitudeFloat,
+                    $longitudeFloat,
+                    (float) $sede->getLatitude(),
+                    (float) $sede->getLongitude()
+                );
+
+                $raioPermitido = (float) $sede->getRaioPermitido();
+                if ($raioPermitido <= 0) {
+                    continue;
+                }
+
+                if ($distancia <= $raioPermitido && ($distanciaSedeEncontrada === null || $distancia < $distanciaSedeEncontrada)) {
+                    $sedeEncontrada = $sede;
+                    $distanciaSedeEncontrada = $distancia;
+                }
+            }
+
+            if ($sedeEncontrada === null) {
+                return $this->json([
+                    'success' => false,
+                    'message' => 'Você está fora da área permitida das sedes para registrar o ponto.',
+                ], 403);
+            }
         }
 
         if ($tipo === RegistroPonto::TIPO_RETORNO && ($jornadaTenant?->isValidacaoRepousoHabilitada() ?? true)) {
@@ -603,27 +618,34 @@ final class PontoController extends AbstractController
         $registro = new RegistroPonto();
         $registro->setUser($user);
         $registro->setTenant($tenant);
-        $registro->setSede($sedeEncontrada);
-        $registro->setSedeNomeSnapshot($sedeEncontrada->getNome());
         $registro->setTipo($tipo);
         $registro->setDataHora(new \DateTime());
+        $registro->setHomeOffice($homeOfficeHoje);
 
-        $registro->setLatitude((string) $latitudeFloat);
-        $registro->setLongitude((string) $longitudeFloat);
-        $registro->setPrecisaoGps((string) $precisaoGpsFloat);
+        if (!$homeOfficeHoje) {
+            $registro->setSede($sedeEncontrada);
+            $registro->setSedeNomeSnapshot($sedeEncontrada->getNome());
+            $registro->setLatitude((string) $latitudeFloat);
+            $registro->setLongitude((string) $longitudeFloat);
+            $registro->setPrecisaoGps((string) $precisaoGpsFloat);
+        }
 
         $entityManager->persist($registro);
         $entityManager->flush();
 
+        $dados = [
+            'hora' => $registro->getDataHora()->format('H:i:s'),
+            'tipo' => $tipo,
+        ];
+        if (!$homeOfficeHoje) {
+            $dados['sede'] = $sedeEncontrada->getNome();
+            $dados['distancia'] = $distanciaSedeEncontrada !== null ? round($distanciaSedeEncontrada, 2) : null;
+        }
+
         return $this->json([
             'success' => true,
-            'message' => 'Ponto registrado com sucesso!',
-            'data'    => [
-                'hora' => $registro->getDataHora()->format('H:i:s'),
-                'tipo' => $tipo,
-                'sede' => $sedeEncontrada->getNome(),
-                'distancia' => $distanciaSedeEncontrada !== null ? round($distanciaSedeEncontrada, 2) : null,
-            ],
+            'message' => $homeOfficeHoje ? 'Ponto (home office) registrado com sucesso!' : 'Ponto registrado com sucesso!',
+            'data'    => $dados,
         ]);
     }
 

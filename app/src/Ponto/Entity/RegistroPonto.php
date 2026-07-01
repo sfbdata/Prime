@@ -61,6 +61,10 @@ class RegistroPonto implements Auditavel, TenantAware
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observacao = null;
 
+    // Batida registrada em home office (fora do raio das sedes, sem GPS). sede/lat/lng ficam nulos.
+    #[ORM\Column(options: ['default' => false])]
+    private bool $homeOffice = false;
+
     public function __construct()
     {
         $this->dataHora = new \DateTime();
@@ -182,6 +186,17 @@ class RegistroPonto implements Auditavel, TenantAware
     public function setObservacao(?string $observacao): static
     {
         $this->observacao = $observacao;
+        return $this;
+    }
+
+    public function isHomeOffice(): bool
+    {
+        return $this->homeOffice;
+    }
+
+    public function setHomeOffice(bool $homeOffice): static
+    {
+        $this->homeOffice = $homeOffice;
         return $this;
     }
 }

@@ -68,6 +68,7 @@ final class PurgarEscritorioUseCase
         ['jornada_tenant', 'tenant_id = :tenant'],
         ['justificativa_ponto', 'tenant_id = :tenant'],
         ['registro_ponto', 'tenant_id = :tenant'],
+        ['home_office_config', 'tenant_id = :tenant'],
         ['feriado', 'tenant_id = :tenant'],
         // Fase 3 — estruturais / permissões do tenant.
         ['aceite_termo', 'tenant_id = :tenant'],

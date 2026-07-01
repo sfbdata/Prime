@@ -1,0 +1,219 @@
+<div class="card card-outline card-info mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h3 class="card-title mb-0"><i class="bi bi-house-laptop me-2"></i>Home Office</h3>
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="hoAtivo" checked>
+            <label class="form-check-label" for="hoAtivo">Habilitado</label>
+        </div>
+    </div>
+    <div class="card-body">
+
+        <p class="text-muted small mb-3">
+            <i class="bi bi-info-circle me-1"></i>
+            Nos dias liberados, o colaborador registra o ponto <strong>sem exigência de GPS/localização</strong>
+            (fora do raio das sedes). As batidas remotas ficam sinalizadas no espelho de ponto.
+        </p>
+
+        <div id="hoLoading" class="text-center py-4">
+            <div class="spinner-border text-info" role="status"></div>
+            <p class="mt-2 text-muted">Carregando configuração...</p>
+        </div>
+
+        <div id="hoForm" class="d-none">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Dias da semana</label>
+                <div class="d-flex flex-wrap gap-2" id="hoDias">
+                    {% set nomesDias = {1: 'Seg', 2: 'Ter', 3: 'Qua', 4: 'Qui', 5: 'Sex', 6: 'Sáb', 7: 'Dom'} %}
+                    {% for valor, nome in nomesDias %}
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input dia-check-ho" type="checkbox" value="{{ valor }}" id="hoDia{{ valor }}">
+                            <label class="form-check-label small" for="hoDia{{ valor }}">{{ nome }}</label>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="form-text">Marque todos para 100% home office.</div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Vigência — início <span class="text-muted fw-normal small">(opcional)</span></label>
+                    <input type="date" id="hoVigInicio" class="form-control">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Vigência — fim <span class="text-muted fw-normal small">(opcional)</span></label>
+                    <input type="date" id="hoVigFim" class="form-control">
+                </div>
+                <div class="form-text">
+                    Sem datas = permanente. A vigência limita apenas os <strong>dias da semana</strong>;
+                    as datas avulsas valem por si.
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Datas avulsas</label>
+                <div class="input-group">
+                    <input type="date" id="hoDataAvulsa" class="form-control">
+                    <button type="button" class="btn btn-outline-primary" id="hoAddData">
+                        <i class="bi bi-plus-lg me-1"></i>Adicionar
+                    </button>
+                </div>
+                <div id="hoDatasLista" class="d-flex flex-wrap gap-2 mt-2"></div>
+            </div>
+
+            <div id="hoErro" class="alert alert-danger d-none"></div>
+        </div>
+
+    </div>
+    <div class="card-footer d-flex justify-content-between gap-2">
+        <button type="button" class="btn btn-outline-danger" id="hoBtnLimpar">
+            <i class="bi bi-trash me-1"></i>Remover configuração
+        </button>
+        <button type="button" class="btn btn-info" id="hoBtnSalvar">
+            <i class="bi bi-save me-1"></i>Salvar
+        </button>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    const hoUrl = {{ path('app_home_office_get', {tenantId: tenantId, id: user.id})|json_encode|raw }};
+    let datasAvulsas = [];
+
+    function renderDatas() {
+        const container = document.getElementById('hoDatasLista');
+        container.innerHTML = '';
+        datasAvulsas.forEach((data, idx) => {
+            const chip = document.createElement('span');
+            chip.className = 'badge text-bg-secondary d-inline-flex align-items-center gap-1';
+            chip.textContent = data;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'btn-close btn-close-white btn-sm';
+            btn.setAttribute('aria-label', 'Remover');
+            btn.addEventListener('click', () => { datasAvulsas.splice(idx, 1); renderDatas(); });
+            chip.appendChild(btn);
+            container.appendChild(chip);
+        });
+    }
+
+    function setDias(dias) {
+        const marcados = new Set((dias || []).map(Number));
+        document.querySelectorAll('.dia-check-ho').forEach(cb => {
+            cb.checked = marcados.has(parseInt(cb.value, 10));
+        });
+    }
+
+    function getDias() {
+        const dias = [];
+        document.querySelectorAll('.dia-check-ho:checked').forEach(cb => dias.push(parseInt(cb.value, 10)));
+        return dias;
+    }
+
+    async function carregar() {
+        document.getElementById('hoLoading').classList.remove('d-none');
+        document.getElementById('hoForm').classList.add('d-none');
+
+        try {
+            const resp = await fetch(hoUrl, { headers: { 'Accept': 'application/json' } });
+            const dados = await resp.json();
+
+            document.getElementById('hoAtivo').checked = dados.ativo !== false;
+            setDias(dados.diasSemana);
+            document.getElementById('hoVigInicio').value = dados.vigenciaInicio || '';
+            document.getElementById('hoVigFim').value = dados.vigenciaFim || '';
+            datasAvulsas = (dados.datasAvulsas || []).slice();
+            renderDatas();
+
+            document.getElementById('hoLoading').classList.add('d-none');
+            document.getElementById('hoForm').classList.remove('d-none');
+        } catch (err) {
+            document.getElementById('hoLoading').innerHTML =
+                '<p class="text-danger">Erro ao carregar a configuração. Tente novamente.</p>';
+        }
+    }
+
+    document.getElementById('hoAddData').addEventListener('click', function () {
+        const input = document.getElementById('hoDataAvulsa');
+        const valor = input.value;
+        if (valor && !datasAvulsas.includes(valor)) {
+            datasAvulsas.push(valor);
+            datasAvulsas.sort();
+            renderDatas();
+        }
+        input.value = '';
+    });
+
+    document.getElementById('hoBtnSalvar').addEventListener('click', async function () {
+        const erroEl = document.getElementById('hoErro');
+        erroEl.classList.add('d-none');
+
+        const payload = {
+            diasSemana: getDias(),
+            datasAvulsas: datasAvulsas,
+            vigenciaInicio: document.getElementById('hoVigInicio').value || null,
+            vigenciaFim: document.getElementById('hoVigFim').value || null,
+            ativo: document.getElementById('hoAtivo').checked,
+        };
+
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Salvando...';
+
+        try {
+            const resp = await fetch(hoUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const result = await resp.json();
+
+            if (!resp.ok) {
+                erroEl.textContent = result.erro || 'Erro ao salvar.';
+                erroEl.classList.remove('d-none');
+            } else {
+                window.location.href = window.location.pathname + '?tab=home-office';
+            }
+        } catch (err) {
+            erroEl.textContent = 'Falha na comunicação com o servidor.';
+            erroEl.classList.remove('d-none');
+        } finally {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-save me-1"></i>Salvar';
+        }
+    });
+
+    document.getElementById('hoBtnLimpar').addEventListener('click', async function () {
+        if (!confirm('Remover a configuração de home office deste colaborador? Ele voltará a exigir localização em todas as batidas.')) return;
+
+        this.disabled = true;
+        try {
+            const resp = await fetch(hoUrl, { method: 'DELETE', headers: { 'Accept': 'application/json' } });
+            if (resp.ok) {
+                window.location.href = window.location.pathname + '?tab=home-office';
+            } else {
+                alert('Erro ao remover a configuração.');
+                this.disabled = false;
+            }
+        } catch (err) {
+            alert('Falha na comunicação com o servidor.');
+            this.disabled = false;
+        }
+    });
+
+    const tabBtn = document.getElementById('tab-home-office-btn');
+    if (tabBtn) {
+        tabBtn.addEventListener('shown.bs.tab', carregar);
+
+        if (tabBtn.classList.contains('active')) {
+            carregar();
+        } else {
+            document.addEventListener('DOMContentLoaded', function () {
+                if (tabBtn.classList.contains('active')) {
+                    carregar();
+                }
+            });
+        }
+    }
+})();
+</script>

@@ -23,7 +23,7 @@ class FolhaPontoBuilder
      * @param RegistroPonto[] $batidas
      * @param Feriado[] $feriados
      * @param array<string, JustificativaPonto> $justificativasDoMes Justificativas indexadas por 'Y-m-d'
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null}>
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -100,6 +100,7 @@ class FolhaPontoBuilder
                 'saldoAcumulado' => null,
                 'justificadoDia' => false,
                 'justificativa'  => $justificativasDoMes[$chaveDia] ?? null,
+                'homeOffice'     => $this->diaTeveHomeOffice($registrosPorDia[$chaveDia] ?? []),
             ];
 
             if ($jornada !== null) {
@@ -186,6 +187,22 @@ class FolhaPontoBuilder
         }
 
         return $rows;
+    }
+
+    /**
+     * Indica se o dia teve ao menos uma batida em home office (para o selo no espelho).
+     *
+     * @param array<string, RegistroPonto> $batidasDoDia
+     */
+    private function diaTeveHomeOffice(array $batidasDoDia): bool
+    {
+        foreach ($batidasDoDia as $batida) {
+            if ($batida->isHomeOffice()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -318,8 +318,14 @@
     const gpsStatus = document.getElementById('gps-status');
     const tipoRegistro = document.getElementById('tipo-registro');
     let currentLocation = null;
+    // Flag de home office de hoje (controlada pelo servidor): quando true, a batida dispensa GPS.
+    const homeOfficeHoje = {{ homeOfficeHoje ? 'true' : 'false' }};
 
     function updateButtonState() {
+        if (homeOfficeHoje) {
+            btnPonto.disabled = !tipoRegistro.value;
+            return;
+        }
         btnPonto.disabled = !currentLocation || !tipoRegistro.value;
     }
 
@@ -352,7 +358,11 @@
         console.log('GPS não disponível:', error.message);
     }
 
-    if ("geolocation" in navigator) {
+    if (homeOfficeHoje) {
+        gpsStatus.innerHTML = `<i class="bi bi-house-laptop"></i> Home Office hoje — o ponto será registrado sem exigir localização.`;
+        gpsStatus.className = 'alert alert-info small mb-3';
+        updateButtonState();
+    } else if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(
             aplicarPosicao,
             (error) => {
@@ -414,7 +424,7 @@
             return;
         }
 
-        if (!currentLocation) {
+        if (!homeOfficeHoje && !currentLocation) {
             alert('A localização é obrigatória para registrar o ponto.');
             return;
         }
@@ -422,23 +432,31 @@
         btnPonto.disabled = true;
         btnPonto.innerHTML = '<i class="bi bi-hourglass-split"></i> Registrando...';
 
-        let latitude = currentLocation.latitude;
-        let longitude = currentLocation.longitude;
-        let precisaoGps = currentLocation.precisaoGps;
+        const payload = { tipo: tipoRegistro.value };
 
-        if ("geolocation" in navigator) {
-            try {
-                const position = await new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
-                });
+        if (!homeOfficeHoje) {
+            let latitude = currentLocation.latitude;
+            let longitude = currentLocation.longitude;
+            let precisaoGps = currentLocation.precisaoGps;
 
-                latitude = position.coords.latitude;
-                longitude = position.coords.longitude;
-                precisaoGps = position.coords.accuracy;
-                currentLocation = { latitude, longitude, precisaoGps };
-            } catch (err) {
-                console.log('Não foi possível atualizar GPS:', err);
+            if ("geolocation" in navigator) {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 5000 });
+                    });
+
+                    latitude = position.coords.latitude;
+                    longitude = position.coords.longitude;
+                    precisaoGps = position.coords.accuracy;
+                    currentLocation = { latitude, longitude, precisaoGps };
+                } catch (err) {
+                    console.log('Não foi possível atualizar GPS:', err);
+                }
             }
+
+            payload.latitude = latitude;
+            payload.longitude = longitude;
+            payload.precisaoGps = precisaoGps;
         }
 
         try {
@@ -448,12 +466,7 @@
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify({
-                    latitude: latitude,
-                    longitude: longitude,
-                    precisaoGps: precisaoGps,
-                    tipo: tipoRegistro.value
-                })
+                body: JSON.stringify(payload)
             });
 
             const data = await response.json();
