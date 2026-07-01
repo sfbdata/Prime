@@ -125,6 +125,40 @@ final class FolhaPontoBuilderTest extends TestCase
         self::assertTrue($rows[0]['justificadoDia']);
     }
 
+    public function testBuildRowsDispensaAbonadaDiaInteiroComSaidaAntecipadaAbonaSoODeficit(): void
+    {
+        $jornada = $this->jornadaSimples(); // 480 min/dia (09-12 / 13-18)
+        $dia = new \DateTimeImmutable('2026-04-07'); // terça, dia útil passado
+
+        // Colaborador bateu entrada e saiu antecipado: trabalhou só 5h (300 min) das 8h.
+        $batidas = [
+            $this->batida(RegistroPonto::TIPO_ENTRADA, '09:00', '2026-04-07'),
+            $this->batida(RegistroPonto::TIPO_REPOUSO, '12:00', '2026-04-07'),
+            $this->batida(RegistroPonto::TIPO_RETORNO, '13:00', '2026-04-07'),
+            $this->batida(RegistroPonto::TIPO_SAIDA,   '15:00', '2026-04-07'),
+        ];
+
+        // Sem justificativa: déficit de 180 min (3h que faltaram para fechar a jornada).
+        $baseline = $this->builder->buildRows($dia, $dia, $batidas, true, false, $jornada, [], [])[0]['saldoDia'];
+        self::assertSame(-180, $baseline);
+
+        // Dispensa Abonada de dia inteiro (SEM abono parcial): zera o déficit, não credita 8h por cima.
+        $justificativa = $this->justificativaAbonada('dispensa_abonada');
+        $rows = $this->builder->buildRows(
+            $dia,
+            $dia,
+            $batidas,
+            true,
+            false,
+            $jornada,
+            [],
+            ['2026-04-07' => $justificativa],
+        );
+
+        self::assertSame(0, $rows[0]['saldoDia']); // dia neutro: só o restante que faltava foi abonado
+        self::assertTrue($rows[0]['justificadoDia']);
+    }
+
     public function testBuildRowsSistemaIndisponivelAbonoParcialSomaMinutosAbonados(): void
     {
         $jornada = $this->jornadaSimples();
