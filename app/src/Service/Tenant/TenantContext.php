@@ -62,7 +62,7 @@ final class TenantContext
             'tenant' => $this->em->getReference(Tenant::class, $tenantId),
         ]);
 
-        if ($userTenant === null || !$userTenant->isActive()) {
+        if ($userTenant === null || !$userTenant->isActive() || $userTenant->getTenant()->isActive() !== true) {
             throw new AccessDeniedException('Sem vínculo ativo com este escritório.');
         }
 

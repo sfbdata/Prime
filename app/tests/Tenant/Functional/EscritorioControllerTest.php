@@ -11,6 +11,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Expediente\Entity\Marcador;
 use App\Ponto\Entity\Feriado;
 use App\Tenant\Controller\EscritorioController;
+use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -343,5 +344,87 @@ final class EscritorioControllerTest extends JusPrimeWebTestCase
         $u = $em->getRepository(User::class)->find($user->getId());
         self::assertSame('54321', $u->getOabNumero());
         self::assertSame('RJ', $u->getOabUf());
+    }
+
+    #[TestDox('Admin exclui o próprio escritório: soft delete + excluidoEm + sessão limpa')]
+    public function testExcluirSoftDelete(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        [$user] = $this->criarUsuarioComVinculo($tenant, admin: true);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', "/escritorio/{$tenant->getId()}/excluir", [
+            '_token'         => $this->gerarCsrf('excluir_' . $tenant->getId()),
+            'confirmar_nome' => $tenant->getName(),
+        ]);
+
+        self::assertResponseRedirects('/escritorio/selecionar');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $t  = $em->getRepository(Tenant::class)->find($tenant->getId());
+        self::assertFalse($t->isActive());
+        self::assertNotNull($t->getExcluidoEm());
+        self::assertNull($client->getSession()->get('current_tenant_id'));
+    }
+
+    #[TestDox('Colaborador não-admin não pode excluir o escritório (403) e nada muda')]
+    public function testExcluirNegadoParaNaoAdmin(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        [$user] = $this->criarUsuarioComVinculo($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', "/escritorio/{$tenant->getId()}/excluir", [
+            '_token'         => $this->gerarCsrf('excluir_' . $tenant->getId()),
+            'confirmar_nome' => $tenant->getName(),
+        ]);
+
+        self::assertResponseStatusCodeSame(403);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertTrue($em->getRepository(Tenant::class)->find($tenant->getId())->isActive());
+    }
+
+    #[TestDox('Confirmação com nome errado não exclui e volta à página do escritório')]
+    public function testExcluirConfirmacaoErradaNaoExclui(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        [$user] = $this->criarUsuarioComVinculo($tenant, admin: true);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('POST', "/escritorio/{$tenant->getId()}/excluir", [
+            '_token'         => $this->gerarCsrf('excluir_' . $tenant->getId()),
+            'confirmar_nome' => 'nome errado',
+        ]);
+
+        self::assertResponseRedirects("/tenant/{$tenant->getId()}");
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        self::assertTrue($em->getRepository(Tenant::class)->find($tenant->getId())->isActive());
+    }
+
+    #[TestDox('Escritório ativo excluído "por fora" derruba a sessão do colaborador no próximo request (C1/RS07)')]
+    public function testTenantExcluidoPorForaDerrubaSessao(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        [$user] = $this->criarUsuarioComVinculo($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Exclui o tenant "por fora" (outro admin): soft delete desativa só o Tenant,
+        // não o vínculo do colaborador — que continua ativo.
+        static::getContainer()->get(ExcluirEscritorioUseCase::class)->executar($tenant);
+
+        // Próximo request numa rota protegida → o validador derruba para a seleção.
+        $client->request('GET', '/expediente');
+
+        self::assertResponseRedirects('/escritorio/selecionar');
     }
 }

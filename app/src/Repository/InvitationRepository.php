@@ -27,10 +27,14 @@ class InvitationRepository extends ServiceEntityRepository
     /** @return Invitation[] */
     public function encontrarPendentesPorEmail(string $email): array
     {
+        // I3: não listar convite de escritório soft-deletado (tenant inativo).
+        // Convites de plataforma (tenant nulo) continuam aparecendo.
         return $this->createQueryBuilder('i')
+            ->leftJoin('i.tenant', 't')
             ->andWhere('i.email = :email')
             ->andWhere('i.status = :status')
             ->andWhere('i.expiresAt > :now')
+            ->andWhere('i.tenant IS NULL OR t.isActive = true')
             ->setParameter('email', $email)
             ->setParameter('status', 'pending')
             ->setParameter('now', new \DateTimeImmutable())

@@ -129,4 +129,70 @@ final class TenantSelecaoControllerTest extends JusPrimeWebTestCase
         self::assertSelectorTextContains('body', 'convite');
         self::assertSelectorTextContains('body', $tenant->getName());
     }
+
+    #[TestDox('Trocar para um escritório EXCLUÍDO (inativo) é negado (RS06)')]
+    public function testTrocaParaTenantExcluidoNegada(): void
+    {
+        $client  = static::createClient();
+        $tenantA = $this->criarTenant('Ativo');
+        $tenantB = $this->criarTenant('Excluído');
+        $user    = $this->criarUsuario();
+        $this->vincular($user, $tenantA);
+        $this->vincular($user, $tenantB);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $tenantB->setIsActive(false);
+        $em->flush();
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenantA);
+        $client->request('POST', '/escritorio/selecionar', [
+            'tenant_id'   => $tenantB->getId(),
+            '_csrf_token' => 'TOKEN_tenant_selecionar',
+        ]);
+
+        self::assertResponseRedirects('/escritorio/selecionar');
+    }
+
+    #[TestDox('Usuário cujo único escritório foi excluído cai no estado vazio (RS06 em findActiveByUser)')]
+    public function testEstadoVazioQuandoUnicoTenantExcluido(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant('Excluído');
+        $user   = $this->criarUsuario();
+        $this->vincular($user, $tenant);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant->setIsActive(false);
+        $em->flush();
+
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+        $client->request('GET', '/escritorio/selecionar');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextContains('body', 'Criar meu escritório');
+    }
+
+    #[TestDox('Convite de escritório EXCLUÍDO não aparece no estado vazio (I3)')]
+    public function testConviteDeTenantInativoNaoAparece(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant('Escritório Excluído');
+        $user   = $this->criarUsuario();
+
+        $em      = static::getContainer()->get(EntityManagerInterface::class);
+        $tenant->setIsActive(false);
+        $convite = new Invitation($user->getEmail(), 'tok_' . uniqid(), 'office', new \DateTimeImmutable('+5 days'));
+        $convite->setTenant($tenant);
+        $em->persist($convite);
+        $em->flush();
+
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+        $client->request('GET', '/escritorio/selecionar');
+
+        self::assertResponseIsSuccessful();
+        self::assertSelectorTextNotContains('body', $tenant->getName());
+    }
 }

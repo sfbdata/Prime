@@ -19,10 +19,23 @@ class UserTenantRepository extends ServiceEntityRepository
         parent::__construct($registry, UserTenant::class);
     }
 
-    /** @return UserTenant[] */
+    /**
+     * Vínculos ativos do usuário cujo ESCRITÓRIO também está ativo. Um tenant
+     * excluído (soft delete, isActive=false) some do switcher, da seleção e do
+     * roteamento de login mesmo que o vínculo em si continue ativo (RS06).
+     *
+     * @return UserTenant[]
+     */
     public function findActiveByUser(User $user): array
     {
-        return $this->findBy(['user' => $user, 'isActive' => true]);
+        return $this->createQueryBuilder('ut')
+            ->join('ut.tenant', 't')
+            ->andWhere('ut.user = :user')
+            ->andWhere('ut.isActive = true')
+            ->andWhere('t.isActive = true')
+            ->setParameter('user', $user)
+            ->getQuery()
+            ->getResult();
     }
 
     public function existeVinculoAtivo(User $user, Tenant $tenant): bool

@@ -38,6 +38,7 @@ use App\Profile\Form\DadosPessoaisType;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Tenant\DTO\DemitirFuncionarioInput;
 use App\Tenant\UseCase\DemitirFuncionarioUseCase;
+use App\Tenant\UseCase\ExcluirEscritorioUseCase;
 use App\Tenant\UseCase\GerarCodigoFuncionario;
 use App\Service\InvitationService;
 use App\Service\NotificacaoService;
@@ -289,7 +290,7 @@ final class TenantController extends AbstractController
     }
 
     #[Route('/{tenantId}', name: 'app_tenant_delete', methods: ['POST'])]
-    public function delete(Request $request, #[MapEntity(id: 'tenantId')] Tenant $tenant, EntityManagerInterface $entityManager): Response
+    public function delete(Request $request, #[MapEntity(id: 'tenantId')] Tenant $tenant, ExcluirEscritorioUseCase $excluirEscritorio): Response
     {
         $user = $this->getUser();
 
@@ -301,9 +302,9 @@ final class TenantController extends AbstractController
             throw $this->createAccessDeniedException('Somente SUPER_ADMIN pode excluir Tenants.');
         }
 
+        // RS08: exclusão é soft delete (quarentena), nunca mais remove() destrutivo.
         if ($this->isCsrfTokenValid('delete'.$tenant->getId(), $request->request->get('_token'))) {
-            $entityManager->remove($tenant);
-            $entityManager->flush();
+            $excluirEscritorio->executar($tenant);
         }
 
         return $this->redirectToRoute('app_tenant_index', [], Response::HTTP_SEE_OTHER);

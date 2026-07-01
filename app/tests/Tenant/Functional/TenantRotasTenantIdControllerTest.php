@@ -68,7 +68,7 @@ final class TenantRotasTenantIdControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(404, 'tenant inexistente deve dar 404 — prova do MapEntity(id: tenantId)');
     }
 
-    #[TestDox('app_tenant_delete (POST) resolve pelo {tenantId} e exclui o tenant (super-admin + CSRF) → 303')]
+    #[TestDox('app_tenant_delete (POST) resolve pelo {tenantId} e faz SOFT delete do tenant (super-admin + CSRF) → 303')]
     public function testDeletePostResolvePeloTenantId(): void
     {
         $client     = static::createClient();
@@ -85,7 +85,11 @@ final class TenantRotasTenantIdControllerTest extends JusPrimeWebTestCase
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
-        self::assertNull($em->find(Tenant::class, $id), 'o tenant deveria ter sido excluído (CSRF ok + MapEntity resolveu)');
+        $t = $em->find(Tenant::class, $id);
+        // RS08: exclusão virou soft delete — o tenant permanece no banco, apenas desativado.
+        self::assertNotNull($t, 'soft delete não remove o tenant do banco');
+        self::assertFalse($t->isActive(), 'o tenant deveria ter sido desativado (soft delete)');
+        self::assertNotNull($t->getExcluidoEm(), 'a quarentena (excluidoEm) deveria estar marcada');
     }
 
     // ----------------------------------------------------------------- helpers

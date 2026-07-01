@@ -46,8 +46,44 @@
                         </div>
                     </div>
                 </div>
+
+                {% if can_administer('admin.tenant.settings.manage') and tenant.isActive %}
+                    <div class="card card-outline card-danger mt-3">
+                        <div class="card-header">
+                            <h3 class="card-title text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Zona de perigo</h3>
+                        </div>
+                        <div class="card-body">
+                            <p class="small mb-3">
+                                Excluir o escritório <strong>desativa o acesso de todos os colaboradores imediatamente</strong>.
+                                Os dados ficam em quarentena e podem ser recuperados por um período antes da remoção definitiva.
+                            </p>
+                            <form method="post" action="{{ path('escritorio_excluir', {id: tenant.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('excluir_' ~ tenant.id) }}">
+                                <label class="form-label small mb-1">Digite <strong>{{ tenant.name }}</strong> para confirmar:</label>
+                                <div class="input-group">
+                                    <input type="text" name="confirmar_nome" class="form-control" autocomplete="off"
+                                           id="confirmarNomeExclusao" data-nome="{{ tenant.name|e('html_attr') }}">
+                                    <button type="submit" class="btn btn-danger" id="btnExcluirEscritorio" disabled>
+                                        <i class="bi bi-trash me-1"></i>Excluir escritório
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
 </section>
+
+<script>
+  (function () {
+    var input = document.getElementById('confirmarNomeExclusao');
+    var btn = document.getElementById('btnExcluirEscritorio');
+    if (!input || !btn) { return; }
+    input.addEventListener('input', function () {
+      btn.disabled = input.value !== input.dataset.nome;
+    });
+  })();
+</script>
 {% endblock %}

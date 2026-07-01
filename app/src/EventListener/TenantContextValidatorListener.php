@@ -67,7 +67,11 @@ final class TenantContextValidatorListener
 
         $userTenant = $this->tenantContext->getCurrentUserTenant();
 
-        if ($userTenant !== null && $userTenant->isActive()) {
+        // Derruba a sessão se o vínculo foi removido OU se o escritório foi excluído
+        // (soft delete) por outro admin — senão o usuário fica preso operando num
+        // tenant inativo (RS06/RS07). Fecha num ponto só os 40+ consumidores de
+        // getCurrentTenant() que não recheca isActive.
+        if ($userTenant !== null && $userTenant->isActive() && $userTenant->getTenant()->isActive() === true) {
             return;
         }
 
@@ -75,7 +79,7 @@ final class TenantContextValidatorListener
 
         $event->getRequest()->getSession()->getFlashBag()->add(
             'warning',
-            'Seu vínculo com este escritório foi removido. Selecione outro escritório.',
+            'Seu acesso a este escritório não está mais disponível. Selecione outro escritório.',
         );
 
         $event->setResponse(new RedirectResponse($this->router->generate('tenant_selecionar')));

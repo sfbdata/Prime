@@ -54,6 +54,9 @@ class Tenant implements Auditavel
     #[ORM\Column]
     private ?bool $isActive = null;
 
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $excluidoEm = null;
+
     /**
      * @var Collection<int, TenantRole>
      */
@@ -215,6 +218,17 @@ class Tenant implements Auditavel
     public function setIsActive(bool $isActive): static
     {
         $this->isActive = $isActive;
+        return $this;
+    }
+
+    public function getExcluidoEm(): ?\DateTimeImmutable
+    {
+        return $this->excluidoEm;
+    }
+
+    public function setExcluidoEm(?\DateTimeImmutable $excluidoEm): static
+    {
+        $this->excluidoEm = $excluidoEm;
         return $this;
     }
 
