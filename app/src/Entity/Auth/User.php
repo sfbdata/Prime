@@ -2,6 +2,7 @@
 
 namespace App\Entity\Auth;
 
+use App\Auth\Enum\StatusOab;
 use App\Ponto\Entity\JornadaColaborador;
 use App\Profile\Entity\UserProfile;
 use App\Repository\UserRepository;
@@ -51,6 +52,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
 
     #[ORM\Column(length: 2, nullable: true)]
     private ?string $oabUf = null;
+
+    #[ORM\Column(type: 'string', enumType: StatusOab::class, nullable: true)]
+    private ?StatusOab $oabStatus = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $oabNomeOficial = null;
+
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $oabVerificadaEm = null;
 
     // -------------------------
     // Construtor
@@ -201,5 +211,38 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface, Auditav
         $this->oabUf = $oabUf;
 
         return $this;
+    }
+
+    public function getOabStatus(): ?StatusOab { return $this->oabStatus; }
+
+    public function setOabStatus(?StatusOab $oabStatus): static
+    {
+        $this->oabStatus = $oabStatus;
+
+        return $this;
+    }
+
+    public function getOabNomeOficial(): ?string { return $this->oabNomeOficial; }
+
+    public function setOabNomeOficial(?string $oabNomeOficial): static
+    {
+        $this->oabNomeOficial = $oabNomeOficial;
+
+        return $this;
+    }
+
+    public function getOabVerificadaEm(): ?\DateTimeImmutable { return $this->oabVerificadaEm; }
+
+    public function setOabVerificadaEm(?\DateTimeImmutable $oabVerificadaEm): static
+    {
+        $this->oabVerificadaEm = $oabVerificadaEm;
+
+        return $this;
+    }
+
+    /** Único status que libera criar escritório. */
+    public function isOabConfirmada(): bool
+    {
+        return $this->oabStatus === StatusOab::Confirmada;
     }
 }

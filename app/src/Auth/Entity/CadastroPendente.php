@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auth\Entity;
 
+use App\Auth\Enum\StatusOab;
 use App\Auth\Repository\CadastroPendenteRepository;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -31,6 +32,12 @@ class CadastroPendente
 
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $confirmedAt = null;
+
+    #[ORM\Column(type: 'string', enumType: StatusOab::class, nullable: true)]
+    private ?StatusOab $oabStatus = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    private ?string $oabNomeOficial = null;
 
     public function __construct(
         #[ORM\Column(length: 180)]
@@ -106,4 +113,12 @@ class CadastroPendente
         $this->status      = 'confirmado';
         $this->confirmedAt = new \DateTimeImmutable();
     }
+
+    public function getOabStatus(): ?StatusOab { return $this->oabStatus; }
+
+    public function setOabStatus(?StatusOab $oabStatus): void { $this->oabStatus = $oabStatus; }
+
+    public function getOabNomeOficial(): ?string { return $this->oabNomeOficial; }
+
+    public function setOabNomeOficial(?string $oabNomeOficial): void { $this->oabNomeOficial = $oabNomeOficial; }
 }

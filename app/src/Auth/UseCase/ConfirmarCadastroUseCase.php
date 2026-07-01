@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auth\UseCase;
 
+use App\Auth\Enum\StatusOab;
 use App\Auth\Repository\CadastroPendenteRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -59,6 +60,14 @@ final class ConfirmarCadastroUseCase
                 $user->setPassword($cadastro->getSenhaHash());
                 $user->setOabNumero($cadastro->getOabNumero());
                 $user->setOabUf($cadastro->getOabUf());
+                // Carrega o resultado da verificação de OAB feita no Iniciar.
+                $user->setOabStatus($cadastro->getOabStatus());
+                $user->setOabNomeOficial($cadastro->getOabNomeOficial());
+
+                if ($cadastro->getOabStatus() === StatusOab::Confirmada) {
+                    $user->setOabVerificadaEm(new \DateTimeImmutable());
+                }
+
                 $this->em->persist($user);
 
                 $tenant = new Tenant();

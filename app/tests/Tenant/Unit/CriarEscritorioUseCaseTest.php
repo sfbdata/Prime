@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Tenant\Unit;
 
+use App\Auth\Enum\StatusOab;
+use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TenantRepository;
 use App\Service\TenantBootstrapService;
 use App\Tenant\DTO\CriarEscritorioInput;
 use App\Tenant\UseCase\CriarEscritorioUseCase;
+use App\Tests\Auth\Doubles\OabWebServiceClientFake;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -29,7 +32,9 @@ final class CriarEscritorioUseCaseTest extends TestCase
         $this->em               = $this->createMock(EntityManagerInterface::class);
         $this->tenantRepository = $this->createMock(TenantRepository::class);
         $this->bootstrap        = $this->createMock(TenantBootstrapService::class);
-        $this->useCase          = new CriarEscritorioUseCase($this->em, $this->tenantRepository, $this->bootstrap, 3);
+        // ValidadorOab real com backend dormente (fake indisponível) = comportamento de produção.
+        $validadorOab           = new ValidadorOab((new OabWebServiceClientFake())->indisponivel());
+        $this->useCase          = new CriarEscritorioUseCase($this->em, $this->tenantRepository, $this->bootstrap, $validadorOab, 3);
     }
 
     private function input(string $nome, ?string $oabNumero = null, ?string $oabUf = null): CriarEscritorioInput
@@ -105,6 +110,37 @@ final class CriarEscritorioUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
         $this->useCase->executar($this->input('X', '12345', 'sp'), $criador);
+    }
+
+    #[TestDox('Após criar, grava oabStatus nao_verificada (backend dormente)')]
+    public function testGravaStatusNaoVerificadaAoCriar(): void
+    {
+        $criador = new User();
+        $criador->setOabNumero('11111');
+        $criador->setOabUf('SP');
+
+        $this->tenantRepository->method('contarPorCriador')->willReturn(0);
+        $this->bootstrap->expects($this->once())->method('bootstrap');
+
+        $this->useCase->executar($this->input('Banca'), $criador);
+
+        self::assertSame(StatusOab::NaoVerificada, $criador->getOabStatus());
+    }
+
+    #[TestDox('Dono já confirmada NÃO sofre downgrade ao criar outro escritório')]
+    public function testNaoFazDowngradeDeConfirmada(): void
+    {
+        $criador = new User();
+        $criador->setOabNumero('22222');
+        $criador->setOabUf('MG');
+        $criador->setOabStatus(StatusOab::Confirmada);
+
+        $this->tenantRepository->method('contarPorCriador')->willReturn(0);
+        $this->bootstrap->expects($this->once())->method('bootstrap');
+
+        $this->useCase->executar($this->input('Segunda Banca'), $criador);
+
+        self::assertSame(StatusOab::Confirmada, $criador->getOabStatus());
     }
 
     #[TestDox('Falha quando o limite de escritórios próprios foi atingido (RN08)')]

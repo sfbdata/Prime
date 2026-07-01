@@ -30,6 +30,24 @@ de Advogados (CNA)**, e reformula a regra: **OAB deixa de ser obrigatória para 
 
 **Fora de escopo:** verificação por CPF; job batch/cron de revalidação (a revalidação é sob demanda).
 
+### ⚠️ Revisão 2026-07-01 (pós-teste do SOAP real) — **MANUAL-FIRST**
+
+Teste de chamada real ao `ConsultaAdvogado` revelou que **o serviço EXIGE uma chave de identificação
+registrada** (`soap:header Authentication/Key`): sem chave → `Fault "É preciso enviar a chave..."`; com
+chave inválida → `Fault "Chave de identificação inválida!"`. **Não temos essa chave** (a OAB só emite
+mediante cadastro). Consequências:
+
+- **Verificação automática fica DORMENTE.** A Fase 1 entra com a **interface** + um client
+  **"indisponível"** (sempre lança `OabIndisponivelException` → `verificar` devolve `nao_verificada`).
+  O **client SOAP real (com `Key`)** vira tarefa **futura** — não dá nem para escrever o parser agora,
+  pois nunca vimos uma resposta de sucesso (só erros de chave). Quando houver chave (ou uma API paga),
+  implementa-se a interface e o automático liga, **sem tocar no resto**.
+- **A verificação passa a ser MANUAL:** a única forma de virar `confirmada` é (a) backfill de dono
+  existente, ou (b) **aprovação do super-admin** na tela de revisão. Logo a tela de revisão **deixa de ser
+  opcional/tardia** e o **gate só liga por último** (depois de existirem os caminhos de aprovação/entrada).
+- **Advogado novo espera aprovação do admin** para criar escritório (não é mais instantâneo) — aceito pelo
+  dono (é o "aguardar a validação pelo admin").
+
 ---
 
 ## 📋 Problema & objetivo
@@ -64,12 +82,13 @@ com um caminho claro (informar/validar no perfil, ou entrar por convite).
 
 Fecha a #4: a validação vira um **serviço único** que os 3 UseCases (+ perfil + admin) chamam.
 
-- **`App\Auth\Service\OabWebServiceClientInterface`** + impl **`OabWebServiceClient`**
-  Encapsula o SOAP `ConsultaAdvogado(inscricao, uf, nome)` (via `SoapClient` com timeout de contexto
-  **4s**). URL/WSDL por env (default o endpoint da OAB); se vazio/desabilitado → comporta-se como
-  indisponível (fail-open). Retorna **`ConsultaOabResultado`** (`existe: bool`, `nomeOficial: ?string`,
-  `situacao: ?string`) ou lança `OabIndisponivelException` (transporte/timeout/XML inválido). A interface
-  permite **stub nos testes** (sem rede).
+- **`App\Auth\Service\OabWebServiceClientInterface`** — `consultar(inscricao, uf, nome): ConsultaOabResultado`
+  (lança `OabIndisponivelException` em falha). A interface permite **stub nos testes** e troca de backend.
+  - **Fase 1 (agora):** impl **dormente** `ClienteOabIndisponivel` — sempre lança `OabIndisponivelException`
+    (não há backend automático; ver Revisão MANUAL-FIRST). `verificar` sempre devolve `nao_verificada`.
+  - **Futuro:** impl real `OabWebServiceClientSoap` (SOAP `ConsultaAdvogado` via `SoapClient`, header
+    `Authentication/Key` por env, timeout 4s, parse do XML de `ConsultaAdvogadoResult`) — quando houver
+    chave. Retorna `ConsultaOabResultado` (`existe`, `nomeOficial`, `situacao`).
 
 - **`App\Auth\Service\ValidadorOab`** — ponto único:
   - `validarFormato(?string $numero, ?string $uf): void` — OAB ausente/vazia = **ok (opcional)**; se
@@ -188,16 +207,21 @@ Todos chamam `validarFormato` (sempre) e `verificar` (quando há OAB). Nenhum bl
 
 ---
 
-## 🗺 Faseamento (cada fase entrega valor sozinha)
+## 🗺 Faseamento (revisado — MANUAL-FIRST; ordem que nunca deixa estado quebrado)
 
-1. **Backend core** — `OabWebServiceClient`(+interface+stub) + `ValidadorOab` (**fecha #4**) + enum/DTOs +
-   colunas `oab_*` (`User`/`CadastroPendente`) + backfill + verificação nos 3 fluxos + **gate no
-   `CriarEscritorioUseCase`** + `ConfirmarCadastro` condicional. *(Sistema já correto: OAB fake não abre
-   escritório; donos existentes grandfathered.)*
-2. **UX** — **seção de OAB no perfil (`/perfil`)**: status + informar/editar + botão "verificar"
-   (entry point universal). Estado vazio/dropdown refletindo o status ("criar escritório" condicional).
-3. **Admin** — tela de revisão super-admin (`/admin/platform/oab`): listar `divergente`/`nao_verificada`,
-   ações re-verificar + marcar confirmada.
+O **gate liga por último** (Passo 3), só depois de existirem os caminhos de aprovação (admin) e de entrada
+de OAB (perfil) — senão um advogado novo ficaria preso em `nao_verificada` sem como ser aprovado.
+
+1. **Passo 1 — Modelo + #4 (sem gate)** — interface `OabWebServiceClientInterface` + `ClienteOabIndisponivel`
+   (dormente) + `ValidadorOab` (**fecha #4**) + enum/DTOs + colunas `oab_*` (`User`/`CadastroPendente`) +
+   backfill (donos→`confirmada`) + os 3 fluxos gravando status. **Nada bloqueia** (não-breaking).
+2. **Passo 2 — Caminhos manuais** — tela de revisão super-admin (`/admin/platform/oab`: listar
+   `divergente`/`nao_verificada`, **marcar `confirmada`**/override) **+** seção de OAB no perfil (`/perfil`:
+   ver status + informar/editar OAB + botão "verificar" — **dormente**, mantém `nao_verificada`).
+3. **Passo 3 — Liga o gate** — `CriarEscritorioUseCase` passa a exigir `confirmada` + estado vazio/dropdown
+   condicional. *(Agora seguro: quem precisa tem como ser aprovado.)*
+4. **Futuro** — `OabWebServiceClientSoap` (com `Key`, quando obtida) ou API paga → liga a verificação
+   automática (o `verificar` deixa de ser dormente). Sem tocar no resto.
 
 ---
 
@@ -208,3 +232,8 @@ Todos chamam `validarFormato` (sempre) e `verificar` (quando há OAB). Nenhum bl
   lista do que conta como "Regular".
 - **Robustez do `SoapClient`**: timeout via stream context, tratamento de `SoapFault`, e comportamento
   quando a OAB devolve HTML/erro em vez de XML (→ tratar como indisponível).
+- **Matcher de nome — endurecer antes de ligar o backend (achado BAIXO-2):** o matcher lenient atual
+  aceita quando os tokens do nome mais curto ⊆ oficial, então um nome digitado com **1 token genérico**
+  (ex.: "Silva") "bate" com "Maria Silva" → falso-positivo de `confirmada`. Inócuo no Passo 1 (backend
+  dormente nunca chega no matcher), mas **antes de ligar a verificação automática**, exigir mínimo de 2
+  tokens (ou casar primeiro nome + sobrenome).

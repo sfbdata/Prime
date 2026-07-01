@@ -52,6 +52,10 @@ services:
     App\:
         resource: '../src/'
 
+    # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
+    # web service oficial. Trocar aqui quando houver backend real.
+    App\Auth\Service\OabWebServiceClientInterface: '@App\Auth\Service\ClienteOabIndisponivel'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
 

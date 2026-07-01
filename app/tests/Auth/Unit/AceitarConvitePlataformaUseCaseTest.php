@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Auth\Unit;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
+use App\Auth\Service\ValidadorOab;
 use App\Auth\UseCase\AceitarConvitePlataformaUseCase;
 use App\Entity\Auth\Invitation;
 use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
+use App\Tests\Auth\Doubles\OabWebServiceClientFake;
 use App\Termo\Repository\AceiteTermoRepository;
 use App\Termo\TermoVigente;
 use App\Termo\UseCase\RegistrarAceiteTermoUseCase;
@@ -46,6 +48,7 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
             $this->em,
             $this->hasher,
             $registrarAceite,
+            new ValidadorOab((new OabWebServiceClientFake())->indisponivel()),
         );
     }
 
@@ -220,6 +223,18 @@ final class AceitarConvitePlataformaUseCaseTest extends TestCase
         $this->expectExceptionMessage('apenas dígitos');
 
         $this->useCase->executar($this->validInput(oabNumero: ''));
+    }
+
+    public function testOabTotalmenteAusenteLancaExcecao(): void
+    {
+        $invitation = $this->makeInvitation();
+        $this->invitationRepo->method('encontrarPorToken')->willReturn($invitation);
+        $this->userRepo->method('findOneBy')->willReturn(null);
+        $this->em->expects($this->never())->method('persist');
+
+        // OAB obrigatória no Passo 1: número e UF ambos vazios é rejeitado.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->useCase->executar($this->validInput(oabNumero: '', oabUf: ''));
     }
 
     public function testOabUfComUmaLetraLancaExcecao(): void

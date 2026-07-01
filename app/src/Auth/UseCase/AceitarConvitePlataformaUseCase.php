@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Auth\UseCase;
 
 use App\Auth\DTO\AceitarConvitePlataformaInput;
+use App\Auth\Enum\StatusOab;
+use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use App\Repository\InvitationRepository;
 use App\Repository\UserRepository;
@@ -21,6 +23,7 @@ final class AceitarConvitePlataformaUseCase
         private readonly EntityManagerInterface $em,
         private readonly UserPasswordHasherInterface $passwordHasher,
         private readonly RegistrarAceiteTermoUseCase $registrarAceite,
+        private readonly ValidadorOab $validadorOab,
     ) {}
 
     public function executar(AceitarConvitePlataformaInput $input): User
@@ -43,13 +46,13 @@ final class AceitarConvitePlataformaUseCase
             throw new \DomainException('Já existe uma conta com este e-mail.');
         }
 
-        if (!preg_match('/^\d+$/', $input->oabNumero)) {
-            throw new \InvalidArgumentException('Número da OAB deve conter apenas dígitos.');
+        // OAB é obrigatória neste fluxo (Passo 1; vira opcional só no Passo 3). O ValidadorOab
+        // trata ausência como opcional, então o "obrigatória" fica como guard aqui.
+        if ($input->oabNumero === '' && $input->oabUf === '') {
+            throw new \InvalidArgumentException('Informe a OAB (número e UF).');
         }
 
-        if (!preg_match('/^[A-Z]{2}$/', $input->oabUf)) {
-            throw new \InvalidArgumentException('UF da OAB deve ter exatamente 2 letras maiúsculas.');
-        }
+        $this->validadorOab->validarFormato($input->oabNumero, $input->oabUf);
 
         if (!$input->aceiteTermos) {
             throw new \DomainException('É necessário aceitar os Termos de Uso para criar a conta.');
@@ -63,6 +66,15 @@ final class AceitarConvitePlataformaUseCase
         $user->setPassword($this->passwordHasher->hashPassword($user, $input->senha));
         $user->setOabNumero($input->oabNumero);
         $user->setOabUf($input->oabUf);
+
+        // Verifica a OAB e grava o status (dormente por ora → nao_verificada).
+        $resultado = $this->validadorOab->verificar($input->oabNumero, $input->oabUf, $input->fullName);
+        $user->setOabStatus($resultado->status);
+        $user->setOabNomeOficial($resultado->nomeOficial);
+
+        if ($resultado->status === StatusOab::Confirmada) {
+            $user->setOabVerificadaEm(new \DateTimeImmutable());
+        }
 
         $invitation->aceitar($user);
 

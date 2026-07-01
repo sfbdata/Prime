@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tenant\UseCase;
 
+use App\Auth\Enum\StatusOab;
+use App\Auth\Service\ValidadorOab;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Repository\TenantRepository;
@@ -16,6 +18,10 @@ use Doctrine\ORM\EntityManagerInterface;
  * própria banca). O criador vira dono (via TenantBootstrapService, que cria o perfil
  * admin e o vínculo). Regras: OAB obrigatória (RN03) e limite de escritórios próprios
  * (RN08). A criação é atômica — o bootstrap faz um único flush.
+ *
+ * A validação de FORMATO da OAB usa o ValidadorOab (ponto único — fecha a #4). A OAB é
+ * também verificada contra o CNA e o resultado é gravado no criador (dormente por ora →
+ * `nao_verificada`). O gate de `confirmada` para criar entra no Passo 3.
  */
 final class CriarEscritorioUseCase
 {
@@ -23,6 +29,7 @@ final class CriarEscritorioUseCase
         private readonly EntityManagerInterface $em,
         private readonly TenantRepository $tenantRepository,
         private readonly TenantBootstrapService $bootstrap,
+        private readonly ValidadorOab $validadorOab,
         private readonly int $tenantMaxPorUsuario,
     ) {}
 
@@ -31,7 +38,11 @@ final class CriarEscritorioUseCase
         $oabNumero = $criador->getOabNumero() ?? $input->oabNumero;
         $oabUf     = $criador->getOabUf() ?? $input->oabUf;
 
-        $this->validarOab($oabNumero, $oabUf);
+        if ($oabNumero === null || $oabNumero === '' || $oabUf === null || $oabUf === '') {
+            throw new \InvalidArgumentException('Informe a OAB (número e UF) para criar um escritório.');
+        }
+
+        $this->validadorOab->validarFormato($oabNumero, $oabUf);
 
         if ($this->tenantRepository->contarPorCriador($criador) >= $this->tenantMaxPorUsuario) {
             throw new \DomainException(sprintf(
@@ -46,6 +57,17 @@ final class CriarEscritorioUseCase
             $criador->setOabUf($oabUf);
         }
 
+        // Verifica a OAB e grava o status — sem sobrescrever quem já é confirmada (dono).
+        if ($criador->isOabConfirmada() === false) {
+            $resultado = $this->validadorOab->verificar($oabNumero, $oabUf, (string) $criador->getFullName());
+            $criador->setOabStatus($resultado->status);
+            $criador->setOabNomeOficial($resultado->nomeOficial);
+
+            if ($resultado->status === StatusOab::Confirmada) {
+                $criador->setOabVerificadaEm(new \DateTimeImmutable());
+            }
+        }
+
         $tenant = new Tenant();
         $tenant->setName($input->nome);
         $this->em->persist($tenant);
@@ -54,20 +76,5 @@ final class CriarEscritorioUseCase
         $this->bootstrap->bootstrap($tenant, $criador);
 
         return $tenant;
-    }
-
-    private function validarOab(?string $numero, ?string $uf): void
-    {
-        if ($numero === null || $numero === '' || $uf === null || $uf === '') {
-            throw new \InvalidArgumentException('Informe a OAB (número e UF) para criar um escritório.');
-        }
-
-        if (preg_match('/^\d+$/', $numero) !== 1) {
-            throw new \InvalidArgumentException('Número da OAB deve conter apenas dígitos.');
-        }
-
-        if (preg_match('/^[A-Z]{2}$/', $uf) !== 1) {
-            throw new \InvalidArgumentException('UF da OAB deve ter exatamente 2 letras maiúsculas.');
-        }
     }
 }

@@ -7,9 +7,11 @@ namespace App\Tests\Auth\Unit;
 use App\Auth\DTO\IniciarCadastroPublicoInput;
 use App\Auth\Entity\CadastroPendente;
 use App\Auth\Repository\CadastroPendenteRepository;
+use App\Auth\Service\ValidadorOab;
 use App\Auth\UseCase\IniciarCadastroPublicoUseCase;
 use App\Entity\Auth\User;
 use App\Repository\UserRepository;
+use App\Tests\Auth\Doubles\OabWebServiceClientFake;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -37,6 +39,7 @@ final class IniciarCadastroPublicoUseCaseTest extends TestCase
             $this->userRepository,
             $this->cadastroRepository,
             $this->hasher,
+            new ValidadorOab((new OabWebServiceClientFake())->indisponivel()),
         );
     }
 
@@ -91,6 +94,16 @@ final class IniciarCadastroPublicoUseCaseTest extends TestCase
 
         $this->expectException(\InvalidArgumentException::class);
         $this->useCase->executar($this->input(oabNumero: '12A'), '1.2.3.4', null);
+    }
+
+    #[TestDox('Falha quando a OAB está totalmente ausente (obrigatória no Passo 1)')]
+    public function testFalhaOabTotalmenteAusente(): void
+    {
+        $this->userRepository->method('findOneBy')->willReturn(null);
+        $this->em->expects($this->never())->method('persist');
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->useCase->executar($this->input(oabNumero: '', oabUf: ''), '1.2.3.4', null);
     }
 
     #[TestDox('Remove cadastros pendentes anteriores do mesmo e-mail antes de criar o novo')]
