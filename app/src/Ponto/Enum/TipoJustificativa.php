@@ -32,6 +32,7 @@ enum TipoJustificativa: string
     case HoraExtraAutorizada         = 'hora_extra_autorizada';
     case SaidaAntecipadaAutorizada   = 'saida_antecipada_autorizada';
     case EntradaTardiaAutorizada     = 'entrada_tardia_autorizada';
+    case DispensaAbonada             = 'dispensa_abonada';
 
     // --- 3. Intercorrências ---
     case AtrasoJustificado        = 'atraso_justificado';
@@ -40,6 +41,7 @@ enum TipoJustificativa: string
     case MotivoPessoal            = 'motivo_pessoal';
     case EmergenciaFamiliar       = 'emergencia_familiar';
     case ProblemaSaudeSemAtestado = 'problema_saude_sem_atestado';
+    case SistemaIndisponivel      = 'sistema_indisponivel';
 
     // --- 4. Técnicas do Sistema ---
     case EsquecimentoRegistro    = 'esquecimento_registro';
@@ -88,6 +90,7 @@ enum TipoJustificativa: string
             self::HoraExtraAutorizada         => 'Hora Extra Autorizada',
             self::SaidaAntecipadaAutorizada   => 'Saída Antecipada Autorizada',
             self::EntradaTardiaAutorizada     => 'Entrada Tardia Autorizada',
+            self::DispensaAbonada             => 'Dispensa Abonada',
 
             self::AtrasoJustificado        => 'Atraso Justificado',
             self::FaltaJustificada         => 'Falta Justificada',
@@ -95,6 +98,7 @@ enum TipoJustificativa: string
             self::MotivoPessoal            => 'Motivo Pessoal (com aprovação)',
             self::EmergenciaFamiliar       => 'Emergência Familiar',
             self::ProblemaSaudeSemAtestado => 'Problema de Saúde sem Atestado',
+            self::SistemaIndisponivel      => 'Sistema Indisponível',
 
             self::EsquecimentoRegistro    => 'Esquecimento de Registro',
             self::RegistroIncorreto       => 'Registro Incorreto',
@@ -141,14 +145,16 @@ enum TipoJustificativa: string
             self::CompensacaoHoras,
             self::HoraExtraAutorizada,
             self::SaidaAntecipadaAutorizada,
-            self::EntradaTardiaAutorizada => CategoriaJustificativa::Operacional,
+            self::EntradaTardiaAutorizada,
+            self::DispensaAbonada         => CategoriaJustificativa::Operacional,
 
             self::AtrasoJustificado,
             self::FaltaJustificada,
             self::ProblemaTransporte,
             self::MotivoPessoal,
             self::EmergenciaFamiliar,
-            self::ProblemaSaudeSemAtestado => CategoriaJustificativa::Intercorrencia,
+            self::ProblemaSaudeSemAtestado,
+            self::SistemaIndisponivel      => CategoriaJustificativa::Intercorrencia,
 
             self::EsquecimentoRegistro,
             self::RegistroIncorreto,
