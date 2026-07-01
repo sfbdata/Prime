@@ -136,4 +136,39 @@ final class BackfillArquivosCommandTest extends KernelTestCase
         $em->clear();
         self::assertNull($em->find(PastaDocumento::class, $doc2Id)->getDriveFileId());
     }
+
+    #[TestDox('colisão: dois docs de mesmo nome não estouram o UNIQUE (guard)')]
+    public function testColisaoDeNomeNaoEstouraUnique(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant, 'driveFolderId' => 'FOLDER-1']);
+
+        // Dois docs com o MESMO nome_original na mesma pasta (não há UNIQUE em (pasta,nome)).
+        $em   = self::getContainer()->get(EntityManagerInterface::class);
+        $docA = $this->criarDoc($em, $pasta->_real(), $tenant->_real(), 'dup.pdf');
+        $docB = $this->criarDoc($em, $pasta->_real(), $tenant->_real(), 'dup.pdf');
+        $em->flush();
+        $aId = $docA->getId();
+        $bId = $docB->getId();
+
+        // Um único arquivo no Drive com esse nome → só um drive_file_id disponível.
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedArquivo('DRV-DUP', 'dup.pdf', 'FOLDER-1');
+        self::getContainer()->set(GoogleDriveClientInterface::class, $fake);
+
+        $tester = $this->tester();
+        $tester->execute(['--tenant-id' => (string) $tenant->getId()]);
+        // Não pode estourar UniqueConstraintViolationException.
+        $tester->assertCommandIsSuccessful();
+        self::assertStringContainsString('Colisões de nome puladas', $tester->getDisplay());
+
+        // Exatamente um doc vinculado a DRV-DUP, o outro nulo (o guard evitou o 2º UPDATE).
+        $em->clear();
+        $a = $em->find(PastaDocumento::class, $aId)->getDriveFileId();
+        $b = $em->find(PastaDocumento::class, $bId)->getDriveFileId();
+        self::assertContains('DRV-DUP', [$a, $b]);
+        self::assertContains(null, [$a, $b]);
+        self::assertNotSame($a, $b);
+    }
 }
