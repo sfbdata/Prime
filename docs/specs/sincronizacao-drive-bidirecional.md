@@ -396,7 +396,15 @@ os tenants) é trivial. Isolamento de tenant preservado (§7.2).
 
 - Chave da service account **fora do git** (repo público).
 - **Menor privilégio:** a SA só enxerga o único Shared Drive compartilhado com ela.
-- O motor opera estritamente dentro do tenant 1; jamais cruza tenants.
+- **Escopo de tenant:** as queries/criações do motor são escopadas ao `--tenant-id`. Porém,
+  na Fase 0/1, o **Shared Drive é único/global** (uma env var), então o motor **não** amarra
+  o tenant a um Drive próprio — rodar `--tenant-id` diferente do dono do Drive é **erro de
+  operador** (dívida D6, aceita: só tenant 1 em prod). Mitigação: o comando **loga tenant +
+  Shared Drive no início** para conferência supervisionada. Amarrar Drive por tenant fica para
+  quando o multi-tenant for generalizado (campo `driveSharedDriveId` por Tenant).
+- **`--usuario-id` sem validação de pertencimento ao tenant** (mesma dívida aceita do
+  `ImportarAcervoCommand`): o `criadoPor` das pastas nascidas no Drive pode não pertencer ao
+  tenant. Aceito para operação manual supervisionada com IDs conhecidos.
 
 ### 12.3 Pré-condição de risco — backup de uploads
 
@@ -513,7 +521,9 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 | Design / spec | ✅ | 2026-06-26 (este documento) |
 | Pré-requisitos de ops (§6: service account, Shared Drive, backup+disco) | ⬜ | bloqueia execução da Fase 1a |
 | Fase 0 — Fundação | ✅ | 2026-07-01 — implementada e revisada (Tasks 1–5); suíte 876/876; migration provada no banco de teste isolado (aplicação real na Fase 1a) |
-| Fase 1a — Reconciliação manual | ⬜ | depende de Fase 0 + pré-requisitos ops |
+| Fase 1 — motor (código): PASTAS | ✅ | 2026-07-01 — `app:sync:reconciliar` bidirecional de pastas, revisado (ALTO-1/2/3 corrigidos); suíte 884/884 |
+| Fase 1 — motor (código): ARQUIVOS | ⬜ | próximo incremento (upload/download, seções, achatamento) — plano próprio |
+| Fase 1a — Reconciliação manual (execução) | ⬜ | depende do motor + pré-requisitos ops |
 | Fase 1b — Automático (cron) | ⬜ | só após 1a provar (D12) |
 | Fase 2 — Baixa latência sistema→Drive | ⬜ | spec própria |
 | Fase 3 — Baixa latência Drive→sistema | ⏸ | adiada/opcional (D11) |
