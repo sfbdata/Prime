@@ -74,3 +74,4 @@ relatorio-commits-10-11-jun-2026.md
 
 # Snapshots/saída do Playwright MCP (descartável, fora do git)
 /.playwright-mcp/
+.worktrees/
