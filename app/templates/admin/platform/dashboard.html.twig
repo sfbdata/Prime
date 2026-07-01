@@ -1,10 +1,41 @@
-{% extends 'base.html.twig' %}
+{% extends 'admin/platform/_base_platform.html.twig' %}
 
-{% block title %}Painel Platform Admin{% endblock %}
+{% block title %}Painel da Plataforma{% endblock %}
 
-{% block body %}
-<div class="container py-5">
-    <h1 class="h3 mb-2">Painel Platform Admin</h1>
-    <p class="text-muted">Em desenvolvimento.</p>
+{% block platform_body %}
+<h1 class="h3 mb-1">Painel da Plataforma</h1>
+<p class="text-muted mb-4">Administração global (fora de escritório).</p>
+
+<div class="row g-3">
+    <div class="col-md-6 col-xl-4">
+        <a href="{{ path('admin_platform_oab_index') }}" class="text-decoration-none">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-patch-check fs-3 text-primary"></i>
+                        <div>
+                            <div class="fw-semibold text-body">Revisão de OAB</div>
+                            <div class="small text-muted">Confirmar, reverter e revisar as OABs dos usuários.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-6 col-xl-4">
+        <a href="{{ path('admin_platform_convite_index') }}" class="text-decoration-none">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bi bi-envelope-paper fs-3 text-primary"></i>
+                        <div>
+                            <div class="fw-semibold text-body">Convites</div>
+                            <div class="small text-muted">Convidar e gerenciar contas de plataforma.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
 </div>
 {% endblock %}

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace App\Profile\DTO;
 
+use App\Auth\Enum\StatusOab;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Profile\Entity\UserProfile;
@@ -22,6 +23,11 @@ final class PerfilOutput
         public readonly ?string $ctps,
         public readonly ?string $serie,
         public readonly \DateTimeImmutable $membroDesde,
+        public readonly ?string $oabNumero,
+        public readonly ?string $oabUf,
+        public readonly ?StatusOab $oabStatus,
+        public readonly ?string $oabNomeOficial,
+        public readonly ?\DateTimeImmutable $oabVerificadaEm,
     ) {
     }
 
@@ -44,6 +50,11 @@ final class PerfilOutput
             ctps: $perfil->getCtps(),
             serie: $perfil->getSerie(),
             membroDesde: $user->getCreatedAt() ?? new \DateTimeImmutable(),
+            oabNumero: $user->getOabNumero(),
+            oabUf: $user->getOabUf(),
+            oabStatus: $user->getOabStatus(),
+            oabNomeOficial: $user->getOabNomeOficial(),
+            oabVerificadaEm: $user->getOabVerificadaEm(),
         );
     }
 

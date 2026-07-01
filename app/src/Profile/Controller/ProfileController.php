@@ -2,15 +2,19 @@
 declare(strict_types=1);
 namespace App\Profile\Controller;
 
+use App\Auth\UseCase\VerificarOabUseCase;
 use App\Entity\Auth\User;
 use App\Profile\DTO\AtualizarFotoInput;
 use App\Profile\DTO\AtualizarStatusInput;
 use App\Profile\DTO\DadosPessoaisInput;
+use App\Profile\DTO\OabPerfilInput;
 use App\Profile\DTO\PerfilOutput;
 use App\Profile\Form\DadosPessoaisType;
+use App\Profile\Form\OabPerfilType;
 use App\Profile\Repository\UserProfileRepository;
 use App\Profile\UseCase\AtualizarDadosPessoaisUseCase;
 use App\Profile\UseCase\AtualizarFotoPerfilUseCase;
+use App\Profile\UseCase\AtualizarOabPerfilUseCase;
 use App\Profile\UseCase\AtualizarStatusUseCase;
 use App\Profile\UseCase\ObterOuCriarPerfilUseCase;
 use App\Service\Tenant\TenantContext;
@@ -19,6 +23,8 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
+use Symfony\Component\RateLimiter\RateLimiterFactory;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/perfil', name: 'app_profile')]
@@ -33,6 +39,9 @@ final class ProfileController extends AbstractController
         private readonly string $fotosPerfilDir,
         private readonly TenantContext $tenantContext,
         private readonly UserProfileRepository $profileRepository,
+        private readonly AtualizarOabPerfilUseCase $atualizarOab,
+        private readonly VerificarOabUseCase $verificarOab,
+        private readonly RateLimiterFactory $oabVerificarLimiter,
     ) {
     }
 
@@ -54,9 +63,15 @@ final class ProfileController extends AbstractController
 
         $formDados = $this->createForm(DadosPessoaisType::class, $input);
 
+        $oabInput = new OabPerfilInput();
+        $oabInput->oabNumero = $output->oabNumero;
+        $oabInput->oabUf = $output->oabUf;
+        $formOab = $this->createForm(OabPerfilType::class, $oabInput);
+
         return $this->render('profile/index.html.twig', [
             'perfil'     => $output,
             'form_dados' => $formDados->createView(),
+            'form_oab'   => $formOab->createView(),
         ]);
     }
 
@@ -77,6 +92,62 @@ final class ProfileController extends AbstractController
         } else {
             $this->addFlash('error', 'Verifique os dados informados.');
         }
+
+        return $this->redirectToRoute('app_profile');
+    }
+
+    #[Route('/oab', name: '_oab', methods: ['POST'])]
+    public function salvarOab(Request $request): Response
+    {
+        /** @var User $user */
+        $user = $this->getUser();
+
+        $input = new OabPerfilInput();
+        $form  = $this->createForm(OabPerfilType::class, $input);
+        $form->handleRequest($request);
+
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            $this->addFlash('error', 'Verifique os dados da OAB.');
+
+            return $this->redirectToRoute('app_profile');
+        }
+
+        try {
+            $this->atualizarOab->executar($user, $input);
+            $this->addFlash('success', 'OAB atualizada.');
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('error', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('app_profile');
+    }
+
+    #[Route('/oab/verificar', name: '_oab_verificar', methods: ['POST'])]
+    public function verificarOab(Request $request): Response
+    {
+        if (!$this->isCsrfTokenValid('profile_oab_verificar', $request->request->get('_token'))) {
+            $this->addFlash('error', 'Token inválido.');
+
+            return $this->redirectToRoute('app_profile');
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+
+        if ($user->getOabNumero() === null || $user->getOabNumero() === '') {
+            $this->addFlash('error', 'Informe sua OAB antes de verificar.');
+
+            return $this->redirectToRoute('app_profile');
+        }
+
+        if (!$this->oabVerificarLimiter->create((string) $user->getId())->consume()->isAccepted()) {
+            throw new TooManyRequestsHttpException();
+        }
+
+        $this->verificarOab->executar($user);
+
+        // Backend dormente: o resultado é sempre NaoVerificada. Mensagem honesta ao usuário.
+        $this->addFlash('info', 'Verificação automática indisponível no momento — sua OAB será revisada por um administrador.');
 
         return $this->redirectToRoute('app_profile');
     }

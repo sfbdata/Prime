@@ -27,6 +27,10 @@ framework:
             policy: sliding_window
             limit: 5
             interval: '1 hour'
+        oab_verificar:
+            policy: sliding_window
+            limit: 5
+            interval: '1 hour'
 
     # Note that the session will be started ONLY if you read or write from it.
     session: true

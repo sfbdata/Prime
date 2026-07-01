@@ -2,10 +2,12 @@
 
 namespace App\Repository;
 
+use App\Auth\Enum\StatusOab;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -159,6 +161,60 @@ class UserRepository extends ServiceEntityRepository
             ->setParameter('ids', $ids)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * Conta usuários da fila de revisão de OAB (platform/super-admin).
+     *
+     * @param list<StatusOab> $statuses vazio = todos com OAB (oab_status não nulo)
+     */
+    public function contarParaRevisaoOab(array $statuses, ?string $busca): int
+    {
+        return (int) $this->qbRevisaoOab($statuses, $busca)
+            ->select('COUNT(u.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * @param list<StatusOab> $statuses vazio = todos com OAB (oab_status não nulo)
+     * @return User[]
+     */
+    public function buscarParaRevisaoOab(array $statuses, ?string $busca, int $offset, int $limite): array
+    {
+        return $this->qbRevisaoOab($statuses, $busca)
+            ->orderBy('u.id', 'DESC')
+            ->setFirstResult($offset)
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Query base da revisão de OAB. **CROSS-TENANT proposital:** a revisão é platform-level
+     * (super-admin) e opera sobre a identidade global do `User` — por isso NÃO há filtro de tenant
+     * aqui (exceção consciente à regra de tenant obrigatório dos repositories). `User` não é
+     * TenantAware, então nenhum filtro automático se aplica.
+     *
+     * @param list<StatusOab> $statuses
+     */
+    private function qbRevisaoOab(array $statuses, ?string $busca): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('u')
+            ->where('u.oabStatus IS NOT NULL');
+
+        if ($statuses !== []) {
+            $qb->andWhere('u.oabStatus IN (:statuses)')
+                ->setParameter('statuses', array_map(static fn (StatusOab $s): string => $s->value, $statuses));
+        }
+
+        $busca = $busca !== null ? trim($busca) : '';
+        if ($busca !== '') {
+            $qb->andWhere('LOWER(u.fullName) LIKE :q OR LOWER(u.email) LIKE :q OR LOWER(u.oabNumero) LIKE :q')
+                ->setParameter('q', '%' . mb_strtolower($busca) . '%');
+        }
+
+        return $qb;
     }
 
     //    /**

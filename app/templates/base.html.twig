@@ -389,7 +389,7 @@
                    ============================================================ #}
 
                 {# Sidebar #}
-                {% include '_sidebar.html.twig' %}
+                {% block sidebar %}{% include '_sidebar.html.twig' %}{% endblock %}
 
                 {# Main Content #}
                 <main class="app-main" id="main" tabindex="-1">

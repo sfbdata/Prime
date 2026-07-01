@@ -1,0 +1,8 @@
+{# Layout base da área de plataforma (super-admin, fora de escritório).
+   Estende o base do sistema, mas troca o sidebar de tenant pelo sidebar de plataforma.
+   Telas de plataforma preenchem o bloco `platform_body`. #}
+{% extends 'base.html.twig' %}
+
+{% block sidebar %}{% include 'admin/platform/_sidebar_platform.html.twig' %}{% endblock %}
+
+{% block body %}{% block platform_body %}{% endblock %}{% endblock %}

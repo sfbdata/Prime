@@ -1,7 +1,7 @@
 # Spec — Validação real de OAB (CNA/SOAP oficial)
 
 > **Risco:** ALTO (identidade `User` — nova coluna de status; gate de criação de escritório)
-> **Data:** 2026-07-01 · **Status:** 📝 **DESENHO APROVADO — aguardando revisão da spec + plano de implementação**
+> **Data:** 2026-07-01 · **Status:** 🟢 **Passo 1 (manual-first) COMMITADO (`f96ae9e`), revisado 2×, suíte 1002/1002. Passo 2 PLANEJADO** (brainstorming fechado; plano em `validacao-oab-plano-fase2.md`) — em implementação. **Passo 3 PENDENTE.**
 > **Origem:** dívida #3 da `self-service-escritorios.md` (RS03/RN03/RN05). **Fecha junto a dívida #4** (validação de OAB duplicada em 3 UseCases).
 > **Domínios tocados:** Auth (`User`, `CadastroPendente`, UseCases de cadastro/convite), Tenant (`CriarEscritorioUseCase`), Profile, Admin (super-admin)
 
@@ -137,7 +137,7 @@ Todos chamam `validarFormato` (sempre) e `verificar` (quando há OAB). Nenhum bl
 | **`ConfirmarCadastroUseCase`** | Cria o `User` (sempre), copiando `oabStatus`/`oabNomeOficial` do `CadastroPendente`. Cria o `Tenant`+vínculo **só se `confirmada`**; senão cria só a conta (cai no estado vazio). |
 | **Perfil (`/perfil`)** | Ver status + informar/editar número+UF + botão **"verificar"** (roda `verificar`, grava status). Entry point universal. |
 | **Estado vazio / dropdown** | "criar escritório" só aparece se `confirmada`; senão mostra o status + atalho para validar no perfil + convites pendentes. |
-| **Admin (`/admin/platform/oab`)** | Lista `User`s `divergente`/`nao_verificada`; ações **re-verificar** e **marcar confirmada** (override). |
+| **Admin (`/admin/platform/oab`)** | Lista paginada de `User`s com OAB (filtro por status, default pendentes; busca); ações **marcar confirmada** (override), **reverter** (admin escolhe `nao_verificada`/`divergente`) e **re-verificar** (dormente). Ações do admin auditadas. |
 
 ---
 
@@ -215,9 +215,15 @@ de OAB (perfil) — senão um advogado novo ficaria preso em `nao_verificada` se
 1. **Passo 1 — Modelo + #4 (sem gate)** — interface `OabWebServiceClientInterface` + `ClienteOabIndisponivel`
    (dormente) + `ValidadorOab` (**fecha #4**) + enum/DTOs + colunas `oab_*` (`User`/`CadastroPendente`) +
    backfill (donos→`confirmada`) + os 3 fluxos gravando status. **Nada bloqueia** (não-breaking).
-2. **Passo 2 — Caminhos manuais** — tela de revisão super-admin (`/admin/platform/oab`: listar
-   `divergente`/`nao_verificada`, **marcar `confirmada`**/override) **+** seção de OAB no perfil (`/perfil`:
-   ver status + informar/editar OAB + botão "verificar" — **dormente**, mantém `nao_verificada`).
+2. **Passo 2 — Caminhos manuais** *(plano detalhado: `validacao-oab-plano-fase2.md`; decisões de UX
+   fechadas com o dono em 2026-07-01)* — tela de revisão super-admin (`/admin/platform/oab`: lista
+   **paginada** com **filtro por status** + **busca**; ações **marcar `confirmada`** / **reverter** — *admin
+   escolhe o destino* `nao_verificada`|`divergente` — / **re-verificar** dormente; ações do admin
+   **auditadas automaticamente** — `User` é `Auditavel`, o `AuditLogSubscriber` registra a mudança de
+   `oabStatus` com o super-admin como ator) **+** seção de OAB no perfil
+   (`/perfil`: ver status + informar/editar OAB — **reset quando muda** — + botão "verificar" **dormente**
+   com mensagem clara, rate-limited). A área do admin ganha um **layout/nav de plataforma** próprio
+   (fora de escritório), pensado para crescer (escritórios, análise).
 3. **Passo 3 — Liga o gate** — `CriarEscritorioUseCase` passa a exigir `confirmada` + estado vazio/dropdown
    condicional. *(Agora seguro: quem precisa tem como ser aprovado.)*
 4. **Futuro** — `OabWebServiceClientSoap` (com `Key`, quando obtida) ou API paga → liga a verificação
