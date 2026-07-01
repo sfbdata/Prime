@@ -21,7 +21,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: PastaRepository::class)]
 #[ORM\Table(name: 'pasta')]
 #[ORM\Index(name: 'idx_pasta_tenant', columns: ['tenant_id'])]
-#[ORM\UniqueConstraint(name: 'uniq_pasta_tenant_nup', columns: ['tenant_id', 'nup'])]
+#[ORM\Index(name: 'idx_pasta_tenant_nup', columns: ['tenant_id', 'nup'])]
+#[ORM\UniqueConstraint(name: 'uniq_pasta_drive_folder_id', columns: ['drive_folder_id'])]
 #[ORM\HasLifecycleCallbacks]
 class Pasta implements Auditavel, TenantAware
 {
@@ -35,9 +36,16 @@ class Pasta implements Auditavel, TenantAware
 
     #[Assert\NotBlank]
     #[Assert\Length(max: 50)]
-    // Unicidade do NUP é por escritório (UniqueConstraint composto tenant_id+nup).
+    // NUP NÃO é mais único: pode repetir (o acervo do Drive tem NUPs repetidos).
+    // Identidade de sincronização é o driveFolderId; o índice (tenant_id, nup) é só para busca.
     #[ORM\Column(length: 255)]
     private ?string $nup = null;
+
+    #[ORM\Column(name: 'drive_folder_id', length: 255, nullable: true)]
+    private ?string $driveFolderId = null;
+
+    #[ORM\Column(name: 'drive_synced_at', type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $driveSyncedAt = null;
 
     #[Assert\Choice(choices: [self::SITUACAO_ATIVA, self::SITUACAO_ARQUIVADA])]
     #[ORM\Column(length: 20, options: ['default' => self::SITUACAO_ATIVA])]
@@ -437,6 +445,30 @@ $this->documentos = new ArrayCollection();
                 $secao->setPasta(null);
             }
         }
+
+        return $this;
+    }
+
+    public function getDriveFolderId(): ?string
+    {
+        return $this->driveFolderId;
+    }
+
+    public function setDriveFolderId(?string $driveFolderId): self
+    {
+        $this->driveFolderId = $driveFolderId;
+
+        return $this;
+    }
+
+    public function getDriveSyncedAt(): ?\DateTimeImmutable
+    {
+        return $this->driveSyncedAt;
+    }
+
+    public function setDriveSyncedAt(?\DateTimeImmutable $driveSyncedAt): self
+    {
+        $this->driveSyncedAt = $driveSyncedAt;
 
         return $this;
     }
