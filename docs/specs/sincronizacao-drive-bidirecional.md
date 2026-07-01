@@ -527,3 +527,29 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 | Fase 1b — Automático (cron) | ⬜ | só após 1a provar (D12) |
 | Fase 2 — Baixa latência sistema→Drive | ⬜ | spec própria |
 | Fase 3 — Baixa latência Drive→sistema | ⏸ | adiada/opcional (D11) |
+
+## 20. Estado de retomada (handoff para nova sessão) — 2026-07-01
+
+**Onde o trabalho vive**
+- Branch: **`sincronizacao-drive`**. Worktree isolado: **`/home/prime/projetos/jusprime/.worktrees/sincronizacao-drive`** (a `master` fica livre para outra frente). Trabalhar SEMPRE dentro do worktree.
+- Banco de teste **isolado** do worktree: `saas_testwt` (via `app/.env.test.local` com `TEST_TOKEN=wt`, gitignored). `GOOGLE_DRIVE_SHARED_DRIVE_ID=ROOT` está no `app/.env.test` (commitado, fixture dos testes).
+- Rodar tudo no container apontando pro worktree:
+  `docker exec jusprime_php_dev bash -c 'cd /var/www/.worktrees/sincronizacao-drive/app && php bin/phpunit'` (suíte atual: **884/884**).
+
+**O que já está pronto (código na branch)**
+- **Fase 0 (Fundação):** `Pasta.driveFolderId`/`driveSyncedAt`, `PastaDocumento.driveFileId`; UNIQUE de NUP removido (índice não-único `(tenant_id, nup)`; isolamento de tenant intacto); migration `Version20260701144054` (**provada up/down só no banco de teste isolado — NÃO aplicada no `saas` compartilhado**; aplicação real fica pra Fase 1a); `App\Sync\Service\GoogleDriveClient` + `GoogleDriveClientInterface` + `FakeGoogleDriveClient`; comandos `app:sync:backfill-pastas` e `app:sync:backfill-arquivos`; barreira de NUP duplicado removida em `CriarPastaUseCase` e `EditarPastaUseCase`.
+- **Fase 1 — motor de PASTAS:** `app:sync:reconciliar` bidirecional (aditivo, nunca apaga), com dry-run, lock (flock), `--limit`/`--pasta-id`, D9 (sem NUP → pula) e D10 (divergência → só reporta). Revisado (ALTO-1/2/3 corrigidos).
+
+**Próximo passo (retomar aqui): Fase 1 — motor de ARQUIVOS**
+- Estender `app:sync:reconciliar` (ou comando irmão) para os ARQUIVOS por pasta vinculada: **sistema→Drive** (doc sem `drive_file_id` → `enviarArquivo`, grava id) e **Drive→sistema** (arquivo do Drive sem par → `baixarArquivo` + cria `PastaDocumento`).
+- Regras da §11.6 (subpasta→`PastaSecao`, sub-subpasta achatada) e §11.4 (arquivos grandes intactos, sem recompressão). Exige recursão de subpastas no Drive (o `GoogleDriveClientInterface` hoje lista 1 nível — pode precisar de método de listagem recursiva ou chamadas por subpasta).
+- Reusar padrões: `CopiarArquivosAcervoCommand` (seções/achatamento), `BackfillArquivosCommand` (match por `nome_original` exato, guard de colisão). Escrever plano próprio (`plano-fase1-arquivos.md`) antes de codar.
+
+**Convenções/gotchas desta frente**
+- Git é **humano** (hook `block-git-writes.py`): o orquestrador monta os comandos, o dev commita. Commits cirúrgicos (scoped `git add`).
+- Testes: `KernelTestCase` + `use Factories;` — **nunca `ResetDatabase`** (o projeto usa DAMA; misturar quebra a suíte).
+- O `GoogleDriveClient` **real** é fronteira de validação manual (não entra no CI); testes usam o fake.
+- Arquivos temporários **untracked** no worktree: `plano.md` (Fase 0), `plano-fase1-pastas.md` (Fase 1 pastas). Não commitar.
+
+**Bloqueios de ops (não-código; destravam a Fase 1a de EXECUÇÃO)**
+1. Backup de uploads + disco (§6 item 7, §12.3). 2. Service account + Shared Drive compartilhado + `driveId` (§6). 3. Validar o `GoogleDriveClient` real contra um Shared Drive de teste. 4. `composer audit` das deps do google/apiclient.
