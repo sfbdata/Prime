@@ -23,7 +23,8 @@ projeto (UseCase+testes → resto → `feature-review-agent` → correção) e p
 — aplicadas em dev+test; rodam em prod no deploy normal.
 
 **O que FALTA (nada bloqueia a feature; são dívidas/futuro):** ver §"Notas de deploy / dívidas da Fase 3"
-e a linha "Futura" no §Faseamento. Resumo: (1) `SYMFONY_TRUSTED_PROXIES` em prod p/ o rate limiter,
+e a linha "Futura" no §Faseamento. Resumo: (1) ✅ **FEITO/VERIFICADO** — `SYMFONY_TRUSTED_PROXIES`
+já está ativo em prod (`127.0.0.1,REMOTE_ADDR`); só a cópia dev/`.env.prod.example` estava desatualizada (corrigida),
 (2) ✅ **FEITO** — job de purga de PII (`cadastro_pendente` expirado + tenant em quarentena) →
 ver `docs/specs/purga-quarentena-e-cadastros.md` (implementado, revisado 2×, aguardando commit + cron em prod),
 (3) validação real da OAB via API (RS03), (4) extrair a validação de OAB (duplicada em 3 UseCases),
@@ -272,7 +273,7 @@ Funcionalidade: Sair e Excluir escritório
 | **Futura** | Job de purga pós-quarentena (tenant soft-deletado **e** `cadastro_pendente` expirado — ver dívidas); transferência de titularidade; badge multi-escritório agregado; validação real da OAB (RS03) | — | Higiene e UX avançada |
 
 ### ⚠️ Notas de deploy / dívidas da Fase 3 (revisão)
-- **Deploy (rate limiter):** o `cadastro_auto` usa `getClientIp()`. Em prod (bluejus.com.br atrás de proxy/LB), **`SYMFONY_TRUSTED_PROXIES` precisa estar configurado** (`.env.prod` está comentado) — senão todos os cadastros caem num único bucket de 5/h (nega serviço) ou o IP é do proxy. **Verificar antes de considerar o anti-abuso efetivo.**
+- **Deploy (rate limiter): ✅ RESOLVIDO/VERIFICADO (2026-07-01).** O `cadastro_auto` usa `getClientIp()`. Em prod o `.env.prod` da VPS **já tem** `SYMFONY_TRUSTED_PROXIES=127.0.0.1,REMOTE_ADDR` (e `SYMFONY_TRUSTED_HOSTS` do domínio) — confirmado ativo no container (`printenv`). `REMOTE_ADDR` confia no nginx (upstream imediato), então o php lê o IP real do cliente. A falsa impressão de "pendente" vinha da cópia dev/`.env.prod.example` estar com as linhas comentadas — o `.env.prod.example` foi corrigido para nascer com o valor certo.
 - **Dívida (PII):** não há purga de `cadastro_pendente` expirado — cada linha guarda `senha_hash` + e-mail + nome + IP + OAB. A limpeza só ocorre no reinício do mesmo e-mail. Criar job de purga (junto do de quarentena de tenant).
 - **Enumeração de e-mail:** o cadastro revela "já existe conta com este e-mail" (consistente com AceitarConvitePlataforma). Aceito no MVP; mitigar só se virar preocupação.
 
