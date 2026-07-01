@@ -110,8 +110,8 @@
                                 {% endif %}
                             </td>
                             <td class="col-acao-tabela align-middle">
-                                {% if pasta.processo %}
-                                    {{ pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso }}
+                                {% if pasta.processoPrincipal %}
+                                    {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
                                 {% elseif pasta.nomeAcao %}
                                     {{ pasta.nomeAcao }}
                                 {% else %}
@@ -181,7 +181,7 @@
                         </span>
                     </div>
 
-                    {% set acaoTexto = pasta.processo ? (pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso) : pasta.nomeAcao %}
+                    {% set acaoTexto = pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso) : pasta.nomeAcao %}
                     {% if acaoTexto %}
                     <div class="pasta-card-row">
                         <span class="pasta-card-label"><i class="bi bi-briefcase"></i></span>

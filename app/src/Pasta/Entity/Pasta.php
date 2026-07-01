@@ -70,9 +70,10 @@ class Pasta implements Auditavel, TenantAware
     #[ORM\JoinColumn(nullable: true)]
     private ?User $responsavel = null;
 
-    #[ORM\ManyToOne(targetEntity: Processo::class)]
-    #[ORM\JoinColumn(nullable: true)]
-    private ?Processo $processo = null;
+    /** @var Collection<int, PastaProcesso> */
+    #[ORM\OneToMany(mappedBy: 'pasta', targetEntity: PastaProcesso::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['principal' => 'DESC', 'vinculadoEm' => 'ASC', 'id' => 'ASC'])]
+    private Collection $pastaProcessos;
 
     #[ORM\ManyToOne(targetEntity: Tenant::class)]
     #[ORM\JoinColumn(nullable: false)]
@@ -124,6 +125,7 @@ class Pasta implements Auditavel, TenantAware
         $this->criadoEm = new \DateTimeImmutable();
         $this->modificadoEm = new \DateTimeImmutable();
         $this->clientes = new ArrayCollection();
+        $this->pastaProcessos = new ArrayCollection();
 $this->documentos = new ArrayCollection();
         $this->tarefas = new ArrayCollection();
         $this->marcadores = new ArrayCollection();
@@ -259,15 +261,123 @@ $this->documentos = new ArrayCollection();
         return $this;
     }
 
-    public function getProcesso(): ?Processo
+    /**
+     * @return Collection<int, PastaProcesso>
+     */
+    public function getPastaProcessos(): Collection
     {
-        return $this->processo;
+        return $this->pastaProcessos;
     }
 
-    public function setProcesso(?Processo $processo): self
+    /**
+     * @return list<Processo>
+     */
+    public function getProcessos(): array
     {
-        $this->processo = $processo;
-        return $this;
+        return array_map(
+            static fn (PastaProcesso $vinculo): Processo => $vinculo->getProcesso(),
+            $this->pastaProcessos->toArray(),
+        );
+    }
+
+    public function getVinculoPrincipal(): ?PastaProcesso
+    {
+        foreach ($this->pastaProcessos as $vinculo) {
+            if ($vinculo->isPrincipal()) {
+                return $vinculo;
+            }
+        }
+
+        return $this->pastaProcessos->first() ?: null;
+    }
+
+    /**
+     * Processo "principal" da pasta — representante nos resumos (barra lateral,
+     * listagem, timeline, peticionar). Substitui o antigo getProcesso().
+     */
+    public function getProcessoPrincipal(): ?Processo
+    {
+        return $this->getVinculoPrincipal()?->getProcesso();
+    }
+
+    public function temProcesso(Processo $processo): bool
+    {
+        return $this->getVinculoPorProcesso($processo) !== null;
+    }
+
+    public function getVinculoPorProcesso(Processo $processo): ?PastaProcesso
+    {
+        foreach ($this->pastaProcessos as $vinculo) {
+            if ($this->mesmoProcesso($vinculo->getProcesso(), $processo)) {
+                return $vinculo;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Vincula um processo à pasta. No-op (retorna o vínculo existente) se já vinculado.
+     * O primeiro processo vinculado vira automaticamente o principal.
+     */
+    public function vincularProcesso(Processo $processo, ?User $vinculadoPor = null): PastaProcesso
+    {
+        $existente = $this->getVinculoPorProcesso($processo);
+        if ($existente !== null) {
+            return $existente;
+        }
+
+        $vinculo = new PastaProcesso($this, $processo, $vinculadoPor);
+        if ($this->pastaProcessos->isEmpty()) {
+            $vinculo->setPrincipal(true);
+        }
+        $this->pastaProcessos->add($vinculo);
+
+        return $vinculo;
+    }
+
+    /**
+     * Desvincula um processo. Se ele era o principal e ainda restam vínculos,
+     * promove o primeiro remanescente a principal.
+     */
+    public function desvincularProcesso(Processo $processo): void
+    {
+        $vinculo = $this->getVinculoPorProcesso($processo);
+        if ($vinculo === null) {
+            return;
+        }
+
+        $eraPrincipal = $vinculo->isPrincipal();
+        $this->pastaProcessos->removeElement($vinculo);
+
+        if ($eraPrincipal) {
+            $novoPrincipal = $this->pastaProcessos->first() ?: null;
+            $novoPrincipal?->setPrincipal(true);
+        }
+    }
+
+    /**
+     * Define um processo já vinculado como principal, zerando o anterior.
+     */
+    public function definirProcessoPrincipal(Processo $processo): void
+    {
+        $alvo = $this->getVinculoPorProcesso($processo);
+        if ($alvo === null) {
+            throw new \DomainException('O processo não está vinculado a esta pasta.');
+        }
+
+        foreach ($this->pastaProcessos as $vinculo) {
+            $vinculo->setPrincipal($vinculo === $alvo);
+        }
+    }
+
+    private function mesmoProcesso(Processo $a, Processo $b): bool
+    {
+        if ($a === $b) {
+            return true;
+        }
+
+        return $a->getId() !== null && $a->getId() === $b->getId();
     }
 
     /**

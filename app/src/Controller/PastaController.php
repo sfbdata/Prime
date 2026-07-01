@@ -42,7 +42,10 @@ use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
 use App\Pasta\UseCase\CriarPastaUseCase;
+use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
+use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
+use App\Pasta\UseCase\VincularProcessoUseCase;
 use App\Pasta\UseCase\AlterarPrioridadeUseCase;
 use App\Pasta\UseCase\AlterarSituacaoContratoUseCase;
 use App\Pasta\UseCase\EditarChecklistItemUseCase;
@@ -137,6 +140,9 @@ class PastaController extends AbstractController
         private readonly CriarPastaUseCase $criarPastaUseCase,
         private readonly EditarPastaUseCase $editarPastaUseCase,
         private readonly ExcluirPastaUseCase $excluirPastaUseCase,
+        private readonly VincularProcessoUseCase $vincularProcessoUseCase,
+        private readonly DesvincularProcessoUseCase $desvincularProcessoUseCase,
+        private readonly DefinirProcessoPrincipalUseCase $definirProcessoPrincipalUseCase,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -188,7 +194,7 @@ class PastaController extends AbstractController
 
         $tenant    = $this->tenantContext->getCurrentTenant();
         $tenantId  = $tenant?->getId() ?? 0;
-        $processoId = $pasta->getProcesso()?->getId();
+        $processoId = $pasta->getProcessoPrincipal()?->getId();
 
         $timelineItems   = $this->timelineAssembler->montar($pasta, $tenant, $tenantId, $processoId);
         $todosMarcadores = $this->marcadorRepository->findTodosPorTenant($tenant);
@@ -709,69 +715,39 @@ class PastaController extends AbstractController
             return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
         }
 
+        $tenant = $this->tenantContext->getCurrentTenant();
         $data = $request->request->all();
         $processoId     = (int) ($data['processo_id'] ?? 0);
         $numeroProcesso = trim((string) ($data['numeroProcesso'] ?? ''));
 
         if ($processoId > 0) {
-            $processo = $this->processoRepository->find($processoId);
+            // Lookup tenant-scoped: NÃO usar find() por PK, que ignora o filtro de tenant.
+            $processo = $this->processoRepository->findOneByIdDoTenant($processoId, $tenant);
             if (!$processo instanceof Processo) {
-                if ($isXhr) {
-                    return $this->json(['erro' => 'Processo não encontrado.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-                }
-                $this->addFlash('danger', 'Processo não encontrado.');
-                return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+                return $this->respostaErroProcesso($isXhr, 'Processo não encontrado.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
             }
-            $pasta->setProcesso($processo);
         } elseif ($numeroProcesso !== '') {
-            $numeroNormalizado = preg_replace('/\D+/', '', $numeroProcesso);
-            $existente = $this->processoRepository->findByNumeroProcesso($numeroNormalizado ?? '');
-            if ($existente !== null) {
-                $pasta->setProcesso($existente);
-            } else {
+            $numeroNormalizado = preg_replace('/\D+/', '', $numeroProcesso) ?? '';
+            $processo = $this->processoRepository->findByNumeroProcessoDoTenant($numeroNormalizado, $tenant);
+            if ($processo === null) {
                 $processo = new Processo();
-                $processo->setTenant($this->tenantContext->getCurrentTenant());
+                $processo->setTenant($tenant);
                 $this->fillProcessoFromData($processo, $data);
-                $processo->setCriadoPor($this->getUser());
+                $processo->setCriadoPor($currentUser);
                 $this->em->persist($processo);
-                $pasta->setProcesso($processo);
             }
         } else {
-            if ($isXhr) {
-                return $this->json(['erro' => 'Informe o número do processo.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-            }
-            $this->addFlash('warning', 'Informe o número do processo.');
-            return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+            return $this->respostaErroProcesso($isXhr, 'Informe o número do processo.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $this->em->flush();
+        $this->vincularProcessoUseCase->executar($pasta, $processo, $currentUser);
 
         if ($isXhr) {
-            $processo = $pasta->getProcesso();
-            return $this->json([
-                'sucesso' => true,
-                'processo' => [
-                    'id' => $processo->getId(),
-                    'numeroProcesso' => $processo->getNumeroProcesso(),
-                    'classeProcessual' => $processo->getClasseProcessual(),
-                    'assuntoProcessual' => $processo->getAssuntoProcessual(),
-                    'orgaoJulgador' => $processo->getOrgaoJulgador(),
-                    'siglaTribunal' => $processo->getSiglaTribunal(),
-                    'instancia' => $processo->getInstancia(),
-                    'situacaoProcesso' => $processo->getSituacaoProcesso(),
-                    'dataDistribuicao' => $processo->getDataDistribuicao()?->format('d/m/Y'),
-                    'partes' => array_map(fn($parte) => [
-                        'nome' => $parte->getNome(),
-                        'tipo' => $parte->getTipo(),
-                        'papel' => $parte->getPapel(),
-                        'documento' => $parte->getDocumento(),
-                    ], $processo->getPartes()->toArray()),
-                ],
-            ]);
+            return $this->respostaProcessosVinculados($pasta);
         }
 
         $this->addFlash('success', 'Processo vinculado com sucesso.');
-        return $this->redirectToRoute('pasta_show', ['id' => $pastaId]);
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
     }
 
     #[Route('/{id}/processo/desvincular', name: 'pasta_desvincular_processo', methods: ['POST'])]
@@ -785,33 +761,118 @@ class PastaController extends AbstractController
             return $redirect;
         }
 
-        $isXhr = $request->isXmlHttpRequest();
+        $isXhr  = $request->isXmlHttpRequest();
+        $tenant = $this->tenantContext->getCurrentTenant();
 
         if (!$this->isCsrfTokenValid('pasta_desvincular_processo_' . $pastaId, (string) $request->request->get('_token'))) {
-            if ($isXhr) {
-                return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
-            }
-            $this->addFlash('error', 'Token de segurança inválido.');
-            return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+            return $this->respostaErroProcesso($isXhr, 'Token de segurança inválido.', $pastaId, Response::HTTP_BAD_REQUEST);
         }
 
-        if ($pasta->getProcesso() === null) {
-            if ($isXhr) {
-                return $this->json(['erro' => 'Nenhum processo vinculado a esta pasta.'], Response::HTTP_UNPROCESSABLE_ENTITY);
-            }
-            $this->addFlash('warning', 'Nenhum processo vinculado a esta pasta.');
-            return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+        $processoId = (int) $request->request->get('processo_id', 0);
+        $processo   = $processoId > 0 ? $this->processoRepository->findOneByIdDoTenant($processoId, $tenant) : null;
+        if (!$processo instanceof Processo || !$pasta->temProcesso($processo)) {
+            return $this->respostaErroProcesso($isXhr, 'Processo não está vinculado a esta pasta.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $pasta->setProcesso(null);
-        $this->em->flush();
+        $this->desvincularProcessoUseCase->executar($pasta, $processo);
 
         if ($isXhr) {
-            return $this->json(['sucesso' => true]);
+            return $this->respostaProcessosVinculados($pasta);
         }
 
         $this->addFlash('success', 'Processo desvinculado da pasta com sucesso.');
         return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+    }
+
+    #[Route('/{id}/processo/principal', name: 'pasta_definir_processo_principal', methods: ['POST'])]
+    public function definirProcessoPrincipal(Pasta $pasta, Request $request): Response
+    {
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_EDIT, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        $isXhr  = $request->isXmlHttpRequest();
+        $tenant = $this->tenantContext->getCurrentTenant();
+
+        if (!$this->isCsrfTokenValid('pasta_definir_principal_processo_' . $pastaId, (string) $request->request->get('_token'))) {
+            return $this->respostaErroProcesso($isXhr, 'Token de segurança inválido.', $pastaId, Response::HTTP_BAD_REQUEST);
+        }
+
+        $processoId = (int) $request->request->get('processo_id', 0);
+        $processo   = $processoId > 0 ? $this->processoRepository->findOneByIdDoTenant($processoId, $tenant) : null;
+        if (!$processo instanceof Processo) {
+            return $this->respostaErroProcesso($isXhr, 'Processo não encontrado.', $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        try {
+            $this->definirProcessoPrincipalUseCase->executar($pasta, $processo);
+        } catch (\DomainException $e) {
+            return $this->respostaErroProcesso($isXhr, $e->getMessage(), $pastaId, Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        if ($isXhr) {
+            return $this->respostaProcessosVinculados($pasta);
+        }
+
+        $this->addFlash('success', 'Processo principal atualizado.');
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+    }
+
+    #[Route('/{id}/processo/buscar', name: 'pasta_buscar_processos', methods: ['GET'])]
+    public function buscarProcessos(Pasta $pasta, Request $request): Response
+    {
+        $pastaId = (int) $pasta->getId();
+        if ($redirect = $this->denyResourceAccessUnlessGranted($this->permissionChecker, $this->tenantContext->getCurrentTenant(), AccessRequest::RESOURCE_PASTA, $pastaId, AccessRequest::ACTION_VIEW, 'pasta_index', $pasta->getNup() ?? '#' . $pastaId)) {
+            return $redirect;
+        }
+
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $termo  = trim((string) $request->query->get('q', ''));
+
+        $idsVinculados = array_values(array_filter(array_map(
+            static fn (Processo $p): ?int => $p->getId(),
+            $pasta->getProcessos(),
+        )));
+
+        $processos = $this->processoRepository->buscarPorTermoDoTenant($termo, $tenant, $idsVinculados);
+
+        $results = array_map(fn (Processo $p): array => [
+            'id'   => $p->getId(),
+            'text' => $this->rotuloProcesso($p),
+        ], $processos);
+
+        return $this->json(['results' => $results]);
+    }
+
+    private function respostaProcessosVinculados(Pasta $pasta): JsonResponse
+    {
+        return $this->json([
+            'sucesso' => true,
+            'html'    => $this->renderView('pasta/_processos_vinculados.html.twig', ['pasta' => $pasta]),
+        ]);
+    }
+
+    private function respostaErroProcesso(bool $isXhr, string $mensagem, int $pastaId, int $status): Response
+    {
+        if ($isXhr) {
+            return $this->json(['erro' => $mensagem], $status);
+        }
+
+        $this->addFlash('danger', $mensagem);
+
+        return $this->redirectToRoute('pasta_show', ['id' => $pastaId, '_fragment' => 'processo']);
+    }
+
+    private function rotuloProcesso(Processo $processo): string
+    {
+        $partes = array_filter([
+            $processo->getNumeroProcesso(),
+            $processo->getClasseProcessual() ?: $processo->getAssuntoProcessual(),
+            $processo->getSiglaTribunal(),
+        ]);
+
+        return implode(' · ', $partes);
     }
 
     #[Route('/{id}/editar', name: 'pasta_edit', methods: ['POST'])]

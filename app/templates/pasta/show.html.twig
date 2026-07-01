@@ -354,9 +354,12 @@
                                     <div class="col-12 col-sm-6 col-lg-4">
                                         <p class="text-sm text-muted mb-1">Processo Vinculado</p>
                                         <b>
-                                            {% if pasta.processo %}
-                                                <a href="{{ path('processo_show', {id: pasta.processo.id}) }}">{{ pasta.processo.numeroProcesso }}</a>
-                                                <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.processo.numeroProcesso }}" title="Copiar"></i>
+                                            {% if pasta.processoPrincipal %}
+                                                <a href="{{ path('processo_show', {id: pasta.processoPrincipal.id}) }}">{{ pasta.processoPrincipal.numeroProcesso }}</a>
+                                                <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ pasta.processoPrincipal.numeroProcesso }}" title="Copiar"></i>
+                                                {% if pasta.pastaProcessos|length > 1 %}
+                                                    <span class="badge bg-secondary ms-1" title="Outros processos vinculados">+{{ pasta.pastaProcessos|length - 1 }}</span>
+                                                {% endif %}
                                             {% else %}
                                                 <span class="text-muted">—</span>
                                             {% endif %}
@@ -388,8 +391,8 @@
                                     <div class="col-12 col-sm-6 col-lg-4">
                                         <p class="text-sm text-muted mb-1">Ação</p>
                                         <b>
-                                            {% if pasta.processo %}
-                                                {{ pasta.processo.classeProcessual ?: pasta.processo.assuntoProcessual ?: pasta.processo.numeroProcesso }}
+                                            {% if pasta.processoPrincipal %}
+                                                {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
                                             {% elseif pasta.nomeAcao %}
                                                 {{ pasta.nomeAcao }}
                                             {% else %}
@@ -578,132 +581,7 @@
                             {# Tab: Processo #}
                             <div class="tab-pane fade" id="processo" role="tabpanel" aria-labelledby="processo-tab">
                                 <div id="processoTabContent">
-                                {% if pasta.processo %}
-                                    <div class="row g-3">
-                                        <div class="col-12 col-sm-6 col-lg-4">
-                                            <p class="text-muted small mb-1">Número do Processo</p>
-                                            <b>
-                                                {{ pasta.processo.numeroProcesso }}
-                                                <i class="bi bi-copy text-primary copy-btn ms-1" role="button"
-                                                   data-copy="{{ pasta.processo.numeroProcesso }}" title="Copiar"></i>
-                                            </b>
-                                        </div>
-                                        {% if pasta.processo.classeProcessual %}
-                                            <div class="col-12 col-sm-6 col-lg-4">
-                                                <p class="text-muted small mb-1">Classe Processual</p>
-                                                <b>{{ pasta.processo.classeProcessual }}</b>
-                                            </div>
-                                        {% endif %}
-                                        {% if pasta.processo.assuntoProcessual %}
-                                            <div class="col-12 col-sm-6 col-lg-4">
-                                                <p class="text-muted small mb-1">Assunto</p>
-                                                <b>{{ pasta.processo.assuntoProcessual }}</b>
-                                            </div>
-                                        {% endif %}
-                                        {% if pasta.processo.orgaoJulgador %}
-                                            <div class="col-12 col-sm-6 col-lg-4">
-                                                <p class="text-muted small mb-1">Órgão Julgador</p>
-                                                <b>{{ pasta.processo.orgaoJulgador }}</b>
-                                            </div>
-                                        {% endif %}
-                                        {% if pasta.processo.siglaTribunal %}
-                                            <div class="col-12 col-sm-6 col-lg-4">
-                                                <p class="text-muted small mb-1">Tribunal</p>
-                                                <b>{{ pasta.processo.siglaTribunal }}</b>
-                                            </div>
-                                        {% endif %}
-                                        {% if pasta.processo.instancia %}
-                                            <div class="col-12 col-sm-6 col-lg-4">
-                                                <p class="text-muted small mb-1">Instância</p>
-                                                <b>{{ pasta.processo.instancia }}</b>
-                                            </div>
-                                        {% endif %}
-                                        {% if pasta.processo.situacaoProcesso %}
-                                            <div class="col-12 col-sm-6 col-lg-4">
-                                                <p class="text-muted small mb-1">Situação</p>
-                                                <b>{{ pasta.processo.situacaoProcesso }}</b>
-                                            </div>
-                                        {% endif %}
-                                        {% if pasta.processo.dataDistribuicao %}
-                                            <div class="col-12 col-sm-6 col-lg-4">
-                                                <p class="text-muted small mb-1">Data de Distribuição</p>
-                                                <b>{{ pasta.processo.dataDistribuicao|date('d/m/Y') }}</b>
-                                            </div>
-                                        {% endif %}
-                                    </div>
-
-                                    {% if pasta.processo.partes|length > 0 %}
-                                        <hr>
-                                        <h6 class="mb-3"><i class="bi bi-people me-1"></i> Partes do Processo</h6>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-hover align-middle mb-0">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Nome</th>
-                                                        <th>Tipo</th>
-                                                        <th>Papel</th>
-                                                        <th>Documento</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {% for parte in pasta.processo.partes %}
-                                                        <tr>
-                                                            <td>{{ parte.nome }}</td>
-                                                            <td>{{ parte.tipo }}</td>
-                                                            <td>{{ parte.papel ?? '—' }}</td>
-                                                            <td>{{ parte.documento ?? '—' }}</td>
-                                                        </tr>
-                                                    {% endfor %}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    {% endif %}
-
-                                    <div class="mt-3 d-flex align-items-center gap-2">
-                                        <a href="{{ path('processo_show', {id: pasta.processo.id}) }}" class="btn btn-sm btn-outline-primary">
-                                            <i class="bi bi-box-arrow-up-right me-1"></i> Ver processo completo
-                                        </a>
-                                        <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
-                                           target="_blank"
-                                           rel="noopener"
-                                           class="btn btn-sm btn-primary"
-                                           title="Peticionar na Pasta">
-                                            <i class="bi bi-file-earmark-plus me-1"></i> Peticionar na Pasta
-                                        </a>
-                                        <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0">
-                                            <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
-                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular processo da pasta">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                {% else %}
-                                    <div class="d-flex flex-column align-items-start gap-3">
-                                        <p class="text-muted small mb-0">
-                                            <i class="bi bi-info-circle me-1"></i>
-                                            {% if pasta.nomeAcao %}
-                                                Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. Nenhum processo judicial vinculado.
-                                            {% else %}
-                                                Nenhum processo judicial vinculado a esta pasta.
-                                            {% endif %}
-                                        </p>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <button type="button"
-                                                    class="btn btn-sm btn-outline-primary"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#modalVincularProcesso">
-                                                <i class="bi bi-plus-lg me-1"></i> Vincular Processo
-                                            </button>
-                                            <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
-                                               target="_blank"
-                                               rel="noopener"
-                                               class="btn btn-sm btn-primary"
-                                               title="Peticionar na Pasta">
-                                                <i class="bi bi-file-earmark-plus me-1"></i> Peticionar na Pasta
-                                            </a>
-                                        </div>
-                                    </div>
-                                {% endif %}
+                                {{ include('pasta/_processos_vinculados.html.twig') }}
                                 </div><!-- /processoTabContent -->
                             </div>
 
@@ -2026,19 +1904,39 @@
 
                 const dados = await resp.json().catch(() => ({}));
                 if (dados.sucesso) {
-                    const content = document.getElementById('processoTabContent');
-                    if (content) {
-                        content.innerHTML =
-                            '<div class="d-flex flex-column align-items-start gap-3">' +
-                            '<p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i> Nenhum processo judicial vinculado a esta pasta.</p>' +
-                            '<button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVincularProcesso">' +
-                            '<i class="bi bi-plus-lg me-1"></i> Vincular Processo</button>' +
-                            '</div>';
-                    }
+                    window.mpSwapProcessos(dados.html);
                     return;
                 }
 
                 alert(dados.erro ?? 'Erro ao desvincular processo.');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                }
+            }
+        }
+
+        if (form.matches('form.js-ajax-processo-principal')) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = true;
+            }
+
+            try {
+                const resp = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: new FormData(form),
+                });
+
+                const dados = await resp.json().catch(() => ({}));
+                if (resp.ok && dados.sucesso) {
+                    window.mpSwapProcessos(dados.html);
+                    return;
+                }
+
+                alert(dados.erro ?? 'Erro ao definir o processo principal.');
             } finally {
                 if (button) {
                     button.disabled = false;
@@ -2128,6 +2026,26 @@
                   action="{{ path('pasta_vincular_processo', {id: pasta.id}) }}">
                 <input type="hidden" name="_token" value="{{ csrf_token('vincular_processo_' ~ pasta.id) }}">
                 <div class="modal-body py-3">
+
+                    {# Seletor de modo: buscar processo existente x cadastrar novo via CNJ #}
+                    <div class="btn-group w-100 mb-3" role="group" aria-label="Modo de vínculo de processo">
+                        <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-existente" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary btn-sm" for="mp-modo-existente"><i class="bi bi-search me-1"></i> Buscar processo existente</label>
+                        <input type="radio" class="btn-check" name="mp-modo" id="mp-modo-novo" autocomplete="off">
+                        <label class="btn btn-outline-primary btn-sm" for="mp-modo-novo"><i class="bi bi-plus-lg me-1"></i> Cadastrar novo (CNJ)</label>
+                    </div>
+
+                    {# MODO: buscar processo já cadastrado #}
+                    <div id="modal-modo-existente">
+                        <label for="mp-processoExistente" class="form-label">
+                            Processo já cadastrado <span class="text-danger">*</span>
+                        </label>
+                        <select id="mp-processoExistente" name="processo_id" class="form-select" style="width:100%"></select>
+                        <div class="form-text">Busque por número, classe, assunto ou tribunal e selecione um processo do escritório.</div>
+                    </div>
+
+                    {# MODO: cadastrar novo processo via CNJ #}
+                    <div id="modal-modo-novo" class="d-none">
 
                     {# Abas do formulário de processo #}
                     <div class="processo-modal-tabs d-flex border-bottom mb-0">
@@ -2394,6 +2312,7 @@
 
                     <div id="mp-feedbackAlerta" class="d-none mt-3"></div>
 
+                    </div>{# fim modal-modo-novo #}
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
@@ -2839,6 +2758,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Exposta no escopo global para reuso por outros blocos <script> (ex.: render in-place do modal de processo).
     window.attachCopyButtons = attachCopyButtons;
+
+    // Troca a lista de processos vinculados in-place (sem recarregar a página nem
+    // sair da aba Processo). Usada por vincular/desvincular/tornar principal.
+    window.mpSwapProcessos = function (html) {
+        var content = document.getElementById('processoTabContent');
+        if (content && typeof html === 'string') {
+            content.innerHTML = html;
+            attachCopyButtons();
+        }
+    };
 
     attachCopyButtons();
 
@@ -3373,6 +3302,20 @@ document.addEventListener('DOMContentLoaded', function () {
 .processo-modal-tab.active { color: #1a6fa3; border-bottom-color: #1a6fa3; }
 .processo-modal-tab-content { display: none; }
 .processo-modal-tab-content.active { display: block; }
+/* Autocomplete de processo em tema escuro: o select2 usa fundo branco, mas os textos
+   herdavam a cor clara do tema (sumindo sobre o branco). Fixa esquema claro + textos escuros,
+   preservando o contraste da opção destacada (branco sobre azul). */
+.mp-proc-dropdown { color-scheme: light; }
+.mp-proc-dropdown .select2-search__field {
+    background-color: #fff;
+    color: #212529;
+}
+.mp-proc-dropdown .select2-results__option { color: #212529; }
+.mp-proc-dropdown .select2-results__option--highlighted { color: #fff; }
+/* Caixa de seleção do autocomplete (fica dentro de #modal-modo-existente): texto/placeholder
+   escuros sobre o fundo branco do select2. */
+#modal-modo-existente .select2-selection__rendered { color: #212529; }
+#modal-modo-existente .select2-selection__placeholder { color: #6c757d; }
 </style>
 
 <script>
@@ -3391,8 +3334,40 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* ── Select2 para tribunal no modal ── */
+    /* ── Modo (buscar existente x cadastrar novo) e Select2 no modal ── */
     var modalEl = document.getElementById('modalVincularProcesso');
+
+    function mpAplicarModo(modo) {
+        var blocoExistente = document.getElementById('modal-modo-existente');
+        var blocoNovo      = document.getElementById('modal-modo-novo');
+        var selExistente   = document.getElementById('mp-processoExistente');
+        var ehNovo         = (modo === 'novo');
+
+        blocoExistente.classList.toggle('d-none', ehNovo);
+        blocoNovo.classList.toggle('d-none', !ehNovo);
+
+        // Campos required do CNJ não podem bloquear o submit quando ocultos (o
+        // navegador não consegue focar um required escondido). Suspende o required
+        // no modo "existente" e o restaura no modo "novo".
+        blocoNovo.querySelectorAll('input, select, textarea').forEach(function (el) {
+            if (ehNovo) {
+                if (el.dataset.reqSuspenso) {
+                    el.required = true;
+                    delete el.dataset.reqSuspenso;
+                }
+            } else if (el.required) {
+                el.required = false;
+                el.dataset.reqSuspenso = '1';
+            }
+        });
+
+        if (selExistente) selExistente.disabled = ehNovo; // não submete processo_id no modo novo
+    }
+
+    document.getElementById('mp-modo-existente').addEventListener('change', function () { mpAplicarModo('existente'); });
+    document.getElementById('mp-modo-novo').addEventListener('change', function () { mpAplicarModo('novo'); });
+    mpAplicarModo('existente');
+
     modalEl.addEventListener('shown.bs.modal', function () {
         if (window.$ && $.fn.select2) {
             $('#mp-siglaTribunal').select2({
@@ -3401,7 +3376,30 @@ document.addEventListener('DOMContentLoaded', function () {
                 dropdownParent: $('#modalVincularProcesso'),
                 language: { noResults: function () { return 'Nenhum tribunal encontrado'; } }
             });
+            if (!$('#mp-processoExistente').hasClass('select2-hidden-accessible')) {
+                $('#mp-processoExistente').select2({
+                    width: '100%',
+                    placeholder: 'Digite número, classe, assunto ou tribunal…',
+                    allowClear: true,
+                    dropdownParent: $('#modalVincularProcesso'),
+                    dropdownCssClass: 'mp-proc-dropdown',
+                    minimumInputLength: 2,
+                    ajax: {
+                        url: '{{ path('pasta_buscar_processos', {id: pasta.id}) }}',
+                        dataType: 'json',
+                        delay: 250,
+                        data: function (params) { return { q: params.term }; },
+                        processResults: function (data) { return { results: data.results || [] }; }
+                    },
+                    language: {
+                        noResults: function () { return 'Nenhum processo encontrado'; },
+                        searching: function () { return 'Buscando…'; },
+                        inputTooShort: function () { return 'Digite ao menos 2 caracteres'; }
+                    }
+                });
+            }
         }
+        mpAplicarModo(document.getElementById('mp-modo-novo').checked ? 'novo' : 'existente');
     });
 
     function escapeHtml(value) {
@@ -3413,57 +3411,26 @@ document.addEventListener('DOMContentLoaded', function () {
             .replace(/'/g, '&#39;');
     }
 
-    function renderProcessoTab(processo) {
-        var partesHtml = '';
-        if (processo.partes && processo.partes.length > 0) {
-            partesHtml = '<hr>' +
-                '<h6 class="mb-3"><i class="bi bi-people me-1"></i> Partes do Processo</h6>' +
-                '<div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0"><thead><tr><th>Nome</th><th>Tipo</th><th>Papel</th><th>Documento</th></tr></thead><tbody>';
-            processo.partes.forEach(function (parte) {
-                partesHtml += '<tr><td>' + escapeHtml(parte.nome) + '</td>' +
-                    '<td>' + escapeHtml(parte.tipo || '—') + '</td>' +
-                    '<td>' + escapeHtml(parte.papel || '—') + '</td>' +
-                    '<td>' + escapeHtml(parte.documento || '—') + '</td></tr>';
-            });
-            partesHtml += '</tbody></table></div>';
-        }
-
-        var dataDistribuicaoHtml = '';
-        if (processo.dataDistribuicao) {
-            dataDistribuicaoHtml = '<div class="col-12 col-sm-6 col-lg-4">' +
-                '<p class="text-muted small mb-1">Data de Distribuição</p>' +
-                '<b>' + escapeHtml(processo.dataDistribuicao) + '</b>' +
-                '</div>';
-        }
-
-        return '<div class="row g-3">' +
-            '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Número do Processo</p><b>' + escapeHtml(processo.numeroProcesso) + ' <i class="bi bi-copy text-primary copy-btn ms-1" role="button" data-copy="' + escapeHtml(processo.numeroProcesso) + '" title="Copiar"></i></b></div>' +
-            (processo.classeProcessual ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Classe Processual</p><b>' + escapeHtml(processo.classeProcessual) + '</b></div>' : '') +
-            (processo.assuntoProcessual ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Assunto</p><b>' + escapeHtml(processo.assuntoProcessual) + '</b></div>' : '') +
-            (processo.orgaoJulgador ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Órgão Julgador</p><b>' + escapeHtml(processo.orgaoJulgador) + '</b></div>' : '') +
-            (processo.siglaTribunal ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Tribunal</p><b>' + escapeHtml(processo.siglaTribunal) + '</b></div>' : '') +
-            (processo.instancia ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Instância</p><b>' + escapeHtml(processo.instancia) + '</b></div>' : '') +
-            (processo.situacaoProcesso ? '<div class="col-12 col-sm-6 col-lg-4"><p class="text-muted small mb-1">Situação</p><b>' + escapeHtml(processo.situacaoProcesso) + '</b></div>' : '') +
-            dataDistribuicaoHtml +
-            '</div>' + partesHtml +
-            '<div class="mt-3 d-flex align-items-center gap-2">' +
-            '<a href="/processos/' + escapeHtml(processo.id) + '" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-up-right me-1"></i> Ver processo completo</a>' +
-            '<form method="post" action="/pasta/' + escapeHtml(pastaId) + '/processo/desvincular" class="js-ajax-desvincular-processo m-0">' +
-            '<input type="hidden" name="_token" value="' + escapeHtml(csrfDesvincularProcesso) + '">' +
-            '<button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular processo da pasta"><i class="bi bi-trash"></i></button>' +
-            '</form>' +
-            '</div>';
-    }
-
     /* ── Submit via AJAX ── */
     document.getElementById('formVincularProcesso').addEventListener('submit', async function (e) {
         e.preventDefault();
         var feedbackEl = document.getElementById('mp-feedbackAlerta');
         var btnSalvar  = this.querySelector('button[type="submit"]');
         var icone      = btnSalvar.querySelector('i');
+        var modoNovo   = document.getElementById('mp-modo-novo').checked;
 
         feedbackEl.className = 'd-none mt-3';
         feedbackEl.innerHTML = '';
+
+        if (!modoNovo) {
+            var selExistente = document.getElementById('mp-processoExistente');
+            if (!selExistente.value) {
+                feedbackEl.className = 'alert alert-warning mt-3';
+                feedbackEl.textContent = 'Selecione um processo para vincular.';
+                return;
+            }
+        }
+
         btnSalvar.disabled = true;
         if (icone) icone.className = 'bi bi-hourglass-split me-1';
 
@@ -3473,31 +3440,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 body: new FormData(this),
             });
-            var dados = await resp.json();
+            var dados = await resp.json().catch(function () { return {}; });
 
-            if (!resp.ok) {
-                feedbackEl.className = 'alert alert-danger mt-3';
-                feedbackEl.textContent = dados.erro ?? 'Erro ao vincular processo.';
-                return;
-            }
-
-            if (dados.sucesso && dados.processo) {
-                try {
-                    var content = document.getElementById('processoTabContent');
-                    if (content) {
-                        content.innerHTML = renderProcessoTab(dados.processo);
-                        window.attachCopyButtons();
-                    }
-                    bootstrap.Modal.getInstance(modalEl)?.hide();
-                } catch (renderErr) {
-                    // Processo já foi persistido no backend; recarrega para refletir o estado.
-                    window.location.reload();
-                }
+            if (resp.ok && dados.sucesso) {
+                window.mpSwapProcessos(dados.html);
+                bootstrap.Modal.getInstance(modalEl)?.hide();
                 return;
             }
 
             feedbackEl.className = 'alert alert-danger mt-3';
-            feedbackEl.textContent = 'Processo vinculado, mas não foi possível atualizar o conteúdo.';
+            feedbackEl.textContent = dados.erro ?? 'Erro ao vincular processo.';
         } catch (_) {
             feedbackEl.className = 'alert alert-danger mt-3';
             feedbackEl.textContent = 'Erro de comunicação. Tente novamente.';
@@ -3524,6 +3476,11 @@ document.addEventListener('DOMContentLoaded', function () {
         if (window.$ && $.fn.select2) {
             $('#mp-siglaTribunal').val('tjdft').trigger('change');
         }
+        document.getElementById('mp-modo-existente').checked = true;
+        if (window.$ && $.fn.select2 && $('#mp-processoExistente').hasClass('select2-hidden-accessible')) {
+            $('#mp-processoExistente').val(null).trigger('change');
+        }
+        mpAplicarModo('existente');
     });
 
     /* ── Templates de linha ── */

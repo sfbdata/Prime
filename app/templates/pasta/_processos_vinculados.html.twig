@@ -1,0 +1,87 @@
+{# Lista de processos vinculados da pasta. Renderizado tanto no show quanto via XHR
+   (vincular/desvincular/tornar principal) para atualizar a aba sem recarregar a página.
+   Contexto necessário: `pasta`. #}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <h6 class="mb-0">
+        <i class="bi bi-folder2-open me-1"></i> Processos vinculados
+        {% if pasta.pastaProcessos|length > 0 %}
+            <span class="badge bg-secondary">{{ pasta.pastaProcessos|length }}</span>
+        {% endif %}
+    </h6>
+    <div class="d-flex align-items-center gap-2">
+        <button type="button"
+                class="btn btn-sm btn-outline-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#modalVincularProcesso">
+            <i class="bi bi-plus-lg me-1"></i> Vincular Processo
+        </button>
+        <a href="{{ path('pasta_peticionar', {id: pasta.id}) }}"
+           target="_blank"
+           rel="noopener"
+           class="btn btn-sm btn-primary"
+           title="Peticionar na Pasta">
+            <i class="bi bi-file-earmark-plus me-1"></i> Peticionar na Pasta
+        </a>
+    </div>
+</div>
+
+{% if pasta.pastaProcessos|length > 0 %}
+    {# Principal pela MESMA fonte de verdade dos resumos (getVinculoPrincipal,
+       com fallback), para não divergir caso a flag fique inconsistente. #}
+    {% set vinculoPrincipal = pasta.vinculoPrincipal %}
+    <div class="d-flex flex-column gap-2">
+        {% for vinculo in pasta.pastaProcessos %}
+            {% set proc = vinculo.processo %}
+            {% set ehPrincipal = vinculoPrincipal and proc.id == vinculoPrincipal.processo.id %}
+            <div class="card border">
+                <div class="card-body py-2 px-3">
+                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                        <div class="flex-grow-1">
+                            <div class="d-flex align-items-center flex-wrap gap-2 mb-1">
+                                <a href="{{ path('processo_show', {id: proc.id}) }}" class="fw-semibold text-decoration-none">{{ proc.numeroProcesso }}</a>
+                                <i class="bi bi-copy text-primary copy-btn" role="button" data-copy="{{ proc.numeroProcesso }}" title="Copiar"></i>
+                                {% if ehPrincipal %}
+                                    <span class="badge text-bg-primary"><i class="bi bi-star-fill me-1"></i>Principal</span>
+                                {% endif %}
+                            </div>
+                            <div class="small text-muted">
+                                {% set detalhes = [proc.classeProcessual ?: proc.assuntoProcessual, proc.siglaTribunal, proc.situacaoProcesso]|filter(v => v) %}
+                                {{ detalhes|join(' · ') ?: '—' }}
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            {% if not ehPrincipal %}
+                                <form method="post" action="{{ path('pasta_definir_processo_principal', {id: pasta.id}) }}" class="js-ajax-processo-principal m-0">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('pasta_definir_principal_processo_' ~ pasta.id) }}">
+                                    <input type="hidden" name="processo_id" value="{{ proc.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Tornar processo principal">
+                                        <i class="bi bi-star"></i>
+                                    </button>
+                                </form>
+                            {% endif %}
+                            <a href="{{ path('processo_show', {id: proc.id}) }}" class="btn btn-sm btn-outline-primary" title="Ver processo completo">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                            <form method="post" action="{{ path('pasta_desvincular_processo', {id: pasta.id}) }}" class="js-ajax-desvincular-processo m-0">
+                                <input type="hidden" name="_token" value="{{ csrf_token('pasta_desvincular_processo_' ~ pasta.id) }}">
+                                <input type="hidden" name="processo_id" value="{{ proc.id }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Desvincular processo da pasta">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p class="text-muted small mb-0">
+        <i class="bi bi-info-circle me-1"></i>
+        {% if pasta.nomeAcao %}
+            Ação registrada: <strong>{{ pasta.nomeAcao }}</strong>. Nenhum processo judicial vinculado.
+        {% else %}
+            Nenhum processo judicial vinculado a esta pasta.
+        {% endif %}
+    </p>
+{% endif %}

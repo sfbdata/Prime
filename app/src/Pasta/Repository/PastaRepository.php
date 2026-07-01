@@ -325,7 +325,8 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['acao'])) {
-            $qb->leftJoin('p.processo', 'proc')
+            $qb->leftJoin('p.pastaProcessos', 'pp_acao', 'WITH', 'pp_acao.principal = true')
+               ->leftJoin('pp_acao.processo', 'proc')
                ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
                ->setParameter('acao', '%' . $filters['acao'] . '%');
         }
@@ -379,7 +380,8 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['acao'])) {
-            $qb->leftJoin('p.processo', 'proc')
+            $qb->leftJoin('p.pastaProcessos', 'pp_acao', 'WITH', 'pp_acao.principal = true')
+               ->leftJoin('pp_acao.processo', 'proc')
                ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
                ->setParameter('acao', '%' . $filters['acao'] . '%');
         }

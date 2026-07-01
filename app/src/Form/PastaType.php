@@ -5,7 +5,6 @@ namespace App\Form;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Pasta\Entity\Pasta;
-use App\Processo\Entity\Processo;
 use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -29,12 +28,6 @@ class PastaType extends AbstractType
                     'Ativo'     => 'ativo',
                     'Arquivado' => 'arquivado',
                 ],
-            ])
-            ->add('processo', EntityType::class, [
-                'class' => Processo::class,
-                'label' => 'Processo',
-                'required' => false,
-                'choice_label' => 'numeroProcesso',
             ])
             ->add('clientes', EntityType::class, [
                 'class' => Cliente::class,

@@ -154,7 +154,9 @@ final class TarefaIsolamentoRepositoryTest extends KernelTestCase
         $pasta = new Pasta();
         $pasta->setNup('TAR-' . (++$this->seq) . '-' . uniqid());
         $pasta->setTenant($tenant);
-        $pasta->setProcesso($processo);
+        if ($processo !== null) {
+            $pasta->vincularProcesso($processo);
+        }
         $this->em->persist($pasta);
         $this->em->flush();
 

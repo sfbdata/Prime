@@ -41,7 +41,8 @@ class TarefaRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('t')
             ->join('t.pasta', 'p')
-            ->where('p.processo = :processo')
+            ->join('p.pastaProcessos', 'pp')
+            ->where('pp.processo = :processo')
             ->setParameter('processo', $processo)
             ->orderBy('t.dataCriacao', 'DESC')
             ->getQuery()
