@@ -32,4 +32,23 @@ class TenantRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    /**
+     * Escritórios elegíveis à purga definitiva (hard delete): soft-deletados
+     * (isActive=false) cuja quarentena (excluidoEm) já passou do limite de carência.
+     * Enquanto dentro da carência, o suporte ainda pode reativar (RN09).
+     *
+     * @return Tenant[]
+     */
+    public function encontrarPurgaveis(\DateTimeImmutable $limite): array
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.isActive = false')
+            ->andWhere('t.excluidoEm IS NOT NULL')
+            ->andWhere('t.excluidoEm <= :limite')
+            ->setParameter('limite', $limite)
+            ->orderBy('t.excluidoEm', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

@@ -24,9 +24,10 @@ projeto (UseCase+testes → resto → `feature-review-agent` → correção) e p
 
 **O que FALTA (nada bloqueia a feature; são dívidas/futuro):** ver §"Notas de deploy / dívidas da Fase 3"
 e a linha "Futura" no §Faseamento. Resumo: (1) `SYMFONY_TRUSTED_PROXIES` em prod p/ o rate limiter,
-(2) job de purga de PII (`cadastro_pendente` expirado + tenant em quarentena), (3) validação real da OAB
-via API (RS03), (4) extrair a validação de OAB (duplicada em 3 UseCases), (5) transferir titularidade
-(fase futura), (6) badge multi-escritório agregado (fase futura).
+(2) ✅ **FEITO** — job de purga de PII (`cadastro_pendente` expirado + tenant em quarentena) →
+ver `docs/specs/purga-quarentena-e-cadastros.md` (implementado, revisado 2×, aguardando commit + cron em prod),
+(3) validação real da OAB via API (RS03), (4) extrair a validação de OAB (duplicada em 3 UseCases),
+(5) transferir titularidade (fase futura), (6) badge multi-escritório agregado (fase futura).
 
 **Como continuar:** siga o ciclo do projeto (ver `.claude/skills/workflow` e CLAUDE.md). Isolamento
 multi-tenant é **inegociável** — nenhum dado vaza entre escritórios (todo código novo confia no

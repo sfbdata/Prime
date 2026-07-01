@@ -177,6 +177,23 @@ Adicione a linha (executa todo dia às 02:00):
 
 > Substitua `/caminho/para/jusprime` pelo caminho real do projeto na VPS.
 
+### Purga de dados expirados (crontab na VPS)
+
+Job diário que apaga cadastros pendentes expirados (senha_hash + PII) e faz o hard delete
+definitivo de escritórios em quarentena vencida (soft delete há mais de 365 dias — RN09).
+Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o escritório
+(janela de recuperação). `--force` é obrigatório (cron não tem TTY para a confirmação).
+
+```
+0 3 * * * docker exec jusprime_php_prod php bin/console app:purgar-dados-expirados --force >> /var/log/jusprime-purga.log 2>&1
+```
+
+> **Antes de agendar:** rode uma vez em simulação para conferir o que seria apagado —
+> `docker exec jusprime_php_prod php bin/console app:purgar-dados-expirados --dry-run`.
+>
+> A carência de quarentena (padrão 365 dias) é configurável sem deploy via
+> `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:
