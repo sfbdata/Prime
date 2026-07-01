@@ -182,11 +182,13 @@ Bloqueiam a Fase 0; precisam ser feitos antes de qualquer execução em prod.
   Drive ou no sistema) viram pastas distintas sem conflito — que é justamente o
   pré-requisito do P.O.
 
-### 7.3 Mudança no `CriarPastaUseCase`
+### 7.3 Mudança no `CriarPastaUseCase` (e no `EditarPastaUseCase`)
 
 Hoje lança `InvalidArgumentException` se o NUP já existe no tenant
 (`app/src/Pasta/UseCase/CriarPastaUseCase.php:34`). Com NUP repetível, **essa
-checagem sai**.
+checagem sai**. **A mesma barreira existia no `EditarPastaUseCase` (linha 32) e
+também foi removida** — descoberto na implementação; a redação original desta
+seção citava só o Criar. Ambos os testes foram ajustados junto.
 
 Consequências documentadas:
 - O teste unitário do UseCase muda junto (o caso "NUP duplicado lança exceção"
@@ -469,14 +471,20 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 ## 18. Critério de aceite por fase (DoD)
 
 **Fase 0 — Fundação — pronta quando:**
-- Migration aplicada em DEV: UNIQUE de NUP removido; `drive_folder_id`,
-  `drive_synced_at`, `drive_file_id` + índices criados; `down()` reversível.
+- Migration gerada por `diff` e **provada (up/down) no banco de teste isolado** com
+  `schema:validate` OK: UNIQUE de NUP removido; `drive_folder_id`, `drive_synced_at`,
+  `drive_file_id` + índices criados; `down()` reversível. (Aplicação no dev/prod fica
+  para o deploy supervisionado da Fase 1a — não se toca o `saas` compartilhado.)
 - `GoogleDriveClient` + `GoogleDriveClientInterface` implementados, com *fake* para testes.
-- `CriarPastaUseCase` ajustado (checagem de NUP duplicado removida) + teste unitário atualizado verde.
-- Comandos `backfill-pastas` e `backfill-arquivos` existem, com `--dry-run` e relatório.
-- Comando `reconciliar` existe, com `--dry-run` / `--limit` / `--pasta-id` e lock.
-- Suíte unit verde (motor com *fake*, backfills, UseCase).
+- `CriarPastaUseCase` **e `EditarPastaUseCase`** ajustados (barreira de NUP duplicado
+  removida) + testes atualizados verdes.
+- Comandos `backfill-pastas` e `backfill-arquivos` existem, com `--dry-run` e relatório
+  dos dois lados (sistema↔Drive).
+- Suíte verde (fake, backfills, UseCases).
 - `GoogleDriveClient` validado manualmente contra um Shared Drive de teste.
+
+> O comando `reconciliar` (motor de reconciliação) **não** é da Fase 0 — é da Fase 1
+> (§3). Terá plano/DoD próprios.
 
 **Fase 1a — Reconciliação manual — pronta quando:**
 - Pré-requisitos §6 (incl. backup + disco, item 7) verdes.
@@ -504,7 +512,7 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 |---|---|---|
 | Design / spec | ✅ | 2026-06-26 (este documento) |
 | Pré-requisitos de ops (§6: service account, Shared Drive, backup+disco) | ⬜ | bloqueia execução da Fase 1a |
-| Fase 0 — Fundação | ⬜ | próximo passo após aprovação da spec |
+| Fase 0 — Fundação | ✅ | 2026-07-01 — implementada e revisada (Tasks 1–5); suíte 876/876; migration provada no banco de teste isolado (aplicação real na Fase 1a) |
 | Fase 1a — Reconciliação manual | ⬜ | depende de Fase 0 + pré-requisitos ops |
 | Fase 1b — Automático (cron) | ⬜ | só após 1a provar (D12) |
 | Fase 2 — Baixa latência sistema→Drive | ⬜ | spec própria |
