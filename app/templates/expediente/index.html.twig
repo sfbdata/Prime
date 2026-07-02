@@ -1051,10 +1051,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ── Persistência do estado do painel (sessionStorage) ───────────
     // Grava filtros + página atuais a cada recarregamento do painel para
-    // poder restaurar ao voltar de uma pasta. NÃO usa URL: o filtro "cliente"
-    // é texto livre com nome de cliente (PII) e não pode ir para URL/logs.
-    // Centralizado aqui no shell e exposto em window para os fragmentos AJAX
-    // (_painel_marcador / _acervo_geral), que rodam em escopo isolado.
+    // poder restaurar ao voltar de uma pasta. A restauração NÃO passa pela
+    // barra de endereço: o filtro "busca" é texto livre que pode conter nome
+    // de cliente (PII), então fica só no sessionStorage — nada de histórico do
+    // navegador. (O fetch AJAX ainda leva "busca" na query string, igual já
+    // ocorria com "cliente"; isto protege a barra de endereço, não o access log.)
     var CHAVE_ESTADO_PAINEL = 'expediente:estadoPainel';
 
     function lerPaginaAtualDoPainel() {
@@ -1074,11 +1075,12 @@ document.addEventListener('DOMContentLoaded', function () {
             var estado = {
                 painelUrl: form.getAttribute('action'), // marcador id ou rota acervo
                 filtros: {
-                    nup:         fd.get('nup')         || '',
+                    busca:       fd.get('busca')       || '', // texto livre (pode conter nome de cliente = PII) — só em sessionStorage
                     status:      fd.get('status')      || '',
                     responsavel: fd.get('responsavel') || '',
-                    cliente:     fd.get('cliente')     || '', // PII — só em sessionStorage
-                    acao:        fd.get('acao')        || ''
+                    prioridade:  fd.get('prioridade')  || '',
+                    data_de:     fd.get('data_de')     || '',
+                    data_ate:    fd.get('data_ate')    || ''
                 },
                 page: lerPaginaAtualDoPainel()
             };
@@ -1143,7 +1145,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var params = new URLSearchParams();
         var f = estado.filtros || {};
-        ['nup', 'status', 'responsavel', 'cliente', 'acao'].forEach(function (k) {
+        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate'].forEach(function (k) {
             if (f[k]) params.set(k, f[k]);
         });
         if (estado.page && estado.page > 1) params.set('page', estado.page);
@@ -1561,11 +1563,173 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(function (html) {
                 injetarHtmlComScripts(painel, html);
                 salvarEstadoPainel();
+                construirChipsPastas();
             })
             .catch(function () {
                 painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
             });
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  Filtro de pastas — busca ao vivo (debounce), dropdowns/datas na hora, chips.
+    //  Tudo delegado no #expediente-painel (persistente), então sobrevive às trocas
+    //  de HTML. Apenas os resultados (#pastas-resultado) recarregam a cada filtro,
+    //  deixando a barra de filtro intacta (o campo de busca não perde o foco).
+    // ═══════════════════════════════════════════════════════════════════════
+    var buscaFiltroTimer = null;
+
+    function escHtmlChip(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function formatarDataFiltro(iso) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+
+        return m ? (m[3] + '/' + m[2] + '/' + m[1]) : iso;
+    }
+
+    function construirChipsPastas() {
+        var form = document.getElementById('formFiltrosPasta');
+        var box  = document.getElementById('pasta-chips');
+        if (!form || !box) return;
+
+        var chips = [];
+
+        var busca = form.querySelector('.js-pasta-busca');
+        if (busca && busca.value.trim() !== '') {
+            chips.push({ campo: 'busca', rotulo: 'Busca', valor: busca.value.trim() });
+        }
+
+        form.querySelectorAll('select.js-pasta-filtro').forEach(function (sel) {
+            if (sel.value !== '') {
+                var opt = sel.options[sel.selectedIndex];
+                chips.push({
+                    campo: sel.name,
+                    rotulo: sel.dataset.rotulo || '',
+                    valor: opt ? opt.textContent.trim() : sel.value
+                });
+            }
+        });
+
+        ['data_de', 'data_ate'].forEach(function (campo) {
+            var input = form.querySelector('[name="' + campo + '"]');
+            if (input && input.value !== '') {
+                chips.push({
+                    campo: campo,
+                    rotulo: input.dataset.rotulo || '',
+                    valor: formatarDataFiltro(input.value)
+                });
+            }
+        });
+
+        if (chips.length === 0) { box.innerHTML = ''; return; }
+
+        var html = chips.map(function (c) {
+            return '<span class="pasta-chip">' +
+                (c.rotulo ? '<span class="pasta-chip-rotulo">' + escHtmlChip(c.rotulo) + ':</span> ' : '') +
+                '<span class="pasta-chip-valor">' + escHtmlChip(c.valor) + '</span>' +
+                '<button type="button" class="pasta-chip-remover js-chip-remover" data-campo="' + escHtmlChip(c.campo) + '" title="Remover" aria-label="Remover filtro">' +
+                '<i class="bi bi-x"></i></button>' +
+                '</span>';
+        }).join('');
+        html += '<button type="button" class="pasta-chips-limpar js-pasta-limpar">Limpar tudo</button>';
+        box.innerHTML = html;
+    }
+
+    function recarregarResultadosPastas(extraParams) {
+        var form = document.getElementById('formFiltrosPasta');
+        if (!form) return;
+
+        var params = new URLSearchParams(new FormData(form));
+        if (extraParams) {
+            Object.keys(extraParams).forEach(function (k) { params.set(k, extraParams[k]); });
+        }
+
+        var url   = form.getAttribute('action') + '?' + params.toString();
+        var atual = document.getElementById('pastas-resultado');
+        if (atual) atual.classList.add('pastas-carregando');
+
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                var doc  = new DOMParser().parseFromString(html, 'text/html');
+                var novo = doc.getElementById('pastas-resultado');
+                var alvo = document.getElementById('pastas-resultado');
+                if (novo && alvo) {
+                    injetarHtmlComScripts(alvo, novo.innerHTML);
+                    alvo.classList.remove('pastas-carregando');
+                } else {
+                    // Fallback improvável: fragmento sem #pastas-resultado — repinta tudo.
+                    injetarHtmlComScripts(painel, html);
+                }
+                salvarEstadoPainel();
+            })
+            .catch(function () {
+                var alvo = document.getElementById('pastas-resultado');
+                if (alvo) alvo.classList.remove('pastas-carregando');
+            });
+    }
+
+    function aplicarFiltrosPastas() {
+        construirChipsPastas();
+        recarregarResultadosPastas({ page: 1 });
+    }
+
+    // Busca livre com debounce (mantém o foco: só #pastas-resultado recarrega)
+    painel.addEventListener('input', function (e) {
+        if (!e.target.classList || !e.target.classList.contains('js-pasta-busca')) return;
+        construirChipsPastas();
+        clearTimeout(buscaFiltroTimer);
+        buscaFiltroTimer = setTimeout(function () { recarregarResultadosPastas({ page: 1 }); }, 350);
+    });
+
+    // Enter na busca aplica imediatamente
+    painel.addEventListener('submit', function (e) {
+        if (!e.target || e.target.id !== 'formFiltrosPasta') return;
+        e.preventDefault();
+        clearTimeout(buscaFiltroTimer);
+        aplicarFiltrosPastas();
+    });
+
+    // Dropdowns (status/responsável/prioridade) e datas aplicam ao mudar
+    painel.addEventListener('change', function (e) {
+        if (!e.target.classList || !e.target.classList.contains('js-pasta-filtro')) return;
+        aplicarFiltrosPastas();
+    });
+
+    // Remover chip individual, limpar tudo e paginação
+    painel.addEventListener('click', function (e) {
+        var remover = e.target.closest('.js-chip-remover');
+        if (remover) {
+            e.preventDefault();
+            var form = document.getElementById('formFiltrosPasta');
+            var alvo = form && form.querySelector('[name="' + remover.dataset.campo + '"]');
+            if (alvo) alvo.value = '';
+            aplicarFiltrosPastas();
+
+            return;
+        }
+
+        var limpar = e.target.closest('.js-pasta-limpar');
+        if (limpar) {
+            e.preventDefault();
+            var f = document.getElementById('formFiltrosPasta');
+            if (f) f.querySelectorAll('input, select').forEach(function (el) { el.value = ''; });
+            aplicarFiltrosPastas();
+
+            return;
+        }
+
+        var pagina = e.target.closest('.btn-pagina');
+        if (pagina) {
+            e.preventDefault();
+            recarregarResultadosPastas({ page: pagina.dataset.page });
+        }
+    });
 
     function toggleSubmenu(e) {
         e.preventDefault();

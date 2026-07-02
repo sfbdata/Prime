@@ -171,13 +171,7 @@ final class ExpedienteController extends AbstractController
             return $this->json(['erro' => 'Marcador não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
-        $filters = [
-            'nup'         => $request->query->get('nup', ''),
-            'status'      => $request->query->get('status', ''),
-            'responsavel' => $request->query->get('responsavel', ''),
-            'cliente'     => $request->query->get('cliente', ''),
-            'acao'        => $request->query->get('acao', ''),
-        ];
+        $filters    = $this->filtrosDaRequest($request);
         $hasFilters = array_filter($filters, fn($v) => $v !== '');
 
         $page = max(1, $request->query->getInt('page', 1));
@@ -199,10 +193,8 @@ final class ExpedienteController extends AbstractController
             'marcador'     => $marcador,
             'pastas'       => $pastas,
             'filters'      => $filters,
-            'nups'         => $this->pastaRepository->findAllNups($tenant),
             'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
             'formAction'   => $urlPainel,
-            'limparUrl'    => $urlPainel,
             'pagination'   => [
                 'current_page' => $page,
                 'per_page'     => self::PER_PAGE,
@@ -254,13 +246,7 @@ final class ExpedienteController extends AbstractController
             return $this->redirectToRoute('expediente_index');
         }
 
-        $filters = [
-            'nup'         => $request->query->get('nup', ''),
-            'status'      => $request->query->get('status', ''),
-            'responsavel' => $request->query->get('responsavel', ''),
-            'cliente'     => $request->query->get('cliente', ''),
-            'acao'        => $request->query->get('acao', ''),
-        ];
+        $filters = $this->filtrosDaRequest($request);
 
         $page = max(1, $request->query->getInt('page', 1));
 
@@ -271,10 +257,8 @@ final class ExpedienteController extends AbstractController
         return $this->render('expediente/_acervo_geral.html.twig', [
             'pastas'       => $this->pastaRepository->findByFilters($filters, $tenant, $page, self::PER_PAGE),
             'filters'      => $filters,
-            'nups'         => $this->pastaRepository->findAllNups($tenant),
             'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
             'formAction'   => $this->generateUrl('expediente_acervo_geral'),
-            'limparUrl'    => $this->generateUrl('expediente_acervo_geral'),
             'pagination'   => [
                 'current_page' => $page,
                 'per_page'     => self::PER_PAGE,
@@ -282,6 +266,23 @@ final class ExpedienteController extends AbstractController
                 'total_pages'  => $totalPages,
             ],
         ]);
+    }
+
+    /**
+     * Extrai os filtros da listagem de pastas a partir da query string.
+     *
+     * @return array<string, string>
+     */
+    private function filtrosDaRequest(Request $request): array
+    {
+        return [
+            'busca'       => trim((string) $request->query->get('busca', '')),
+            'status'      => $request->query->get('status', ''),
+            'responsavel' => $request->query->get('responsavel', ''),
+            'prioridade'  => $request->query->get('prioridade', ''),
+            'data_de'     => $request->query->get('data_de', ''),
+            'data_ate'    => $request->query->get('data_ate', ''),
+        ];
     }
 
     private function assertAccess(User $user): Tenant

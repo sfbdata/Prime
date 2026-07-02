@@ -36,7 +36,7 @@ class PastaRepository extends ServiceEntityRepository
     ): array {
         $qb = $this->buildQbByFilters($filters, $tenant);
 
-        if (!empty($filters['cliente'])) {
+        if (!empty($filters['cliente']) || !empty($filters['busca'])) {
             $qb->addGroupBy('p.id');
         }
 
@@ -133,7 +133,7 @@ class PastaRepository extends ServiceEntityRepository
     ): array {
         $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant);
 
-        if (!empty($filters['cliente'])) {
+        if (!empty($filters['cliente']) || !empty($filters['busca'])) {
             $qb->addGroupBy('p.id');
         }
 
@@ -294,42 +294,7 @@ class PastaRepository extends ServiceEntityRepository
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
 
-        if (!empty($filters['nup'])) {
-            $qb->andWhere('p.nup LIKE :nup')
-               ->setParameter('nup', '%' . $filters['nup'] . '%');
-        }
-
-        if (!empty($filters['status'])) {
-            $qb->andWhere('p.situacao = :status')
-               ->setParameter('status', $filters['status']);
-        }
-
-        if (!empty($filters['responsavel'])) {
-            $qb->join('p.responsavel', 'r')
-               ->andWhere('r.id = :responsavel')
-               ->setParameter('responsavel', (int) $filters['responsavel']);
-        }
-
-        if (!empty($filters['cliente'])) {
-            $qb->leftJoin('p.clientes', 'c_cli')
-               ->leftJoin(ClientePF::class, 'cpf', 'WITH', 'cpf.id = c_cli.id')
-               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
-               ->andWhere(
-                   $qb->expr()->orX(
-                       'LOWER(cpf.nomeCompleto) LIKE :cliente',
-                       'LOWER(cpj.razaoSocial) LIKE :cliente',
-                       'LOWER(p.nomeCliente) LIKE :cliente',
-                   )
-               )
-               ->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%');
-        }
-
-        if (!empty($filters['acao'])) {
-            $qb->leftJoin('p.pastaProcessos', 'pp_acao', 'WITH', 'pp_acao.principal = true')
-               ->leftJoin('pp_acao.processo', 'proc')
-               ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
-               ->setParameter('acao', '%' . $filters['acao'] . '%');
-        }
+        $this->aplicarFiltrosPasta($qb, $filters);
 
         return $qb;
     }
@@ -349,6 +314,22 @@ class PastaRepository extends ServiceEntityRepository
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant);
 
+        $this->aplicarFiltrosPasta($qb, $filters);
+
+        return $qb;
+    }
+
+    /**
+     * Aplica as cláusulas de filtro comuns às listagens de pasta.
+     *
+     * Os joins de cliente (PF/PJ) e do processo principal são compartilhados por
+     * 'cliente', 'acao' e 'busca'; por isso são adicionados uma única vez, evitando
+     * colisão de alias quando mais de um desses filtros está presente.
+     *
+     * @param array<string, string> $filters
+     */
+    private function aplicarFiltrosPasta(QueryBuilder $qb, array $filters): void
+    {
         if (!empty($filters['nup'])) {
             $qb->andWhere('p.nup LIKE :nup')
                ->setParameter('nup', '%' . $filters['nup'] . '%');
@@ -365,27 +346,88 @@ class PastaRepository extends ServiceEntityRepository
                ->setParameter('responsavel', (int) $filters['responsavel']);
         }
 
-        if (!empty($filters['cliente'])) {
+        $precisaJoinCliente  = !empty($filters['cliente']) || !empty($filters['busca']);
+        $precisaJoinProcesso = !empty($filters['acao']) || !empty($filters['busca']);
+
+        if ($precisaJoinCliente) {
             $qb->leftJoin('p.clientes', 'c_cli')
                ->leftJoin(ClientePF::class, 'cpf', 'WITH', 'cpf.id = c_cli.id')
-               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id')
-               ->andWhere(
-                   $qb->expr()->orX(
-                       'LOWER(cpf.nomeCompleto) LIKE :cliente',
-                       'LOWER(cpj.razaoSocial) LIKE :cliente',
-                       'LOWER(p.nomeCliente) LIKE :cliente',
-                   )
-               )
-               ->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%');
+               ->leftJoin(ClientePJ::class, 'cpj', 'WITH', 'cpj.id = c_cli.id');
+        }
+
+        if ($precisaJoinProcesso) {
+            $qb->leftJoin('p.pastaProcessos', 'pp_acao', 'WITH', 'pp_acao.principal = true')
+               ->leftJoin('pp_acao.processo', 'proc');
+        }
+
+        if (!empty($filters['cliente'])) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    'LOWER(cpf.nomeCompleto) LIKE :cliente',
+                    'LOWER(cpj.razaoSocial) LIKE :cliente',
+                    'LOWER(p.nomeCliente) LIKE :cliente',
+                )
+            )->setParameter('cliente', '%' . mb_strtolower($filters['cliente']) . '%');
         }
 
         if (!empty($filters['acao'])) {
-            $qb->leftJoin('p.pastaProcessos', 'pp_acao', 'WITH', 'pp_acao.principal = true')
-               ->leftJoin('pp_acao.processo', 'proc')
-               ->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
+            $qb->andWhere('p.nomeAcao LIKE :acao OR proc.classeProcessual LIKE :acao')
                ->setParameter('acao', '%' . $filters['acao'] . '%');
         }
 
-        return $qb;
+        if (!empty($filters['busca'])) {
+            $qb->andWhere(
+                $qb->expr()->orX(
+                    'LOWER(p.nup) LIKE :busca',
+                    'LOWER(p.nomeCliente) LIKE :busca',
+                    'LOWER(p.nomeAcao) LIKE :busca',
+                    'LOWER(cpf.nomeCompleto) LIKE :busca',
+                    'LOWER(cpj.razaoSocial) LIKE :busca',
+                    'LOWER(proc.classeProcessual) LIKE :busca',
+                    'LOWER(proc.numeroProcesso) LIKE :busca',
+                    'LOWER(proc.assuntoProcessual) LIKE :busca',
+                )
+            )->setParameter('busca', '%' . mb_strtolower($filters['busca']) . '%');
+        }
+
+        if (!empty($filters['prioridade'])) {
+            $prioridade = PrioridadePasta::tryFrom((string) $filters['prioridade']);
+            if ($prioridade !== null) {
+                $qb->andWhere('p.prioridade = :prioridade')
+                   ->setParameter('prioridade', $prioridade);
+            }
+        }
+
+        $dataDe = $this->parseDataFiltro($filters['data_de'] ?? '', false);
+        if ($dataDe !== null) {
+            $qb->andWhere('p.dataAbertura >= :dataDe')
+               ->setParameter('dataDe', $dataDe);
+        }
+
+        $dataAte = $this->parseDataFiltro($filters['data_ate'] ?? '', true);
+        if ($dataAte !== null) {
+            $qb->andWhere('p.dataAbertura <= :dataAte')
+               ->setParameter('dataAte', $dataAte);
+        }
+    }
+
+    /**
+     * Converte um valor 'Y-m-d' (input date do HTML) em DateTimeImmutable, ou null
+     * se vazio/ inválido. Para a borda final ('data_ate') usa o fim do dia (23:59:59)
+     * para o intervalo ser inclusivo.
+     */
+    private function parseDataFiltro(string $valor, bool $fimDoDia): ?\DateTimeImmutable
+    {
+        $valor = trim($valor);
+        if ($valor === '') {
+            return null;
+        }
+
+        $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        if ($data === false || $data->format('Y-m-d') !== $valor) {
+            return null;
+        }
+
+        return $fimDoDia ? $data->setTime(23, 59, 59) : $data;
     }
 }

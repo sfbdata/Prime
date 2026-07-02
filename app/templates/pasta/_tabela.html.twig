@@ -1,91 +1,8 @@
+{# Só os RESULTADOS da listagem de pastas. A barra de filtro fica em
+   pasta/_filtros.html.twig (fora da área trocável). #}
 {% set filters = filters ?? {} %}
-{% set nups = nups ?? [] %}
 {% set responsaveis = responsaveis ?? [] %}
 {% set usuarios = usuarios ?? responsaveis %}
-{% set formAction = formAction ?? path('pasta_index') %}
-{% set limparUrl = limparUrl ?? path('pasta_index') %}
-
-{% set temFiltro = filters.nup or filters.status or filters.responsavel or filters.cliente or filters.acao %}
-<div class="card card-outline card-primary mb-3">
-    <div class="card-header py-2" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosPasta"
-         aria-expanded="{{ temFiltro ? 'true' : 'false' }}">
-        <div class="d-flex align-items-center justify-content-between">
-            <span class="fw-semibold" style="font-size:.88rem;">
-                <i class="bi bi-funnel me-1 text-primary"></i>Filtros
-                {% if temFiltro %}<span class="badge text-bg-primary ms-1" style="font-size:.65rem;">Ativos</span>{% endif %}
-            </span>
-            <i class="bi bi-chevron-down filtro-chevron" style="font-size:.78rem;color:#6c757d;transition:transform .2s;"></i>
-        </div>
-    </div>
-    <div class="collapse{% if temFiltro %} show{% endif %}" id="filtrosPasta">
-        <div class="card-body py-3">
-            <form method="GET" action="{{ formAction }}" id="formFiltrosPasta">
-                <div class="row g-2">
-                    <div class="col-6 col-md-3">
-                        <label for="filter_nup" class="form-label form-label-sm">NUP</label>
-                        <select id="filter_nup" name="nup" class="form-control form-control-sm select2-filter">
-                            <option value="">Todos</option>
-                            {% for nup in nups %}
-                                <option value="{{ nup }}" {% if filters.nup == nup %}selected{% endif %}>{{ nup }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label for="filter_status" class="form-label form-label-sm">Status</label>
-                        <select id="filter_status" name="status" class="form-control form-control-sm select2-filter">
-                            <option value="">Todos</option>
-                            <option value="ativo" {% if filters.status == 'ativo' %}selected{% endif %}>Ativo</option>
-                            <option value="arquivado" {% if filters.status == 'arquivado' %}selected{% endif %}>Arquivado</option>
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label for="filter_responsavel" class="form-label form-label-sm">Responsável</label>
-                        <select id="filter_responsavel" name="responsavel" class="form-control form-control-sm select2-filter">
-                            <option value="">Todos</option>
-                            {% for usuario in responsaveis %}
-                                <option value="{{ usuario.id }}" {% if filters.responsavel == usuario.id ~ '' %}selected{% endif %}>{{ usuario.fullName }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label for="filter_cliente" class="form-label form-label-sm">Cliente</label>
-                        <input id="filter_cliente" type="text" name="cliente"
-                               class="form-control form-control-sm"
-                               placeholder="Buscar por cliente…"
-                               value="{{ filters.cliente ?? '' }}">
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <label for="filter_acao" class="form-label form-label-sm">Nome da Ação</label>
-                        <input id="filter_acao" type="text" name="acao"
-                               class="form-control form-control-sm"
-                               placeholder="Buscar por ação…"
-                               value="{{ filters.acao ?? '' }}">
-                    </div>
-                </div>
-                <div class="d-flex gap-2 mt-3">
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-search me-1"></i>Filtrar
-                    </button>
-                    <a href="{{ limparUrl }}" class="btn btn-secondary btn-sm">
-                        <i class="bi bi-x-lg me-1"></i>Limpar
-                    </a>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-<script>
-// Rotaciona o ícone do filtro ao colapsar/expandir
-(function () {
-    var filtroCard = document.getElementById('filtrosPasta');
-    if (!filtroCard) return;
-    var chevron = filtroCard.previousElementSibling && filtroCard.previousElementSibling.querySelector('.filtro-chevron');
-    if (!chevron) return;
-    filtroCard.addEventListener('show.bs.collapse', function () { chevron.style.transform = 'rotate(180deg)'; });
-    filtroCard.addEventListener('hide.bs.collapse', function () { chevron.style.transform = 'rotate(0deg)'; });
-    if (filtroCard.classList.contains('show')) chevron.style.transform = 'rotate(180deg)';
-})();
-</script>
 
 <style>
 @keyframes urgente-pulso {
@@ -361,7 +278,7 @@
 {% else %}
 <div class="alert alert-info mb-0">
     <i class="bi bi-info-circle me-1"></i>
-    {% if filters.nup or filters.status or filters.responsavel or filters.cliente or filters.acao %}
+    {% if filters.busca or filters.status or filters.responsavel or filters.prioridade or filters.data_de or filters.data_ate %}
         Nenhuma pasta encontrada com os filtros aplicados.
     {% else %}
         Nenhuma pasta cadastrada.
@@ -739,12 +656,17 @@
         .catch(function () { select.disabled = false; });
     }
 
-    /* Delegação — funciona para conteúdo carregado via AJAX */
-    document.addEventListener('change', function (e) {
-        var sel = e.target.closest('.pasta-resp-select');
-        if (!sel) return;
-        salvarResponsavelTabela(sel);
-    });
+    /* Delegação — funciona para conteúdo carregado via AJAX.
+       Ligado uma única vez no document: este bloco re-executa a cada troca de
+       resultados (busca ao vivo/paginação), então a guarda evita empilhar handlers. */
+    if (!document.__pastaRespChangeBound) {
+        document.__pastaRespChangeBound = true;
+        document.addEventListener('change', function (e) {
+            var sel = e.target.closest('.pasta-resp-select');
+            if (!sel) return;
+            salvarResponsavelTabela(sel);
+        });
+    }
 
     /* Guarda valor original para rollback em caso de erro */
     document.querySelectorAll('.pasta-resp-select').forEach(function (sel) {

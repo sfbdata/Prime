@@ -1,0 +1,196 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Barra de filtro da listagem de pastas (Expediente).
+
+   Fica FORA da área trocável (#pastas-resultado): ao filtrar, só os resultados
+   recarregam, então o campo de busca mantém o foco enquanto se digita. A lógica
+   de aplicar (busca com debounce, dropdowns/datas na hora), montar os chips e
+   paginar vive centralizada no shell expediente/index.html.twig, por delegação
+   no #expediente-painel (que é persistente).
+─────────────────────────────────────────────────────────────────────────── #}
+{% set filters = filters ?? {} %}
+{% set responsaveis = responsaveis ?? [] %}
+{% set formAction = formAction ?? path('expediente_acervo_geral') %}
+
+<div class="pasta-filtros mb-3">
+    <form method="GET" action="{{ formAction }}" id="formFiltrosPasta" class="pasta-filtros-form">
+        <div class="pasta-filtros-linha">
+            <div class="pasta-filtros-busca">
+                <i class="bi bi-search"></i>
+                <input type="text" name="busca" class="form-control form-control-sm js-pasta-busca"
+                       placeholder="Buscar pasta, cliente, ação ou processo…"
+                       autocomplete="off" value="{{ filters.busca ?? '' }}">
+            </div>
+
+            <select name="status" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
+                    data-rotulo="Status" aria-label="Filtrar por status">
+                <option value="">Status</option>
+                <option value="ativo" {% if filters.status == 'ativo' %}selected{% endif %}>Ativo</option>
+                <option value="arquivado" {% if filters.status == 'arquivado' %}selected{% endif %}>Arquivado</option>
+            </select>
+
+            <select name="responsavel" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
+                    data-rotulo="Responsável" aria-label="Filtrar por responsável">
+                <option value="">Responsável</option>
+                {% for usuario in responsaveis %}
+                    <option value="{{ usuario.id }}" {% if filters.responsavel == usuario.id ~ '' %}selected{% endif %}>{{ usuario.fullName }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="prioridade" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
+                    data-rotulo="Prioridade" aria-label="Filtrar por prioridade">
+                <option value="">Prioridade</option>
+                <option value="normal" {% if filters.prioridade == 'normal' %}selected{% endif %}>Normal</option>
+                <option value="prioridade" {% if filters.prioridade == 'prioridade' %}selected{% endif %}>Prioridade</option>
+                <option value="urgente" {% if filters.prioridade == 'urgente' %}selected{% endif %}>Urgente</option>
+            </select>
+
+            <div class="pasta-filtros-periodo" title="Período de abertura">
+                <i class="bi bi-calendar3"></i>
+                <input type="date" name="data_de" class="form-control form-control-sm js-pasta-filtro"
+                       data-rotulo="De" aria-label="Aberta a partir de" value="{{ filters.data_de ?? '' }}">
+                <span class="pasta-filtros-periodo-sep">–</span>
+                <input type="date" name="data_ate" class="form-control form-control-sm js-pasta-filtro"
+                       data-rotulo="Até" aria-label="Aberta até" value="{{ filters.data_ate ?? '' }}">
+            </div>
+        </div>
+
+        {# Chips dos filtros ativos — montados por JS a partir do estado do form #}
+        <div class="pasta-chips" id="pasta-chips"></div>
+    </form>
+</div>
+
+<style>
+.pasta-filtros-linha {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+.pasta-filtros-busca {
+    position: relative;
+    flex: 1 1 260px;
+    min-width: 200px;
+}
+.pasta-filtros-busca .bi-search {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--bs-secondary-color);
+    font-size: .85rem;
+    pointer-events: none;
+}
+.pasta-filtros-busca input.js-pasta-busca {
+    padding-left: 32px;
+    border-radius: 20px;
+}
+.pasta-filtros-select {
+    width: auto;
+    min-width: 128px;
+    border-radius: 20px;
+}
+.pasta-filtros-periodo {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 10px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 20px;
+    background: var(--bs-body-bg);
+}
+.pasta-filtros-periodo .bi-calendar3 {
+    color: var(--bs-secondary-color);
+    font-size: .85rem;
+}
+.pasta-filtros-periodo-sep {
+    color: var(--bs-secondary-color);
+}
+.pasta-filtros-periodo input[type="date"] {
+    border: none;
+    background: transparent;
+    width: 128px;
+    padding: 2px 2px;
+    box-shadow: none;
+    height: auto;
+}
+.pasta-filtros-periodo input[type="date"]:focus {
+    box-shadow: none;
+    outline: none;
+}
+
+.pasta-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-top: 10px;
+}
+.pasta-chips:empty {
+    display: none;
+}
+.pasta-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+    border: 1px solid var(--bs-primary-border-subtle);
+    border-radius: 16px;
+    padding: 2px 6px 2px 11px;
+    font-size: .74rem;
+    line-height: 1.6;
+    max-width: 260px;
+}
+.pasta-chip-rotulo {
+    opacity: .7;
+}
+.pasta-chip-valor {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.pasta-chip-remover {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: .72rem;
+    padding: 0;
+    flex-shrink: 0;
+}
+.pasta-chip-remover:hover {
+    background: rgba(0, 0, 0, .12);
+}
+.pasta-chips-limpar {
+    background: none;
+    border: none;
+    color: var(--bs-secondary-color);
+    font-size: .74rem;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 2px 4px;
+}
+.pasta-chips-limpar:hover {
+    color: var(--bs-body-color);
+}
+
+/* Fade sutil enquanto os resultados recarregam (busca ao vivo) */
+#pastas-resultado.pastas-carregando {
+    opacity: .55;
+    transition: opacity .12s ease;
+    pointer-events: none;
+}
+
+@media (max-width: 575.98px) {
+    .pasta-filtros-busca { flex: 1 1 100%; }
+    .pasta-filtros-select { flex: 1 1 calc(50% - 4px); min-width: 0; }
+    .pasta-filtros-periodo { flex: 1 1 100%; justify-content: space-between; }
+    .pasta-filtros-periodo input[type="date"] { width: auto; flex: 1; }
+}
+</style>
