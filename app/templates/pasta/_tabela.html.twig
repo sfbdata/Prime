@@ -4,6 +4,7 @@
 {% set filters = filters ?? {} %}
 {% set responsaveis = responsaveis ?? [] %}
 {% set usuarios = usuarios ?? responsaveis %}
+{% set fotosResponsaveis = fotosResponsaveis ?? {} %}
 {% set ordCol = ordenar ?? '' %}
 {% set ordDir = (direcao ?? '') == 'asc' ? 'asc' : 'desc' %}
 
@@ -121,7 +122,7 @@
                         </span>
                     </td>
                     <td class="col-resp-tabela align-middle pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
-                        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta}) }}
+                        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotosResponsaveis}) }}
                     </td>
                     <td class="col-tarefas-tabela align-middle">
                         {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
@@ -185,7 +186,7 @@
 {# ── Modo lista (cartões) — desktop quando view=lista, e sempre no mobile ── #}
 <div class="pastas-lista">
     {% for pasta in pastas %}
-        {{ include('pasta/_card.html.twig', {pasta: pasta}) }}
+        {{ include('pasta/_card.html.twig', {pasta: pasta, fotos: fotosResponsaveis}) }}
     {% endfor %}
 </div>
 
@@ -196,11 +197,12 @@
         <span class="pasta-resp-nome text-muted">Sem responsável</span>
     </button>
     {% for u in usuarios %}
+        {% set fotoU = fotosResponsaveis[u.id]|default(null) %}
         <button type="button" class="pasta-resp-opcao"
                 data-user-id="{{ u.id }}"
                 data-nome="{{ u.fullName }}"
-                data-foto="{{ u.profile and u.profile.fotoUrl ? path('app_profile_foto_serve', {nome: u.profile.fotoUrl}) : '' }}">
-            {{ av.avatar(u.fullName, u.profile ? u.profile.fotoUrl : null, 24) }}
+                data-foto="{{ fotoU ? path('app_profile_foto_serve', {nome: fotoU}) : '' }}">
+            {{ av.avatar(u.fullName, fotoU, 24) }}
             <span class="pasta-resp-nome">{{ u.fullName }}</span>
         </button>
     {% endfor %}

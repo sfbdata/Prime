@@ -53,7 +53,7 @@
 
     {# Linha 3: responsável | marcadores | metas | dias #}
     <div class="pasta-card-acoes">
-        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta}) }}
+        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotos|default({})}) }}
 
         {# Mesma estrutura da coluna de marcadores da tabela: .pasta-marcadores-col > .d-flex,
            para o callback moverParaAtualizarBadgesTabela atualizar o cartão também. #}
