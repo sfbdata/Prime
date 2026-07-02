@@ -1,0 +1,78 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Fragmento trocável das Minhas Metas (dentro de [data-filtro-resultado]).
+   Reexecutado a cada filtro pelo motor public/js/filtro-tabela.js. Mantém o
+   agrupamento por status (cartões); sem paginação.
+─────────────────────────────────────────────────────────────────────────── #}
+{% set statusBadge = {
+    'pendente':   'text-bg-secondary',
+    'em_revisao': 'text-bg-warning',
+    'concluida':  'text-bg-success',
+} %}
+{% set statusLabel = {
+    'pendente':   'Pendente',
+    'em_revisao': 'Para Revisão',
+    'concluida':  'Concluída',
+} %}
+{% set temFiltro = filtros.busca or filtros.status or filtros.prioridade or filtros.prazo %}
+
+{% if tarefas|length == 0 %}
+    <div class="text-center py-5 text-muted">
+        <i class="bi bi-check2-all fs-1 d-block mb-2 opacity-25"></i>
+        {% if temFiltro %}
+            <span>Nenhuma meta encontrada com esses filtros.</span>
+        {% else %}
+            <span>Nenhuma meta atribuída a você.</span>
+        {% endif %}
+    </div>
+{% else %}
+
+    {# Agrupar por status #}
+    {% set pendentes  = tarefas|filter(t => t.status == 'pendente') %}
+    {% set emRevisao  = tarefas|filter(t => t.status == 'em_revisao') %}
+    {% set concluidas = tarefas|filter(t => t.status == 'concluida') %}
+
+    {# Pendentes + Para Revisão primeiro #}
+    {% if pendentes|length > 0 or emRevisao|length > 0 %}
+    <div class="card card-outline card-primary mb-3">
+        <div class="card-header py-2">
+            <h6 class="card-title mb-0">
+                <i class="bi bi-hourglass-split me-1 text-muted"></i>Em aberto
+                <span class="badge text-bg-secondary ms-1">{{ pendentes|length + emRevisao|length }}</span>
+            </h6>
+        </div>
+        <div class="card-body p-2">
+            <div class="d-flex flex-column gap-2">
+                {% for tarefa in emRevisao %}
+                    {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
+                {% endfor %}
+                {% for tarefa in pendentes %}
+                    {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {# Concluídas colapsadas #}
+    {% if concluidas|length > 0 %}
+    <div class="card card-outline card-secondary">
+        <div class="card-header py-2" style="cursor:pointer;"
+             data-bs-toggle="collapse" data-bs-target="#tarefasConcluidas">
+            <h6 class="card-title mb-0">
+                <i class="bi bi-check-circle me-1 text-success"></i>Concluídas
+                <span class="badge text-bg-success ms-1">{{ concluidas|length }}</span>
+            </h6>
+        </div>
+        <div class="collapse" id="tarefasConcluidas">
+            <div class="card-body p-2">
+                <div class="d-flex flex-column gap-2">
+                    {% for tarefa in concluidas %}
+                        {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+{% endif %}

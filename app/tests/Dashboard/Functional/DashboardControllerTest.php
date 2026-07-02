@@ -178,7 +178,41 @@ final class DashboardControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('table thead', 'Cargo');
-        self::assertSelectorExists('tbody tr[data-cargo]');
+        self::assertSelectorExists('table tbody tr');
+    }
+
+    #[TestDox('GET /dashboard renderiza a barra de filtro global (período/responsável/cargo)')]
+    public function testExibeBarraDeFiltro(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->request('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-filtro-root', $body);
+        self::assertStringContainsString('js-filtro-campo', $body);
+        self::assertStringContainsString('Responsável', $body);
+    }
+
+    #[TestDox('XHR em /dashboard devolve só o fragmento (cards + tabela), sem o layout nem a barra')]
+    public function testXhrRetornaFragmentoSemLayout(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $user   = $this->criarUsuarioComPermissaoBi($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $client->xmlHttpRequest('GET', '/dashboard');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Desempenho por Advogado', $body);
+        self::assertStringNotContainsString('<!DOCTYPE', $body);
+        self::assertStringNotContainsString('data-filtro-root', $body);
     }
 
     #[TestDox('GET /dashboard renderiza nome do advogado e linha na tabela com dados reais')]

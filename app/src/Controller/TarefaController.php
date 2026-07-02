@@ -47,17 +47,29 @@ final class TarefaController extends AbstractController
      * Lista de tarefas atribuídas ao usuário logado.
      */
     #[Route('/minhas', name: 'tarefa_minhas', methods: ['GET'])]
-    public function minhas(TarefaRepository $tarefaRepository): Response
+    public function minhas(Request $request, TarefaRepository $tarefaRepository): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
         $this->assertAccess($usuario);
 
-        $tarefas = $tarefaRepository->findByResponsavel($usuario);
+        $filtros = [
+            'busca'      => trim((string) $request->query->get('busca', '')),
+            'status'     => (string) $request->query->get('status', ''),
+            'prioridade' => (string) $request->query->get('prioridade', ''),
+            'prazo'      => (string) $request->query->get('prazo', ''),
+        ];
 
-        return $this->render('tarefa/minhas.html.twig', [
-            'tarefas' => $tarefas,
-        ]);
+        $dados = [
+            'tarefas' => $tarefaRepository->findByResponsavelComFiltros($usuario, $filtros),
+            'filtros' => $filtros,
+        ];
+
+        if ($request->isXmlHttpRequest()) {
+            return $this->render('tarefa/_resultado.html.twig', $dados);
+        }
+
+        return $this->render('tarefa/minhas.html.twig', $dados);
     }
 
     /**
