@@ -53,15 +53,7 @@
 
     {# Linha 3: responsável | marcadores | metas | dias #}
     <div class="pasta-card-acoes">
-        <select class="form-select form-select-sm pasta-resp-select"
-                data-pasta-id="{{ pasta.id }}"
-                data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
-                data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}">
-            <option value="">— responsável —</option>
-            {% for u in usuarios %}
-                <option value="{{ u.id }}" {% if pasta.responsavel and pasta.responsavel.id == u.id %}selected{% endif %}>{{ u.fullName }}</option>
-            {% endfor %}
-        </select>
+        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta}) }}
 
         {# Mesma estrutura da coluna de marcadores da tabela: .pasta-marcadores-col > .d-flex,
            para o callback moverParaAtualizarBadgesTabela atualizar o cartão também. #}

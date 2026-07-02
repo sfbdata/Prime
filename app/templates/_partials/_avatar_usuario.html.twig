@@ -1,0 +1,17 @@
+{# Avatar de um usuário: foto (UserProfile.fotoUrl) quando existe, senão círculo
+   com iniciais em gradiente (mesmo fallback do perfil). Se a foto falhar ao
+   carregar (arquivo ausente), o onerror troca para as iniciais — nunca fica
+   imagem quebrada. Reusado no chip de responsável e nas opções do menu. #}
+{% macro avatar(nome, fotoUrl, size) %}
+{%- set size = size|default(24) -%}
+{%- set partes = nome|trim|split(' ')|filter(p => p is not empty) -%}
+{%- set iniciais = (partes|length > 1 ? (partes|first|slice(0, 1) ~ partes|last|slice(0, 1)) : nome|slice(0, 2))|upper -%}
+{%- if fotoUrl -%}
+    <span class="resp-avatar resp-avatar-img" style="width:{{ size }}px;height:{{ size }}px;" data-ini="{{ iniciais }}">
+        <img src="{{ path('app_profile_foto_serve', {nome: fotoUrl}) }}" alt="" loading="lazy"
+             onerror="this.parentNode.classList.remove('resp-avatar-img');this.parentNode.classList.add('resp-avatar-ini');this.parentNode.textContent=this.parentNode.dataset.ini;">
+    </span>
+{%- else -%}
+    <span class="resp-avatar resp-avatar-ini" style="width:{{ size }}px;height:{{ size }}px;font-size:{{ (size * 0.42)|round }}px;">{{ iniciais }}</span>
+{%- endif -%}
+{% endmacro %}

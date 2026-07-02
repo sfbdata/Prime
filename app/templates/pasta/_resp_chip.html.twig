@@ -1,0 +1,19 @@
+{# Chip editável do responsável (avatar + nome). Clicar abre o menu compartilhado
+   #pastaRespMenu (JS no _tabela). Reusa o mesmo endpoint/CSRF do save antigo. #}
+{% import '_partials/_avatar_usuario.html.twig' as av %}
+{% set resp = pasta.responsavel %}
+<button type="button" class="pasta-resp-chip"
+        data-pasta-id="{{ pasta.id }}"
+        data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
+        data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}"
+        data-resp-id="{{ resp ? resp.id : '' }}"
+        title="{{ resp ? resp.fullName : 'Definir responsável' }}">
+    {% if resp %}
+        {{ av.avatar(resp.fullName, resp.profile ? resp.profile.fotoUrl : null, 24) }}
+        <span class="pasta-resp-nome">{{ resp.fullName }}</span>
+    {% else %}
+        <span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi bi-person"></i></span>
+        <span class="pasta-resp-nome text-muted">Sem responsável</span>
+    {% endif %}
+    <i class="bi bi-chevron-down pasta-resp-caret"></i>
+</button>

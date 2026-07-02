@@ -1,5 +1,6 @@
 {# Só os RESULTADOS da listagem de pastas. A barra de filtro fica em
    pasta/_filtros.html.twig (fora da área trocável). #}
+{% import '_partials/_avatar_usuario.html.twig' as av %}
 {% set filters = filters ?? {} %}
 {% set responsaveis = responsaveis ?? [] %}
 {% set usuarios = usuarios ?? responsaveis %}
@@ -120,16 +121,7 @@
                         </span>
                     </td>
                     <td class="col-resp-tabela align-middle pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
-                        <select class="form-select form-select-sm pasta-resp-select"
-                                style="max-width:150px;font-size:.8rem;"
-                                data-pasta-id="{{ pasta.id }}"
-                                data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
-                                data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}">
-                            <option value="">—</option>
-                            {% for u in usuarios %}
-                                <option value="{{ u.id }}" {% if pasta.responsavel and pasta.responsavel.id == u.id %}selected{% endif %}>{{ u.fullName }}</option>
-                            {% endfor %}
-                        </select>
+                        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta}) }}
                     </td>
                     <td class="col-tarefas-tabela align-middle">
                         {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
@@ -193,7 +185,24 @@
 {# ── Modo lista (cartões) — desktop quando view=lista, e sempre no mobile ── #}
 <div class="pastas-lista">
     {% for pasta in pastas %}
-        {{ include('pasta/_card.html.twig', {pasta: pasta, usuarios: usuarios}) }}
+        {{ include('pasta/_card.html.twig', {pasta: pasta}) }}
+    {% endfor %}
+</div>
+
+{# ── Menu compartilhado de responsável (1× para tabela e cartões) ────────── #}
+<div class="pasta-resp-menu" id="pastaRespMenu" role="listbox" aria-label="Escolher responsável" hidden>
+    <button type="button" class="pasta-resp-opcao" data-user-id="" data-nome="Sem responsável" data-foto="">
+        <span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi bi-person-dash"></i></span>
+        <span class="pasta-resp-nome text-muted">Sem responsável</span>
+    </button>
+    {% for u in usuarios %}
+        <button type="button" class="pasta-resp-opcao"
+                data-user-id="{{ u.id }}"
+                data-nome="{{ u.fullName }}"
+                data-foto="{{ u.profile and u.profile.fotoUrl ? path('app_profile_foto_serve', {nome: u.profile.fotoUrl}) : '' }}">
+            {{ av.avatar(u.fullName, u.profile ? u.profile.fotoUrl : null, 24) }}
+            <span class="pasta-resp-nome">{{ u.fullName }}</span>
+        </button>
     {% endfor %}
 </div>
 </div>{# /#pastasView #}
@@ -330,7 +339,6 @@
 }
 
 .pasta-card-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.pasta-card-acoes .pasta-resp-select { max-width: 200px; font-size: .8rem; }
 .pasta-card-marc .d-flex { flex-wrap: wrap; }
 .pasta-card-dias { font-size: .75rem; flex-shrink: 0; }
 
@@ -353,6 +361,49 @@
 @media (max-width: 767.98px) {
     .pastas-tabela-wrap { display: none; }
 }
+
+/* ── Responsável: chip (avatar + nome) + menu ──────────────────── */
+.resp-avatar {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 50%; overflow: hidden; flex-shrink: 0;
+    font-weight: 700; color: #fff; line-height: 1;
+}
+.resp-avatar-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.resp-avatar-ini { background: linear-gradient(135deg, #1a3a5c, #2563a8); font-size: .62rem; }
+.resp-avatar-vazio { background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+
+.pasta-resp-chip {
+    display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+    border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
+    border-radius: 20px; padding: 2px 8px 2px 3px;
+    font-size: .8rem; line-height: 1.4; color: var(--bs-body-color);
+    text-transform: none; cursor: pointer; transition: background .12s, border-color .12s;
+}
+.pasta-resp-chip:hover { background: var(--bs-secondary-bg); border-color: var(--bs-secondary-color); }
+.pasta-resp-chip.salvando { opacity: .55; pointer-events: none; }
+.pasta-resp-nome { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pasta-resp-caret { font-size: .6rem; opacity: .45; flex-shrink: 0; }
+
+.pasta-resp-menu {
+    position: fixed; z-index: 10000;
+    background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
+    border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.18);
+    padding: 5px; min-width: 210px; max-width: 300px;
+    max-height: 320px; overflow-y: auto;
+}
+.pasta-resp-menu[hidden] { display: none; }
+.pasta-resp-opcao {
+    display: flex; align-items: center; gap: 9px; width: 100%;
+    border: none; background: transparent; text-align: left;
+    padding: 6px 9px; border-radius: 9px; cursor: pointer;
+    font-size: .84rem; color: var(--bs-body-color);
+}
+.pasta-resp-opcao:hover { background: var(--bs-secondary-bg); }
+.pasta-resp-opcao.ativa { background: var(--bs-primary-bg-subtle); font-weight: 600; }
+.pasta-resp-opcao .pasta-resp-nome { flex: 1; }
+
+/* No cartão o chip pode respirar mais; na tabela ele cabe na coluna estreita */
+.pasta-card-acoes .pasta-resp-chip { max-width: 230px; }
 
 /* Filtros responsivos */
 @media (max-width: 575.98px) {
@@ -498,52 +549,139 @@
 
 <script>
 (function () {
-    function salvarResponsavelTabela(select) {
-        var pastaId      = select.dataset.pastaId;
-        var url          = select.dataset.url;
-        var csrf         = select.dataset.csrf;
-        var responsavelId = select.value;
+    /* Chip de responsável (avatar + nome) + menu compartilhado #pastaRespMenu.
+       Tudo delegado no document e guardado, porque este script re-executa a cada
+       troca de resultados (busca ao vivo/paginação). O menu e os chips são
+       re-renderizados pelo servidor, então buscamos sempre o DOM atual. */
+    var chipAtivo = null;
 
-        select.disabled = true;
+    function escResp(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
-        var body = new URLSearchParams({ _token: csrf, responsavel_id: responsavelId });
+    function avatarHtml(nome, fotoUrl) {
+        var partes = String(nome).trim().split(/\s+/).filter(Boolean);
+        var ini = (partes.length > 1 ? (partes[0][0] + partes[partes.length - 1][0]) : String(nome).slice(0, 2)).toUpperCase();
+        if (fotoUrl) {
+            return '<span class="resp-avatar resp-avatar-img" style="width:24px;height:24px;" data-ini="' + escResp(ini) + '">' +
+                   '<img src="' + escResp(fotoUrl) + '" alt="" ' +
+                   'onerror="this.parentNode.classList.remove(\'resp-avatar-img\');this.parentNode.classList.add(\'resp-avatar-ini\');this.parentNode.textContent=this.parentNode.dataset.ini;">' +
+                   '</span>';
+        }
 
-        fetch(url, {
+        return '<span class="resp-avatar resp-avatar-ini" style="width:24px;height:24px;font-size:10px;">' + escResp(ini) + '</span>';
+    }
+
+    function renderChip(chip, userId, nome, fotoUrl) {
+        chip.dataset.respId = userId || '';
+        var html;
+        if (userId) {
+            html = avatarHtml(nome, fotoUrl) + '<span class="pasta-resp-nome">' + escResp(nome) + '</span>';
+            chip.title = nome;
+        } else {
+            html = '<span class="resp-avatar resp-avatar-vazio" style="width:24px;height:24px;"><i class="bi bi-person"></i></span>' +
+                   '<span class="pasta-resp-nome text-muted">Sem responsável</span>';
+            chip.title = 'Definir responsável';
+        }
+        html += '<i class="bi bi-chevron-down pasta-resp-caret"></i>';
+        chip.innerHTML = html;
+    }
+
+    function fecharMenu() {
+        var menu = document.getElementById('pastaRespMenu');
+        if (menu) menu.hidden = true;
+        chipAtivo = null;
+    }
+
+    function abrirMenu(chip) {
+        var menu = document.getElementById('pastaRespMenu');
+        if (!menu) return;
+        chipAtivo = chip;
+        var respId = chip.dataset.respId || '';
+        menu.querySelectorAll('.pasta-resp-opcao').forEach(function (op) {
+            op.classList.toggle('ativa', (op.dataset.userId || '') === respId);
+        });
+        menu.hidden = false;
+        var r  = chip.getBoundingClientRect();
+        var mw = menu.offsetWidth, mh = menu.offsetHeight;
+        var left = r.left;
+        var top  = r.bottom + 4;
+        if (left + mw > window.innerWidth - 8)  left = window.innerWidth - 8 - mw;
+        if (left < 8) left = 8;
+        if (top + mh > window.innerHeight - 8)  top = r.top - mh - 4;
+        if (top < 8) top = 8;
+        menu.style.left = left + 'px';
+        menu.style.top  = top + 'px';
+    }
+
+    function salvarResponsavel(chip, userId, nome, fotoUrl) {
+        var prevHtml = chip.innerHTML;
+        var prevId   = chip.dataset.respId || '';
+        renderChip(chip, userId, nome, fotoUrl); // otimista
+        chip.classList.add('salvando');
+
+        var body = new URLSearchParams({ _token: chip.dataset.csrf, responsavel_id: userId || '' });
+        fetch(chip.dataset.url, {
             method: 'PATCH',
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body.toString(),
         })
         .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
         .then(function (res) {
-            select.disabled = false;
-            if (!res.ok) {
-                select.value = select.dataset.valorOriginal || '';
-            } else {
-                select.dataset.valorOriginal = responsavelId;
+            chip.classList.remove('salvando');
+            if (!res.ok || !res.data.sucesso) {
+                chip.innerHTML = prevHtml;
+                chip.dataset.respId = prevId;
+                alert((res.data && res.data.erro) || 'Erro ao alterar responsável.');
             }
         })
-        .catch(function () { select.disabled = false; });
-    }
-
-    /* Delegação — funciona para conteúdo carregado via AJAX.
-       Ligado uma única vez no document: este bloco re-executa a cada troca de
-       resultados (busca ao vivo/paginação), então a guarda evita empilhar handlers. */
-    if (!document.__pastaRespChangeBound) {
-        document.__pastaRespChangeBound = true;
-        document.addEventListener('change', function (e) {
-            var sel = e.target.closest('.pasta-resp-select');
-            if (!sel) return;
-            salvarResponsavelTabela(sel);
+        .catch(function () {
+            chip.classList.remove('salvando');
+            chip.innerHTML = prevHtml;
+            chip.dataset.respId = prevId;
         });
     }
 
-    /* Guarda valor original para rollback em caso de erro */
-    document.querySelectorAll('.pasta-resp-select').forEach(function (sel) {
-        sel.dataset.valorOriginal = sel.value;
+    if (!document.__pastaRespMenuBound) {
+        document.__pastaRespMenuBound = true;
 
-        /* Impede que o clique no select propague para o tr.pasta-row-link */
-        sel.addEventListener('click', function (e) { e.stopPropagation(); });
-    });
+        document.addEventListener('click', function (e) {
+            var chip = e.target.closest('.pasta-resp-chip');
+            if (chip) {
+                e.preventDefault();
+                var menu = document.getElementById('pastaRespMenu');
+                if (menu && !menu.hidden && chipAtivo === chip) { fecharMenu(); return; }
+                abrirMenu(chip);
+
+                return;
+            }
+
+            var opc = e.target.closest('.pasta-resp-opcao');
+            if (opc && chipAtivo) {
+                e.preventDefault();
+                var uid = opc.dataset.userId || '';
+                if ((chipAtivo.dataset.respId || '') !== uid) {
+                    salvarResponsavel(chipAtivo, uid, opc.dataset.nome || '', opc.dataset.foto || '');
+                }
+                fecharMenu();
+
+                return;
+            }
+
+            if (!e.target.closest('#pastaRespMenu')) fecharMenu();
+        });
+
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') fecharMenu(); });
+        // Fecha ao rolar a PÁGINA (o menu é position:fixed e descolaria do chip),
+        // mas não ao rolar DENTRO do próprio menu (lista de colaboradores rolável).
+        document.addEventListener('scroll', function (e) {
+            var alvo = e.target;
+            if (alvo && alvo.nodeType === 1 && alvo.closest && alvo.closest('#pastaRespMenu')) return;
+            fecharMenu();
+        }, true);
+        window.addEventListener('resize', fecharMenu);
+    }
 }());
 </script>
 
