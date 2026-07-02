@@ -337,6 +337,20 @@
                                             <i class="bi bi-person"></i> Meu Perfil
                                         </a>
                                     </li>
+                                    {% if can_administer('admin.users.invite') %}
+                                        <li>
+                                            <a href="{{ path('auth_gerenciar_convites') }}" class="dropdown-item d-flex align-items-center gap-2">
+                                                <i class="bi bi-envelope-plus"></i> Convites do escritório
+                                            </a>
+                                        </li>
+                                    {% endif %}
+                                    {% if is_granted('ROLE_SUPER_ADMIN') %}
+                                        <li>
+                                            <a href="{{ path('admin_platform_dashboard') }}" class="dropdown-item d-flex align-items-center gap-2">
+                                                <i class="bi bi-shield-lock"></i> Painel da Plataforma
+                                            </a>
+                                        </li>
+                                    {% endif %}
                                     <li><hr class="dropdown-divider my-0"></li>
                                     <li>
                                         <button type="button" id="toggleTema"
