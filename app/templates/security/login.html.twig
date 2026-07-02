@@ -1,43 +1,83 @@
 {% extends 'base.html.twig' %}
 
-{% block title %}Login - Sistema Jurídico{% endblock %}
+{% block title %}Entrar — BlueJus{% endblock %}
+
+{% block stylesheets %}
+<style>
+.login-wrap {
+    min-height: calc(100vh - 120px);
+    display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+}
+.login-card {
+    width: 100%; max-width: 420px; border: 1px solid var(--bs-border-color);
+    border-radius: 1rem; background: var(--bs-body-bg);
+    box-shadow: 0 10px 34px rgba(1,60,90,.10); overflow: hidden;
+}
+.login-head {
+    text-align: center; padding: 2rem 1.75rem 1.25rem;
+    background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color);
+}
+.login-logo { height: 54px; width: auto; max-width: 80%; margin-bottom: 1rem; }
+/* No tema escuro, a logo (texto escuro) perderia contraste → renderiza em branco. */
+[data-bs-theme="dark"] .login-logo { filter: brightness(0) invert(1); opacity: .92; }
+.login-title { font-weight: 700; font-size: 1.3rem; margin: 0; }
+.login-sub { color: var(--bs-secondary-color); font-size: .88rem; margin: .25rem 0 0; }
+.login-body { padding: 1.5rem 1.75rem 1.75rem; }
+.login-forgot { font-size: .88rem; color: #0078AA; text-decoration: none; }
+.login-forgot:hover { text-decoration: underline; }
+.login-extra { text-align: center; margin-top: 1.1rem; font-size: .9rem; color: var(--bs-secondary-color); }
+.login-extra a { color: #0078AA; text-decoration: none; font-weight: 500; }
+.login-extra a:hover { text-decoration: underline; }
+</style>
+{% endblock %}
 
 {% block body %}
-<div class="login-wrapper">
-    <div class="login-container">
-        <h1>Entrar</h1>
+<div class="login-wrap">
+    <div class="login-card">
+        <div class="login-head">
+            <img src="/images/logo/bluejus_logo.svg" alt="BlueJus" class="login-logo">
+            <h1 class="login-title">Bem-vindo de volta</h1>
+            <p class="login-sub">Acesse sua conta para continuar</p>
+        </div>
+        <div class="login-body">
+            {% if error %}
+                <div class="alert alert-danger d-flex align-items-center gap-2 py-2">
+                    <i class="bi bi-exclamation-circle-fill"></i>
+                    <span>{{ error.messageKey|trans(error.messageData, 'security') }}</span>
+                </div>
+            {% endif %}
 
-        {% if error %}
-            <div class="alert alert-danger">
-                {{ error.messageKey|trans(error.messageData, 'security') }}
+            <form method="post">
+                <div class="mb-3">
+                    <label for="inputEmail" class="form-label">E-mail</label>
+                    <input type="email" value="{{ last_username }}" name="email" id="inputEmail"
+                           class="form-control" required autofocus autocomplete="username">
+                </div>
+
+                <div class="mb-3">
+                    <label for="inputPassword" class="form-label">Senha</label>
+                    <input type="password" name="password" id="inputPassword"
+                           class="form-control" required autocomplete="current-password">
+                </div>
+
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <div class="form-check mb-0">
+                        <input type="checkbox" name="_remember_me" id="rememberMe" class="form-check-input">
+                        <label for="rememberMe" class="form-check-label">Manter conectado</label>
+                    </div>
+                    <a href="#" class="login-forgot">Esqueceu a senha?</a>
+                </div>
+
+                <button class="btn btn-primary w-100" type="submit">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Entrar
+                </button>
+            </form>
+
+            <div class="login-extra">
+                Não tem conta? <a href="{{ path('auth_cadastro') }}">Criar minha conta e escritório</a>
             </div>
-        {% endif %}
-
-        <form method="post">
-            <div class="mb-3">
-                <label for="inputEmail" class="form-label">Email</label>
-                <input type="email" value="{{ last_username }}" name="email" id="inputEmail" class="form-control" required autofocus>
-            </div>
-
-            <div class="mb-3">
-                <label for="inputPassword" class="form-label">Senha</label>
-                <input type="password" name="password" id="inputPassword" class="form-control" required>
-            </div>
-
-            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-
-            <div class="mb-3 form-check">
-                <input type="checkbox" name="_remember_me" id="rememberMe" class="form-check-input">
-                <label for="rememberMe" class="form-check-label">Manter Conectado</label>
-            </div>
-
-            <button class="btn-login" type="submit">Login</button>
-        </form>
-
-        <div class="extra-links">
-            <a href="#">Esqueceu a senha?</a>
-            <br>
-            <a href="{{ path('auth_cadastro') }}">Criar minha conta e escritório</a>
         </div>
     </div>
 </div>

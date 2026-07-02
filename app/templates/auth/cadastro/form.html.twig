@@ -2,30 +2,113 @@
 
 {% block title %}Crie sua conta e seu escritório{% endblock %}
 
+{% block stylesheets %}
+<style>
+.cadastro-wrap { max-width: 560px; }
+.cadastro-card {
+    border: 1px solid var(--bs-border-color); border-radius: 1rem;
+    background: var(--bs-body-bg); box-shadow: 0 6px 24px rgba(0,0,0,.06); overflow: hidden;
+}
+.cadastro-head {
+    text-align: center; padding: 2rem 1.5rem 1.25rem;
+    background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color);
+}
+.cadastro-logo { height: 54px; width: auto; max-width: 80%; margin-bottom: 1rem; }
+/* No tema escuro, a logo (texto escuro) perderia contraste → renderiza em branco. */
+[data-bs-theme="dark"] .cadastro-logo { filter: brightness(0) invert(1); opacity: .92; }
+.cadastro-title { font-weight: 700; margin: 0; }
+.cadastro-sub { color: var(--bs-secondary-color); font-size: .9rem; margin: .3rem 0 0; }
+.cadastro-body { padding: 1.5rem; }
+.cadastro-oab-panel {
+    border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    padding: 1rem; margin: 1rem 0; background: var(--bs-tertiary-bg);
+}
+.cadastro-oab-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .85rem; }
+.cadastro-oab-seal {
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px;
+    display: grid; place-items: center; color: #fff; font-size: 1rem;
+    background: linear-gradient(135deg, #0078AA, #3b9fd4);
+}
+/* Termos dentro do modal (o partial termo/_texto usa estas classes) */
+.termos-modal-body { line-height: 1.6; font-size: .9rem; text-align: justify; }
+.termos-modal-body .termo-titulo { font-size: 1.05rem; text-align: center; color: #0078AA; margin: 0 0 1rem; }
+.termos-modal-body .termo-clausula {
+    font-size: .95rem; font-weight: 700; color: #0078AA; margin: 1.1rem 0 .35rem;
+    border-bottom: 1px solid var(--bs-border-color); padding-bottom: .25rem;
+}
+.termos-modal-body .termo-fecho { text-align: center; font-weight: 600; margin-top: 1rem; }
+</style>
+{% endblock %}
+
 {% block body %}
-<div class="container py-5" style="max-width: 560px">
-    <div class="text-center mb-4">
-        <h3>Crie sua conta e seu escritório</h3>
-        <p class="text-muted">Comece agora. Você será o administrador do seu escritório.</p>
-    </div>
-
-    {{ form_start(form) }}
-        {{ form_row(form.nomeCompleto) }}
-        {{ form_row(form.email) }}
-        {{ form_row(form.senha) }}
-        <div class="row">
-            <div class="col-8">{{ form_row(form.oabNumero) }}</div>
-            <div class="col-4">{{ form_row(form.oabUf) }}</div>
+<div class="cadastro-wrap mx-auto py-5">
+    <div class="cadastro-card">
+        <div class="cadastro-head">
+            <img src="/images/logo/bluejus_logo.svg" alt="BlueJus" class="cadastro-logo">
+            <h1 class="cadastro-title h4">Crie sua conta e seu escritório</h1>
+            <p class="cadastro-sub">Comece agora. Você será o administrador do seu escritório.</p>
         </div>
-        {{ form_row(form.nomeEscritorio) }}
-        {{ form_row(form.aceiteTermos) }}
-        <button type="submit" class="btn btn-primary w-100 mt-3">
-            <i class="bi bi-building-add me-1"></i> Criar conta e escritório
-        </button>
-    {{ form_end(form) }}
+        <div class="cadastro-body">
+            {{ form_start(form) }}
+                {{ form_row(form.nomeCompleto, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
+                {{ form_row(form.email, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
+                {{ form_row(form.senha, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
 
-    <p class="text-center text-muted mt-3">
-        Já tem conta? <a href="{{ path('app_login') }}">Entrar</a>
-    </p>
+                <div class="cadastro-oab-panel">
+                    <div class="cadastro-oab-head">
+                        <div class="cadastro-oab-seal"><i class="bi bi-patch-check-fill"></i></div>
+                        <div>
+                            <div class="fw-semibold" style="line-height:1.1">Sua OAB</div>
+                            <div class="text-secondary" style="font-size:.78rem">Necessária para abrir seu escritório.</div>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-8">{{ form_row(form.oabNumero, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-0'}}) }}</div>
+                        <div class="col-4">{{ form_row(form.oabUf, {'attr': {'class': 'form-control text-uppercase'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-0'}}) }}</div>
+                    </div>
+                </div>
+
+                {{ form_row(form.nomeEscritorio, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
+
+                {# Aceite dos termos + link para ler #}
+                <div class="form-check mb-3">
+                    {{ form_widget(form.aceiteTermos, {'attr': {'class': 'form-check-input'}}) }}
+                    <label class="form-check-label" for="{{ form.aceiteTermos.vars.id }}">Li e aceito os</label>
+                    <a href="#" class="ms-1" data-bs-toggle="modal" data-bs-target="#modalTermos">Termos de Uso</a>
+                </div>
+
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-building-add me-1"></i> Criar conta e escritório
+                </button>
+            {{ form_end(form) }}
+
+            <p class="text-center text-muted mt-3 mb-0">
+                Já tem conta? <a href="{{ path('app_login') }}">Entrar</a>
+            </p>
+        </div>
+    </div>
+</div>
+
+{# Modal: leitura dos Termos de Uso #}
+<div class="modal fade" id="modalTermos" tabindex="-1" aria-labelledby="modalTermosLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTermosLabel">
+                    <i class="bi bi-file-earmark-text me-2"></i>Termos e Condições de Uso
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body termos-modal-body">
+                {% include 'termo/_texto.html.twig' %}
+            </div>
+            <div class="modal-footer justify-content-between">
+                <a href="/termos/termos-de-uso.pdf" target="_blank" rel="noopener" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-download me-1"></i>Baixar em PDF
+                </a>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
