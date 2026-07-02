@@ -85,6 +85,30 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString($fora->getNup(), $body);
     }
 
+    #[TestDox('acervo geral: fragmento traz o modo lista (cartões), o toggle e o "Ordenar por"')]
+    public function testAcervoGeralRenderizaCartoesDoModoLista(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Lista', admin: true);
+
+        $sufixo = strtoupper(uniqid());
+        $pasta  = $this->criarPasta($tenant, 'LISTA-' . $sufixo, nomeAcao: 'Ação Lista ' . $sufixo);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('id="pastasView"', $body);
+        self::assertStringContainsString('pastas-lista', $body);
+        self::assertStringContainsString('pasta-card', $body);
+        self::assertStringContainsString('js-view-toggle', $body);
+        self::assertStringContainsString('pasta-view-toggle', $body);
+        self::assertStringContainsString('js-pasta-ordenar', $body);
+        self::assertStringContainsString($pasta->getNup(), $body);
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function criarTenant(): Tenant

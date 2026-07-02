@@ -906,10 +906,10 @@ html[data-bs-theme="dark"] .btn-expediente-pull-tab.drawer-aberto {
 <script>
 /* ── Linhas clicáveis da tabela de pastas (delegado no document) ── */
 document.addEventListener('click', function (e) {
-    var tr = e.target.closest('tr.pasta-row-link');
-    if (!tr) return;
+    var alvo = e.target.closest('.pasta-row-link[data-href]');
+    if (!alvo) return;
     if (e.target.closest('button, a, form, input, select, .js-toggle-situacao')) return;
-    window.location.href = tr.dataset.href;
+    window.location.href = alvo.dataset.href;
 });
 
 /* ── Alternar situação da pasta por duplo-clique na badge ── */
@@ -1703,8 +1703,22 @@ document.addEventListener('DOMContentLoaded', function () {
         aplicarFiltrosPastas();
     });
 
-    // Dropdowns (status/responsável/prioridade) e datas aplicam ao mudar
+    // Dropdowns (status/responsável/prioridade), datas e "Ordenar por" aplicam ao mudar
     painel.addEventListener('change', function (e) {
+        // "Ordenar por" (modo lista): grava nos hidden ordenar/direcao e recarrega o acervo
+        if (e.target.classList && e.target.classList.contains('js-pasta-ordenar')) {
+            var partes = (e.target.value || '').split('|');
+            if (!partes[0]) return;
+            var f = document.getElementById('formFiltrosPasta');
+            if (f) {
+                var co = f.querySelector('[name="ordenar"]');
+                var cd = f.querySelector('[name="direcao"]');
+                if (co) co.value = partes[0];
+                if (cd) cd.value = (partes[1] === 'desc' ? 'desc' : 'asc');
+            }
+            recarregarResultadosPastas({ page: 1 });
+            return;
+        }
         if (!e.target.classList || !e.target.classList.contains('js-pasta-filtro')) return;
         aplicarFiltrosPastas();
     });
@@ -1904,37 +1918,43 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // ── Callback pós-salvar do modal "Mover para": atualiza badges na tabela ──
+    // ── Callback pós-salvar do modal "Mover para": atualiza badges na tabela E no cartão ──
     window.moverParaAtualizarBadgesTabela = function (data, escHtml) {
-        var colMarcadores = document.querySelector('td.pasta-marcadores-col[data-pasta-id="' + data.pastaId + '"]');
-        if (!colMarcadores) return;
-        var btnMover  = colMarcadores.querySelector('.js-mover-para');
+        var cols = document.querySelectorAll('.pasta-marcadores-col[data-pasta-id="' + data.pastaId + '"]');
+        if (!cols.length) return;
 
-        var oldIds = btnMover && btnMover.dataset.marcadoresAtivos
-            ? btnMover.dataset.marcadoresAtivos.split(',').filter(Boolean).map(Number)
+        // Contadores da sidebar: computa o delta UMA vez (a partir do primeiro botão)
+        var primeiroBtn = document.querySelector('.js-mover-para[data-pasta-id="' + data.pastaId + '"]');
+        var oldIds = primeiroBtn && primeiroBtn.dataset.marcadoresAtivos
+            ? primeiroBtn.dataset.marcadoresAtivos.split(',').filter(Boolean).map(Number)
             : [];
         var newIds = data.marcadores.map(function (m) { return m.id; });
         atualizarContadoresSidebar(oldIds, newIds);
+
+        // Monta o HTML dos badges uma vez
         var novosHtml = '';
         if (data.marcadores.length > 0) {
             var primeiro = data.marcadores[0];
             var bg0    = primeiro.cor || 'var(--bs-tertiary-bg)';
             var cor0   = primeiro.cor ? '#333' : 'var(--bs-body-color)';
             var borda0 = primeiro.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
-            novosHtml += '<span class="badge rounded-pill px-2" style="background:' + bg0 + ';color:' + cor0 + ';' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
+            novosHtml += '<span class="badge rounded-pill px-2 marcador-principal" style="background:' + bg0 + ';color:' + cor0 + ';' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
             if (data.marcadores.length > 1) {
                 var extrasJson = JSON.stringify(data.marcadores.slice(1).map(function (m) { return { nome: m.nome, cor: m.cor || '' }; }));
                 novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;" data-marcadores-json=\'' + extrasJson.replace(/'/g, '&#39;') + '\'>+' + (data.marcadores.length - 1) + '</span>';
             }
         }
-        var wrapper = colMarcadores.querySelector('.d-flex');
-        if (wrapper) {
-            wrapper.querySelectorAll('span.badge').forEach(function (s) { s.remove(); });
-            wrapper.insertAdjacentHTML('afterbegin', novosHtml);
-        }
-        if (btnMover) {
-            btnMover.dataset.marcadoresAtivos = data.marcadores.map(function (m) { return m.id; }).join(',');
-        }
+
+        // Aplica em TODAS as colunas da pasta (td da tabela + div do cartão)
+        cols.forEach(function (col) {
+            var wrapper = col.querySelector('.d-flex');
+            if (wrapper) {
+                wrapper.querySelectorAll('span.badge').forEach(function (s) { s.remove(); });
+                wrapper.insertAdjacentHTML('afterbegin', novosHtml);
+            }
+            var btn = col.querySelector('.js-mover-para');
+            if (btn) btn.dataset.marcadoresAtivos = newIds.join(',');
+        });
     };
 
 });

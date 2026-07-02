@@ -17,17 +17,45 @@
 </style>
 
 {% if pastas|length > 0 %}
+<div class="pastas-view pastas-view--tabela" id="pastasView">
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
     <span class="text-muted">
         <i class="bi bi-list-ul me-1"></i> {{ pastas|length }} resultado(s) encontrado(s)
     </span>
-    {% if pagination is defined and pagination is not null %}
-        {{ include('expediente/_paginacao.html.twig') }}
-    {% endif %}
+    <div class="d-flex align-items-center flex-wrap gap-2">
+        {# "Ordenar por" — só no modo lista (no desktop) e no mobile (nenhum tem cabeçalho de coluna) #}
+        {% set ordAtual = (ordCol ?: '') ~ '|' ~ ordDir %}
+        <div class="pasta-ordenar-wrap">
+            <select class="form-select form-select-sm js-pasta-ordenar" aria-label="Ordenar por" title="Ordenar por">
+                <option value="" {% if ordCol == '' %}selected{% endif %} disabled>Ordenar por…</option>
+                <option value="nup|asc"          {% if ordAtual == 'nup|asc' %}selected{% endif %}>NUP (crescente)</option>
+                <option value="nup|desc"         {% if ordAtual == 'nup|desc' %}selected{% endif %}>NUP (decrescente)</option>
+                <option value="cliente|asc"      {% if ordAtual == 'cliente|asc' %}selected{% endif %}>Cliente (A–Z)</option>
+                <option value="cliente|desc"     {% if ordAtual == 'cliente|desc' %}selected{% endif %}>Cliente (Z–A)</option>
+                <option value="prioridade|desc"  {% if ordAtual == 'prioridade|desc' %}selected{% endif %}>Prioridade (maior primeiro)</option>
+                <option value="prioridade|asc"   {% if ordAtual == 'prioridade|asc' %}selected{% endif %}>Prioridade (menor primeiro)</option>
+                <option value="acao|asc"         {% if ordAtual == 'acao|asc' %}selected{% endif %}>Ação (A–Z)</option>
+                <option value="responsavel|asc"  {% if ordAtual == 'responsavel|asc' %}selected{% endif %}>Responsável (A–Z)</option>
+                <option value="situacao|asc"     {% if ordAtual == 'situacao|asc' %}selected{% endif %}>Situação</option>
+            </select>
+        </div>
+        {# Toggle Tabela | Lista — só desktop (mobile é sempre cartão) #}
+        <div class="btn-group btn-group-sm pasta-view-toggle d-none d-md-inline-flex" role="group" aria-label="Alternar visual">
+            <button type="button" class="btn btn-outline-secondary js-view-toggle" data-view="tabela" title="Ver em tabela">
+                <i class="bi bi-table"></i>
+            </button>
+            <button type="button" class="btn btn-outline-secondary js-view-toggle" data-view="lista" title="Ver em lista">
+                <i class="bi bi-card-list"></i>
+            </button>
+        </div>
+        {% if pagination is defined and pagination is not null %}
+            {{ include('expediente/_paginacao.html.twig') }}
+        {% endif %}
+    </div>
 </div>
 
 {# ── Tabela desktop ─────────────────────────────────────────────── #}
-<div class="card d-none d-md-block">
+<div class="pastas-tabela-wrap card">
     <div class="card-body table-responsive p-0">
         <table class="table table-hover mb-0" id="tabelaPastas">
             <colgroup>
@@ -162,124 +190,13 @@
     </div>
 </div>
 
-{# ── Cards mobile ───────────────────────────────────────────────── #}
-<div class="d-md-none pasta-cards-lista">
+{# ── Modo lista (cartões) — desktop quando view=lista, e sempre no mobile ── #}
+<div class="pastas-lista">
     {% for pasta in pastas %}
-    {% set dias = date().diff(pasta.dataAbertura).days %}
-    <div class="pasta-card">
-        <div class="pasta-card-header">
-            <div class="pasta-card-nup">
-                <i class="bi bi-folder2 me-1 text-primary"></i>
-                <span class="fw-bold">{{ pasta.nup }}</span>
-            </div>
-            <div class="d-flex gap-1 align-items-center">
-                <span class="badge {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}" style="font-size:.7rem;">
-                    {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
-                </span>
-                <span class="badge {{ pasta.prioridadeBadgeClass }}" style="font-size:.7rem;">
-                    {{ pasta.prioridadeLabel }}
-                </span>
-            </div>
-        </div>
-
-        <div class="pasta-card-body">
-            {# Cliente #}
-            <div class="pasta-card-row">
-                <span class="pasta-card-label"><i class="bi bi-person me-1"></i></span>
-                <span class="pasta-card-value">
-                    {% if pasta.clientes|length > 0 %}
-                        {{ pasta.clientes[0].nomeExibicao }}{% if pasta.clientes|length > 1 %} <span class="text-muted">(+{{ pasta.clientes|length - 1 }})</span>{% endif %}
-                    {% elseif pasta.nomeCliente %}
-                        {{ pasta.nomeCliente }}
-                    {% else %}
-                        <span class="text-muted">—</span>
-                    {% endif %}
-                </span>
-            </div>
-
-            {# Ação #}
-            {% set acaoTexto = pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso) : pasta.nomeAcao %}
-            {% if acaoTexto %}
-            <div class="pasta-card-row">
-                <span class="pasta-card-label"><i class="bi bi-briefcase me-1"></i></span>
-                <span class="pasta-card-value text-truncate">{{ acaoTexto }}</span>
-            </div>
-            {% endif %}
-
-            {# Responsável + Data #}
-            <div class="pasta-card-row">
-                <span class="pasta-card-label"><i class="bi bi-person-badge me-1"></i></span>
-                <select class="form-select form-select-sm pasta-resp-select flex-grow-1"
-                        style="font-size:.8rem;"
-                        data-pasta-id="{{ pasta.id }}"
-                        data-url="{{ path('pasta_atualizar_responsavel', {id: pasta.id}) }}"
-                        data-csrf="{{ csrf_token('pasta_responsavel_' ~ pasta.id) }}">
-                    <option value="">—</option>
-                    {% for u in usuarios %}
-                        <option value="{{ u.id }}" {% if pasta.responsavel and pasta.responsavel.id == u.id %}selected{% endif %}>{{ u.fullName }}</option>
-                    {% endfor %}
-                </select>
-                <span class="pasta-card-meta ms-auto text-muted">
-                    {% if dias == 0 %}Hoje{% elseif dias == 1 %}1d{% else %}{{ dias }}d{% endif %}
-                </span>
-            </div>
-
-            {# Marcadores #}
-            {% if pasta.marcadores|length > 0 %}
-            <div class="pasta-card-row pasta-marcadores-col" data-pasta-id="{{ pasta.id }}">
-                <span class="pasta-card-label"><i class="bi bi-tags me-1"></i></span>
-                <div class="d-flex flex-wrap gap-1 align-items-center flex-grow-1">
-                    {% set primeiroMobile = pasta.marcadores|first %}
-                    <span class="badge rounded-pill px-2"
-                          style="{% if primeiroMobile.cor %}background:{{ primeiroMobile.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;">
-                        {{ primeiroMobile.nome }}
-                    </span>
-                    {% if pasta.marcadores|length > 1 %}
-                        <span class="badge rounded-pill px-2 marcadores-extra"
-                              style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;"
-                              data-marcadores-json="{{ pasta.marcadores|slice(1)|map(m => {nome: m.nome, cor: m.cor})|json_encode }}">
-                            +{{ pasta.marcadores|length - 1 }}
-                        </span>
-                    {% endif %}
-                    <button type="button"
-                            class="btn btn-xs py-0 px-1 btn-outline-secondary js-mover-para"
-                            style="font-size:.7rem;line-height:1.4;"
-                            data-pasta-id="{{ pasta.id }}"
-                            data-pasta-nome="{{ pasta.nup }}"
-                            data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
-                            data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
-                            title="Mover para…">
-                        <i class="bi bi-tags"></i>
-                    </button>
-                </div>
-            </div>
-            {% else %}
-            <div class="pasta-card-row pasta-marcadores-col" data-pasta-id="{{ pasta.id }}">
-                <span class="pasta-card-label"><i class="bi bi-tags me-1"></i></span>
-                <div class="flex-grow-1">
-                    <button type="button"
-                            class="btn btn-xs py-0 px-1 btn-outline-secondary js-mover-para"
-                            style="font-size:.7rem;line-height:1.4;"
-                            data-pasta-id="{{ pasta.id }}"
-                            data-pasta-nome="{{ pasta.nup }}"
-                            data-marcadores-ativos=""
-                            data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
-                            title="Adicionar marcador">
-                        <i class="bi bi-tags me-1"></i>Marcar
-                    </button>
-                </div>
-            </div>
-            {% endif %}
-        </div>
-
-        <div class="pasta-card-footer">
-            <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-outline-primary">
-                <i class="bi bi-eye me-1"></i>Ver
-            </a>
-        </div>
-    </div>
+        {{ include('pasta/_card.html.twig', {pasta: pasta, usuarios: usuarios}) }}
     {% endfor %}
 </div>
+</div>{# /#pastasView #}
 {% else %}
 <div class="alert alert-info mb-0">
     <i class="bi bi-info-circle me-1"></i>
@@ -367,87 +284,74 @@
     .col-marc-tabela { display: none; }
 }
 
-/* ── Cards mobile ────────────────────────────────────────────── */
-.pasta-cards-lista {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 4px 2px;
-}
+/* ── Modo lista: cartões (desktop view=lista + mobile) ─────────── */
+.pastas-lista { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
 
 .pasta-card {
+    position: relative;
     background: var(--bs-body-bg);
     border: 1px solid var(--bs-border-color);
-    border-radius: 10px;
+    border-radius: 12px;
+    padding: 12px 16px 12px 22px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
+    transition: box-shadow .15s, transform .05s;
+    cursor: pointer;
     overflow: hidden;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    transition: box-shadow 0.15s;
-}
-.pasta-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.10); }
-
-.pasta-card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px 8px;
-    background: var(--bs-tertiary-bg);
-    border-bottom: 1px solid var(--bs-border-color);
-}
-
-.pasta-card-nup {
-    font-size: 0.92rem;
-    color: var(--bs-body-color);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    text-transform: uppercase;
-}
-
-.pasta-card-body {
-    padding: 8px 14px 4px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-}
-
-.pasta-card-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.84rem;
-    min-height: 24px;
-}
-
-.pasta-card-label {
-    color: var(--bs-secondary-color);
-    flex-shrink: 0;
-    font-size: 0.8rem;
-    width: 18px;
-    text-align: center;
-}
-
-.pasta-card-value {
-    color: var(--bs-body-color);
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    text-transform: uppercase;
-}
-
-.pasta-card-meta {
-    font-size: 0.75rem;
-    flex-shrink: 0;
-}
-
-.pasta-card-footer {
-    display: flex;
-    align-items: center;
     gap: 8px;
-    padding: 8px 14px;
-    border-top: 1px solid var(--bs-border-color);
-    background: var(--bs-tertiary-bg);
+}
+.pasta-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.10); }
+.pasta-card:active { transform: scale(.998); }
+/* Barra lateral colorida pela prioridade */
+.pasta-card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+    background: var(--bs-secondary-color);
+}
+.pasta-card.pasta-prio-prioridade::before { background: var(--bs-warning); }
+.pasta-card.pasta-prio-urgente::before {
+    background: var(--bs-danger);
+    animation: urgente-pulso 1.2s ease-in-out infinite;
+}
+
+.pasta-card-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pasta-card-ident { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.pasta-card-nup { font-weight: 600; font-size: .78rem; color: var(--bs-secondary-color); white-space: nowrap; }
+.pasta-card-cliente {
+    font-size: .95rem; font-weight: 600; color: var(--bs-body-color); text-transform: uppercase;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pasta-card-flags { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.pasta-card-flags .badge { font-size: .72rem; }
+
+.pasta-card-acao {
+    font-size: .82rem; color: var(--bs-secondary-color); text-transform: uppercase;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.pasta-card-acoes { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pasta-card-acoes .pasta-resp-select { max-width: 200px; font-size: .8rem; }
+.pasta-card-marc .d-flex { flex-wrap: wrap; }
+.pasta-card-dias { font-size: .75rem; flex-shrink: 0; }
+
+/* Toggle de view + "Ordenar por" */
+.pasta-view-toggle .btn.active {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color);
+    border-color: var(--bs-border-color);
+}
+.pasta-ordenar-wrap .js-pasta-ordenar { width: auto; min-width: 168px; border-radius: 20px; }
+
+/* ── Alternância de layout ─────────────────────────────────────── */
+/* Desktop: respeita a view escolhida */
+@media (min-width: 768px) {
+    .pastas-view--tabela .pastas-lista { display: none; }
+    .pastas-view--lista  .pastas-tabela-wrap { display: none; }
+    .pastas-view--tabela .pasta-ordenar-wrap { display: none; } /* ordena por cabeçalho na tabela */
+}
+/* Mobile: sempre cartões, nunca tabela; toggle escondido pelo d-none */
+@media (max-width: 767.98px) {
+    .pastas-tabela-wrap { display: none; }
 }
 
 /* Filtros responsivos */
@@ -640,5 +544,40 @@
         /* Impede que o clique no select propague para o tr.pasta-row-link */
         sel.addEventListener('click', function (e) { e.stopPropagation(); });
     });
+}());
+</script>
+
+<script>
+(function () {
+    var STORAGE_KEY = 'pastasView';
+
+    function aplicarView(view) {
+        var wrap = document.getElementById('pastasView');
+        if (!wrap) return;
+        var lista = view === 'lista';
+        wrap.classList.toggle('pastas-view--lista', lista);
+        wrap.classList.toggle('pastas-view--tabela', !lista);
+        wrap.querySelectorAll('.js-view-toggle').forEach(function (b) {
+            b.classList.toggle('active', b.dataset.view === view);
+        });
+    }
+
+    /* Reaplica a view salva a cada injeção do fragmento (idempotente). */
+    var salvo = null;
+    try { salvo = localStorage.getItem(STORAGE_KEY); } catch (e) { /* indisponível */ }
+    aplicarView(salvo === 'lista' ? 'lista' : 'tabela');
+
+    /* Handler do toggle ligado uma única vez no document (guarda evita empilhar,
+       já que este script re-executa a cada troca de resultados). */
+    if (!document.__pastaViewToggleBound) {
+        document.__pastaViewToggleBound = true;
+        document.addEventListener('click', function (e) {
+            var btn = e.target.closest('.js-view-toggle');
+            if (!btn) return;
+            var view = btn.dataset.view === 'lista' ? 'lista' : 'tabela';
+            try { localStorage.setItem('pastasView', view); } catch (err) { /* ignora */ }
+            aplicarView(view);
+        });
+    }
 }());
 </script>
