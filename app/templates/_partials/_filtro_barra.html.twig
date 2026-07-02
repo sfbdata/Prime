@@ -1,0 +1,61 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Barra de filtro reutilizável (padrão Expediente).
+
+   Fica FORA da área trocável ([data-filtro-resultado]): ao filtrar, só o resultado
+   recarrega, então o campo de busca mantém o foco. A lógica (busca com debounce,
+   facetas na hora, chips, paginação) vive em public/js/filtro-tabela.js, delegada
+   no [data-filtro-root] persistente.
+
+   Parâmetros:
+     facetas           lista de { name, rotulo, tipo: 'select'|'date', opcoes: [{valor,label}] }
+     filtros           mapa dos valores atuais (preserva seleção após recarga)
+     busca_placeholder texto do campo de busca
+     busca_name        nome do campo de busca (default 'busca')
+     mostrar_busca     exibe o campo de busca livre (default true)
+─────────────────────────────────────────────────────────────────────────── #}
+{% set filtros = filtros ?? {} %}
+{% set facetas = facetas ?? [] %}
+{% set busca_campo = busca_name|default('busca') %}
+{% set mostrar_busca = mostrar_busca ?? true %}
+
+<form data-filtro-form method="get" class="filtro-barra">
+    {% if mostrar_busca %}
+    <div class="filtro-busca-linha">
+        <div class="filtro-busca">
+            <i class="bi bi-search"></i>
+            <input type="text" name="{{ busca_campo }}" class="form-control form-control-sm js-filtro-busca"
+                   data-rotulo="Busca" placeholder="{{ busca_placeholder|default('Buscar…') }}"
+                   autocomplete="off" value="{{ filtros[busca_campo]|default('') }}">
+        </div>
+    </div>
+    {% endif %}
+
+    {% if facetas|length > 0 %}
+        <div class="filtro-linha">
+            {% for f in facetas %}
+                {% if f.tipo == 'select' %}
+                    <select name="{{ f.name }}" class="form-select form-select-sm filtro-select js-filtro-campo"
+                            data-rotulo="{{ f.rotulo }}" aria-label="Filtrar por {{ f.rotulo }}">
+                        <option value="">{{ f.rotulo }}</option>
+                        {% for o in f.opcoes %}
+                            <option value="{{ o.valor }}" {{ (filtros[f.name]|default('')) == (o.valor ~ '') ? 'selected' : '' }}>{{ o.label }}</option>
+                        {% endfor %}
+                    </select>
+                {% elseif f.tipo == 'date' %}
+                    <span class="filtro-data-campo">
+                        <input type="date" name="{{ f.name }}" class="form-control form-control-sm js-filtro-campo"
+                               data-rotulo="{{ f.rotulo }}" aria-label="{{ f.rotulo }}" value="{{ filtros[f.name]|default('') }}">
+                        <button type="button" class="filtro-data-btn js-filtro-calendario" tabindex="-1"
+                                aria-label="Abrir calendário"><i class="bi bi-calendar3"></i></button>
+                    </span>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <input type="hidden" name="ordenar" value="{{ filtros.ordenar|default('') }}">
+    <input type="hidden" name="direcao" value="{{ filtros.direcao|default('') }}">
+
+    {# Chips dos filtros ativos — montados por JS a partir do estado do form #}
+    <div class="filtro-chips" data-filtro-chips></div>
+</form>
