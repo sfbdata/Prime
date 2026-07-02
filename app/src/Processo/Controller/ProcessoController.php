@@ -45,6 +45,8 @@ class ProcessoController extends AbstractController
 {
     use ResourceAccessTrait;
 
+    private const PER_PAGE = 25;
+
     public function __construct(
         private readonly TenantContext $tenantContext,
     ) {}
@@ -60,24 +62,34 @@ class ProcessoController extends AbstractController
             return $this->redirectToRoute('homepage');
         }
 
-        $filters = [
-            'numero_processo' => $request->query->get('numero_processo', ''),
-            'tribunal' => $request->query->get('tribunal', ''),
-            'classe' => $request->query->get('classe', ''),
-            'assunto' => $request->query->get('assunto', ''),
-            'situacao' => $request->query->get('situacao', ''),
+        $filtros = [
+            'busca'    => trim((string) $request->query->get('busca', '')),
+            'tribunal' => (string) $request->query->get('tribunal', ''),
+            'situacao' => (string) $request->query->get('situacao', ''),
+            'data_de'  => (string) $request->query->get('data_de', ''),
+            'data_ate' => (string) $request->query->get('data_ate', ''),
+        ];
+        $ordenar = (string) $request->query->get('ordenar', '');
+        $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $pagina  = max(1, (int) $request->query->get('page', 1));
+
+        $total        = $repo->countByFiltros($tenant, $filtros);
+        $totalPaginas = max(1, (int) ceil($total / self::PER_PAGE));
+
+        $dados = [
+            'processos'     => $repo->findByFiltrosPaginado($tenant, $filtros, $pagina, self::PER_PAGE, $ordenar, $direcao),
+            'total'         => $total,
+            'pagina'        => $pagina,
+            'total_paginas' => $totalPaginas,
+            'filtros'       => $filtros + ['ordenar' => $ordenar, 'direcao' => $direcao],
+            'tribunais'     => $repo->findAllTribunais($tenant),
         ];
 
-        $hasFilters = array_filter($filters, fn($v) => $v !== '');
+        if ($request->isXmlHttpRequest()) {
+            return $this->render('processo/_resultado.html.twig', $dados);
+        }
 
-        return $this->render('processo/index.html.twig', [
-            'processos' => $hasFilters ? $repo->findByFilters($filters) : $repo->findAll(),
-            'filters' => $filters,
-            'numerosProcesso' => $repo->findAllNumerosProcesso(),
-            'tribunais' => $repo->findAllTribunais(),
-            'classes' => $repo->findAllClasses(),
-            'assuntos' => $repo->findAllAssuntos(),
-        ]);
+        return $this->render('processo/index.html.twig', $dados);
     }
 
     #[Route('/novo', name: 'processo_new', methods: ['GET', 'POST'])]

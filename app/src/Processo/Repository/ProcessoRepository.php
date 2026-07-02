@@ -5,6 +5,7 @@ namespace App\Processo\Repository;
 use App\Entity\Tenant\Tenant;
 use App\Processo\Entity\Processo;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -129,15 +130,143 @@ class ProcessoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Lista processos do escritório com busca livre + facetas + paginação, para a tela
+     * de índice. Escopa por tenant EXPLICITAMENTE (defesa em profundidade) além do
+     * TenantFilter global — o método continua seguro se chamado com o filtro desligado
+     * (CLI, super-admin, teste).
+     *
+     * @param array<string, string> $filtros  busca, tribunal, situacao, data_de, data_ate
+     * @return Processo[]
+     */
+    public function findByFiltrosPaginado(
+        Tenant $tenant,
+        array $filtros,
+        int $pagina = 1,
+        int $porPagina = 25,
+        string $ordenar = '',
+        string $direcao = 'desc'
+    ): array {
+        $qb = $this->buildQbFiltros($tenant, $filtros);
+        $this->aplicarOrdenacaoProcesso($qb, $ordenar, $direcao);
+
+        return $qb
+            ->setFirstResult(($pagina - 1) * $porPagina)
+            ->setMaxResults($porPagina)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * @param array<string, string> $filtros
+     */
+    public function countByFiltros(Tenant $tenant, array $filtros): int
+    {
+        return (int) $this->buildQbFiltros($tenant, $filtros)
+            ->select('COUNT(p.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * @param array<string, string> $filtros
+     */
+    private function buildQbFiltros(Tenant $tenant, array $filtros): QueryBuilder
+    {
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
+
+        $busca = trim((string) ($filtros['busca'] ?? ''));
+        if ($busca !== '') {
+            $qb->andWhere(
+                'p.numeroProcesso LIKE :busca'
+                . ' OR LOWER(p.classeProcessual) LIKE LOWER(:busca)'
+                . ' OR LOWER(p.assuntoProcessual) LIKE LOWER(:busca)'
+                . ' OR LOWER(p.siglaTribunal) LIKE LOWER(:busca)'
+            )->setParameter('busca', '%' . $busca . '%');
+        }
+
+        if (!empty($filtros['tribunal'])) {
+            $qb->andWhere('p.siglaTribunal = :tribunal')
+               ->setParameter('tribunal', $filtros['tribunal']);
+        }
+
+        if (!empty($filtros['situacao'])) {
+            $qb->andWhere('p.situacaoProcesso = :situacao')
+               ->setParameter('situacao', $filtros['situacao']);
+        }
+
+        $dataDe = $this->parseDataFiltro($filtros['data_de'] ?? '', false);
+        if ($dataDe !== null) {
+            $qb->andWhere('p.dataDistribuicao >= :dataDe')
+               ->setParameter('dataDe', $dataDe);
+        }
+
+        $dataAte = $this->parseDataFiltro($filtros['data_ate'] ?? '', true);
+        if ($dataAte !== null) {
+            $qb->andWhere('p.dataDistribuicao <= :dataAte')
+               ->setParameter('dataAte', $dataAte);
+        }
+
+        return $qb;
+    }
+
+    /**
+     * Converte um valor 'Y-m-d' (input date) em DateTimeImmutable, ou null se vazio/inválido.
+     * Na borda final ('data_ate') usa o fim do dia para o intervalo ser inclusivo.
+     */
+    private function parseDataFiltro(string $valor, bool $fimDoDia): ?\DateTimeImmutable
+    {
+        $valor = trim($valor);
+        if ($valor === '') {
+            return null;
+        }
+
+        $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        if ($data === false || $data->format('Y-m-d') !== $valor) {
+            return null;
+        }
+
+        return $fimDoDia ? $data->setTime(23, 59, 59) : $data;
+    }
+
+    private function aplicarOrdenacaoProcesso(QueryBuilder $qb, string $ordenar, string $direcao): void
+    {
+        $dir = strtoupper($direcao) === 'ASC' ? 'ASC' : 'DESC';
+
+        $coluna = match ($ordenar) {
+            'numero'   => 'p.numeroProcesso',
+            'tribunal' => 'p.siglaTribunal',
+            'classe'   => 'p.classeProcessual',
+            'assunto'  => 'p.assuntoProcessual',
+            'situacao' => 'p.situacaoProcesso',
+            default    => null,
+        };
+
+        if ($coluna === null) {
+            $qb->orderBy('p.id', 'DESC');
+
+            return;
+        }
+
+        $qb->orderBy($coluna, $dir)->addOrderBy('p.id', 'DESC');
+    }
+
+    /**
+     * Siglas de tribunal do escritório, para as opções da faceta. Escopa por tenant
+     * EXPLICITAMENTE (defesa em profundidade) além do TenantFilter global.
+     *
      * @return array<string, string>
      */
-    public function findAllTribunais(): array
+    public function findAllTribunais(Tenant $tenant): array
     {
         $result = $this->createQueryBuilder('p')
             ->select('DISTINCT p.siglaTribunal')
             ->where('p.siglaTribunal IS NOT NULL')
             ->andWhere('p.siglaTribunal != :empty')
+            ->andWhere('p.tenant = :tenant')
             ->setParameter('empty', '')
+            ->setParameter('tenant', $tenant)
             ->orderBy('p.siglaTribunal', 'ASC')
             ->getQuery()
             ->getResult();
