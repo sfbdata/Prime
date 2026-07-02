@@ -197,6 +197,7 @@ final class ExpedienteController extends AbstractController
             'ordenar'      => $ordenar,
             'direcao'      => $direcao,
             'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
+            'fotosResponsaveis' => $this->userRepository->findFotoPorColaboradores($tenant),
             'formAction'   => $urlPainel,
             'pagination'   => [
                 'current_page' => $page,
@@ -264,6 +265,7 @@ final class ExpedienteController extends AbstractController
             'ordenar'      => $ordenar,
             'direcao'      => $direcao,
             'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
+            'fotosResponsaveis' => $this->userRepository->findFotoPorColaboradores($tenant),
             'formAction'   => $this->generateUrl('expediente_acervo_geral'),
             'pagination'   => [
                 'current_page' => $page,

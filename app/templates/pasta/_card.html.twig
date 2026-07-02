@@ -1,0 +1,106 @@
+{# Cartão de UMA pasta — modo lista (desktop) e mobile.
+   Reaproveita as MESMAS classes/data-* da tabela (_tabela.html.twig) para manter a
+   paridade das ações inline (responsável, situação, mover marcador) sem JS novo.
+   NÃO usar id= por-pasta: tabela e cartão coexistem no DOM. #}
+{% set dias = date().diff(pasta.dataAbertura).days %}
+{% set acaoTexto = pasta.processoPrincipal
+    ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso)
+    : pasta.nomeAcao %}
+<div class="pasta-card pasta-row-link pasta-prio-{{ pasta.prioridade.value }}"
+     data-href="{{ path('pasta_show', {id: pasta.id}) }}">
+
+    {# Linha 1: NUP + cliente | prioridade + situação #}
+    <div class="pasta-card-topo">
+        <div class="pasta-card-ident">
+            <span class="pasta-card-nup"><i class="bi bi-folder2 me-1"></i>{{ pasta.nup }}</span>
+            <span class="pasta-card-cliente">
+                {% if pasta.clientes|length > 0 %}
+                    {% if pasta.clientes|length == 1 %}
+                        {{ pasta.clientes[0].nomeExibicao }}
+                    {% else %}
+                        <span class="clientes-resumo" data-bs-placement="bottom"
+                              data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
+                            {{ pasta.clientes[0].nomeExibicao }}
+                            <span class="badge text-bg-secondary ms-1" style="font-size:.6rem;">+{{ pasta.clientes|length - 1 }}</span>
+                        </span>
+                    {% endif %}
+                {% elseif pasta.nomeCliente %}
+                    {{ pasta.nomeCliente }}
+                {% else %}
+                    <span class="text-muted">—</span>
+                {% endif %}
+            </span>
+        </div>
+        <div class="pasta-card-flags">
+            <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}">
+                {{ pasta.prioridadeLabel }}
+            </span>
+            <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
+                  style="cursor:pointer;user-select:none;"
+                  data-situacao="{{ pasta.situacao }}"
+                  data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}"
+                  data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
+                  title="Dê duplo-clique para alternar entre ativo e arquivado">
+                {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
+            </span>
+        </div>
+    </div>
+
+    {# Linha 2: ação / processo #}
+    {% if acaoTexto %}
+    <div class="pasta-card-acao"><i class="bi bi-briefcase me-1"></i>{{ acaoTexto }}</div>
+    {% endif %}
+
+    {# Linha 3: responsável | marcadores | metas | dias #}
+    <div class="pasta-card-acoes">
+        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotos|default({})}) }}
+
+        {# Mesma estrutura da coluna de marcadores da tabela: .pasta-marcadores-col > .d-flex,
+           para o callback moverParaAtualizarBadgesTabela atualizar o cartão também. #}
+        <div class="pasta-card-marc pasta-marcadores-col" data-pasta-id="{{ pasta.id }}">
+            <div class="d-flex flex-nowrap gap-1 align-items-center">
+                {% if pasta.marcadores|length > 0 %}
+                    {% set primeiro = pasta.marcadores|first %}
+                    <span class="badge rounded-pill px-2 marcador-principal"
+                          style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;">
+                        {{ primeiro.nome }}
+                    </span>
+                    {% if pasta.marcadores|length > 1 %}
+                        <span class="badge rounded-pill px-2 marcadores-extra"
+                              style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;"
+                              data-marcadores-json="{{ pasta.marcadores|slice(1)|map(m => {nome: m.nome, cor: m.cor})|json_encode }}">
+                            +{{ pasta.marcadores|length - 1 }}
+                        </span>
+                    {% endif %}
+                {% endif %}
+                <button type="button"
+                        class="btn btn-xs py-0 px-1 btn-outline-secondary js-mover-para"
+                        style="font-size:.7rem;line-height:1.4;"
+                        data-pasta-id="{{ pasta.id }}"
+                        data-pasta-nome="{{ pasta.nup }}"
+                        data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
+                        data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
+                        title="Mover para…">
+                    <i class="bi bi-tags"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="pasta-card-metas">
+            {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
+            {% set totalTarefas = pasta.tarefas|length %}
+            {% if totalTarefas > 0 %}
+                {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
+                <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
+                   class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                   title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
+                    <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
+                </a>
+            {% endif %}
+        </div>
+
+        <span class="pasta-card-dias text-muted ms-auto">
+            {% if dias == 0 %}Hoje{% elseif dias == 1 %}1d{% else %}{{ dias }}d{% endif %}
+        </span>
+    </div>
+</div>

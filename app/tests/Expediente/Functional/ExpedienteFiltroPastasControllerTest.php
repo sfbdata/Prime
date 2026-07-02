@@ -11,6 +11,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Expediente\Controller\ExpedienteController;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PrioridadePasta;
+use App\Profile\Entity\UserProfile;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -85,6 +86,61 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString($fora->getNup(), $body);
     }
 
+    #[TestDox('acervo geral: fragmento traz o modo lista (cartões), o toggle e o "Ordenar por"')]
+    public function testAcervoGeralRenderizaCartoesDoModoLista(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Lista', admin: true);
+
+        $sufixo = strtoupper(uniqid());
+        $pasta  = $this->criarPasta($tenant, 'LISTA-' . $sufixo, nomeAcao: 'Ação Lista ' . $sufixo);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('id="pastasView"', $body);
+        self::assertStringContainsString('pastas-lista', $body);
+        self::assertStringContainsString('pasta-card', $body);
+        self::assertStringContainsString('js-view-toggle', $body);
+        self::assertStringContainsString('pasta-view-toggle', $body);
+        self::assertStringContainsString('js-pasta-ordenar', $body);
+        // responsável agora é chip (avatar + nome) + menu compartilhado
+        self::assertStringContainsString('pasta-resp-chip', $body);
+        self::assertStringContainsString('id="pastaRespMenu"', $body);
+        self::assertStringContainsString('pasta-resp-opcao', $body);
+        // admin sem foto → avatar de iniciais (fallback) aparece no menu
+        self::assertStringContainsString('resp-avatar-ini', $body);
+        self::assertStringContainsString($pasta->getNup(), $body);
+    }
+
+    #[TestDox('acervo geral: pasta com responsável (com foto) mostra o chip com nome e avatar de foto')]
+    public function testResponsavelComFotoRenderizaChipComNomeEFoto(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Resp', admin: true);
+        $colab  = $this->criarUsuario($tenant, 'Mariana Prestes', fotoUrl: 'foto-mariana-teste.jpg');
+
+        $sufixo = strtoupper(uniqid());
+        $pasta  = $this->criarPasta($tenant, 'RESP-' . $sufixo, responsavel: $colab);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        // chip do responsável com o nome e avatar de FOTO (não iniciais)
+        self::assertStringContainsString('pasta-resp-chip', $body);
+        self::assertStringContainsString('Mariana Prestes', $body);
+        self::assertStringContainsString('resp-avatar-img', $body);
+        self::assertStringContainsString('foto-mariana-teste.jpg', $body);
+        // o colaborador aparece como opção no menu compartilhado
+        self::assertStringContainsString('data-nome="Mariana Prestes"', $body);
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function criarTenant(): Tenant
@@ -98,7 +154,7 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         return $tenant;
     }
 
-    private function criarUsuario(Tenant $tenant, string $nome, bool $admin = false): User
+    private function criarUsuario(Tenant $tenant, string $nome, bool $admin = false, ?string $fotoUrl = null): User
     {
         $container = static::getContainer();
         $em        = $container->get(EntityManagerInterface::class);
@@ -111,6 +167,15 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         $user->setIsActive(true);
         $user->setPassword($hasher->hashPassword($user, 'senha123'));
         $em->persist($user);
+
+        if ($fotoUrl !== null) {
+            $profile = new UserProfile($user);
+            $profile->setFotoUrl($fotoUrl);
+            $em->persist($profile);
+            // EM compartilhado no teste: sem setar o lado inverso, o request leria
+            // profile=null em memória (não faz lazy-load de entidade já gerenciada).
+            $user->setProfile($profile);
+        }
 
         $userTenant = new UserTenant($user, $tenant);
         if ($admin) {
@@ -133,6 +198,7 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         ?string $nomeAcao = null,
         ?PrioridadePasta $prioridade = null,
         ?\DateTimeImmutable $dataAbertura = null,
+        ?User $responsavel = null,
     ): Pasta {
         $em = static::getContainer()->get(EntityManagerInterface::class);
 
@@ -147,6 +213,9 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         }
         if ($dataAbertura !== null) {
             $pasta->setDataAbertura($dataAbertura);
+        }
+        if ($responsavel !== null) {
+            $pasta->setResponsavel($responsavel);
         }
         $em->persist($pasta);
         $em->flush();
