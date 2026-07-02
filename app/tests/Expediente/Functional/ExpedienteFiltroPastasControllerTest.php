@@ -172,6 +172,9 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
             $profile = new UserProfile($user);
             $profile->setFotoUrl($fotoUrl);
             $em->persist($profile);
+            // EM compartilhado no teste: sem setar o lado inverso, o request leria
+            // profile=null em memória (não faz lazy-load de entidade já gerenciada).
+            $user->setProfile($profile);
         }
 
         $userTenant = new UserTenant($user, $tenant);
