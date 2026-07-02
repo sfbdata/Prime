@@ -32,18 +32,14 @@ class PastaRepository extends ServiceEntityRepository
         array $filters,
         Tenant $tenant,
         int $page = 1,
-        int $perPage = 25
+        int $perPage = 25,
+        string $ordenar = '',
+        string $direcao = 'desc'
     ): array {
-        $qb = $this->buildQbByFilters($filters, $tenant);
-
-        if (!empty($filters['cliente']) || !empty($filters['busca'])) {
-            $qb->addGroupBy('p.id');
-        }
+        $qb = $this->buildQbByFilters($filters, $tenant)->groupBy('p.id');
+        $this->aplicarOrdenacao($qb, $ordenar, $direcao);
 
         return $qb
-            ->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
-            ->addOrderBy('CAST_INT(p.nup)', 'DESC')
-            ->addOrderBy('p.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage)
             ->getQuery()
@@ -100,12 +96,14 @@ class PastaRepository extends ServiceEntityRepository
         Marcador $marcador,
         Tenant $tenant,
         int $page = 1,
-        int $perPage = 25
+        int $perPage = 25,
+        string $ordenar = '',
+        string $direcao = 'desc'
     ): array {
-        return $this->buildQbPorMarcador([], $marcador, $tenant)
-            ->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
-            ->addOrderBy('CAST_INT(p.nup)', 'DESC')
-            ->addOrderBy('p.id', 'DESC')
+        $qb = $this->buildQbPorMarcador([], $marcador, $tenant)->groupBy('p.id');
+        $this->aplicarOrdenacao($qb, $ordenar, $direcao);
+
+        return $qb
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage)
             ->getQuery()
@@ -129,18 +127,14 @@ class PastaRepository extends ServiceEntityRepository
         Marcador $marcador,
         Tenant $tenant,
         int $page = 1,
-        int $perPage = 25
+        int $perPage = 25,
+        string $ordenar = '',
+        string $direcao = 'desc'
     ): array {
-        $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant);
-
-        if (!empty($filters['cliente']) || !empty($filters['busca'])) {
-            $qb->addGroupBy('p.id');
-        }
+        $qb = $this->buildQbPorMarcador($filters, $marcador, $tenant)->groupBy('p.id');
+        $this->aplicarOrdenacao($qb, $ordenar, $direcao);
 
         return $qb
-            ->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
-            ->addOrderBy('CAST_INT(p.nup)', 'DESC')
-            ->addOrderBy('p.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage)
             ->getQuery()
@@ -429,5 +423,63 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $fimDoDia ? $data->setTime(23, 59, 59) : $data;
+    }
+
+    /**
+     * Ordena a listagem no banco (antes da paginação) pela coluna clicada no cabeçalho.
+     *
+     * O QueryBuilder já vem com GROUP BY p.id, então colunas de coleção (cliente,
+     * marcador) e de relação (responsável, ação/processo) são ordenadas por um valor
+     * representativo agregado (MIN) — cada pasta continua sendo uma única linha.
+     * Coluna/direção desconhecidas caem no padrão (NUP numérico decrescente).
+     */
+    private function aplicarOrdenacao(QueryBuilder $qb, string $ordenar, string $direcao): void
+    {
+        $dir = strtoupper($direcao) === 'ASC' ? 'ASC' : 'DESC';
+
+        switch ($ordenar) {
+            case 'nup':
+                $qb->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
+                   ->addOrderBy('CAST_INT(p.nup)', $dir);
+                break;
+
+            case 'situacao':
+                $qb->orderBy('p.situacao', $dir);
+                break;
+
+            case 'prioridade':
+                $qb->orderBy("CASE p.prioridade WHEN 'urgente' THEN 3 WHEN 'prioridade' THEN 2 ELSE 1 END", $dir);
+                break;
+
+            case 'responsavel':
+                $qb->leftJoin('p.responsavel', 'r_ord')
+                   ->orderBy('MIN(LOWER(r_ord.fullName))', $dir);
+                break;
+
+            case 'cliente':
+                $qb->leftJoin('p.clientes', 'cli_ord')
+                   ->leftJoin(ClientePF::class, 'cpf_ord', 'WITH', 'cpf_ord.id = cli_ord.id')
+                   ->leftJoin(ClientePJ::class, 'cpj_ord', 'WITH', 'cpj_ord.id = cli_ord.id')
+                   ->orderBy('MIN(LOWER(COALESCE(cpf_ord.nomeCompleto, cpj_ord.razaoSocial, p.nomeCliente)))', $dir);
+                break;
+
+            case 'acao':
+                $qb->leftJoin('p.pastaProcessos', 'pp_ord', 'WITH', 'pp_ord.principal = true')
+                   ->leftJoin('pp_ord.processo', 'proc_ord')
+                   ->orderBy('MIN(LOWER(COALESCE(proc_ord.classeProcessual, p.nomeAcao)))', $dir);
+                break;
+
+            case 'marcadores':
+                $qb->leftJoin('p.marcadores', 'marc_ord')
+                   ->orderBy('MIN(LOWER(marc_ord.nome))', $dir);
+                break;
+
+            default:
+                $qb->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
+                   ->addOrderBy('CAST_INT(p.nup)', 'DESC');
+                break;
+        }
+
+        $qb->addOrderBy('p.id', 'DESC');
     }
 }

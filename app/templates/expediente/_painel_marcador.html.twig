@@ -16,8 +16,9 @@
     {{ include('pasta/_filtros.html.twig') }}
 
     <div id="pastas-resultado">
-        {{ include('expediente/_paginacao.html.twig') }}
         {{ include('pasta/_tabela.html.twig') }}
-        {{ include('expediente/_paginacao.html.twig') }}
+        <div class="mt-2">
+            {{ include('expediente/_paginacao.html.twig') }}
+        </div>
     </div>
 </div>

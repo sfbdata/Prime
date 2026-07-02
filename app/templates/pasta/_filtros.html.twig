@@ -13,14 +13,18 @@
 
 <div class="pasta-filtros mb-3">
     <form method="GET" action="{{ formAction }}" id="formFiltrosPasta" class="pasta-filtros-form">
-        <div class="pasta-filtros-linha">
+        <input type="hidden" name="ordenar" value="{{ ordenar ?? '' }}">
+        <input type="hidden" name="direcao" value="{{ direcao ?? '' }}">
+        <div class="pasta-filtros-busca-linha">
             <div class="pasta-filtros-busca">
                 <i class="bi bi-search"></i>
                 <input type="text" name="busca" class="form-control form-control-sm js-pasta-busca"
                        placeholder="Buscar pasta, cliente, ação ou processo…"
                        autocomplete="off" value="{{ filters.busca ?? '' }}">
             </div>
+        </div>
 
+        <div class="pasta-filtros-linha">
             <select name="status" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
                     data-rotulo="Status" aria-label="Filtrar por status">
                 <option value="">Status</option>
@@ -45,12 +49,19 @@
             </select>
 
             <div class="pasta-filtros-periodo" title="Período de abertura">
-                <i class="bi bi-calendar3"></i>
-                <input type="date" name="data_de" class="form-control form-control-sm js-pasta-filtro"
-                       data-rotulo="De" aria-label="Aberta a partir de" value="{{ filters.data_de ?? '' }}">
+                <span class="pasta-data-campo">
+                    <input type="date" name="data_de" class="form-control form-control-sm js-pasta-filtro"
+                           data-rotulo="De" aria-label="Aberta a partir de" value="{{ filters.data_de ?? '' }}">
+                    <button type="button" class="pasta-data-btn js-abrir-calendario" tabindex="-1"
+                            aria-label="Abrir calendário"><i class="bi bi-calendar3"></i></button>
+                </span>
                 <span class="pasta-filtros-periodo-sep">–</span>
-                <input type="date" name="data_ate" class="form-control form-control-sm js-pasta-filtro"
-                       data-rotulo="Até" aria-label="Aberta até" value="{{ filters.data_ate ?? '' }}">
+                <span class="pasta-data-campo">
+                    <input type="date" name="data_ate" class="form-control form-control-sm js-pasta-filtro"
+                           data-rotulo="Até" aria-label="Aberta até" value="{{ filters.data_ate ?? '' }}">
+                    <button type="button" class="pasta-data-btn js-abrir-calendario" tabindex="-1"
+                            aria-label="Abrir calendário"><i class="bi bi-calendar3"></i></button>
+                </span>
             </div>
         </div>
 
@@ -60,6 +71,9 @@
 </div>
 
 <style>
+.pasta-filtros-busca-linha {
+    margin-bottom: 8px;
+}
 .pasta-filtros-linha {
     display: flex;
     flex-wrap: wrap;
@@ -68,8 +82,8 @@
 }
 .pasta-filtros-busca {
     position: relative;
-    flex: 1 1 260px;
-    min-width: 200px;
+    width: 100%;
+    max-width: 360px;
 }
 .pasta-filtros-busca .bi-search {
     position: absolute;
@@ -92,30 +106,58 @@
 .pasta-filtros-periodo {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 1px 10px;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 20px;
-    background: var(--bs-body-bg);
-}
-.pasta-filtros-periodo .bi-calendar3 {
-    color: var(--bs-secondary-color);
-    font-size: .85rem;
+    gap: 8px;
 }
 .pasta-filtros-periodo-sep {
     color: var(--bs-secondary-color);
 }
+/* Cada data é um "pill" próprio, igual aos dropdowns, com o calendário embutido */
+.pasta-data-campo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 31px;
+    padding: 0 8px 0 12px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 20px;
+    background: var(--bs-body-bg);
+}
+.pasta-data-campo:focus-within {
+    border-color: var(--bs-primary);
+}
+.pasta-data-btn {
+    border: none;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+    padding: 0;
+    font-size: .9rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+}
+.pasta-data-btn:hover {
+    color: var(--bs-primary);
+}
 .pasta-filtros-periodo input[type="date"] {
     border: none;
     background: transparent;
-    width: 128px;
-    padding: 2px 2px;
+    width: 96px;
+    padding: 0;
     box-shadow: none;
     height: auto;
+    font-size: .8125rem;
+    color: var(--bs-body-color);
 }
 .pasta-filtros-periodo input[type="date"]:focus {
     box-shadow: none;
     outline: none;
+}
+/* Usa nosso botão de calendário no lugar do ícone nativo (evita ícone duplicado) */
+.pasta-filtros-periodo input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .pasta-chips {
@@ -188,9 +230,9 @@
 }
 
 @media (max-width: 575.98px) {
-    .pasta-filtros-busca { flex: 1 1 100%; }
     .pasta-filtros-select { flex: 1 1 calc(50% - 4px); min-width: 0; }
-    .pasta-filtros-periodo { flex: 1 1 100%; justify-content: space-between; }
+    .pasta-filtros-periodo { flex: 1 1 100%; }
+    .pasta-data-campo { flex: 1; }
     .pasta-filtros-periodo input[type="date"] { width: auto; flex: 1; }
 }
 </style>

@@ -3,6 +3,8 @@
 {% set filters = filters ?? {} %}
 {% set responsaveis = responsaveis ?? [] %}
 {% set usuarios = usuarios ?? responsaveis %}
+{% set ordCol = ordenar ?? '' %}
+{% set ordDir = (direcao ?? '') == 'asc' ? 'asc' : 'desc' %}
 
 <style>
 @keyframes urgente-pulso {
@@ -15,10 +17,13 @@
 </style>
 
 {% if pastas|length > 0 %}
-<div class="d-flex justify-content-between align-items-center mb-2">
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
     <span class="text-muted">
         <i class="bi bi-list-ul me-1"></i> {{ pastas|length }} resultado(s) encontrado(s)
     </span>
+    {% if pagination is defined and pagination is not null %}
+        {{ include('expediente/_paginacao.html.twig') }}
+    {% endif %}
 </div>
 
 {# ── Tabela desktop ─────────────────────────────────────────────── #}
@@ -37,14 +42,14 @@
             </colgroup>
             <thead class="table-light">
                 <tr>
-                    <th class="sortable ps-3" data-col="0"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable col-acao-tabela" data-col="2"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable" data-col="3"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable col-resp-tabela" data-col="4"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable ps-3 {{ ordCol == 'nup' ? ordDir : '' }}" data-ordenar="nup"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable {{ ordCol == 'cliente' ? ordDir : '' }}" data-ordenar="cliente"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-acao-tabela {{ ordCol == 'acao' ? ordDir : '' }}" data-ordenar="acao"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable {{ ordCol == 'prioridade' ? ordDir : '' }}" data-ordenar="prioridade"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-resp-tabela {{ ordCol == 'responsavel' ? ordDir : '' }}" data-ordenar="responsavel"><i class="bi bi-person-badge me-1"></i>Responsável <i class="bi bi-arrow-down-up sort-icon"></i></th>
                     <th class="col-tarefas-tabela"><i class="bi bi-check2-square me-1"></i>Metas</th>
-                    <th class="sortable col-marc-tabela" data-col="6"><i class="bi bi-tags me-1"></i>Marcadores <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                    <th class="sortable" data-col="7"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable col-marc-tabela {{ ordCol == 'marcadores' ? ordDir : '' }}" data-ordenar="marcadores"><i class="bi bi-tags me-1"></i>Marcadores <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable {{ ordCol == 'situacao' ? ordDir : '' }}" data-ordenar="situacao"><i class="bi bi-flag me-1"></i>Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
                 </tr>
             </thead>
             <tbody>
@@ -581,49 +586,9 @@
         iniciarTooltipsMarcadores();
     }
 
-
-    function iniciarOrdenacaoTabela() {
-        var table = document.getElementById('tabelaPastas');
-        if (!table) return;
-        var headers = table.querySelectorAll('th.sortable');
-        var tbody = table.querySelector('tbody');
-
-        function ordenarPorColuna(colIndex, direcao) {
-            headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
-            var activeHeader = table.querySelector('th.sortable[data-col="' + colIndex + '"]');
-            if (activeHeader) activeHeader.classList.add(direcao);
-            var rows = Array.from(tbody.querySelectorAll('tr'));
-            rows.sort(function (a, b) {
-                var cellA = a.cells[colIndex];
-                var cellB = b.cells[colIndex];
-                var aVal = cellA ? (cellA.hasAttribute('data-sort') ? cellA.dataset.sort : cellA.textContent.trim()) : '';
-                var bVal = cellB ? (cellB.hasAttribute('data-sort') ? cellB.dataset.sort : cellB.textContent.trim()) : '';
-                var aNum = parseFloat(aVal), bNum = parseFloat(bVal);
-                if (!isNaN(aNum) && !isNaN(bNum)) {
-                    return direcao === 'asc' ? aNum - bNum : bNum - aNum;
-                }
-                aVal = aVal.toLowerCase();
-                bVal = bVal.toLowerCase();
-                return direcao === 'asc'
-                    ? aVal.localeCompare(bVal, 'pt-BR')
-                    : bVal.localeCompare(aVal, 'pt-BR');
-            });
-            rows.forEach(function (row) { tbody.appendChild(row); });
-        }
-
-        headers.forEach(function (header) {
-            header.addEventListener('click', function () {
-                var col = parseInt(this.dataset.col);
-                var isAsc = this.classList.contains('asc');
-                ordenarPorColuna(col, isAsc ? 'desc' : 'asc');
-            });
-        });
-
-        /* Ordenação padrão: NUP (coluna 0) decrescente */
-        ordenarPorColuna(0, 'desc');
-    }
-
-    iniciarOrdenacaoTabela();
+    /* A ordenação por coluna é feita no servidor (ordena o acervo inteiro, não só
+       esta página). O clique no cabeçalho é tratado por delegação no shell do
+       Expediente (#expediente-painel); aqui a seta ativa já vem renderizada. */
 })();
 </script>
 

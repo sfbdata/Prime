@@ -1080,7 +1080,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     responsavel: fd.get('responsavel') || '',
                     prioridade:  fd.get('prioridade')  || '',
                     data_de:     fd.get('data_de')     || '',
-                    data_ate:    fd.get('data_ate')    || ''
+                    data_ate:    fd.get('data_ate')    || '',
+                    ordenar:     fd.get('ordenar')     || '',
+                    direcao:     fd.get('direcao')     || ''
                 },
                 page: lerPaginaAtualDoPainel()
             };
@@ -1145,7 +1147,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         var params = new URLSearchParams();
         var f = estado.filtros || {};
-        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate'].forEach(function (k) {
+        ['busca', 'status', 'responsavel', 'prioridade', 'data_de', 'data_ate', 'ordenar', 'direcao'].forEach(function (k) {
             if (f[k]) params.set(k, f[k]);
         });
         if (estado.page && estado.page > 1) params.set('page', estado.page);
@@ -1559,11 +1561,17 @@ document.addEventListener('DOMContentLoaded', function () {
         painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
         if (labelPainel && nomeAtivo) labelPainel.textContent = nomeAtivo;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-            .then(function (r) { return r.text(); })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+
+                return r.text();
+            })
             .then(function (html) {
                 injetarHtmlComScripts(painel, html);
-                salvarEstadoPainel();
-                construirChipsPastas();
+                // Pós-processamento não-crítico: se algo aqui falhar, a tabela já foi
+                // injetada e continua visível — não escondemos tudo atrás do erro.
+                try { salvarEstadoPainel(); } catch (e) { /* ignora */ }
+                try { construirChipsPastas(); } catch (e) { /* ignora */ }
             })
             .catch(function () {
                 painel.innerHTML = '<div class="p-4 alert alert-danger">Erro ao carregar o conteúdo.</div>';
@@ -1701,8 +1709,40 @@ document.addEventListener('DOMContentLoaded', function () {
         aplicarFiltrosPastas();
     });
 
-    // Remover chip individual, limpar tudo e paginação
+    // Remover chip, limpar tudo, paginação, abrir calendário e ordenar por coluna
     painel.addEventListener('click', function (e) {
+        // Ordenação por cabeçalho (server-side: ordena o acervo inteiro, não só a página)
+        var th = e.target.closest('#tabelaPastas th.sortable[data-ordenar]');
+        if (th) {
+            e.preventDefault();
+            var formOrd = document.getElementById('formFiltrosPasta');
+            if (formOrd) {
+                var campoOrd = formOrd.querySelector('[name="ordenar"]');
+                var campoDir = formOrd.querySelector('[name="direcao"]');
+                var novaCol  = th.dataset.ordenar;
+                var mesma    = campoOrd && campoOrd.value === novaCol;
+                var novaDir  = (mesma && campoDir && campoDir.value === 'asc') ? 'desc' : 'asc';
+                if (campoOrd) campoOrd.value = novaCol;
+                if (campoDir) campoDir.value = novaDir;
+                recarregarResultadosPastas({ page: 1 });
+            }
+
+            return;
+        }
+
+        var calendario = e.target.closest('.js-abrir-calendario');
+        if (calendario) {
+            e.preventDefault();
+            var campoData = calendario.parentNode.querySelector('input[type="date"]');
+            if (campoData && typeof campoData.showPicker === 'function') {
+                try { campoData.showPicker(); } catch (err) { campoData.focus(); }
+            } else if (campoData) {
+                campoData.focus();
+            }
+
+            return;
+        }
+
         var remover = e.target.closest('.js-chip-remover');
         if (remover) {
             e.preventDefault();
@@ -1718,7 +1758,9 @@ document.addEventListener('DOMContentLoaded', function () {
         if (limpar) {
             e.preventDefault();
             var f = document.getElementById('formFiltrosPasta');
-            if (f) f.querySelectorAll('input, select').forEach(function (el) { el.value = ''; });
+            // Limpa só os filtros (busca + dropdowns + datas); a ordenação da tabela
+            // é outra dimensão e é preservada (os hidden ordenar/direcao ficam intactos).
+            if (f) f.querySelectorAll('.js-pasta-busca, .js-pasta-filtro').forEach(function (el) { el.value = ''; });
             aplicarFiltrosPastas();
 
             return;

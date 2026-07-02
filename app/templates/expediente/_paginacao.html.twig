@@ -14,7 +14,7 @@
         {% set start = max(1, end - max_botoes + 1) %}
     {% endif %}
 
-    <nav aria-label="Paginação" class="d-flex align-items-center my-2">
+    <nav aria-label="Paginação" class="d-flex align-items-center justify-content-end my-0">
         <ul class="pagination pagination-sm mb-0">
 
             <li class="page-item {{ pagination.current_page <= 1 ? 'disabled' : '' }}">

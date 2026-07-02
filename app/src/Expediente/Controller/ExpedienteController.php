@@ -171,8 +171,9 @@ final class ExpedienteController extends AbstractController
             return $this->json(['erro' => 'Marcador não encontrado.'], Response::HTTP_NOT_FOUND);
         }
 
-        $filters    = $this->filtrosDaRequest($request);
-        $hasFilters = array_filter($filters, fn($v) => $v !== '');
+        $filters             = $this->filtrosDaRequest($request);
+        $hasFilters          = array_filter($filters, fn($v) => $v !== '');
+        [$ordenar, $direcao] = $this->ordenacaoDaRequest($request);
 
         $page = max(1, $request->query->getInt('page', 1));
 
@@ -184,8 +185,8 @@ final class ExpedienteController extends AbstractController
         $page       = min($page, $totalPages);
 
         $pastas = $hasFilters
-            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, self::PER_PAGE)
-            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, self::PER_PAGE);
+            ? $this->pastaRepository->findByFiltrosEMarcador($filters, $marcador, $tenant, $page, self::PER_PAGE, $ordenar, $direcao)
+            : $this->pastaRepository->findPorMarcador($marcador, $tenant, $page, self::PER_PAGE, $ordenar, $direcao);
 
         $urlPainel = $this->generateUrl('expediente_marcador_pastas', ['id' => $id]);
 
@@ -193,6 +194,8 @@ final class ExpedienteController extends AbstractController
             'marcador'     => $marcador,
             'pastas'       => $pastas,
             'filters'      => $filters,
+            'ordenar'      => $ordenar,
+            'direcao'      => $direcao,
             'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
             'formAction'   => $urlPainel,
             'pagination'   => [
@@ -246,7 +249,8 @@ final class ExpedienteController extends AbstractController
             return $this->redirectToRoute('expediente_index');
         }
 
-        $filters = $this->filtrosDaRequest($request);
+        $filters             = $this->filtrosDaRequest($request);
+        [$ordenar, $direcao] = $this->ordenacaoDaRequest($request);
 
         $page = max(1, $request->query->getInt('page', 1));
 
@@ -255,8 +259,10 @@ final class ExpedienteController extends AbstractController
         $page       = min($page, $totalPages);
 
         return $this->render('expediente/_acervo_geral.html.twig', [
-            'pastas'       => $this->pastaRepository->findByFilters($filters, $tenant, $page, self::PER_PAGE),
+            'pastas'       => $this->pastaRepository->findByFilters($filters, $tenant, $page, self::PER_PAGE, $ordenar, $direcao),
             'filters'      => $filters,
+            'ordenar'      => $ordenar,
+            'direcao'      => $direcao,
             'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
             'formAction'   => $this->generateUrl('expediente_acervo_geral'),
             'pagination'   => [
@@ -283,6 +289,22 @@ final class ExpedienteController extends AbstractController
             'data_de'     => $request->query->get('data_de', ''),
             'data_ate'    => $request->query->get('data_ate', ''),
         ];
+    }
+
+    /**
+     * Coluna e direção de ordenação vindas do cabeçalho da tabela. A coluna passa por
+     * uma allowlist (nomes que o repositório sabe ordenar); direção só asc/desc.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function ordenacaoDaRequest(Request $request): array
+    {
+        $colunas = ['nup', 'cliente', 'acao', 'prioridade', 'responsavel', 'marcadores', 'situacao'];
+        $ordenar = (string) $request->query->get('ordenar', '');
+        $ordenar = in_array($ordenar, $colunas, true) ? $ordenar : '';
+        $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
+
+        return [$ordenar, $direcao];
     }
 
     private function assertAccess(User $user): Tenant
