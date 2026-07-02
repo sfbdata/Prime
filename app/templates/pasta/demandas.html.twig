@@ -8,219 +8,35 @@
     <div class="container-fluid d-flex justify-content-between align-items-center">
         <h1 class="m-0 d-flex align-items-center gap-2">
             <i class="bi bi-inbox-fill"></i>Minhas Demandas
-            {% if pastas|length > 0 %}<span class="demandas-count-chip">{{ pastas|length }}</span>{% endif %}
         </h1>
     </div>
 </section>
 
 <section class="content">
     <div class="container-fluid">
+        <div data-filtro-root data-filtro-endpoint="{{ path('demandas_index') }}">
+            {{ include('_partials/_filtro_barra.html.twig', {
+                busca_placeholder: 'Buscar por cliente, ação, NUP ou processo…',
+                filtros: filtros,
+                facetas: [
+                    { name: 'status', rotulo: 'Status', tipo: 'select', opcoes: [
+                        { valor: 'ativo', label: 'Ativo' },
+                        { valor: 'arquivado', label: 'Arquivado' }
+                    ] },
+                    { name: 'prioridade', rotulo: 'Prioridade', tipo: 'select', opcoes: [
+                        { valor: 'normal', label: 'Normal' },
+                        { valor: 'prioridade', label: 'Prioridade' },
+                        { valor: 'urgente', label: 'Urgente' }
+                    ] },
+                    { name: 'data_de', rotulo: 'De', tipo: 'date' },
+                    { name: 'data_ate', rotulo: 'Até', tipo: 'date' }
+                ]
+            }) }}
 
-        {# ── Filtros ─────────────────────────────────────────────────── #}
-        {% set temFiltro = filtros.cliente or filtros.prioridade %}
-        <div class="card demandas-card demandas-filtros mb-3">
-            <div class="demandas-filtros-head" data-bs-toggle="collapse" data-bs-target="#filtrosDemandas"
-                 aria-expanded="{{ temFiltro ? 'true' : 'false' }}">
-                <span class="titulo">
-                    <i class="bi bi-funnel"></i>Filtros
-                    {% if temFiltro %}<span class="demandas-filtros-ativos">Ativos</span>{% endif %}
-                </span>
-                <i class="bi bi-chevron-down filtro-chevron"></i>
-            </div>
-            <div class="collapse{% if temFiltro %} show{% endif %}" id="filtrosDemandas">
-                <div class="card-body py-3">
-                    <form method="GET" action="{{ path('demandas_index') }}" id="formFiltrosDemandas">
-                        <div class="row g-2">
-                            <div class="col-6 col-md-4">
-                                <label for="filter_cliente" class="form-label form-label-sm">Cliente</label>
-                                <input type="text"
-                                       id="filter_cliente"
-                                       name="cliente"
-                                       class="form-control form-control-sm"
-                                       placeholder="Buscar por nome do cliente"
-                                       value="{{ filtros.cliente }}">
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <label for="filter_prioridade" class="form-label form-label-sm">Prioridade</label>
-                                <select id="filter_prioridade" name="prioridade" class="form-control form-control-sm select2-filter">
-                                    <option value="">Todas</option>
-                                    {% for p in prioridades %}
-                                        <option value="{{ p.value }}" {% if filtros.prioridade == p.value %}selected{% endif %}>
-                                            {{ p.name }}
-                                        </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                        </div>
-                        <div class="d-flex gap-2 mt-3">
-                            <button type="submit" class="btn btn-primary btn-sm">
-                                <i class="bi bi-search me-1"></i>Filtrar
-                            </button>
-                            <a href="{{ path('demandas_index') }}" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-x-lg me-1"></i>Limpar
-                            </a>
-                        </div>
-                    </form>
-                </div>
+            <div data-filtro-resultado>
+                {{ include('pasta/demandas/_resultado.html.twig') }}
             </div>
         </div>
-
-        {% if pastas|length > 0 %}
-        <div class="demandas-count">
-            <i class="bi bi-list-ul"></i> <strong>{{ pastas|length }}</strong>&nbsp;demanda(s) encontrada(s)
-        </div>
-
-        {# ── Tabela desktop ─────────────────────────────────────────── #}
-        <div class="card demandas-card d-none d-md-block">
-            <div class="table-responsive">
-                <table class="table mb-0" id="tabelaDemandas">
-                    <thead>
-                        <tr>
-                            <th class="sortable ps-3" data-col="0" style="width:90px"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-col="1"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable col-acao-tabela" data-col="2"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade</th>
-                            <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Metas</th>
-                            <th class="sortable col-data-tabela" data-col="3" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod. <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for pasta in pastas %}
-                        {% set dias = date().diff(pasta.dataAbertura).days %}
-                        <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}"
-                            style="cursor:pointer;"
-                            data-href="{{ path('pasta_show', {id: pasta.id}) }}">
-                            <td class="nup-cell ps-3 align-middle">{{ pasta.nup }}</td>
-                            <td class="align-middle">
-                                {% if pasta.clientes|length > 0 %}
-                                    {% if pasta.clientes|length == 1 %}
-                                        {{ pasta.clientes[0].nomeExibicao }}
-                                    {% else %}
-                                        <span class="clientes-resumo"
-                                              data-bs-placement="right"
-                                              data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
-                                            {{ pasta.clientes[0].nomeExibicao }}&hellip;
-                                            <span class="badge text-bg-secondary ms-1" style="font-size:.65rem;">+{{ pasta.clientes|length - 1 }}</span>
-                                        </span>
-                                    {% endif %}
-                                {% elseif pasta.nomeCliente %}
-                                    {{ pasta.nomeCliente }}
-                                {% else %}
-                                    <span class="text-muted">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="col-acao-tabela align-middle">
-                                {% if pasta.processoPrincipal %}
-                                    {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
-                                {% elseif pasta.nomeAcao %}
-                                    {{ pasta.nomeAcao }}
-                                {% else %}
-                                    <span class="text-muted">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="align-middle">
-                                <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.72rem;">
-                                    {{ pasta.prioridadeLabel }}
-                                </span>
-                            </td>
-                            <td class="col-tarefas-tabela align-middle">
-                                {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
-                                {% set totalTarefas = pasta.tarefas|length %}
-                                {% if totalTarefas > 0 %}
-                                    {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
-                                    <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
-                                       class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
-                                       title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
-                                        <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
-                                    </a>
-                                {% else %}
-                                    <span class="text-muted" style="font-size:.8rem;">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
-                                {% if dias == 0 %}Hoje
-                                {% elseif dias == 1 %}1 dia atrás
-                                {% else %}{{ dias }}d atrás{% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        {# ── Cards mobile ───────────────────────────────────────────── #}
-        <div class="d-md-none pasta-cards-lista">
-            {% for pasta in pastas %}
-            {% set dias = date().diff(pasta.dataAbertura).days %}
-            <div class="pasta-card{% if pasta.prioridade.value == 'urgente' %} pasta-card-urgente{% endif %}"
-                 style="cursor:pointer;" onclick="window.location.href='{{ path('pasta_show', {id: pasta.id}) }}'">
-                <div class="pasta-card-header">
-                    <div class="pasta-card-nup">
-                        <i class="bi bi-folder2"></i>
-                        <span>{{ pasta.nup }}</span>
-                    </div>
-                    <div class="d-flex gap-1 align-items-center">
-                        <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.7rem;">
-                            {{ pasta.prioridadeLabel }}
-                        </span>
-                    </div>
-                </div>
-
-                <div class="pasta-card-body">
-                    <div class="pasta-card-row">
-                        <span class="pasta-card-label"><i class="bi bi-person"></i></span>
-                        <span class="pasta-card-value">
-                            {% if pasta.clientes|length > 0 %}
-                                {{ pasta.clientes[0].nomeExibicao }}{% if pasta.clientes|length > 1 %} <span class="text-muted">(+{{ pasta.clientes|length - 1 }})</span>{% endif %}
-                            {% elseif pasta.nomeCliente %}
-                                {{ pasta.nomeCliente }}
-                            {% else %}
-                                <span class="text-muted">—</span>
-                            {% endif %}
-                        </span>
-                    </div>
-
-                    {% set acaoTexto = pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso) : pasta.nomeAcao %}
-                    {% if acaoTexto %}
-                    <div class="pasta-card-row">
-                        <span class="pasta-card-label"><i class="bi bi-briefcase"></i></span>
-                        <span class="pasta-card-value text-truncate">{{ acaoTexto }}</span>
-                    </div>
-                    {% endif %}
-
-                    <div class="pasta-card-row">
-                        <span class="pasta-card-label"><i class="bi bi-clock-history"></i></span>
-                        <span class="pasta-card-value text-muted" style="font-size:.8rem;">
-                            {% if dias == 0 %}Hoje{% elseif dias == 1 %}1 dia atrás{% else %}{{ dias }}d atrás{% endif %}
-                        </span>
-                    </div>
-                </div>
-
-                <div class="pasta-card-footer">
-                    <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation()">
-                        <i class="bi bi-eye me-1"></i>Ver
-                    </a>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-
-        {% else %}
-        <div class="card demandas-card">
-            <div class="demandas-empty">
-                <div class="empty-ico"><i class="bi bi-inbox"></i></div>
-                {% if filtros.cliente or filtros.prioridade %}
-                    <p class="empty-title">Nenhuma demanda encontrada</p>
-                    <p class="text-muted small mb-0">Tente ajustar ou limpar os filtros aplicados.</p>
-                {% else %}
-                    <p class="empty-title">Tudo em dia por aqui</p>
-                    <p class="text-muted small mb-0">Você não possui demandas ativas no momento.</p>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-
     </div>
 </section>
 </div>
@@ -228,6 +44,7 @@
 
 {% block stylesheets %}
 {{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <style>
 .demandas-page {
     --jp-accent: #0078AA;
@@ -241,10 +58,6 @@ html[data-bs-theme="dark"] .demandas-page {
 /* ── Cabeçalho ──────────────────────────────────────────────── */
 .demandas-page .content-header h1 { font-weight: 700; letter-spacing: -.01em; }
 .demandas-page .content-header h1 > .bi { color: var(--jp-accent); }
-.demandas-page .demandas-count-chip {
-    font-size: .8rem; font-weight: 700; color: var(--jp-accent);
-    background: rgba(var(--jp-accent-rgb), .13); padding: .15rem .55rem; border-radius: 999px;
-}
 
 /* ── Cartões ────────────────────────────────────────────────── */
 .demandas-page .demandas-card {
@@ -253,29 +66,14 @@ html[data-bs-theme="dark"] .demandas-page {
     box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 18px 38px -28px rgba(0,0,0,.45);
 }
 
-/* ── Filtros ────────────────────────────────────────────────── */
-.demandas-page .demandas-filtros-head {
+/* ── Cabeçalho do resultado (contador + paginação) ──────────── */
+.demandas-page .demandas-resultado-head {
     display: flex; align-items: center; justify-content: space-between;
-    padding: .75rem 1rem; cursor: pointer; user-select: none;
-    background: var(--bs-tertiary-bg);
+    flex-wrap: wrap; gap: .5rem; margin: 0 .15rem .7rem;
 }
-.demandas-page .demandas-filtros-head .titulo {
-    font-size: .88rem; font-weight: 600; color: var(--bs-body-color);
-    display: inline-flex; align-items: center; gap: .45rem;
-}
-.demandas-page .demandas-filtros-head .titulo .bi-funnel { color: var(--jp-accent); }
-.demandas-page .demandas-filtros-ativos {
-    font-size: .66rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
-    color: var(--jp-accent); background: rgba(var(--jp-accent-rgb), .15);
-    padding: .15rem .45rem; border-radius: 999px;
-}
-.demandas-page .filtro-chevron { transition: transform .2s; color: var(--bs-secondary-color); font-size: .8rem; }
-.demandas-page .form-label-sm { font-size: .78rem; font-weight: 600; color: var(--bs-secondary-color); margin-bottom: .2rem; }
-
-/* ── Contador ───────────────────────────────────────────────── */
 .demandas-page .demandas-count {
     display: flex; align-items: center; gap: .4rem;
-    margin: 0 .15rem .7rem; font-size: .85rem; color: var(--bs-secondary-color);
+    font-size: .85rem; color: var(--bs-secondary-color);
 }
 .demandas-page .demandas-count .bi { color: var(--jp-accent); }
 .demandas-page .demandas-count strong { color: var(--bs-body-color); }
@@ -302,7 +100,7 @@ html[data-bs-theme="dark"] .demandas-page {
 
 .demandas-page .clientes-resumo { cursor: default; white-space: nowrap; }
 
-/* Ordenação */
+/* Ordenação (server-side; setas espelham filtros.ordenar/direcao) */
 .demandas-page .sortable { cursor: pointer; user-select: none; }
 .demandas-page .sortable:hover { color: var(--bs-body-color); }
 .demandas-page .sort-icon { font-size: .68em; opacity: .35; flex-shrink: 0; vertical-align: middle; margin-left: 2px; }
@@ -358,66 +156,20 @@ html[data-bs-theme="dark"] .demandas-page {
 
 {% block javascripts %}
 {{ parent() }}
+<script src="{{ asset('js/filtro-tabela.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    /* ── Rotaciona chevron do filtro ── */
-    var filtroCard = document.getElementById('filtrosDemandas');
-    if (filtroCard) {
-        var chevron = filtroCard.previousElementSibling && filtroCard.previousElementSibling.querySelector('.filtro-chevron');
-        if (chevron) {
-            filtroCard.addEventListener('show.bs.collapse', function () { chevron.style.transform = 'rotate(180deg)'; });
-            filtroCard.addEventListener('hide.bs.collapse', function () { chevron.style.transform = 'rotate(0deg)'; });
-            if (filtroCard.classList.contains('show')) chevron.style.transform = 'rotate(180deg)';
-        }
-    }
-
-    /* ── Linhas clicáveis ── */
+    /* Linhas/cartões clicáveis — delegado no document, sobrevive à troca do fragmento */
     document.addEventListener('click', function (e) {
         var tr = e.target.closest('tr.pasta-row-link');
-        if (!tr) return;
-        if (e.target.closest('button, a, form, input, select')) return;
+        if (!tr) {
+            return;
+        }
+        if (e.target.closest('button, a, form, input, select')) {
+            return;
+        }
         window.location.href = tr.dataset.href;
     });
-
-    /* ── Tooltips dos clientes ── */
-    document.querySelectorAll('.clientes-resumo[data-clientes]').forEach(function (el) {
-        var nomes = el.dataset.clientes.split('||');
-        var html  = nomes.map(function (n) { return '<div>' + n + '</div>'; }).join('');
-        new bootstrap.Tooltip(el, { html: true, trigger: 'hover', placement: el.dataset.bsPlacement || 'right', title: function () { return html; } });
-    });
-
-    /* ── Select2 nos filtros ── */
-    if (typeof $ !== 'undefined' && $.fn.select2) {
-        $('.select2-filter').select2({ placeholder: 'Todas', allowClear: true, width: '100%' });
-    }
-
-    /* ── Ordenação da tabela ── */
-    var table = document.getElementById('tabelaDemandas');
-    if (!table) return;
-    var headers = table.querySelectorAll('th.sortable');
-    var tbody   = table.querySelector('tbody');
-
-    function ordenar(col, direcao) {
-        headers.forEach(function (h) { h.classList.remove('asc', 'desc'); });
-        headers[col].classList.add(direcao);
-        var rows = Array.from(tbody.querySelectorAll('tr'));
-        rows.sort(function (a, b) {
-            var aVal = (a.cells[col] ? a.cells[col].textContent.trim() : '').toLowerCase();
-            var bVal = (b.cells[col] ? b.cells[col].textContent.trim() : '').toLowerCase();
-            return direcao === 'asc' ? aVal.localeCompare(bVal, 'pt-BR') : bVal.localeCompare(aVal, 'pt-BR');
-        });
-        rows.forEach(function (row) { tbody.appendChild(row); });
-    }
-
-    headers.forEach(function (header) {
-        header.addEventListener('click', function () {
-            var col   = parseInt(this.dataset.col);
-            var isAsc = this.classList.contains('asc');
-            ordenar(col, isAsc ? 'desc' : 'asc');
-        });
-    });
-
-    ordenar(0, 'desc');
 });
 </script>
 {% endblock %}

@@ -1,0 +1,208 @@
+/*
+ * Filtro de tabela reutilizável (padrão Expediente).
+ * Classes genéricas `.filtro-*` — espelham o visual da barra de pastas
+ * (templates/pasta/_filtros.html.twig), com cores via variáveis Bootstrap
+ * para compatibilidade com tema claro/escuro.
+ */
+
+.filtro-barra {
+    margin-bottom: 1rem;
+}
+
+.filtro-busca-linha {
+    margin-bottom: 8px;
+}
+
+.filtro-linha {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.filtro-busca {
+    position: relative;
+    width: 100%;
+    max-width: 360px;
+}
+
+.filtro-busca .bi-search {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--bs-secondary-color);
+    font-size: .85rem;
+    pointer-events: none;
+}
+
+.filtro-busca input.js-filtro-busca {
+    padding-left: 32px;
+    border-radius: 20px;
+}
+
+.filtro-select {
+    width: auto;
+    min-width: 128px;
+    border-radius: 20px;
+}
+
+/* Cada data é um "pill" próprio, igual aos dropdowns, com o calendário embutido */
+.filtro-data-campo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 31px;
+    padding: 0 8px 0 12px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 20px;
+    background: var(--bs-body-bg);
+}
+
+.filtro-data-campo:focus-within {
+    border-color: var(--bs-primary);
+}
+
+.filtro-data-btn {
+    border: none;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+    padding: 0;
+    font-size: .9rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+}
+
+.filtro-data-btn:hover {
+    color: var(--bs-primary);
+}
+
+.filtro-data-campo input[type="date"] {
+    border: none;
+    background: transparent;
+    width: 96px;
+    padding: 0;
+    box-shadow: none;
+    height: auto;
+    font-size: .8125rem;
+    color: var(--bs-body-color);
+}
+
+.filtro-data-campo input[type="date"]:focus {
+    box-shadow: none;
+    outline: none;
+}
+
+/* Usa nosso botão de calendário no lugar do ícone nativo (evita ícone duplicado) */
+.filtro-data-campo input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.filtro-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.filtro-chips:empty {
+    display: none;
+}
+
+.filtro-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bs-primary-bg-subtle);
+    color: var(--bs-primary-text-emphasis);
+    border: 1px solid var(--bs-primary-border-subtle);
+    border-radius: 16px;
+    padding: 2px 6px 2px 11px;
+    font-size: .74rem;
+    line-height: 1.6;
+    max-width: 260px;
+}
+
+.filtro-chip-rotulo {
+    opacity: .7;
+}
+
+.filtro-chip-valor {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.filtro-chip-remover {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    font-size: .72rem;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.filtro-chip-remover:hover {
+    background: rgba(0, 0, 0, .12);
+}
+
+.filtro-limpar {
+    background: none;
+    border: none;
+    color: var(--bs-secondary-color);
+    font-size: .74rem;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 2px 4px;
+}
+
+.filtro-limpar:hover {
+    color: var(--bs-body-color);
+}
+
+/* Fade sutil enquanto os resultados recarregam (busca ao vivo) */
+.filtro-carregando {
+    opacity: .55;
+    transition: opacity .12s ease;
+    pointer-events: none;
+}
+
+/* Paginação genérica do fragmento */
+.filtro-paginacao {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filtro-paginacao-info {
+    font-size: .8125rem;
+    color: var(--bs-secondary-color);
+}
+
+@media (max-width: 575.98px) {
+    .filtro-select {
+        flex: 1 1 calc(50% - 4px);
+        min-width: 0;
+    }
+
+    .filtro-data-campo {
+        flex: 1 1 calc(50% - 4px);
+    }
+
+    .filtro-data-campo input[type="date"] {
+        width: auto;
+        flex: 1;
+    }
+}

@@ -14,153 +14,39 @@
 
 <section class="content">
     <div class="container-fluid">
-        {# Filtros #}
-        <div class="card card-outline card-primary mb-3">
-            <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosProcesso">
-                <h3 class="card-title"><i class="bi bi-funnel me-1"></i> Filtros</h3>
-                <div class="card-tools">
-                    <button type="button" class="btn btn-tool">
-                        <i class="bi bi-chevron-down"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="collapse" id="filtrosProcesso">
-                <div class="card-body">
-                    <form method="GET" action="{{ path('processo_index') }}" id="formFiltrosProcesso">
-                        <div class="row g-3">
-                            <div class="col-md-2">
-                                <label for="filter_numero" class="form-label">Nº Processo</label>
-                                <select id="filter_numero" name="numero_processo" class="form-control select2-filter">
-                                    <option value="">Todos</option>
-                                    {% for numero in numerosProcesso|keys %}
-                                        <option value="{{ numero }}" {% if filters.numero_processo == numero %}selected{% endif %}>{{ numero }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="filter_tribunal" class="form-label">Tribunal</label>
-                                <select id="filter_tribunal" name="tribunal" class="form-control select2-filter">
-                                    <option value="">Todos</option>
-                                    {% for tribunal in tribunais|keys %}
-                                        <option value="{{ tribunal }}" {% if filters.tribunal == tribunal %}selected{% endif %}>{{ tribunal }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="filter_classe" class="form-label">Classe</label>
-                                <select id="filter_classe" name="classe" class="form-control select2-filter">
-                                    <option value="">Todas</option>
-                                    {% for classe in classes|keys %}
-                                        <option value="{{ classe }}" {% if filters.classe == classe %}selected{% endif %}>{{ classe }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="filter_assunto" class="form-label">Assunto</label>
-                                <select id="filter_assunto" name="assunto" class="form-control select2-filter">
-                                    <option value="">Todos</option>
-                                    {% for assunto in assuntos|keys %}
-                                        <option value="{{ assunto }}" {% if filters.assunto == assunto %}selected{% endif %}>{{ assunto }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            <div class="col-md-2">
-                                <label for="filter_situacao" class="form-label">Situação</label>
-                                <select id="filter_situacao" name="situacao" class="form-control select2-filter">
-                                    <option value="">Todas</option>
-                                    <option value="EM_ANDAMENTO" {% if filters.situacao == 'EM_ANDAMENTO' %}selected{% endif %}>Em Andamento</option>
-                                    <option value="ENCERRADO" {% if filters.situacao == 'ENCERRADO' %}selected{% endif %}>Encerrado</option>
-                                    <option value="SUSPENSO" {% if filters.situacao == 'SUSPENSO' %}selected{% endif %}>Suspenso</option>
-                                    <option value="ARQUIVADO" {% if filters.situacao == 'ARQUIVADO' %}selected{% endif %}>Arquivado</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-12 d-flex gap-2">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="bi bi-search me-1"></i> Filtrar
-                                </button>
-                                <a href="{{ path('processo_index') }}" class="btn btn-secondary">
-                                    <i class="bi bi-x-lg me-1"></i> Limpar
-                                </a>
-                            </div>
-                        </div>
-                    </form>
-                </div>
+        {% set tribunalOpcoes = [] %}
+        {% for sigla in tribunais|keys %}
+            {% set tribunalOpcoes = tribunalOpcoes|merge([{ valor: sigla, label: sigla }]) %}
+        {% endfor %}
+
+        <div data-filtro-root data-filtro-endpoint="{{ path('processo_index') }}">
+            {{ include('_partials/_filtro_barra.html.twig', {
+                busca_placeholder: 'Buscar por número, classe, assunto ou tribunal…',
+                filtros: filtros,
+                facetas: [
+                    { name: 'tribunal', rotulo: 'Tribunal', tipo: 'select', opcoes: tribunalOpcoes },
+                    { name: 'situacao', rotulo: 'Situação', tipo: 'select', opcoes: [
+                        { valor: 'EM_ANDAMENTO', label: 'Em Andamento' },
+                        { valor: 'ENCERRADO', label: 'Encerrado' },
+                        { valor: 'SUSPENSO', label: 'Suspenso' },
+                        { valor: 'ARQUIVADO', label: 'Arquivado' }
+                    ] },
+                    { name: 'data_de', rotulo: 'De', tipo: 'date' },
+                    { name: 'data_ate', rotulo: 'Até', tipo: 'date' }
+                ]
+            }) }}
+
+            <div data-filtro-resultado>
+                {{ include('processo/_resultado.html.twig') }}
             </div>
         </div>
-
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="text-muted"><i class="bi bi-list-ul me-1"></i> {{ processos|length }} resultado(s) encontrado(s)</span>
-        </div>
-
-    {% if processos|length > 0 %}
-    <div class="card">
-        <div class="card-body table-responsive p-0">
-            <table class="table table-striped table-hover mb-0" id="tabelaProcessos">
-                <colgroup>
-                    <col style="width:215px"> {# Número do Processo #}
-                    <col style="width:125px"> {# Tribunal #}
-                    <col>                     {# Classe (elástica, divide o espaço com Assunto) #}
-                    <col>                     {# Assunto (elástica, divide o espaço com Classe) #}
-                    <col style="width:125px"> {# Situação #}
-                    <col style="width:140px"> {# Ações #}
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th class="sortable" data-col="0"><i class="bi bi-hash me-1"></i> Número do Processo <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="sortable" data-col="1"><i class="bi bi-building me-1"></i> Tribunal <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="sortable" data-col="2"><i class="bi bi-bookmark me-1"></i> Classe <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="sortable" data-col="3"><i class="bi bi-chat-left-text me-1"></i> Assunto <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="sortable" data-col="4"><i class="bi bi-flag me-1"></i> Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                        <th class="col-acoes"><i class="bi bi-gear me-1"></i> Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for processo in processos %}
-                        <tr>
-                            <td title="{{ processo.numeroProcesso|e('html_attr') }}">{{ processo.numeroProcesso }}</td>
-                            <td>{{ processo.siglaTribunal|upper }}</td>
-                            <td title="{{ processo.classeProcessual|e('html_attr') }}">{{ processo.classeProcessual }}</td>
-                            <td title="{{ processo.assuntoProcessual|e('html_attr') }}">{{ processo.assuntoProcessual }}</td>
-                            <td>
-                                <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}text-bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
-                                    {{ processo.situacaoProcesso|replace({'_': ' '}) }}
-                                </span>
-                            </td>
-                            <td class="col-acoes">
-                                <div class="acoes-grupo">
-                                    <a href="{{ path('processo_show', {id: processo.id}) }}"
-                                       class="btn-action btn-action-view"
-                                       title="Visualizar processo"
-                                       aria-label="Visualizar processo">
-                                        <i class="bi bi-eye"></i>
-                                    </a>
-                                    <a href="{{ path('processo_edit', {id: processo.id}) }}"
-                                       class="btn-action btn-action-edit"
-                                       title="Editar processo"
-                                       aria-label="Editar processo">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% else %}
-    <div class="alert alert-info mb-0">
-        Nenhum processo encontrado. <a href="{{ path('processo_new') }}">Criar novo processo</a>
-    </div>
-    {% endif %}
     </div>
 </section>
 {% endblock %}
 
 {% block javascripts %}
 {{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
 <style>
 #tabelaProcessos {
     table-layout: fixed;
@@ -198,51 +84,7 @@
     content: "\F128";
 }
 </style>
-<script>
-$(document).ready(function() {
-    $('.select2-filter').select2({
-        placeholder: 'Selecione...',
-        allowClear: true,
-        width: '100%'
-    });
-
-    // Ordenação da tabela
-    const table = document.getElementById('tabelaProcessos');
-    const headers = table.querySelectorAll('th.sortable');
-    const tbody = table.querySelector('tbody');
-
-    headers.forEach(header => {
-        header.addEventListener('click', function() {
-            const col = parseInt(this.dataset.col);
-            const isAsc = this.classList.contains('asc');
-
-            headers.forEach(h => {
-                h.classList.remove('asc', 'desc');
-            });
-
-            this.classList.add(isAsc ? 'desc' : 'asc');
-
-            const rows = Array.from(tbody.querySelectorAll('tr'));
-
-            rows.sort((a, b) => {
-                let aVal = a.cells[col]?.textContent.trim() || '';
-                let bVal = b.cells[col]?.textContent.trim() || '';
-
-                aVal = aVal.toLowerCase();
-                bVal = bVal.toLowerCase();
-
-                if (isAsc) {
-                    return bVal.localeCompare(aVal, 'pt-BR');
-                } else {
-                    return aVal.localeCompare(bVal, 'pt-BR');
-                }
-            });
-
-            rows.forEach(row => tbody.appendChild(row));
-        });
-    });
-});
-</script>
+<script src="{{ asset('js/filtro-tabela.js') }}"></script>
 
 {{ include('_partials/modal_access_request.html.twig') }}
 {% endblock %}

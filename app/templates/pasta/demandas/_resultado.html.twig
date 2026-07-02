@@ -1,0 +1,184 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Fragmento trocável das Minhas Demandas (dentro de [data-filtro-resultado]).
+   Reexecutado a cada filtro/página pelo motor public/js/filtro-tabela.js.
+   Não usar id= duplicado com a casca; só classes/data-*.
+─────────────────────────────────────────────────────────────────────────── #}
+{% set temFiltro = filtros.busca or filtros.status or filtros.prioridade or filtros.data_de or filtros.data_ate %}
+
+<div class="demandas-resultado-head">
+    <div class="demandas-count">
+        <i class="bi bi-list-ul"></i> <strong>{{ total }}</strong>&nbsp;demanda(s) encontrada(s)
+    </div>
+    {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
+</div>
+
+{% if pastas|length > 0 %}
+    {# ── Tabela desktop ─────────────────────────────────────────── #}
+    <div class="card demandas-card d-none d-md-block">
+        <div class="table-responsive">
+            <table class="table mb-0" id="tabelaDemandas">
+                <thead>
+                    <tr>
+                        <th class="sortable ps-3{{ filtros.ordenar == 'nup' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="nup" style="width:90px"><i class="bi bi-upc me-1"></i>NUP <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable{{ filtros.ordenar == 'cliente' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="cliente"><i class="bi bi-person me-1"></i>Cliente <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable col-acao-tabela{{ filtros.ordenar == 'acao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="acao"><i class="bi bi-briefcase me-1"></i>Ação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="sortable{{ filtros.ordenar == 'prioridade' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="prioridade" style="width:95px;"><i class="bi bi-flag-fill me-1"></i>Prioridade <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th class="col-tarefas-tabela" style="width:80px;"><i class="bi bi-check2-square me-1"></i>Metas</th>
+                        <th class="col-data-tabela" style="width:95px"><i class="bi bi-clock-history me-1"></i>Mod.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pasta in pastas %}
+                    {% set dias = pasta.dataAbertura ? date().diff(pasta.dataAbertura).days : null %}
+                    <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}"
+                        style="cursor:pointer;"
+                        data-href="{{ path('pasta_show', {id: pasta.id}) }}">
+                        <td class="nup-cell ps-3 align-middle">{{ pasta.nup }}</td>
+                        <td class="align-middle">
+                            {% if pasta.clientes|length > 0 %}
+                                {% if pasta.clientes|length == 1 %}
+                                    {{ pasta.clientes[0].nomeExibicao }}
+                                {% else %}
+                                    <span class="clientes-resumo"
+                                          data-bs-placement="right"
+                                          data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
+                                        {{ pasta.clientes[0].nomeExibicao }}&hellip;
+                                        <span class="badge text-bg-secondary ms-1" style="font-size:.65rem;">+{{ pasta.clientes|length - 1 }}</span>
+                                    </span>
+                                {% endif %}
+                            {% elseif pasta.nomeCliente %}
+                                {{ pasta.nomeCliente }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="col-acao-tabela align-middle">
+                            {% if pasta.processoPrincipal %}
+                                {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
+                            {% elseif pasta.nomeAcao %}
+                                {{ pasta.nomeAcao }}
+                            {% else %}
+                                <span class="text-muted">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="align-middle">
+                            <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.72rem;">
+                                {{ pasta.prioridadeLabel }}
+                            </span>
+                        </td>
+                        <td class="col-tarefas-tabela align-middle">
+                            {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
+                            {% set totalTarefas = pasta.tarefas|length %}
+                            {% if totalTarefas > 0 %}
+                                {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
+                                <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
+                                   class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
+                                   title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
+                                    <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted" style="font-size:.8rem;">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="col-data-tabela align-middle text-muted" style="font-size:.82rem;">
+                            {% if dias is null %}—
+                            {% elseif dias == 0 %}Hoje
+                            {% elseif dias == 1 %}1 dia atrás
+                            {% else %}{{ dias }}d atrás{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# ── Cards mobile ───────────────────────────────────────────── #}
+    <div class="d-md-none pasta-cards-lista">
+        {% for pasta in pastas %}
+        {% set dias = pasta.dataAbertura ? date().diff(pasta.dataAbertura).days : null %}
+        <div class="pasta-card{% if pasta.prioridade.value == 'urgente' %} pasta-card-urgente{% endif %}"
+             style="cursor:pointer;" onclick="window.location.href='{{ path('pasta_show', {id: pasta.id}) }}'">
+            <div class="pasta-card-header">
+                <div class="pasta-card-nup">
+                    <i class="bi bi-folder2"></i>
+                    <span>{{ pasta.nup }}</span>
+                </div>
+                <div class="d-flex gap-1 align-items-center">
+                    <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}" style="font-size:.7rem;">
+                        {{ pasta.prioridadeLabel }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="pasta-card-body">
+                <div class="pasta-card-row">
+                    <span class="pasta-card-label"><i class="bi bi-person"></i></span>
+                    <span class="pasta-card-value">
+                        {% if pasta.clientes|length > 0 %}
+                            {{ pasta.clientes[0].nomeExibicao }}{% if pasta.clientes|length > 1 %} <span class="text-muted">(+{{ pasta.clientes|length - 1 }})</span>{% endif %}
+                        {% elseif pasta.nomeCliente %}
+                            {{ pasta.nomeCliente }}
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </span>
+                </div>
+
+                {% set acaoTexto = pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso) : pasta.nomeAcao %}
+                {% if acaoTexto %}
+                <div class="pasta-card-row">
+                    <span class="pasta-card-label"><i class="bi bi-briefcase"></i></span>
+                    <span class="pasta-card-value text-truncate">{{ acaoTexto }}</span>
+                </div>
+                {% endif %}
+
+                <div class="pasta-card-row">
+                    <span class="pasta-card-label"><i class="bi bi-clock-history"></i></span>
+                    <span class="pasta-card-value text-muted" style="font-size:.8rem;">
+                        {% if dias is null %}—{% elseif dias == 0 %}Hoje{% elseif dias == 1 %}1 dia atrás{% else %}{{ dias }}d atrás{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <div class="pasta-card-footer">
+                <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation()">
+                    <i class="bi bi-eye me-1"></i>Ver
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card demandas-card">
+        <div class="demandas-empty">
+            <div class="empty-ico"><i class="bi bi-inbox"></i></div>
+            {% if temFiltro %}
+                <p class="empty-title">Nenhuma demanda encontrada</p>
+                <p class="text-muted small mb-0">Tente ajustar ou limpar os filtros aplicados.</p>
+            {% else %}
+                <p class="empty-title">Tudo em dia por aqui</p>
+                <p class="text-muted small mb-0">Você não possui demandas no momento.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}
+
+{# Tooltips dos clientes (idempotente) — reexecuta a cada troca de fragmento #}
+<script>
+(function () {
+    if (typeof bootstrap === 'undefined') {
+        return;
+    }
+    function esc(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+    document.querySelectorAll('#tabelaDemandas .clientes-resumo[data-clientes]').forEach(function (el) {
+        var nomes = el.dataset.clientes.split('||');
+        var html = nomes.map(function (n) { return '<div>' + esc(n) + '</div>'; }).join('');
+        bootstrap.Tooltip.getOrCreateInstance(el, { html: true, trigger: 'hover', placement: el.dataset.bsPlacement || 'right', title: html });
+    });
+})();
+</script>

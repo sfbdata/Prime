@@ -2,17 +2,6 @@
 
 {% block title %}Minhas Metas{% endblock %}
 
-{% set statusBadge = {
-    'pendente':   'text-bg-secondary',
-    'em_revisao': 'text-bg-warning',
-    'concluida':  'text-bg-success',
-} %}
-{% set statusLabel = {
-    'pendente':   'Pendente',
-    'em_revisao': 'Para Revisão',
-    'concluida':  'Concluída',
-} %}
-
 {% block body %}
 <div class="content-header">
     <div class="container-fluid">
@@ -32,65 +21,39 @@
 
 <section class="content">
     <div class="container-fluid">
+        <div data-filtro-root data-filtro-endpoint="{{ path('tarefa_minhas') }}">
+            {{ include('_partials/_filtro_barra.html.twig', {
+                busca_placeholder: 'Buscar por título ou descrição da meta…',
+                filtros: filtros,
+                facetas: [
+                    { name: 'status', rotulo: 'Status', tipo: 'select', opcoes: [
+                        { valor: 'pendente', label: 'Pendente' },
+                        { valor: 'em_revisao', label: 'Para Revisão' },
+                        { valor: 'concluida', label: 'Concluída' }
+                    ] },
+                    { name: 'prioridade', rotulo: 'Prioridade', tipo: 'select', opcoes: [
+                        { valor: 'normal', label: 'Normal' },
+                        { valor: 'prioridade', label: 'Prioridade' },
+                        { valor: 'urgente', label: 'Urgente' }
+                    ] },
+                    { name: 'prazo', rotulo: 'Prazo', tipo: 'select', opcoes: [
+                        { valor: 'vencidas', label: 'Vencidas' },
+                        { valor: 'proximas', label: 'Próximas (7 dias)' },
+                        { valor: 'sem', label: 'Sem prazo' }
+                    ] }
+                ]
+            }) }}
 
-        {% if tarefas|length == 0 %}
-            <div class="text-center py-5 text-muted">
-                <i class="bi bi-check2-all fs-1 d-block mb-2 opacity-25"></i>
-                <span>Nenhuma meta atribuída a você.</span>
+            <div data-filtro-resultado>
+                {{ include('tarefa/_resultado.html.twig') }}
             </div>
-        {% else %}
-
-            {# Agrupar por status #}
-            {% set pendentes  = tarefas|filter(t => t.status == 'pendente') %}
-            {% set emRevisao  = tarefas|filter(t => t.status == 'em_revisao') %}
-            {% set concluidas = tarefas|filter(t => t.status == 'concluida') %}
-
-            {# Pendentes + Para Revisão primeiro #}
-            {% if pendentes|length > 0 or emRevisao|length > 0 %}
-            <div class="card card-outline card-primary mb-3">
-                <div class="card-header py-2">
-                    <h6 class="card-title mb-0">
-                        <i class="bi bi-hourglass-split me-1 text-muted"></i>Em aberto
-                        <span class="badge text-bg-secondary ms-1">{{ pendentes|length + emRevisao|length }}</span>
-                    </h6>
-                </div>
-                <div class="card-body p-2">
-                    <div class="d-flex flex-column gap-2">
-                        {% for tarefa in emRevisao %}
-                            {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
-                        {% endfor %}
-                        {% for tarefa in pendentes %}
-                            {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            {# Concluídas colapsadas #}
-            {% if concluidas|length > 0 %}
-            <div class="card card-outline card-secondary">
-                <div class="card-header py-2" style="cursor:pointer;"
-                     data-bs-toggle="collapse" data-bs-target="#tarefasConcluidas">
-                    <h6 class="card-title mb-0">
-                        <i class="bi bi-check-circle me-1 text-success"></i>Concluídas
-                        <span class="badge text-bg-success ms-1">{{ concluidas|length }}</span>
-                    </h6>
-                </div>
-                <div class="collapse" id="tarefasConcluidas">
-                    <div class="card-body p-2">
-                        <div class="d-flex flex-column gap-2">
-                            {% for tarefa in concluidas %}
-                                {% include 'tarefa/_card_minhas.html.twig' with {tarefa: tarefa, statusBadge: statusBadge, statusLabel: statusLabel} %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-        {% endif %}
-
+        </div>
     </div>
 </section>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
+<script src="{{ asset('js/filtro-tabela.js') }}"></script>
 {% endblock %}

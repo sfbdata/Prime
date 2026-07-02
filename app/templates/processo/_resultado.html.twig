@@ -1,0 +1,70 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Fragmento trocável da listagem de Processos (dentro de [data-filtro-resultado]).
+   Reexecutado a cada filtro/página pelo motor public/js/filtro-tabela.js.
+─────────────────────────────────────────────────────────────────────────── #}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+    <span class="text-muted"><i class="bi bi-list-ul me-1"></i> {{ total }} resultado(s) encontrado(s)</span>
+    {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
+</div>
+
+{% if processos|length > 0 %}
+<div class="card">
+    <div class="card-body table-responsive p-0">
+        <table class="table table-striped table-hover mb-0" id="tabelaProcessos">
+            <colgroup>
+                <col style="width:215px"> {# Número do Processo #}
+                <col style="width:125px"> {# Tribunal #}
+                <col>                     {# Classe #}
+                <col>                     {# Assunto #}
+                <col style="width:125px"> {# Situação #}
+                <col style="width:140px"> {# Ações #}
+            </colgroup>
+            <thead>
+                <tr>
+                    <th class="sortable{{ filtros.ordenar == 'numero' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="numero"><i class="bi bi-hash me-1"></i> Número do Processo <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ filtros.ordenar == 'tribunal' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="tribunal"><i class="bi bi-building me-1"></i> Tribunal <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ filtros.ordenar == 'classe' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="classe"><i class="bi bi-bookmark me-1"></i> Classe <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ filtros.ordenar == 'assunto' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="assunto"><i class="bi bi-chat-left-text me-1"></i> Assunto <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="sortable{{ filtros.ordenar == 'situacao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="situacao"><i class="bi bi-flag me-1"></i> Situação <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    <th class="col-acoes"><i class="bi bi-gear me-1"></i> Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for processo in processos %}
+                    <tr>
+                        <td title="{{ processo.numeroProcesso|e('html_attr') }}">{{ processo.numeroProcesso }}</td>
+                        <td>{{ processo.siglaTribunal|upper }}</td>
+                        <td title="{{ processo.classeProcessual|e('html_attr') }}">{{ processo.classeProcessual }}</td>
+                        <td title="{{ processo.assuntoProcessual|e('html_attr') }}">{{ processo.assuntoProcessual }}</td>
+                        <td>
+                            <span class="badge {% if processo.situacaoProcesso == 'EM_ANDAMENTO' %}text-bg-warning{% elseif processo.situacaoProcesso == 'ENCERRADO' %}text-bg-danger{% else %}text-bg-secondary{% endif %}">
+                                {{ processo.situacaoProcesso|replace({'_': ' '}) }}
+                            </span>
+                        </td>
+                        <td class="col-acoes">
+                            <div class="acoes-grupo">
+                                <a href="{{ path('processo_show', {id: processo.id}) }}"
+                                   class="btn-action btn-action-view"
+                                   title="Visualizar processo"
+                                   aria-label="Visualizar processo">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ path('processo_edit', {id: processo.id}) }}"
+                                   class="btn-action btn-action-edit"
+                                   title="Editar processo"
+                                   aria-label="Editar processo">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info mb-0">
+    Nenhum processo encontrado. <a href="{{ path('processo_new') }}">Criar novo processo</a>
+</div>
+{% endif %}

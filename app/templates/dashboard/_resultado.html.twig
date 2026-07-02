@@ -1,0 +1,112 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Fragmento trocável do Dashboard (dentro de [data-filtro-resultado]).
+   Cards de KPI + tabela por advogado, recalculados a cada filtro pelo motor
+   public/js/filtro-tabela.js.
+─────────────────────────────────────────────────────────────────────────── #}
+{# ── Cards de métricas ─────────────────────────────────── #}
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="db-stat-card">
+            <div class="db-stat-icon db-icon-metas">
+                <i class="bi bi-check2-circle"></i>
+            </div>
+            <div class="db-stat-number">{{ dashboard.totalMetasAtivas }}</div>
+            <div class="text-secondary">Metas Ativas</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="db-stat-card">
+            <div class="db-stat-icon db-icon-urgentes">
+                <i class="bi bi-exclamation-triangle"></i>
+            </div>
+            <div class="db-stat-number">{{ dashboard.demandasUrgentes }}</div>
+            <div class="text-secondary">Demandas Urgentes</div>
+        </div>
+    </div>
+    <div class="col-sm-12 col-lg-4">
+        <div class="db-stat-card">
+            <div class="db-stat-icon db-icon-global">
+                <i class="bi bi-graph-up-arrow"></i>
+            </div>
+            <div class="db-stat-number">{{ dashboard.metaGlobalPercent }}%</div>
+            <div class="text-secondary">Meta Global</div>
+            <div class="db-prog-track">
+                <div class="db-prog-fill" style="width: {{ dashboard.metaGlobalPercent }}%"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ── Tabela por advogado ────────────────────────────────── #}
+<div class="db-table-card">
+    <div class="db-table-header">
+        <i class="bi bi-people"></i>
+        <span>Desempenho por Advogado</span>
+    </div>
+    <div class="table-responsive">
+        {% if dashboard.porAdvogado is empty %}
+        <div class="db-empty text-secondary">
+            <i class="bi bi-people"></i>
+            Nenhum advogado com dados no período.
+        </div>
+        {% else %}
+        <table class="table db-table mb-0">
+            <thead>
+                <tr>
+                    <th>Advogado</th>
+                    <th>Cargo</th>
+                    <th class="text-center">Total Metas</th>
+                    <th class="text-center">Metas Ativas</th>
+                    <th class="text-center">Metas Vencidas</th>
+                    <th class="text-center">Prazos Próximos</th>
+                    <th class="text-center">Total Demandas</th>
+                    <th class="text-center">Demandas Ativas</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for linha in dashboard.porAdvogado %}
+                <tr>
+                    <td class="fw-medium d-flex align-items-center gap-2">
+                        {% if linha.fotoUrl %}
+                            <img src="{{ path('app_profile_foto_serve', {nome: linha.fotoUrl}) }}"
+                                 alt="{{ linha.nomeAdvogado }}"
+                                 style="width:28px;height:28px;object-fit:cover;border-radius:50%;flex-shrink:0;"
+                                 onerror="this.style.display='none';this.nextElementSibling.style.display='inline-flex';">
+                            <span class="collab-avatar-inicial"
+                                  style="display:none;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--bs-secondary-bg);font-size:0.75rem;font-weight:600;flex-shrink:0;">
+                                {{ linha.nomeAdvogado|slice(0,1)|upper }}
+                            </span>
+                        {% else %}
+                            <span class="collab-avatar-inicial"
+                                  style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--bs-secondary-bg);font-size:0.75rem;font-weight:600;flex-shrink:0;">
+                                {{ linha.nomeAdvogado|slice(0,1)|upper }}
+                            </span>
+                        {% endif %}
+                        {{ linha.nomeAdvogado }}
+                    </td>
+                    <td class="text-muted">{{ linha.cargoNome ?? '—' }}</td>
+                    <td class="text-center">{{ linha.totalMetas }}</td>
+                    <td class="text-center">{{ linha.metasAtivas }}</td>
+                    <td class="text-center">
+                        {% if linha.metasVencidas > 0 %}
+                            <span class="badge text-bg-danger">{{ linha.metasVencidas }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if linha.prazosProximos > 0 %}
+                            <span class="badge text-bg-warning">{{ linha.prazosProximos }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">{{ linha.totalDemandas }}</td>
+                    <td class="text-center">{{ linha.demandasAtivas }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>

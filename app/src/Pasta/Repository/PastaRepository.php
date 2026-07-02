@@ -221,31 +221,39 @@ class PastaRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
-    public function countUrgentes(Tenant $tenant): int
+    /**
+     * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate, responsavel)
+     */
+    public function countUrgentes(Tenant $tenant, array $filtros = []): int
     {
-        return (int) $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select('COUNT(p.id)')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.prioridade = :prioridade')
             ->setParameter('tenant', $tenant)
-            ->setParameter('prioridade', PrioridadePasta::Urgente)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('prioridade', PrioridadePasta::Urgente);
+
+        $this->aplicarFiltrosDashboard($qb, $filtros, true);
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     /**
+     * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
      * @return array<int, int>  userId => total (todas as situações)
      */
-    public function countPorResponsavel(Tenant $tenant): array
+    public function countPorResponsavel(Tenant $tenant, array $filtros = []): array
     {
-        $rows = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select('r.id AS responsavel_id, COUNT(p.id) AS total')
             ->join('p.responsavel', 'r')
             ->andWhere('p.tenant = :tenant')
             ->setParameter('tenant', $tenant)
-            ->groupBy('r.id')
-            ->getQuery()
-            ->getArrayResult();
+            ->groupBy('r.id');
+
+        $this->aplicarFiltrosDashboard($qb, $filtros, false);
+
+        $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
         foreach ($rows as $row) {
@@ -256,20 +264,23 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate)
      * @return array<int, int>  userId => total (só ativas)
      */
-    public function countAtivasPorResponsavel(Tenant $tenant): array
+    public function countAtivasPorResponsavel(Tenant $tenant, array $filtros = []): array
     {
-        $rows = $this->createQueryBuilder('p')
+        $qb = $this->createQueryBuilder('p')
             ->select('r.id AS responsavel_id, COUNT(p.id) AS total')
             ->join('p.responsavel', 'r')
             ->andWhere('p.tenant = :tenant')
             ->andWhere('p.situacao = :situacao')
             ->setParameter('tenant', $tenant)
             ->setParameter('situacao', Pasta::SITUACAO_ATIVA)
-            ->groupBy('r.id')
-            ->getQuery()
-            ->getArrayResult();
+            ->groupBy('r.id');
+
+        $this->aplicarFiltrosDashboard($qb, $filtros, false);
+
+        $rows = $qb->getQuery()->getArrayResult();
 
         $counts = [];
         foreach ($rows as $row) {
@@ -277,6 +288,34 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $counts;
+    }
+
+    /**
+     * Aplica os filtros globais do Dashboard a uma query cujo alias raiz é 'p':
+     * período por `p.dataAbertura` e, quando $filtrarResponsavel, o responsável.
+     *
+     * @param array<string, mixed> $filtros  data_de, data_ate, responsavel
+     */
+    private function aplicarFiltrosDashboard(QueryBuilder $qb, array $filtros, bool $filtrarResponsavel): void
+    {
+        $dataDe = $this->parseDataFiltro((string) ($filtros['data_de'] ?? ''), false);
+        if ($dataDe !== null) {
+            $qb->andWhere('p.dataAbertura >= :fDataDe')->setParameter('fDataDe', $dataDe);
+        }
+
+        $dataAte = $this->parseDataFiltro((string) ($filtros['data_ate'] ?? ''), true);
+        if ($dataAte !== null) {
+            $qb->andWhere('p.dataAbertura <= :fDataAte')->setParameter('fDataAte', $dataAte);
+        }
+
+        if ($filtrarResponsavel) {
+            $resp = (int) ($filtros['responsavel'] ?? 0);
+            if ($resp > 0) {
+                $qb->join('p.responsavel', 'r_dash')
+                   ->andWhere('r_dash.id = :fResp')
+                   ->setParameter('fResp', $resp);
+            }
+        }
     }
 
     /**

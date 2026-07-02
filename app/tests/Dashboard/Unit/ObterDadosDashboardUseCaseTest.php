@@ -384,4 +384,73 @@ final class ObterDadosDashboardUseCaseTest extends TestCase
         self::assertCount(1, $output->porAdvogado);
         self::assertNull($output->porAdvogado[0]->fotoUrl);
     }
+
+    // ─── FILTRO GLOBAL (responsável / cargo) ─────────────────────────
+
+    #[TestDox('filtro de responsável reduz a tabela ao colaborador escolhido')]
+    public function testFiltroResponsavelReduzTabela(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+        $this->configureMapasVazios();
+
+        $u1 = $this->mockUser(1, 'Alice');
+        $u2 = $this->mockUser(2, 'Bruno');
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u1, $u2]);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['responsavel' => '2']);
+
+        self::assertCount(1, $output->porAdvogado);
+        self::assertSame(2, $output->porAdvogado[0]->userId);
+    }
+
+    #[TestDox('filtro de cargo reduz a tabela aos colaboradores daquele cargo')]
+    public function testFiltroCargoReduzTabela(): void
+    {
+        $this->tarefaRepo->method('countMetasAtivas')->willReturn(0);
+        $this->pastaRepo->method('countUrgentes')->willReturn(0);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+        $this->tarefaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countVencidasPorResponsavel')->willReturn([]);
+        $this->tarefaRepo->method('countPrazosProximosPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countPorResponsavel')->willReturn([]);
+        $this->pastaRepo->method('countAtivasPorResponsavel')->willReturn([]);
+        $this->userRepo->method('findFotoPorColaboradores')->willReturn([]);
+
+        $u1 = $this->mockUser(1, 'Alice');
+        $u2 = $this->mockUser(2, 'Bruno');
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([$u1, $u2]);
+        $this->userRepo->method('findCargoPorColaboradores')->willReturn([1 => 'Advogado(a)', 2 => 'Estagiário(a)']);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, ['cargo' => 'Advogado(a)']);
+
+        self::assertCount(1, $output->porAdvogado);
+        self::assertSame(1, $output->porAdvogado[0]->userId);
+        self::assertSame('Advogado(a)', $output->porAdvogado[0]->cargoNome);
+    }
+
+    #[TestDox('filtros de período/responsável são repassados às contagens de cards')]
+    public function testFiltrosRepassadosAosCounts(): void
+    {
+        $filtros = ['data_de' => '2024-01-01', 'data_ate' => '2024-01-31', 'responsavel' => '3'];
+
+        $this->tarefaRepo->expects($this->once())
+            ->method('countMetasAtivas')
+            ->with($this->tenant, $filtros)
+            ->willReturn(4);
+        $this->pastaRepo->expects($this->once())
+            ->method('countUrgentes')
+            ->with($this->tenant, $filtros)
+            ->willReturn(1);
+        $this->tarefaRepo->method('countMetasGlobal')->willReturn(['concluidas' => 0, 'total' => 0]);
+        $this->configureMapasVazios();
+        $this->userRepo->method('findColaboradoresAtivosPorTenant')->willReturn([]);
+
+        $output = $this->sut->executar($this->tenant, $this->referencia, $filtros);
+
+        self::assertSame(4, $output->totalMetasAtivas);
+        self::assertSame(1, $output->demandasUrgentes);
+    }
 }

@@ -118,6 +118,60 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString($numeroB, $body, 'index vazou processo de outro tenant');
     }
 
+    #[TestDox('O índice renderiza a barra de filtro reutilizável')]
+    public function testIndexExibeBarraDeFiltro(): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+        $client->request('GET', '/processos/');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-filtro-root', $body);
+        self::assertStringContainsString('js-filtro-busca', $body);
+    }
+
+    #[TestDox('XHR em /processos/ devolve só o fragmento de resultado, sem o layout')]
+    public function testXhrRetornaFragmentoSemLayout(): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $proc    = $this->criarProcesso($tenant);
+        $numero  = $proc->getNumeroProcesso();
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+        $client->xmlHttpRequest('GET', '/processos/');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString((string) $numero, $body);
+        self::assertStringContainsString('resultado(s) encontrado', $body);
+        self::assertStringNotContainsString('<!DOCTYPE', $body);
+        self::assertStringNotContainsString('data-filtro-root', $body);
+    }
+
+    #[TestDox('XHR com busca sem correspondência devolve fragmento vazio')]
+    public function testXhrBuscaSemResultado(): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $this->criarProcesso($tenant);
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+        $client->xmlHttpRequest('GET', '/processos/', ['busca' => 'zzz-inexistente-zzz']);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Nenhum processo encontrado', (string) $client->getResponse()->getContent());
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function limparIdentityMap(): void

@@ -72,7 +72,7 @@ final class ProcessoRepositoryTest extends KernelTestCase
 
         $this->ligarFiltro((int) $tenantA->getId());
 
-        $tribunais = $repo->findAllTribunais();
+        $tribunais = $repo->findAllTribunais($tenantA);
         self::assertContains('TRT2-AAA', $tribunais);
         self::assertNotContains('TJRJ-BBB', $tribunais, 'dropdown de tribunais vazou metadado de outro tenant');
 
