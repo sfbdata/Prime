@@ -2,31 +2,75 @@
 
 {% block title %}Criar escritório{% endblock %}
 
-{% block body %}
-<div class="container py-5" style="max-width: 560px">
-    <div class="text-center mb-4">
-        <h3>Criar escritório</h3>
-        <p class="text-muted">Você será o administrador do novo escritório.</p>
-    </div>
+{% block stylesheets %}
+<style>
+.criar-esc-wrap { max-width: 560px; }
+.criar-esc-card {
+    border: 1px solid var(--bs-border-color); border-radius: 1rem;
+    background: var(--bs-body-bg); box-shadow: 0 6px 24px rgba(0,0,0,.06); overflow: hidden;
+}
+.criar-esc-head {
+    text-align: center; padding: 2rem 1.5rem 1.25rem;
+    background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color);
+}
+.criar-esc-icon {
+    width: 60px; height: 60px; margin: 0 auto .85rem; border-radius: 16px;
+    display: grid; place-items: center; font-size: 1.8rem; color: #fff;
+    background: linear-gradient(135deg, #0078AA, #3b9fd4);
+    box-shadow: 0 4px 14px rgba(0,120,170,.4);
+}
+.criar-esc-title { font-weight: 700; margin: 0; }
+.criar-esc-sub { color: var(--bs-secondary-color); font-size: .9rem; margin: .3rem 0 0; }
+.criar-esc-body { padding: 1.5rem; }
+.criar-oab-panel {
+    border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    padding: 1rem; margin-top: 1rem; background: var(--bs-tertiary-bg);
+}
+.criar-oab-panel-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .85rem; }
+.criar-oab-panel-seal {
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px;
+    display: grid; place-items: center; color: #fff; font-size: 1rem;
+    background: linear-gradient(135deg, #0078AA, #3b9fd4);
+}
+.criar-oab-panel-title { font-weight: 600; line-height: 1.1; }
+.criar-oab-panel-hint { font-size: .78rem; color: var(--bs-secondary-color); }
+</style>
+{% endblock %}
 
-    {{ form_start(form) }}
-        {{ form_row(form.nome) }}
-        {% if exigirOab %}
-            <div class="alert alert-info py-2 small">
-                <i class="bi bi-info-circle me-1"></i>
-                Para criar um escritório é preciso informar sua OAB.
-            </div>
-            <div class="row">
-                <div class="col-8">{{ form_row(form.oabNumero) }}</div>
-                <div class="col-4">{{ form_row(form.oabUf) }}</div>
-            </div>
-        {% endif %}
-        <div class="d-flex gap-2 justify-content-end mt-3">
-            <a href="{{ path('tenant_selecionar') }}" class="btn btn-outline-secondary">Cancelar</a>
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-building-add me-1"></i> Criar escritório
-            </button>
+{% block body %}
+<div class="criar-esc-wrap mx-auto py-5">
+    <div class="criar-esc-card">
+        <div class="criar-esc-head">
+            <div class="criar-esc-icon"><i class="bi bi-building-add"></i></div>
+            <h1 class="criar-esc-title h4">Criar escritório</h1>
+            <p class="criar-esc-sub">Você será o administrador do novo escritório.</p>
         </div>
-    {{ form_end(form) }}
+        <div class="criar-esc-body">
+            {{ form_start(form) }}
+                {{ form_row(form.nome, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-3'}}) }}
+                {% if exigirOab %}
+                    <div class="criar-oab-panel">
+                        <div class="criar-oab-panel-head">
+                            <div class="criar-oab-panel-seal"><i class="bi bi-patch-check-fill"></i></div>
+                            <div>
+                                <div class="criar-oab-panel-title">Sua OAB</div>
+                                <div class="criar-oab-panel-hint">Necessária para abrir um escritório.</div>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-8">{{ form_row(form.oabNumero, {'attr': {'class': 'form-control'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-0'}}) }}</div>
+                            <div class="col-4">{{ form_row(form.oabUf, {'attr': {'class': 'form-control text-uppercase'}, 'label_attr': {'class': 'form-label'}, 'row_attr': {'class': 'mb-0'}}) }}</div>
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="d-flex gap-2 justify-content-end mt-4">
+                    <a href="{{ path('tenant_selecionar') }}" class="btn btn-outline-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-building-add me-1"></i> Criar escritório
+                    </button>
+                </div>
+            {{ form_end(form) }}
+        </div>
+    </div>
 </div>
 {% endblock %}

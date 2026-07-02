@@ -192,6 +192,44 @@ input[type="range"].img-slider {
     accent-color: #2563a8;
     cursor: pointer;
 }
+
+/* ── Credencial OAB ── */
+.perfil-oab-card {
+    margin: 1.25rem 2rem 0.25rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 0.85rem;
+    overflow: hidden;
+    background: var(--bs-body-bg);
+}
+.perfil-oab-head {
+    display: flex; align-items: center; gap: 0.85rem;
+    padding: 0.9rem 1.15rem;
+    background: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.perfil-oab-seal {
+    width: 42px; height: 42px; flex-shrink: 0; border-radius: 11px;
+    display: grid; place-items: center; color: #fff; font-size: 1.3rem;
+    background: linear-gradient(135deg, #0078AA, #3b9fd4);
+    box-shadow: 0 2px 8px rgba(0,120,170,.35);
+}
+.perfil-oab-title { font-weight: 700; line-height: 1.15; }
+.perfil-oab-sub { font-size: 0.76rem; color: var(--bs-secondary-color); }
+.perfil-oab-body { padding: 0.9rem 1.15rem 0.4rem; }
+.perfil-oab-num { margin-bottom: 0.5rem; font-variant-numeric: tabular-nums; }
+.perfil-oab-num-value { font-size: 1.5rem; font-weight: 700; letter-spacing: 0.5px; }
+.perfil-oab-num-uf { font-size: 1.1rem; font-weight: 600; color: var(--bs-secondary-color); }
+.perfil-oab-alert {
+    display: flex; gap: 0.6rem; align-items: flex-start;
+    padding: 0.65rem 0.85rem; margin-bottom: 0.5rem;
+    border-radius: 0.55rem; font-size: 0.85rem;
+    background: var(--bs-danger-bg-subtle);
+    color: var(--bs-danger-text-emphasis);
+    border: 1px solid var(--bs-danger-border-subtle);
+}
+.perfil-oab-alert i { margin-top: 0.1rem; }
+.perfil-oab-meta { font-size: 0.8rem; color: var(--bs-secondary-color); }
+.perfil-oab-actions { padding: 0.4rem 1.15rem 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 </style>
 {% endblock %}
 
@@ -306,57 +344,51 @@ input[type="range"].img-slider {
                 </div>
             </div>
 
-            {# Seção OAB #}
+            {# Seção OAB — credencial profissional #}
             {% set oabStatus = perfil.oabStatus ? perfil.oabStatus.value : null %}
-            <div class="perfil-oab-secao mt-4 pt-3 border-top">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <i class="bi bi-patch-check text-muted" style="font-size:1.1rem"></i>
-                        <span class="fw-semibold">OAB</span>
-                        {% if oabStatus == 'confirmada' %}
-                            <span class="badge bg-success">Confirmada</span>
-                        {% elseif oabStatus == 'divergente' %}
-                            <span class="badge bg-danger">Divergente</span>
-                        {% elseif oabStatus == 'nao_verificada' %}
-                            <span class="badge bg-warning text-dark">Não verificada</span>
-                        {% else %}
-                            <span class="badge bg-secondary">Não informada</span>
-                        {% endif %}
+            <div class="perfil-oab-card mt-4">
+                <div class="perfil-oab-head">
+                    <div class="perfil-oab-seal"><i class="bi bi-patch-check-fill"></i></div>
+                    <div class="flex-grow-1">
+                        <div class="perfil-oab-title">Registro OAB</div>
+                        <div class="perfil-oab-sub">Ordem dos Advogados do Brasil</div>
                     </div>
-                    <div class="d-flex gap-2">
-                        <button class="btn btn-outline-primary btn-sm"
-                                data-bs-toggle="modal" data-bs-target="#modalOab">
-                            <i class="bi bi-pencil me-1"></i>{{ perfil.oabNumero ? 'Editar OAB' : 'Informar OAB' }}
-                        </button>
+                    {% include '_oab_status.html.twig' with {status: perfil.oabStatus} only %}
+                </div>
+                <div class="perfil-oab-body">
+                    <div class="perfil-oab-num">
                         {% if perfil.oabNumero %}
-                            <form action="{{ path('app_profile_oab_verificar') }}" method="post" class="d-inline">
-                                <input type="hidden" name="_token" value="{{ csrf_token('profile_oab_verificar') }}">
-                                <button type="submit" class="btn btn-outline-secondary btn-sm">
-                                    <i class="bi bi-arrow-repeat me-1"></i>Verificar
-                                </button>
-                            </form>
+                            <span class="perfil-oab-num-value">{{ perfil.oabNumero }}</span><span class="perfil-oab-num-uf">/{{ perfil.oabUf }}</span>
+                        {% else %}
+                            <span class="text-secondary fst-italic">OAB não informada</span>
                         {% endif %}
                     </div>
+                    {% if oabStatus == 'divergente' and perfil.oabNomeOficial %}
+                        <div class="perfil-oab-alert">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <div>
+                                <div><span class="text-secondary">Nome no CNA:</span> <strong>{{ perfil.oabNomeOficial }}</strong></div>
+                                <div><span class="text-secondary">Informado:</span> {{ perfil.nomeExibido }}</div>
+                            </div>
+                        </div>
+                    {% endif %}
+                    {% if perfil.oabVerificadaEm %}
+                        <div class="perfil-oab-meta"><i class="bi bi-clock-history me-1"></i>Verificada em {{ perfil.oabVerificadaEm|date('d/m/Y H:i') }}</div>
+                    {% endif %}
                 </div>
-                <div class="perfil-dado-item">
-                    <i class="bi bi-hash"></i>
-                    <span class="perfil-dado-label">Número / UF</span>
-                    <span>{{ perfil.oabNumero ? (perfil.oabNumero ~ '/' ~ perfil.oabUf) : 'Não informada' }}</span>
+                <div class="perfil-oab-actions">
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalOab">
+                        <i class="bi bi-pencil me-1"></i>{{ perfil.oabNumero ? 'Editar OAB' : 'Informar OAB' }}
+                    </button>
+                    {% if perfil.oabNumero %}
+                        <form action="{{ path('app_profile_oab_verificar') }}" method="post" class="d-inline">
+                            <input type="hidden" name="_token" value="{{ csrf_token('profile_oab_verificar') }}">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-arrow-repeat me-1"></i>Verificar
+                            </button>
+                        </form>
+                    {% endif %}
                 </div>
-                {% if oabStatus == 'divergente' and perfil.oabNomeOficial %}
-                    <div class="perfil-dado-item">
-                        <i class="bi bi-exclamation-triangle text-warning"></i>
-                        <span class="perfil-dado-label">Nome no CNA</span>
-                        <span>{{ perfil.oabNomeOficial }} <span class="text-muted">(informado: {{ perfil.nomeExibido }})</span></span>
-                    </div>
-                {% endif %}
-                {% if perfil.oabVerificadaEm %}
-                    <div class="perfil-dado-item">
-                        <i class="bi bi-clock-history"></i>
-                        <span class="perfil-dado-label">Verificada em</span>
-                        <span>{{ perfil.oabVerificadaEm|date('d/m/Y H:i') }}</span>
-                    </div>
-                {% endif %}
             </div>
 
         </div>{# /perfil-card #}

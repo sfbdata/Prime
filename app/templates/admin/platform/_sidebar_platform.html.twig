@@ -6,37 +6,31 @@
 <aside class="app-sidebar pje-sidebar" id="pjeSidebar">
     <div class="sidebar-wrapper pje-menu-wrapper">
         <nav>
-            <div class="px-3 pt-3 pb-2 text-uppercase small fw-bold text-muted">Plataforma</div>
             <ul class="pje-menu-list">
+                <li class="pje-menu-separator">Plataforma</li>
                 <li class="pje-menu-item">
                     <a href="{{ path('admin_platform_dashboard') }}"
                        class="pje-menu-link {{ currentRoute == 'admin_platform_dashboard' ? 'active' : '' }}">
-                        <i class="bi bi-speedometer2 pje-nav-icon"></i>
-                        <span>Dashboard</span>
+                        <i class="bi bi-speedometer2 pje-nav-icon"></i><span>Dashboard</span>
                     </a>
                 </li>
                 <li class="pje-menu-item">
                     <a href="{{ path('admin_platform_convite_index') }}"
                        class="pje-menu-link {{ currentRoute starts with 'admin_platform_convite' ? 'active' : '' }}">
-                        <i class="bi bi-envelope-paper pje-nav-icon"></i>
-                        <span>Convites</span>
+                        <i class="bi bi-envelope-paper pje-nav-icon"></i><span>Convites</span>
                     </a>
                 </li>
                 <li class="pje-menu-item">
                     <a href="{{ path('admin_platform_oab_index') }}"
                        class="pje-menu-link {{ currentRoute starts with 'admin_platform_oab' ? 'active' : '' }}">
-                        <i class="bi bi-patch-check pje-nav-icon"></i>
-                        <span>Revisão de OAB</span>
+                        <i class="bi bi-patch-check pje-nav-icon"></i><span>Revisão de OAB</span>
                     </a>
                 </li>
-            </ul>
 
-            <div class="px-3 pt-3 pb-2 text-uppercase small fw-bold text-muted">Sistema</div>
-            <ul class="pje-menu-list">
+                <li class="pje-menu-separator">Sistema</li>
                 <li class="pje-menu-item">
                     <a href="{{ path('expediente_index') }}" class="pje-menu-link">
-                        <i class="bi bi-box-arrow-left pje-nav-icon"></i>
-                        <span>Voltar ao sistema</span>
+                        <i class="bi bi-box-arrow-left pje-nav-icon"></i><span>Voltar ao sistema</span>
                     </a>
                 </li>
             </ul>

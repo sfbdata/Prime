@@ -3,39 +3,31 @@
 {% block title %}Painel da Plataforma{% endblock %}
 
 {% block platform_body %}
-<h1 class="h3 mb-1">Painel da Plataforma</h1>
-<p class="text-muted mb-4">Administração global (fora de escritório).</p>
+<div class="platform-header">
+    <div>
+        <h1 class="platform-title">Painel da Plataforma</h1>
+        <p class="platform-subtitle">Administração global — fora de qualquer escritório</p>
+    </div>
+    <span class="platform-badge"><i class="bi bi-shield-lock-fill"></i> Super-admin</span>
+</div>
+
+{% set cards = [
+    {route: 'admin_platform_oab_index',     icon: 'patch-check',     title: 'Revisão de OAB', desc: 'Confirmar, reverter e revisar as OABs dos usuários.'},
+    {route: 'admin_platform_convite_index', icon: 'envelope-paper',  title: 'Convites',       desc: 'Convidar e gerenciar contas de plataforma.'}
+] %}
 
 <div class="row g-3">
-    <div class="col-md-6 col-xl-4">
-        <a href="{{ path('admin_platform_oab_index') }}" class="text-decoration-none">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-patch-check fs-3 text-primary"></i>
-                        <div>
-                            <div class="fw-semibold text-body">Revisão de OAB</div>
-                            <div class="small text-muted">Confirmar, reverter e revisar as OABs dos usuários.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </a>
-    </div>
-    <div class="col-md-6 col-xl-4">
-        <a href="{{ path('admin_platform_convite_index') }}" class="text-decoration-none">
-            <div class="card h-100 shadow-sm">
-                <div class="card-body">
-                    <div class="d-flex align-items-center gap-3">
-                        <i class="bi bi-envelope-paper fs-3 text-primary"></i>
-                        <div>
-                            <div class="fw-semibold text-body">Convites</div>
-                            <div class="small text-muted">Convidar e gerenciar contas de plataforma.</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </a>
-    </div>
+    {% for c in cards %}
+        <div class="col-md-6 col-xl-4">
+            <a href="{{ path(c.route) }}" class="platform-tile">
+                <span class="platform-tile-icon"><i class="bi bi-{{ c.icon }}"></i></span>
+                <span class="platform-tile-body">
+                    <span class="platform-tile-title">{{ c.title }}</span>
+                    <span class="platform-tile-desc">{{ c.desc }}</span>
+                </span>
+                <i class="bi bi-arrow-right platform-tile-arrow"></i>
+            </a>
+        </div>
+    {% endfor %}
 </div>
 {% endblock %}

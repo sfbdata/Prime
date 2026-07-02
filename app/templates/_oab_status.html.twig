@@ -1,0 +1,17 @@
+{#
+  Chip de status de OAB — theme-aware (utilitários "subtle" do Bootstrap 5.3, sem hex fixo).
+  Params:
+    - status: enum StatusOab, sua string .value, ou null
+    - size:   'sm' (compacto, tabela) ou vazio (padrão, perfil)
+#}
+{%- set _s = status is null ? null : (status.value is defined ? status.value : status) -%}
+{%- set _map = {
+    'confirmada':     {label: 'Confirmada',     v: 'success',   icon: 'patch-check-fill'},
+    'divergente':     {label: 'Divergente',     v: 'danger',    icon: 'exclamation-triangle-fill'},
+    'nao_verificada': {label: 'Não verificada', v: 'warning',   icon: 'clock-history'},
+} -%}
+{%- set _c = _map[_s]|default({label: 'Sem OAB', v: 'secondary', icon: 'dash-circle'}) -%}
+<span class="badge rounded-pill bg-{{ _c.v }}-subtle text-{{ _c.v }}-emphasis border border-{{ _c.v }}-subtle d-inline-flex align-items-center gap-1"
+      style="font-weight:600;{{ (size|default('')) == 'sm' ? 'font-size:.72rem;padding:.3rem .6rem' : 'font-size:.8rem;padding:.4rem .8rem' }}">
+    <i class="bi bi-{{ _c.icon }}"></i>{{ _c.label }}
+</span>

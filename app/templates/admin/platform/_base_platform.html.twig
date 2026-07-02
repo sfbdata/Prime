@@ -5,4 +5,88 @@
 
 {% block sidebar %}{% include 'admin/platform/_sidebar_platform.html.twig' %}{% endblock %}
 
-{% block body %}{% block platform_body %}{% endblock %}{% endblock %}
+{% block stylesheets %}
+<style>
+/* ───────── Área de plataforma (super-admin) — polido, theme-aware ───────── */
+.platform-wrap { max-width: 1120px; }
+
+.platform-header {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 1rem; flex-wrap: wrap; margin-bottom: 1.4rem;
+    padding-bottom: 1rem; border-bottom: 1px solid var(--bs-border-color);
+}
+.platform-title { font-size: 1.6rem; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+.platform-subtitle { color: var(--bs-secondary-color); margin: .2rem 0 0; font-size: .9rem; }
+.platform-badge {
+    display: inline-flex; align-items: center; gap: .4rem; white-space: nowrap;
+    font-size: .74rem; font-weight: 600; color: #0078AA;
+    background: rgba(0,120,170,.10); border: 1px solid rgba(0,120,170,.28);
+    padding: .38rem .75rem; border-radius: 999px;
+}
+
+/* Hub — tiles com ícone e hover-lift */
+.platform-tile {
+    display: flex; align-items: center; gap: 1rem; height: 100%;
+    padding: 1.1rem 1.25rem; border: 1px solid var(--bs-border-color);
+    border-radius: .9rem; background: var(--bs-body-bg); text-decoration: none;
+    color: var(--bs-body-color);
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+}
+.platform-tile:hover {
+    transform: translateY(-3px); box-shadow: 0 12px 28px rgba(0,0,0,.10);
+    border-color: rgba(0,120,170,.45); color: var(--bs-body-color);
+}
+.platform-tile-icon {
+    width: 48px; height: 48px; flex-shrink: 0; border-radius: 12px;
+    display: grid; place-items: center; font-size: 1.4rem; color: #fff;
+    background: linear-gradient(135deg, #0078AA, #3b9fd4);
+    box-shadow: 0 3px 10px rgba(0,120,170,.35);
+}
+.platform-tile-body { display: flex; flex-direction: column; flex-grow: 1; min-width: 0; }
+.platform-tile-title { font-weight: 700; }
+.platform-tile-desc { font-size: .82rem; color: var(--bs-secondary-color); }
+.platform-tile-arrow { color: var(--bs-secondary-color); transition: transform .16s ease; }
+.platform-tile:hover .platform-tile-arrow { transform: translateX(4px); color: #0078AA; }
+
+/* Filtros em pílula */
+.platform-filters { display: flex; flex-wrap: wrap; gap: .4rem; }
+.platform-filter {
+    font-size: .82rem; font-weight: 600; padding: .35rem .85rem; border-radius: 999px;
+    border: 1px solid var(--bs-border-color); color: var(--bs-secondary-color);
+    text-decoration: none; background: var(--bs-body-bg); transition: all .15s ease;
+}
+.platform-filter:hover { border-color: rgba(0,120,170,.45); color: #0078AA; }
+.platform-filter.active {
+    background: #0078AA; border-color: #0078AA; color: #fff;
+    box-shadow: 0 2px 8px rgba(0,120,170,.30);
+}
+
+/* Busca com ícone */
+.platform-search { position: relative; }
+.platform-search .bi {
+    position: absolute; left: .7rem; top: 50%; transform: translateY(-50%);
+    color: var(--bs-secondary-color); font-size: .85rem; pointer-events: none;
+}
+.platform-search input { padding-left: 2rem; }
+
+/* Tabela */
+.platform-table thead th {
+    background: var(--bs-tertiary-bg); font-size: .72rem; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--bs-secondary-color); font-weight: 700;
+    border-bottom: 2px solid var(--bs-border-color); white-space: nowrap;
+}
+.platform-table td { vertical-align: middle; }
+.platform-table tbody tr { transition: background .12s ease; }
+.platform-table tbody tr:hover { background: var(--bs-tertiary-bg); }
+.platform-row-divergente { box-shadow: inset 3px 0 0 var(--bs-danger); }
+.platform-oab-num { font-variant-numeric: tabular-nums; font-weight: 600; letter-spacing: .3px; }
+.platform-name-strong { font-weight: 600; }
+
+/* Empty state */
+.platform-empty { text-align: center; padding: 3.25rem 1rem; color: var(--bs-secondary-color); }
+.platform-empty i { font-size: 2.5rem; opacity: .45; display: block; margin-bottom: .65rem; }
+.platform-empty-title { font-weight: 600; color: var(--bs-body-color); }
+</style>
+{% endblock %}
+
+{% block body %}<div class="platform-wrap mx-auto">{% block platform_body %}{% endblock %}</div>{% endblock %}

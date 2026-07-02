@@ -3,94 +3,99 @@
 {% block title %}Revisão de OAB{% endblock %}
 
 {% block platform_body %}
-<div class="d-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0">Revisão de OAB</h1>
+<div class="platform-header">
+    <div>
+        <h1 class="platform-title">Revisão de OAB</h1>
+        <p class="platform-subtitle">Identidade global — advogados de todos os escritórios</p>
+    </div>
+    <span class="platform-badge"><i class="bi bi-people-fill"></i> {{ total }} usuário{{ total == 1 ? '' : 's' }}</span>
 </div>
 
 {% for type, messages in app.flashes %}
     {% for message in messages %}
-        <div class="alert alert-{{ type == 'sucesso' ? 'success' : (type == 'erro' ? 'danger' : (type == 'info' ? 'info' : 'secondary')) }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="alert alert-{{ type == 'sucesso' ? 'success' : (type == 'erro' ? 'danger' : (type == 'info' ? 'info' : 'secondary')) }} alert-dismissible fade show d-flex align-items-center gap-2" role="alert">
+            <i class="bi bi-{{ type == 'sucesso' ? 'check-circle-fill' : (type == 'erro' ? 'x-circle-fill' : 'info-circle-fill') }}"></i>
+            <span>{{ message }}</span>
+            <button type="button" class="btn-close ms-auto" data-bs-dismiss="alert"></button>
         </div>
     {% endfor %}
 {% endfor %}
 
 {# Filtros + busca #}
-<div class="card mb-3">
-    <div class="card-body">
-        <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between">
-            {% set filtros = {'pendentes': 'Pendentes', 'divergente': 'Divergentes', 'nao_verificada': 'Não verificadas', 'confirmada': 'Confirmadas', 'todas': 'Todas'} %}
-            <div class="btn-group btn-group-sm" role="group">
-                {% for chave, rotulo in filtros %}
-                    <a href="{{ path('admin_platform_oab_index', {status: chave, q: busca}) }}"
-                       class="btn btn-outline-primary {{ statusAtual == chave ? 'active' : '' }}">{{ rotulo }}</a>
-                {% endfor %}
-            </div>
-            <form method="get" action="{{ path('admin_platform_oab_index') }}" class="d-flex gap-2">
-                <input type="hidden" name="status" value="{{ statusAtual }}">
-                <input type="search" name="q" value="{{ busca }}" class="form-control form-control-sm"
-                       placeholder="Nome, e-mail ou nº OAB" style="min-width:220px">
-                <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
-            </form>
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body d-flex flex-wrap gap-3 align-items-center justify-content-between">
+        {% set filtros = {'pendentes': 'Pendentes', 'divergente': 'Divergentes', 'nao_verificada': 'Não verificadas', 'confirmada': 'Confirmadas', 'todas': 'Todas'} %}
+        <div class="platform-filters">
+            {% for chave, rotulo in filtros %}
+                <a href="{{ path('admin_platform_oab_index', {status: chave, q: busca}) }}"
+                   class="platform-filter {{ statusAtual == chave ? 'active' : '' }}">{{ rotulo }}</a>
+            {% endfor %}
         </div>
+        <form method="get" action="{{ path('admin_platform_oab_index') }}" class="d-flex gap-2">
+            <input type="hidden" name="status" value="{{ statusAtual }}">
+            <div class="platform-search">
+                <i class="bi bi-search"></i>
+                <input type="search" name="q" value="{{ busca }}" class="form-control form-control-sm"
+                       placeholder="Nome, e-mail ou nº OAB" style="min-width:230px">
+            </div>
+            <button type="submit" class="btn btn-sm btn-primary">Buscar</button>
+        </form>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header fw-semibold">Usuários ({{ total }})</div>
+<div class="card border-0 shadow-sm">
     <div class="table-responsive">
-        <table class="table table-hover mb-0 align-middle">
-            <thead class="table-light">
+        <table class="table platform-table align-middle mb-0">
+            <thead>
                 <tr>
-                    <th>Nome</th>
+                    <th class="ps-4">Nome</th>
                     <th>E-mail</th>
                     <th>OAB</th>
                     <th>Nome no CNA</th>
                     <th>Status</th>
                     <th>Verificada em</th>
-                    <th class="text-end">Ações</th>
+                    <th class="text-end pe-4">Ações</th>
                 </tr>
             </thead>
             <tbody>
             {% for item in itens %}
                 {% set s = item.oabStatus ? item.oabStatus.value : null %}
                 {% set ctx = {status: statusAtual, q: busca, pagina: pagina} %}
-                <tr>
-                    <td>{{ item.nome }}</td>
-                    <td>{{ item.email }}</td>
-                    <td>{{ item.oabNumero ? (item.oabNumero ~ '/' ~ item.oabUf) : '—' }}</td>
+                <tr class="{{ s == 'divergente' ? 'platform-row-divergente' : '' }}">
+                    <td class="ps-4 platform-name-strong">{{ item.nome }}</td>
+                    <td class="text-secondary">{{ item.email }}</td>
+                    <td class="platform-oab-num">{{ item.oabNumero ? (item.oabNumero ~ '/' ~ item.oabUf) : '—' }}</td>
                     <td>{{ item.oabNomeOficial ?? '—' }}</td>
-                    <td>
-                        {% if s == 'confirmada' %}<span class="badge bg-success">Confirmada</span>
-                        {% elseif s == 'divergente' %}<span class="badge bg-danger">Divergente</span>
-                        {% elseif s == 'nao_verificada' %}<span class="badge bg-warning text-dark">Não verificada</span>
-                        {% else %}<span class="badge bg-secondary">—</span>{% endif %}
-                    </td>
-                    <td>{{ item.oabVerificadaEm ? item.oabVerificadaEm|date('d/m/Y H:i') : '—' }}</td>
-                    <td class="text-end">
+                    <td>{% include '_oab_status.html.twig' with {status: item.oabStatus, size: 'sm'} only %}</td>
+                    <td class="text-secondary">{{ item.oabVerificadaEm ? item.oabVerificadaEm|date('d/m/Y H:i') : '—' }}</td>
+                    <td class="text-end pe-4">
                         <div class="d-inline-flex gap-1">
                             {% if s != 'confirmada' %}
                                 <form method="post" action="{{ path('admin_platform_oab_confirmar', ctx|merge({id: item.id})) }}" class="d-inline">
                                     <input type="hidden" name="_token" value="{{ csrf_token('oab_confirmar_' ~ item.id) }}">
-                                    <button class="btn btn-sm btn-success" title="Marcar confirmada"><i class="bi bi-check-lg"></i></button>
+                                    <button class="btn btn-sm btn-success" title="Marcar como confirmada" data-bs-toggle="tooltip">
+                                        <i class="bi bi-check-lg"></i>
+                                    </button>
                                 </form>
                             {% else %}
                                 <div class="btn-group btn-group-sm">
-                                    <button type="button" class="btn btn-outline-danger dropdown-toggle" data-bs-toggle="dropdown">Reverter</button>
-                                    <ul class="dropdown-menu dropdown-menu-end">
+                                    <button type="button" class="btn btn-outline-danger dropdown-toggle" data-bs-toggle="dropdown" title="Reverter confirmação">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reverter
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow">
+                                        <li><h6 class="dropdown-header">Reverter para…</h6></li>
                                         <li>
                                             <form method="post" action="{{ path('admin_platform_oab_reverter', ctx|merge({id: item.id})) }}">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('oab_reverter_' ~ item.id) }}">
                                                 <input type="hidden" name="destino" value="nao_verificada">
-                                                <button class="dropdown-item" type="submit">→ Não verificada</button>
+                                                <button class="dropdown-item" type="submit"><i class="bi bi-clock-history me-2 text-warning"></i>Não verificada</button>
                                             </form>
                                         </li>
                                         <li>
                                             <form method="post" action="{{ path('admin_platform_oab_reverter', ctx|merge({id: item.id})) }}">
                                                 <input type="hidden" name="_token" value="{{ csrf_token('oab_reverter_' ~ item.id) }}">
                                                 <input type="hidden" name="destino" value="divergente">
-                                                <button class="dropdown-item" type="submit">→ Divergente</button>
+                                                <button class="dropdown-item" type="submit"><i class="bi bi-exclamation-triangle me-2 text-danger"></i>Divergente</button>
                                             </form>
                                         </li>
                                     </ul>
@@ -98,13 +103,23 @@
                             {% endif %}
                             <form method="post" action="{{ path('admin_platform_oab_reverificar', ctx|merge({id: item.id})) }}" class="d-inline">
                                 <input type="hidden" name="_token" value="{{ csrf_token('oab_reverificar_' ~ item.id) }}">
-                                <button class="btn btn-sm btn-outline-secondary" title="Re-verificar (automático dormente)"><i class="bi bi-arrow-repeat"></i></button>
+                                <button class="btn btn-sm btn-outline-secondary" title="Re-verificar (automático indisponível)" data-bs-toggle="tooltip">
+                                    <i class="bi bi-arrow-repeat"></i>
+                                </button>
                             </form>
                         </div>
                     </td>
                 </tr>
             {% else %}
-                <tr><td colspan="7" class="text-center text-muted py-4">Nenhum usuário nesta fila.</td></tr>
+                <tr>
+                    <td colspan="7">
+                        <div class="platform-empty">
+                            <i class="bi bi-patch-check"></i>
+                            <div class="platform-empty-title">Nenhum usuário nesta fila</div>
+                            <div>{{ busca ? 'Ajuste a busca ou troque o filtro.' : 'Tente outro filtro acima.' }}</div>
+                        </div>
+                    </td>
+                </tr>
             {% endfor %}
             </tbody>
         </table>
@@ -113,7 +128,7 @@
 
 {% if totalPaginas > 1 %}
     <nav class="mt-3">
-        <ul class="pagination pagination-sm">
+        <ul class="pagination pagination-sm justify-content-center">
             {% for p in 1..totalPaginas %}
                 <li class="page-item {{ p == pagina ? 'active' : '' }}">
                     <a class="page-link" href="{{ path('admin_platform_oab_index', {status: statusAtual, q: busca, pagina: p}) }}">{{ p }}</a>
@@ -122,4 +137,11 @@
         </ul>
     </nav>
 {% endif %}
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+</script>
 {% endblock %}
