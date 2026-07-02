@@ -7,8 +7,8 @@ namespace App\Tests\Pasta\Unit;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\UseCase\ListarMinhasDemandasUseCase;
 use App\Pasta\Repository\PastaRepository;
+use App\Pasta\UseCase\ListarMinhasDemandasUseCase;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -26,79 +26,56 @@ final class ListarMinhasDemandasUseCaseTest extends TestCase
         $this->useCase    = new ListarMinhasDemandasUseCase($this->repository);
     }
 
-    #[TestDox('Sem filtros chama repository com null e retorna as pastas')]
-    public function testSemFiltrosRetornaPastas(): void
+    #[TestDox('Fixa o responsável como o próprio usuário e repassa filtros/paginação ao repositório')]
+    public function testFixaResponsavelERepassaFiltros(): void
     {
         $usuario = $this->createMock(User::class);
-        $tenant  = $this->createMock(Tenant::class);
+        $usuario->method('getId')->willReturn(42);
+        $tenant = $this->createMock(Tenant::class);
 
         $pasta = new Pasta();
         $pasta->setNup('TEST-001');
 
+        $comResponsavel = static fn (array $f): bool =>
+            ($f['responsavel'] ?? null) === '42' && ($f['status'] ?? null) === 'ativo';
+
         $this->repository
             ->expects($this->once())
-            ->method('findAtivasPorResponsavel')
-            ->with($usuario, $tenant, null, null)
+            ->method('findByFilters')
+            ->with(self::callback($comResponsavel), $tenant, 2, 25, 'prioridade', 'desc')
             ->willReturn([$pasta]);
 
-        $resultado = $this->useCase->executar($usuario, $tenant, null, null);
+        $this->repository
+            ->expects($this->once())
+            ->method('countByFilters')
+            ->with(self::callback($comResponsavel), $tenant)
+            ->willReturn(1);
 
-        self::assertCount(1, $resultado);
-        self::assertSame($pasta, $resultado[0]);
+        $resultado = $this->useCase->executar($usuario, $tenant, ['status' => 'ativo'], 2, 25, 'prioridade', 'desc');
+
+        self::assertSame([$pasta], $resultado['pastas']);
+        self::assertSame(1, $resultado['total']);
     }
 
-    #[TestDox('Com filtros repassa cliente e prioridade para o repository')]
-    public function testComFiltrosRepassaParaRepository(): void
+    #[TestDox('Nunca deixa o request sobrescrever o responsável (segurança entre colegas)')]
+    public function testResponsavelNaoVemDoRequest(): void
     {
         $usuario = $this->createMock(User::class);
-        $tenant  = $this->createMock(Tenant::class);
+        $usuario->method('getId')->willReturn(7);
+        $tenant = $this->createMock(Tenant::class);
 
         $this->repository
             ->expects($this->once())
-            ->method('findAtivasPorResponsavel')
-            ->with($usuario, $tenant, 'Maria', 'urgente')
+            ->method('findByFilters')
+            ->with(self::callback(static fn (array $f): bool => ($f['responsavel'] ?? null) === '7'), $tenant, 1, 25, '', 'desc')
             ->willReturn([]);
 
-        $resultado = $this->useCase->executar($usuario, $tenant, 'Maria', 'urgente');
+        $this->repository->method('countByFilters')->willReturn(0);
 
-        self::assertSame([], $resultado);
-    }
+        // Tenta injetar o responsável de outro usuário via filtros — deve ser ignorado.
+        $resultado = $this->useCase->executar($usuario, $tenant, ['responsavel' => '999'], 1, 25, '', 'desc');
 
-    #[TestDox('Repository vazio retorna array vazio')]
-    public function testRepositoryVazioRetornaArrayVazio(): void
-    {
-        $usuario = $this->createMock(User::class);
-        $tenant  = $this->createMock(Tenant::class);
-
-        $this->repository
-            ->method('findAtivasPorResponsavel')
-            ->willReturn([]);
-
-        $resultado = $this->useCase->executar($usuario, $tenant, null, null);
-
-        self::assertSame([], $resultado);
-    }
-
-    #[TestDox('Múltiplas pastas são retornadas na ordem do repository')]
-    public function testMultiplasPastasRetornadas(): void
-    {
-        $usuario = $this->createMock(User::class);
-        $tenant  = $this->createMock(Tenant::class);
-
-        $pasta1 = new Pasta();
-        $pasta1->setNup('NUP-001');
-
-        $pasta2 = new Pasta();
-        $pasta2->setNup('NUP-002');
-
-        $this->repository
-            ->method('findAtivasPorResponsavel')
-            ->willReturn([$pasta1, $pasta2]);
-
-        $resultado = $this->useCase->executar($usuario, $tenant, null, null);
-
-        self::assertCount(2, $resultado);
-        self::assertSame($pasta1, $resultado[0]);
-        self::assertSame($pasta2, $resultado[1]);
+        self::assertSame([], $resultado['pastas']);
+        self::assertSame(0, $resultado['total']);
     }
 }

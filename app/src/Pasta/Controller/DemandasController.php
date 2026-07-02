@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Pasta\Controller;
 
 use App\Entity\Auth\User;
-use App\Pasta\Entity\PrioridadePasta;
 use App\Pasta\UseCase\ListarMinhasDemandasUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -16,6 +15,8 @@ use Symfony\Component\Routing\Attribute\Route;
 
 final class DemandasController extends AbstractController
 {
+    private const PER_PAGE = 25;
+
     public function __construct(
         private readonly ListarMinhasDemandasUseCase $listarMinhasDemandas,
         private readonly TenantContext $tenantContext,
@@ -37,18 +38,33 @@ final class DemandasController extends AbstractController
             return $this->redirectToRoute('homepage');
         }
 
-        $cliente    = $request->query->get('cliente', '') ?: null;
-        $prioridade = $request->query->get('prioridade', '') ?: null;
+        $filtros = [
+            'busca'      => trim((string) $request->query->get('busca', '')),
+            'status'     => (string) $request->query->get('status', ''),
+            'prioridade' => (string) $request->query->get('prioridade', ''),
+            'data_de'    => (string) $request->query->get('data_de', ''),
+            'data_ate'   => (string) $request->query->get('data_ate', ''),
+        ];
+        // Sem ordenação explícita, mantém o comportamento histórico: urgentes primeiro.
+        $ordenar = (string) $request->query->get('ordenar', '') ?: 'prioridade';
+        $direcao = strtolower((string) $request->query->get('direcao', 'desc')) === 'asc' ? 'asc' : 'desc';
+        $pagina  = max(1, (int) $request->query->get('page', 1));
 
-        $pastas = $this->listarMinhasDemandas->executar($usuario, $tenant, $cliente, $prioridade);
+        $resultado    = $this->listarMinhasDemandas->executar($usuario, $tenant, $filtros, $pagina, self::PER_PAGE, $ordenar, $direcao);
+        $totalPaginas = max(1, (int) ceil($resultado['total'] / self::PER_PAGE));
 
-        return $this->render('pasta/demandas.html.twig', [
-            'pastas'      => $pastas,
-            'filtros'     => [
-                'cliente'    => $cliente ?? '',
-                'prioridade' => $prioridade ?? '',
-            ],
-            'prioridades' => PrioridadePasta::cases(),
-        ]);
+        $dados = [
+            'pastas'        => $resultado['pastas'],
+            'total'         => $resultado['total'],
+            'pagina'        => $pagina,
+            'total_paginas' => $totalPaginas,
+            'filtros'       => $filtros + ['ordenar' => $ordenar, 'direcao' => $direcao],
+        ];
+
+        if ($request->isXmlHttpRequest()) {
+            return $this->render('pasta/demandas/_resultado.html.twig', $dados);
+        }
+
+        return $this->render('pasta/demandas.html.twig', $dados);
     }
 }

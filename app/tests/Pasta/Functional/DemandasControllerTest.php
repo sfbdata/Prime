@@ -142,13 +142,27 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString((string) $pasta->getNup(), (string) $client->getResponse()->getContent());
     }
 
-    #[TestDox('GET /demandas com filtro de cliente retorna 200')]
-    public function testComFiltroClienteRetorna200(): void
+    #[TestDox('GET /demandas renderiza a barra de filtro reutilizável')]
+    public function testExibeBarraDeFiltro(): void
     {
         $client = static::createClient();
         $this->criarUsuarioComTenant($client);
 
-        $client->request('GET', '/demandas', ['cliente' => 'João']);
+        $client->request('GET', '/demandas');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-filtro-root', $html);
+        self::assertStringContainsString('js-filtro-busca', $html);
+    }
+
+    #[TestDox('GET /demandas com busca retorna 200')]
+    public function testComBuscaRetorna200(): void
+    {
+        $client = static::createClient();
+        $this->criarUsuarioComTenant($client);
+
+        $client->request('GET', '/demandas', ['busca' => 'João']);
 
         self::assertResponseIsSuccessful();
     }
@@ -162,5 +176,69 @@ final class DemandasControllerTest extends JusPrimeWebTestCase
         $client->request('GET', '/demandas', ['prioridade' => 'urgente']);
 
         self::assertResponseIsSuccessful();
+    }
+
+    #[TestDox('Por padrão lista ativas E arquivadas; a faceta Status estreita (decisão de produto)')]
+    public function testDefaultListaAtivasEArquivadasEFacetaEstreita(): void
+    {
+        $client              = static::createClient();
+        [$usuario, $tenant]  = $this->criarUsuarioComTenant($client);
+        $em                  = static::getContainer()->get(EntityManagerInterface::class);
+
+        $ativa = $this->criarPastaParaResponsavel($usuario, $tenant);
+
+        $arquivada = new Pasta();
+        $arquivada->setNup('ARQ-' . uniqid());
+        $arquivada->setNomeCliente('Cliente Arquivado');
+        $arquivada->setResponsavel($usuario);
+        $arquivada->setTenant($tenant);
+        $arquivada->setSituacao(Pasta::SITUACAO_ARQUIVADA);
+        $em->persist($arquivada);
+        $em->flush();
+
+        // Sem filtro: ambas aparecem (arquivadas visíveis por padrão).
+        $client->request('GET', '/demandas');
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString((string) $ativa->getNup(), $body);
+        self::assertStringContainsString((string) $arquivada->getNup(), $body);
+
+        // Faceta status=ativo estreita para só as ativas.
+        $client->xmlHttpRequest('GET', '/demandas', ['status' => 'ativo']);
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString((string) $ativa->getNup(), $body);
+        self::assertStringNotContainsString((string) $arquivada->getNup(), $body);
+    }
+
+    #[TestDox('XHR em /demandas devolve só o fragmento de resultado, sem o layout')]
+    public function testXhrRetornaFragmentoSemLayout(): void
+    {
+        $client              = static::createClient();
+        [$usuario, $tenant]  = $this->criarUsuarioComTenant($client);
+        $pasta               = $this->criarPastaParaResponsavel($usuario, $tenant);
+
+        $client->xmlHttpRequest('GET', '/demandas');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString((string) $pasta->getNup(), $html);
+        self::assertStringContainsString('demanda(s) encontrada', $html);
+        // Fragmento não deve trazer o documento inteiro nem a própria barra de filtro.
+        self::assertStringNotContainsString('<!DOCTYPE', $html);
+        self::assertStringNotContainsString('data-filtro-root', $html);
+    }
+
+    #[TestDox('XHR com busca que não casa devolve fragmento vazio (0 demandas)')]
+    public function testXhrBuscaSemResultado(): void
+    {
+        $client              = static::createClient();
+        [$usuario, $tenant]  = $this->criarUsuarioComTenant($client);
+        $this->criarPastaParaResponsavel($usuario, $tenant);
+
+        $client->xmlHttpRequest('GET', '/demandas', ['busca' => 'zzz-inexistente-zzz']);
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Nenhuma demanda encontrada', $html);
     }
 }
