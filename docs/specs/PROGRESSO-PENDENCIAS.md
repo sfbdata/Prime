@@ -20,6 +20,26 @@
 > público). Suíte 961/961. Dívidas na spec: trusted-proxies em prod (rate limit), purga de PII/quarentena,
 > validação real da OAB (RS03), extrair validação OAB. Futuro: transferir titularidade, badge agregado.
 
+## 🆕 Bugs — frente OAB / criar escritório (2026-07-02)
+
+- ✅ **CORRIGIDO (não commitado) — "UF da OAB deve ter exatamente 2 letras maiúsculas" no criar escritório
+  mesmo digitando certo.** `CriarEscritorioUseCase` validava a OAB do formulário **sem normalizar** (diferente
+  do fluxo do perfil), então `df` (minúsculo) ou com espaço era rejeitada — e o CSS `text-uppercase` do campo
+  **mascarava** (mostrava "DF"). Fix: `trim` + `strtoupper` da UF (e `trim` do número) antes de
+  `validarFormato`, em `CriarEscritorioUseCase`; teste `testNormalizaOabAoCriar` + ajuste do
+  `testFalhaQuandoUfOabInvalida` (usa `SPP`). Suíte Tenant **86/86**. Root cause confirmado por reprodução.
+
+- ⬜ **PENDENTE (investigar antes de corrigir) — "sair do escritório" tira o acesso mas o usuário CONTINUA na
+  lista de colaboradores.** Repro do dono (2026-07-02): entrou na usuária **Ylka**, usou "sair do escritório"
+  (`escritorio_sair` → `SairDoEscritorioUseCase` → `UserTenant::sair()`, que seta `isActive = false`),
+  confirmou. Ela **perdeu o acesso** (ok), mas **continua aparecendo na lista de colaboradores** do escritório.
+  **Causa provável:** alguma listagem de colaboradores usa query **sem filtro `isActive = true`**
+  — candidato `UserRepository::findTodosPorTenant` (não filtra) vs `findColaboradoresAtivosPorTenant`
+  (filtra `ut.isActive = true`). **A fazer:** identificar a tela/página exata onde a Ylka ainda aparece,
+  confirmar o método de query usado, e trocar para o que filtra ativos (ou adicionar o filtro); varrer outras
+  telas com o mesmo risco de "ex-membro fantasma". Não é vazamento de acesso (o acesso caiu), é lista
+  desatualizada — mas confirmar que ela não retém nenhuma permissão residual.
+
 ## Tabela mestre
 
 | ID | Etapa | Complexidade | Status | Commit/Obs |

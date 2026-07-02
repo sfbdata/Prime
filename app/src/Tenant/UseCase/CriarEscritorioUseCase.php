@@ -35,10 +35,12 @@ final class CriarEscritorioUseCase
 
     public function executar(CriarEscritorioInput $input, User $criador): Tenant
     {
-        $oabNumero = $criador->getOabNumero() ?? $input->oabNumero;
-        $oabUf     = $criador->getOabUf() ?? $input->oabUf;
+        // Normaliza (trim + UF em maiúscula) igual ao fluxo do perfil, para não rejeitar entradas
+        // válidas por causa de espaço ou caixa (ex.: "df" → "DF").
+        $oabNumero = trim((string) ($criador->getOabNumero() ?? $input->oabNumero ?? ''));
+        $oabUf     = strtoupper(trim((string) ($criador->getOabUf() ?? $input->oabUf ?? '')));
 
-        if ($oabNumero === null || $oabNumero === '' || $oabUf === null || $oabUf === '') {
+        if ($oabNumero === '' || $oabUf === '') {
             throw new \InvalidArgumentException('Informe a OAB (número e UF) para criar um escritório.');
         }
 

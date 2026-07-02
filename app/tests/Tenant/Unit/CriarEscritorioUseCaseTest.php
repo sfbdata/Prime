@@ -78,6 +78,20 @@ final class CriarEscritorioUseCaseTest extends TestCase
         self::assertSame('RJ', $criador->getOabUf());
     }
 
+    #[TestDox('Normaliza a OAB do formulário ao criar (minúscula/espaços: " df " → "DF")')]
+    public function testNormalizaOabAoCriar(): void
+    {
+        $criador = new User();
+
+        $this->tenantRepository->method('contarPorCriador')->willReturn(0);
+        $this->bootstrap->expects($this->once())->method('bootstrap');
+
+        $this->useCase->executar($this->input('Banca', ' 12345 ', ' df '), $criador);
+
+        self::assertSame('12345', $criador->getOabNumero());
+        self::assertSame('DF', $criador->getOabUf());
+    }
+
     #[TestDox('Falha quando não há OAB (nem na conta nem no formulário)')]
     public function testFalhaQuandoOabAusente(): void
     {
@@ -101,7 +115,7 @@ final class CriarEscritorioUseCaseTest extends TestCase
         $this->useCase->executar($this->input('X', '12A3', 'SP'), $criador);
     }
 
-    #[TestDox('Falha quando a UF da OAB não tem 2 letras maiúsculas')]
+    #[TestDox('Falha quando a UF da OAB é inválida mesmo após normalizar (ex.: 3 letras)')]
     public function testFalhaQuandoUfOabInvalida(): void
     {
         $criador = new User();
@@ -109,7 +123,7 @@ final class CriarEscritorioUseCaseTest extends TestCase
         $this->bootstrap->expects($this->never())->method('bootstrap');
 
         $this->expectException(\InvalidArgumentException::class);
-        $this->useCase->executar($this->input('X', '12345', 'sp'), $criador);
+        $this->useCase->executar($this->input('X', '12345', 'SPP'), $criador);
     }
 
     #[TestDox('Após criar, grava oabStatus nao_verificada (backend dormente)')]
