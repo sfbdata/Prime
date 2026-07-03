@@ -62,7 +62,8 @@ class DatajudProcessoMapper
 
     private function nullableString(mixed $value): ?string
     {
-        if ($value === null) {
+        // !is_scalar cobre null E valores inesperados (array/objeto) da API sem emitir warning no cast.
+        if (!is_scalar($value)) {
             return null;
         }
 
@@ -150,6 +151,10 @@ class DatajudProcessoMapper
             $movimentacao->setTipo(isset($movimento['codigo']) ? (string) $movimento['codigo'] : null);
             $orgaoMovimento = $movimento['orgaoJulgador']['nomeOrgao'] ?? $movimento['orgaoJulgador']['nome'] ?? null;
             $movimentacao->setOrgao($this->fixOrgaoJulgador($orgaoMovimento));
+            $movimentacao->setOrgaoCodigo($this->nullableString($movimento['orgaoJulgador']['codigo'] ?? null));
+            $movimentacao->setComplementos($this->normalizeComplementos($movimento['complementosTabelados'] ?? null));
+            // dataHora traz data+hora, mas dataMovimentacao é coluna 'date' (decisão da Fase 3):
+            // o DateType do Doctrine trunca a hora no flush — guardamos só a data, de propósito.
             $movimentacao->setDataMovimentacao($this->parseDateOnly($movimento['dataHora'] ?? null));
             if ($processo->getTenant() !== null) {
                 $movimentacao->setTenant($processo->getTenant());
@@ -198,6 +203,29 @@ class DatajudProcessoMapper
             }
             $processo->addAssunto($assunto);
         }
+    }
+
+    /**
+     * complementosTabelados do Datajud: mantém apenas os itens que são arrays (cada um com
+     * codigo/valor/nome/descricao). Vazio ou não-lista vira null.
+     *
+     * @param mixed $complementos
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function normalizeComplementos($complementos): ?array
+    {
+        if (!is_array($complementos)) {
+            return null;
+        }
+
+        $normalizados = [];
+        foreach ($complementos as $complemento) {
+            if (is_array($complemento)) {
+                $normalizados[] = $complemento;
+            }
+        }
+
+        return $normalizados === [] ? null : $normalizados;
     }
 
     private function resolveAssunto($assuntos): ?string

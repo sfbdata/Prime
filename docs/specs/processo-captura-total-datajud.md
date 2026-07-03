@@ -57,8 +57,9 @@ Endpoint: `POST https://api-publica.datajud.cnj.jus.br/api_publica_<sigla>/_sear
   Entidade + mapper + migration + preview JSON + `fillProcessoFromRequest` +
   hidden no `new.html.twig` + exibição no `show.html.twig` + testes.
 - **Fase 2 — Assuntos:** `AssuntoProcesso` (todos os assuntos), mantendo o principal.
-- **Fase 3 — Movimentações completas:** complementos + `dataMovimentacao` datetime +
-  código do órgão do movimento.
+- **Fase 3 — Movimentações completas:** `complementosTabelados` (coluna JSON + resumo
+  concatenado em `getComplementosResumo`, exibido como "Distribuição — sorteio") + código
+  do órgão do movimento (`orgaoCodigo`). `dataMovimentacao` **mantida como `date`** (ver decisão).
 - **Fase 4 — Robustez:** `datajudRaw` JSONB + correção do `dataAjuizamento` +
   limpeza do `fixUtf8Encoding` morto.
 
@@ -93,3 +94,12 @@ spec → corrigir → rodar suíte. Reforçar teste **cross-tenant** ao criar
   Latente antes porque os stubs de teste não tinham datas e o preview web nunca dá flush.
   **Nota Fase 4:** o parse do `dataAjuizamento` no formato compacto (`AAAAMMDDHHMMSS`, ex.: TJAL)
   ainda retorna null — segue pendente para a Fase 4 (é bug de parsing, diferente deste, de tipo).
+- **Fase 3 — `dataMovimentacao` mantida como `date` (datetime descartado):** o plano previa
+  virar `datetime` para guardar a hora do movimento. Descartado por custo/benefício: tornar a
+  coluna datetime obrigaria o input do form a virar `datetime-local` (senão qualquer edição do
+  processo truncaria a hora de TODAS as movimentações — perda de dado), adicionando fragilidade
+  a um form que funciona, por um ganho (a hora) que não era o pedido. O valor real da Fase 3 —
+  descrição mais rica — vem do **complemento tabelado**, entregue. Complementos e `orgaoCodigo`
+  são capturados pelo mapper (CLI/preview), exibidos no `show`, **não editáveis no form** e
+  **preservados na edição** (o `syncMovimentacoesFromRequest` não os toca; teste cobre isso).
+  Em web-create, movimentações novas nascem sem complementos (entram no 1º sync CLI).

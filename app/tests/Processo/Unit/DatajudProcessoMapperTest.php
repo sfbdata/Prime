@@ -140,6 +140,52 @@ final class DatajudProcessoMapperTest extends TestCase
         self::assertSame(999, $processo->getAssuntos()->first()->getCodigo());
     }
 
+    #[TestDox('Movimentação captura complementosTabelados e código do órgão; resumo concatena os nomes')]
+    public function testMovimentacaoCapturaComplementosECodigoOrgao(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0004',
+            'movimentos' => [
+                [
+                    'codigo' => 26,
+                    'nome' => 'Distribuição',
+                    'dataHora' => '2025-11-25T12:10:21.000Z',
+                    'complementosTabelados' => [
+                        ['codigo' => 2, 'descricao' => 'tipo_de_distribuicao_redistribuicao', 'valor' => 2, 'nome' => 'sorteio'],
+                    ],
+                    'orgaoJulgador' => ['codigo' => '70867', 'nome' => 'Gab. 05 - 20a Camara'],
+                ],
+            ],
+        ]);
+
+        self::assertCount(1, $processo->getMovimentacoes());
+        $mov = $processo->getMovimentacoes()->first();
+
+        self::assertSame('DISTRIBUIÇÃO', $mov->getDescricao());
+        self::assertSame('70867', $mov->getOrgaoCodigo());
+        self::assertIsArray($mov->getComplementos());
+        self::assertCount(1, $mov->getComplementos());
+        self::assertSame('sorteio', $mov->getComplementos()[0]['nome']);
+        // Resumo legível: "Distribuição — sorteio" no display.
+        self::assertSame('sorteio', $mov->getComplementosResumo());
+    }
+
+    #[TestDox('Movimentação sem complementos: complementos null e resumo null (sem quebrar)')]
+    public function testMovimentacaoSemComplementos(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0005',
+            'movimentos' => [
+                ['codigo' => 60, 'nome' => 'Expedição de documento', 'dataHora' => '2022-04-12T10:11:37.000Z'],
+            ],
+        ]);
+
+        $mov = $processo->getMovimentacoes()->first();
+        self::assertNull($mov->getComplementos());
+        self::assertNull($mov->getComplementosResumo());
+        self::assertNull($mov->getOrgaoCodigo());
+    }
+
     #[TestDox('orgaoJulgador em formato string (fallback legado) não quebra a leitura dos códigos')]
     public function testOrgaoJulgadorStringNaoQuebra(): void
     {

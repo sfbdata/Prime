@@ -9,6 +9,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Processo\Controller\ProcessoController;
+use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -322,6 +323,61 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
             );
         }
         self::assertTrue($mantido, 'o assunto mantido deve reter o mesmo id (reconciliação por id)');
+    }
+
+    #[TestDox('Editar o processo pelo formulário preserva os complementos da movimentação (não editáveis à mão)')]
+    public function testEditarPreservaComplementosDaMovimentacao(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+
+        // Cria um processo com movimentação JÁ enriquecida com complementos (como vem do sync CNJ).
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $numero = '5552222' . (++$this->seq) . '20238260100';
+        $processo = new Processo();
+        $processo->setNumeroProcesso($numero);
+        $processo->setSiglaTribunal('TJSP');
+        $processo->setTenant($tenant);
+        $mov = new MovimentacaoProcesso();
+        $mov->setDescricao('Distribuição');
+        $mov->setTipo('26');
+        $mov->setComplementos([['codigo' => 2, 'nome' => 'sorteio']]);
+        $mov->setOrgaoCodigo('70867');
+        $mov->setTenant($tenant);
+        $processo->addMovimentacao($mov);
+        $em->persist($processo);
+        $em->flush();
+        $movId = (int) $mov->getId();
+        $processoId = (int) $processo->getId();
+        $this->limparIdentityMap();
+
+        // Edita o processo re-submetendo a movimentação com seu id (como o formulário renderiza),
+        // sem carregar os complementos (o form não tem esse campo).
+        $this->logarComTenant($client, $gestor, $tenant);
+        $client->request('POST', "/processos/{$processoId}/editar", [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+            'movimentacoes'     => [
+                ['id' => (string) $movId, 'descricao' => 'Distribuição', 'tipo' => '26', 'dataMovimentacao' => '2025-11-25'],
+            ],
+        ]);
+        self::assertResponseRedirects();
+
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+
+        $recarregado = $em->getRepository(MovimentacaoProcesso::class)->find($movId);
+        self::assertNotNull($recarregado);
+        self::assertSame([['codigo' => 2, 'nome' => 'sorteio']], $recarregado->getComplementos(), 'complementos não podem sumir ao editar o processo pelo form');
+        self::assertSame('70867', $recarregado->getOrgaoCodigo(), 'código do órgão da movimentação também é preservado');
     }
 
     // ----------------------------------------------------------------- helpers

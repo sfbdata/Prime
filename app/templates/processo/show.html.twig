@@ -184,7 +184,10 @@
                                                 {% for mov in movimentacoesOrdenadas %}
                                                     <tr>
                                                         <td>{% if mov.dataMovimentacao %}{{ mov.dataMovimentacao|date('d/m/Y') }}{% else %}-{% endif %}</td>
-                                                        <td>{{ mov.descricao }}</td>
+                                                        <td>
+                                                            {{ mov.descricao }}
+                                                            {% if mov.complementosResumo %}<span class="text-muted">— {{ mov.complementosResumo }}</span>{% endif %}
+                                                        </td>
                                                         <td><span class="badge bg-body-tertiary text-body-secondary">{{ mov.tipo ?: '-' }}</span></td>
                                                         <td>{{ mov.orgao ?: '-' }}</td>
                                                     </tr>
