@@ -109,8 +109,16 @@
                                             <p class="text-sm">Classe Processual
                                                 <b class="d-block">{{ processo.classeProcessual ?: '-' }}</b>
                                             </p>
-                                            <p class="text-sm">Assunto
-                                                <b class="d-block">{{ processo.assuntoProcessual ?: '-' }}</b>
+                                            <p class="text-sm">Assunto{% if processo.assuntos|length > 1 %}s{% endif %}
+                                                {% if processo.assuntos|length > 0 %}
+                                                    <span class="d-block mt-1">
+                                                        {% for assunto in processo.assuntos %}
+                                                            <span class="badge text-bg-light border me-1 mb-1">{{ assunto.nome }}{% if assunto.codigo %} <span class="text-muted">({{ assunto.codigo }})</span>{% endif %}</span>
+                                                        {% endfor %}
+                                                    </span>
+                                                {% else %}
+                                                    <b class="d-block">{{ processo.assuntoProcessual ?: '-' }}</b>
+                                                {% endif %}
                                             </p>
                                         </div>
                                     </div>
@@ -210,6 +218,58 @@
                                         <div class="text-muted">
                                             <p class="text-sm mb-2"><i class="bi bi-person-check me-2"></i> Criado por
                                                 <b class="d-block">{% if processo.criadoPor %}{{ processo.criadoPor.fullName }}{% else %}-{% endif %}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {# Metadados do CNJ/Datajud #}
+                                <hr class="my-3">
+                                <h6 class="text-muted mb-3"><i class="bi bi-database me-1"></i> Dados do CNJ (Datajud)</h6>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-hdd-network me-2"></i> Sistema de origem
+                                                <b class="d-block">{{ processo.sistema ?: '-' }}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-file-earmark me-2"></i> Formato
+                                                <b class="d-block">{{ processo.formato ?: '-' }}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-shield-lock me-2"></i> Nível de sigilo
+                                                <b class="d-block">
+                                                    {% if processo.nivelSigiloLabel %}
+                                                        {{ processo.nivelSigiloLabel }}{% if processo.nivelSigilo is not null %} ({{ processo.nivelSigilo }}){% endif %}
+                                                    {% else %}-{% endif %}
+                                                </b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-building me-2"></i> Código do órgão
+                                                <b class="d-block">{{ processo.orgaoJulgadorCodigo ?: '-' }}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-geo-alt me-2"></i> Município (IBGE)
+                                                <b class="d-block">{{ processo.orgaoJulgadorMunicipioIbge ?: '-' }}</b>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="text-muted">
+                                            <p class="text-sm mb-2"><i class="bi bi-fingerprint me-2"></i> ID Datajud
+                                                <b class="d-block text-break">{{ processo.datajudId ?: '-' }}</b>
                                             </p>
                                         </div>
                                     </div>

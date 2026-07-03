@@ -6,6 +6,7 @@ namespace App\Tests\Processo\Functional;
 
 use App\Command\AtualizarProcessoDatajudCommand;
 use App\Entity\Tenant\Tenant;
+use App\Processo\Entity\AssuntoProcesso;
 use App\Processo\Entity\Processo;
 use App\Processo\Repository\ProcessoRepository;
 use App\Processo\Service\DatajudClient;
@@ -96,6 +97,114 @@ final class DatajudIsolamentoTest extends KernelTestCase
         self::assertSame($paiAId, (int) $ref->getId(), 'o pai linkado deve ser o do tenant A, não o de B');
         self::assertSame((int) $tenantA->getId(), (int) $ref->getTenant()->getId(), 'o pai não pode ser de outro tenant');
         self::assertNotSame((int) $paiB->getId(), (int) $ref->getId());
+    }
+
+    #[TestDox('Assuntos mapeados herdam o tenant do processo e somem junto ao deletar (sem violar FK)')]
+    public function testAssuntosHerdamTenantESaoRemovidosComOProcesso(): void
+    {
+        $tenant = $this->criarTenant();
+        $processo = $this->criarProcesso($tenant, 'ASSUNTO-001', 'CLS');
+
+        /** @var DatajudProcessoMapper $mapper */
+        $mapper = static::getContainer()->get(DatajudProcessoMapper::class);
+        $mapper->mapFromSource($processo, [
+            'numeroProcesso' => 'ASSUNTO-001',
+            'assuntos' => [
+                ['codigo' => 10433, 'nome' => 'Dano Moral'],
+                ['codigo' => 7681, 'nome' => 'Obrigações'],
+            ],
+        ]);
+        $this->em->flush();
+
+        $processoId = (int) $processo->getId();
+        $this->em->clear();
+
+        $recarregado = $this->em->find(Processo::class, $processoId);
+        self::assertCount(2, $recarregado->getAssuntos(), 'os 2 assuntos devem ter sido persistidos');
+        foreach ($recarregado->getAssuntos() as $assunto) {
+            self::assertSame(
+                (int) $tenant->getId(),
+                (int) $assunto->getTenant()->getId(),
+                'assunto deve herdar o tenant do processo (isolamento multi-tenant)'
+            );
+        }
+
+        // Deletar o processo remove os assuntos filhos (orphanRemoval) sem violar a FK.
+        $this->em->remove($recarregado);
+        $this->em->flush();
+        $this->em->clear();
+
+        self::assertNull($this->em->find(Processo::class, $processoId));
+        self::assertCount(
+            0,
+            $this->em->getRepository(AssuntoProcesso::class)->findBy(['codigo' => 10433]),
+            'assuntos devem ser removidos junto com o processo'
+        );
+    }
+
+    #[TestDox('Deletar processo com assuntos NÃO inicializados (coleção lazy, igual à ação web) não viola a FK')]
+    public function testDeletarProcessoComAssuntosLazyNaoViolaFk(): void
+    {
+        $tenant = $this->criarTenant();
+        $processo = $this->criarProcesso($tenant, 'ASSUNTO-LAZY-001', 'CLS');
+
+        /** @var DatajudProcessoMapper $mapper */
+        $mapper = static::getContainer()->get(DatajudProcessoMapper::class);
+        $mapper->mapFromSource($processo, [
+            'numeroProcesso' => 'ASSUNTO-LAZY-001',
+            'assuntos' => [
+                ['codigo' => 10433, 'nome' => 'Dano Moral'],
+                ['codigo' => 7681, 'nome' => 'Obrigações'],
+            ],
+        ]);
+        $this->em->flush();
+
+        $processoId = (int) $processo->getId();
+        // clear() garante que o find() abaixo devolve o processo com a coleção assuntos LAZY
+        // (não inicializada) — exatamente o estado da ação ProcessoController::delete.
+        $this->em->clear();
+
+        $recarregado = $this->em->find(Processo::class, $processoId);
+        // NÃO tocar em getAssuntos() aqui: replica o caminho real (remove sem inicializar a coleção).
+        $this->em->remove($recarregado);
+        $this->em->flush();
+        $this->em->clear();
+
+        self::assertNull($this->em->find(Processo::class, $processoId), 'o processo deve ter sido deletado');
+        self::assertCount(
+            0,
+            $this->em->getRepository(AssuntoProcesso::class)->findBy(['codigo' => 10433]),
+            'assuntos filhos não podem sobrar (nem violar FK) ao deletar o processo pela via ORM'
+        );
+    }
+
+    #[TestDox('Sync com datas reais (ISO) persiste no flush sem erro de tipo (colunas date exigem DateTime mutável)')]
+    public function testSyncComDatasPersisteSemErroDeTipoNoFlush(): void
+    {
+        $tenant = $this->criarTenant();
+        $processo = $this->criarProcesso($tenant, 'DATA-001', 'CLS');
+
+        /** @var DatajudProcessoMapper $mapper */
+        $mapper = static::getContainer()->get(DatajudProcessoMapper::class);
+        $mapper->mapFromSource($processo, [
+            'numeroProcesso' => 'DATA-001',
+            'dataAjuizamento' => '2026-01-15T10:00:00.000Z',
+            'dataBaixa' => '2026-02-20T00:00:00.000Z',
+            'movimentos' => [
+                ['codigo' => 26, 'nome' => 'Distribuição', 'dataHora' => '2026-01-15T10:05:00.000Z'],
+            ],
+        ]);
+
+        // ANTES do fix: DateTimeImmutable em coluna type:'date' estoura Doctrine InvalidType aqui.
+        $this->em->flush();
+        $this->em->clear();
+
+        $recarregado = $this->em->find(Processo::class, (int) $processo->getId());
+        self::assertNotNull($recarregado->getDataDistribuicao(), 'dataAjuizamento deve persistir');
+        self::assertSame('2026-01-15', $recarregado->getDataDistribuicao()->format('Y-m-d'));
+        self::assertSame('2026-02-20', $recarregado->getDataBaixa()->format('Y-m-d'));
+        self::assertCount(1, $recarregado->getMovimentacoes());
+        self::assertSame('2026-01-15', $recarregado->getMovimentacoes()->first()->getDataMovimentacao()->format('Y-m-d'));
     }
 
     // ----------------------------------------------------------------- helpers

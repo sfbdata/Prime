@@ -172,6 +172,63 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Nenhum processo encontrado', (string) $client->getResponse()->getContent());
     }
 
+    #[TestDox('Criar processo pela web persiste os metadados do Datajud, com nivelSigilo=0 (público) preservado — não vira null')]
+    public function testCriarPersisteMetadadosDatajudComSigiloZero(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $numero    = '5550000' . (++$this->seq) . '20238260100';
+        $datajudId = 'TJSP_1689_G1_80064_' . $numero;
+
+        $client->request('POST', '/processos/novo', [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara Cível',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+            // Metadados do Datajud (hidden preenchidos pela busca no CNJ):
+            'nivelSigilo'                => '0', // público — NÃO pode virar null
+            'formato'                    => 'Eletrônico',
+            'formatoCodigo'              => '1',
+            'sistema'                    => 'SAJ',
+            'sistemaCodigo'              => '3',
+            'classeCodigo'               => '1689',
+            'orgaoJulgadorCodigo'        => '80064',
+            'orgaoJulgadorMunicipioIbge' => '2704302',
+            'datajudId'                  => $datajudId,
+        ]);
+
+        self::assertResponseRedirects();
+
+        // Filtro de tenant OFF para o find, como nos demais testes deste arquivo.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+
+        $processo = $em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $numero]);
+        self::assertNotNull($processo, 'o processo deveria ter sido criado');
+
+        self::assertSame(0, $processo->getNivelSigilo(), 'nivelSigilo=0 (público) não pode virar null no caminho web');
+        self::assertSame('Público', $processo->getNivelSigiloLabel());
+        self::assertSame('Eletrônico', $processo->getFormato());
+        self::assertSame(1, $processo->getFormatoCodigo());
+        self::assertSame('SAJ', $processo->getSistema());
+        self::assertSame(3, $processo->getSistemaCodigo());
+        self::assertSame(1689, $processo->getClasseCodigo());
+        self::assertSame('80064', $processo->getOrgaoJulgadorCodigo());
+        self::assertSame(2704302, $processo->getOrgaoJulgadorMunicipioIbge());
+        self::assertSame($datajudId, $processo->getDatajudId());
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function limparIdentityMap(): void

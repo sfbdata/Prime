@@ -6,6 +6,7 @@ use App\Controller\Trait\ResourceAccessTrait;
 use App\Processo\Entity\Processo;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
+use App\Processo\Entity\AssuntoProcesso;
 use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Cliente\Repository\ClienteRepository;
@@ -310,6 +311,20 @@ class ProcessoController extends AbstractController
                     'instancia' => $processo->getInstancia(),
                     'dataDistribuicao' => $processo->getDataDistribuicao()?->format('Y-m-d'),
                     'dataBaixa' => $processo->getDataBaixa()?->format('Y-m-d'),
+                    'nivelSigilo' => $processo->getNivelSigilo(),
+                    'nivelSigiloLabel' => $processo->getNivelSigiloLabel(),
+                    'formato' => $processo->getFormato(),
+                    'formatoCodigo' => $processo->getFormatoCodigo(),
+                    'sistema' => $processo->getSistema(),
+                    'sistemaCodigo' => $processo->getSistemaCodigo(),
+                    'classeCodigo' => $processo->getClasseCodigo(),
+                    'orgaoJulgadorCodigo' => $processo->getOrgaoJulgadorCodigo(),
+                    'orgaoJulgadorMunicipioIbge' => $processo->getOrgaoJulgadorMunicipioIbge(),
+                    'datajudId' => $processo->getDatajudId(),
+                    'assuntos' => array_map(fn(AssuntoProcesso $a) => [
+                        'codigo' => $a->getCodigo(),
+                        'nome' => $a->getNome(),
+                    ], $processo->getAssuntos()->toArray()),
                     'partes' => array_map(fn(ParteProcesso $p) => [
                         'tipo' => $p->getTipo(),
                         'nome' => $p->getNome(),
@@ -381,6 +396,19 @@ class ProcessoController extends AbstractController
         if (!$this->isSameDate($processo->getDataBaixa(), $dataBaixa)) {
             $processo->setDataBaixa($dataBaixa);
         }
+
+        // Metadados do Datajud: não são editáveis pelo usuário — chegam via hidden preenchidos pela
+        // busca no CNJ. Se ausentes no request, viram null (não sobrescrevem à toa em edição manual
+        // porque o hidden re-renderiza o valor atual).
+        $processo->setNivelSigilo($this->intOrNull($data['nivelSigilo'] ?? null));
+        $processo->setFormato($this->trimOrNull($data['formato'] ?? null));
+        $processo->setFormatoCodigo($this->intOrNull($data['formatoCodigo'] ?? null));
+        $processo->setSistema($this->trimOrNull($data['sistema'] ?? null));
+        $processo->setSistemaCodigo($this->intOrNull($data['sistemaCodigo'] ?? null));
+        $processo->setClasseCodigo($this->intOrNull($data['classeCodigo'] ?? null));
+        $processo->setOrgaoJulgadorCodigo($this->trimOrNull($data['orgaoJulgadorCodigo'] ?? null));
+        $processo->setOrgaoJulgadorMunicipioIbge($this->intOrNull($data['orgaoJulgadorMunicipioIbge'] ?? null));
+        $processo->setDatajudId($this->trimOrNull($data['datajudId'] ?? null));
 
         $this->syncPartesFromRequest($processo, is_array($data['partes'] ?? null) ? $data['partes'] : []);
         $this->syncMovimentacoesFromRequest($processo, is_array($data['movimentacoes'] ?? null) ? $data['movimentacoes'] : []);
@@ -504,6 +532,28 @@ class ProcessoController extends AbstractController
         }
 
         return \DateTime::createFromFormat('!Y-m-d', $dateValue) ?: null;
+    }
+
+    private function trimOrNull(mixed $value): ?string
+    {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $texto = trim((string) $value);
+
+        return $texto === '' ? null : $texto;
+    }
+
+    private function intOrNull(mixed $value): ?int
+    {
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $texto = trim((string) $value);
+
+        return is_numeric($texto) ? (int) $texto : null;
     }
 
     private function isSameDate(?\DateTimeInterface $left, ?\DateTimeInterface $right): bool

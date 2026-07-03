@@ -20,6 +20,7 @@ use App\Kanban\Entity\KanbanColuna;
 use App\Kanban\Entity\KanbanComentario;
 use App\Kanban\Entity\KanbanMarcador;
 use App\Pasta\Entity\PastaProcesso;
+use App\Processo\Entity\AssuntoProcesso;
 use App\Processo\Entity\DocumentoProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\ParteProcesso;
@@ -57,6 +58,7 @@ final class AuditavelCoberturaTest extends KernelTestCase
         DocumentoProcesso::class,
         ParteProcesso::class,
         MovimentacaoProcesso::class,
+        AssuntoProcesso::class,
         // Associação Pasta↔Processo: acompanha a fatia Processo (não auditada)
         PastaProcesso::class,
         KanbanBoard::class,

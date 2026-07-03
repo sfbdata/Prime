@@ -2,6 +2,7 @@
 
 namespace App\Processo\Service;
 
+use App\Processo\Entity\AssuntoProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
@@ -27,6 +28,7 @@ class DatajudProcessoMapper
         $processo->setAssuntoProcessual($this->stringOrDefault($this->resolveAssunto($source['assuntos'] ?? null)));
         $processo->setSituacaoProcesso($this->stringOrDefault($source['situacaoProcesso'] ?? $source['situacao'] ?? 'EM_ANDAMENTO'));
         $processo->setInstancia($this->stringOrDefault($source['grau'] ?? $source['instancia'] ?? 'G1'));
+        $this->mapMetadadosDatajud($processo, $source);
         $this->mapProcessoPai($processo, $source);
 
         $processo->setDataDistribuicao($this->parseDateOnly($source['dataAjuizamento'] ?? $source['dataDistribuicao'] ?? null));
@@ -35,8 +37,47 @@ class DatajudProcessoMapper
 
         $this->replacePartes($processo, $source['partes'] ?? []);
         $this->replaceMovimentacoes($processo, $source['movimentos'] ?? $source['movimentacoes'] ?? []);
+        $this->replaceAssuntos($processo, $source['assuntos'] ?? []);
 
         return $processo;
+    }
+
+    /**
+     * Metadados escalares do Datajud (sigilo, formato, sistema, códigos TPU e id do doc no ES).
+     * O `?? null` usa semântica de isset(): chave ausente OU `orgaoJulgador` vindo como string
+     * (fallback legado) resolvem para null sem emitir warning.
+     */
+    private function mapMetadadosDatajud(Processo $processo, array $source): void
+    {
+        $processo->setNivelSigilo($this->nullableInt($source['nivelSigilo'] ?? null));
+        $processo->setFormato($this->nullableString($source['formato']['nome'] ?? null));
+        $processo->setFormatoCodigo($this->nullableInt($source['formato']['codigo'] ?? null));
+        $processo->setSistema($this->nullableString($source['sistema']['nome'] ?? null));
+        $processo->setSistemaCodigo($this->nullableInt($source['sistema']['codigo'] ?? null));
+        $processo->setClasseCodigo($this->nullableInt($source['classe']['codigo'] ?? null));
+        $processo->setOrgaoJulgadorCodigo($this->nullableString($source['orgaoJulgador']['codigo'] ?? null));
+        $processo->setOrgaoJulgadorMunicipioIbge($this->nullableInt($source['orgaoJulgador']['codigoMunicipioIBGE'] ?? null));
+        $processo->setDatajudId($this->nullableString($source['id'] ?? null));
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $texto = trim((string) $value);
+
+        return $texto === '' ? null : $texto;
+    }
+
+    private function nullableInt(mixed $value): ?int
+    {
+        if ($value === null || $value === '' || !is_numeric($value)) {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     private function mapProcessoPai(Processo $processo, array $source): void
@@ -117,6 +158,48 @@ class DatajudProcessoMapper
         }
     }
 
+    /**
+     * Substitui a coleção de assuntos pela lista completa do Datajud (cada item {codigo, nome}).
+     * O assunto principal continua guardado como string em `assuntoProcessual` (via resolveAssunto).
+     *
+     * @param mixed $assuntos
+     */
+    private function replaceAssuntos(Processo $processo, $assuntos): void
+    {
+        foreach ($processo->getAssuntos() as $assunto) {
+            $processo->removeAssunto($assunto);
+        }
+
+        if (!is_array($assuntos)) {
+            return;
+        }
+
+        foreach ($assuntos as $assuntoData) {
+            // Mesmo caso defensivo de resolveAssunto: a API às vezes aninha como array de arrays.
+            if (is_array($assuntoData) && isset($assuntoData[0]) && is_array($assuntoData[0])) {
+                $assuntoData = $assuntoData[0];
+            }
+
+            if (!is_array($assuntoData)) {
+                continue;
+            }
+
+            $nome = $this->stringOrDefault($assuntoData['nome'] ?? null, '');
+            if ($nome === '') {
+                continue;
+            }
+
+            $assunto = new AssuntoProcesso();
+            $assunto->setNome($nome);
+            $assunto->setCodigo($this->nullableInt($assuntoData['codigo'] ?? null));
+            // Busca efêmera (processo sem tenant) não propaga; só quando há tenant (CLI/persistência).
+            if ($processo->getTenant() !== null) {
+                $assunto->setTenant($processo->getTenant());
+            }
+            $processo->addAssunto($assunto);
+        }
+    }
+
     private function resolveAssunto($assuntos): ?string
     {
         if (!is_array($assuntos) || $assuntos === []) {
@@ -142,7 +225,10 @@ class DatajudProcessoMapper
         }
 
         try {
-            return new \DateTimeImmutable($value);
+            // Colunas dataDistribuicao/dataBaixa/dataMovimentacao são type:'date' (Doctrine DateType),
+            // que só aceita \DateTime mutável no flush — DateTimeImmutable estoura InvalidType.
+            // Igual ao parseDateOrNull do controller, que já escreve nessas mesmas colunas.
+            return new \DateTime($value);
         } catch (\Exception $e) {
             return null;
         }
