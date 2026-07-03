@@ -85,6 +85,24 @@
     text-align: center;
 }
 .db-empty i { font-size: 1.8rem; display: block; margin-bottom: .5rem; }
+
+/* ── Filtro abaixo dos cards ─────────────────────────────────────
+   Cards (1) → filtro (2) → tabela (3). Cards e tabela seguem dentro da
+   região que recarrega ([data-filtro-resultado]); com display:contents,
+   seus filhos participam do flex do root e o "order" os intercala com o
+   filtro (que permanece persistente/fora da recarga). */
+[data-filtro-root] { display: flex; flex-direction: column; }
+[data-filtro-root] > [data-filtro-resultado] { display: contents; }
+.db-cards-row  { order: 1; }
+.db-filtro-wrap { order: 2; }
+.db-table-card { order: 3; }
+/* o fade de "carregando" vive no wrapper display:contents (sem box próprio),
+   então aplicamos nos filhos reais durante a recarga */
+[data-filtro-resultado].filtro-carregando > * {
+    opacity: .55;
+    pointer-events: none;
+    transition: opacity .12s ease;
+}
 </style>
 
 <section class="content-header">
@@ -107,6 +125,7 @@
         {% endfor %}
 
         <div data-filtro-root data-filtro-endpoint="{{ path('dashboard_index') }}">
+            <div class="db-filtro-wrap">
             {{ include('_partials/_filtro_barra.html.twig', {
                 mostrar_busca: false,
                 filtros: filtros,
@@ -117,6 +136,7 @@
                     { name: 'cargo', rotulo: 'Cargo', tipo: 'select', opcoes: cargoOpcoes }
                 ]
             }) }}
+            </div>
 
             <div data-filtro-resultado>
                 {{ include('dashboard/_resultado.html.twig') }}
