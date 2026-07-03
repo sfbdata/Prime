@@ -56,7 +56,6 @@ final class DatajudIsolamentoTest extends KernelTestCase
         $tester = new CommandTester(static::getContainer()->get(AtualizarProcessoDatajudCommand::class));
         $tester->execute([
             'processoId'     => $baseId,
-            'tribunalAlias'  => 'api_publica_tjsp',
             'numeroProcesso' => '0001',
         ]);
         $tester->assertCommandIsSuccessful();

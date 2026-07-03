@@ -20,6 +20,8 @@ use App\Repository\ClienteDocumentoRepository;
 use App\Pasta\Repository\PastaDocumentoRepository;
 use App\Pasta\Repository\PastaRepository;
 use App\Processo\Repository\ProcessoRepository;
+use App\Processo\Exception\TribunalNaoIdentificadoException;
+use App\Processo\Service\TribunalCnjResolver;
 use App\Entity\Permission\AccessRequest;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
@@ -695,7 +697,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/processo/vincular', name: 'pasta_vincular_processo', methods: ['POST'])]
-    public function vincularProcesso(Pasta $pasta, Request $request): Response
+    public function vincularProcesso(Pasta $pasta, Request $request, TribunalCnjResolver $tribunalResolver): Response
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -732,7 +734,7 @@ class PastaController extends AbstractController
             if ($processo === null) {
                 $processo = new Processo();
                 $processo->setTenant($tenant);
-                $this->fillProcessoFromData($processo, $data);
+                $this->fillProcessoFromData($processo, $data, $tribunalResolver);
                 $processo->setCriadoPor($currentUser);
                 $this->em->persist($processo);
             }
@@ -2013,12 +2015,19 @@ class PastaController extends AbstractController
     /**
      * @param array<string, mixed> $data
      */
-    private function fillProcessoFromData(Processo $processo, array $data): void
+    private function fillProcessoFromData(Processo $processo, array $data, TribunalCnjResolver $tribunalResolver): void
     {
         $numeroNormalizado = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
         $processo->setNumeroProcesso($numeroNormalizado ?? '');
         $processo->setOrgaoJulgador((string) ($data['orgaoJulgador'] ?? ''));
-        $processo->setSiglaTribunal((string) ($data['siglaTribunal'] ?? ''));
+
+        // Sigla derivada do número (padrão CNJ), não mais informada no form. Número
+        // legado/não-CNJ: preserva a sigla atual em vez de sobrescrever com vazio.
+        try {
+            $processo->setSiglaTribunal($tribunalResolver->resolverSigla($numeroNormalizado ?? ''));
+        } catch (TribunalNaoIdentificadoException $e) {
+            // Mantém a sigla atual do processo.
+        }
         $processo->setClasseProcessual((string) ($data['classeProcessual'] ?? ''));
         $processo->setAssuntoProcessual((string) ($data['assuntoProcessual'] ?? ''));
         $processo->setSituacaoProcesso((string) ($data['situacaoProcesso'] ?? 'EM_ANDAMENTO'));

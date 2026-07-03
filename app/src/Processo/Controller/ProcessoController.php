@@ -11,8 +11,10 @@ use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Cliente\Repository\ClienteRepository;
 use App\Tarefa\Repository\TarefaRepository;
+use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\DatajudClient;
 use App\Processo\Service\DatajudProcessoMapper;
+use App\Processo\Service\TribunalCnjResolver;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -50,6 +52,7 @@ class ProcessoController extends AbstractController
 
     public function __construct(
         private readonly TenantContext $tenantContext,
+        private readonly TribunalCnjResolver $tribunalResolver,
     ) {}
 
     #[Route('/', name: 'processo_index', methods: ['GET'])]
@@ -256,16 +259,16 @@ class ProcessoController extends AbstractController
 
         $data = json_decode($request->getContent(), true);
         $numeroProcesso = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
-        $tribunalAlias = $data['tribunalAlias'] ?? '';
 
-        if (!$numeroProcesso || !$tribunalAlias) {
-            $response = new JsonResponse(['error' => 'numeroProcesso e tribunalAlias são obrigatórios'], 400);
+        if (!$numeroProcesso) {
+            $response = new JsonResponse(['error' => 'numeroProcesso é obrigatório'], 400);
             $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
             return $response;
         }
 
+        // O tribunal é derivado do número (padrão CNJ); o usuário não informa a sigla.
         try {
-            $apiResponse = $datajudClient->searchByNumeroProcesso($tribunalAlias, $numeroProcesso);
+            $apiResponse = $datajudClient->searchByNumeroProcesso($numeroProcesso);
 
             // Verificar se a resposta contém erros da API
             if (isset($apiResponse['error'])) {
@@ -304,7 +307,9 @@ class ProcessoController extends AbstractController
                 'data' => [
                     'numeroProcesso' => $processo->getNumeroProcesso(),
                     'orgaoJulgador' => $processo->getOrgaoJulgador(),
-                    'siglaTribunal' => $processo->getSiglaTribunal(),
+                    // Sigla derivada do número (mesma fonte usada na persistência), garantindo
+                    // consistência com o que será salvo mesmo se a resposta do CNJ omitir o tribunal.
+                    'siglaTribunal' => $this->tribunalResolver->resolverSigla($numeroProcesso),
                     'classeProcessual' => $processo->getClasseProcessual(),
                     'assuntoProcessual' => $processo->getAssuntoProcessual(),
                     'situacaoProcesso' => $processo->getSituacaoProcesso(),
@@ -341,6 +346,13 @@ class ProcessoController extends AbstractController
             ]);
             $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
             return $response;
+        } catch (TribunalNaoIdentificadoException $e) {
+            // Número fora do padrão CNJ ou tribunal desconhecido: erro do usuário, não da API.
+            $response = new JsonResponse([
+                'error' => 'Não foi possível identificar o tribunal a partir do número informado. Verifique o número do processo.'
+            ], 422);
+            $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
+            return $response;
         } catch (\Exception $e) {
             $response = new JsonResponse(['error' => 'Falha ao consultar processo no CNJ/DataJud.'], 500);
             $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
@@ -362,9 +374,15 @@ class ProcessoController extends AbstractController
             $processo->setOrgaoJulgador($orgaoJulgador);
         }
 
-        $siglaTribunal = (string) ($data['siglaTribunal'] ?? '');
-        if ($processo->getSiglaTribunal() !== $siglaTribunal) {
-            $processo->setSiglaTribunal($siglaTribunal);
+        // A sigla do tribunal é derivada do número (padrão CNJ), não mais informada no form.
+        // Se o número for legado/não-CNJ, preserva a sigla atual — nunca sobrescreve com vazio.
+        try {
+            $siglaTribunal = $this->tribunalResolver->resolverSigla($numeroProcesso);
+            if ($processo->getSiglaTribunal() !== $siglaTribunal) {
+                $processo->setSiglaTribunal($siglaTribunal);
+            }
+        } catch (TribunalNaoIdentificadoException $e) {
+            // Mantém $processo->getSiglaTribunal() como está.
         }
 
         $classeProcessual = (string) ($data['classeProcessual'] ?? '');

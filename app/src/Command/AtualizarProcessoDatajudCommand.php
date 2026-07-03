@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Processo\Entity\Processo;
+use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Repository\ProcessoRepository;
 use App\Processo\Service\DatajudClient;
 use App\Processo\Service\DatajudProcessoMapper;
@@ -41,14 +42,12 @@ class AtualizarProcessoDatajudCommand extends Command
     {
         $this
             ->addArgument('processoId', InputArgument::REQUIRED, 'ID do processo')
-            ->addArgument('tribunalAlias', InputArgument::REQUIRED, 'Alias do tribunal (ex: api_publica_tjsp)')
-            ->addArgument('numeroProcesso', InputArgument::REQUIRED, 'Numero do processo (CNJ)');
+            ->addArgument('numeroProcesso', InputArgument::REQUIRED, 'Numero do processo (CNJ) — o tribunal é derivado automaticamente do número');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $processoId = (int) $input->getArgument('processoId');
-        $tribunalAlias = (string) $input->getArgument('tribunalAlias');
         $numeroProcesso = (string) $input->getArgument('numeroProcesso');
 
         $processoBase = $this->processoRepository->find($processoId);
@@ -57,7 +56,12 @@ class AtualizarProcessoDatajudCommand extends Command
             return Command::FAILURE;
         }
 
-        $response = $this->client->searchByNumeroProcesso($tribunalAlias, $numeroProcesso);
+        try {
+            $response = $this->client->searchByNumeroProcesso($numeroProcesso);
+        } catch (TribunalNaoIdentificadoException $e) {
+            $output->writeln('<error>Nao foi possivel identificar o tribunal a partir do numero informado.</error>');
+            return Command::FAILURE;
+        }
         $hits = $response['hits']['hits'] ?? [];
 
         if ($hits === []) {

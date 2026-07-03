@@ -9,26 +9,37 @@ class DatajudClient
     private HttpClientInterface $httpClient;
     private string $apiKey;
     private string $baseUrl;
+    private TribunalCnjResolver $tribunalResolver;
 
-    public function __construct(HttpClientInterface $httpClient, string $datajudApiKey, string $datajudBaseUrl)
-    {
+    public function __construct(
+        HttpClientInterface $httpClient,
+        string $datajudApiKey,
+        string $datajudBaseUrl,
+        TribunalCnjResolver $tribunalResolver
+    ) {
         $this->httpClient = $httpClient;
         $this->apiKey = $datajudApiKey;
         $this->baseUrl = rtrim($datajudBaseUrl, '/');
+        $this->tribunalResolver = $tribunalResolver;
     }
 
-    public function searchByNumeroProcesso(string $tribunalAlias, string $numeroProcesso): array
+    /**
+     * @throws \App\Processo\Exception\TribunalNaoIdentificadoException se o tribunal não puder
+     *         ser derivado do número (formato inválido ou código desconhecido)
+     */
+    public function searchByNumeroProcesso(string $numeroProcesso): array
     {
         if (trim($this->apiKey) === '') {
             throw new \RuntimeException('DATAJUD_API_KEY nao configurada.');
         }
 
-        $numeroProcesso = $this->normalizeNumeroProcessoCnj($numeroProcesso);
-        if ($numeroProcesso === '') {
-            throw new \InvalidArgumentException('Numero do processo invalido.');
-        }
+        // O tribunal é derivado do próprio número (padrão CNJ) — o usuário não informa a sigla.
+        // Resolve antes de qualquer chamada externa: número fora do padrão lança aqui, não gasta rede.
+        $tribunalAlias = $this->tribunalResolver->resolverAlias($numeroProcesso);
 
-        $url = $this->baseUrl . '/api_publica_' . trim($tribunalAlias, '/') . '/_search';
+        $numeroProcesso = $this->normalizeNumeroProcessoCnj($numeroProcesso);
+
+        $url = $this->baseUrl . '/api_publica_' . $tribunalAlias . '/_search';
 
         try {
             $response = $this->httpClient->request('POST', $url, [

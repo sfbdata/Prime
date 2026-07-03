@@ -11,6 +11,7 @@ use App\Entity\Tenant\TenantRole;
 use App\Processo\Controller\ProcessoController;
 use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\Processo;
+use App\Processo\Service\DatajudClient;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -64,10 +65,89 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
             [],
             [],
             ['CONTENT_TYPE' => 'application/json'],
-            (string) json_encode(['numeroProcesso' => '00010203020255500', 'tribunalAlias' => 'api_publica_tjsp']),
+            (string) json_encode(['numeroProcesso' => '00010203020255500']),
         );
 
         self::assertResponseStatusCodeSame(403, 'sem o módulo de processos não pode disparar a API externa');
+    }
+
+    #[TestDox('Busca no CNJ deriva a sigla do número e devolve os dados (happy path)')]
+    public function testDatajudSearchDerivaSiglaDoNumero(): void
+    {
+        $client  = static::createClient();
+        $client->disableReboot(); // preserva o container (e o mock) durante a requisição
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant, 'gestorSearch_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        // Mocka o client (padrão do domínio): evita chamada real ao CNJ. A sigla, porém,
+        // é derivada pelo controller a partir do número (resolver real) — é o que asseguramos.
+        $mock = $this->createMock(DatajudClient::class);
+        $mock->method('searchByNumeroProcesso')->willReturn([
+            'hits' => ['hits' => [
+                ['_source' => ['numeroProcesso' => '00012345620208260100', 'tribunal' => 'TJSP']],
+            ]],
+        ]);
+        static::getContainer()->set(DatajudClient::class, $mock);
+
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            // TJSP (J=8, TR=26), mascarado.
+            (string) json_encode(['numeroProcesso' => '0001234-56.2020.8.26.0100']),
+        );
+
+        self::assertResponseIsSuccessful();
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($payload['success'] ?? false);
+        self::assertSame('TJSP', $payload['data']['siglaTribunal'] ?? null, 'a sigla vem derivada do número');
+    }
+
+    #[TestDox('Número fora do padrão CNJ retorna 422 amigável (client real, sem tocar a rede)')]
+    public function testDatajudSearchNumeroInvalidoRetorna422(): void
+    {
+        $client  = static::createClient();
+        $tenant  = $this->criarTenant();
+        $gestor  = $this->criarGestor($tenant, 'gestor422_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        // Client REAL: o resolver lança para um número não-CNJ ANTES de qualquer chamada HTTP,
+        // então nenhuma requisição externa acontece — o controller devolve 422.
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['numeroProcesso' => '123-nao-e-cnj']),
+        );
+
+        self::assertResponseStatusCodeSame(422);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertArrayHasKey('error', $payload);
+    }
+
+    #[TestDox('Form de novo processo renderiza o Tribunal como somente-leitura (sem select nem tribunalAlias)')]
+    public function testFormularioNovoTribunalReadonly(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorForm_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $client->request('GET', '/processos/novo');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        self::assertMatchesRegularExpression('/<input[^>]*id="siglaTribunal"[^>]*readonly/', $html, 'o campo Tribunal deve ser um input read-only');
+        self::assertStringNotContainsString('select2-tribunal', $html, 'o antigo select de tribunal foi removido');
+        self::assertStringNotContainsString('tribunalAlias', $html, 'o JS não envia mais a sigla do tribunal');
     }
 
     #[TestDox('Editar/deletar processo de outro tenant retorna 404')]
