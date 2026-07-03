@@ -412,6 +412,52 @@ class ProcessoController extends AbstractController
 
         $this->syncPartesFromRequest($processo, is_array($data['partes'] ?? null) ? $data['partes'] : []);
         $this->syncMovimentacoesFromRequest($processo, is_array($data['movimentacoes'] ?? null) ? $data['movimentacoes'] : []);
+        $this->syncAssuntosFromRequest($processo, is_array($data['assuntos'] ?? null) ? $data['assuntos'] : []);
+    }
+
+    private function syncAssuntosFromRequest(Processo $processo, array $assuntosData): void
+    {
+        $existingById = [];
+        foreach ($processo->getAssuntos() as $assunto) {
+            $id = $assunto->getId();
+            if ($id !== null) {
+                $existingById[(string) $id] = $assunto;
+            }
+        }
+
+        $kept = [];
+
+        foreach ($assuntosData as $assuntoData) {
+            $nome = trim((string) ($assuntoData['nome'] ?? ''));
+            if ($nome === '') {
+                continue;
+            }
+
+            $id = trim((string) ($assuntoData['id'] ?? ''));
+            $assunto = ($id !== '' && isset($existingById[$id])) ? $existingById[$id] : new AssuntoProcesso();
+
+            if (!$processo->getAssuntos()->contains($assunto)) {
+                $processo->addAssunto($assunto);
+                $assunto->setTenant($processo->getTenant());
+            }
+
+            if ($assunto->getNome() !== $nome) {
+                $assunto->setNome($nome);
+            }
+
+            $codigo = $this->intOrNull($assuntoData['codigo'] ?? null);
+            if ($assunto->getCodigo() !== $codigo) {
+                $assunto->setCodigo($codigo);
+            }
+
+            $kept[spl_object_id($assunto)] = true;
+        }
+
+        foreach ($processo->getAssuntos()->toArray() as $assuntoExistente) {
+            if (!isset($kept[spl_object_id($assuntoExistente)])) {
+                $processo->removeAssunto($assuntoExistente);
+            }
+        }
     }
 
     private function syncPartesFromRequest(Processo $processo, array $partesData): void

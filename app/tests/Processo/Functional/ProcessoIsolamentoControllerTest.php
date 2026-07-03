@@ -229,6 +229,101 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertSame($datajudId, $processo->getDatajudId());
     }
 
+    #[TestDox('Criar e editar processo pela web adiciona/reconcilia a coleção de assuntos (linhas do formulário)')]
+    public function testCriarEEditarPersisteColecaoDeAssuntos(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $numero = '5551111' . (++$this->seq) . '20238260100';
+
+        // --- Criar com 2 assuntos ---
+        $client->request('POST', '/processos/novo', [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+            'assuntos'          => [
+                ['nome' => 'Dano Moral', 'codigo' => '10433'],
+                ['nome' => 'Obrigações', 'codigo' => '7681'],
+            ],
+        ]);
+        self::assertResponseRedirects();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+
+        $processo = $em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $numero]);
+        self::assertNotNull($processo);
+        self::assertCount(2, $processo->getAssuntos(), 'os 2 assuntos do formulário devem persistir');
+
+        // Código TPU persistido + tenant correto (isolamento) para cada assunto criado pelo form.
+        $porNome = [];
+        foreach ($processo->getAssuntos() as $a) {
+            $porNome[$a->getNome()] = $a;
+            self::assertSame(
+                (int) $tenant->getId(),
+                (int) $a->getTenant()->getId(),
+                'assunto criado pelo formulário deve nascer no tenant do usuário logado'
+            );
+        }
+        self::assertSame(10433, $porNome['DANO MORAL']->getCodigo(), 'código TPU deve persistir');
+        self::assertSame(7681, $porNome['OBRIGAÇÕES']->getCodigo());
+
+        // Guarda o id de "Dano Moral" para mantê-lo na edição (reconciliação por id).
+        $idDanoMoral = $porNome['DANO MORAL']->getId();
+        self::assertNotNull($idDanoMoral);
+        $processoId = (int) $processo->getId();
+        $this->limparIdentityMap();
+
+        // --- Editar: mantém "Dano Moral" (por id), remove "Obrigações", adiciona "Verbas Rescisórias" ---
+        $this->logarComTenant($client, $gestor, $tenant);
+        $client->request('POST', "/processos/{$processoId}/editar", [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+            'assuntos'          => [
+                ['id' => (string) $idDanoMoral, 'nome' => 'Dano Moral', 'codigo' => '10433'],
+                ['nome' => 'Verbas Rescisórias', 'codigo' => '13970'],
+            ],
+        ]);
+        self::assertResponseRedirects();
+
+        $em->clear();
+        $recarregado = $em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $numero]);
+        $nomes = array_map(static fn($a) => $a->getNome(), $recarregado->getAssuntos()->toArray());
+        sort($nomes);
+
+        self::assertSame(['DANO MORAL', 'VERBAS RESCISÓRIAS'], $nomes, 'edição reconcilia: mantém, remove e adiciona');
+        // O id de Dano Moral foi preservado (não recriado) e tudo segue no tenant correto.
+        $mantido = false;
+        foreach ($recarregado->getAssuntos() as $a) {
+            if ($a->getId() === $idDanoMoral) {
+                $mantido = true;
+            }
+            self::assertSame(
+                (int) $tenant->getId(),
+                (int) $a->getTenant()->getId(),
+                'assunto após edição (inclusive o novo) deve permanecer no tenant correto'
+            );
+        }
+        self::assertTrue($mantido, 'o assunto mantido deve reter o mesmo id (reconciliação por id)');
+    }
+
     // ----------------------------------------------------------------- helpers
 
     private function limparIdentityMap(): void

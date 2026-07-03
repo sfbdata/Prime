@@ -75,14 +75,13 @@ spec → corrigir → rodar suíte. Reforçar teste **cross-tenant** ao criar
 
 ## Decisões de escopo registradas durante a implementação
 
-- **Fase 2 — coleção de assuntos no formulário web:** a coleção completa de assuntos é
-  capturada e persistida pelo **mapper** (CLI sync + mapeamento do preview) e exibida no
-  `show`. O formulário manual de novo/editar processo continua enviando apenas o **assunto
-  principal** (string), como antes — os assuntos adicionais entram no próximo `sync` via CLI.
-  Motivo: são dados taxonômicos da API, não editados à mão; evitar uma 3ª seção de linhas
-  editáveis no form. Um processo criado só pela web mostra o assunto principal até o 1º sync.
-  Follow-up opcional: espelhar o padrão de linhas de `movimentacoes`/`partes` se quiserem
-  persistir a coleção direto do preview web.
+- **Fase 2 — coleção de assuntos no formulário web (RESOLVIDO):** inicialmente a coleção só
+  era capturada pelo mapper (CLI sync + preview). A pedido, foi adicionada a **aba "Assuntos"**
+  no formulário de novo/editar processo, espelhando o padrão de linhas de `movimentacoes`/`partes`:
+  linhas editáveis (nome + código TPU), botões adicionar/remover, preenchimento automático pela
+  busca no CNJ, e `syncAssuntosFromRequest` no controller (reconcilia por id: mantém/edita/remove/
+  adiciona). O assunto principal (string) segue na aba Informações. Coberto por functional test
+  (criar + editar reconciliando) e smoke real no browser (processo 46). Suíte 1113/1113.
 - **Purga de tenant:** `assunto_processo` entrou na `ORDEM_DELECAO` do `PurgarEscritorioUseCase`
   (antes de `processo`), igual a `movimentacao_processo`/`parte_processo`. `AssuntoProcesso`
   entrou em `NAO_AUDITAVEIS` (fatia Processo não auditada, decisão de produto).
