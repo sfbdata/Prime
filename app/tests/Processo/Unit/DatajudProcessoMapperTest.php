@@ -186,6 +186,60 @@ final class DatajudProcessoMapperTest extends TestCase
         self::assertNull($mov->getOrgaoCodigo());
     }
 
+    #[TestDox('datajudRaw armazena o _source inteiro (rede de segurança / auditoria)')]
+    public function testDatajudRawArmazenaSourceInteiro(): void
+    {
+        $source = $this->sourceReal();
+        $processo = $this->mapper()->mapFromSource(new Processo(), $source);
+
+        self::assertSame($source, $processo->getDatajudRaw(), 'o _source completo deve ser guardado como snapshot');
+    }
+
+    #[TestDox('dataAjuizamento no formato compacto AAAAMMDDHHMMSS é parseado (antes virava null)')]
+    public function testDataAjuizamentoFormatoCompacto(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0006',
+            'dataAjuizamento' => '20211021222406', // AAAAMMDDHHMMSS (ex.: TJAL/SAJ)
+        ]);
+
+        self::assertNotNull($processo->getDataDistribuicao(), 'formato compacto não pode mais virar null');
+        self::assertSame('2021-10-21', $processo->getDataDistribuicao()->format('Y-m-d'));
+    }
+
+    #[TestDox('dataAjuizamento em ISO continua funcionando (ex.: PJe)')]
+    public function testDataAjuizamentoIsoContinuaFuncionando(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0007',
+            'dataAjuizamento' => '2026-05-28T10:00:00.000Z',
+        ]);
+
+        self::assertSame('2026-05-28', $processo->getDataDistribuicao()->format('Y-m-d'));
+    }
+
+    #[TestDox('Data compacta inválida (overflow, ex.: mês 99) vira null — não uma data plausível-porém-errada')]
+    public function testDataCompactaInvalidaViraNull(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0010',
+            'dataAjuizamento' => '20219921222406', // mês 99: createFromFormat faria overflow para 2029-03
+        ]);
+
+        self::assertNull($processo->getDataDistribuicao(), 'data inválida não pode ser silenciosamente corrigida para uma data errada');
+    }
+
+    #[TestDox('Data em formato compacto AAAAMMDD (8 dígitos, sem hora) também parseia')]
+    public function testDataFormatoCompactoOitoDigitos(): void
+    {
+        $processo = $this->mapper()->mapFromSource(new Processo(), [
+            'numeroProcesso' => '0008',
+            'dataAjuizamento' => '20240115',
+        ]);
+
+        self::assertSame('2024-01-15', $processo->getDataDistribuicao()->format('Y-m-d'));
+    }
+
     #[TestDox('orgaoJulgador em formato string (fallback legado) não quebra a leitura dos códigos')]
     public function testOrgaoJulgadorStringNaoQuebra(): void
     {

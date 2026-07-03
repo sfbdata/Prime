@@ -90,6 +90,12 @@ class Processo implements TenantAware
     #[ORM\Column(length: 120, nullable: true)]
     private ?string $datajudId = null;
 
+    // Snapshot bruto do _source do Datajud: rede de segurança/auditoria e campos futuros do CNJ
+    // ficam disponíveis sem migration. Preenchido só pelo mapper (sync/preview), nunca pelo form.
+    // jsonb (não json) para permitir consulta/índice GIN em campos futuros.
+    #[ORM\Column(type: 'json', nullable: true, options: ['jsonb' => true])]
+    private ?array $datajudRaw = null;
+
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $processoPai = null;
 
@@ -454,6 +460,23 @@ class Processo implements TenantAware
     public function setDatajudId(?string $datajudId): self
     {
         $this->datajudId = $datajudId !== null ? trim($datajudId) : null;
+        return $this;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getDatajudRaw(): ?array
+    {
+        return $this->datajudRaw;
+    }
+
+    /**
+     * @param array<string, mixed>|null $datajudRaw
+     */
+    public function setDatajudRaw(?array $datajudRaw): self
+    {
+        $this->datajudRaw = ($datajudRaw === null || $datajudRaw === []) ? null : $datajudRaw;
         return $this;
     }
 

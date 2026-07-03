@@ -39,6 +39,9 @@ class DatajudProcessoMapper
         $this->replaceMovimentacoes($processo, $source['movimentos'] ?? $source['movimentacoes'] ?? []);
         $this->replaceAssuntos($processo, $source['assuntos'] ?? []);
 
+        // Snapshot bruto do _source inteiro (rede de segurança / auditoria / futuros campos do CNJ).
+        $processo->setDatajudRaw($source);
+
         return $processo;
     }
 
@@ -252,6 +255,18 @@ class DatajudProcessoMapper
             return null;
         }
 
+        $value = trim($value);
+
+        // Formato compacto do Datajud (ex.: dataAjuizamento no PJe/SAJ): AAAAMMDDHHMMSS (14 dígitos)
+        // ou AAAAMMDD (8). new \DateTime() não parseia esses — sem isto, dataAjuizamento virava null.
+        if (preg_match('/^\d{14}$/', $value)) {
+            return $this->fromCompactFormat('YmdHis', $value);
+        }
+
+        if (preg_match('/^\d{8}$/', $value)) {
+            return $this->fromCompactFormat('!Ymd', $value);
+        }
+
         try {
             // Colunas dataDistribuicao/dataBaixa/dataMovimentacao são type:'date' (Doctrine DateType),
             // que só aceita \DateTime mutável no flush — DateTimeImmutable estoura InvalidType.
@@ -260,6 +275,26 @@ class DatajudProcessoMapper
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    /**
+     * createFromFormat faz overflow silencioso em data inválida (mês 99, 30/fev, zeros) e AINDA
+     * devolve objeto — sem checar getLastErrors, gravaríamos uma data errada. Melhor null (honesto)
+     * do que uma data plausível-porém-falsa.
+     */
+    private function fromCompactFormat(string $format, string $value): ?\DateTime
+    {
+        $dt = \DateTime::createFromFormat($format, $value);
+        if ($dt === false) {
+            return null;
+        }
+
+        $errors = \DateTime::getLastErrors();
+        if ($errors !== false && ((($errors['warning_count'] ?? 0) > 0) || (($errors['error_count'] ?? 0) > 0))) {
+            return null;
+        }
+
+        return $dt;
     }
 
     private function parseDateTime(?string $value): ?\DateTimeImmutable

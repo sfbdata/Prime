@@ -92,8 +92,9 @@ spec → corrigir → rodar suíte. Reforçar teste **cross-tenant** ao criar
   estourava `InvalidType` com dados reais (datas ISO do PJe). Corrigido para `\DateTime`
   (igual ao `parseDateOrNull` do controller). Regressão coberta em `DatajudIsolamentoTest`.
   Latente antes porque os stubs de teste não tinham datas e o preview web nunca dá flush.
-  **Nota Fase 4:** o parse do `dataAjuizamento` no formato compacto (`AAAAMMDDHHMMSS`, ex.: TJAL)
-  ainda retorna null — segue pendente para a Fase 4 (é bug de parsing, diferente deste, de tipo).
+  **Resolvido na Fase 4:** o parse do `dataAjuizamento` no formato compacto (`AAAAMMDDHHMMSS` / `AAAAMMDD`)
+  passou a ser tratado em `parseDateOnly` (via `createFromFormat` + rejeição de overflow por `getLastErrors`,
+  para não gravar data plausível-porém-errada). Antes retornava null.
 - **Fase 3 — `dataMovimentacao` mantida como `date` (datetime descartado):** o plano previa
   virar `datetime` para guardar a hora do movimento. Descartado por custo/benefício: tornar a
   coluna datetime obrigaria o input do form a virar `datetime-local` (senão qualquer edição do

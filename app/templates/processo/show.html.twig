@@ -277,6 +277,24 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                {% if processo.datajudRaw %}
+                                    <hr class="my-3">
+                                    <div class="accordion" id="datajudRawAccordion">
+                                        <div class="accordion-item">
+                                            <h2 class="accordion-header">
+                                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#datajudRawCollapse" aria-expanded="false" aria-controls="datajudRawCollapse">
+                                                    <i class="bi bi-braces me-1"></i> Dados brutos do CNJ (JSON)
+                                                </button>
+                                            </h2>
+                                            <div id="datajudRawCollapse" class="accordion-collapse collapse" data-bs-parent="#datajudRawAccordion">
+                                                <div class="accordion-body">
+                                                    <pre class="small mb-0" style="max-height: 400px; overflow: auto;">{{ processo.datajudRaw|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES')) }}</pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
                             </div>
 
                             {# Tab: Tarefas #}
