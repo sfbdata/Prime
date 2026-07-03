@@ -75,10 +75,10 @@ class ProcessoRepository extends ServiceEntityRepository
         $termo = trim($termo);
         if ($termo !== '') {
             $qb->andWhere(
-                'p.numeroProcesso LIKE :termo'
-                . ' OR LOWER(p.classeProcessual) LIKE LOWER(:termo)'
-                . ' OR LOWER(p.assuntoProcessual) LIKE LOWER(:termo)'
-                . ' OR LOWER(p.siglaTribunal) LIKE LOWER(:termo)'
+                'UNACCENT(LOWER(p.numeroProcesso)) LIKE UNACCENT(LOWER(:termo))'
+                . ' OR UNACCENT(LOWER(p.classeProcessual)) LIKE UNACCENT(LOWER(:termo))'
+                . ' OR UNACCENT(LOWER(p.assuntoProcessual)) LIKE UNACCENT(LOWER(:termo))'
+                . ' OR UNACCENT(LOWER(p.siglaTribunal)) LIKE UNACCENT(LOWER(:termo))'
             )->setParameter('termo', '%' . $termo . '%');
         }
 
@@ -179,10 +179,10 @@ class ProcessoRepository extends ServiceEntityRepository
         $busca = trim((string) ($filtros['busca'] ?? ''));
         if ($busca !== '') {
             $qb->andWhere(
-                'p.numeroProcesso LIKE :busca'
-                . ' OR LOWER(p.classeProcessual) LIKE LOWER(:busca)'
-                . ' OR LOWER(p.assuntoProcessual) LIKE LOWER(:busca)'
-                . ' OR LOWER(p.siglaTribunal) LIKE LOWER(:busca)'
+                'UNACCENT(LOWER(p.numeroProcesso)) LIKE UNACCENT(LOWER(:busca))'
+                . ' OR UNACCENT(LOWER(p.classeProcessual)) LIKE UNACCENT(LOWER(:busca))'
+                . ' OR UNACCENT(LOWER(p.assuntoProcessual)) LIKE UNACCENT(LOWER(:busca))'
+                . ' OR UNACCENT(LOWER(p.siglaTribunal)) LIKE UNACCENT(LOWER(:busca))'
             )->setParameter('busca', '%' . $busca . '%');
         }
 

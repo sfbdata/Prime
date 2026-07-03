@@ -411,14 +411,14 @@ class PastaRepository extends ServiceEntityRepository
         if (!empty($filters['busca'])) {
             $qb->andWhere(
                 $qb->expr()->orX(
-                    'LOWER(p.nup) LIKE :busca',
-                    'LOWER(p.nomeCliente) LIKE :busca',
-                    'LOWER(p.nomeAcao) LIKE :busca',
-                    'LOWER(cpf.nomeCompleto) LIKE :busca',
-                    'LOWER(cpj.razaoSocial) LIKE :busca',
-                    'LOWER(proc.classeProcessual) LIKE :busca',
-                    'LOWER(proc.numeroProcesso) LIKE :busca',
-                    'LOWER(proc.assuntoProcessual) LIKE :busca',
+                    'UNACCENT(LOWER(p.nup)) LIKE UNACCENT(:busca)',
+                    'UNACCENT(LOWER(p.nomeCliente)) LIKE UNACCENT(:busca)',
+                    'UNACCENT(LOWER(p.nomeAcao)) LIKE UNACCENT(:busca)',
+                    'UNACCENT(LOWER(cpf.nomeCompleto)) LIKE UNACCENT(:busca)',
+                    'UNACCENT(LOWER(cpj.razaoSocial)) LIKE UNACCENT(:busca)',
+                    'UNACCENT(LOWER(proc.classeProcessual)) LIKE UNACCENT(:busca)',
+                    'UNACCENT(LOWER(proc.numeroProcesso)) LIKE UNACCENT(:busca)',
+                    'UNACCENT(LOWER(proc.assuntoProcessual)) LIKE UNACCENT(:busca)',
                 )
             )->setParameter('busca', '%' . mb_strtolower($filters['busca']) . '%');
         }

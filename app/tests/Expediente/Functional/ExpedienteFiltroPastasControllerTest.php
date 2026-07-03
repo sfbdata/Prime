@@ -46,6 +46,27 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString($outra->getNup(), $body);
     }
 
+    #[TestDox('acervo geral: busca livre ignora acento e ç (reclamacao acha "Reclamação")')]
+    public function testBuscaLivreIgnoraAcentoECedilha(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Acento', admin: true);
+
+        $sufixo = strtoupper(uniqid());
+        $match  = $this->criarPasta($tenant, 'ACENTO-' . $sufixo, nomeAcao: 'Reclamação Trabalhista');
+        $outra  = $this->criarPasta($tenant, 'OUTRA-' . $sufixo, nomeAcao: 'Assunto Diferente');
+
+        $this->logarComTenant($client, $admin, $tenant);
+        // termo SEM ç, SEM ~ e em minúsculas ("reclamacao") deve achar "Reclamação"
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?busca=' . rawurlencode('reclamacao'));
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString($match->getNup(), $body);
+        self::assertStringNotContainsString($outra->getNup(), $body);
+    }
+
     #[TestDox('acervo geral: filtro de prioridade retorna só as pastas urgentes')]
     public function testFiltraPorPrioridade(): void
     {

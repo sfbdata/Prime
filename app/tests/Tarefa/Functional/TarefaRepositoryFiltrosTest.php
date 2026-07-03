@@ -73,6 +73,26 @@ final class TarefaRepositoryFiltrosTest extends KernelTestCase
         self::assertSame($achavel->getId(), $resultado[0]->getId());
     }
 
+    #[TestDox('Busca ignora acento e ç: "peticao" acha "Petição"')]
+    public function testBuscaIgnoraAcento(): void
+    {
+        $tenant = TenantFactory::createOne()->_real();
+        $pasta  = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        $eu     = UserFactory::createOne()->_real();
+
+        $achavel = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Petição inicial'])->_real();
+        $achavel->addResponsavel($eu);
+        $outra = TarefaFactory::createOne(['pasta' => $pasta, 'titulo' => 'Agendar reunião'])->_real();
+        $outra->addResponsavel($eu);
+        $this->em->flush();
+
+        // termo sem ç, sem ~ e minúsculo deve casar com "Petição"
+        $resultado = $this->repo->findByResponsavelComFiltros($eu, ['busca' => 'peticao']);
+
+        self::assertCount(1, $resultado);
+        self::assertSame($achavel->getId(), $resultado[0]->getId());
+    }
+
     #[TestDox('Faceta de status estreita para o status pedido')]
     public function testFacetaStatus(): void
     {

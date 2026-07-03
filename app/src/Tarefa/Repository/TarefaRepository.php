@@ -56,7 +56,7 @@ class TarefaRepository extends ServiceEntityRepository
 
         $busca = trim((string) ($filtros['busca'] ?? ''));
         if ($busca !== '') {
-            $qb->andWhere('LOWER(t.titulo) LIKE :busca OR LOWER(t.descricao) LIKE :busca')
+            $qb->andWhere('UNACCENT(LOWER(t.titulo)) LIKE UNACCENT(:busca) OR UNACCENT(LOWER(t.descricao)) LIKE UNACCENT(:busca)')
                ->setParameter('busca', '%' . mb_strtolower($busca) . '%');
         }
 

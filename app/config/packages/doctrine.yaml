@@ -87,6 +87,8 @@ doctrine:
         dql:
             numeric_functions:
                 CAST_INT: App\Shared\Doctrine\DQL\CastInteger
+            string_functions:
+                UNACCENT: App\Shared\Doctrine\DQL\Unaccent
 
 when@test:
     doctrine:

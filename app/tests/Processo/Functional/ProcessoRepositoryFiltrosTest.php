@@ -70,6 +70,20 @@ final class ProcessoRepositoryFiltrosTest extends KernelTestCase
         self::assertSame(1, $this->repo->countByFiltros($tenantA, ['busca' => 'execução']));
     }
 
+    #[TestDox('Busca livre ignora acento e ç: "reclamacao" acha "Reclamação"')]
+    public function testBuscaLivreIgnoraAcento(): void
+    {
+        $tenant = $this->criarTenant();
+        $this->criarProcesso($tenant, 'TJSP', 'Reclamação Trabalhista');
+        $this->criarProcesso($tenant, 'TRT2', 'Coisa Diferente');
+
+        // termo sem ç, sem ~ e minúsculo deve casar com "Reclamação"
+        $achou = $this->repo->findByFiltrosPaginado($tenant, ['busca' => 'reclamacao'], 1, 25, '', 'desc');
+        self::assertCount(1, $achou);
+        self::assertStringContainsStringIgnoringCase('Reclamação', (string) $achou[0]->getClasseProcessual());
+        self::assertSame(1, $this->repo->countByFiltros($tenant, ['busca' => 'reclamacao']));
+    }
+
     #[TestDox('Faceta de tribunal e situação estreitam o conjunto')]
     public function testFacetasTribunalESituacao(): void
     {
