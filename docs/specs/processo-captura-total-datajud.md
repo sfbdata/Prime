@@ -48,6 +48,8 @@ Endpoint: `POST https://api-publica.datajud.cnj.jus.br/api_publica_<sigla>/_sear
    resumo concatenado para exibição.
 3. **Códigos TPU** (classe/assunto/órgão/sistema/formato) guardados junto dos nomes.
 4. **`datajudRaw` (JSONB)** com o `_source` inteiro — rede de segurança e auditoria.
+   *(Decisão pós-implementação: o colapsável que exibia esse JSON no `show` foi removido a pedido —
+   é ruído técnico para o usuário final. A coluna permanece: é invisível e serve de auditoria/futuro.)*
 5. **`dataMovimentacao` vira `datetime`** (hoje é `date` e perde a hora).
 
 ## Faseamento
