@@ -2,6 +2,7 @@
 
 namespace App\Processo\Service;
 
+use App\Processo\Entity\AssuntoProcesso;
 use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\ParteProcesso;
 use App\Processo\Entity\Processo;
@@ -27,6 +28,7 @@ class DatajudProcessoMapper
         $processo->setAssuntoProcessual($this->stringOrDefault($this->resolveAssunto($source['assuntos'] ?? null)));
         $processo->setSituacaoProcesso($this->stringOrDefault($source['situacaoProcesso'] ?? $source['situacao'] ?? 'EM_ANDAMENTO'));
         $processo->setInstancia($this->stringOrDefault($source['grau'] ?? $source['instancia'] ?? 'G1'));
+        $this->mapMetadadosDatajud($processo, $source);
         $this->mapProcessoPai($processo, $source);
 
         $processo->setDataDistribuicao($this->parseDateOnly($source['dataAjuizamento'] ?? $source['dataDistribuicao'] ?? null));
@@ -35,8 +37,51 @@ class DatajudProcessoMapper
 
         $this->replacePartes($processo, $source['partes'] ?? []);
         $this->replaceMovimentacoes($processo, $source['movimentos'] ?? $source['movimentacoes'] ?? []);
+        $this->replaceAssuntos($processo, $source['assuntos'] ?? []);
+
+        // Snapshot bruto do _source inteiro (rede de segurança / auditoria / futuros campos do CNJ).
+        $processo->setDatajudRaw($source);
 
         return $processo;
+    }
+
+    /**
+     * Metadados escalares do Datajud (sigilo, formato, sistema, códigos TPU e id do doc no ES).
+     * O `?? null` usa semântica de isset(): chave ausente OU `orgaoJulgador` vindo como string
+     * (fallback legado) resolvem para null sem emitir warning.
+     */
+    private function mapMetadadosDatajud(Processo $processo, array $source): void
+    {
+        $processo->setNivelSigilo($this->nullableInt($source['nivelSigilo'] ?? null));
+        $processo->setFormato($this->nullableString($source['formato']['nome'] ?? null));
+        $processo->setFormatoCodigo($this->nullableInt($source['formato']['codigo'] ?? null));
+        $processo->setSistema($this->nullableString($source['sistema']['nome'] ?? null));
+        $processo->setSistemaCodigo($this->nullableInt($source['sistema']['codigo'] ?? null));
+        $processo->setClasseCodigo($this->nullableInt($source['classe']['codigo'] ?? null));
+        $processo->setOrgaoJulgadorCodigo($this->nullableString($source['orgaoJulgador']['codigo'] ?? null));
+        $processo->setOrgaoJulgadorMunicipioIbge($this->nullableInt($source['orgaoJulgador']['codigoMunicipioIBGE'] ?? null));
+        $processo->setDatajudId($this->nullableString($source['id'] ?? null));
+    }
+
+    private function nullableString(mixed $value): ?string
+    {
+        // !is_scalar cobre null E valores inesperados (array/objeto) da API sem emitir warning no cast.
+        if (!is_scalar($value)) {
+            return null;
+        }
+
+        $texto = trim((string) $value);
+
+        return $texto === '' ? null : $texto;
+    }
+
+    private function nullableInt(mixed $value): ?int
+    {
+        if ($value === null || $value === '' || !is_numeric($value)) {
+            return null;
+        }
+
+        return (int) $value;
     }
 
     private function mapProcessoPai(Processo $processo, array $source): void
@@ -109,12 +154,81 @@ class DatajudProcessoMapper
             $movimentacao->setTipo(isset($movimento['codigo']) ? (string) $movimento['codigo'] : null);
             $orgaoMovimento = $movimento['orgaoJulgador']['nomeOrgao'] ?? $movimento['orgaoJulgador']['nome'] ?? null;
             $movimentacao->setOrgao($this->fixOrgaoJulgador($orgaoMovimento));
+            $movimentacao->setOrgaoCodigo($this->nullableString($movimento['orgaoJulgador']['codigo'] ?? null));
+            $movimentacao->setComplementos($this->normalizeComplementos($movimento['complementosTabelados'] ?? null));
+            // dataHora traz data+hora, mas dataMovimentacao é coluna 'date' (decisão da Fase 3):
+            // o DateType do Doctrine trunca a hora no flush — guardamos só a data, de propósito.
             $movimentacao->setDataMovimentacao($this->parseDateOnly($movimento['dataHora'] ?? null));
             if ($processo->getTenant() !== null) {
                 $movimentacao->setTenant($processo->getTenant());
             }
             $processo->addMovimentacao($movimentacao);
         }
+    }
+
+    /**
+     * Substitui a coleção de assuntos pela lista completa do Datajud (cada item {codigo, nome}).
+     * O assunto principal continua guardado como string em `assuntoProcessual` (via resolveAssunto).
+     *
+     * @param mixed $assuntos
+     */
+    private function replaceAssuntos(Processo $processo, $assuntos): void
+    {
+        foreach ($processo->getAssuntos() as $assunto) {
+            $processo->removeAssunto($assunto);
+        }
+
+        if (!is_array($assuntos)) {
+            return;
+        }
+
+        foreach ($assuntos as $assuntoData) {
+            // Mesmo caso defensivo de resolveAssunto: a API às vezes aninha como array de arrays.
+            if (is_array($assuntoData) && isset($assuntoData[0]) && is_array($assuntoData[0])) {
+                $assuntoData = $assuntoData[0];
+            }
+
+            if (!is_array($assuntoData)) {
+                continue;
+            }
+
+            $nome = $this->stringOrDefault($assuntoData['nome'] ?? null, '');
+            if ($nome === '') {
+                continue;
+            }
+
+            $assunto = new AssuntoProcesso();
+            $assunto->setNome($nome);
+            $assunto->setCodigo($this->nullableInt($assuntoData['codigo'] ?? null));
+            // Busca efêmera (processo sem tenant) não propaga; só quando há tenant (CLI/persistência).
+            if ($processo->getTenant() !== null) {
+                $assunto->setTenant($processo->getTenant());
+            }
+            $processo->addAssunto($assunto);
+        }
+    }
+
+    /**
+     * complementosTabelados do Datajud: mantém apenas os itens que são arrays (cada um com
+     * codigo/valor/nome/descricao). Vazio ou não-lista vira null.
+     *
+     * @param mixed $complementos
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function normalizeComplementos($complementos): ?array
+    {
+        if (!is_array($complementos)) {
+            return null;
+        }
+
+        $normalizados = [];
+        foreach ($complementos as $complemento) {
+            if (is_array($complemento)) {
+                $normalizados[] = $complemento;
+            }
+        }
+
+        return $normalizados === [] ? null : $normalizados;
     }
 
     private function resolveAssunto($assuntos): ?string
@@ -141,11 +255,46 @@ class DatajudProcessoMapper
             return null;
         }
 
+        $value = trim($value);
+
+        // Formato compacto do Datajud (ex.: dataAjuizamento no PJe/SAJ): AAAAMMDDHHMMSS (14 dígitos)
+        // ou AAAAMMDD (8). new \DateTime() não parseia esses — sem isto, dataAjuizamento virava null.
+        if (preg_match('/^\d{14}$/', $value)) {
+            return $this->fromCompactFormat('YmdHis', $value);
+        }
+
+        if (preg_match('/^\d{8}$/', $value)) {
+            return $this->fromCompactFormat('!Ymd', $value);
+        }
+
         try {
-            return new \DateTimeImmutable($value);
+            // Colunas dataDistribuicao/dataBaixa/dataMovimentacao são type:'date' (Doctrine DateType),
+            // que só aceita \DateTime mutável no flush — DateTimeImmutable estoura InvalidType.
+            // Igual ao parseDateOrNull do controller, que já escreve nessas mesmas colunas.
+            return new \DateTime($value);
         } catch (\Exception $e) {
             return null;
         }
+    }
+
+    /**
+     * createFromFormat faz overflow silencioso em data inválida (mês 99, 30/fev, zeros) e AINDA
+     * devolve objeto — sem checar getLastErrors, gravaríamos uma data errada. Melhor null (honesto)
+     * do que uma data plausível-porém-falsa.
+     */
+    private function fromCompactFormat(string $format, string $value): ?\DateTime
+    {
+        $dt = \DateTime::createFromFormat($format, $value);
+        if ($dt === false) {
+            return null;
+        }
+
+        $errors = \DateTime::getLastErrors();
+        if ($errors !== false && ((($errors['warning_count'] ?? 0) > 0) || (($errors['error_count'] ?? 0) > 0))) {
+            return null;
+        }
+
+        return $dt;
     }
 
     private function parseDateTime(?string $value): ?\DateTimeImmutable

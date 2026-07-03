@@ -53,6 +53,7 @@ final class PurgarEscritorioUseCase
         ['pasta_documento', 'tenant_id = :tenant'],
         ['movimentacao_processo', 'tenant_id = :tenant'],
         ['parte_processo', 'tenant_id = :tenant'],
+        ['assunto_processo', 'tenant_id = :tenant'],
         ['user_tenant', 'tenant_id = :tenant'],
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],

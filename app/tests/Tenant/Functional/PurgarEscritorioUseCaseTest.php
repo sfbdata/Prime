@@ -299,6 +299,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $proc = $this->ins('processo', ['numero_processo' => 'PROC-' . $uid, 'orgao_julgador' => 'OJ', 'sigla_tribunal' => 'TJSP', 'classe_processual' => 'CLS', 'assunto_processual' => 'ASS', 'situacao_processo' => 'ativo', 'instancia' => '1', 'tenant_id' => $t]);
         $this->ins('movimentacao_processo', ['processo_id' => $proc, 'descricao' => 'Mov', 'tenant_id' => $t]);
         $this->ins('parte_processo', ['processo_id' => $proc, 'tipo' => 'autor', 'nome' => 'Parte', 'tenant_id' => $t]);
+        $this->ins('assunto_processo', ['processo_id' => $proc, 'nome' => 'Assunto', 'codigo' => 123, 'tenant_id' => $t]);
         $this->ins('documento_processo', ['processo_id' => $proc, 'tipo' => 'peticao', 'nome_original' => 'dp.pdf', 'caminho_arquivo' => $hex(), 'criado_em' => $ts, 'tenant_id' => $t]);
 
         // Tarefa + mensagem + notificação

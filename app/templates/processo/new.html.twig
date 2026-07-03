@@ -48,6 +48,9 @@
                 <button type="button" class="processo-tab" data-tab="proc-movimentacoes">
                     <i class="bi bi-clock-history me-1"></i> Movimentações
                 </button>
+                <button type="button" class="processo-tab" data-tab="proc-assuntos">
+                    <i class="bi bi-tags me-1"></i> Assuntos
+                </button>
             </div>
 
             {# ── ABA: Informações do Processo ── #}
@@ -233,6 +236,17 @@
                                    value="{{ processo.dataBaixa ? processo.dataBaixa|date('Y-m-d') : '' }}">
                         </div>
                     </div>
+
+                    {# Metadados do Datajud — preenchidos automaticamente pela busca no CNJ, não editáveis #}
+                    <input type="hidden" id="nivelSigilo" name="nivelSigilo" value="{{ processo.nivelSigilo }}">
+                    <input type="hidden" id="formato" name="formato" value="{{ processo.formato }}">
+                    <input type="hidden" id="formatoCodigo" name="formatoCodigo" value="{{ processo.formatoCodigo }}">
+                    <input type="hidden" id="sistema" name="sistema" value="{{ processo.sistema }}">
+                    <input type="hidden" id="sistemaCodigo" name="sistemaCodigo" value="{{ processo.sistemaCodigo }}">
+                    <input type="hidden" id="classeCodigo" name="classeCodigo" value="{{ processo.classeCodigo }}">
+                    <input type="hidden" id="orgaoJulgadorCodigo" name="orgaoJulgadorCodigo" value="{{ processo.orgaoJulgadorCodigo }}">
+                    <input type="hidden" id="orgaoJulgadorMunicipioIbge" name="orgaoJulgadorMunicipioIbge" value="{{ processo.orgaoJulgadorMunicipioIbge }}">
+                    <input type="hidden" id="datajudId" name="datajudId" value="{{ processo.datajudId }}">
                 </div>
                 </div>
             </div>{# fim tab-proc-info #}
@@ -415,6 +429,60 @@
                 </div>
                 </div>
             </div>{# fim tab-proc-movimentacoes #}
+
+            {# ── ABA: Assuntos ── #}
+            <div class="processo-tab-content" id="tab-proc-assuntos">
+                <div class="card card-outline card-primary mb-0 border-top-0 rounded-top-0">
+                <div class="card-header d-flex justify-content-between align-items-center border-top-0">
+                    <small class="text-muted">Todos os assuntos do processo (o assunto principal fica na aba Informações).</small>
+                    <button type="button" id="btn-add-assunto" class="btn btn-sm btn-primary ms-auto">
+                        <i class="bi bi-plus-lg me-1"></i> Adicionar Assunto
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="assuntosContainer">
+                        {% if isEdit and processo.assuntos|length > 0 %}
+                            {% for assunto in processo.assuntos %}
+                                <div class="assunto-row card mb-2 p-3" style="position: relative;">
+                                    <input type="hidden" name="assuntos[{{ loop.index0 }}][id]" value="{{ assunto.id }}">
+                                    <div class="row g-2">
+                                        <div class="col-md-9">
+                                            <label class="form-label">Assunto</label>
+                                            <input type="text" name="assuntos[{{ loop.index0 }}][nome]" class="form-control assunto-nome"
+                                                   placeholder="Descrição do assunto" value="{{ assunto.nome }}">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Código (TPU)</label>
+                                            <input type="number" name="assuntos[{{ loop.index0 }}][codigo]" class="form-control"
+                                                   placeholder="Ex.: 10433" value="{{ assunto.codigo }}">
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
+                                            style="display: {{ processo.assuntos|length > 1 ? 'block' : 'none' }}; position: absolute; top: 8px; right: 12px;"
+                                            title="Remover"><i class="bi bi-trash"></i></button>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="assunto-row card mb-2 p-3" style="position: relative;">
+                                <div class="row g-2">
+                                    <div class="col-md-9">
+                                        <label class="form-label">Assunto</label>
+                                        <input type="text" name="assuntos[0][nome]" class="form-control assunto-nome" placeholder="Descrição do assunto">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Código (TPU)</label>
+                                        <input type="number" name="assuntos[0][codigo]" class="form-control" placeholder="Ex.: 10433">
+                                    </div>
+                                </div>
+                                <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
+                                        style="display: none; position: absolute; top: 8px; right: 12px;"
+                                        title="Remover"><i class="bi bi-trash"></i></button>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                </div>
+            </div>{# fim tab-proc-assuntos #}
 
             {# Botões de ação #}
             <div class="d-flex justify-content-between mb-4">
@@ -630,6 +698,46 @@ $(document).ready(function () {
         updateRemoveButtons();
     }
 
+    // Adicionar assunto
+    document.getElementById('btn-add-assunto').addEventListener('click', function() {
+        const container = document.getElementById('assuntosContainer');
+        const index = container.querySelectorAll('.assunto-row').length;
+        const html = `
+            <div class="assunto-row card mb-2 p-3" style="position: relative;">
+                <div class="row g-2">
+                    <div class="col-md-9">
+                        <label class="form-label">Assunto</label>
+                        <input type="text" name="assuntos[${index}][nome]" class="form-control assunto-nome" placeholder="Descrição do assunto">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Código (TPU)</label>
+                        <input type="number" name="assuntos[${index}][codigo]" class="form-control" placeholder="Ex.: 10433">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
+                        style="position: absolute; top: 8px; right: 12px;" title="Remover">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+        attachRemoveAssuntoListener();
+    });
+
+    function attachRemoveAssuntoListener() {
+        document.querySelectorAll('.remove-assunto').forEach(btn => {
+            btn.removeEventListener('click', removeAssuntoFn);
+            btn.addEventListener('click', removeAssuntoFn);
+        });
+        updateRemoveButtons();
+    }
+
+    function removeAssuntoFn(e) {
+        e.preventDefault();
+        e.target.closest('.assunto-row').remove();
+        updateRemoveButtons();
+    }
+
     function updateRemoveButtons() {
         const partes = document.querySelectorAll('.parte-row').length;
         document.querySelectorAll('.remove-parte').forEach(btn => {
@@ -638,6 +746,10 @@ $(document).ready(function () {
         const movs = document.querySelectorAll('.movimentacao-row').length;
         document.querySelectorAll('.remove-movimentacao').forEach(btn => {
             btn.style.display = movs > 1 ? 'block' : 'none';
+        });
+        const assuntos = document.querySelectorAll('.assunto-row').length;
+        document.querySelectorAll('.remove-assunto').forEach(btn => {
+            btn.style.display = assuntos > 1 ? 'block' : 'none';
         });
     }
 
@@ -714,6 +826,17 @@ $(document).ready(function () {
                 document.getElementById('dataDistribuicao').value  = processData.dataDistribuicao || '';
                 document.getElementById('dataBaixa').value         = processData.dataBaixa || '';
 
+                // Metadados do Datajud — ?? '' (não ||) para preservar o 0 do nível de sigilo, que || zeraria
+                document.getElementById('nivelSigilo').value                = processData.nivelSigilo ?? '';
+                document.getElementById('formato').value                    = processData.formato ?? '';
+                document.getElementById('formatoCodigo').value              = processData.formatoCodigo ?? '';
+                document.getElementById('sistema').value                    = processData.sistema ?? '';
+                document.getElementById('sistemaCodigo').value              = processData.sistemaCodigo ?? '';
+                document.getElementById('classeCodigo').value               = processData.classeCodigo ?? '';
+                document.getElementById('orgaoJulgadorCodigo').value        = processData.orgaoJulgadorCodigo ?? '';
+                document.getElementById('orgaoJulgadorMunicipioIbge').value = processData.orgaoJulgadorMunicipioIbge ?? '';
+                document.getElementById('datajudId').value                  = processData.datajudId ?? '';
+
                 const partesContainer = document.getElementById('partesContainer');
                 partesContainer.innerHTML = '';
                 const partesList = processData.partes && processData.partes.length > 0 ? processData.partes : [{}];
@@ -788,8 +911,34 @@ $(document).ready(function () {
                     `);
                 });
 
+                const assuntosContainer = document.getElementById('assuntosContainer');
+                assuntosContainer.innerHTML = '';
+                const assuntosList = processData.assuntos && processData.assuntos.length > 0 ? processData.assuntos : [{}];
+                assuntosList.forEach((assunto, idx) => {
+                    assuntosContainer.insertAdjacentHTML('beforeend', `
+                        <div class="assunto-row card mb-2 p-3" style="position: relative;">
+                            <div class="row g-2">
+                                <div class="col-md-9">
+                                    <label class="form-label">Assunto</label>
+                                    <input type="text" name="assuntos[${idx}][nome]" class="form-control assunto-nome"
+                                           value="${assunto.nome || ''}" placeholder="Descrição do assunto">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Código (TPU)</label>
+                                    <input type="number" name="assuntos[${idx}][codigo]" class="form-control"
+                                           value="${assunto.codigo ?? ''}" placeholder="Ex.: 10433">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-outline-danger btn-sm remove-assunto"
+                                    style="display: ${assuntosList.length > 1 ? 'block' : 'none'}; position: absolute; top: 8px; right: 12px;"
+                                    title="Remover"><i class="bi bi-trash"></i></button>
+                        </div>
+                    `);
+                });
+
                 attachRemoveParteListener();
                 attachRemoveMovimentacaoListener();
+                attachRemoveAssuntoListener();
                 sortarMovimentacoesPorData();
                 showFeedbackModal('success', 'Processo carregado com sucesso! Os dados foram preenchidos no formulário. Você pode editá-los antes de salvar.');
 
@@ -802,7 +951,20 @@ $(document).ready(function () {
 
     attachRemoveParteListener();
     attachRemoveMovimentacaoListener();
+    attachRemoveAssuntoListener();
     sortarMovimentacoesPorData();
+
+    // Reindexa as linhas de assunto no submit: remover uma do meio e adicionar outra poderia
+    // gerar dois assuntos[N] (o índice vem de .length), e o PHP last-wins reescreveria um assunto
+    // existente (que carrega o [id]). Renumerar 0..N-1 antes de enviar elimina a colisão.
+    document.getElementById('processoForm').addEventListener('submit', function() {
+        document.querySelectorAll('#assuntosContainer .assunto-row').forEach(function(row, idx) {
+            row.querySelectorAll('input').forEach(function(field) {
+                const name = field.getAttribute('name');
+                if (name) field.setAttribute('name', name.replace(/^assuntos\[\d+\]/, 'assuntos[' + idx + ']'));
+            });
+        });
+    });
 });
 </script>
 {% endblock %}

@@ -46,6 +46,9 @@ class Processo implements TenantAware
     #[ORM\OrderBy(['dataMovimentacao' => 'DESC', 'id' => 'DESC'])]
     private Collection $movimentacoes;
 
+    #[ORM\OneToMany(mappedBy: 'processo', targetEntity: AssuntoProcesso::class, orphanRemoval: true, cascade: ['persist'])]
+    private Collection $assuntos;
+
     #[ORM\Column(type: 'date', nullable: true)]
     private ?\DateTimeInterface $dataDistribuicao = null;
 
@@ -57,6 +60,41 @@ class Processo implements TenantAware
 
     #[ORM\Column(length: 20)]
     private string $instancia = '';
+
+    // Metadados vindos do Datajud (Base Nacional CNJ). Nullable: processos anteriores à captura
+    // ficam null e o preview web efêmero pode não trazer todos os campos.
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $nivelSigilo = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $formato = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $formatoCodigo = null;
+
+    #[ORM\Column(length: 50, nullable: true)]
+    private ?string $sistema = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $sistemaCodigo = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $classeCodigo = null;
+
+    #[ORM\Column(length: 30, nullable: true)]
+    private ?string $orgaoJulgadorCodigo = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $orgaoJulgadorMunicipioIbge = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $datajudId = null;
+
+    // Snapshot bruto do _source do Datajud: rede de segurança/auditoria e campos futuros do CNJ
+    // ficam disponíveis sem migration. Preenchido só pelo mapper (sync/preview), nunca pelo form.
+    // jsonb (não json) para permitir consulta/índice GIN em campos futuros.
+    #[ORM\Column(type: 'json', nullable: true, options: ['jsonb' => true])]
+    private ?array $datajudRaw = null;
 
     #[ORM\Column(length: 50, nullable: true)]
     private ?string $processoPai = null;
@@ -90,6 +128,7 @@ class Processo implements TenantAware
         $this->documentos = new ArrayCollection();
         $this->partes = new ArrayCollection();
         $this->movimentacoes = new ArrayCollection();
+        $this->assuntos = new ArrayCollection();
         $this->processosFilhos = new ArrayCollection();
         $this->criadoAt = new \DateTimeImmutable();
         $this->modificadoEm = new \DateTimeImmutable();
@@ -242,6 +281,35 @@ class Processo implements TenantAware
         return $this;
     }
 
+    /**
+     * @return Collection<int, AssuntoProcesso>
+     */
+    public function getAssuntos(): Collection
+    {
+        return $this->assuntos;
+    }
+
+    public function addAssunto(AssuntoProcesso $assunto): self
+    {
+        if (!$this->assuntos->contains($assunto)) {
+            $this->assuntos->add($assunto);
+            $assunto->setProcesso($this);
+        }
+
+        return $this;
+    }
+
+    public function removeAssunto(AssuntoProcesso $assunto): self
+    {
+        if ($this->assuntos->removeElement($assunto)) {
+            if ($assunto->getProcesso() === $this) {
+                $assunto->setProcesso(null);
+            }
+        }
+
+        return $this;
+    }
+
     public function getDataDistribuicao(): ?\DateTimeInterface
     {
         return $this->dataDistribuicao;
@@ -283,6 +351,132 @@ class Processo implements TenantAware
     public function setInstancia(string $instancia): self
     {
         $this->instancia = mb_strtoupper(trim($instancia));
+        return $this;
+    }
+
+    public function getNivelSigilo(): ?int
+    {
+        return $this->nivelSigilo;
+    }
+
+    public function setNivelSigilo(?int $nivelSigilo): self
+    {
+        $this->nivelSigilo = $nivelSigilo;
+        return $this;
+    }
+
+    // 0 = público; qualquer valor maior indica segredo de justiça (níveis MNI/CNJ).
+    public function getNivelSigiloLabel(): ?string
+    {
+        if ($this->nivelSigilo === null) {
+            return null;
+        }
+
+        return $this->nivelSigilo === 0 ? 'Público' : 'Segredo de justiça';
+    }
+
+    public function getFormato(): ?string
+    {
+        return $this->formato;
+    }
+
+    public function setFormato(?string $formato): self
+    {
+        $this->formato = $formato !== null ? trim($formato) : null;
+        return $this;
+    }
+
+    public function getFormatoCodigo(): ?int
+    {
+        return $this->formatoCodigo;
+    }
+
+    public function setFormatoCodigo(?int $formatoCodigo): self
+    {
+        $this->formatoCodigo = $formatoCodigo;
+        return $this;
+    }
+
+    public function getSistema(): ?string
+    {
+        return $this->sistema;
+    }
+
+    public function setSistema(?string $sistema): self
+    {
+        $this->sistema = $sistema !== null ? trim($sistema) : null;
+        return $this;
+    }
+
+    public function getSistemaCodigo(): ?int
+    {
+        return $this->sistemaCodigo;
+    }
+
+    public function setSistemaCodigo(?int $sistemaCodigo): self
+    {
+        $this->sistemaCodigo = $sistemaCodigo;
+        return $this;
+    }
+
+    public function getClasseCodigo(): ?int
+    {
+        return $this->classeCodigo;
+    }
+
+    public function setClasseCodigo(?int $classeCodigo): self
+    {
+        $this->classeCodigo = $classeCodigo;
+        return $this;
+    }
+
+    public function getOrgaoJulgadorCodigo(): ?string
+    {
+        return $this->orgaoJulgadorCodigo;
+    }
+
+    public function setOrgaoJulgadorCodigo(?string $orgaoJulgadorCodigo): self
+    {
+        $this->orgaoJulgadorCodigo = $orgaoJulgadorCodigo !== null ? trim($orgaoJulgadorCodigo) : null;
+        return $this;
+    }
+
+    public function getOrgaoJulgadorMunicipioIbge(): ?int
+    {
+        return $this->orgaoJulgadorMunicipioIbge;
+    }
+
+    public function setOrgaoJulgadorMunicipioIbge(?int $orgaoJulgadorMunicipioIbge): self
+    {
+        $this->orgaoJulgadorMunicipioIbge = $orgaoJulgadorMunicipioIbge;
+        return $this;
+    }
+
+    public function getDatajudId(): ?string
+    {
+        return $this->datajudId;
+    }
+
+    public function setDatajudId(?string $datajudId): self
+    {
+        $this->datajudId = $datajudId !== null ? trim($datajudId) : null;
+        return $this;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function getDatajudRaw(): ?array
+    {
+        return $this->datajudRaw;
+    }
+
+    /**
+     * @param array<string, mixed>|null $datajudRaw
+     */
+    public function setDatajudRaw(?array $datajudRaw): self
+    {
+        $this->datajudRaw = ($datajudRaw === null || $datajudRaw === []) ? null : $datajudRaw;
         return $this;
     }
 

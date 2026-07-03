@@ -9,6 +9,7 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Processo\Controller\ProcessoController;
+use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\Processo;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -170,6 +171,213 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('Nenhum processo encontrado', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('Criar processo pela web persiste os metadados do Datajud, com nivelSigilo=0 (público) preservado — não vira null')]
+    public function testCriarPersisteMetadadosDatajudComSigiloZero(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $numero    = '5550000' . (++$this->seq) . '20238260100';
+        $datajudId = 'TJSP_1689_G1_80064_' . $numero;
+
+        $client->request('POST', '/processos/novo', [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara Cível',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+            // Metadados do Datajud (hidden preenchidos pela busca no CNJ):
+            'nivelSigilo'                => '0', // público — NÃO pode virar null
+            'formato'                    => 'Eletrônico',
+            'formatoCodigo'              => '1',
+            'sistema'                    => 'SAJ',
+            'sistemaCodigo'              => '3',
+            'classeCodigo'               => '1689',
+            'orgaoJulgadorCodigo'        => '80064',
+            'orgaoJulgadorMunicipioIbge' => '2704302',
+            'datajudId'                  => $datajudId,
+        ]);
+
+        self::assertResponseRedirects();
+
+        // Filtro de tenant OFF para o find, como nos demais testes deste arquivo.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+
+        $processo = $em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $numero]);
+        self::assertNotNull($processo, 'o processo deveria ter sido criado');
+
+        self::assertSame(0, $processo->getNivelSigilo(), 'nivelSigilo=0 (público) não pode virar null no caminho web');
+        self::assertSame('Público', $processo->getNivelSigiloLabel());
+        self::assertSame('Eletrônico', $processo->getFormato());
+        self::assertSame(1, $processo->getFormatoCodigo());
+        self::assertSame('SAJ', $processo->getSistema());
+        self::assertSame(3, $processo->getSistemaCodigo());
+        self::assertSame(1689, $processo->getClasseCodigo());
+        self::assertSame('80064', $processo->getOrgaoJulgadorCodigo());
+        self::assertSame(2704302, $processo->getOrgaoJulgadorMunicipioIbge());
+        self::assertSame($datajudId, $processo->getDatajudId());
+    }
+
+    #[TestDox('Criar e editar processo pela web adiciona/reconcilia a coleção de assuntos (linhas do formulário)')]
+    public function testCriarEEditarPersisteColecaoDeAssuntos(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $numero = '5551111' . (++$this->seq) . '20238260100';
+
+        // --- Criar com 2 assuntos ---
+        $client->request('POST', '/processos/novo', [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+            'assuntos'          => [
+                ['nome' => 'Dano Moral', 'codigo' => '10433'],
+                ['nome' => 'Obrigações', 'codigo' => '7681'],
+            ],
+        ]);
+        self::assertResponseRedirects();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+
+        $processo = $em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $numero]);
+        self::assertNotNull($processo);
+        self::assertCount(2, $processo->getAssuntos(), 'os 2 assuntos do formulário devem persistir');
+
+        // Código TPU persistido + tenant correto (isolamento) para cada assunto criado pelo form.
+        $porNome = [];
+        foreach ($processo->getAssuntos() as $a) {
+            $porNome[$a->getNome()] = $a;
+            self::assertSame(
+                (int) $tenant->getId(),
+                (int) $a->getTenant()->getId(),
+                'assunto criado pelo formulário deve nascer no tenant do usuário logado'
+            );
+        }
+        self::assertSame(10433, $porNome['DANO MORAL']->getCodigo(), 'código TPU deve persistir');
+        self::assertSame(7681, $porNome['OBRIGAÇÕES']->getCodigo());
+
+        // Guarda o id de "Dano Moral" para mantê-lo na edição (reconciliação por id).
+        $idDanoMoral = $porNome['DANO MORAL']->getId();
+        self::assertNotNull($idDanoMoral);
+        $processoId = (int) $processo->getId();
+        $this->limparIdentityMap();
+
+        // --- Editar: mantém "Dano Moral" (por id), remove "Obrigações", adiciona "Verbas Rescisórias" ---
+        $this->logarComTenant($client, $gestor, $tenant);
+        $client->request('POST', "/processos/{$processoId}/editar", [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+            'assuntos'          => [
+                ['id' => (string) $idDanoMoral, 'nome' => 'Dano Moral', 'codigo' => '10433'],
+                ['nome' => 'Verbas Rescisórias', 'codigo' => '13970'],
+            ],
+        ]);
+        self::assertResponseRedirects();
+
+        $em->clear();
+        $recarregado = $em->getRepository(Processo::class)->findOneBy(['numeroProcesso' => $numero]);
+        $nomes = array_map(static fn($a) => $a->getNome(), $recarregado->getAssuntos()->toArray());
+        sort($nomes);
+
+        self::assertSame(['DANO MORAL', 'VERBAS RESCISÓRIAS'], $nomes, 'edição reconcilia: mantém, remove e adiciona');
+        // O id de Dano Moral foi preservado (não recriado) e tudo segue no tenant correto.
+        $mantido = false;
+        foreach ($recarregado->getAssuntos() as $a) {
+            if ($a->getId() === $idDanoMoral) {
+                $mantido = true;
+            }
+            self::assertSame(
+                (int) $tenant->getId(),
+                (int) $a->getTenant()->getId(),
+                'assunto após edição (inclusive o novo) deve permanecer no tenant correto'
+            );
+        }
+        self::assertTrue($mantido, 'o assunto mantido deve reter o mesmo id (reconciliação por id)');
+    }
+
+    #[TestDox('Editar o processo pelo formulário preserva os complementos da movimentação (não editáveis à mão)')]
+    public function testEditarPreservaComplementosDaMovimentacao(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestor_' . uniqid() . '@test.com');
+
+        // Cria um processo com movimentação JÁ enriquecida com complementos (como vem do sync CNJ).
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $numero = '5552222' . (++$this->seq) . '20238260100';
+        $processo = new Processo();
+        $processo->setNumeroProcesso($numero);
+        $processo->setSiglaTribunal('TJSP');
+        $processo->setTenant($tenant);
+        $mov = new MovimentacaoProcesso();
+        $mov->setDescricao('Distribuição');
+        $mov->setTipo('26');
+        $mov->setComplementos([['codigo' => 2, 'nome' => 'sorteio']]);
+        $mov->setOrgaoCodigo('70867');
+        $mov->setTenant($tenant);
+        $processo->addMovimentacao($mov);
+        $em->persist($processo);
+        $em->flush();
+        $movId = (int) $mov->getId();
+        $processoId = (int) $processo->getId();
+        $this->limparIdentityMap();
+
+        // Edita o processo re-submetendo a movimentação com seu id (como o formulário renderiza),
+        // sem carregar os complementos (o form não tem esse campo).
+        $this->logarComTenant($client, $gestor, $tenant);
+        $client->request('POST', "/processos/{$processoId}/editar", [
+            'numeroProcesso'    => $numero,
+            'siglaTribunal'     => 'TJSP',
+            'orgaoJulgador'     => '1a Vara',
+            'classeProcessual'  => 'Procedimento Comum',
+            'assuntoProcessual' => 'Indenização',
+            'situacaoProcesso'  => 'EM_ANDAMENTO',
+            'instancia'         => 'G1',
+            'movimentacoes'     => [
+                ['id' => (string) $movId, 'descricao' => 'Distribuição', 'tipo' => '26', 'dataMovimentacao' => '2025-11-25'],
+            ],
+        ]);
+        self::assertResponseRedirects();
+
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $em->clear();
+
+        $recarregado = $em->getRepository(MovimentacaoProcesso::class)->find($movId);
+        self::assertNotNull($recarregado);
+        self::assertSame([['codigo' => 2, 'nome' => 'sorteio']], $recarregado->getComplementos(), 'complementos não podem sumir ao editar o processo pelo form');
+        self::assertSame('70867', $recarregado->getOrgaoCodigo(), 'código do órgão da movimentação também é preservado');
     }
 
     // ----------------------------------------------------------------- helpers
