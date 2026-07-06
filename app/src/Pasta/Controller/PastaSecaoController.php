@@ -12,6 +12,7 @@ use App\Pasta\UseCase\CriarPastaSecaoUseCase;
 use App\Pasta\UseCase\ExcluirPastaSecaoUseCase;
 use App\Pasta\UseCase\MoverDocumentoParaSecaoUseCase;
 use App\Pasta\UseCase\ReordenarDocumentosUseCase;
+use App\Pasta\UseCase\ReordenarSecoesUseCase;
 use App\Pasta\UseCase\RenomearPastaSecaoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -40,6 +41,7 @@ final class PastaSecaoController extends AbstractController
         private readonly ExcluirPastaSecaoUseCase $excluirUseCase,
         private readonly MoverDocumentoParaSecaoUseCase $moverUseCase,
         private readonly ReordenarDocumentosUseCase $reordenarDocumentosUseCase,
+        private readonly ReordenarSecoesUseCase $reordenarSecoesUseCase,
     ) {
     }
 
@@ -210,7 +212,32 @@ final class PastaSecaoController extends AbstractController
             return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
         }
 
-        $this->reordenarDocumentosUseCase->executar($pasta, $ids);
+        $this->reordenarDocumentosUseCase->executar($pasta, $tenant, $ids);
+
+        return $this->json(['ok' => true]);
+    }
+
+    #[Route('/{id}/secoes/reordenar', name: 'pasta_secoes_reordenar', methods: ['POST'])]
+    public function reordenarSecoes(Pasta $pasta, Request $request): JsonResponse
+    {
+        /** @var User $currentUser */
+        $currentUser = $this->getUser();
+        $tenant = $this->tenantContext->getCurrentTenant();
+        $pastaId = (int) $pasta->getId();
+
+        if (!$this->permissionChecker->canAccessResource($currentUser, $tenant, 'pasta', $pastaId, 'edit')) {
+            return $this->json(['erro' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $data  = json_decode((string) $request->getContent(), true);
+        $token = is_array($data) ? (string) ($data['_token'] ?? '') : '';
+        $ids   = is_array($data['ids'] ?? null) ? $data['ids'] : [];
+
+        if (!$this->isCsrfTokenValid('reordenar_secoes_pasta_' . $pastaId, $token)) {
+            return $this->json(['erro' => 'Token de segurança inválido.'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $this->reordenarSecoesUseCase->executar($pasta, $tenant, $ids);
 
         return $this->json(['ok' => true]);
     }

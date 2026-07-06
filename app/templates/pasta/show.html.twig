@@ -2,6 +2,11 @@
 
 {% block title %}Pasta {{ pasta.nup }}{% endblock %}
 
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="/css/pasta-arquivos.css">
+{% endblock %}
+
 {% block body %}
 {# Content Header #}
 <div class="content-header">
@@ -308,8 +313,9 @@
             </style>
             <div class="card-body">
                 <div class="row">
-                    {# Left Column - Tabs #}
-                    <div class="col-12 col-md-12 col-lg-8 order-2 order-md-1">
+                    {# Coluna única — documentos viraram a aba "Documentos" (largura total) #}
+                    <div class="col-12">
+                        {% set totalArquivos = pasta.documentos|length %}
                         {# Tabs #}
                         <ul class="nav nav-tabs" id="pastaTabs" role="tablist">
                             <li class="nav-item" role="presentation">
@@ -338,6 +344,12 @@
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="detalhes-tab" data-bs-toggle="tab" data-bs-target="#detalhes" type="button" role="tab" aria-controls="detalhes" aria-selected="false">
                                     <i class="bi bi-info-circle me-1"></i> Detalhes
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#documentos" type="button" role="tab" aria-controls="documentos" aria-selected="false">
+                                    <i class="bi bi-folder2-open me-1"></i> Documentos
+                                    {% if totalArquivos > 0 %}<span class="badge text-bg-secondary ms-1">{{ totalArquivos }}</span>{% endif %}
                                 </button>
                             </li>
                         </ul>
@@ -742,10 +754,243 @@
                                 } only %}
                             </div>
 
+                            {# ==================== ABA: DOCUMENTOS (gerenciador de arquivos) ==================== #}
+                            <div class="tab-pane fade" id="documentos" role="tabpanel" aria-labelledby="documentos-tab" tabindex="0">
+                                {# Todos os documentos da pasta (gerais + de seções), taggeados por seção; JS filtra por pasta atual. #}
+                                {% set arquivosFm = [] %}
+                                {% for doc in pasta.documentos %}{% set arquivosFm = arquivosFm|merge([{'doc': doc, 'secao': doc.secao ? doc.secao.id : 'geral'}]) %}{% endfor %}
+
+                                <div class="fm" id="fileManager"
+                                     data-pasta-id="{{ pasta.id }}"
+                                     data-url-upload="{{ path('pasta_peticionar_upload', {id: pasta.id}) }}"
+                                     data-csrf-upload="{{ csrf_token('peticionar_upload_' ~ pasta.id) }}"
+                                     data-url-criar-secao="{{ path('pasta_secao_criar', {id: pasta.id}) }}"
+                                     data-csrf-criar-secao="{{ csrf_token('pasta_secao_criar_' ~ pasta.id) }}"
+                                     data-url-reordenar-secoes="{{ path('pasta_secoes_reordenar', {id: pasta.id}) }}"
+                                     data-csrf-reordenar-secoes="{{ csrf_token('reordenar_secoes_pasta_' ~ pasta.id) }}"
+                                     data-url-reordenar-docs="{{ path('pasta_documentos_reordenar', {id: pasta.id}) }}"
+                                     data-csrf-reordenar-docs="{{ csrf_token('reordenar_docs_pasta_' ~ pasta.id) }}"
+                                     data-url-renomear-tpl="{{ path('pasta_secao_renomear', {secaoId: '__ID__'}) }}"
+                                     data-url-excluir-tpl="{{ path('pasta_secao_excluir', {secaoId: '__ID__'}) }}">
+
+                                    {# Toolbar #}
+                                    <div class="fm-toolbar">
+                                        <nav class="fm-breadcrumb" aria-label="Navegação de pastas">
+                                            <button type="button" class="fm-crumb" data-nav="root"><i class="bi bi-folder2-open"></i> Documentos</button>
+                                            <span class="fm-crumb-sep fm-oculto" id="fmCrumbSep"><i class="bi bi-chevron-right"></i></span>
+                                            <span class="fm-crumb-atual fm-oculto" id="fmCrumbAtual"></span>
+                                        </nav>
+                                        <div class="fm-busca">
+                                            <i class="bi bi-search"></i>
+                                            <input type="search" id="fmBusca" placeholder="Buscar arquivos..." autocomplete="off" aria-label="Buscar arquivos">
+                                        </div>
+                                        <div class="fm-acoes">
+                                            <button type="button" class="btn btn-sm btn-primary" id="fmNovaPasta"><i class="bi bi-folder-plus me-1"></i> Nova pasta</button>
+                                            <button type="button" class="btn btn-sm btn-outline-primary" id="fmUpload"><i class="bi bi-upload me-1"></i> Enviar</button>
+                                            <input type="file" id="fmFileInput" multiple class="d-none" accept=".png,.jpg,.jpeg,.pdf,.kml,.xml,.xls,.xlsx,.doc,.docx,.txt,.zip,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
+                                            <div class="fm-view-toggle" role="group" aria-label="Modo de exibição">
+                                                <button type="button" class="fm-view-btn ativo" data-view="lista" title="Lista" aria-label="Lista"><i class="bi bi-list-ul"></i></button>
+                                                <button type="button" class="fm-view-btn" data-view="grade" title="Grade" aria-label="Grade"><i class="bi bi-grid-3x3-gap-fill"></i></button>
+                                            </div>
+                                            <select class="fm-select" id="fmOrdenar" aria-label="Ordenar arquivos por">
+                                                <option value="manual">Manual (arrastar)</option>
+                                                <option value="nome">Nome (A–Z)</option>
+                                                <option value="nome_desc">Nome (Z–A)</option>
+                                                <option value="data_desc">Mais recentes</option>
+                                                <option value="data">Mais antigos</option>
+                                                <option value="tamanho_desc">Maiores</option>
+                                                <option value="tamanho">Menores</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    {# Barra de progresso de upload #}
+                                    <div class="fm-upload-bar" id="fmUploadBar">
+                                        <i class="bi bi-cloud-arrow-up"></i>
+                                        <span class="fm-upload-nome" id="fmUploadNome"></span>
+                                        <div class="progress" role="progressbar" aria-label="Progresso do upload"><div class="progress-bar" id="fmUploadProgresso" style="width:0%"></div></div>
+                                        <span class="text-muted small text-nowrap" id="fmUploadContador"></span>
+                                    </div>
+
+                                    <div class="fm-body" id="fmBody">
+
+                                        {# Checklist (relocado da coluna antiga; JS de checklist existente permanece intacto) #}
+                                        <div class="fm-grupo" id="fmChecklist">
+                                            <div class="card card-outline card-secondary mb-0">
+                                                <div class="card-body">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <h6 class="text-muted mb-0"><i class="bi bi-check2-square me-1"></i> Checklist de Documentação</h6>
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <span id="checklistBadge" class="badge {{ concluidosChecklist == totalChecklist and totalChecklist > 0 ? 'text-bg-success' : 'text-bg-warning' }}">
+                                                                {{ concluidosChecklist }}/{{ totalChecklist }} itens
+                                                            </span>
+                                                            <button type="button" id="btnChecklistEditar" class="btn btn-sm btn-outline-secondary" title="Editar checklist">
+                                                                <i class="bi bi-pencil"></i>
+                                                            </button>
+                                                            <button type="button" id="btnChecklistAdicionar" class="btn btn-sm btn-outline-primary" title="Adicionar item">
+                                                                <i class="bi bi-plus-lg"></i>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                    <ul id="checklistLista" class="list-unstyled mb-2">
+                                                        {% for item in checklistItens %}
+                                                        <li class="checklist-item d-flex align-items-center gap-2 py-1 border-bottom"
+                                                            data-item-id="{{ item.id }}"
+                                                            data-csrf-item="{{ csrf_token('checklist_item_' ~ item.id) }}">
+                                                            <button type="button" class="btn btn-link p-0 border-0 js-checklist-toggle" title="{{ item.concluido ? 'Marcar como pendente' : 'Marcar como concluído' }}">
+                                                                <i class="bi {{ item.concluido ? 'bi-check-circle-fill text-success' : 'bi-x-circle-fill text-danger' }} fs-5"></i>
+                                                            </button>
+                                                            <span class="checklist-drag-handle d-none text-muted" style="cursor:grab" title="Arrastar para reordenar">
+                                                                <i class="bi bi-grip-vertical"></i>
+                                                            </span>
+                                                            <span class="checklist-item-titulo flex-grow-1 {{ item.concluido ? 'text-decoration-line-through text-muted' : '' }}">
+                                                                {{ item.titulo|e }}
+                                                            </span>
+                                                            <input type="text" class="checklist-item-input form-control form-control-sm flex-grow-1 d-none"
+                                                                   value="{{ item.titulo|e('html_attr') }}" maxlength="255">
+                                                            <button type="button" class="btn btn-sm btn-outline-danger js-checklist-excluir d-none" title="Excluir item">
+                                                                <i class="bi bi-trash"></i>
+                                                            </button>
+                                                        </li>
+                                                        {% else %}
+                                                        <li id="checklistVazio" class="text-muted small py-2">
+                                                            Nenhum item. Clique em <i class="bi bi-plus-lg"></i> para adicionar.
+                                                        </li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                    <div id="checklistFormAdicionar" class="d-none mb-1">
+                                                        <div class="input-group input-group-sm">
+                                                            <input type="text" id="checklistNovoTitulo" class="form-control" placeholder="Descrição do item..." maxlength="255">
+                                                            <button type="button" id="btnChecklistSalvarNovo" class="btn btn-primary"><i class="bi bi-check-lg"></i></button>
+                                                            <button type="button" id="btnChecklistCancelarNovo" class="btn btn-outline-secondary"><i class="bi bi-x-lg"></i></button>
+                                                        </div>
+                                                        <div id="checklistErroNovo" class="text-danger small mt-1 d-none"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {# Pastas (só na raiz) #}
+                                        <div class="fm-grupo" id="fmGrupoPastas">
+                                            <div class="fm-grupo-titulo"><i class="bi bi-folder2"></i> Pastas</div>
+                                            <div class="fm-pastas" id="fmPastas">
+                                                {% for secao in secoes %}
+                                                    <div class="fm-pasta" data-secao-id="{{ secao.id }}" data-nome="{{ secao.nome|e('html_attr') }}"
+                                                         data-url-renomear="{{ path('pasta_secao_renomear', {secaoId: secao.id}) }}"
+                                                         data-csrf-renomear="{{ csrf_token('pasta_secao_renomear_' ~ secao.id) }}"
+                                                         data-url-excluir="{{ path('pasta_secao_excluir', {secaoId: secao.id}) }}"
+                                                         data-csrf-excluir="{{ csrf_token('pasta_secao_excluir_' ~ secao.id) }}"
+                                                         tabindex="0" role="button" aria-label="Abrir pasta {{ secao.nome|e('html_attr') }}">
+                                                        <span class="fm-pasta-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
+                                                        <span class="fm-pasta-icone"><i class="bi bi-folder-fill"></i></span>
+                                                        <span class="fm-pasta-info">
+                                                            <span class="fm-pasta-nome">{{ secao.nome }}</span>
+                                                            <span class="fm-pasta-contagem" data-secao-contagem="{{ secao.id }}">{{ secao.documentos|length }} {{ secao.documentos|length == 1 ? 'arquivo' : 'arquivos' }}</span>
+                                                        </span>
+                                                        <div class="dropdown">
+                                                            <button class="fm-pasta-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações da pasta" onclick="event.stopPropagation()"><i class="bi bi-three-dots-vertical"></i></button>
+                                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                                <li><button class="dropdown-item fm-pasta-abrir" type="button"><i class="bi bi-folder2-open me-2"></i>Abrir</button></li>
+                                                                <li><button class="dropdown-item fm-pasta-renomear" type="button"><i class="bi bi-pencil me-2"></i>Renomear</button></li>
+                                                                <li><hr class="dropdown-divider"></li>
+                                                                <li><button class="dropdown-item text-danger fm-pasta-excluir" type="button"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                                                            </ul>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </div>
+
+                                        {# Arquivos #}
+                                        <div class="fm-grupo" id="fmGrupoArquivos">
+                                            <div class="fm-grupo-titulo"><i class="bi bi-files"></i> <span id="fmArquivosTitulo">Arquivos</span></div>
+                                            <div class="fm-arquivos fm-lista" id="fmArquivos">
+                                                <div class="fm-lista-head">
+                                                    <span class="fmh-grip"></span><span>Nome</span><span class="fmh-tipo">Categoria</span>
+                                                    <span class="fmh-tam">Tamanho</span><span class="fmh-data">Modificado</span><span class="fmh-acoes"></span>
+                                                </div>
+                                                {% for item in arquivosFm %}
+                                                    {% set doc = item.doc %}
+                                                    {% set secaoKey = item.secao %}
+                                                    {% set ic = arquivo_icone(doc.nomeOriginal, doc.mimeType) %}
+                                                    <div class="fm-arquivo" data-secao="{{ secaoKey }}" data-doc-id="{{ doc.id }}" data-ordem="{{ doc.ordem }}"
+                                                         data-nome="{{ doc.nomeOriginal|e('html_attr') }}" data-tamanho="{{ doc.tamanhoBytes }}"
+                                                         data-data="{{ doc.carregadoEm|date('Y-m-d H:i:s') }}" data-tipo="{{ ic.rotulo|e('html_attr') }}"
+                                                         data-mime="{{ doc.mimeType|e('html_attr') }}"
+                                                         data-url-mover="{{ path('pasta_documento_mover_secao', {docId: doc.id}) }}"
+                                                         data-csrf-mover="{{ csrf_token('pasta_doc_mover_' ~ doc.id) }}">
+                                                        <span class="fm-arq-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
+                                                        <div class="fm-arq-principal">
+                                                            <span class="fm-arq-icone"><i class="bi {{ ic.icone }}" style="color: {{ ic.cor }}"></i></span>
+                                                            <span class="text-truncate">
+                                                                <a href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="fm-arq-nome" title="{{ doc.nomeOriginal|e('html_attr') }}">{{ doc.nomeOriginal }}</a>
+                                                                <span class="fm-arq-sub">{% if doc.numero %}Nº {{ doc.numero }}{% if doc.descricao %} · {% endif %}{% endif %}{{ doc.descricao ?? '' }}</span>
+                                                            </span>
+                                                        </div>
+                                                        <div class="fm-arq-tipo"><span class="fm-badge-cat">{{ documentTypeOptions[doc.categoria] ?? doc.categoria }}</span></div>
+                                                        <div class="fm-arq-tam">{{ doc.tamanhoBytes|formatar_bytes }}</div>
+                                                        <div class="fm-arq-data">{{ doc.carregadoEm|date('d/m/Y') }}</div>
+                                                        <div class="fm-arq-acoes">
+                                                            <div class="dropdown">
+                                                                <button class="fm-arq-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações do arquivo"><i class="bi bi-three-dots-vertical"></i></button>
+                                                                <ul class="dropdown-menu dropdown-menu-end">
+                                                                    <li><a class="dropdown-item" href="{{ path('pasta_documento_download', {id: doc.id}) }}" target="_blank" rel="noopener"><i class="bi bi-download me-2"></i>Baixar</a></li>
+                                                                    <li><button type="button" class="dropdown-item fm-arq-preview" data-url="{{ path('pasta_documento_view', {id: doc.id}) }}" data-nome="{{ doc.nomeOriginal|e('html_attr') }}" data-mime="{{ doc.mimeType|e('html_attr') }}"><i class="bi bi-eye me-2"></i>Visualizar</button></li>
+                                                                    <li><button type="button" class="dropdown-item fm-arq-editar" data-target="#editDocModal{{ doc.id }}"><i class="bi bi-pencil me-2"></i>Editar</button></li>
+                                                                    <li><button type="button" class="dropdown-item fm-arq-mover"><i class="bi bi-folder-symlink me-2"></i>Mover para…</button></li>
+                                                                    <li><hr class="dropdown-divider"></li>
+                                                                    <li>
+                                                                        <form method="post" action="{{ path('pasta_documento_delete', {id: doc.id}) }}" onsubmit="return confirm('Excluir este arquivo? Esta ação não pode ser desfeita.');">
+                                                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_' ~ doc.id) }}">
+                                                                            <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Excluir</button>
+                                                                        </form>
+                                                                    </li>
+                                                                </ul>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                            <div class="fm-vazio fm-oculto" id="fmArquivosVazio">
+                                                <div class="fm-vazio-icone"><i class="bi bi-cloud-arrow-up"></i></div>
+                                                <div class="fm-vazio-titulo">Nenhum arquivo aqui</div>
+                                                <div class="fm-vazio-dica">Arraste arquivos do computador para esta área ou clique em <strong>Enviar</strong>.</div>
+                                            </div>
+                                        </div>
+
+                                    </div>{# /fm-body #}
+                                </div>{# /fm #}
+
+                                {# Modal reutilizável de texto (nova pasta / renomear) #}
+                                <div class="modal fade" id="fmInputModal" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered modal-sm">
+                                        <div class="modal-content">
+                                            <div class="modal-header"><h5 class="modal-title" id="fmInputTitulo">Nova pasta</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+                                            <div class="modal-body">
+                                                <input type="text" class="form-control" id="fmInputCampo" maxlength="255" placeholder="Nome da pasta...">
+                                                <div class="text-danger small mt-1 d-none" id="fmInputErro"></div>
+                                            </div>
+                                            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmInputConfirmar">Salvar</button></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {# Modal mover arquivo para pasta #}
+                                <div class="modal fade" id="fmMoverModal" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+                                            <div class="modal-body"><div class="list-group" id="fmMoverLista"></div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>{# /tab-pane #documentos #}
+
                         </div>
                     </div>
 
-                    {# Right Column - Sidebar #}
+                    {# Coluna antiga de documentos — movida para a aba "Documentos". Desativada (mantida para referência; remover no cleanup). #}
+                    {% if false %}
                     <div class="col-12 col-md-12 col-lg-4 order-1 order-md-2">
                         {# Card: Documentação #}
                         {% set totalDocsGeral = 0 %}
@@ -1067,6 +1312,7 @@
                         </div>
 
                     </div>
+                    {% endif %}
                 </div>
             </div>
             <div class="card-footer">
@@ -2299,10 +2545,8 @@
     {% endfor %}
 {% endfor %}
 
-{# Modais: Editar Documento #}
-{% for tipo, docs in documentosPorTipo %}
-    {% for doc in docs %}
-        {% set label = documentTypeOptions[tipo] ?? tipo %}
+{# Modais: Editar Documento (todos os documentos da pasta — gerais e de seções) #}
+{% for doc in pasta.documentos %}
         <div class="modal fade" id="editDocModal{{ doc.id }}" tabindex="-1" aria-labelledby="editDocModalLabel{{ doc.id }}" aria-hidden="true">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -2357,7 +2601,6 @@
                 </div>
             </div>
         </div>
-    {% endfor %}
 {% endfor %}
 
 
@@ -2685,6 +2928,9 @@ document.addEventListener('DOMContentLoaded', function () {
         return (bytes / 1024 / 1024).toFixed(2) + ' MB';
     }
 
+    // Upload geral migrado para a aba "Documentos"; opera só se o markup antigo existir.
+    if (btnAdicionar) {
+
     function buildSelectOpcoes() {
         let html = '<option value="">Selecione o tipo</option>';
         for (const [valor, texto] of Object.entries(documentTypeOptions)) {
@@ -2832,6 +3078,7 @@ document.addEventListener('DOMContentLoaded', function () {
             atualizarVisibilidade();
         });
     }
+    }  // fim do guard "if (btnAdicionar)" — upload geral legado
 
     /* ── Upload inline de documentos do cliente ── */
     const docTypesCliente = {{ documentTypeOptionsCliente|json_encode|raw }};
@@ -4207,6 +4454,10 @@ document.addEventListener('DOMContentLoaded', function () {
 (function () {
     'use strict';
 
+    // Markup de seções migrado para a aba "Documentos" (public/js/pasta-arquivos.js).
+    // Este bloco legado só opera se o markup antigo existir; senão, no-op silencioso.
+    if (!document.getElementById('btnMostrarNovaSecao')) return;
+
     const PASTA_ID     = {{ pasta.id }};
     const CSRF_CRIAR   = '{{ csrf_token('pasta_secao_criar_' ~ pasta.id) }}';
     const TIPOS_DOC    = {{ documentTypeOptions|json_encode|raw }};
@@ -4759,6 +5010,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 {% block javascripts %}
 {{ parent() }}
+<script src="/js/pasta-arquivos.js"></script>
 <script>
 // Select2 múltiplo para os responsáveis no modal "Nova Meta".
 // Roda neste bloco (após jQuery/Select2 do base) e usa dropdownParent para

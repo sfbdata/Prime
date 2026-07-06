@@ -6,39 +6,39 @@ namespace App\Pasta\UseCase;
 
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
-use App\Pasta\Entity\PastaDocumento;
+use App\Pasta\Repository\PastaSecaoRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
-final class ReordenarDocumentosUseCase
+final class ReordenarSecoesUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly PastaSecaoRepository $secaoRepository,
     ) {
     }
 
-    /** @param int[] $idsOrdenados IDs na nova ordem desejada */
+    /** @param int[] $idsOrdenados IDs das seções na nova ordem desejada */
     public function executar(Pasta $pasta, Tenant $tenant, array $idsOrdenados): void
     {
         if ($idsOrdenados === []) {
             return;
         }
 
-        // Filtra por tenant: garante que ids/pasta de outro escritório virem no-op.
-        $docs = $this->em->getRepository(PastaDocumento::class)->findBy(['pasta' => $pasta, 'tenant' => $tenant]);
+        $secoes = $this->secaoRepository->findByPasta($pasta, $tenant);
 
         $mapa = [];
-        foreach ($docs as $doc) {
-            $mapa[(int) $doc->getId()] = $doc;
+        foreach ($secoes as $secao) {
+            $mapa[$secao->getId()] = $secao;
         }
 
-        $ordem = 1;
+        $novaOrdem = 1;
         foreach ($idsOrdenados as $id) {
             $id = (int) $id;
             if (!isset($mapa[$id])) {
                 continue;
             }
-            $mapa[$id]->setOrdem($ordem);
-            ++$ordem;
+            $mapa[$id]->setOrdem($novaOrdem);
+            ++$novaOrdem;
         }
 
         $this->em->flush();

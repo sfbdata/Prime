@@ -7,6 +7,7 @@ namespace App\Tests\Pasta\Functional;
 use App\Entity\Auth\User;
 use App\Entity\Auth\UserTenant;
 use App\Pasta\Entity\Pasta;
+use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Controller\PastaSecaoController;
@@ -70,6 +71,25 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         $em->flush();
 
         return $secao;
+    }
+
+    private function criarDocumento(Pasta $pasta, Tenant $tenant, int $ordem): PastaDocumento
+    {
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $doc = new PastaDocumento();
+        $doc->setTitulo('doc' . $ordem);
+        $doc->setCategoria(PastaDocumento::CATEGORIA_DEMAIS);
+        $doc->setCaminhoArquivo('uploads/fake/doc' . $ordem . '.pdf');
+        $doc->setNomeOriginal('doc' . $ordem . '.pdf');
+        $doc->setMimeType('application/pdf');
+        $doc->setTamanhoBytes(1024);
+        $doc->setOrdem($ordem);
+        $doc->setPasta($pasta);
+        $doc->setTenant($tenant);
+        $em->persist($doc);
+        $em->flush();
+
+        return $doc;
     }
 
     private function instalarCsrfStorage(): void
@@ -239,5 +259,140 @@ final class PastaSecaoControllerTest extends JusPrimeWebTestCase
         ]);
 
         self::assertResponseStatusCodeSame(400);
+    }
+
+    // ── Reordenar seções ─────────────────────────────────────────────────────────
+
+    #[TestDox('POST reordenar seções atualiza a ordem e retorna 200')]
+    public function testReordenarSecoesComSucessoRetorna200(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $secaoA          = $this->criarSecao($pasta, $tenant);
+        $secaoB          = $this->criarSecao($pasta, $tenant);
+        $idA             = $secaoA->getId();
+        $idB             = $secaoB->getId();
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $user, $tenant);
+
+        // Inverte a ordem: B primeiro, A depois.
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/secoes/reordenar",
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode([
+                '_token' => $this->csrf('reordenar_secoes_pasta_' . $pasta->getId()),
+                'ids'    => [$idB, $idA],
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseIsSuccessful();
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($data['ok']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame(1, $em->find(PastaSecao::class, $idB)->getOrdem());
+        self::assertSame(2, $em->find(PastaSecao::class, $idA)->getOrdem());
+    }
+
+    #[TestDox('POST reordenar seções com CSRF inválido retorna 400')]
+    public function testReordenarSecoesCsrfInvalidoRetorna400(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+        $client->loginUser($user);
+        $this->marcarTermosAceitos($client);
+
+        $client->request(
+            'POST',
+            "/pasta/{$pasta->getId()}/secoes/reordenar",
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode(['_token' => 'token_invalido', 'ids' => [1, 2]], JSON_THROW_ON_ERROR),
+        );
+
+        self::assertResponseStatusCodeSame(400);
+    }
+
+    // ── Isolamento multi-tenant ──────────────────────────────────────────────────
+
+    #[TestDox('POST reordenar seções de OUTRO tenant não altera a ordem (isolamento)')]
+    public function testReordenarSecoesCrossTenantNaoAltera(): void
+    {
+        $client            = static::createClient();
+        [$userA, $tenantA] = $this->criarUsuarioAdmin();
+        [, $tenantB]       = $this->criarUsuarioAdmin();
+        $pastaB            = $this->criarPasta($tenantB);
+        $secaoB1           = $this->criarSecao($pastaB, $tenantB);
+        $secaoB2           = $this->criarSecao($pastaB, $tenantB);
+
+        // Ordens distintas para provar que nada muda.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $secaoB2->setOrdem(2);
+        $em->flush();
+
+        $idB1 = $secaoB1->getId();
+        $idB2 = $secaoB2->getId();
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $userA, $tenantA);
+
+        // Usuário do tenant A tenta reordenar seções da pasta do tenant B.
+        $client->request(
+            'POST',
+            "/pasta/{$pastaB->getId()}/secoes/reordenar",
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode([
+                '_token' => $this->csrf('reordenar_secoes_pasta_' . $pastaB->getId()),
+                'ids'    => [$idB2, $idB1],
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        // O UseCase filtra por tenant → nenhuma seção do tenant B é tocada.
+        // Lê direto do banco (o filtro de tenant esconderia a linha via ORM — o que já é prova de isolamento).
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(1, (int) $conn->fetchOne('SELECT ordem FROM pasta_secao WHERE id = ?', [$idB1]), 'A ordem da seção de outro escritório não pode mudar.');
+        self::assertSame(2, (int) $conn->fetchOne('SELECT ordem FROM pasta_secao WHERE id = ?', [$idB2]));
+    }
+
+    #[TestDox('POST reordenar documentos de OUTRO tenant não altera a ordem (isolamento)')]
+    public function testReordenarDocumentosCrossTenantNaoAltera(): void
+    {
+        $client            = static::createClient();
+        [$userA, $tenantA] = $this->criarUsuarioAdmin();
+        [, $tenantB]       = $this->criarUsuarioAdmin();
+        $pastaB            = $this->criarPasta($tenantB);
+        $docB1             = $this->criarDocumento($pastaB, $tenantB, 1);
+        $docB2             = $this->criarDocumento($pastaB, $tenantB, 2);
+        $idB1              = $docB1->getId();
+        $idB2              = $docB2->getId();
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $userA, $tenantA);
+
+        // Usuário do tenant A tenta reordenar documentos da pasta do tenant B.
+        $client->request(
+            'POST',
+            "/pasta/{$pastaB->getId()}/documentos/reordenar",
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode([
+                '_token' => $this->csrf('reordenar_docs_pasta_' . $pastaB->getId()),
+                'ids'    => [$idB2, $idB1],
+            ], JSON_THROW_ON_ERROR),
+        );
+
+        // O UseCase filtra por tenant → nenhum documento do tenant B é tocado.
+        // Lê direto do banco (o filtro de tenant esconderia a linha via ORM — o que já é prova de isolamento).
+        $conn = static::getContainer()->get(EntityManagerInterface::class)->getConnection();
+        self::assertSame(1, (int) $conn->fetchOne('SELECT ordem FROM pasta_documento WHERE id = ?', [$idB1]), 'A ordem do documento de outro escritório não pode mudar.');
+        self::assertSame(2, (int) $conn->fetchOne('SELECT ordem FROM pasta_documento WHERE id = ?', [$idB2]));
     }
 }
