@@ -92,13 +92,14 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
         return $doc;
     }
 
-    #[TestDox('GET /pasta/{id} — doc em seção não aparece em Documentação Geral')]
+    #[TestDox('GET /pasta/{id} — doc de seção fica vinculado à seção, não à raiz (gerenciador de arquivos)')]
     public function testDocEmSecaoNaoAparececEmDocumentacaoGeral(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
         $pasta           = $this->criarPasta($tenant);
         $secao           = $this->criarSecao($pasta, $tenant);
+        $secaoId         = (string) $secao->getId();
 
         $this->criarDocumento($pasta, $tenant, $secao, 'doc-na-secao.pdf');
         $this->criarDocumento($pasta, $tenant, null, 'doc-geral.pdf');
@@ -112,10 +113,16 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
 
-        $crawler   = $client->getCrawler();
-        $areaGeral = $crawler->filter('#documentosGerais')->html();
+        // No gerenciador de arquivos cada arquivo é uma .fm-arquivo com data-secao:
+        // "geral" para os arquivos da raiz e o id da seção para os que estão nela.
+        $crawler = $client->getCrawler();
 
-        self::assertStringContainsString('doc-geral.pdf', $areaGeral);
-        self::assertStringNotContainsString('doc-na-secao.pdf', $areaGeral);
+        $linhaGeral = $crawler->filter('.fm-arquivo[data-nome="doc-geral.pdf"]');
+        $linhaSecao = $crawler->filter('.fm-arquivo[data-nome="doc-na-secao.pdf"]');
+
+        self::assertCount(1, $linhaGeral, 'O documento geral deve aparecer no gerenciador.');
+        self::assertCount(1, $linhaSecao, 'O documento da seção deve aparecer no gerenciador.');
+        self::assertSame('geral', $linhaGeral->attr('data-secao'));
+        self::assertSame($secaoId, $linhaSecao->attr('data-secao'));
     }
 }
