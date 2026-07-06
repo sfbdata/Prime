@@ -19,19 +19,16 @@
 {% set mostrar_busca = mostrar_busca ?? true %}
 
 <form data-filtro-form method="get" class="filtro-barra">
-    {% if mostrar_busca %}
-    <div class="filtro-busca-linha">
-        <div class="filtro-busca">
-            <i class="bi bi-search"></i>
-            <input type="text" name="{{ busca_campo }}" class="form-control form-control-sm js-filtro-busca"
-                   data-rotulo="Busca" placeholder="{{ busca_placeholder|default('Buscar…') }}"
-                   autocomplete="off" value="{{ filtros[busca_campo]|default('') }}">
-        </div>
-    </div>
-    {% endif %}
-
-    {% if facetas|length > 0 %}
+    {% if mostrar_busca or facetas|length > 0 %}
         <div class="filtro-linha">
+            {% if mostrar_busca %}
+                <div class="filtro-busca">
+                    <i class="bi bi-search"></i>
+                    <input type="text" name="{{ busca_campo }}" class="form-control form-control-sm js-filtro-busca"
+                           data-rotulo="Busca" placeholder="{{ busca_placeholder|default('Buscar…') }}"
+                           autocomplete="off" value="{{ filtros[busca_campo]|default('') }}">
+                </div>
+            {% endif %}
             {% for f in facetas %}
                 {% if f.tipo == 'select' %}
                     <select name="{{ f.name }}" class="form-select form-select-sm filtro-select js-filtro-campo"

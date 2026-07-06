@@ -15,16 +15,14 @@
     <form method="GET" action="{{ formAction }}" id="formFiltrosPasta" class="pasta-filtros-form">
         <input type="hidden" name="ordenar" value="{{ ordenar ?? '' }}">
         <input type="hidden" name="direcao" value="{{ direcao ?? '' }}">
-        <div class="pasta-filtros-busca-linha">
+        <div class="pasta-filtros-linha">
             <div class="pasta-filtros-busca">
                 <i class="bi bi-search"></i>
                 <input type="text" name="busca" class="form-control form-control-sm js-pasta-busca"
                        placeholder="Buscar pasta, cliente, ação ou processo…"
                        autocomplete="off" value="{{ filters.busca ?? '' }}">
             </div>
-        </div>
 
-        <div class="pasta-filtros-linha">
             <select name="status" class="form-select form-select-sm js-pasta-filtro pasta-filtros-select"
                     data-rotulo="Status" aria-label="Filtrar por status">
                 <option value="">Status</option>
@@ -71,19 +69,18 @@
 </div>
 
 <style>
-.pasta-filtros-busca-linha {
-    margin-bottom: 8px;
-}
 .pasta-filtros-linha {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     align-items: center;
 }
+/* Busca na MESMA linha das facetas: item flexível que cresce/encolhe */
 .pasta-filtros-busca {
     position: relative;
-    width: 100%;
-    max-width: 360px;
+    flex: 1 1 180px;
+    min-width: 150px;
+    max-width: 240px;
 }
 .pasta-filtros-busca .bi-search {
     position: absolute;
@@ -101,6 +98,9 @@
 .pasta-filtros-select {
     width: auto;
     min-width: 128px;
+    /* Cap para nomes longos (ex.: Responsável) não estourarem a linha; o nome
+       completo segue visível no dropdown e no chip do filtro ativo. */
+    max-width: 150px;
     border-radius: 20px;
 }
 .pasta-filtros-periodo {
@@ -230,6 +230,7 @@
 }
 
 @media (max-width: 575.98px) {
+    .pasta-filtros-busca { flex: 1 1 100%; max-width: none; }
     .pasta-filtros-select { flex: 1 1 calc(50% - 4px); min-width: 0; }
     .pasta-filtros-periodo { flex: 1 1 100%; }
     .pasta-data-campo { flex: 1; }

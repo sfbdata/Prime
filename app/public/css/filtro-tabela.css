@@ -9,10 +9,6 @@
     margin-bottom: 1rem;
 }
 
-.filtro-busca-linha {
-    margin-bottom: 8px;
-}
-
 .filtro-linha {
     display: flex;
     flex-wrap: wrap;
@@ -20,10 +16,12 @@
     align-items: center;
 }
 
+/* Busca na MESMA linha das facetas: item flexível que cresce/encolhe */
 .filtro-busca {
     position: relative;
-    width: 100%;
-    max-width: 360px;
+    flex: 1 1 180px;
+    min-width: 150px;
+    max-width: 240px;
 }
 
 .filtro-busca .bi-search {
@@ -44,6 +42,9 @@
 .filtro-select {
     width: auto;
     min-width: 128px;
+    /* Cap para nomes longos (ex.: Responsável) não estourarem a linha; o nome
+       completo segue visível no dropdown e no chip do filtro ativo. */
+    max-width: 150px;
     border-radius: 20px;
 }
 
@@ -192,9 +193,15 @@
 }
 
 @media (max-width: 575.98px) {
+    .filtro-busca {
+        flex: 1 1 100%;
+        max-width: none;
+    }
+
     .filtro-select {
         flex: 1 1 calc(50% - 4px);
         min-width: 0;
+        max-width: none;
     }
 
     .filtro-data-campo {
