@@ -9,6 +9,8 @@ use App\Entity\Auth\UserTenant;
 use App\Entity\Notificacao;
 use App\Entity\Permission\Permission;
 use App\Entity\ServiceDesk\Chamado;
+use App\Entity\Tarefa\Tarefa;
+use App\Pasta\Entity\Pasta;
 use App\Entity\Tenant\Tenant;
 use App\Entity\Tenant\TenantRole;
 use App\Entity\Tenant\TenantRolePermission;
@@ -155,6 +157,156 @@ final class NotificacaoServiceTest extends KernelTestCase
         $this->service->notificarNovoChamado($chamado, $tenant, '/servicedesk/' . $chamadoId);
 
         self::assertCount(0, $this->notificacoesDe($comumId));
+    }
+
+    #[TestDox('notificarTarefaCriada cria uma notificação TAREFA_CRIADA para cada responsável')]
+    public function testNotificarTarefaCriadaNotificaCadaResponsavel(): void
+    {
+        $tenant = new Tenant();
+        $tenant->setName('Tenant Meta ' . uniqid());
+        $this->em->persist($tenant);
+        $papel = $this->criarPapel($tenant, 'Colab', null);
+
+        $autor = $this->criarUsuario($tenant, $papel, 'autor_');
+        $resp1 = $this->criarUsuario($tenant, $papel, 'resp1_');
+        $resp2 = $this->criarUsuario($tenant, $papel, 'resp2_');
+        $tarefa = $this->criarTarefa($tenant, $autor, [$resp1, $resp2]);
+
+        $tarefaId = (int) $tarefa->getId();
+        $resp1Id  = (int) $resp1->getId();
+        $resp2Id  = (int) $resp2->getId();
+        $this->em->clear();
+
+        $tarefa = $this->em->find(Tarefa::class, $tarefaId);
+        $this->service->notificarTarefaCriada($tarefa);
+
+        self::assertCount(1, $this->notificacoesDe($resp1Id), 'responsável 1 deve receber 1 notificação');
+        self::assertCount(1, $this->notificacoesDe($resp2Id), 'responsável 2 deve receber 1 notificação');
+        self::assertSame(Notificacao::TIPO_TAREFA_CRIADA, $this->notificacoesDe($resp1Id)[0]->getTipo());
+    }
+
+    #[TestDox('notificarTarefaPendente cria uma notificação TAREFA_PENDENTE para cada responsável')]
+    public function testNotificarTarefaPendenteNotificaCadaResponsavel(): void
+    {
+        $tenant = new Tenant();
+        $tenant->setName('Tenant Meta ' . uniqid());
+        $this->em->persist($tenant);
+        $papel = $this->criarPapel($tenant, 'Colab', null);
+
+        $autor = $this->criarUsuario($tenant, $papel, 'autor_');
+        $resp  = $this->criarUsuario($tenant, $papel, 'resp_');
+        $tarefa = $this->criarTarefa($tenant, $autor, [$resp]);
+
+        $tarefaId = (int) $tarefa->getId();
+        $respId   = (int) $resp->getId();
+        $this->em->clear();
+
+        $tarefa = $this->em->find(Tarefa::class, $tarefaId);
+        $this->service->notificarTarefaPendente($tarefa);
+
+        self::assertCount(1, $this->notificacoesDe($respId));
+        self::assertSame(Notificacao::TIPO_TAREFA_PENDENTE, $this->notificacoesDe($respId)[0]->getTipo());
+    }
+
+    #[TestDox('notificarTarefaConcluida cria uma notificação TAREFA_CONCLUIDA para cada responsável')]
+    public function testNotificarTarefaConcluidaNotificaCadaResponsavel(): void
+    {
+        $tenant = new Tenant();
+        $tenant->setName('Tenant Meta ' . uniqid());
+        $this->em->persist($tenant);
+        $papel = $this->criarPapel($tenant, 'Colab', null);
+
+        $autor = $this->criarUsuario($tenant, $papel, 'autor_');
+        $resp  = $this->criarUsuario($tenant, $papel, 'resp_');
+        $tarefa = $this->criarTarefa($tenant, $autor, [$resp]);
+
+        $tarefaId = (int) $tarefa->getId();
+        $respId   = (int) $resp->getId();
+        $this->em->clear();
+
+        $tarefa = $this->em->find(Tarefa::class, $tarefaId);
+        $this->service->notificarTarefaConcluida($tarefa);
+
+        self::assertCount(1, $this->notificacoesDe($respId));
+        self::assertSame(Notificacao::TIPO_TAREFA_CONCLUIDA, $this->notificacoesDe($respId)[0]->getTipo());
+    }
+
+    #[TestDox('notificarTarefaEmRevisao notifica o criador da tarefa com TAREFA_EM_REVISAO')]
+    public function testNotificarTarefaEmRevisaoNotificaCriador(): void
+    {
+        $tenant = new Tenant();
+        $tenant->setName('Tenant Meta ' . uniqid());
+        $this->em->persist($tenant);
+        $papel = $this->criarPapel($tenant, 'Colab', null);
+
+        $autor = $this->criarUsuario($tenant, $papel, 'autor_');
+        $resp  = $this->criarUsuario($tenant, $papel, 'resp_');
+        $tarefa = $this->criarTarefa($tenant, $autor, [$resp]);
+
+        $tarefaId = (int) $tarefa->getId();
+        $autorId  = (int) $autor->getId();
+        $respId   = (int) $resp->getId();
+        $this->em->clear();
+
+        $tarefa = $this->em->find(Tarefa::class, $tarefaId);
+        $this->service->notificarTarefaEmRevisao($tarefa);
+
+        self::assertCount(1, $this->notificacoesDe($autorId), 'o criador deve receber 1 notificação');
+        self::assertSame(Notificacao::TIPO_TAREFA_EM_REVISAO, $this->notificacoesDe($autorId)[0]->getTipo());
+        self::assertCount(0, $this->notificacoesDe($respId), 'o responsável que enviou não é notificado');
+    }
+
+    #[TestDox('notificarTarefaCriada não vaza notificação para responsável de outro tenant')]
+    public function testNotificarTarefaCriadaNaoVazaEntreTenants(): void
+    {
+        $tenantA = new Tenant();
+        $tenantA->setName('Tenant A ' . uniqid());
+        $this->em->persist($tenantA);
+        $tenantB = new Tenant();
+        $tenantB->setName('Tenant B ' . uniqid());
+        $this->em->persist($tenantB);
+
+        $autor = $this->criarUsuario($tenantA, $this->criarPapel($tenantA, 'Colab A', null), 'autor_');
+        $respA = $this->criarUsuario($tenantA, $this->criarPapel($tenantA, 'Resp A', null), 'respA_');
+        $tarefa = $this->criarTarefa($tenantA, $autor, [$respA]);
+
+        $tarefaId = (int) $tarefa->getId();
+        $respAId  = (int) $respA->getId();
+        $tenantAId = (int) $tenantA->getId();
+        $this->em->clear();
+
+        $tarefa = $this->em->find(Tarefa::class, $tarefaId);
+        $this->service->notificarTarefaCriada($tarefa);
+
+        $notificacao = $this->notificacoesDe($respAId)[0];
+        self::assertSame($tenantAId, (int) $notificacao->getTenant()->getId(), 'a notificação é do tenant da tarefa');
+    }
+
+    /**
+     * @param User[] $responsaveis
+     */
+    private function criarTarefa(Tenant $tenant, User $autor, array $responsaveis): Tarefa
+    {
+        $pasta = new Pasta();
+        $pasta->setNup('TEST-NOTIF-' . uniqid());
+        $pasta->setTenant($tenant);
+        $pasta->setCriadoPor($autor);
+        $this->em->persist($pasta);
+
+        $tarefa = new Tarefa();
+        $tarefa->setTitulo('Meta de teste');
+        $tarefa->setDescricao('Descrição');
+        $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
+        $tarefa->setPasta($pasta);
+        $tarefa->setTenant($tenant);
+        $tarefa->setCriadoPor($autor);
+        foreach ($responsaveis as $responsavel) {
+            $tarefa->addResponsavel($responsavel);
+        }
+        $this->em->persist($tarefa);
+        $this->em->flush();
+
+        return $tarefa;
     }
 
     private function obterPermissao(string $code): Permission
