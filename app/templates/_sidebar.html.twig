@@ -64,6 +64,16 @@
                     </li>
                 {% endif %}
 
+                {% if can_access_module('djen') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('djen_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'djen_' ? 'active' : '' }}">
+                            <i class="bi bi-newspaper pje-nav-icon"></i>
+                            <span>DJEN</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {% if can_access_module('tarefas') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('tarefa_minhas') }}"

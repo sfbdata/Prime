@@ -55,6 +55,10 @@ final class PurgarEscritorioUseCase
         ['parte_processo', 'tenant_id = :tenant'],
         ['assunto_processo', 'tenant_id = :tenant'],
         ['user_tenant', 'tenant_id = :tenant'],
+        // DJEN — publicações e OABs monitoradas (tenant_id direto; FKs a processo/oab_monitorada
+        // são SET NULL, então não caem por cascata — precisam de deleção explícita).
+        ['publicacao_djen', 'tenant_id = :tenant'],
+        ['oab_monitorada', 'tenant_id = :tenant'],
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
         ['notificacao', 'tenant_id = :tenant'],

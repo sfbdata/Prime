@@ -26,6 +26,7 @@ class Notificacao implements Auditavel, TenantAware
     public const TIPO_SERVICEDESK = 'servicedesk';
     public const TIPO_SERVICEDESK_NOVO = 'servicedesk_novo';
     public const TIPO_SERVICEDESK_ATRIBUICAO = 'servicedesk_atribuicao';
+    public const TIPO_DJEN_PUBLICACAO = 'djen_publicacao';
 
     /** Categorias de notificação (derivadas do tipo). */
     public const CATEGORIA_PESSOAL = 'pessoal';
@@ -201,6 +202,7 @@ class Notificacao implements Auditavel, TenantAware
             self::TIPO_PONTO_JUSTIFICATIVA_REJEITADA => 'bi-x-circle text-danger',
             self::TIPO_SERVICEDESK_NOVO => 'bi-ticket-detailed text-primary',
             self::TIPO_SERVICEDESK_ATRIBUICAO => 'bi-person-check text-info',
+            self::TIPO_DJEN_PUBLICACAO => 'bi-newspaper text-primary',
             default => 'bi-bell text-secondary',
         };
     }

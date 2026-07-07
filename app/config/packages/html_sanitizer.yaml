@@ -1,0 +1,48 @@
+framework:
+    html_sanitizer:
+        sanitizers:
+            # Sanitizador do teor das publicações do DJEN (conteúdo HTML externo, do CNJ).
+            # Preserva a formatação de documento (parágrafos, negrito, seções, tabelas de partes)
+            # e remove tudo que for perigoso (script/style/iframe, handlers de evento, javascript:).
+            # Injeta-se como argumento `HtmlSanitizerInterface $djenSanitizer` (convenção do Symfony).
+            djen:
+                allow_elements:
+                    section: []
+                    article: []
+                    header: []
+                    footer: []
+                    div: []
+                    span: []
+                    p: []
+                    br: []
+                    hr: []
+                    b: []
+                    strong: []
+                    i: []
+                    em: []
+                    u: []
+                    small: []
+                    sub: []
+                    sup: []
+                    blockquote: []
+                    ul: []
+                    ol: []
+                    li: []
+                    table: []
+                    caption: []
+                    thead: []
+                    tbody: []
+                    tfoot: []
+                    tr: []
+                    td: ['colspan', 'rowspan']
+                    th: ['colspan', 'rowspan']
+                    h1: []
+                    h2: []
+                    h3: []
+                    h4: []
+                    h5: []
+                    h6: []
+                # Sem <a>/<img>: o botão "Inteiro teor na origem" já cobre o link de forma segura.
+                allow_relative_links: false
+                allow_relative_medias: false
+                max_input_length: 1000000

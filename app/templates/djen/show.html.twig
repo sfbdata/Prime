@@ -1,0 +1,88 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}DJEN — Publicação{% endblock %}
+
+{% block stylesheets %}
+<style>
+    .djen-teor { line-height: 1.6; word-break: break-word; }
+    .djen-teor table { width: 100%; border-collapse: collapse; margin: .5rem 0; }
+    .djen-teor td, .djen-teor th { border: 1px solid var(--bs-border-color, #dee2e6); padding: .35rem .5rem; vertical-align: top; }
+    .djen-teor section { margin-bottom: .9rem; }
+    .djen-teor p { margin-bottom: .5rem; }
+    .djen-teor :is(h1, h2, h3, h4, h5, h6) { font-size: 1rem; font-weight: 600; margin: .6rem 0 .3rem; }
+</style>
+{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">Publicação do DJEN</h1>
+        <a href="{{ path('djen_index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+        </a>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3"><small class="text-muted d-block">Tribunal</small>{{ publicacao.siglaTribunal }}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Tipo</small>{{ publicacao.tipoComunicacao ?? '—' }}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Disponibilização</small>{{ publicacao.dataDisponibilizacao ?? '—' }}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Meio</small>{{ publicacao.meioLabel ?? '—' }}</div>
+                    <div class="col-md-6"><small class="text-muted d-block">Processo</small>
+                        {{ publicacao.numeroProcessoExibicao ?? '—' }}
+                        {% if publicacao.avulsa %}
+                            <span class="badge bg-secondary">Avulsa</span>
+                        {% else %}
+                            <a href="{{ path('processo_show', {id: publicacao.processoId}) }}" class="badge bg-success text-decoration-none">Ver processo</a>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-3"><small class="text-muted d-block">Órgão</small>{{ publicacao.nomeOrgao ?? '—' }}</div>
+                    <div class="col-md-3"><small class="text-muted d-block">Classe</small>{{ publicacao.nomeClasse ?? '—' }}</div>
+                    {% if publicacao.oabRotulo %}
+                        <div class="col-md-3"><small class="text-muted d-block">Captada pela OAB</small>{{ publicacao.oabRotulo }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        {% if publicacao.destinatarios is not empty %}
+            <div class="card mb-3">
+                <div class="card-header"><h3 class="card-title">Destinatários</h3></div>
+                <div class="card-body p-0">
+                    <table class="table mb-0">
+                        <thead><tr><th>Nome</th><th>Polo</th></tr></thead>
+                        <tbody>
+                            {% for dest in publicacao.destinatarios %}
+                                <tr><td>{{ dest.nome }}</td><td>{{ dest.polo }}</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="card-title">Teor da comunicação</h3>
+                {% if publicacao.link %}
+                    <a href="{{ publicacao.link|e('html_attr') }}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Inteiro teor na origem
+                    </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if publicacao.textoHtml %}
+                    {# Teor já sanitizado no controller (HtmlSanitizer 'djen') — seguro renderizar com raw. #}
+                    <div class="djen-teor">{{ publicacao.textoHtml|raw }}</div>
+                {% else %}
+                    <p class="text-muted mb-0">Sem teor textual disponível.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

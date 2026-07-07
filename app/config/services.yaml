@@ -38,6 +38,7 @@ services:
             string $mailerFrom: '%mailer_from%'
             string $datajudApiKey: '%env(DATAJUD_API_KEY)%'
             string $datajudBaseUrl: '%env(DATAJUD_BASE_URL)%'
+            string $djenBaseUrl: '%env(DJEN_BASE_URL)%'
             string $uploadsDir: '%uploads_dir%'
             string $justificativasUploadsDir: '%justificativas_uploads_dir%'
             string $chamadosUploadsDir: '%chamados_uploads_dir%'
@@ -55,6 +56,10 @@ services:
     # Backend de verificação de OAB: dormente (manual-first) enquanto não houver chave do
     # web service oficial. Trocar aqui quando houver backend real.
     App\Auth\Service\OabWebServiceClientInterface: '@App\Auth\Service\ClienteOabIndisponivel'
+
+    # Cliente do DJEN: injeta a implementação concreta via interface (integração desacoplada).
+    App\Djen\Service\DjenClientInterface: '@App\Djen\Service\DjenClient'
+    App\Djen\Service\NotificadorPublicacoesDjenInterface: '@App\Djen\Service\NotificadorPublicacoesDjen'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

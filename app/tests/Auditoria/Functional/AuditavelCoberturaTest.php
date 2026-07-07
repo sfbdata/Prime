@@ -9,6 +9,8 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Djen\Entity\OabMonitorada;
+use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Audit\AuditLog;
 use App\Expediente\Entity\Marcador;
 use App\Kanban\Entity\KanbanAnexo;
@@ -70,6 +72,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         KanbanAnexo::class,
         KanbanMarcador::class,
         Marcador::class,
+
+        // DJEN — domínio novo (mesma decisão de Processo/Cliente): auditoria não expandida.
+        // PublicacaoDjen é captada em lote pelo sync (alto volume); OabMonitorada é config do escritório.
+        OabMonitorada::class,
+        PublicacaoDjen::class,
     ];
 
     private EntityManagerInterface $em;

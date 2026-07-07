@@ -1,0 +1,142 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}DJEN — Publicações{% endblock %}
+
+{% block body %}
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center">
+        <h1 class="m-0">DJEN — Publicações</h1>
+        <div class="d-flex gap-2">
+            <a href="{{ path('djen_oabs') }}" class="btn btn-outline-secondary">
+                <i class="bi bi-person-badge me-1"></i> OABs monitoradas
+            </a>
+            <form method="POST" action="{{ path('djen_sincronizar') }}" class="d-inline">
+                <input type="hidden" name="_token" value="{{ csrf_token('djen_sincronizar') }}">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-arrow-repeat me-1"></i> Sincronizar agora
+                </button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div class="card card-outline card-primary mb-3">
+            <div class="card-header" style="cursor: pointer;" data-bs-toggle="collapse" data-bs-target="#filtrosDjen">
+                <h3 class="card-title"><i class="bi bi-funnel me-1"></i> Filtros</h3>
+            </div>
+            <div class="collapse{% if filtros.busca or filtros.tribunal or filtros.meio or filtros.vinculo or filtros.data_de or filtros.data_ate %} show{% endif %}" id="filtrosDjen">
+                <div class="card-body">
+                    <form method="GET" action="{{ path('djen_index') }}">
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label for="f_busca" class="form-label">Busca</label>
+                                <input type="text" id="f_busca" name="busca" value="{{ filtros.busca }}" class="form-control" placeholder="Nº processo, tribunal, tipo...">
+                            </div>
+                            <div class="col-md-2">
+                                <label for="f_tribunal" class="form-label">Tribunal</label>
+                                <select id="f_tribunal" name="tribunal" class="form-control">
+                                    <option value="">Todos</option>
+                                    {% for sigla in tribunais %}
+                                        <option value="{{ sigla }}" {% if filtros.tribunal == sigla %}selected{% endif %}>{{ sigla }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="f_meio" class="form-label">Meio</label>
+                                <select id="f_meio" name="meio" class="form-control">
+                                    <option value="">Todos</option>
+                                    <option value="D" {% if filtros.meio == 'D' %}selected{% endif %}>Diário</option>
+                                    <option value="E" {% if filtros.meio == 'E' %}selected{% endif %}>Edital</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label for="f_vinculo" class="form-label">Vínculo</label>
+                                <select id="f_vinculo" name="vinculo" class="form-control">
+                                    <option value="">Todas</option>
+                                    <option value="vinculada" {% if filtros.vinculo == 'vinculada' %}selected{% endif %}>Vinculadas</option>
+                                    <option value="avulsa" {% if filtros.vinculo == 'avulsa' %}selected{% endif %}>Avulsas</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 row g-1">
+                                <div class="col-6">
+                                    <label for="f_de" class="form-label">De</label>
+                                    <input type="date" id="f_de" name="data_de" value="{{ filtros.data_de }}" class="form-control">
+                                </div>
+                                <div class="col-6">
+                                    <label for="f_ate" class="form-label">Até</label>
+                                    <input type="date" id="f_ate" name="data_ate" value="{{ filtros.data_ate }}" class="form-control">
+                                </div>
+                            </div>
+                            <div class="col-12 d-flex gap-2">
+                                <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i> Filtrar</button>
+                                <a href="{{ path('djen_index') }}" class="btn btn-outline-secondary">Limpar</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Tribunal</th>
+                            <th>Tipo</th>
+                            <th>Processo</th>
+                            <th>Órgão</th>
+                            <th class="text-end">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pub in publicacoes %}
+                            <tr {% if not pub.lida %}class="fw-semibold"{% endif %}>
+                                <td>{{ pub.dataDisponibilizacao ?? '—' }}</td>
+                                <td>{{ pub.siglaTribunal }}</td>
+                                <td>{{ pub.tipoComunicacao ?? '—' }}</td>
+                                <td>
+                                    {{ pub.numeroProcessoExibicao ?? '—' }}
+                                    {% if pub.avulsa %}
+                                        <span class="badge bg-secondary">Avulsa</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Vinculada</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ pub.nomeOrgao ?? '—' }}</td>
+                                <td class="text-end">
+                                    <a href="{{ path('djen_show', {id: pub.id}) }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="bi bi-eye"></i> Ver
+                                    </a>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    Nenhuma publicação encontrada. Cadastre uma OAB e clique em "Sincronizar agora".
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if totalPaginas > 1 %}
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <small class="text-muted">{{ total }} publicação(ões) · página {{ pagina }} de {{ totalPaginas }}</small>
+                    <div class="btn-group">
+                        {% if pagina > 1 %}
+                            <a href="{{ path('djen_index', app.request.query.all|merge({'pagina': pagina - 1})) }}" class="btn btn-outline-secondary btn-sm">Anterior</a>
+                        {% endif %}
+                        {% if pagina < totalPaginas %}
+                            <a href="{{ path('djen_index', app.request.query.all|merge({'pagina': pagina + 1})) }}" class="btn btn-outline-secondary btn-sm">Próxima</a>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}
