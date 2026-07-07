@@ -17,6 +17,7 @@ use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Repository\UserRepository;
 use App\Repository\UserTenantRepository;
+use App\Service\NotificacaoService;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Tarefa\Service\TarefaTimelineAssembler;
@@ -40,6 +41,7 @@ final class TarefaController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly UserTenantRepository $userTenantRepo,
+        private readonly NotificacaoService $notificacaoService,
     ) {
     }
 
@@ -139,6 +141,8 @@ final class TarefaController extends AbstractController
         $entityManager->persist($tarefa);
         $entityManager->flush();
 
+        $this->notificacaoService->notificarTarefaCriada($tarefa);
+
         return $this->json(['sucesso' => true, 'id' => $tarefa->getId()]);
     }
 
@@ -187,12 +191,25 @@ final class TarefaController extends AbstractController
         $userIds = array_map('intval', $request->request->all('responsaveis', []));
         $users = $userRepository->findPorIdsETenant($userIds, $tenant);
 
+        $idsAnteriores = array_map(
+            static fn(User $u): int => (int) $u->getId(),
+            $tarefa->getResponsaveis()->toArray()
+        );
+
         $tarefa->getResponsaveis()->clear();
+        $novosResponsaveis = [];
         foreach ($users as $user) {
             $tarefa->addResponsavel($user);
+            if (!in_array((int) $user->getId(), $idsAnteriores, true)) {
+                $novosResponsaveis[] = $user;
+            }
         }
 
         $entityManager->flush();
+
+        if ($novosResponsaveis !== []) {
+            $this->notificacaoService->notificarResponsaveisAdicionados($tarefa, $novosResponsaveis);
+        }
 
         $this->addFlash('success', 'Responsáveis atualizados com sucesso.');
 
@@ -277,13 +294,25 @@ final class TarefaController extends AbstractController
         }
 
         // Transições de status pelo ciclo de vida
+        $enviada   = false;
+        $devolvida = false;
         if ($acao === 'enviar' && $tarefa->getStatus() === Tarefa::STATUS_PENDENTE) {
             $tarefa->setStatus(Tarefa::STATUS_EM_REVISAO);
+            $enviada = true;
         } elseif ($acao === 'devolver' && $tarefa->getStatus() === Tarefa::STATUS_EM_REVISAO) {
             $tarefa->setStatus(Tarefa::STATUS_PENDENTE);
+            $devolvida = true;
         }
 
         $entityManager->flush();
+
+        if ($enviada) {
+            $this->notificacaoService->notificarTarefaEmRevisao($tarefa);
+        }
+
+        if ($devolvida) {
+            $this->notificacaoService->notificarTarefaPendente($tarefa);
+        }
 
         return $this->redirectToRoute('tarefa_show', ['id' => $tarefa->getId()]);
     }
@@ -338,6 +367,8 @@ final class TarefaController extends AbstractController
             $tarefa->setStatus(Tarefa::STATUS_CONCLUIDA);
             $tarefa->setDataConclusao(new \DateTimeImmutable());
             $entityManager->flush();
+
+            $this->notificacaoService->notificarTarefaConcluida($tarefa);
 
             $this->addFlash('success', 'Tarefa concluída.');
         }

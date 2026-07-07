@@ -83,13 +83,27 @@ class NotificacaoService
      */
     public function notificarTarefaCriada(Tarefa $tarefa): void
     {
-        $tenant = $tarefa->getTenant();
-        foreach ($tarefa->getAtribuicoes() as $atribuicao) {
-            $usuario = $atribuicao->getUsuario();
-            if ($usuario === null) {
-                continue;
-            }
+        $this->notificarResponsaveis($tarefa, $tarefa->getResponsaveis());
+    }
 
+    /**
+     * Notifica apenas os responsáveis recém-adicionados a uma tarefa já existente
+     * (reatribuição via updateResponsaveis). Reusa o texto de "nova tarefa atribuída".
+     *
+     * @param iterable<User> $usuarios
+     */
+    public function notificarResponsaveisAdicionados(Tarefa $tarefa, iterable $usuarios): void
+    {
+        $this->notificarResponsaveis($tarefa, $usuarios);
+    }
+
+    /**
+     * @param iterable<User> $usuarios
+     */
+    private function notificarResponsaveis(Tarefa $tarefa, iterable $usuarios): void
+    {
+        $tenant = $tarefa->getTenant();
+        foreach ($usuarios as $usuario) {
             $this->criar(
                 $usuario,
                 $tenant,
@@ -104,18 +118,36 @@ class NotificacaoService
     }
 
     /**
+     * Notifica o criador da tarefa que ela foi enviada para revisão.
+     * Chamado quando o responsável clica em "Enviar para revisão".
+     */
+    public function notificarTarefaEmRevisao(Tarefa $tarefa): void
+    {
+        $criador = $tarefa->getCriadoPor();
+        if ($criador === null) {
+            return;
+        }
+
+        $this->criar(
+            $criador,
+            $tarefa->getTenant(),
+            Notificacao::TIPO_TAREFA_EM_REVISAO,
+            'Tarefa enviada para revisão',
+            "A tarefa \"{$tarefa->getTitulo()}\" foi enviada para revisão.",
+            $tarefa
+        );
+
+        $this->entityManager->flush();
+    }
+
+    /**
      * Notifica usuários atribuídos que a tarefa voltou como pendência.
      * Chamado quando admin clica em "Enviar Pendência".
      */
     public function notificarTarefaPendente(Tarefa $tarefa): void
     {
         $tenant = $tarefa->getTenant();
-        foreach ($tarefa->getAtribuicoes() as $atribuicao) {
-            $usuario = $atribuicao->getUsuario();
-            if ($usuario === null) {
-                continue;
-            }
-
+        foreach ($tarefa->getResponsaveis() as $usuario) {
             $this->criar(
                 $usuario,
                 $tenant,
@@ -136,12 +168,7 @@ class NotificacaoService
     public function notificarTarefaConcluida(Tarefa $tarefa): void
     {
         $tenant = $tarefa->getTenant();
-        foreach ($tarefa->getAtribuicoes() as $atribuicao) {
-            $usuario = $atribuicao->getUsuario();
-            if ($usuario === null) {
-                continue;
-            }
-
+        foreach ($tarefa->getResponsaveis() as $usuario) {
             $this->criar(
                 $usuario,
                 $tenant,
