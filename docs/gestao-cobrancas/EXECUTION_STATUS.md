@@ -13,13 +13,13 @@
 | **Onda atual** | Onda 2 (fan-out) — **parcial**: piloto de 2 UseCases concluído; faltam 5 UseCases |
 | **Tarefa atual** | Nenhuma em execução (sessão em modo preparação de handoff) |
 | **Último checkpoint estável** | `f6362f0` — suíte `tests/Cobranca` verde (4/38) |
-| **Branch atual** | `djen-integracao` ⚠️ (ver "Risco de branch" abaixo) |
-| **HEAD** | `f6362f0 Adicionar UseCase CriarPessoa (Cobranças)` |
-| **Working tree** | limpo, exceto os docs de handoff desta sessão |
+| **Branch atual** | `gestao-cobrancas` (dedicada da feature; ver "Branch" abaixo) |
+| **HEAD** | último commit de feature `f6362f0`; a branch inclui docs `85a0fde` + correção de referências de branch |
+| **Working tree** | limpo |
 | **Migration da Etapa 1** | `Version20260708210509` — migrated em **dev** e **test** |
 
-### ⚠️ Risco de branch (decisão do humano — NÃO resolver por conta própria)
-Toda a feature Gestão de Cobranças (8 commits, `bc00414`→`f6362f0`) está **empilhada sobre o módulo DJEN** (`b044c0c`, `b9de2b7`) na branch `djen-integracao`, que é de OUTRA feature ainda não mergeada. Consequência: se `djen-integracao` for mergeada ao `master`, carrega junto a Gestão de Cobranças **incompleta**. Recomendação (a decidir pelo humano; nenhuma operação de branch foi feita): considerar criar `gestao-cobrancas` a partir do HEAD atual para as próximas etapas, ou confirmar conscientemente o empilhamento. **Não** foi feito switch/rebase/move de commits.
+### ✅ Branch (resolvido)
+A feature vive na branch dedicada **`gestao-cobrancas`**, criada a partir de `b044c0c` (tip do `master`, que já inclui o módulo DJEN). O `master` **não** contém Cobranças. Os 8 commits da feature (`bc00414`→`85a0fde`) estão todos nesta branch. Resíduo menor: `gestao-cobrancas` carrega 2 commits DJEN-adjacentes (`6ffb820`, `b9de2b7`) ainda fora do master — chegam via `djen-deploy` e não afetam Cobranças. Nenhum rebase/reescrita pendente.
 
 ---
 
@@ -85,7 +85,7 @@ Marcadores: ✅ concluído · 🔄 em andamento · ⬜ pendente · ⚠️ atenç
 - ⬜ Índices de dedup (`cpf`/`cnpj`/`referencia_externa`) quando dedup/import exigirem
 - ⬜ `tenant-safety-review` antes de mergear
 - ⬜ Deploy via `deploy-prod-tls.sh` (rebuild) — só no fim
-- ⚠️ Decisão de branch (ver Panorama)
+- ✅ Branch dedicada `gestao-cobrancas` (resolvido — ver Panorama)
 
 ---
 

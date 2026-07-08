@@ -19,15 +19,15 @@ Você vai continuar a feature "Gestão de Cobranças" do projeto JusPrime. NÃO 
 2) Carregue a skill "workflow" antes de tocar em código.
 
 3) Verifique o ESTADO REAL do repositório (não assuma):
-   - git branch --show-current   (esperado: djen-integracao — ver o ⚠️ de branch no EXECUTION_STATUS)
+   - git branch --show-current   (esperado: gestao-cobrancas)
    - git status --short
-   - git log --oneline -8        (HEAD esperado: f6362f0 ou posterior)
+   - git log --oneline -8        (topo esperado: docs 85a0fde / último commit de feature f6362f0, ou posterior)
    - git worktree list
    - docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Cobranca'   (deve estar verde)
 
 4) COMPARE a documentação com o repositório. Se divergirem (commits a mais/menos, testes falhando, working tree suja, branch diferente), PARE e reporte a divergência antes de agir — corrija o entendimento a partir do Git, não dos docs.
 
-5) Resolva primeiro o ⚠️ de branch com o humano se ainda estiver aberto (Cobranças está empilhada sobre DJEN em djen-integracao). Não faça switch/rebase/move de commits por conta própria.
+5) A branch já está resolvida: trabalhe em gestao-cobrancas (master ficou só com DJEN; a feature vive só nesta branch). Não faça switch/rebase/move de commits por conta própria.
 
 6) Retome pela "Próxima ação exata" do EXECUTION_STATUS.md / SESSION_HANDOFF.md, seguindo o AUTONOMOUS_EXECUTION_PROTOCOL.md. Continue autonomamente sem pedir aprovação a cada passo — pare apenas para: (a) commit obrigatório do humano antes de fan-out se aplicável, (b) decisão de negócio bloqueante, (c) inconsistência grave SPEC/PLAN/código, (d) conclusão de etapa, (e) ~90% de contexto (entrar em modo handoff).
 
