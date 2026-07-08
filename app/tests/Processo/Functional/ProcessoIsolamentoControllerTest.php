@@ -11,6 +11,8 @@ use App\Entity\Tenant\TenantRole;
 use App\Processo\Controller\ProcessoController;
 use App\Processo\Entity\MovimentacaoProcesso;
 use App\Processo\Entity\Processo;
+use App\Processo\Enum\MotivoFalhaDatajud;
+use App\Processo\Exception\ConsultaDatajudException;
 use App\Processo\Service\DatajudClient;
 use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
@@ -130,6 +132,96 @@ final class ProcessoIsolamentoControllerTest extends JusPrimeWebTestCase
         self::assertResponseStatusCodeSame(422);
         $payload = json_decode((string) $client->getResponse()->getContent(), true);
         self::assertArrayHasKey('error', $payload);
+        // Mensagem explicativa: diz quantos dígitos vieram vs os 20 do padrão CNJ.
+        self::assertStringContainsString('dígito', $payload['error']);
+        self::assertStringContainsString('20', $payload['error']);
+    }
+
+    #[TestDox('Processo não encontrado no CNJ cita o tribunal detectado (TJSP) e devolve 404')]
+    public function testDatajudSearchNaoEncontradoCitaTribunal(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorNF_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $mock = $this->createMock(DatajudClient::class);
+        $mock->method('searchByNumeroProcesso')->willReturn(['hits' => ['hits' => []]]);
+        static::getContainer()->set(DatajudClient::class, $mock);
+
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['numeroProcesso' => '0001234-56.2020.8.26.0100']), // TJSP
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('TJSP', $payload['error'], 'a mensagem cita o tribunal detectado');
+    }
+
+    #[TestDox('CNJ instável usa a mensagem e o status do motivo Indisponivel (502)')]
+    public function testDatajudSearchCnjInstavelUsaMensagemDoMotivo(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorInst_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $mock = $this->createMock(DatajudClient::class);
+        $mock->method('searchByNumeroProcesso')
+            ->willThrowException(new ConsultaDatajudException(MotivoFalhaDatajud::Indisponivel, 'HTTP 503'));
+        static::getContainer()->set(DatajudClient::class, $mock);
+
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['numeroProcesso' => '0001234-56.2020.8.26.0100']),
+        );
+
+        self::assertResponseStatusCodeSame(502);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('instável', $payload['error']);
+    }
+
+    #[TestDox('Tribunal sem base pública no CNJ avisa citando a sigla e devolve 422')]
+    public function testDatajudSearchTribunalSemBasePublica(): void
+    {
+        $client = static::createClient();
+        $client->disableReboot();
+        $tenant = $this->criarTenant();
+        $gestor = $this->criarGestor($tenant, 'gestorSB_' . uniqid() . '@test.com');
+        $this->limparIdentityMap();
+        $this->logarComTenant($client, $gestor, $tenant);
+
+        $mock = $this->createMock(DatajudClient::class);
+        $mock->method('searchByNumeroProcesso')
+            ->willThrowException(new ConsultaDatajudException(MotivoFalhaDatajud::TribunalSemBasePublica, 'HTTP 404'));
+        static::getContainer()->set(DatajudClient::class, $mock);
+
+        $client->request(
+            'POST',
+            '/processos/api/search',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['numeroProcesso' => '0001234-56.2020.9.26.0100']), // TJMSP (militar estadual)
+        );
+
+        self::assertResponseStatusCodeSame(422);
+        $payload = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('TJMSP', $payload['error']);
+        self::assertStringContainsString('consulta pública', $payload['error']);
     }
 
     #[TestDox('Form de novo processo renderiza o Tribunal como somente-leitura (sem select nem tribunalAlias)')]

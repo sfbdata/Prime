@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Processo\Entity\Processo;
+use App\Processo\Exception\ConsultaDatajudException;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Repository\ProcessoRepository;
 use App\Processo\Service\DatajudClient;
@@ -60,6 +61,9 @@ class AtualizarProcessoDatajudCommand extends Command
             $response = $this->client->searchByNumeroProcesso($numeroProcesso);
         } catch (TribunalNaoIdentificadoException $e) {
             $output->writeln('<error>Nao foi possivel identificar o tribunal a partir do numero informado.</error>');
+            return Command::FAILURE;
+        } catch (ConsultaDatajudException $e) {
+            $output->writeln('<error>' . $e->getMotivo()->mensagemUsuario() . '</error>');
             return Command::FAILURE;
         }
         $hits = $response['hits']['hits'] ?? [];
