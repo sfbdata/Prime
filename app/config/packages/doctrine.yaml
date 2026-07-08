@@ -46,6 +46,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Djen/Entity'
                 prefix: 'App\Djen\Entity'
                 alias: AppDjen
+            AppCobranca:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Cobranca/Entity'
+                prefix: 'App\Cobranca\Entity'
+                alias: AppCobranca
             AppExpediente:
                 type: attribute
                 is_bundle: false
