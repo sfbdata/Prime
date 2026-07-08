@@ -20,6 +20,8 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity(repositoryClass: PessoaRepository::class)]
 #[ORM\Table(name: 'cobranca_pessoa')]
+#[ORM\Index(name: 'idx_cobranca_pessoa_tenant_cpf', columns: ['tenant_id', 'cpf'])]
+#[ORM\Index(name: 'idx_cobranca_pessoa_tenant_cnpj', columns: ['tenant_id', 'cnpj'])]
 #[ORM\HasLifecycleCallbacks]
 class Pessoa implements TenantAware, Auditavel
 {
