@@ -1,0 +1,44 @@
+# NEW_CHAT_PROMPT — Gestão de Cobranças
+
+> Cole o bloco abaixo como primeira mensagem de um chat NOVO do Claude Code (sem contexto anterior) para retomar a feature com segurança.
+
+---
+
+```
+Você vai continuar a feature "Gestão de Cobranças" do projeto JusPrime. NÃO confie em nenhum resumo; confirme tudo no repositório.
+
+1) Leia integralmente, NESTA ordem (todos em docs/gestao-cobrancas/, exceto os CLAUDE.md):
+   1. FEATURE_GESTAO_COBRANCAS_SPEC_FINAL.md  (a SPEC — fonte de verdade das regras; §23 invariáveis)
+   2. PLAN.md                                  (10 etapas de implementação)
+   3. PARALLELIZATION_MAP.md                   (ondas, paralelização, piloto de fan-out)
+   4. EXECUTION_STATUS.md                       (panorama VIVO: onde parou, checklist 0–9, histórico, próxima ação exata)
+   5. SESSION_HANDOFF.md                        (memória da última sessão: git, testes, próxima ação, ordem de retomada)
+   6. AUTONOMOUS_EXECUTION_PROTOCOL.md          (o modo de fan-out autônomo aprovado — papéis, integração, proibições)
+   7. Os CLAUDE.md aplicáveis: raiz /CLAUDE.md, app/src/CLAUDE.md, app/src/Entity|Repository|Controller|Shared/CLAUDE.md conforme a camada, app/tests/CLAUDE.md, docs/AUTORIZACAO.md.
+
+2) Carregue a skill "workflow" antes de tocar em código.
+
+3) Verifique o ESTADO REAL do repositório (não assuma):
+   - git branch --show-current   (esperado: djen-integracao — ver o ⚠️ de branch no EXECUTION_STATUS)
+   - git status --short
+   - git log --oneline -8        (HEAD esperado: f6362f0 ou posterior)
+   - git worktree list
+   - docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Cobranca'   (deve estar verde)
+
+4) COMPARE a documentação com o repositório. Se divergirem (commits a mais/menos, testes falhando, working tree suja, branch diferente), PARE e reporte a divergência antes de agir — corrija o entendimento a partir do Git, não dos docs.
+
+5) Resolva primeiro o ⚠️ de branch com o humano se ainda estiver aberto (Cobranças está empilhada sobre DJEN em djen-integracao). Não faça switch/rebase/move de commits por conta própria.
+
+6) Retome pela "Próxima ação exata" do EXECUTION_STATUS.md / SESSION_HANDOFF.md, seguindo o AUTONOMOUS_EXECUTION_PROTOCOL.md. Continue autonomamente sem pedir aprovação a cada passo — pare apenas para: (a) commit obrigatório do humano antes de fan-out se aplicável, (b) decisão de negócio bloqueante, (c) inconsistência grave SPEC/PLAN/código, (d) conclusão de etapa, (e) ~90% de contexto (entrar em modo handoff).
+
+7) Regras duras: sem push/deploy/produção; sem Git destrutivo (merge/rebase/reset/branch -D); cherry-pick só com um hash; sem expandir o MVP; sem criar o futuro domínio Financeiro. Git de escrita é local e limitado pelo hook block-git-writes.py.
+
+8) Ao se aproximar do limite de contexto, reescreva SESSION_HANDOFF.md e atualize EXECUTION_STATUS.md, deixe a working tree limpa e os commits locais criados, e encerre de forma controlada.
+```
+
+---
+
+**Observações para quem cola o prompt:**
+- O prompt não faz `push` nem deploy — só trabalho local e commits locais.
+- Se você quiser que o novo chat comece por uma etapa específica, adicione uma linha ao final do bloco (ex.: "Comece pela Onda 2 restante da Etapa 1").
+- Mantenha este arquivo e os demais versionados; eles são a ponte entre chats.

@@ -294,3 +294,38 @@ ONDA 3  (1 agente — orquestrador)          INTEGRAÇÃO + VALIDAÇÃO
 | **Entidade precisa de campo novo durante o fan-out** | `Entity/*` (congelado) | Contrato congelado após commit; implementador **para e devolve ao orquestrador** (regra do workflow: não alterar contrato compartilhado). |
 | **DI / services.yaml** | `app/config/services.yaml` | Repositórios (`ServiceEntityRepository`) e UseCases são autoconfigurados/autowired; **nenhuma edição** de services.yaml na Etapa 1 → sem conflito. |
 | **Isolamento multi-tenant** (não é conflito de merge, é o risco do domínio) | todos os repos/UseCases | `TenantAware` + FK nn (no contrato) + atribuição do tenant do usuário nos UseCases + teste cross-tenant no cluster B; `tenant-safety-review` antes do commit final. |
+
+---
+
+## 4. Teste piloto de fan-out — Etapa 1
+
+**Objetivo:** validar na prática o ciclo autônomo `worktrees → impl. paralela → commit por implementador → revisão read-only → cherry-pick individual → teste direcionado → estabilização → próximo → suíte`. Escopo reduzido: **2 feature-implementers**, uma tarefa pequena cada. **Não** é a Onda 2 completa.
+
+**Infra confirmada:** `.claude/settings.json` → `worktree.baseRef=head`; hook `block-git-writes.py` (commit `228c294`) **permite** `git add`/`commit`/`worktree add`/`cherry-pick` de **um único commit** (`--continue`/`--abort`), e **bloqueia** push/pull/merge/rebase/reset e cherry-pick com range/múltiplos. Andaime da Onda 1 no HEAD (`46afae5`); working tree limpo.
+
+**Tarefa A — `CriarCarteira`**
+- Arquivos previstos: `app/src/Cobranca/DTO/CriarCarteiraInput.php`, `app/src/Cobranca/UseCase/CriarCarteiraUseCase.php`, `app/tests/Cobranca/Unit/CriarCarteiraUseCaseTest.php` (+ Exception própria, se necessário).
+- Depende de: andaime (`Carteira`, `CarteiraRepository`, enums); lê `Cliente` via `ClienteRepository::findOneBy` (sem editar).
+- Não pode tocar: entidades, enums, migration, repositórios-stub, factories, arquivos da tarefa B.
+
+**Tarefa B — `CriarPessoa`**
+- Arquivos previstos: `app/src/Cobranca/DTO/CriarPessoaInput.php`, `app/src/Cobranca/UseCase/CriarPessoaUseCase.php`, `app/tests/Cobranca/Unit/CriarPessoaUseCaseTest.php`.
+- Depende de: andaime (`Pessoa`, `PessoaRepository`).
+- Não pode tocar: entidades, enums, migration, repositórios-stub, factories, arquivos da tarefa A.
+
+**Dependências:** A e B dependem só do andaime committado; **não** dependem uma da outra.
+
+**Risco de conflito:** nenhum arquivo compartilhado é editado. Ambos criam arquivos **novos e distintos** em `DTO/`, `UseCase/` e `tests/Cobranca/Unit/` (mesmos diretórios, arquivos diferentes → cherry-picks não colidem). Nenhum edita contrato congelado.
+
+**Critério de sucesso:** 2 commits autocontidos (um por implementador); cherry-pick individual sem conflito; testes direcionados de cada UseCase verdes após cada integração; suíte da Etapa 1 verde ao final; diff consolidado sem alteração de contrato compartilhado. Resultado real registrado em `EXECUTION_STATUS.md`.
+
+**Independência:** CONFIRMADA — sem sobreposição real; teste piloto segue com A e B.
+
+### Resultado real do piloto — ✅ pipeline APROVADO
+
+- **Agentes:** 2 `feature-implementer` (worktrees isoladas, `isolation: worktree`, ramificadas do HEAD `228c294`) + 2 `feature-review-agent` (read-only).
+- **Commits:** A `761ffd1` → cherry-pick `454bbf2`; B `b42f11b` → cherry-pick `f6362f0`. Um commit autocontido por implementador; **integração serial** (A depois B), sem conflito.
+- **Testes (no container, pós-integração):** A 2/17 (inclui rejeição cross-tenant do credor), B 2/21, `tests/Cobranca` 4/38 — todos verdes.
+- **Diff consolidado:** 7 arquivos novos (400 inserções); nenhum contrato congelado alterado.
+- **Conflitos de merge:** nenhum. **Atrito de infra:** hook bloqueou `cherry-pick … 2>&1` (redirecionamento vira 2º arg) → regra: cherry-pick recebe **só o hash**.
+- **Veredito:** ciclo `worktree → impl. paralela → commit → revisão read-only → cherry-pick individual → teste direcionado → estabilização → próximo → suíte` **validado ponta a ponta e aprovado** para uso autônomo prolongado. Detalhes em `EXECUTION_STATUS.md`.
