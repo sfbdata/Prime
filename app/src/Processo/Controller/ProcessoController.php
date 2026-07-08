@@ -11,6 +11,8 @@ use App\Processo\Repository\ProcessoRepository;
 use App\Entity\Permission\AccessRequest;
 use App\Cliente\Repository\ClienteRepository;
 use App\Tarefa\Repository\TarefaRepository;
+use App\Processo\Enum\MotivoFalhaDatajud;
+use App\Processo\Exception\ConsultaDatajudException;
 use App\Processo\Exception\TribunalNaoIdentificadoException;
 use App\Processo\Service\DatajudClient;
 use App\Processo\Service\DatajudProcessoMapper;
@@ -18,6 +20,7 @@ use App\Processo\Service\TribunalCnjResolver;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -247,55 +250,45 @@ class ProcessoController extends AbstractController
     }
 
     #[Route('/api/search', name: 'api_datajud_search', methods: ['POST'])]
-    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker): JsonResponse
+    public function datajudSearch(Request $request, DatajudClient $datajudClient, DatajudProcessoMapper $mapper, EntityManagerInterface $em, PermissionChecker $permissionChecker, LoggerInterface $logger): JsonResponse
     {
         // Gateia pela permissão do módulo: a action dispara consulta à API externa do CNJ — sem
         // guard, qualquer logado abusaria do custo/rate-limit. Não persiste nada (B8).
         /** @var \App\Entity\Auth\User $user */
         $user = $this->getUser();
         if (!$permissionChecker->canAccessModule($user, $this->tenantContext->getCurrentTenant(), 'processos')) {
-            return new JsonResponse(['error' => 'Sem permissão.'], Response::HTTP_FORBIDDEN);
+            return $this->erroDatajud('Você não tem permissão para consultar processos no CNJ.', Response::HTTP_FORBIDDEN);
         }
 
         $data = json_decode($request->getContent(), true);
         $numeroProcesso = preg_replace('/\D+/', '', (string) ($data['numeroProcesso'] ?? ''));
 
         if (!$numeroProcesso) {
-            $response = new JsonResponse(['error' => 'numeroProcesso é obrigatório'], 400);
-            $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
-            return $response;
+            return $this->erroDatajud('Informe o número do processo para consultar no CNJ.', 400);
         }
 
         // O tribunal é derivado do número (padrão CNJ); o usuário não informa a sigla.
         try {
             $apiResponse = $datajudClient->searchByNumeroProcesso($numeroProcesso);
 
-            // Verificar se a resposta contém erros da API
-            if (isset($apiResponse['error'])) {
-                $response = new JsonResponse([
-                    'error' => 'Erro ao consultar o CNJ/DataJud.'
-                ], 400);
-                $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
-                return $response;
+            $hits = $apiResponse['hits']['hits'] ?? null;
+            if (!is_array($hits)) {
+                return $this->erroDatajud(
+                    MotivoFalhaDatajud::RespostaInvalida->mensagemUsuario(),
+                    MotivoFalhaDatajud::RespostaInvalida->statusHttp()
+                );
             }
 
-            if (!isset($apiResponse['hits'])) {
-                $response = new JsonResponse([
-                    'error' => 'Resposta inesperada da API CNJ/DataJud.'
-                ], 400);
-                $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
-                return $response;
+            if ($hits === []) {
+                $sigla = $this->derivarSiglaSegura($numeroProcesso);
+                $mensagem = $sigla !== null
+                    ? sprintf('Consultamos a base do %s e não encontramos nenhum processo com esse número. Confira o número digitado.', $sigla)
+                    : 'Não encontramos nenhum processo com esse número. Confira o número digitado.';
+
+                return $this->erroDatajud($mensagem, 404);
             }
 
-            if (!isset($apiResponse['hits']['hits']) || empty($apiResponse['hits']['hits'])) {
-                $response = new JsonResponse([
-                    'error' => 'Nenhum processo encontrado.'
-                ], 404);
-                $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
-                return $response;
-            }
-
-            $processData = $apiResponse['hits']['hits'][0]['_source'];
+            $processData = $hits[0]['_source'] ?? [];
 
             // Criar um processo temporário para mapping
             $processo = new Processo();
@@ -347,17 +340,61 @@ class ProcessoController extends AbstractController
             $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
             return $response;
         } catch (TribunalNaoIdentificadoException $e) {
-            // Número fora do padrão CNJ ou tribunal desconhecido: erro do usuário, não da API.
-            $response = new JsonResponse([
-                'error' => 'Não foi possível identificar o tribunal a partir do número informado. Verifique o número do processo.'
-            ], 422);
-            $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
-            return $response;
+            // Número fora do padrão CNJ ou tribunal desconhecido: erro do dado de entrada.
+            return $this->erroDatajud($this->mensagemNumeroInvalido($numeroProcesso), 422);
+        } catch (ConsultaDatajudException $e) {
+            // Falha na interação com o CNJ (rede, timeout, indisponibilidade, limite, etc.).
+            // Registra a causa técnica: a mensagem ao usuário é intencionalmente amigável/vaga.
+            $motivo = $e->getMotivo();
+            $logger->warning('Consulta ao Datajud falhou: {motivo}', [
+                'motivo' => $motivo->value,
+                'exception' => $e,
+            ]);
+
+            return $this->erroDatajud(
+                $motivo->mensagemUsuario($this->derivarSiglaSegura($numeroProcesso)),
+                $motivo->statusHttp()
+            );
         } catch (\Exception $e) {
-            $response = new JsonResponse(['error' => 'Falha ao consultar processo no CNJ/DataJud.'], 500);
-            $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
-            return $response;
+            // Erro interno inesperado (ex.: mapeamento) — não culpa o CNJ; loga a causa real.
+            $logger->error('Erro inesperado na consulta ao Datajud', ['exception' => $e]);
+
+            return $this->erroDatajud(
+                'Não conseguimos concluir a consulta agora. Tente novamente; se persistir, avise o suporte.',
+                500
+            );
         }
+    }
+
+    private function erroDatajud(string $mensagem, int $status): JsonResponse
+    {
+        $response = new JsonResponse(['error' => $mensagem], $status);
+        $response->setEncodingOptions(JSON_UNESCAPED_UNICODE);
+
+        return $response;
+    }
+
+    /**
+     * Deriva a sigla do tribunal do número sem quebrar quando o número é inválido — usada só
+     * para enriquecer mensagens de erro (número que já falhou não deve derrubar a resposta).
+     */
+    private function derivarSiglaSegura(string $numeroProcesso): ?string
+    {
+        try {
+            return $this->tribunalResolver->resolverSigla($numeroProcesso);
+        } catch (TribunalNaoIdentificadoException) {
+            return null;
+        }
+    }
+
+    private function mensagemNumeroInvalido(string $numeroDigitos): string
+    {
+        $qtd = strlen($numeroDigitos);
+        if ($qtd !== 20) {
+            return sprintf('O número informado tem %d dígito(s), mas o padrão do CNJ tem 20. Confira e tente de novo.', $qtd);
+        }
+
+        return 'Não reconhecemos o tribunal a partir desse número. Confira se o número está correto.';
     }
 
     private function fillProcessoFromRequest(Processo $processo, array $data): void

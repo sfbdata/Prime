@@ -2,6 +2,11 @@
 
 namespace App\Processo\Service;
 
+use App\Processo\Enum\MotivoFalhaDatajud;
+use App\Processo\Exception\ConsultaDatajudException;
+use Symfony\Contracts\HttpClient\Exception\DecodingExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TimeoutExceptionInterface;
+use Symfony\Contracts\HttpClient\Exception\TransportExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 class DatajudClient
@@ -26,11 +31,13 @@ class DatajudClient
     /**
      * @throws \App\Processo\Exception\TribunalNaoIdentificadoException se o tribunal não puder
      *         ser derivado do número (formato inválido ou código desconhecido)
+     * @throws ConsultaDatajudException se a consulta ao CNJ falhar (rede, timeout, indisponibilidade,
+     *         limite, configuração, tribunal sem base pública ou resposta malformada)
      */
     public function searchByNumeroProcesso(string $numeroProcesso): array
     {
         if (trim($this->apiKey) === '') {
-            throw new \RuntimeException('DATAJUD_API_KEY nao configurada.');
+            throw new ConsultaDatajudException(MotivoFalhaDatajud::NaoConfigurado, 'DATAJUD_API_KEY nao configurada.');
         }
 
         // O tribunal é derivado do próprio número (padrão CNJ) — o usuário não informa a sigla.
@@ -56,22 +63,36 @@ class DatajudClient
                 ],
             ]);
 
-            $result = $response->toArray(false);
-            // Corrigir encoding UTF-8 dos dados
-            $result = $this->fixUtf8Encoding($result);
-            return $result;
-        } catch (\Exception $e) {
-            throw $e;
+            // getStatusCode() aguarda os headers sem lançar em 4xx/5xx — permite classificar o motivo.
+            $status = $response->getStatusCode();
+            $this->garantirStatusOk($status);
+
+            return $response->toArray(false);
+        } catch (TimeoutExceptionInterface $e) {
+            throw new ConsultaDatajudException(MotivoFalhaDatajud::Timeout, $e->getMessage(), $e);
+        } catch (DecodingExceptionInterface | \JsonException $e) {
+            throw new ConsultaDatajudException(MotivoFalhaDatajud::RespostaInvalida, $e->getMessage(), $e);
+        } catch (TransportExceptionInterface $e) {
+            throw new ConsultaDatajudException(MotivoFalhaDatajud::Indisponivel, $e->getMessage(), $e);
         }
     }
 
-    /**
-     * Corrige encoding UTF-8 dos dados retornados pela API (removido - causa problemas)
-     */
-    private function fixUtf8Encoding($data)
+    private function garantirStatusOk(int $status): void
     {
-        // Apenas retorna os dados como estão - conversão aqui estava corrompendo outros campos
-        return $data;
+        if ($status < 400) {
+            return;
+        }
+
+        $motivo = match (true) {
+            $status === 429                    => MotivoFalhaDatajud::LimiteExcedido,
+            $status === 401 || $status === 403 => MotivoFalhaDatajud::NaoConfigurado,
+            // Índice do tribunal inexistente na base pública do CNJ (Elasticsearch: index_not_found).
+            $status === 404                    => MotivoFalhaDatajud::TribunalSemBasePublica,
+            $status >= 500                     => MotivoFalhaDatajud::Indisponivel,
+            default                            => MotivoFalhaDatajud::RespostaInvalida,
+        };
+
+        throw new ConsultaDatajudException($motivo, 'HTTP ' . $status);
     }
 
     private function normalizeNumeroProcessoCnj(string $numeroProcesso): string
