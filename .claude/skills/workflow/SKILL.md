@@ -1,16 +1,23 @@
 ---
 name: workflow
-description: "Comportamento do orquestrador (o cérebro), ciclo de trabalho com subagentes read-only, regras de documentação/memória e git do jusprime. Carregue sempre no início de qualquer tarefa de implementação, refatoração ou revisão, antes de tocar em código."
+description: "Comportamento do orquestrador (o cérebro), delegação a subagentes (read-only para investigação/revisão; implementadores para escrita delegada), ciclo de trabalho e execução paralela, regras de documentação/memória e git do jusprime. Carregue sempre no início de qualquer tarefa de implementação, refatoração ou revisão, antes de tocar em código."
 ---
 
 # Workflow do projeto
 
 ## Comportamento do orquestrador (o "cérebro")
 
-A sessão principal atua como orquestrador: entende, discute, planeja e implementa
-— mas só após investigar e planejar. Delega a subagentes **read-only** a
-investigação e a revisão; a escrita de código (Edit/Write/Bash) fica sempre no
-orquestrador, que é o único capaz de exibir os prompts de aprovação por arquivo.
+A sessão principal atua como orquestrador: analisa, decompõe, define contratos,
+delega, integra e valida o trabalho final — sempre após investigar e planejar,
+nunca pulando direto pro código. A implementação pode ficar no próprio
+orquestrador (tarefa única) ou ser delegada a subagentes implementadores
+(fan-out), conforme a seção **Delegação para subagentes**.
+
+> **Nota operacional:** escrita feita por subagente implementador não passa pelos
+> prompts de aprovação por arquivo do orquestrador. Por isso a delegação de
+> escrita exige escopo exclusivo, worktree isolada em paralelo e revisão
+> read-only antes da integração — o isolamento substitui a aprovação por arquivo
+> como rede de segurança.
 
 **Antes de agir:**
 - Tarefa inequívoca e risco BAIXO → execute, informando o que fará.
@@ -26,15 +33,167 @@ orquestrador, que é o único capaz de exibir os prompts de aprovação por arqu
 **Risco** (define o rigor acima): ALTO = ponto eletrônico, identidade
 User/Tenant · MÉDIO = TenantRole/Permission/Profile · BAIXO = demais.
 
-## Ciclo de trabalho com subagentes
+## Delegação para subagentes
 
-O orquestrador coordena e escreve; subagentes são read-only e devolvem relatório.
+Subagentes são divididos em duas categorias.
+
+### 1. Subagentes read-only
+
+Usados para:
+
+- exploração;
+- investigação;
+- planejamento;
+- revisão arquitetural;
+- revisão de segurança;
+- revisão multi-tenant;
+- revisão de permissões;
+- revisão adversarial;
+- code review.
+
+Eles apenas analisam e devolvem relatório. Nunca modificam o que revisam.
+
+### 2. Subagentes implementadores
+
+Podem criar e modificar arquivos quando o orquestrador delega explicitamente uma
+tarefa de implementação.
+
+Um trabalho só pode ser delegado para implementação paralela quando:
+
+1. os contratos compartilhados necessários já estão definidos;
+2. a tarefa possui entrada e resultado esperados claros;
+3. o escopo de escrita é exclusivo;
+4. nenhum outro agente está modificando os mesmos arquivos;
+5. a tarefa pode ser validada isoladamente;
+6. dependências com outras tarefas paralelas estão explicitamente declaradas.
+
+Todo agente implementador deve receber:
+
+- objetivo;
+- contexto necessário;
+- arquivos ou área sob sua responsabilidade;
+- arquivos que não pode alterar;
+- contratos que deve respeitar;
+- testes que deve executar;
+- critério objetivo de conclusão.
+
+Agentes implementadores trabalham em worktrees isoladas quando executados
+simultaneamente.
+
+O agente implementador deve:
+
+- alterar apenas seu escopo;
+- seguir os padrões e skills do projeto;
+- implementar testes da própria tarefa;
+- executar validações relevantes;
+- informar todos os arquivos alterados;
+- informar testes executados e resultados;
+- informar premissas, desvios e problemas encontrados.
+
+O agente implementador não pode:
+
+- alterar contratos compartilhados sem devolver a decisão ao orquestrador;
+- expandir o escopo;
+- corrigir problemas não relacionados;
+- modificar arquivos pertencentes a outro agente;
+- fazer merge, push ou integrar trabalho de terceiros.
+
+### Ciclo de execução paralela (fan-out)
+
+**Pré-requisito (worktree × baseRef).** Os implementadores paralelos rodam em
+worktrees isoladas, ramificadas do HEAD da branch atual (`worktree.baseRef=head`
+em `.claude/settings.json`). Isso carrega o **committed** da branch — inclusive
+commits não-enviados —, mas **não** o uncommitted. Por isso os contratos
+compartilhados necessários ao fan-out **devem estar committados antes da
+delegação**; alterações uncommitted não chegam aos implementadores isolados.
+
+1. Orquestrador analisa a etapa.
+2. Orquestrador identifica dependências.
+3. Contratos compartilhados são definidos e **committados** primeiro.
+4. Trabalho é dividido em blocos com propriedade exclusiva.
+5. Implementadores executam blocos independentes em paralelo, cada um na sua
+   worktree. **Não rodam testes que dependem do container `jusprime_php_dev`** — ele
+   monta o checkout principal, não a worktree; eles apenas **escrevem** os testes
+   do próprio bloco. Ao terminar, **entregam o próprio trabalho como commit local
+   na sua worktree** (revisando o diff antes; só arquivos do seu escopo; nunca
+   push/merge).
+6. Cada resultado é revisado pelo `feature-review-agent` (read-only, isolado).
+7. O orquestrador integra **um commit aprovado por vez** na branch principal da
+   feature, via `git cherry-pick` (ver **Git na execução paralela** abaixo).
+8. Após cada `cherry-pick`, roda **imediatamente os testes direcionados** no
+   container principal; só integra o próximo se o anterior estiver estável.
+9. Ao final da onda, roda a **suíte completa** e as verificações transversais.
+10. A próxima onda só é liberada após a estabilização da anterior.
+
+Quando houver dúvida sobre independência entre duas tarefas, executar
+sequencialmente.
+
+**Validação centralizada no checkout principal é o fluxo oficial atual** —
+implementadores isolados escrevem testes, mas quem os executa é o orquestrador,
+após integrar. Um container por worktree **não** faz parte do fluxo e **não** é
+pendência.
+
+### Git na execução paralela
+
+- Subagentes implementadores criam commits **apenas nas próprias worktrees** e
+  somente com alterações do **escopo delegado** — e **nunca integram**. O hook
+  por-agente `feature-implementer-no-integration.py` bloqueia tecnicamente
+  cherry-pick/merge/rebase/reset/push para eles.
+- O orquestrador integra **autonomamente**, sem aprovação humana entre
+  integrações válidas, aplicando os commits **aprovados** via `git cherry-pick`.
+- **Forma segura obrigatória do cherry-pick** (é o que o hook global permite ao
+  orquestrador): **um único commit** por chamada, ou `--continue`, ou `--abort`.
+  Ficam **bloqueados** `-n`/`--no-commit`, ranges (`A..B`), múltiplos hashes,
+  `--stdin`, `--skip` e qualquer forma que acumule vários commits numa operação.
+- **Invariante:** `commit aprovado → cherry-pick individual → testes direcionados
+  → estabilização → próximo commit`. Um commit por vez; só integra o próximo com o
+  anterior estável. O orquestrador repete esse ciclo sozinho.
+- **Push, deploy, merge em branch protegida e Git destrutivo continuam
+  proibidos.** `git checkout` também é barrado — em conflito, resolva editando o
+  arquivo + `git add` + `git cherry-pick --continue` (sem checkout).
+
+### Tratamento de conflitos no cherry-pick
+
+**Conflito textual ou mecânico simples** — o orquestrador resolve **autonomamente**:
+1. analisa o conflito;
+2. resolve apenas o conflito textual/mecânico;
+3. revisa o diff resultante;
+4. `git add` nos arquivos resolvidos;
+5. `git cherry-pick --continue`;
+6. roda os testes direcionados;
+7. continua o fluxo se estável.
+
+Exemplos de conflito simples: mesma linha alterada sem mudança de regra;
+import/`use` duplicado; ajuste mecânico de namespace; conflito de formatação;
+duas alterações compatíveis que só precisam ser combinadas.
+
+**Conflito semântico** — envolve regra de negócio, arquitetura, modelo de domínio,
+contrato compartilhado, interface entre tarefas, decisão da spec, expansão de
+escopo ou comportamento incompatível entre implementações. O orquestrador deve:
+1. interromper o fan-out;
+2. **não** escolher silenciosamente uma das implementações;
+3. **não** executar `--skip`;
+4. abortar o cherry-pick (`--abort`) se preciso para recuperar um estado estável;
+5. documentar o conflito, a causa e as tarefas afetadas;
+6. resolver a decisão no contexto principal;
+7. estabilizar e commitar o contrato corrigido;
+8. replanejar ou redistribuir as tarefas dependentes;
+9. só então retomar a execução autônoma.
+
+**Na dúvida entre conflito simples e semântico, tratar como semântico e
+interromper o fan-out.**
+
+## Ciclo de trabalho (sequencial, tarefa única)
+
+Para trabalho que não se decompõe em blocos paralelos, o orquestrador conduz o
+ciclo direto; subagentes read-only investigam e revisam.
 
 1. **Investigar** → subagente investigador (read-only) mapeia impacto e devolve resumo.
 2. **Planejar** → orquestrador monta o plano (ver plan mode acima). Em tarefas
    **ALTO/MÉDIO, registra a spec** em `docs/specs/` — ela é o alvo contra o qual
    a revisão confere. No **BAIXO trivial**, a descrição da tarefa basta.
-3. **Implementar** → o **orquestrador** aplica as mudanças (controle por arquivo).
+3. **Implementar** → o **orquestrador** aplica as mudanças (controle por arquivo),
+   ou delega a subagentes implementadores no fan-out (ver **Delegação**).
 4. **Revisar** → `feature-review-agent` (read-only) revisa o diff contra a spec
    (ALTO/MÉDIO) ou contra a descrição (BAIXO): aponta divergências entre o pedido
    e o feito, edge cases e violações dos padrões do CLAUDE.md. Só aponta — não
@@ -57,7 +216,14 @@ Subagente de docs mantém o estado do projeto (feito, pendente, urgente, priorid
 
 ## Git
 
-Ver regra no root CLAUDE.md. Resumo: orquestrador monta e explica todos os
-comandos git, entrega em bloco prefixado com `# Execute manualmente no terminal
-externo`, mostra antes, você aprova sim/não. Nunca executa git de escrita;
-`block-git-writes.py` permanece ativo.
+Ver regra no root CLAUDE.md. Resumo: **staging e commit local são permitidos** —
+o orquestrador roda `git add`/`git commit`, revisando `git status` + diff +
+arquivos staged antes, sem `git add .` cego. **Push, merge, rebase, reset e
+integração continuam do humano**: o orquestrador monta e explica esses comandos e
+entrega em bloco `# Execute manualmente no terminal externo`, você aprova sim/não.
+`block-git-writes.py` permanece ativo — libera `add`/`commit` (e `cherry-pick`
+**individual**, um commit por vez, só para a integração do orquestrador no
+fan-out), bloqueia push/merge/rebase/reset e não aceita `--no-verify`. Subagentes
+implementadores podem commitar o próprio trabalho (na própria worktree, no
+fan-out), mas nunca fazem merge, push, rebase, reset, cherry-pick nem integram —
+o hook por-agente `feature-implementer-no-integration.py` trava isso tecnicamente.

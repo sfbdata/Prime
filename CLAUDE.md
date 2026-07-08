@@ -18,16 +18,32 @@ Modelo de autorização (4 camadas, bypasses, falhas conhecidas) → ver `docs/A
 
 ## Orquestrador & ciclo de trabalho
 
-A sessão principal é o orquestrador: entende, discute, planeja e **implementa**
-— mas só depois de investigar/planejar, nunca pulando direto pro código.
-Subagentes são **read-only**: investigam e revisam, nunca escrevem.
+O agente principal atua como orquestrador: analisa, decompõe, define contratos,
+delega, integra e valida o trabalho final.
+
+Subagentes seguem o princípio do menor privilégio:
+
+- agentes de investigação e revisão são read-only;
+- agentes de implementação podem escrever quando explicitamente delegados;
+- todo subagente com escrita deve trabalhar em escopo exclusivo, sem sobreposição
+  com outro agente escritor;
+- trabalhos paralelos com escrita devem usar isolamento por worktree;
+- revisores permanecem read-only e nunca corrigem diretamente o que apontam;
+- nenhum subagente integra, faz merge, push ou decide sozinho alterações
+  arquiteturais compartilhadas.
+
+O orquestrador deve definir contratos e dependências antes de iniciar escrita
+paralela. Só podem executar simultaneamente tarefas independentes, com limites
+claros e verificáveis.
+
 Comportamento completo, ciclo e regras de docs → ver `.claude/skills/workflow`.
 
 **Risco** (define o rigor): ALTO = ponto eletrônico, identidade User/Tenant ·
 MÉDIO = TenantRole/Permission/Profile · BAIXO = demais.
 
-**Ciclo:** investigar (subagente) → planejar (registra spec em `docs/specs/` se
-ALTO/MÉDIO) → implementar (orquestrador) → revisar contra a spec/descrição
+**Ciclo:** investigar (subagente read-only) → planejar (registra spec em
+`docs/specs/` se ALTO/MÉDIO) → implementar (orquestrador na tarefa única, ou
+subagentes implementadores delegados no fan-out) → revisar contra a spec/descrição
 (`feature-review-agent`, read-only, só aponta furos) → corrigir (orquestrador) →
 conferir; em ALTO, re-revisar antes de seguir. Disparo da revisão: comando
 `/review`, não confie só na auto-delegação.
@@ -70,11 +86,13 @@ por esse uid. Se um upload falhar com *Permission denied* (dirs como `uid 33`/`w
 alinhe o dono: `docker exec -u 0 jusprime_php_dev chown -R 1000:1000 /var/www/app/public/uploads`. Em
 ambiente de **teste** isso não acontece (config aponta para `var/uploads-test/*`, gravável).
 
-## Git — controle humano direto
+## Git — commit local permitido, publicação é humana
 
-Commits, push, merge, rebase, reset e demais comandos destrutivos são responsabilidade exclusiva do desenvolvedor humano. Comandos de leitura (`status`, `diff`, `log`, `show`, `branch`) podem ser executados livremente. `block-git-writes.py` permanece ativo como garantia.
+Claude Code **pode** preparar staging (`git add`) e criar **commits locais** (`git commit`) — revisando antes `git status`, o diff e os arquivos staged, sem `git add .` cego que arraste alteração fora do escopo. Comandos de leitura (`status`, `diff`, `log`, `show`, `branch`) seguem livres.
 
-Quando uma instrução implicar comando git de escrita, o orquestrador monta o(s) comando(s), explica o que cada um faz, e entrega em bloco markdown prefixado com `# Execute manualmente no terminal externo`. Mostra antes; você aprova e executa.
+**Continuam responsabilidade exclusiva do humano** (proibidos para o Claude): `push`, `merge`, `rebase`, `reset` e demais operações que publiquem ou reescrevam histórico. **Claude cria commits locais, mas nunca publica alterações remotamente.** `block-git-writes.py` permanece ativo como garantia técnica: libera `git add`/`git commit` (e `git cherry-pick` **individual** — um commit por vez —, usado só pela integração do orquestrador no fan-out; ver skill `workflow`), bloqueia push/merge/rebase/reset e demais escritas sensíveis, e não aceita `--no-verify`. O subagente `feature-implementer` tem trava própria que bloqueia até o cherry-pick (ele nunca integra).
+
+Quando uma instrução implicar `push`/`merge`/`rebase`/`reset` (ou outra operação sensível), o orquestrador monta o(s) comando(s), explica o que cada um faz, e entrega em bloco markdown prefixado com `# Execute manualmente no terminal externo`. Mostra antes; você aprova e executa. Para commits locais isso não é mais necessário — o Claude commita direto.
 
 Convenção de commit: imperativo em português, máx. 72 chars, sem ponto final. Branches: `nome-da-feature` · `fix-<issue>` · `refactor-<desc>`.
 

@@ -8,8 +8,10 @@ enviar ao chefe — que **não é da área de T.I.**. O tom é profissional e
 confiável, e o relatório deve ser **concreto e detalhado** — mostrar o
 tamanho real do dia, com os detalhes do que mudou na prática — **sem jargão
 técnico** e sem parágrafos longos. O inimigo a evitar é o relatório **raso**,
-que faz um dia cheio parecer pouca coisa. Você (orquestrador) só **lê** o git;
-nunca executa git de escrita.
+que faz um dia cheio parecer pouca coisa. Para este relatório você (orquestrador)
+só **lê** o git — ele não precisa escrever nada. (Commit local é permitido no
+fluxo geral do projeto; operações remotas e sensíveis — push/merge/rebase/reset —
+permanecem proibidas.)
 
 ## Passo a passo
 
@@ -136,7 +138,9 @@ Hoje o foco foi deixar o sistema mais robusto e prático no dia a dia. Resumo da
 
 ## Regras
 
-- **Nunca execute git de escrita.** Só leitura (`git log`, `git show`, `git diff`).
+- **Para este relatório, use só leitura** (`git log`, `git show`, `git diff`) — ele
+  não precisa escrever. Commit local é permitido no fluxo geral, mas
+  push/merge/rebase/reset seguem proibidos (só o humano).
 - Não invente funcionalidades: se o commit não deixa claro o impacto, abra o
   diff para confirmar antes de descrever.
 - Entregue o relatório pronto num bloco de código; depois, ofereça ajustes
