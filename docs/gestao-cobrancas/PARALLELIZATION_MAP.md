@@ -24,7 +24,7 @@ Legenda de paralelização: **Nula** (1 agente, sequencial) · **Baixa** (1–2)
 | Etapa | Conteúdo | Paralelização | Máx. agentes úteis | Depende de | Gargalo / porquê |
 |---|---|---|---|---|---|
 | **0** | Fundação: esqueleto do domínio, mapeamento Doctrine, permissões | **Nula** | **1 (orquestrador)** | — | Poucos arquivos centrais e compartilhados (doctrine.yaml, PermissionFixture); tarefas minúsculas e interdependentes. Delegar custaria mais que faz. |
-| **1** | Cadastro: `Carteira`, `ObjetoCobranca`, `Pessoa`, `VinculoPessoaObjeto` + repos + UseCases | **Média** | **2–3** | 0 | Entidades + **1 migration compartilhada** = andaime sequencial (orquestrador). Depois, UseCases são arquivos independentes → paralelizáveis (ex.: cluster Pessoa/Vínculo × cluster Carteira/Objeto). |
+| **1** | Cadastro: `Carteira`, `ObjetoCobranca`, `Pessoa`, `VinculoPessoaObjeto` + repos + UseCases | **Média** | **2** (fan-out) | 0 | Entidades + **1 migration + factories compartilhadas** = andaime sequencial do orquestrador (commit). Depois, 2 clusters coesos independentes: {Carteira+Objeto} × {Pessoa+Vínculo}. **Detalhe completo em §3.** |
 | **2** | Núcleo: `CasoCobranca`, `Obrigacao`, `EventoHistorico`, `CalculadoraSaldo` | **Baixa** | **1–2** | 1 | Agregado central altamente acoplado; `CalculadoraSaldo` é dependência de quase tudo adiante. Fan-out cria mais conflito que ganho. |
 | **3** | `Pagamento`+`AlocacaoPagamento`, `Liquidacao`, `CalculadoraHonorarios` | **Média** | **2** | 2 | `Pagamento` e `Liquidacao` são áreas separáveis; honorários dependem do saldo. 2 agentes após o andaime. |
 | **4** | `Acordo` | **Baixa** | **1** | 2 (pode sobrepor a 3) | Um agregado só; substitui/gera obrigações. Sequencial. Pode correr em paralelo com a Etapa 3 (áreas distintas) se ambas partirem do núcleo committado. |
@@ -143,3 +143,154 @@ ONDA 3  (1 agente — orquestrador)
 ### Follow-up registrado (não executar agora)
 
 - **Permissões em produção (divergência F6 do AUTORIZACAO.md):** o catálogo de prod vem de **migration** (`Version20260401130000.php`), não do fixture. Antes do deploy da feature, as permissões `cobrancas` precisarão de uma **data-migration** equivalente. Não se cria agora (a regra proíbe migrations antecipadas e o deploy é no fim); fica anotado como pendência de deploy.
+
+---
+
+## 3. Mapa detalhado — Etapa 1 (Núcleo de cadastro: Carteira, Objeto, Pessoa, Vínculo)
+
+**Escopo (PLAN §8/Etapa 1):** entidades `Carteira`, `ObjetoCobranca`, `Pessoa`, `VinculoPessoaObjeto`; enums `ModoCarteira`, `TipoVinculo`, `FormaHonorarios`; embeddable `RegraHonorarios`; repositories com filtro de tenant; UseCases `CriarCarteira`, `EditarConfiguracaoCarteira`, `CriarObjeto`, `CriarPessoa`, `SugerirPessoasDuplicadas`, `VincularPessoaAObjeto`, `EncerrarVinculo`; testes unit dos UseCases + testes de repositório (filtro de tenant) + **cross-tenant** (dedup de Pessoa nunca atravessa tenant); **1 migration** criando as 4 tabelas.
+
+**Risco:** MÉDIO — novas entidades tenant-scoped; isolamento multi-tenant é inegociável (teste cross-tenant obrigatório). Sem dinheiro nesta etapa.
+
+### 3.1 Grafo de dependências (por que o andaime é sequencial)
+
+```
+enums (ModoCarteira, TipoVinculo, FormaHonorarios)   ← (nada)
+RegraHonorarios (embeddable)                          ← FormaHonorarios
+Carteira            ← Cliente(existe) + Tenant(existe) + RegraHonorarios + ModoCarteira + TipoVinculo
+ObjetoCobranca      ← Carteira
+Pessoa              ← Tenant(existe)
+VinculoPessoaObjeto ← Pessoa + ObjetoCobranca + TipoVinculo
+Migration (1 arquivo ÚNICO)  ← as 4 entidades
+Foundry factories (4)        ← as 4 entidades
+```
+
+As 4 entidades se cruzam por FK e **convergem numa única migration e num conjunto de factories** que os testes de vários clusters consomem. É o oposto de trabalho paralelizável ("ambas precisam conhecer a implementação final da outra" + "editam o mesmo arquivo central"). **Logo o andaime é 100% do orquestrador, sequencial** — não se ganha nada dividindo-o entre agentes, e se perde em conflito de migration.
+
+### 3.2 Contratos compartilhados (criados PRIMEIRO pelo orquestrador, antes de qualquer fan-out)
+
+Estes são a fundação que as tarefas paralelas consomem e **não** editam:
+
+1. **Enums** — `ModoCarteira` (unico/multiplo), `TipoVinculo` (proprietário/…/outro), `FormaHonorarios` (acrescido_divida/retido_recuperado/cobrado_separado/sem_percentual). `string` + `label()`.
+2. **Embeddable `RegraHonorarios`** — `forma` (FormaHonorarios) + `percentual?`.
+3. **4 entidades** — `Carteira` (FK Cliente + Tenant, embute RegraHonorarios, campos modo/toleranciaAtrasoDias/tipoVinculoPreferido/rotuloObjeto), `ObjetoCobranca` (FK Carteira + Tenant, referenciaExterna?), `Pessoa` (Tenant, nome/cpf?/cnpj?/contatos), `VinculoPessoaObjeto` (FK Pessoa + Objeto + Tenant, tipoVinculo/dataInicio/dataFim?/motivoEncerramento?/observacao?). Todas `TenantAware` + `Auditavel`, com getters/setters. **Assinaturas de campo/FK são o contrato.**
+4. **4 repositórios-stub** — `CarteiraRepository`, `ObjetoCobrancaRepository`, `PessoaRepository`, `VinculoPessoaObjetoRepository` (extends `ServiceEntityRepository`, vazios), para as entidades referenciarem `repositoryClass` e o DI autoconfigurar.
+5. **Migration** — cria `cobranca_carteira`, `cobranca_objeto`, `cobranca_pessoa`, `cobranca_vinculo_pessoa_objeto` (+ colunas do embeddable e enums). Aplicada em dev/test.
+6. **4 Foundry factories** — `CarteiraFactory`, `ObjetoCobrancaFactory`, `PessoaFactory`, `VinculoPessoaObjetoFactory`. **Ficam no contrato de propósito**: o cluster Vínculo precisa das factories de Pessoa e Objeto; centralizá-las evita duplicação/conflito entre worktrees.
+
+> **Nota de conteúdo dos stubs:** repositório-stub = classe vazia. Se uma *query* for necessária a **mais de um** cluster, ela entra no stub (contrato); queries usadas por **um só** cluster ficam no repositório daquele cluster (que passa a ser seu dono). Em Etapa 1, `VincularPessoaAObjeto` só usa `find()` (id + filtro de tenant), então **nenhuma query cross-cluster é necessária** — cada repositório fica com um dono único.
+
+### 3.3 Checkpoint de commit manual (o ponto exato)
+
+**Depois de T1.0g validar o andaime e ANTES da Onda 2 (fan-out).** Motivo técnico duro: worktrees ramificam do **HEAD committado**; entidades/enums/embeddable/stubs/factories **uncommitted não chegam** às worktrees dos implementadores. Sem esse commit, o fan-out não compila nem consegue mockar/testar. É o único checkpoint de commit **obrigatório** no meio da etapa (o commit final vem após a Onda 3).
+
+### 3.4 Tarefas atômicas
+
+**Andaime (orquestrador) — todas SEQUENCIAL, dependência em cadeia:**
+
+```text
+T1.0a — Enums (ModoCarteira, TipoVinculo, FormaHonorarios)
+  Tipo: SEQUENCIAL · Dep: nenhuma · Área: src/Cobranca/Enum/*
+  Conflito: base de tudo · Agente: orquestrador
+  Critério: php -l OK; usados pelas entidades
+
+T1.0b — Embeddable RegraHonorarios
+  Tipo: DEPENDE DE [T1.0a] · Área: src/Cobranca/Entity/RegraHonorarios.php
+
+T1.0c — 4 entidades (TenantAware + Auditavel)
+  Tipo: DEPENDE DE [T1.0a, T1.0b] · Área: src/Cobranca/Entity/{Carteira,ObjetoCobranca,Pessoa,VinculoPessoaObjeto}.php
+  Conflito: ALTO — arquivos-contrato; congelados após commit
+
+T1.0d — 4 repositórios-stub
+  Tipo: DEPENDE DE [T1.0c] · Área: src/Cobranca/Repository/*Repository.php
+
+T1.0e — Migration das 4 tabelas + aplicar dev/test
+  Tipo: DEPENDE DE [T1.0c] · Área: app/migrations/VersionYYYYMMDDHHMMSS.php (ARQUIVO ÚNICO)
+  Conflito: ALTO — só o orquestrador toca
+
+T1.0f — 4 Foundry factories
+  Tipo: DEPENDE DE [T1.0c] · Área: tests/Cobranca/Factory/*Factory.php
+
+T1.0g — Validação do andaime
+  Tipo: DEPENDE DE [T1.0c–f] · Área: nenhuma (comandos)
+  Critério: cache:clear OK; doctrine:schema:validate OK; migration up (e down) aplica em dev/test; php -l dos novos arquivos
+  ↓↓↓  CHECKPOINT: COMMIT MANUAL DO ANDAIME  ↓↓↓
+```
+
+**Fan-out (implementadores em worktree) — PARALELA entre si, cada uma DEPENDE DE o commit do andaime:**
+
+```text
+T1.A — Cluster "Carteira & Objeto"
+  Tipo: PARALELA · Dep: commit do andaime
+  Área EXCLUSIVA: Repository/{Carteira,ObjetoCobranca}Repository.php (queries próprias),
+    UseCase/{CriarCarteira,EditarConfiguracaoCarteira,CriarObjeto}.php, DTO/ desses UseCases,
+    tests/Cobranca/Unit/ desses UseCases + tests de repositório (filtro de tenant) desses 2 repos
+  Não pode alterar: entidades, enums, embeddable, migration, factories, arquivos do cluster B
+  Contrato a respeitar: assinaturas das entidades/factories; fluxo Controller→…→UseCase (aqui só UseCase+DTO)
+  Agente: feature-implementer
+  Critério: UseCases implementados com storytelling; testes unit escritos (mock de repo); tenant atribuído do usuário; informar arquivos alterados
+
+T1.B — Cluster "Pessoa & Vínculo"
+  Tipo: PARALELA · Dep: commit do andaime
+  Área EXCLUSIVA: Repository/{Pessoa,VinculoPessoaObjeto}Repository.php (incl. query de dedup por CPF/CNPJ intra-tenant),
+    UseCase/{CriarPessoa,SugerirPessoasDuplicadas,VincularPessoaAObjeto,EncerrarVinculo}.php, DTO/ desses,
+    tests/Cobranca/Unit/ desses + repo tests + **teste cross-tenant** (dedup não atravessa tenant; vínculo encerrado preserva histórico)
+  Não pode alterar: entidades, enums, embeddable, migration, factories, arquivos do cluster A
+  Agente: feature-implementer
+  Critério: idem T1.A + cobre invariáveis 7/9/10/11/23/24 e a regra de vigência do vínculo
+```
+
+**Integração (orquestrador) — SEQUENCIAL:**
+
+```text
+T1.R — Revisão + integração + verificação
+  Tipo: SEQUENCIAL · Dep: T1.A, T1.B
+  Passos: (1) feature-review-agent revisa cada bloco (read-only, isolado);
+          (2) integra UM bloco por vez no checkout principal;
+          (3) após cada integração roda os testes direcionados no container;
+          (4) ao fim da onda: suíte completa + verificação cross-tenant + doctrine:schema:validate
+  Critério (PLAN): suíte verde; migration aplica; dedup só intra-tenant; vínculo encerrado preserva histórico
+```
+
+### 3.5 Ondas de execução — Etapa 1
+
+```text
+ONDA 1  (1 agente — orquestrador)          ANDAIME DE CONTRATOS
+├── T1.0a Enums
+├── T1.0b RegraHonorarios
+├── T1.0c 4 entidades
+├── T1.0d 4 repositórios-stub
+├── T1.0e Migration (única) + aplicar dev/test
+├── T1.0f 4 factories
+└── T1.0g Validação
+
+↓↓↓  CHECKPOINT: COMMIT MANUAL DO ANDAIME (obrigatório antes do fan-out)  ↓↓↓
+
+ONDA 2  (2 agentes — feature-implementer, em worktrees isoladas)   FAN-OUT
+├── Agente A → T1.A  Cluster "Carteira & Objeto"
+└── Agente B → T1.B  Cluster "Pessoa & Vínculo"
+
+↓  SINCRONIZAÇÃO E REVISÃO (feature-review-agent por bloco; áreas de arquivo disjuntas)
+
+ONDA 3  (1 agente — orquestrador)          INTEGRAÇÃO + VALIDAÇÃO
+└── T1.R  Integra 1-a-1 → testes direcionados → suíte completa → cross-tenant → commit final
+```
+
+| Onda | Agentes ideais | Tarefas | Por que juntas/separadas | Sincronização | Verificação antes de avançar |
+|---|---|---|---|---|---|
+| 1 | **1** (orquestrador) | T1.0a–g | Cadeia de dependências + migration/factories únicas — indivisível | Andaime compila e migra | `cache:clear`, `doctrine:schema:validate`, migration up/down em dev/test |
+| 2 | **2** (implementadores) | T1.A, T1.B | 2 sub-domínios coesos, **áreas de arquivo disjuntas**, dependem só do andaime committado | Dois diffs sem sobreposição | cada bloco: `php -l` + testes escritos (rodados só na Onda 3) |
+| 3 | **1** (orquestrador) | T1.R | Integração é serial por natureza; validação global única | — | suíte completa verde + cross-tenant OK |
+
+**Por que 2 agentes no fan-out (e não 3–4):** as áreas são independentes, mas os blocos são pequenos-médios e a **integração é serial**. Agrupar por sub-domínio coeso — {Carteira→Objeto} e {Pessoa→Vínculo} — dá dois blocos equilibrados, corta pela metade os ciclos de revisão/integração e reduz o risco de uma lacuna de contrato aparecer atravessando dois agentes. Dividir em 4 (um por agregado) só valeria se os blocos fossem grandes; aqui `ObjetoCobranca` (1 UseCase) e o vínculo colam naturalmente em seus vizinhos. É "número por consequência de dependência", não por enfeite.
+
+### 3.6 Regras de exclusividade / principais riscos de conflito
+
+| Risco | Onde | Mitigação |
+|---|---|---|
+| **Migration única editada por 2 agentes** | `app/migrations/Version*.php` | Toda a migração é do andaime (Onda 1). Nenhum cluster cria/edita migration. Falta de coluna → PARAR e devolver ao orquestrador. |
+| **Factories cross-cluster** (Vínculo precisa de Pessoa+Objeto) | `tests/Cobranca/Factory/*` | Factories no contrato (Onda 1), committadas. Clusters só consomem. |
+| **Query em repositório de outro cluster** | `Repository/*` | Cada repo tem dono único; query compartilhada iria ao stub do contrato. Em Etapa 1 não há query cross-cluster (`VincularPessoa` usa `find()`). |
+| **Entidade precisa de campo novo durante o fan-out** | `Entity/*` (congelado) | Contrato congelado após commit; implementador **para e devolve ao orquestrador** (regra do workflow: não alterar contrato compartilhado). |
+| **DI / services.yaml** | `app/config/services.yaml` | Repositórios (`ServiceEntityRepository`) e UseCases são autoconfigurados/autowired; **nenhuma edição** de services.yaml na Etapa 1 → sem conflito. |
+| **Isolamento multi-tenant** (não é conflito de merge, é o risco do domínio) | todos os repos/UseCases | `TenantAware` + FK nn (no contrato) + atribuição do tenant do usuário nos UseCases + teste cross-tenant no cluster B; `tenant-safety-review` antes do commit final. |
