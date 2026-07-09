@@ -16,10 +16,11 @@ use App\Cobranca\Repository\ObrigacaoRepository;
  * invariável 20): o saldo NUNCA é digitado nem persistido — é sempre calculado dos eventos/valores.
  * Toda aritmética em CENTAVOS inteiros. Serviço read-only (não persiste).
  *
- * Escopo acumulado até a Etapa 3: o exigível é obrigação (original + encargos reconhecidos) MENOS
- * os pagamentos alocados MENOS as liquidações reconhecidas. A exclusão de obrigações substituídas
- * por acordo entra na Etapa 4 (extensão orquestrador-owned). A fonte de verdade continua sendo as
- * obrigações e os movimentos.
+ * Escopo acumulado até a Etapa 4: o exigível é obrigação (original + encargos reconhecidos) MENOS
+ * os pagamentos alocados MENOS as liquidações reconhecidas, considerando apenas as obrigações
+ * EXIGÍVEIS — `doCasoExigiveis` já exclui as substituídas por acordo vigente e as parcelas de acordo
+ * rompido/cancelado (SPEC §12, invariáveis 15/20). A fonte de verdade continua sendo as obrigações e
+ * os movimentos; nada de saldo manual.
  */
 final class CalculadoraSaldo
 {
@@ -38,12 +39,20 @@ final class CalculadoraSaldo
     public function saldoExigivel(CasoCobranca $caso): int
     {
         $bruto = 0;
+        $ids = [];
 
-        foreach ($this->obrigacaoRepository->doCaso($caso) as $obrigacao) {
+        foreach ($this->obrigacaoRepository->doCasoExigiveis($caso) as $obrigacao) {
             $bruto += $obrigacao->valorExigivel();
+            $id = $obrigacao->getId();
+
+            if ($id !== null) {
+                $ids[] = $id;
+            }
         }
 
-        $pago = $this->alocacaoRepository->totalAlocadoNoCaso($caso);
+        $tenant = $caso->getTenant();
+        // Abate só as alocações às obrigações exigíveis (as substituídas e suas alocações saem juntas).
+        $pago = $tenant === null ? 0 : $this->alocacaoRepository->totalAlocadoEmObrigacoes($ids, $tenant);
         $liquidado = $this->liquidacaoRepository->totalReconhecidoNoCaso($caso);
 
         return $bruto - $pago - $liquidado;
@@ -60,7 +69,7 @@ final class CalculadoraSaldo
         $bruto = 0;
         $idsVencidas = [];
 
-        foreach ($this->obrigacaoRepository->doCaso($caso) as $obrigacao) {
+        foreach ($this->obrigacaoRepository->doCasoExigiveis($caso) as $obrigacao) {
             if ($obrigacao->getVencimentoOriginal() <= $hoje) {
                 $bruto += $obrigacao->valorExigivel();
                 $idVencida = $obrigacao->getId();

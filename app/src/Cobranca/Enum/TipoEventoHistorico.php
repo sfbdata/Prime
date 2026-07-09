@@ -22,6 +22,7 @@ enum TipoEventoHistorico: string
     case AcordoCriado = 'acordo_criado';
     case AcordoRompido = 'acordo_rompido';
     case AcordoCancelado = 'acordo_cancelado';
+    case AcordoCumprido = 'acordo_cumprido';
     case PagamentoRegistrado = 'pagamento_registrado';
     case PagamentoCorrigido = 'pagamento_corrigido';
     case LiquidacaoRegistrada = 'liquidacao_registrada';
@@ -44,6 +45,7 @@ enum TipoEventoHistorico: string
             self::AcordoCriado => 'Acordo criado',
             self::AcordoRompido => 'Acordo rompido',
             self::AcordoCancelado => 'Acordo cancelado',
+            self::AcordoCumprido => 'Acordo cumprido',
             self::PagamentoRegistrado => 'Pagamento registrado',
             self::PagamentoCorrigido => 'Pagamento corrigido',
             self::LiquidacaoRegistrada => 'Liquidação registrada',

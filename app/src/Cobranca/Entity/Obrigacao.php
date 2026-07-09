@@ -54,6 +54,16 @@ class Obrigacao implements TenantAware, Auditavel
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $referenciaExterna = null;
 
+    /** Acordo que GEROU esta obrigação como parcela (SPEC §12); nulo se não é parcela de acordo. */
+    #[ORM\ManyToOne(targetEntity: Acordo::class, inversedBy: 'parcelas')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Acordo $acordoOrigem = null;
+
+    /** Acordo que SUBSTITUIU esta obrigação (SPEC §12, invariável 14 — nunca apagada); nulo se ativa. */
+    #[ORM\ManyToOne(targetEntity: Acordo::class, inversedBy: 'obrigacoesSubstituidas')]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Acordo $acordoSubstituto = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 
@@ -177,6 +187,42 @@ class Obrigacao implements TenantAware, Auditavel
         $this->referenciaExterna = $referenciaExterna;
 
         return $this;
+    }
+
+    public function getAcordoOrigem(): ?Acordo
+    {
+        return $this->acordoOrigem;
+    }
+
+    public function setAcordoOrigem(?Acordo $acordoOrigem): self
+    {
+        $this->acordoOrigem = $acordoOrigem;
+
+        return $this;
+    }
+
+    public function getAcordoSubstituto(): ?Acordo
+    {
+        return $this->acordoSubstituto;
+    }
+
+    public function setAcordoSubstituto(?Acordo $acordoSubstituto): self
+    {
+        $this->acordoSubstituto = $acordoSubstituto;
+
+        return $this;
+    }
+
+    /** A obrigação foi substituída por um acordo (marcada, nunca apagada — invariável 14)? */
+    public function foiSubstituida(): bool
+    {
+        return $this->acordoSubstituto !== null;
+    }
+
+    /** A obrigação é uma parcela gerada por um acordo? */
+    public function ehParcela(): bool
+    {
+        return $this->acordoOrigem !== null;
     }
 
     public function getCriadoEm(): \DateTimeImmutable

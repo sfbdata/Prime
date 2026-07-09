@@ -309,6 +309,11 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->ins('cobranca_alocacao_pagamento', ['valor' => 6000, 'tenant_id' => $t, 'pagamento_id' => $pagamento, 'obrigacao_id' => $obrigacao]);
         $this->ins('cobranca_liquidacao', ['tipo' => 'bem_movel', 'descricao_bem' => 'Bem', 'valor_atribuido_bem' => 5000, 'valor_reconhecido' => 4000, 'data' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
 
+        // Cobranças (Etapa 4): acordo→caso; parcela aponta acordo_origem_id. Exercita a ordem FK-safe
+        // (obrigação apagada antes do acordo; acordo antes do caso).
+        $acordo = $this->ins('cobranca_acordo', ['status' => 'ativo', 'data_acordo' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
+        $this->ins('cobranca_obrigacao', ['descricao' => 'Parcela de acordo', 'valor_original' => 5000, 'vencimento_original' => $d, 'encargos_reconhecidos' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso, 'acordo_origem_id' => $acordo]);
+
         // Pasta + seção + documento (bloqueador intermediário)
         $pasta = $this->ins('pasta', ['nup' => 'NUP-' . $uid, 'data_abertura' => $ts, 'created_at' => $ts, 'tenant_id' => $t]);
         $this->ins('pasta_secao', ['nome' => 'Secao', 'criada_em' => $ts, 'pasta_id' => $pasta, 'tenant_id' => $t]);

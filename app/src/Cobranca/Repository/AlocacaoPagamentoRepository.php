@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\AlocacaoPagamento;
-use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -40,25 +39,10 @@ class AlocacaoPagamentoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Σ, em centavos, do que os pagamentos do caso já abateram (fonte da subtração do saldo
-     * derivado — SPEC §10, invariável 20). Escopo por tenant do caso (defesa em profundidade).
-     */
-    public function totalAlocadoNoCaso(CasoCobranca $caso): int
-    {
-        return (int) $this->createQueryBuilder('a')
-            ->select('COALESCE(SUM(a.valor), 0)')
-            ->join('a.pagamento', 'p')
-            ->andWhere('p.caso = :caso')
-            ->andWhere('a.tenant = :tenant')
-            ->setParameter('caso', $caso)
-            ->setParameter('tenant', $caso->getTenant())
-            ->getQuery()
-            ->getSingleScalarResult();
-    }
-
-    /**
-     * Σ, em centavos, do que foi alocado às obrigações informadas (usado pelo saldo VENCIDO —
-     * pagamentos alocados a obrigações vencidas). Escopo por tenant explícito.
+     * Σ, em centavos, do que foi alocado às obrigações informadas — fonte da subtração do saldo
+     * derivado (SPEC §10/§12, invariável 20). A `CalculadoraSaldo` passa apenas as obrigações
+     * EXIGÍVEIS, então alocações a obrigações substituídas por acordo saem junto. Escopo por tenant
+     * explícito.
      *
      * @param int[] $obrigacaoIds
      */

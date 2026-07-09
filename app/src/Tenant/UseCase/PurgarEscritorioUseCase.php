@@ -70,6 +70,9 @@ final class PurgarEscritorioUseCase
         // do bloco de cadastro abaixo (que apaga objeto/pessoa).
         ['cobranca_evento_historico', 'tenant_id = :tenant'],
         ['cobranca_obrigacao', 'tenant_id = :tenant'],
+        // Acordo (Etapa 4): a obrigação referencia o acordo (SET NULL) e o acordo referencia o caso
+        // (NO ACTION). Apagado APÓS a obrigação e ANTES do caso.
+        ['cobranca_acordo', 'tenant_id = :tenant'],
         ['cobranca_caso', 'tenant_id = :tenant'],
         // Cobranças — cadastro (Etapa 1). As FKs entre si e para cliente/tenant são NO ACTION
         // (não cascateiam), então deleção explícita de baixo para cima: vínculo → objeto →

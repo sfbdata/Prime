@@ -46,7 +46,7 @@ final class CalculadoraSaldoTest extends TestCase
         $caso = new CasoCobranca();
         $this->obrigacaoRepository
             ->expects($this->once())
-            ->method('doCaso')
+            ->method('doCasoExigiveis')
             ->with($caso)
             ->willReturn([
                 $this->obrigacao(10000, 500, 'now'),   // 10500
@@ -61,7 +61,7 @@ final class CalculadoraSaldoTest extends TestCase
     public function saldoExigivelDeCasoSemObrigacoesEZero(): void
     {
         $caso = new CasoCobranca();
-        $this->obrigacaoRepository->method('doCaso')->willReturn([]);
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
 
         self::assertSame(0, $this->sut->saldoExigivel($caso));
     }
@@ -70,12 +70,16 @@ final class CalculadoraSaldoTest extends TestCase
     public function saldoExigivelSubtraiPagamentosAlocadosELiquidacoes(): void
     {
         $caso = new CasoCobranca();
-        $this->obrigacaoRepository->method('doCaso')->willReturn([
-            $this->obrigacao(30000, 0, 'now'),
-            $this->obrigacao(20000, 0, 'now'),
+        $caso->setTenant($this->createStub(\App\Entity\Tenant\Tenant::class));
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([
+            $this->obrigacaoComId(1, 30000, 0, 'now'),
+            $this->obrigacaoComId(2, 20000, 0, 'now'),
         ]);
-        // Bruto 50000; pagamentos alocados 12000; liquidação reconhecida 8000 → 30000.
-        $this->alocacaoRepository->method('totalAlocadoNoCaso')->with($caso)->willReturn(12000);
+        // Bruto 50000; pagamentos alocados às obrigações exigíveis 12000; liquidação 8000 → 30000.
+        $this->alocacaoRepository
+            ->method('totalAlocadoEmObrigacoes')
+            ->with([1, 2], $caso->getTenant())
+            ->willReturn(12000);
         $this->liquidacaoRepository->method('totalReconhecidoNoCaso')->with($caso)->willReturn(8000);
 
         self::assertSame(30000, $this->sut->saldoExigivel($caso));
@@ -85,7 +89,7 @@ final class CalculadoraSaldoTest extends TestCase
     public function saldoVencidoContaSomenteObrigacoesVencidasAteHoje(): void
     {
         $caso = new CasoCobranca();
-        $this->obrigacaoRepository->method('doCaso')->willReturn([
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([
             $this->obrigacao(10000, 0, '-1 day'),   // vencida → conta
             $this->obrigacao(20000, 0, '+1 day'),   // a vencer → NÃO conta
             $this->obrigacao(3000, 200, 'today'),   // vence hoje → conta (3200)
@@ -104,7 +108,7 @@ final class CalculadoraSaldoTest extends TestCase
         $vencidaA = $this->obrigacaoComId(1, 10000, 0, '-2 day');
         $vencidaB = $this->obrigacaoComId(2, 5000, 0, '-1 day');
         $aVencer = $this->obrigacaoComId(3, 20000, 0, '+1 day');
-        $this->obrigacaoRepository->method('doCaso')->willReturn([$vencidaA, $vencidaB, $aVencer]);
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([$vencidaA, $vencidaB, $aVencer]);
 
         // Vencido bruto = 15000; pagamento às vencidas = 4000; liquidação = 2000 → 9000.
         $this->alocacaoRepository
@@ -120,7 +124,7 @@ final class CalculadoraSaldoTest extends TestCase
     public function saldoVencidoNuncaFicaNegativo(): void
     {
         $caso = new CasoCobranca();
-        $this->obrigacaoRepository->method('doCaso')->willReturn([
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([
             $this->obrigacao(5000, 0, '-1 day'),
         ]);
         // Liquidação reconhecida maior que o vencido → piso 0 (nunca negativo).
@@ -143,7 +147,7 @@ final class CalculadoraSaldoTest extends TestCase
             ->willReturn([$casoA, $casoB]);
 
         $this->obrigacaoRepository
-            ->method('doCaso')
+            ->method('doCasoExigiveis')
             ->willReturnCallback(fn (CasoCobranca $c): array => match ($c) {
                 $casoA => [$this->obrigacao(10000, 0, 'now')],
                 $casoB => [$this->obrigacao(5000, 250, 'now')],
