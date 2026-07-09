@@ -75,8 +75,12 @@ final class CriarAcordoUseCase
                 throw new ObrigacaoDeOutroCasoException((int) $obrigacaoId, (int) $caso->getId());
             }
 
-            // Uma obrigação não pode ser substituída duas vezes ao mesmo tempo.
-            if ($obrigacao->foiSubstituida()) {
+            // Só bloqueia se a obrigação está substituída por um acordo VIGENTE (ativo/cumprido).
+            // Se o acordo substituto foi rompido/cancelado, a obrigação voltou ao exigível e PODE ser
+            // renegociada de novo (SPEC §12 — "ainda não substituída por um acordo vigente").
+            $substitutoAtual = $obrigacao->getAcordoSubstituto();
+
+            if ($substitutoAtual !== null && $substitutoAtual->getStatus()->ehVigente()) {
                 throw new ObrigacaoJaSubstituidaException((int) $obrigacaoId);
             }
 

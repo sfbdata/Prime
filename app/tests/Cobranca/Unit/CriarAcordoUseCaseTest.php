@@ -169,11 +169,12 @@ final class CriarAcordoUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function rejeitaSubstituicaoDeObrigacaoJaSubstituida(): void
+    public function rejeitaSubstituicaoDeObrigacaoJaSubstituidaPorAcordoVigente(): void
     {
         $caso = (new CasoCobranca())->setTenant($this->tenant);
+        // Acordo anterior VIGENTE (ativo): a obrigação segue fora do exigível, não pode ser re-substituída.
         $acordoAnterior = (new Acordo())->setTenant($this->tenant)->setCaso($caso);
-        // Obrigação já marcada por um acordo anterior: não pode ser substituída de novo.
+        self::assertTrue($acordoAnterior->getStatus()->ehVigente());
         $obrigacao = (new Obrigacao())->setTenant($this->tenant)->setCaso($caso);
         $obrigacao->setAcordoSubstituto($acordoAnterior);
 
@@ -190,6 +191,31 @@ final class CriarAcordoUseCaseTest extends TestCase
             $this->tenant,
             $this->criadoPor,
         );
+    }
+
+    #[Test]
+    public function permiteResubstituirObrigacaoDeAcordoRompido(): void
+    {
+        // Obrigação substituída por um acordo ROMPIDO voltou ao exigível → pode ser renegociada
+        // num novo acordo (a marcação `acordoSubstituto` antiga aponta para um acordo não vigente).
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $acordoRompido = (new Acordo())->setTenant($this->tenant)->setCaso($caso);
+        $acordoRompido->romper('Devedor parou de pagar');
+        self::assertFalse($acordoRompido->getStatus()->ehVigente());
+        $obrigacao = (new Obrigacao())->setTenant($this->tenant)->setCaso($caso);
+        $obrigacao->setAcordoSubstituto($acordoRompido);
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+
+        $acordo = $this->sut->executar(
+            $this->novoInput(70, [100], [$this->parcela('Nova parcela', 1000, '2026-06-10')]),
+            $this->tenant,
+            $this->criadoPor,
+        );
+
+        // Re-substituição aceita: a obrigação passa a apontar para o NOVO acordo (o rompido fica no histórico).
+        self::assertSame($acordo, $obrigacao->getAcordoSubstituto());
     }
 
     #[Test]
