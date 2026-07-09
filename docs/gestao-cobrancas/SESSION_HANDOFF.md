@@ -1,58 +1,61 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: 2026-07-09 — **Etapa 4 CONCLUÍDA e validada** (suíte global 1400/1400).
+> Sessão encerrada em: 2026-07-09 — **Etapa 5 CONCLUÍDA e validada** (suíte global 1441/1441; `tests/Cobranca` 160/160).
 
 ---
 
 ## Estado atual
 - **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
-- **HEAD:** `ccfa2c6` (docs da Etapa 4) — código estável em `269cc6a` ("Integrar Etapa 4: fix bloqueante da re-substituição + cross-tenant DB"). Esta verificação de continuidade adiciona +1 commit só de docs.
-- **Etapa:** 4 (Acordos) → **✅ CONCLUÍDA**. Próxima = **Etapa 5** (Estados/Judicialização/Encerramento/ProximaAcao/Revisão/Alertas).
-- **Suíte:** GLOBAL **1400/1400 (3927 assert)**; `tests/Cobranca` 119/119.
-- **Working tree:** limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar).
-- **Escritor:** ÚNICO. Sessão autônoma completou Etapa 3, follow-up #7 e Etapa 4. (Se abrir nova sessão, reconfirmar escritor único antes de reabrir escrita.)
-- **Migrations (dev+test):** E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; **E4 `Version20260709154458`** (cobranca_acordo + ALTER cobranca_obrigacao).
+- **HEAD:** `8cbd937` (código estável) — +1 commit de docs a seguir. Ancestralidade Etapa 5 sobre `fc48708`: `db7e86f`(andaime)→`d9d06bf`(CalculadoraSaldo não-final)→`2dbfa80`(fan-out A)→`52dcb61`(fan-out B)→`faa8530`(fan-out C)→`672d314`(integração)→`8cbd937`(cobertura IDOR).
+- **Etapa:** 5 (Estados/Judicialização/Encerramento/ProximaAcao/Revisão/Alertas) → **✅ CONCLUÍDA**. Próxima = **Etapa 6** (Documentos do Caso).
+- **Suíte:** GLOBAL **1441/1441**; `tests/Cobranca` 160/160.
+- **Working tree:** limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar; limpeza é do humano, follow-up #6).
+- **Escritor:** ÚNICO (orquestrador) + fan-out de 3 `feature-implementer` em worktrees (concluído/integrado). Se abrir nova sessão, reconfirmar escritor único antes de reabrir escrita.
+- **Migrations (dev+test):** E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; E4 `Version20260709154458`; **E5 `Version20260709191327`** (cobranca_proxima_acao + cobranca_revisao_pessoa_cobrada + ALTER cobranca_caso add pasta_judicial_id).
 
-## O que foi concluído nesta sessão (Etapa 3 + follow-up #7 + Etapa 4)
-Esta sessão fechou **duas etapas** e uma decisão de negócio, sempre pelo pipeline autônomo `andaime→commit→fan-out (worktrees)→review read-only→cherry-pick→testes→correções→cross-tenant DB→suíte global→tenant-safety→docs`.
-- **Etapa 3** (Pagamentos/Liquidações/Honorários) — fechada em `ad8fa07`: `Pagamento`+`AlocacaoPagamento`/`Liquidacao`, `CalculadoraHonorarios`, `AlocadorPagamento`, UseCases RegistrarPagamento/CorrigirPagamento (SEM estorno)/RegistrarLiquidacao.
-- **Follow-up #7** — `c0c72ac`: humano decidiu **remover `TipoLiquidacao::Dinheiro`** (dinheiro só via Pagamento; Liquidacao = só não monetário).
-- **Etapa 4** (Acordos):
-  - Andaime `d32cf16`: entidade `Acordo`+enum `StatusAcordo` (+evento `AcordoCumprido`); FKs `Obrigacao.acordoOrigem`/`acordoSubstituto`; `ObrigacaoRepository::doCasoExigiveis` (status-aware); `CalculadoraSaldo` deriva do exigível; `AcordoRepository`+3 exceptions; migration `Version20260709154458` (CREATE acordo + ALTER obrigacao); `AcordoFactory`; purga+seed; spec.
-  - Fan-out `52e8f2f` (1 `feature-implementer`): `CriarAcordo`/`RomperAcordo`/`CancelarAcordo`/`MarcarAcordoCumprido` + 5 DTOs + testes.
-  - Integração `269cc6a`: fix BLOQUEANTE do review (re-substituir obrigação de acordo rompido/cancelado — guarda usa `StatusAcordo::ehVigente()`) + mensagem genérica de `ObrigacaoDeOutroCasoException` + `AcordoCobrancaIsolamentoTenantTest` (DB real).
+## O que foi concluído nesta sessão (Etapa 5)
+Pipeline autônomo completo: `andaime→commit→fan-out (3 worktrees)→review read-only (3)→cherry-pick individual→teste direcionado→correções→cross-tenant DB→suíte global→tenant-safety→docs`.
+- **Andaime** `db7e86f` (+ `d9d06bf`): entidades `ProximaAcao`/`RevisaoPessoaCobrada` + enums `StatusProximaAcao`/`StatusRevisao`; FK `CasoCobranca.pastaJudicial` (unidirecional, SET NULL); repos com queries cross-cluster (`findAtivaDoCaso`, `existePendenteDoCaso`); 7 exceptions; migration; 2 factories; purga (ORDEM_DELECAO + seed); spec `docs/specs/cobranca-etapa5-estados-judicializacao-alertas.md`; `CalculadoraSaldo` não-final.
+- **Fan-out A** `2dbfa80` (de `93e81ac`): `JudicializarCaso` (não encerra) + `EncerrarCaso` (manual, saldo 0).
+- **Fan-out B** `52dcb61` (de `7229f9e`): `DefinirProximaAcao` (máx. 1 ativa) + `ConcluirAcao`.
+- **Fan-out C** `faa8530` (de `bcb414b`): `GerarRevisao`/`ResolverRevisao` + `AlertasCobranca` (5 alertas) + `TipoAlerta`/`AlertaCobranca`.
+- **Integração** `672d314`: `JudicializacaoCobrancaIsolamentoTenantTest` (DB real) + fix do review (ConcluirAcao rejeita próxima em caso encerrado, §17).
+- **Reforço IDOR** `8cbd937`: cobertura cross-tenant dos demais UseCases (fecha MENOR da tenant-safety).
 
-## Decisões de design (Etapa 4)
-- **Saldo derivado por STATUS do acordo** (invariável 20): obrigação exigível ⟺ (NÃO substituída por acordo vigente `ativo`/`cumprido`) E (NÃO é parcela de acordo `rompido`/`cancelado`). Romper/cancelar restaura os originais e descarta as parcelas SEM reversão imperativa — só muda `Acordo.status`; `doCasoExigiveis` deriva. Se o negócio quiser rompimento que NÃO restaura, trocar só a regra do `doCasoExigiveis`.
-- **Substituição = 2 FKs em `Obrigacao`** (sem join table); substituída nunca apagada (invariável 14), só marcada. **Re-substituição** permitida se o acordo substituto anterior não é vigente.
-- **`Version20260709154458` ALTERA `cobranca_obrigacao`** — 1ª migration de Cobranças a tocar tabela existente do próprio módulo.
+## Decisões de design (Etapa 5)
+- **"Pronto para encerrar" = indicador DERIVADO** (`status !== encerrado E saldoExigivel === 0`), NÃO 4º estado. Vive em `AlertasCobranca` (`TipoAlerta::ProntoParaEncerrar`).
+- **Vínculo com Pasta UNIDIRECIONAL** (`Caso → Pasta`, FK `pasta_judicial_id` SET NULL). `PastaController` intocado. Guard same-tenant no UseCase (Pasta resolvida por id+tenant) — provado por DB.
+- **Judicialização ≠ encerramento** (16); **encerramento manual + saldo 0** (17), de ativo ou judicializado.
+- **Revisão persistida** (§8): `existePendenteDoCaso` filtra por status → alerta cessa após resolver (provado ponta-a-ponta no DB). Demais alertas são derivados por query.
+- **Alertas read-only** (28); caso encerrado → `[]` (short-circuit, aceito). **Próxima ação não grava histórico** (§13).
+- **Permissão `pastas` do controller → Etapa 8** (não há camada HTTP nesta etapa; só o isolamento de tenant está no UseCase).
 
 ## Git
-- **HEAD:** `269cc6a` (+ docs). Ancestralidade Etapa 4 sobre `5b05953`(docs #7)←`c0c72ac`: `d32cf16`→`52e8f2f`→`269cc6a`.
-- **`master`:** NÃO contém Cobranças. Mergear DEPOIS do DJEN, só no fim.
-- **Worktrees de agente (limpeza do humano):** E3 `agent-a3a6acd67246f2c65`/`agent-a4e00b60da03d350b`; E4 `agent-a76d50e23988e7107` + branches `worktree-agent-*`.
+- **HEAD:** `8cbd937` (+ docs). **`master`:** NÃO contém Cobranças. Mergear DEPOIS do DJEN, só no fim.
+- **Worktrees de agente (limpeza do humano):** E5 `agent-a953d338bf5fe2f30`(A)/`agent-a2ef463696ee59d2c`(B)/`agent-a55b6609e6d9f8247`(C) + branches `worktree-agent-*`; somam-se às sobras das etapas 2/3/4.
 
-## Testes (comandos úteis) — **sempre `php -d memory_limit=512M`** (warmup/phpunit estoura o default 128M)
-- `php bin/phpunit tests/Cobranca` → 119/119.
-- `php bin/phpunit --filter "CriarAcordoUseCaseTest|AcordoCobrancaIsolamentoTenantTest"` → acordos.
-- `php bin/phpunit --filter "CalculadoraSaldoTest|CalculadoraHonorariosTest"` → calculadoras.
-- `php bin/phpunit` (global) → 1400/1400.
+## Testes (comandos úteis) — **sempre `php -d memory_limit=512M`**
+- `php bin/phpunit tests/Cobranca` → 160/160.
+- `php bin/phpunit --filter "JudicializacaoCobrancaIsolamentoTenantTest"` → cross-tenant DB da Etapa 5 (8 testes).
+- `php bin/phpunit --filter "JudicializarCasoUseCaseTest|EncerrarCasoUseCaseTest|DefinirProximaAcaoUseCaseTest|ConcluirAcaoUseCaseTest|GerarRevisaoUseCaseTest|ResolverRevisaoUseCaseTest|AlertasCobrancaTest"` → unit da Etapa 5.
+- `php bin/phpunit` (global) → 1441/1441.
+- **Se testes de DB falharem com erro de conexão:** confira `docker ps` — o container `jusprime_db_dev` pode ter parado (`docker start jusprime_db_dev`).
 
 ## Follow-ups (não bloqueiam — detalhe no EXECUTION_STATUS §Follow-ups)
-- **#7 ✅ RESOLVIDO** (`c0c72ac`, dinheiro removido). **Sem decisões de negócio pendentes.**
-- **#8** FIFO (sugestão de alocação) → Etapa 8 (UI).
-- **#9** Dívida consciente E3 (guarda invariável 12 por instância; `AlocadorPagamento` valida contra `valorDivida`/encargos=0; `saldoExigivel` sem piso 0).
-- **#10/#11** Endurecer testes de evento (E3+E4: asserir `tipo`+`dados`); teste "vacuum" da substituição parcial no `CriarAcordoUseCaseTest`.
-- **#12** Parcela de acordo vencida → ALERTA derivado é da Etapa 5 (não rompe automático — já garantido).
+- **#12 ✅ RESOLVIDO** (alerta de parcela de acordo vencida na Etapa 5). **Sem decisões de negócio pendentes.**
+- **#13** Índice único de banco para "máx. 1 ação pendente" (hoje só o check no UseCase; janela TOCTOU) — decisão do humano.
+- **#14** Short-circuit de alertas em caso encerrado oculta revisão pendente sobrevivente — coerente com §14, documentado; confirmar intencional (é).
+- **#15** Gate `can_access_module('pastas')` na judicialização entra na Etapa 8 (camada HTTP).
+- **#10/#11** Endurecer testes de evento (asserir `tipo`+`dados`) — segue aberto das etapas 3/4.
 
 ## Próxima ação exata
-> **Etapa 5 — Estados/Judicialização/Encerramento/Próxima ação/Revisões/Alertas** (PLAN §8; paralelização ALTA, ~3 agentes após o andaime). Ordem: (1) confirmar Git + escritor único; (2) spec ALTO risco + storytelling; (3) andaime committado — `CasoCobranca.pastaJudicial`(`ManyToOne Pasta` nullable → migration **ALTERA `cobranca_caso`**), entidades `ProximaAcao`(máx. 1 ativa/caso, §14)/`RevisaoPessoaCobrada`(§8) + enums, migration (dev+test via `migrations:execute --up`), factories, **purga+seed** das tabelas novas; (4) fan-out 3 sub-features disjuntas: {Judicializar+EncerrarCaso+indicador "pronto p/ encerrar"} × {ProximaAcao: Definir/Concluir} × {RevisaoPessoaCobrada: Gerar/Resolver + serviço `AlertasCobranca` derivado}; (5) testes invariáveis 16/17, judicialização não encerra, encerramento só manual, "pronto p/ encerrar" é indicador (não 4º estado), máx. 1 próxima ação ativa, alerta de revisão cessa após resolução, **cross-tenant no vínculo com Pasta**; suíte global + tenant-safety + commit + docs.
+> **Etapa 6 — Documentos do Caso de Cobrança** (PLAN §8; paralelização Baixa, 1–2 agentes). Ordem: (1) confirmar Git + escritor único; (2) investigar `App\Shared\Service\ArquivoStorageService`/`CompressorArquivo` + file manager `pasta-arquivos.js/.css` (reusar, NÃO duplicar — §15/§24, invariável 25); (3) andaime committado — entidades `CobrancaDocumento`/`CobrancaSecao` (TenantAware+Auditavel, FK `caso` nn), parâmetro `cobrancas_uploads_dir` (test → `var/uploads-test/cobrancas`) + bind, migration (dev+test via `migrations:execute --up`), factories, **purga+seed**; (4) fan-out (documentos × seções, se valer) ou sequencial; UseCases `EnviarDocumento`/`MoverDocumento`/`ExcluirDocumento`/`CriarSecao`/`RenomearSecao`/`ExcluirSecao`; (5) testes: documento existe SEM Pasta (invariável 25); ao judicializar documentos permanecem no Caso (não migram/duplicam); guard IDOR+tenant; isolamento por tenant no disco (subpasta por tenant, padrão M5); suíte global + tenant-safety + commit + docs.
 
-> **⚠️ Atenção da Etapa 5:** judicialização integra o domínio **Pasta** (outro módulo). Ligação **UNIDIRECIONAL** `Caso → Pasta` (FK + link `pasta_show`); **NÃO tocar `PastaController`** (~1800 linhas, PLAN §10.4); respeitar tenant + permissão do módulo `pastas` ao vincular. Investigar `App\Pasta\Entity\Pasta` antes do andaime.
+> **⚠️ Atenção da Etapa 6:** é a primeira etapa a tocar **disco/uploads**. Subpasta por tenant (isolamento físico, como M5). Reusar a infra de arquivos existente (contrato `data-*` do front) sem duplicar Pasta/Processo/Documento (§24). NÃO tocar `PastaController`.
 
 ## Ordem de retomada
-1. Confirmar branch `gestao-cobrancas`, HEAD `269cc6a` (ou posterior), working tree limpo, escritor único.
-2. Ler `PLAN.md` §8 Etapa 5 + `PARALLELIZATION_MAP.md` §1 + specs das Etapas 2/3/4 (padrões do núcleo, movimentos e acordos) + investigar o domínio `Pasta`.
-3. Andaime da Etapa 5 (pastaJudicial + ProximaAcao + RevisaoPessoaCobrada + migration + factories + purga) → commit → fan-out (3 sub-features) → integração → validação.
+1. Confirmar branch `gestao-cobrancas`, HEAD `8cbd937` (ou posterior), working tree limpo, escritor único.
+2. Ler `PLAN.md` §8 Etapa 6 + `PARALLELIZATION_MAP.md` §1 + investigar `ArquivoStorageService`/file manager + como `PastaDocumento`/`PastaSecao` mapeiam.
+3. Andaime da Etapa 6 (CobrancaDocumento/CobrancaSecao + `cobrancas_uploads_dir` + migration + factories + purga) → commit → fan-out/sequencial → integração → validação.
 4. Atualizar `EXECUTION_STATUS.md` + este arquivo ao fim.

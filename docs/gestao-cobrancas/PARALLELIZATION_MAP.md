@@ -13,7 +13,7 @@
 
 ### Consequência prática para esta feature
 
-> **Estado (2026-07-09):** Etapas **0–4 CONCLUÍDAS e committadas** na branch `gestao-cobrancas` (HEAD `ccfa2c6`; código estável `269cc6a`). O fluxo de fan-out abaixo já foi aplicado com sucesso nas Etapas 2/3/4; a **Etapa 5** é a próxima (paralelização **Alta**, ~3 agentes — ver a tabela do §1). Detalhe operacional em `AUTONOMOUS_EXECUTION_PROTOCOL.md`.
+> **Estado (2026-07-09):** Etapas **0–5 CONCLUÍDAS e committadas** na branch `gestao-cobrancas` (HEAD `8cbd937`). O fluxo de fan-out abaixo já foi aplicado com sucesso nas Etapas 2/3/4/5; a **Etapa 5** rodou com paralelização **Alta** real (3 `feature-implementer` em worktrees: Judicialização/Encerramento × ProximaAcao × Revisão/Alertas → 3 reviews read-only → cherry-pick individual → integração cross-tenant DB). A **Etapa 6** (Documentos, paralelização Baixa 1–2) é a próxima. Detalhe operacional em `AUTONOMOUS_EXECUTION_PROTOCOL.md`.
 
 O fan-out em worktree só é aplicável **depois** que os contratos da etapa (skeletons de entidade/enum/interface + migration + serviços centrais) estão **committados** — worktrees ramificam do HEAD committado, uncommitted não chega ao implementador isolado. Por isso cada etapa: o **orquestrador** cria o "andaime de contratos" e **committa** (localmente, autonomamente — o commit do andaime deixou de ser passo do humano com o `AUTONOMOUS_EXECUTION_PROTOCOL`); só então o paralelismo real por subagente começa. Etapas de alto acoplamento (0, 2) ou artefato central único (migration/serviço) rodam sequenciais no orquestrador.
 
