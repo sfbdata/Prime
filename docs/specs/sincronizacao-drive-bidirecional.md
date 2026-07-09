@@ -353,6 +353,13 @@ o `AcervoNomesParser` consiga re-extrair o NUP num round-trip Drive→sistema.
 **Não cria** automaticamente. Registra num relatório de pendências para
 tratamento manual com o Dr. Farlei (como na Fase 0 do acervo).
 
+**NUP extraível** = o primeiro segmento do nome casa `^\d+[A-Za-z]?$` — dígitos com
+**sufixo opcional de uma letra** (ver §11.5). "10", "10A", "10B" são válidos;
+qualquer outro primeiro segmento cai aqui (pula + reporta). Implementado em
+`ReconciliarCommand::ehNupValido`. O regex aceita letra minúscula por tolerância,
+mas `Pasta::setNup` normaliza para maiúsculo — recomenda-se padronizar **maiúsculo
+no Drive** para não criar "10a" e "10A" como pastas distintas.
+
 ### 11.3 Divergência de nome (D10)
 
 **Só reporta.** Vínculo é por ID; divergência é cosmética. Renomeação automática
@@ -369,6 +376,21 @@ quebra a pendência dos 19 arquivos > 65 MB de maio.
 
 Permitido por design (§7.2). Cada pasta tem identidade própria por
 `drive_folder_id`.
+
+**Desambiguação por letra (decisão do P.O.):** números repetidos são resolvidos
+**no Drive** anexando uma letra maiúscula ao número — `10A`, `10B` (dois casos
+distintos que compartilhavam o `10`). O sistema **aceita letra no NUP**: coluna
+`nup` é `VARCHAR(255)` (input validado por `Assert\Length(max: 50)`), `setNup` sobe
+pra maiúsculo, o motor cria a Pasta (§11.2) e as **três listas paginadas de pasta do
+Expediente** (`PastaRepository::findByFilters`, `findPorMarcador`,
+`findByFiltrosEMarcador`) ordenam de forma **natural** (`10 → 10A → 10B → 11`) via
+`CAST_INT_PREFIXO` (prefixo numérico + `p.nup` como desempate). Isso é o que garante
+que `10A`/`10B` caiam na **mesma página** que `10` (a paginação é server-side); o
+sort client-side dessas telas (`parseFloat`) reordena dentro da página preservando o
+desempate. Fora do escopo: "Minhas Demandas" (ordena por prioridade/data) e o
+`<select>` de filtro de NUP mantêm ordenação lexicográfica pré-existente. A mudança
+converte os pares de `nup_repetido` do relatório de pendências em pastas
+bem-formadas, importadas automaticamente pela reconciliação.
 
 ### 11.6 Hierarquia de pastas no Drive (declaração canônica)
 

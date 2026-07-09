@@ -79,6 +79,28 @@ final class ReconciliarCommandTest extends KernelTestCase
         self::assertSame($tenant->getId(), $pasta->getTenant()->getId());
     }
 
+    #[TestDox('subpasta do Drive com NUP alfanumérico (10A) cria Pasta e grava o vínculo')]
+    public function testCriaPastaParaSubpastaComNupAlfanumerico(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+
+        // Desambiguação de número repetido: o Drive passa a ter "10A"/"10B" (letra maiúscula).
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedPasta('DRV-10A', '10A - FULANO DE TAL', self::ROOT);
+
+        $tester = $this->tester($fake);
+        $tester->execute(['--tenant-id' => (string) $tenant->getId(), '--usuario-id' => (string) $user->getId()]);
+        $tester->assertCommandIsSuccessful();
+
+        $em = self::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $pasta = $em->getRepository(Pasta::class)->findOneBy(['driveFolderId' => 'DRV-10A']);
+        self::assertNotNull($pasta, 'Pasta com NUP alfanumérico (10A) deveria ter sido criada');
+        self::assertSame('10A', $pasta->getNup());
+    }
+
     #[TestDox('subpasta do Drive sem NUP numérico é pulada e reportada (D9)')]
     public function testSubpastaSemNupEhPuladaEReportada(): void
     {

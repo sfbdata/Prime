@@ -41,8 +41,9 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $qb
-            ->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
-            ->addOrderBy('CAST_INT(p.nup)', 'DESC')
+            ->orderBy('CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
+            ->addOrderBy('CAST_INT_PREFIXO(p.nup)', 'DESC')
+            ->addOrderBy('p.nup', 'DESC')
             ->addOrderBy('p.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage)
@@ -103,8 +104,9 @@ class PastaRepository extends ServiceEntityRepository
         int $perPage = 25
     ): array {
         return $this->buildQbPorMarcador([], $marcador, $tenant)
-            ->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
-            ->addOrderBy('CAST_INT(p.nup)', 'DESC')
+            ->orderBy('CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
+            ->addOrderBy('CAST_INT_PREFIXO(p.nup)', 'DESC')
+            ->addOrderBy('p.nup', 'DESC')
             ->addOrderBy('p.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage)
@@ -138,8 +140,9 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         return $qb
-            ->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
-            ->addOrderBy('CAST_INT(p.nup)', 'DESC')
+            ->orderBy('CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
+            ->addOrderBy('CAST_INT_PREFIXO(p.nup)', 'DESC')
+            ->addOrderBy('p.nup', 'DESC')
             ->addOrderBy('p.id', 'DESC')
             ->setFirstResult(($page - 1) * $perPage)
             ->setMaxResults($perPage)

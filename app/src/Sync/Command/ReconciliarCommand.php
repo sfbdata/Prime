@@ -238,8 +238,9 @@ final class ReconciliarCommand extends Command
 
             $r    = $this->parser->parsear($sub['nome']);
             $item = $r['alta'][0] ?? $r['revisao'][0] ?? null;
-            // D9: sem NUP numérico extraível → pula e reporta (não cria pasta com NUP lixo).
-            if ($item === null || !ctype_digit(trim($item['nup']))) {
+            // D9: sem NUP extraível → pula e reporta (não cria pasta com NUP lixo).
+            // NUP aceita sufixo de letra (desambiguação de repetidos: 10, 10A, 10B).
+            if ($item === null || !$this->ehNupValido($item['nup'])) {
                 $totais['semNup']++;
                 $io->writeln(sprintf('  <comment>[sem NUP]</comment> "%s" — pulada (D9)', $sub['nome']));
 
@@ -283,5 +284,15 @@ final class ReconciliarCommand extends Command
         $partes = array_filter([$nup, $cliente, $acao], static fn (?string $v): bool => $v !== null && $v !== '');
 
         return implode(' - ', $partes);
+    }
+
+    /**
+     * NUP válido para criar Pasta: dígitos com sufixo opcional de uma letra
+     * (desambiguação de número repetido — ex.: 10, 10A, 10B). Case-insensitive;
+     * Pasta::setNup normaliza para maiúsculo.
+     */
+    private function ehNupValido(string $nup): bool
+    {
+        return preg_match('/^\d+[A-Za-z]?$/', trim($nup)) === 1;
     }
 }
