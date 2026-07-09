@@ -9,6 +9,7 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClienteDocumento;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Cobranca\Entity\EventoHistorico;
 use App\Djen\Entity\OabMonitorada;
 use App\Djen\Entity\PublicacaoDjen;
 use App\Entity\Audit\AuditLog;
@@ -77,6 +78,11 @@ final class AuditavelCoberturaTest extends KernelTestCase
         // PublicacaoDjen é captada em lote pelo sync (alto volume); OabMonitorada é config do escritório.
         OabMonitorada::class,
         PublicacaoDjen::class,
+
+        // Cobranças — EventoHistorico é o LOG DE DOMÍNIO (linha do tempo operacional, SPEC §13):
+        // histórico de negócio visível ao usuário, distinto da auditoria técnica (invariável 26).
+        // Auditar o log seria log de log. CasoCobranca/Obrigacao (que tocam dinheiro) SÃO Auditavel.
+        EventoHistorico::class,
     ];
 
     private EntityManagerInterface $em;
