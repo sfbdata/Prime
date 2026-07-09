@@ -7,8 +7,10 @@ namespace App\Tests\Cobranca\Functional;
 use App\Cobranca\DTO\AbrirCasoInput;
 use App\Cobranca\DTO\AlterarPessoaCobradaInput;
 use App\Cobranca\DTO\RegistrarObrigacaoInput;
+use App\Cobranca\Entity\AlocacaoPagamento;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Entity\Liquidacao;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pessoa;
@@ -18,8 +20,10 @@ use App\Cobranca\Exception\CasoAtivoJaExisteException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PessoaRepository;
@@ -77,12 +81,16 @@ final class CasoCobrancaIsolamentoTenantTest extends KernelTestCase
         $obrigacaoRepo = $this->em->getRepository(Obrigacao::class);
         /** @var EventoHistoricoRepository $eventoRepo */
         $eventoRepo = $this->em->getRepository(EventoHistorico::class);
+        /** @var AlocacaoPagamentoRepository $alocacaoRepo */
+        $alocacaoRepo = $this->em->getRepository(AlocacaoPagamento::class);
+        /** @var LiquidacaoRepository $liquidacaoRepo */
+        $liquidacaoRepo = $this->em->getRepository(Liquidacao::class);
 
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
         $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento);
         $this->alterarPessoaCobrada = new AlterarPessoaCobradaUseCase($casoRepo, $pessoaRepo, $registrarEvento);
-        $this->calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo);
+        $this->calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
     }
 
     #[TestDox('Abre caso e deriva saldo quando objeto e pessoa são do mesmo escritório')]

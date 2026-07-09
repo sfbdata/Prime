@@ -7,7 +7,9 @@ namespace App\Tests\Cobranca\Unit;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
+use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraSaldo;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -20,13 +22,22 @@ final class CalculadoraSaldoTest extends TestCase
 {
     private ObrigacaoRepository&MockObject $obrigacaoRepository;
     private CasoCobrancaRepository&MockObject $casoRepository;
+    private AlocacaoPagamentoRepository&MockObject $alocacaoRepository;
+    private LiquidacaoRepository&MockObject $liquidacaoRepository;
     private CalculadoraSaldo $sut;
 
     protected function setUp(): void
     {
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         $this->casoRepository = $this->createMock(CasoCobrancaRepository::class);
-        $this->sut = new CalculadoraSaldo($this->obrigacaoRepository, $this->casoRepository);
+        $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
+        $this->liquidacaoRepository = $this->createMock(LiquidacaoRepository::class);
+        $this->sut = new CalculadoraSaldo(
+            $this->obrigacaoRepository,
+            $this->casoRepository,
+            $this->alocacaoRepository,
+            $this->liquidacaoRepository,
+        );
     }
 
     #[Test]
@@ -42,6 +53,7 @@ final class CalculadoraSaldoTest extends TestCase
                 $this->obrigacao(20000, 0, 'now'),      // 20000
             ]);
 
+        // Sem pagamentos nem liquidações (mocks devolvem 0 por padrão).
         self::assertSame(30500, $this->sut->saldoExigivel($caso));
     }
 
@@ -52,6 +64,21 @@ final class CalculadoraSaldoTest extends TestCase
         $this->obrigacaoRepository->method('doCaso')->willReturn([]);
 
         self::assertSame(0, $this->sut->saldoExigivel($caso));
+    }
+
+    #[Test]
+    public function saldoExigivelSubtraiPagamentosAlocadosELiquidacoes(): void
+    {
+        $caso = new CasoCobranca();
+        $this->obrigacaoRepository->method('doCaso')->willReturn([
+            $this->obrigacao(30000, 0, 'now'),
+            $this->obrigacao(20000, 0, 'now'),
+        ]);
+        // Bruto 50000; pagamentos alocados 12000; liquidação reconhecida 8000 → 30000.
+        $this->alocacaoRepository->method('totalAlocadoNoCaso')->with($caso)->willReturn(12000);
+        $this->liquidacaoRepository->method('totalReconhecidoNoCaso')->with($caso)->willReturn(8000);
+
+        self::assertSame(30000, $this->sut->saldoExigivel($caso));
     }
 
     #[Test]
@@ -67,6 +94,39 @@ final class CalculadoraSaldoTest extends TestCase
         $hoje = new \DateTimeImmutable('today');
 
         self::assertSame(13200, $this->sut->saldoVencido($caso, $hoje));
+    }
+
+    #[Test]
+    public function saldoVencidoAbatePagamentoDasVencidasELiquidacaoComPiso(): void
+    {
+        $caso = new CasoCobranca();
+        $caso->setTenant($this->createStub(\App\Entity\Tenant\Tenant::class));
+        $vencidaA = $this->obrigacaoComId(1, 10000, 0, '-2 day');
+        $vencidaB = $this->obrigacaoComId(2, 5000, 0, '-1 day');
+        $aVencer = $this->obrigacaoComId(3, 20000, 0, '+1 day');
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$vencidaA, $vencidaB, $aVencer]);
+
+        // Vencido bruto = 15000; pagamento às vencidas = 4000; liquidação = 2000 → 9000.
+        $this->alocacaoRepository
+            ->method('totalAlocadoEmObrigacoes')
+            ->with([1, 2], $caso->getTenant())
+            ->willReturn(4000);
+        $this->liquidacaoRepository->method('totalReconhecidoNoCaso')->willReturn(2000);
+
+        self::assertSame(9000, $this->sut->saldoVencido($caso, new \DateTimeImmutable('today')));
+    }
+
+    #[Test]
+    public function saldoVencidoNuncaFicaNegativo(): void
+    {
+        $caso = new CasoCobranca();
+        $this->obrigacaoRepository->method('doCaso')->willReturn([
+            $this->obrigacao(5000, 0, '-1 day'),
+        ]);
+        // Liquidação reconhecida maior que o vencido → piso 0 (nunca negativo).
+        $this->liquidacaoRepository->method('totalReconhecidoNoCaso')->willReturn(9000);
+
+        self::assertSame(0, $this->sut->saldoVencido($caso, new \DateTimeImmutable('today')));
     }
 
     #[Test]
@@ -100,6 +160,15 @@ final class CalculadoraSaldoTest extends TestCase
         $obrigacao->setValorOriginal($valorOriginal);
         $obrigacao->setEncargosReconhecidos($encargos);
         $obrigacao->setVencimentoOriginal(new \DateTimeImmutable($vencimento));
+
+        return $obrigacao;
+    }
+
+    private function obrigacaoComId(int $id, int $valorOriginal, int $encargos, string $vencimento): Obrigacao
+    {
+        $obrigacao = $this->obrigacao($valorOriginal, $encargos, $vencimento);
+        $ref = new \ReflectionProperty(Obrigacao::class, 'id');
+        $ref->setValue($obrigacao, $id);
 
         return $obrigacao;
     }

@@ -300,8 +300,14 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // Cobranças (Etapa 2): caso→objeto+pessoa, obrigação→caso, evento→caso. Exercita a ordem
         // FK-safe (evento/obrigação antes do caso; caso antes de objeto/pessoa).
         $caso = $this->ins('cobranca_caso', ['status' => 'ativo', 'forma_honorarios' => 'sem_percentual', 'criado_em' => $ts, 'tenant_id' => $t, 'objeto_id' => $objeto, 'pessoa_cobrada_atual_id' => $pessoa]);
-        $this->ins('cobranca_obrigacao', ['descricao' => 'Competência', 'valor_original' => 10000, 'vencimento_original' => $d, 'encargos_reconhecidos' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
+        $obrigacao = $this->ins('cobranca_obrigacao', ['descricao' => 'Competência', 'valor_original' => 10000, 'vencimento_original' => $d, 'encargos_reconhecidos' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
         $this->ins('cobranca_evento_historico', ['tipo' => 'caso_aberto', 'ocorrido_em' => $ts, 'descricao' => 'Caso aberto', 'tenant_id' => $t, 'caso_id' => $caso]);
+
+        // Cobranças (Etapa 3): pagamento→caso, alocação→pagamento+obrigação, liquidação→caso. Exercita
+        // a ordem FK-safe (alocação antes de pagamento/obrigação; pagamento/liquidação antes do caso).
+        $pagamento = $this->ins('cobranca_pagamento', ['data' => $d, 'valor_divida' => 6000, 'valor_encargos' => 0, 'valor_honorarios' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
+        $this->ins('cobranca_alocacao_pagamento', ['valor' => 6000, 'tenant_id' => $t, 'pagamento_id' => $pagamento, 'obrigacao_id' => $obrigacao]);
+        $this->ins('cobranca_liquidacao', ['tipo' => 'dinheiro', 'descricao_bem' => 'Bem', 'valor_atribuido_bem' => 5000, 'valor_reconhecido' => 4000, 'data' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
 
         // Pasta + seção + documento (bloqueador intermediário)
         $pasta = $this->ins('pasta', ['nup' => 'NUP-' . $uid, 'data_abertura' => $ts, 'created_at' => $ts, 'tenant_id' => $t]);
