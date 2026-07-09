@@ -78,6 +78,12 @@ final class PurgarEscritorioUseCase
         // Acordo (Etapa 4): a obrigação referencia o acordo (SET NULL) e o acordo referencia o caso
         // (NO ACTION). Apagado APÓS a obrigação e ANTES do caso.
         ['cobranca_acordo', 'tenant_id = :tenant'],
+        // Documentos/seções (Etapa 6): documento referencia seção e caso; seção referencia o caso
+        // (ambos onDelete CASCADE). Apagados EXPLICITAMENTE (padrão do módulo) ANTES do caso —
+        // documento antes de seção. Os arquivos físicos moram em cobrancas/<tenantId>/ e são
+        // removidos por removerDiretorioDeTenant (não dependem de coletarArquivos).
+        ['cobranca_documento', 'tenant_id = :tenant'],
+        ['cobranca_secao', 'tenant_id = :tenant'],
         ['cobranca_caso', 'tenant_id = :tenant'],
         // Cobranças — cadastro (Etapa 1). As FKs entre si e para cliente/tenant são NO ACTION
         // (não cascateiam), então deleção explícita de baixo para cima: vínculo → objeto →
@@ -121,6 +127,7 @@ final class PurgarEscritorioUseCase
         private readonly string $clientesUploadsDir,
         private readonly string $chamadosUploadsDir,
         private readonly string $justificativasUploadsDir,
+        private readonly string $cobrancasUploadsDir,
         private readonly int $carenciaPurgaDias,
     ) {
     }
@@ -333,6 +340,8 @@ final class PurgarEscritorioUseCase
         }
 
         $removidos += $this->removerDiretorioDeTenant($this->uploadsDir . '/' . $tenantId);
+        // Documentos do Caso de Cobrança (Etapa 6): isolados por tenant em cobrancas/<tenantId>/.
+        $removidos += $this->removerDiretorioDeTenant($this->cobrancasUploadsDir . '/' . $tenantId);
 
         return $removidos;
     }

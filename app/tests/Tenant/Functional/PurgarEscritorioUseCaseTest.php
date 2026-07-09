@@ -319,6 +319,11 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $this->ins('cobranca_proxima_acao', ['descricao' => 'Verificar pagamento', 'status' => 'pendente', 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
         $this->ins('cobranca_revisao_pessoa_cobrada', ['motivo' => 'Mudança de proprietário', 'status' => 'pendente', 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
 
+        // Cobranças (Etapa 6): seção→caso; documento→caso+seção. Exercita a ordem FK-safe (documento
+        // antes de seção; ambos antes do caso) e a limpeza do diretório de disco por tenant.
+        $secaoCobr = $this->ins('cobranca_secao', ['nome' => 'Acordos', 'ordem' => 0, 'criada_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
+        $this->ins('cobranca_documento', ['titulo' => 'TERMO', 'categoria' => 'termo_acordo', 'caminho_arquivo' => $hex(), 'nome_original' => 'termo.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => 1, 'uploaded_at' => $ts, 'ordem' => 0, 'tenant_id' => $t, 'caso_id' => $caso, 'secao_id' => $secaoCobr]);
+
         // Pasta + seção + documento (bloqueador intermediário)
         $pasta = $this->ins('pasta', ['nup' => 'NUP-' . $uid, 'data_abertura' => $ts, 'created_at' => $ts, 'tenant_id' => $t]);
         $this->ins('pasta_secao', ['nome' => 'Secao', 'criada_em' => $ts, 'pasta_id' => $pasta, 'tenant_id' => $t]);
