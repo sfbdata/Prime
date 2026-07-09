@@ -11,9 +11,9 @@
 |---|---|
 | **Etapa atual** | Etapa 3 — Pagamentos/Liquidações/Honorários → **✅ CONCLUÍDA**; próxima = Etapa 4 (Acordos) |
 | **Tarefa atual** | Nenhuma em execução |
-| **Último checkpoint estável** | `ad8fa07` — **suíte GLOBAL verde 1380/1380 (3807 assert)**; `tests/Cobranca` 99/99 (+ cross-tenant DB dos movimentos 7/7) |
+| **Último checkpoint estável** | `c0c72ac` — **suíte GLOBAL verde 1380/1380 (3807 assert)**; `tests/Cobranca` 99/99 (+ cross-tenant DB dos movimentos 7/7) |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `ad8fa07` (+ este commit de docs) |
+| **HEAD** | `c0c72ac` (+ este commit de docs) |
 | **Working tree** | limpo (só untracked `.claude/worktrees/`) |
 | **Migrations (dev+test)** | Etapa 1 `Version20260708210509` + `Version20260708220000` (dedup); Etapa 2 `Version20260709123952`; **Etapa 3 `Version20260709142845`** (pagamento/alocacao_pagamento/liquidacao) |
 | **Escritor** | ÚNICO (sessão autônoma; fan-out concluído e integrado) |
@@ -73,7 +73,7 @@
 4. **`CriarCarteiraUseCase`** usar `findOneByIdDoTenant` nomeado (hoje `findOneBy(['id','tenant'])` — seguro, só estilo).
 5. **Análise estática** (se CI rodar PHPStan/Psalm estrito): `?CasoCobranca`→`CasoCobranca` em `ReconhecerValorAtualizado` e `?Carteira`→`getModo()` em `AbrirCaso` (seguros em runtime — FKs nn).
 6. **Limpeza (humano):** branches-sobra `worktree-agent-*` + dirs `.claude/worktrees/agent-*` (`branch -D`/`worktree remove` são do humano). Da Etapa 3: `worktree-agent-a3a6acd67246f2c65` (A) e `worktree-agent-a4e00b60da03d350b` (B).
-7. **⚠️ DECISÃO DE NEGÓCIO (Etapa 3 — confirmar com o humano):** `TipoLiquidacao::Dinheiro` existe (SPEC §4 lista dinheiro como forma de liquidação), mas uma `Liquidacao(Dinheiro)` reduz o saldo pelo `valorReconhecido` **sem** passar pelo rateio de honorários do `RegistrarPagamento` (§18). Operacionalmente §11 separa "Pagamentos" (monetário, rateia) de "Liquidações não monetárias". Default adotado: manter `Dinheiro` no enum (dinheiro do devedor no fluxo normal deve entrar como Pagamento; a Liquidação é redução direta). **Se isso for footgun**, remover `Dinheiro` de `TipoLiquidacao` (cash → sempre Pagamento). Não decidido silenciosamente.
+7. **✅ RESOLVIDO (2026-07-09, commit `c0c72ac`):** o humano decidiu **remover `TipoLiquidacao::Dinheiro`**. Regra definitiva: dinheiro do devedor entra EXCLUSIVAMENTE pelo fluxo de `Pagamento` (alocação + rateio de honorários + correção auditável + honorários realizados); `Liquidacao` = só formas NÃO monetárias (`bem_movel`/`bem_imovel`/`outro`). Enum/entidade/testes/seed/spec ajustados; nenhum dado persistido usava o tipo.
 8. **FIFO deferido (Etapa 3→8):** `RegistrarPagamento` recebe **alocação explícita**. A sugestão FIFO por vencimento (pré-preenchimento saldo-aware, por obrigação) é de UI → **Etapa 8**.
 9. **Dívida consciente do review (Etapa 3, MENOR):** (a) guarda da invariável 12 por identidade de instância — correta no fluxo atual (identity-map), mas frágil a mudança de fluxo; id-based seria mais defensivo. (b) `AlocadorPagamento` valida `Σ === valorDivida` (não `valorRecuperadoDivida`) — fecha só porque `valorEncargos=0` no MVP; documentar se um caminho futuro usar encargos≠0. (c) `saldoExigivel` não tem piso 0 (over-liquidation → negativo) — fiel à spec atual; `saldoVencido` tem piso 0.
 10. **Endurecer testes de evento (Etapa 3, MENOR):** os testes unit dos UseCases de pagamento/liquidação verificam `salvar(EventoHistorico, true)` mas não asseram `tipo`+chaves de `dados`. Mesmo padrão do follow-up #1 da Etapa 2.
@@ -88,4 +88,4 @@
 > 4. UseCases: `CriarAcordo` (seleciona obrigações do MESMO caso a substituir; gera parcelas como novas `Obrigacao` com `acordoOrigem`; substituição parcial permitida, §12.5), `RomperAcordo` (manual+motivo), `CancelarAcordo`, `MarcarAcordoCumprido`.
 > 5. Testes: invariáveis 13/14/15 (acordo não atravessa casos; obrigações substituídas somem do exigível mas persistem); parcela vencida NÃO rompe automático (§12.7); substituição parcial; acordo continua após judicialização (§12.10); cross-tenant. Suíte global + tenant-safety + commit + docs.
 
-> **⚠️ Antes de começar a Etapa 4, o humano deve confirmar o follow-up #7** (dinheiro na `TipoLiquidacao`) — é a única decisão de negócio pendente da Etapa 3.
+> **Follow-up #7 (dinheiro na `TipoLiquidacao`) ✅ RESOLVIDO** (`c0c72ac`, dinheiro removido). Sem decisões de negócio pendentes — Etapa 4 liberada.

@@ -7,7 +7,7 @@
 
 ## Estado atual
 - **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
-- **HEAD:** `ad8fa07` ("Integrar Etapa 3: correções do review + cross-tenant DB dos movimentos") + este commit de docs.
+- **HEAD:** `c0c72ac` ("Remover TipoLiquidacao::Dinheiro — dinheiro é sempre Pagamento") + este commit de docs. (Etapa 3 fechada em `ad8fa07`; `c0c72ac` = decisão do follow-up #7.)
 - **Etapa:** 3 (Pagamentos/Liquidações/Honorários) → **✅ CONCLUÍDA**. Próxima = **Etapa 4** (Acordos).
 - **Suíte:** GLOBAL **1380/1380 (3807 assert)**; `tests/Cobranca` 99/99 (inclui cross-tenant DB dos movimentos 7/7).
 - **Working tree:** limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar).
@@ -43,17 +43,17 @@ Pipeline autônomo completo `andaime → commit → fan-out (2 worktrees) → re
 - `php bin/phpunit` (global) → 1380/1380. **Rodar com `php -d memory_limit=512M`** (cache:clear/warmup estoura o default de 128M).
 
 ## Follow-ups (não bloqueiam — detalhe no EXECUTION_STATUS §Follow-ups)
-- **#7 ⚠️ DECISÃO DE NEGÓCIO:** `TipoLiquidacao::Dinheiro` pode "furar" o rateio de honorários (liquidação dinheiro reduz saldo sem rateio). Default: manter (dinheiro do devedor → Pagamento). **Confirmar com o humano antes da Etapa 4.**
+- **#7 ✅ RESOLVIDO (`c0c72ac`):** humano decidiu **remover `TipoLiquidacao::Dinheiro`** — dinheiro entra só por `Pagamento`; `Liquidacao` = só não monetário. Sem decisões de negócio pendentes.
 - **#8** FIFO (sugestão de alocação) deferido à Etapa 8 (UI).
 - **#9** Dívida consciente: guarda invariável 12 por instância; `AlocadorPagamento` valida contra `valorDivida` (encargos=0); `saldoExigivel` sem piso 0.
 - **#10** Endurecer testes de evento (asserir `tipo`+`dados`) — igual ao #1 da Etapa 2.
 
 ## Próxima ação exata
-> **Etapa 4 — Acordos** (PLAN §8; paralelização BAIXA, ~1 agente). Ordem: (1) confirmar Git + escritor único + **decidir follow-up #7**; (2) spec ALTO risco em `docs/specs/` + storytelling; (3) andaime committado — entidade `Acordo` (+ join das obrigações substituídas), enum `StatusAcordo`, FKs `Obrigacao.acordoOrigem`/`acordoSubstituto` (migration **ALTERA `cobranca_obrigacao`** — cuidado, não é só tabela nova), migration (aplicar dev+test via `migrations:execute --up`), factory, **cobrir tabela(s) nova(s) na purga** + seed, e **estender `CalculadoraSaldo`** (EXCLUIR do exigível as obrigações com `acordoSubstituto != null`); (4) fan-out/sequencial dos UseCases `CriarAcordo`/`RomperAcordo`/`CancelarAcordo`/`MarcarAcordoCumprido`; (5) testes invariáveis 13/14/15, substituição parcial, parcela vencida não rompe automático (§12.7), acordo pós-judicialização (§12.10), cross-tenant; suíte global + tenant-safety + commit + docs.
+> **Etapa 4 — Acordos** (PLAN §8; paralelização BAIXA, ~1 agente). Ordem: (1) confirmar Git + escritor único (follow-up #7 já resolvido); (2) spec ALTO risco em `docs/specs/` + storytelling; (3) andaime committado — entidade `Acordo` (+ join das obrigações substituídas), enum `StatusAcordo`, FKs `Obrigacao.acordoOrigem`/`acordoSubstituto` (migration **ALTERA `cobranca_obrigacao`** — cuidado, não é só tabela nova), migration (aplicar dev+test via `migrations:execute --up`), factory, **cobrir tabela(s) nova(s) na purga** + seed, e **estender `CalculadoraSaldo`** (EXCLUIR do exigível as obrigações com `acordoSubstituto != null`); (4) fan-out/sequencial dos UseCases `CriarAcordo`/`RomperAcordo`/`CancelarAcordo`/`MarcarAcordoCumprido`; (5) testes invariáveis 13/14/15, substituição parcial, parcela vencida não rompe automático (§12.7), acordo pós-judicialização (§12.10), cross-tenant; suíte global + tenant-safety + commit + docs.
 
 ## Ordem de retomada
-1. Confirmar branch `gestao-cobrancas`, HEAD `ad8fa07` (ou posterior), working tree limpo, escritor único.
-2. **Decidir o follow-up #7** (dinheiro na `TipoLiquidacao`) com o humano.
+1. Confirmar branch `gestao-cobrancas`, HEAD `c0c72ac` (ou posterior), working tree limpo, escritor único.
+2. Follow-up #7 já resolvido (dinheiro removido de `TipoLiquidacao`) — sem decisão de negócio pendente.
 3. Ler `PLAN.md` §8 Etapa 4 + `PARALLELIZATION_MAP.md` §1 + specs das Etapas 2/3 (padrões do núcleo e dos movimentos).
 4. Andaime da Etapa 4 (contratos + FKs de acordo em `Obrigacao` + migration + estender `CalculadoraSaldo`) → commit → fan-out/sequencial → integração → validação.
 5. Atualizar `EXECUTION_STATUS.md` + este arquivo ao fim.
