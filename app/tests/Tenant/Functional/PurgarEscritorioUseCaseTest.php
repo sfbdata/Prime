@@ -307,7 +307,7 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         // a ordem FK-safe (alocação antes de pagamento/obrigação; pagamento/liquidação antes do caso).
         $pagamento = $this->ins('cobranca_pagamento', ['data' => $d, 'valor_divida' => 6000, 'valor_encargos' => 0, 'valor_honorarios' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
         $this->ins('cobranca_alocacao_pagamento', ['valor' => 6000, 'tenant_id' => $t, 'pagamento_id' => $pagamento, 'obrigacao_id' => $obrigacao]);
-        $this->ins('cobranca_liquidacao', ['tipo' => 'dinheiro', 'descricao_bem' => 'Bem', 'valor_atribuido_bem' => 5000, 'valor_reconhecido' => 4000, 'data' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
+        $this->ins('cobranca_liquidacao', ['tipo' => 'bem_movel', 'descricao_bem' => 'Bem', 'valor_atribuido_bem' => 5000, 'valor_reconhecido' => 4000, 'data' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
 
         // Pasta + seção + documento (bloqueador intermediário)
         $pasta = $this->ins('pasta', ['nup' => 'NUP-' . $uid, 'data_abertura' => $ts, 'created_at' => $ts, 'tenant_id' => $t]);

@@ -21,7 +21,7 @@
 - **Liquidacao** (`cobranca_liquidacao`): `tenant` nn, `caso`(CasoCobranca) nn, `tipo`(TipoLiquidacao), `descricaoBem`(string 255), `valorAtribuidoBem`(int centavos, nullable — valor do bem), `valorReconhecido`(int centavos — reduz o saldo; **pode diferir** de `valorAtribuidoBem`, §11), `data`(date_immutable), timestamps, `criadoPor`.
 
 ## Enum novo
-- **TipoLiquidacao** (`string`, `label()`): `dinheiro` / `bem_movel` / `bem_imovel` / `outro` (SPEC §11).
+- **TipoLiquidacao** (`string`, `label()`): `bem_movel` / `bem_imovel` / `outro` (SPEC §11). **Só formas NÃO monetárias** — dinheiro do devedor entra exclusivamente pelo fluxo de `Pagamento` (decisão de negócio: dinheiro exige alocação + rateio de honorários + correção auditável, já em `RegistrarPagamento`).
 
 ## Serviço central novo — `CalculadoraHonorarios` (read-only, sem persistir; centavos int)
 

@@ -142,8 +142,8 @@ final class RegistrarLiquidacaoUseCaseTest extends TestCase
 
         $input = new RegistrarLiquidacaoInput();
         $input->casoId = 999;
-        $input->tipo = TipoLiquidacao::Dinheiro;
-        $input->descricaoBem = 'Depósito';
+        $input->tipo = TipoLiquidacao::BemMovel;
+        $input->descricaoBem = 'Veículo';
         $input->valorReconhecido = 5000;
         $input->data = new \DateTimeImmutable('2026-04-15');
 

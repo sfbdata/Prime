@@ -13,8 +13,9 @@ use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Liquidação de um Caso de Cobrança (SPEC §11): redução RECONHECIDA do saldo por bem móvel/imóvel,
- * direito ou outra forma aceita na negociação (tipicamente não monetária). Distinta do Pagamento —
+ * Liquidação NÃO monetária de um Caso de Cobrança (SPEC §11): redução RECONHECIDA do saldo por bem
+ * móvel/imóvel, direito ou outra forma aceita na negociação. Dinheiro do devedor NÃO entra aqui —
+ * é sempre Pagamento (alocação + rateio de honorários, §11/§18). Distinta do Pagamento —
  * que abate obrigações e rateia honorários (§18): a liquidação reduz o saldo diretamente, sem
  * rateio. Regra central — o valor ATRIBUÍDO ao bem e o valor RECONHECIDO para liquidação da dívida
  * podem ser DIFERENTES; o saldo é reduzido pelo `valorReconhecido`, nunca pelo `valorAtribuidoBem`.
@@ -40,7 +41,7 @@ class Liquidacao implements TenantAware, Auditavel
     private ?CasoCobranca $caso = null;
 
     #[ORM\Column(enumType: TipoLiquidacao::class)]
-    private TipoLiquidacao $tipo = TipoLiquidacao::Dinheiro;
+    private TipoLiquidacao $tipo = TipoLiquidacao::Outro;
 
     #[ORM\Column(length: 255)]
     private string $descricaoBem = '';
