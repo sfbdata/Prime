@@ -22,7 +22,9 @@ use App\Cobranca\Repository\ObrigacaoRepository;
  * rompido/cancelado (SPEC §12, invariáveis 15/20). A fonte de verdade continua sendo as obrigações e
  * os movimentos; nada de saldo manual.
  */
-final class CalculadoraSaldo
+// Não-final: permite substituição por mock nos testes de UseCase que dependem do saldo derivado
+// (ex.: EncerrarCaso exige saldo exigível zero; AlertasCobranca deriva o "pronto para encerrar").
+class CalculadoraSaldo
 {
     public function __construct(
         private readonly ObrigacaoRepository $obrigacaoRepository,
