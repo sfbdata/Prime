@@ -297,6 +297,12 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $objeto   = $this->ins('cobranca_objeto', ['identificacao' => 'Objeto', 'criado_em' => $ts, 'tenant_id' => $t, 'carteira_id' => $carteira]);
         $this->ins('cobranca_vinculo_pessoa_objeto', ['tipo_vinculo' => 'proprietario', 'data_inicio' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'pessoa_id' => $pessoa, 'objeto_id' => $objeto]);
 
+        // Cobranças (Etapa 2): caso→objeto+pessoa, obrigação→caso, evento→caso. Exercita a ordem
+        // FK-safe (evento/obrigação antes do caso; caso antes de objeto/pessoa).
+        $caso = $this->ins('cobranca_caso', ['status' => 'ativo', 'forma_honorarios' => 'sem_percentual', 'criado_em' => $ts, 'tenant_id' => $t, 'objeto_id' => $objeto, 'pessoa_cobrada_atual_id' => $pessoa]);
+        $this->ins('cobranca_obrigacao', ['descricao' => 'Competência', 'valor_original' => 10000, 'vencimento_original' => $d, 'encargos_reconhecidos' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
+        $this->ins('cobranca_evento_historico', ['tipo' => 'caso_aberto', 'ocorrido_em' => $ts, 'descricao' => 'Caso aberto', 'tenant_id' => $t, 'caso_id' => $caso]);
+
         // Pasta + seção + documento (bloqueador intermediário)
         $pasta = $this->ins('pasta', ['nup' => 'NUP-' . $uid, 'data_abertura' => $ts, 'created_at' => $ts, 'tenant_id' => $t]);
         $this->ins('pasta_secao', ['nome' => 'Secao', 'criada_em' => $ts, 'pasta_id' => $pasta, 'tenant_id' => $t]);
