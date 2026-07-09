@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\DTO\AbrirCasoInput;
+use App\Cobranca\DTO\ConcluirAcaoInput;
 use App\Cobranca\DTO\DefinirProximaAcaoInput;
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\GerarRevisaoInput;
@@ -28,7 +29,10 @@ use App\Cobranca\Enum\TipoLiquidacao;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
 use App\Cobranca\Exception\ProximaAcaoAtivaJaExisteException;
+use App\Cobranca\Exception\ProximaAcaoNaoEncontradaException;
+use App\Cobranca\Exception\RevisaoNaoEncontradaException;
 use App\Cobranca\Exception\SaldoNaoResolvidoException;
+use App\Cobranca\UseCase\ConcluirAcaoUseCase;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
@@ -78,6 +82,7 @@ use Zenstruck\Foundry\Test\Factories;
 #[CoversClass(GerarRevisaoUseCase::class)]
 #[CoversClass(ResolverRevisaoUseCase::class)]
 #[CoversClass(DefinirProximaAcaoUseCase::class)]
+#[CoversClass(ConcluirAcaoUseCase::class)]
 #[CoversClass(AlertasCobranca::class)]
 final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
 {
@@ -91,6 +96,7 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
     private GerarRevisaoUseCase $gerarRevisao;
     private ResolverRevisaoUseCase $resolverRevisao;
     private DefinirProximaAcaoUseCase $definirProximaAcao;
+    private ConcluirAcaoUseCase $concluirAcao;
     private AlertasCobranca $alertas;
 
     protected function setUp(): void
@@ -130,6 +136,7 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
         $this->gerarRevisao = new GerarRevisaoUseCase($casoRepo, $revisaoRepo, $registrarEvento);
         $this->resolverRevisao = new ResolverRevisaoUseCase($revisaoRepo, $registrarEvento);
         $this->definirProximaAcao = new DefinirProximaAcaoUseCase($casoRepo, $proximaAcaoRepo);
+        $this->concluirAcao = new ConcluirAcaoUseCase($proximaAcaoRepo);
         $this->alertas = new AlertasCobranca($obrigacaoRepo, $proximaAcaoRepo, $revisaoRepo, $calculadoraSaldo);
     }
 
@@ -270,6 +277,79 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $this->expectException(ProximaAcaoAtivaJaExisteException::class);
         $this->definirProximaAcao->executar($segunda, $tenant, $user);
+    }
+
+    #[TestDox('IDOR por tenant: Encerrar/Definir/Gerar não alcançam caso de outro escritório')]
+    public function testUseCasesDeCasoNaoAlcancamOutroTenant(): void
+    {
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $user = $this->criarUser();
+        $casoA = $this->abrirCasoDe($tenantA, $user);
+        $casoId = (int) $casoA->getId();
+
+        $encerrar = new EncerrarCasoInput();
+        $encerrar->casoId = $casoId;
+        try {
+            $this->encerrar->executar($encerrar, $tenantB, $user);
+            self::fail('Encerrar deveria rejeitar caso de outro tenant.');
+        } catch (CasoNaoEncontradoException) {
+            // esperado
+        }
+
+        $definir = new DefinirProximaAcaoInput();
+        $definir->casoId = $casoId;
+        $definir->descricao = 'Ação intrusa';
+        try {
+            $this->definirProximaAcao->executar($definir, $tenantB, $user);
+            self::fail('DefinirProximaAcao deveria rejeitar caso de outro tenant.');
+        } catch (CasoNaoEncontradoException) {
+            // esperado
+        }
+
+        $gerar = new GerarRevisaoInput();
+        $gerar->casoId = $casoId;
+        $gerar->motivo = 'Revisão intrusa';
+        $this->expectException(CasoNaoEncontradoException::class);
+        $this->gerarRevisao->executar($gerar, $tenantB, $user);
+    }
+
+    #[TestDox('IDOR por tenant: Concluir ação e Resolver revisão não alcançam registros de outro escritório')]
+    public function testConcluirEResolverNaoAlcancamOutroTenant(): void
+    {
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $user = $this->criarUser();
+        $casoA = $this->abrirCasoDe($tenantA, $user);
+
+        // Ação e revisão criadas no tenant A.
+        $definir = new DefinirProximaAcaoInput();
+        $definir->casoId = (int) $casoA->getId();
+        $definir->descricao = 'Verificar pagamento';
+        $acaoA = $this->definirProximaAcao->executar($definir, $tenantA, $user);
+
+        $gerar = new GerarRevisaoInput();
+        $gerar->casoId = (int) $casoA->getId();
+        $gerar->motivo = 'Mudança de vínculo';
+        $revisaoA = $this->gerarRevisao->executar($gerar, $tenantA, $user);
+
+        // Tenant B tenta concluir a ação do A: rejeitado.
+        $concluir = new ConcluirAcaoInput();
+        $concluir->acaoId = (int) $acaoA->getId();
+        $concluir->resultado = 'Tentativa intrusa';
+        try {
+            $this->concluirAcao->executar($concluir, $tenantB, $user);
+            self::fail('ConcluirAcao deveria rejeitar ação de outro tenant.');
+        } catch (ProximaAcaoNaoEncontradaException) {
+            // esperado
+        }
+
+        // Tenant B tenta resolver a revisão do A: rejeitado.
+        $resolver = new ResolverRevisaoInput();
+        $resolver->revisaoId = (int) $revisaoA->getId();
+        $resolver->resolucao = 'Resolução intrusa';
+        $this->expectException(RevisaoNaoEncontradaException::class);
+        $this->resolverRevisao->executar($resolver, $tenantB, $user);
     }
 
     // ----------------------------------------------------------------- helpers
