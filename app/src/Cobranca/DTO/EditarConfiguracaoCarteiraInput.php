@@ -10,17 +10,16 @@ use App\Cobranca\Enum\TipoVinculo;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Entrada do formulário de edição da configuração de uma Carteira de Cobrança (SPEC §4). Será a
- * data_class do CarteiraType de edição. Espelha o CriarCarteiraInput MENOS o clienteId: o credor é
- * imutável após a criação (invariável 4), então a edição jamais o altera. A resolução da carteira por
- * id + tenant (guarda multi-tenant) e a persistência ocorrem no EditarConfiguracaoCarteiraUseCase —
- * aqui só se validam formato e presença dos campos de configuração.
+ * Entrada do formulário de edição da CONFIGURAÇÃO de uma Carteira de Cobrança já existente (SPEC §4/§18).
+ * Edita apenas as regras/padrões de operação — não altera nome nem o cliente credor (invariável 4). A
+ * resolução da carteira por id (guarda multi-tenant) e a persistência ocorrem no
+ * EditarConfiguracaoCarteiraUseCase — aqui só se validam formato e presença dos campos.
  */
 final class EditarConfiguracaoCarteiraInput
 {
-    #[Assert\NotBlank(message: 'Informe o nome da carteira.')]
-    #[Assert\Length(max: 255, maxMessage: 'O nome pode ter no máximo {{ limit }} caracteres.')]
-    public ?string $nome = null;
+    #[Assert\NotNull(message: 'Informe a carteira.')]
+    #[Assert\Positive(message: 'Carteira inválida.')]
+    public ?int $carteiraId = null;
 
     public ModoCarteira $modo = ModoCarteira::Unico;
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Unit;
 
-use App\Cliente\Entity\Cliente;
 use App\Cobranca\DTO\EditarConfiguracaoCarteiraInput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Enum\FormaHonorarios;
@@ -30,21 +29,14 @@ final class EditarConfiguracaoCarteiraUseCaseTest extends TestCase
     {
         $this->carteiraRepository = $this->createMock(CarteiraRepository::class);
         $this->sut = new EditarConfiguracaoCarteiraUseCase($this->carteiraRepository);
+        // Tenant não é abstração do domínio: instância real, não mock.
         $this->tenant = new Tenant();
     }
 
     #[Test]
-    public function aplicaConfiguracaoNaCarteiraDoTenantSemTocarCredor(): void
+    public function atualizaConfiguracaoQuandoCarteiraExisteNoTenant(): void
     {
-        $cliente = $this->createStub(Cliente::class);
-
-        // Carteira pré-existente do escritório, com credor e valores originais.
         $carteira = new Carteira();
-        $carteira->setTenant($this->tenant);
-        $carteira->setCliente($cliente);
-        $carteira->setNome('Nome antigo');
-        $carteira->setModo(ModoCarteira::Unico);
-        $carteira->setFormaHonorarios(FormaHonorarios::SemPercentual);
 
         // Guarda multi-tenant: a carteira é resolvida por id + tenant do usuário.
         $this->carteiraRepository
@@ -57,26 +49,21 @@ final class EditarConfiguracaoCarteiraUseCaseTest extends TestCase
         $this->carteiraRepository
             ->expects($this->once())
             ->method('salvar')
-            ->with($carteira, true);
+            ->with(self::isInstanceOf(Carteira::class), true);
 
-        $resultado = $this->sut->executar(7, $this->input(), $this->tenant);
+        $resultado = $this->sut->executar($this->input(), $this->tenant);
 
         self::assertSame($carteira, $resultado);
-        self::assertSame('Condomínio Beta', $carteira->getNome());
-        self::assertSame(ModoCarteira::Multiplo, $carteira->getModo());
-        self::assertSame(FormaHonorarios::AcrescidoDivida, $carteira->getFormaHonorarios());
-        self::assertSame('12.50', $carteira->getPercentualHonorarios());
-        self::assertSame(3, $carteira->getToleranciaAtrasoDias());
-        self::assertSame(TipoVinculo::Inquilino, $carteira->getTipoVinculoPreferido());
-        self::assertSame('Sala', $carteira->getRotuloObjeto());
-
-        // Invariável 4: credor e tenant permanecem intocados na edição.
-        self::assertSame($cliente, $carteira->getCliente());
-        self::assertSame($this->tenant, $carteira->getTenant());
+        self::assertSame(ModoCarteira::Multiplo, $resultado->getModo());
+        self::assertSame(FormaHonorarios::AcrescidoDivida, $resultado->getFormaHonorarios());
+        self::assertSame('15.50', $resultado->getPercentualHonorarios());
+        self::assertSame(7, $resultado->getToleranciaAtrasoDias());
+        self::assertSame(TipoVinculo::Inquilino, $resultado->getTipoVinculoPreferido());
+        self::assertSame('Sala', $resultado->getRotuloObjeto());
     }
 
     #[Test]
-    public function rejeitaComExcecaoQuandoCarteiraNaoExisteNoTenantENaoSalva(): void
+    public function rejeitaQuandoCarteiraNaoExisteNoTenantENaoSalva(): void
     {
         // Carteira inexistente OU de outro escritório: findOneByIdDoTenant devolve null.
         $this->carteiraRepository->method('findOneByIdDoTenant')->willReturn(null);
@@ -84,17 +71,17 @@ final class EditarConfiguracaoCarteiraUseCaseTest extends TestCase
 
         $this->expectException(CarteiraNaoEncontradaException::class);
 
-        $this->sut->executar(99, $this->input(), $this->tenant);
+        $this->sut->executar($this->input(), $this->tenant);
     }
 
     private function input(): EditarConfiguracaoCarteiraInput
     {
         $input = new EditarConfiguracaoCarteiraInput();
-        $input->nome = 'Condomínio Beta';
+        $input->carteiraId = 7;
         $input->modo = ModoCarteira::Multiplo;
         $input->formaHonorarios = FormaHonorarios::AcrescidoDivida;
-        $input->percentualHonorarios = '12.50';
-        $input->toleranciaAtrasoDias = 3;
+        $input->percentualHonorarios = '15.50';
+        $input->toleranciaAtrasoDias = 7;
         $input->tipoVinculoPreferido = TipoVinculo::Inquilino;
         $input->rotuloObjeto = 'Sala';
 

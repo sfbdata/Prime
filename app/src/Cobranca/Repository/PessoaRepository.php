@@ -48,39 +48,32 @@ class PessoaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Sugere Pessoas do MESMO tenant cujo CPF ou CNPJ (comparados por dígitos, ignorando
-     * formatação) coincidem com os informados. Advisory — nunca atravessa tenant (invariável 24).
-     * Recebe cpf/cnpj já normalizados para dígitos (string vazia quando ausente).
+     * Pessoas do MESMO tenant cujo CPF ou CNPJ coincide com os informados — suporte à
+     * sugestão advisory de duplicidades (SPEC §7/§24). Escopo intra-tenant SEMPRE; nunca
+     * atravessa escritórios (invariável 24). Sem documentos informados, retorna vazio.
      *
-     * @return list<Pessoa>
+     * @return Pessoa[]
      */
-    public function buscarPossiveisDuplicadas(Tenant $tenant, string $cpfDigitos, string $cnpjDigitos): array
+    public function buscarPossiveisDuplicadas(Tenant $tenant, ?string $cpf, ?string $cnpj): array
     {
-        if ($cpfDigitos === '' && $cnpjDigitos === '') {
+        if ($cpf === null && $cnpj === null) {
             return [];
         }
 
-        $sql = <<<'SQL'
-            SELECT id FROM cobranca_pessoa
-            WHERE tenant_id = :tenant
-              AND (
-                (:cpf <> '' AND regexp_replace(coalesce(cpf, ''), '[^0-9]', '', 'g') = :cpf)
-                OR (:cnpj <> '' AND regexp_replace(coalesce(cnpj, ''), '[^0-9]', '', 'g') = :cnpj)
-              )
-            SQL;
+        $qb = $this->createQueryBuilder('p')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
 
-        $ids = $this->getEntityManager()->getConnection()->executeQuery($sql, [
-            'tenant' => $tenant->getId(),
-            'cpf' => $cpfDigitos,
-            'cnpj' => $cnpjDigitos,
-        ])->fetchFirstColumn();
-
-        if ($ids === []) {
-            return [];
+        $orX = $qb->expr()->orX();
+        if ($cpf !== null) {
+            $orX->add('p.cpf = :cpf');
+            $qb->setParameter('cpf', $cpf);
+        }
+        if ($cnpj !== null) {
+            $orX->add('p.cnpj = :cnpj');
+            $qb->setParameter('cnpj', $cnpj);
         }
 
-        // Ids já são tenant-scoped pela query acima; o 'tenant' no findBy é cinto-e-suspensório
-        // (defesa em profundidade) caso o WHERE do SQL seja afrouxado numa edição futura.
-        return $this->findBy(['id' => $ids, 'tenant' => $tenant]);
+        return $qb->andWhere($orX)->getQuery()->getResult();
     }
 }

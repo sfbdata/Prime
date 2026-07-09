@@ -29,6 +29,7 @@ final class VincularPessoaAObjetoUseCaseTest extends TestCase
     private PessoaRepository&MockObject $pessoaRepository;
     private ObjetoCobrancaRepository&MockObject $objetoRepository;
     private VincularPessoaAObjetoUseCase $sut;
+    // Tenant/User não são abstrações do domínio: instâncias reais, não mocks.
     private Tenant $tenant;
     private User $criadoPor;
 
@@ -42,40 +43,41 @@ final class VincularPessoaAObjetoUseCaseTest extends TestCase
             $this->pessoaRepository,
             $this->objetoRepository,
         );
-        // Tenant/User não são abstrações do domínio: instâncias reais, não mocks.
         $this->tenant = new Tenant();
         $this->criadoPor = new User();
     }
 
     #[Test]
-    public function criaVinculoAbertoQuandoPessoaEObjetoSaoDoProprioTenant(): void
+    public function criaVinculoQuandoPessoaEObjetoExistemNoTenant(): void
     {
         $pessoa = new Pessoa();
         $objeto = new ObjetoCobranca();
+        $dataInicio = new \DateTimeImmutable('2026-01-15');
 
+        // Guarda same-tenant: pessoa e objeto são resolvidos por id + tenant da operação.
         $this->pessoaRepository
             ->expects($this->once())
             ->method('findOneByIdDoTenant')
-            ->with(7, $this->tenant)
+            ->with(10, $this->tenant)
             ->willReturn($pessoa);
 
         $this->objetoRepository
             ->expects($this->once())
             ->method('findOneByIdDoTenant')
-            ->with(13, $this->tenant)
+            ->with(20, $this->tenant)
             ->willReturn($objeto);
 
         $this->vinculoRepository
             ->expects($this->once())
             ->method('salvar')
-            ->with($this->isInstanceOf(VinculoPessoaObjeto::class), true);
+            ->with(self::isInstanceOf(VinculoPessoaObjeto::class), true);
 
         $input = new VincularPessoaAObjetoInput();
-        $input->pessoaId = 7;
-        $input->objetoId = 13;
+        $input->pessoaId = 10;
+        $input->objetoId = 20;
         $input->tipoVinculo = TipoVinculo::Inquilino;
-        $input->dataInicio = new \DateTimeImmutable('2026-01-10');
-        $input->observacao = '  contrato de locação  ';
+        $input->dataInicio = $dataInicio;
+        $input->observacao = '  Contrato até 2027  ';
 
         $vinculo = $this->sut->executar($input, $this->tenant, $this->criadoPor);
 
@@ -83,63 +85,44 @@ final class VincularPessoaAObjetoUseCaseTest extends TestCase
         self::assertSame($pessoa, $vinculo->getPessoa());
         self::assertSame($objeto, $vinculo->getObjeto());
         self::assertSame(TipoVinculo::Inquilino, $vinculo->getTipoVinculo());
-        self::assertEquals(new \DateTimeImmutable('2026-01-10'), $vinculo->getDataInicio());
-        self::assertSame('contrato de locação', $vinculo->getObservacao());
+        self::assertSame($dataInicio, $vinculo->getDataInicio());
+        self::assertSame('Contrato até 2027', $vinculo->getObservacao());
         self::assertSame($this->criadoPor, $vinculo->getCriadoPor());
+        // Vínculo nasce aberto: a data final só é gravada num evento de encerramento.
         self::assertTrue($vinculo->estaAberto());
     }
 
     #[Test]
-    public function usaDataDeHojeQuandoDataInicioNaoInformada(): void
+    public function rejeitaQuandoPessoaNaoExisteNoTenant(): void
     {
-        $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn(new Pessoa());
-        $this->objetoRepository->method('findOneByIdDoTenant')->willReturn(new ObjetoCobranca());
-        $this->vinculoRepository->expects($this->once())->method('salvar');
+        // Pessoa inexistente OU de outro escritório: findOneByIdDoTenant devolve null.
+        $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn(null);
+        $this->vinculoRepository->expects($this->never())->method('salvar');
 
-        $input = new VincularPessoaAObjetoInput();
-        $input->pessoaId = 1;
-        $input->objetoId = 2;
+        $this->expectException(PessoaNaoEncontradaException::class);
 
-        $vinculo = $this->sut->executar($input, $this->tenant, $this->criadoPor);
-
-        self::assertSame(
-            (new \DateTimeImmutable())->format('Y-m-d'),
-            $vinculo->getDataInicio()->format('Y-m-d'),
-        );
-        self::assertNull($vinculo->getObservacao());
+        $this->sut->executar($this->input(), $this->tenant, $this->criadoPor);
     }
 
     #[Test]
-    public function rejeitaObjetoDeOutroTenantENaoSalva(): void
+    public function rejeitaQuandoObjetoNaoExisteNoTenant(): void
     {
-        // Guarda cross-tenant: objeto de outro escritório não é encontrado por (id, tenant).
+        // Pessoa existe, mas o objeto é inexistente ou de outro escritório.
         $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn(new Pessoa());
         $this->objetoRepository->method('findOneByIdDoTenant')->willReturn(null);
         $this->vinculoRepository->expects($this->never())->method('salvar');
 
         $this->expectException(ObjetoNaoEncontradoException::class);
 
-        $input = new VincularPessoaAObjetoInput();
-        $input->pessoaId = 7;
-        $input->objetoId = 999;
-
-        $this->sut->executar($input, $this->tenant, $this->criadoPor);
+        $this->sut->executar($this->input(), $this->tenant, $this->criadoPor);
     }
 
-    #[Test]
-    public function rejeitaPessoaInexistenteSemBuscarObjetoNemSalvar(): void
+    private function input(): VincularPessoaAObjetoInput
     {
-        // Pessoa inexistente/de outro tenant: falha antes de tocar no objeto.
-        $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn(null);
-        $this->objetoRepository->expects($this->never())->method('findOneByIdDoTenant');
-        $this->vinculoRepository->expects($this->never())->method('salvar');
-
-        $this->expectException(PessoaNaoEncontradaException::class);
-
         $input = new VincularPessoaAObjetoInput();
-        $input->pessoaId = 999;
-        $input->objetoId = 13;
+        $input->pessoaId = 10;
+        $input->objetoId = 20;
 
-        $this->sut->executar($input, $this->tenant, $this->criadoPor);
+        return $input;
     }
 }

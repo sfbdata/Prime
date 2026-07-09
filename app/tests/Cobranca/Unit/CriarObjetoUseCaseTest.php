@@ -25,19 +25,20 @@ final class CriarObjetoUseCaseTest extends TestCase
     private CarteiraRepository&MockObject $carteiraRepository;
     private CriarObjetoUseCase $sut;
     private Tenant $tenant;
-    private User $user;
+    private User $criadoPor;
 
     protected function setUp(): void
     {
         $this->objetoRepository = $this->createMock(ObjetoCobrancaRepository::class);
         $this->carteiraRepository = $this->createMock(CarteiraRepository::class);
         $this->sut = new CriarObjetoUseCase($this->objetoRepository, $this->carteiraRepository);
+        // Tenant/User não são abstrações do domínio: instâncias reais, não mocks.
         $this->tenant = new Tenant();
-        $this->user = new User();
+        $this->criadoPor = new User();
     }
 
     #[Test]
-    public function criaObjetoNaCarteiraDoTenantComOsCamposDoInput(): void
+    public function criaObjetoQuandoCarteiraExisteNoTenant(): void
     {
         $carteira = new Carteira();
 
@@ -45,46 +46,33 @@ final class CriarObjetoUseCaseTest extends TestCase
         $this->carteiraRepository
             ->expects($this->once())
             ->method('findOneByIdDoTenant')
-            ->with(5, $this->tenant)
+            ->with(7, $this->tenant)
             ->willReturn($carteira);
 
         // Persistência com flush em uma única transação.
         $this->objetoRepository
             ->expects($this->once())
             ->method('salvar')
-            ->with($this->isInstanceOf(ObjetoCobranca::class), true);
-
-        $objeto = $this->sut->executar($this->input(), $this->tenant, $this->user);
-
-        self::assertSame($this->tenant, $objeto->getTenant());
-        self::assertSame($carteira, $objeto->getCarteira());
-        self::assertSame('Apto 402', $objeto->getIdentificacao());
-        self::assertSame('Cobertura frontal', $objeto->getDescricao());
-        self::assertSame('EXT-0001', $objeto->getReferenciaExterna());
-        self::assertSame($this->user, $objeto->getCriadoPor());
-    }
-
-    #[Test]
-    public function normalizaTextosEmBrancoParaNull(): void
-    {
-        $this->carteiraRepository->method('findOneByIdDoTenant')->willReturn(new Carteira());
-        $this->objetoRepository->expects($this->once())->method('salvar');
+            ->with(self::isInstanceOf(ObjetoCobranca::class), true);
 
         $input = new CriarObjetoInput();
-        $input->carteiraId = 5;
-        $input->identificacao = '  Apto 402  ';
-        $input->descricao = '   ';
-        $input->referenciaExterna = '   ';
+        $input->carteiraId = 7;
+        $input->identificacao = 'Apto 402';
+        $input->descricao = 'Cobertura com dois quartos';
+        $input->referenciaExterna = 'IMP-402';
 
-        $objeto = $this->sut->executar($input, $this->tenant, $this->user);
+        $objeto = $this->sut->executar($input, $this->tenant, $this->criadoPor);
 
         self::assertSame('Apto 402', $objeto->getIdentificacao());
-        self::assertNull($objeto->getDescricao());
-        self::assertNull($objeto->getReferenciaExterna());
+        self::assertSame('Cobertura com dois quartos', $objeto->getDescricao());
+        self::assertSame('IMP-402', $objeto->getReferenciaExterna());
+        self::assertSame($this->tenant, $objeto->getTenant());
+        self::assertSame($carteira, $objeto->getCarteira());
+        self::assertSame($this->criadoPor, $objeto->getCriadoPor());
     }
 
     #[Test]
-    public function rejeitaComExcecaoQuandoCarteiraNaoExisteNoTenantENaoSalva(): void
+    public function rejeitaQuandoCarteiraNaoExisteNoTenant(): void
     {
         // Carteira inexistente OU de outro escritório: findOneByIdDoTenant devolve null.
         $this->carteiraRepository->method('findOneByIdDoTenant')->willReturn(null);
@@ -92,17 +80,36 @@ final class CriarObjetoUseCaseTest extends TestCase
 
         $this->expectException(CarteiraNaoEncontradaException::class);
 
-        $this->sut->executar($this->input(), $this->tenant, $this->user);
+        $input = new CriarObjetoInput();
+        $input->carteiraId = 999;
+        $input->identificacao = 'Apto 402';
+
+        $this->sut->executar($input, $this->tenant, $this->criadoPor);
     }
 
-    private function input(): CriarObjetoInput
+    #[Test]
+    public function descricaoEReferenciaEmBrancoViramNull(): void
     {
-        $input = new CriarObjetoInput();
-        $input->carteiraId = 5;
-        $input->identificacao = 'Apto 402';
-        $input->descricao = 'Cobertura frontal';
-        $input->referenciaExterna = 'EXT-0001';
+        $this->carteiraRepository
+            ->method('findOneByIdDoTenant')
+            ->willReturn(new Carteira());
 
-        return $input;
+        $this->objetoRepository
+            ->expects($this->once())
+            ->method('salvar')
+            ->with(self::isInstanceOf(ObjetoCobranca::class), true);
+
+        $input = new CriarObjetoInput();
+        $input->carteiraId = 7;
+        $input->identificacao = 'Apto 402';
+        // Em branco: a normalização os transforma em null.
+        $input->descricao = '   ';
+        $input->referenciaExterna = '';
+
+        $objeto = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertSame('Apto 402', $objeto->getIdentificacao());
+        self::assertNull($objeto->getDescricao());
+        self::assertNull($objeto->getReferenciaExterna());
     }
 }

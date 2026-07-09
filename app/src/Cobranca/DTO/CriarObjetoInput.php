@@ -7,14 +7,13 @@ namespace App\Cobranca\DTO;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Entrada do formulário de criação de um Objeto de Cobrança (SPEC §4) dentro de uma carteira
- * escolhida. Será a data_class do formulário de objeto. A resolução da carteira por id + tenant
- * (guarda multi-tenant), a normalização dos textos e a persistência ocorrem no CriarObjetoUseCase —
- * aqui só se validam formato e presença dos campos.
+ * Entrada do cadastro de um Objeto de Cobrança (SPEC §4/§5). É a data_class do formulário. A resolução
+ * da Carteira dona por id (guarda multi-tenant) e a normalização dos textos (trim; null se vazio)
+ * ocorrem no CriarObjetoUseCase — aqui só se validam formato e presença dos campos.
  */
 final class CriarObjetoInput
 {
-    #[Assert\NotNull(message: 'Informe a carteira do objeto.')]
+    #[Assert\NotNull(message: 'Informe a carteira.')]
     #[Assert\Positive(message: 'Carteira inválida.')]
     public ?int $carteiraId = null;
 
@@ -22,7 +21,6 @@ final class CriarObjetoInput
     #[Assert\Length(max: 255, maxMessage: 'A identificação pode ter no máximo {{ limit }} caracteres.')]
     public ?string $identificacao = null;
 
-    /** Descrição livre (coluna TEXT na entidade) — sem limite de tamanho. */
     public ?string $descricao = null;
 
     #[Assert\Length(max: 255, maxMessage: 'A referência externa pode ter no máximo {{ limit }} caracteres.')]

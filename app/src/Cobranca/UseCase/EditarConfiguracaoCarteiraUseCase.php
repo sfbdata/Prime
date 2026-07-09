@@ -11,18 +11,15 @@ use App\Cobranca\Repository\CarteiraRepository;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Edita a configuração de uma Carteira de Cobrança já existente (SPEC §4).
+ * Edita a configuração (regras/padrões de operação) de uma Carteira de Cobrança já existente (SPEC §18).
  *
- * História: um gestor ajusta a configuração de uma carteira que já opera — muda o nome, o modo
- * (A/B — SPEC §6), a regra padrão de honorários (SPEC §18), a tolerância de atraso, o tipo de vínculo
- * preferido e o rótulo do objeto na UI. O credor NÃO muda: carteira pertence a exatamente um cliente,
- * imutável após a criação (invariável 4), então este UseCase jamais toca o `cliente` (nem o `tenant`).
- * A carteira é resolvida por id + tenant (guarda multi-tenant): só se edita carteira do PRÓPRIO
- * escritório — id inexistente ou de outro tenant é erro de entrada (CarteiraNaoEncontradaException),
- * tratado no controller. Mudar a configuração da carteira NÃO recalcula casos antigos: cada caso guarda
- * o snapshot da regra aplicada na sua abertura (SPEC §18.2), tratado em etapa futura — não é
- * responsabilidade deste UseCase. O `atualizadoEm` é preenchido automaticamente (PreUpdate) e a
- * auditoria técnica registra o ator.
+ * História: um gestor ajusta o modo (SPEC §6), a regra padrão de honorários (SPEC §18), a tolerância de
+ * atraso, o tipo de vínculo preferido e o rótulo do objeto de uma carteira já aberta. Esses padrões valem
+ * para NOVAS cobranças; mudar a configuração aqui NÃO recalcula casos antigos, porque cada caso guarda o
+ * snapshot da regra aplicada no momento (SPEC §18.3). Nome e cliente credor não são tocados (invariável 4).
+ * A carteira é resolvida por id + tenant (guarda multi-tenant): carteira inexistente/de outro escritório é
+ * erro de entrada (CarteiraNaoEncontradaException), tratado no controller. O atualizadoEm é setado
+ * automaticamente pela entidade (PreUpdate).
  */
 final class EditarConfiguracaoCarteiraUseCase
 {
@@ -31,17 +28,15 @@ final class EditarConfiguracaoCarteiraUseCase
     ) {
     }
 
-    public function executar(int $carteiraId, EditarConfiguracaoCarteiraInput $input, Tenant $tenant): Carteira
+    public function executar(EditarConfiguracaoCarteiraInput $input, Tenant $tenant): Carteira
     {
-        // Guarda multi-tenant: só uma carteira do próprio escritório pode ser editada.
-        $carteira = $this->carteiraRepository->findOneByIdDoTenant($carteiraId, $tenant);
+        // Guarda multi-tenant: só uma carteira do próprio escritório pode ser configurada.
+        $carteira = $this->carteiraRepository->findOneByIdDoTenant((int) $input->carteiraId, $tenant);
 
         if ($carteira === null) {
-            throw new CarteiraNaoEncontradaException($carteiraId);
+            throw new CarteiraNaoEncontradaException((int) $input->carteiraId);
         }
 
-        // Aplica só a configuração — credor (cliente) e tenant permanecem intocados (invariável 4).
-        $carteira->setNome((string) $input->nome);
         $carteira->setModo($input->modo);
         $carteira->setFormaHonorarios($input->formaHonorarios);
         $carteira->setPercentualHonorarios($input->percentualHonorarios);

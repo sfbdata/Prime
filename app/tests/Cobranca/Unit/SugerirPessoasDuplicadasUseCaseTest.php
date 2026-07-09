@@ -18,56 +18,39 @@ final class SugerirPessoasDuplicadasUseCaseTest extends TestCase
 {
     private PessoaRepository&MockObject $pessoaRepository;
     private SugerirPessoasDuplicadasUseCase $sut;
+    // Tenant não é abstração do domínio: instância real, não mock.
     private Tenant $tenant;
 
     protected function setUp(): void
     {
         $this->pessoaRepository = $this->createMock(PessoaRepository::class);
         $this->sut = new SugerirPessoasDuplicadasUseCase($this->pessoaRepository);
-        // Tenant não é abstração do domínio: instância real, não mock.
         $this->tenant = new Tenant();
     }
 
     #[Test]
-    public function retornaVazioSemConsultarQuandoCpfECnpjEstaoAusentes(): void
+    public function retornaVazioSemDocumentosSemConsultarRepositorio(): void
     {
-        // Sem CPF nem CNPJ não há o que deduplicar: o repositório nem é acionado.
+        // Sem CPF nem CNPJ (null ou em branco) não há o que comparar: nem toca o repositório.
         $this->pessoaRepository->expects($this->never())->method('buscarPossiveisDuplicadas');
 
         self::assertSame([], $this->sut->executar($this->tenant, null, '   '));
     }
 
     #[Test]
-    public function normalizaCpfFormatadoParaDigitosEDelegaAoRepositorio(): void
+    public function delegaAoRepositorioComDocumentosNormalizados(): void
     {
-        $duplicadas = [new Pessoa(), new Pessoa()];
+        $esperado = [new Pessoa()];
 
-        // CPF formatado deve casar por dígitos; CNPJ ausente vira string vazia.
+        // O documento é normalizado (trim) antes de chegar ao repositório; escopo intra-tenant.
         $this->pessoaRepository
             ->expects($this->once())
             ->method('buscarPossiveisDuplicadas')
-            ->with($this->tenant, '12345678901', '')
-            ->willReturn($duplicadas);
+            ->with($this->tenant, '123.456', null)
+            ->willReturn($esperado);
 
-        $resultado = $this->sut->executar($this->tenant, '123.456.789-01', null);
+        $resultado = $this->sut->executar($this->tenant, '  123.456  ', null);
 
-        self::assertSame($duplicadas, $resultado);
-    }
-
-    #[Test]
-    public function normalizaCnpjFormatadoParaDigitosEDelegaAoRepositorio(): void
-    {
-        $duplicadas = [new Pessoa()];
-
-        // CNPJ formatado deve casar por dígitos; CPF ausente vira string vazia.
-        $this->pessoaRepository
-            ->expects($this->once())
-            ->method('buscarPossiveisDuplicadas')
-            ->with($this->tenant, '', '12345678000190')
-            ->willReturn($duplicadas);
-
-        $resultado = $this->sut->executar($this->tenant, null, '12.345.678/0001-90');
-
-        self::assertSame($duplicadas, $resultado);
+        self::assertSame($esperado, $resultado);
     }
 }

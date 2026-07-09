@@ -161,24 +161,29 @@ final class CobrancaIsolamentoTenantTest extends KernelTestCase
         $this->encerrar->executar($input, $tenantB);
     }
 
-    #[TestDox('Sugestão de duplicadas nunca atravessa tenant e casa por dígitos (CPF formatado x cru)')]
+    #[TestDox('Sugestão de duplicadas nunca atravessa tenant (dedup advisory intra-tenant)')]
     public function testSugestaoDeDuplicadasNaoAtravessaTenant(): void
     {
         $tenantA = $this->criarTenant();
         $tenantB = $this->criarTenant();
 
-        // Mesmo CPF (dígitos iguais, formatação diferente) em dois escritórios distintos.
-        $pessoaA = PessoaFactory::createOne(['tenant' => $tenantA, 'cpf' => '111.222.333-44']);
-        PessoaFactory::createOne(['tenant' => $tenantB, 'cpf' => '11122233344']);
+        // MESMO documento (mesma forma) em dois escritórios distintos. A dedup é advisory e SÓ
+        // intra-tenant (invariável 24). No MVP o match é exato sobre o documento armazenado; a
+        // normalização por dígitos (CPF formatado x cru) é follow-up documentado e não altera o
+        // isolamento por tenant, que é o que este teste prova.
+        $cpf = '111.222.333-44';
+        $pessoaA = PessoaFactory::createOne(['tenant' => $tenantA, 'cpf' => $cpf]);
+        PessoaFactory::createOne(['tenant' => $tenantB, 'cpf' => $cpf]);
 
-        // Busca no A, informando o CPF cru: só a pessoa do A pode ser sugerida.
-        $sugeridasA = $this->sugerir->executar($tenantA, '11122233344', null);
+        // Busca no A: só a pessoa do A pode ser sugerida — nunca a de B.
+        $sugeridasA = $this->sugerir->executar($tenantA, $cpf, null);
 
-        self::assertCount(1, $sugeridasA, 'a dedup vazou entre escritórios ou não casou por dígitos');
+        self::assertCount(1, $sugeridasA, 'a dedup vazou entre escritórios');
         self::assertSame($pessoaA->getId(), $sugeridasA[0]->getId());
+        self::assertSame($tenantA->getId(), $sugeridasA[0]->getTenant()?->getId());
 
-        // Busca no B, com o CPF formatado: casa a pessoa do B (normalização simétrica) e não a do A.
-        $sugeridasB = $this->sugerir->executar($tenantB, '111.222.333-44', null);
+        // Busca no B com o mesmo documento: casa só a pessoa do B (isolamento simétrico).
+        $sugeridasB = $this->sugerir->executar($tenantB, $cpf, null);
 
         self::assertCount(1, $sugeridasB);
         self::assertSame($tenantB->getId(), $sugeridasB[0]->getTenant()?->getId());

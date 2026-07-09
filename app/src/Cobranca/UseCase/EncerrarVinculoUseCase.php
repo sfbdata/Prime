@@ -12,14 +12,14 @@ use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Encerra um vínculo temporal entre Pessoa e Objeto de Cobrança (SPEC §7).
+ * Encerra um vínculo Pessoa↔Objeto por um evento real (venda, substituição, saída, fim de locação...).
  *
- * História: quando ocorre um evento real (venda, saída, fim da locação, substituição...), o gestor
- * encerra o vínculo registrando a data de fim e o motivo. O vínculo (e a pessoa) NUNCA é apagado — só
- * marcamos o fim; o histórico temporal permanece disponível (invariável 11). O vínculo é resolvido por
- * id + tenant do usuário (guarda multi-tenant): vínculo inexistente ou de outro escritório é rejeitado
- * (VinculoNaoEncontradoException). Reencerrar um vínculo já fechado é rejeitado
- * (VinculoJaEncerradoException): não se reescreve histórico já consolidado.
+ * História: quando a relação temporal termina, o gestor registra a data final e o motivo do
+ * encerramento (obrigatório — SPEC §7). O registro NUNCA é apagado: encerrar preserva o histórico
+ * (invariável 11), e um vínculo já encerrado não é reaberto nem sobrescrito — tentar encerrá-lo de
+ * novo é erro de fluxo (VinculoJaEncerradoException). O vínculo é resolvido por id + tenant (guarda
+ * multi-tenant); inexistente ou de outro escritório vira null e interrompe a operação. Data final
+ * omitida assume hoje.
  */
 final class EncerrarVinculoUseCase
 {
@@ -37,18 +37,14 @@ final class EncerrarVinculoUseCase
             throw new VinculoNaoEncontradoException((int) $input->vinculoId);
         }
 
+        // Não sobrescreve encerramento anterior — preserva o histórico (invariável 11).
         if (!$vinculo->estaAberto()) {
             throw new VinculoJaEncerradoException((int) $input->vinculoId);
         }
 
         $vinculo->setDataFim($input->dataFim ?? new \DateTimeImmutable());
         $vinculo->setMotivoEncerramento(trim((string) $input->motivoEncerramento));
-
-        $observacao = $this->normalizar($input->observacao);
-
-        if ($observacao !== null) {
-            $vinculo->setObservacao($observacao);
-        }
+        $vinculo->setObservacao($this->normalizar($input->observacao));
 
         $this->vinculoRepository->salvar($vinculo, true);
 

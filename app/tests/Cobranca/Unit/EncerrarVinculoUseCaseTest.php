@@ -21,100 +21,84 @@ final class EncerrarVinculoUseCaseTest extends TestCase
 {
     private VinculoPessoaObjetoRepository&MockObject $vinculoRepository;
     private EncerrarVinculoUseCase $sut;
+    // Tenant não é abstração do domínio: instância real, não mock.
     private Tenant $tenant;
 
     protected function setUp(): void
     {
         $this->vinculoRepository = $this->createMock(VinculoPessoaObjetoRepository::class);
         $this->sut = new EncerrarVinculoUseCase($this->vinculoRepository);
-        // Tenant não é abstração do domínio: instância real, não mock.
         $this->tenant = new Tenant();
     }
 
     #[Test]
-    public function encerraVinculoAbertoAplicandoDataFimEMotivoSemRecriar(): void
+    public function encerraVinculoAbertoRegistrandoDataFimEMotivoSemRemover(): void
     {
-        // Vínculo real e ABERTO (dataFim null por padrão no construtor).
         $vinculo = new VinculoPessoaObjeto();
+        $dataFim = new \DateTimeImmutable('2026-03-01');
 
         $this->vinculoRepository
             ->expects($this->once())
             ->method('findOneByIdDoTenant')
-            ->with(55, $this->tenant)
+            ->with(7, $this->tenant)
             ->willReturn($vinculo);
 
-        // Salva o MESMO vínculo (só marca o fim, não recria).
+        // Encerrar preserva o registro: salva 1x, nunca remove (invariável 11).
         $this->vinculoRepository
             ->expects($this->once())
             ->method('salvar')
-            ->with($vinculo, true);
+            ->with(self::isInstanceOf(VinculoPessoaObjeto::class), true);
+        $this->vinculoRepository->expects($this->never())->method('remover');
 
         $input = new EncerrarVinculoInput();
-        $input->vinculoId = 55;
-        $input->dataFim = new \DateTimeImmutable('2026-03-20');
-        $input->motivoEncerramento = '  Fim da locação  ';
-        $input->observacao = '  entrega das chaves  ';
+        $input->vinculoId = 7;
+        $input->motivoEncerramento = '  Venda da unidade  ';
+        $input->dataFim = $dataFim;
+        $input->observacao = '  Repassado ao comprador  ';
 
         $resultado = $this->sut->executar($input, $this->tenant);
 
         self::assertSame($vinculo, $resultado);
+        self::assertSame($dataFim, $resultado->getDataFim());
+        self::assertSame('Venda da unidade', $resultado->getMotivoEncerramento());
+        self::assertSame('Repassado ao comprador', $resultado->getObservacao());
+        // Deixa de estar aberto após o encerramento.
         self::assertFalse($resultado->estaAberto());
-        self::assertEquals(new \DateTimeImmutable('2026-03-20'), $resultado->getDataFim());
-        self::assertSame('Fim da locação', $resultado->getMotivoEncerramento());
-        self::assertSame('entrega das chaves', $resultado->getObservacao());
     }
 
     #[Test]
-    public function usaDataDeHojeQuandoDataFimNaoInformada(): void
+    public function rejeitaQuandoVinculoNaoExisteNoTenant(): void
     {
-        $vinculo = new VinculoPessoaObjeto();
-        $this->vinculoRepository->method('findOneByIdDoTenant')->willReturn($vinculo);
-        $this->vinculoRepository->expects($this->once())->method('salvar');
-
-        $input = new EncerrarVinculoInput();
-        $input->vinculoId = 1;
-        $input->motivoEncerramento = 'Venda';
-
-        $resultado = $this->sut->executar($input, $this->tenant);
-
-        self::assertNotNull($resultado->getDataFim());
-        self::assertSame(
-            (new \DateTimeImmutable())->format('Y-m-d'),
-            $resultado->getDataFim()->format('Y-m-d'),
-        );
-    }
-
-    #[Test]
-    public function rejeitaVinculoInexistente(): void
-    {
+        // Vínculo inexistente OU de outro escritório: findOneByIdDoTenant devolve null.
         $this->vinculoRepository->method('findOneByIdDoTenant')->willReturn(null);
         $this->vinculoRepository->expects($this->never())->method('salvar');
 
         $this->expectException(VinculoNaoEncontradoException::class);
 
-        $input = new EncerrarVinculoInput();
-        $input->vinculoId = 999;
-        $input->motivoEncerramento = 'Qualquer';
-
-        $this->sut->executar($input, $this->tenant);
+        $this->sut->executar($this->input(), $this->tenant);
     }
 
     #[Test]
-    public function rejeitaReencerramentoDeVinculoJaFechadoENaoSalva(): void
+    public function rejeitaQuandoVinculoJaEncerrado(): void
     {
-        // Vínculo já encerrado: dataFim preenchida antes.
+        // Vínculo já com data final: encerrar de novo sobrescreveria o histórico (invariável 11).
         $vinculo = new VinculoPessoaObjeto();
-        $vinculo->setDataFim(new \DateTimeImmutable('2025-12-01'));
+        $vinculo->setDataFim(new \DateTimeImmutable('2025-12-31'));
 
         $this->vinculoRepository->method('findOneByIdDoTenant')->willReturn($vinculo);
         $this->vinculoRepository->expects($this->never())->method('salvar');
 
         $this->expectException(VinculoJaEncerradoException::class);
 
-        $input = new EncerrarVinculoInput();
-        $input->vinculoId = 55;
-        $input->motivoEncerramento = 'Tentativa de reencerrar';
+        $this->sut->executar($this->input(), $this->tenant);
+    }
 
-        $this->sut->executar($input, $this->tenant);
+    private function input(): EncerrarVinculoInput
+    {
+        $input = new EncerrarVinculoInput();
+        $input->vinculoId = 7;
+        $input->motivoEncerramento = 'Fim da locação';
+
+        return $input;
     }
 }

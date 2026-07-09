@@ -13,16 +13,14 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Cadastra um Objeto de Cobrança dentro de uma Carteira do escritório (SPEC §4).
+ * Cria um Objeto de Cobrança dentro de uma Carteira do próprio escritório (SPEC §4/§5).
  *
  * História: um gestor cadastra o elemento ao qual a dívida se vincula (unidade, sala, veículo, imóvel,
- * contrato, matrícula...) numa carteira já existente. O conceito é genérico — a UI usa o rótulo da
- * carteira para nomeá-lo. A carteira é resolvida por id + tenant (guarda multi-tenant): só se cadastra
- * objeto em carteira do PRÓPRIO escritório — id inexistente ou de outro tenant é erro de entrada
- * (CarteiraNaoEncontradaException), tratado no controller. O objeto herda o tenant da carteira, o que
- * garante que objeto e carteira compartilhem sempre o mesmo escritório. Os campos textuais opcionais
- * (descrição, referência externa) são normalizados (trim; null quando vazio) para não gravar strings
- * em branco.
+ * contrato, matrícula...). Todo objeto pertence a uma Carteira, que precisa existir DENTRO do próprio
+ * escritório: a carteira é resolvida por id + tenant (guarda multi-tenant), nunca aceitando carteira de
+ * outro escritório. Carteira inexistente/de outro tenant é erro de entrada (CarteiraNaoEncontradaException),
+ * tratado no controller. Um mesmo objeto pode acumular vários casos ao longo do tempo. Os textos são
+ * normalizados (trim; null quando vazio) para não gravar strings em branco.
  */
 final class CriarObjetoUseCase
 {
@@ -34,7 +32,7 @@ final class CriarObjetoUseCase
 
     public function executar(CriarObjetoInput $input, Tenant $tenant, User $criadoPor): ObjetoCobranca
     {
-        // Guarda multi-tenant: a carteira precisa ser do próprio escritório para receber o objeto.
+        // Guarda multi-tenant: só uma carteira do próprio escritório pode ancorar o objeto.
         $carteira = $this->carteiraRepository->findOneByIdDoTenant((int) $input->carteiraId, $tenant);
 
         if ($carteira === null) {

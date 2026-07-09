@@ -7,10 +7,11 @@ namespace App\Cobranca\DTO;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Entrada do encerramento de um vínculo temporal (SPEC §7). A resolução do vínculo por id + tenant
- * (guarda multi-tenant) e a persistência ocorrem no EncerrarVinculoUseCase — aqui só se validam
- * formato e presença dos campos. Encerrar EXIGE motivo (o histórico registra o porquê do fim). A data
- * de fim é opcional (default = hoje no UseCase).
+ * Entrada do encerramento de um Vínculo Pessoa↔Objeto (SPEC §7). Será a data_class do respectivo
+ * Type. O motivo do encerramento é OBRIGATÓRIO por regra de negócio — todo encerramento decorre de
+ * um evento real (venda, saída, fim de locação...). A resolução do vínculo por id (guarda
+ * multi-tenant) e a persistência ocorrem no EncerrarVinculoUseCase. A data final, se ausente, é
+ * assumida como hoje pelo UseCase.
  */
 final class EncerrarVinculoInput
 {
@@ -18,11 +19,11 @@ final class EncerrarVinculoInput
     #[Assert\Positive(message: 'Vínculo inválido.')]
     public ?int $vinculoId = null;
 
-    public ?\DateTimeImmutable $dataFim = null;
-
     #[Assert\NotBlank(message: 'Informe o motivo do encerramento.')]
     #[Assert\Length(max: 255, maxMessage: 'O motivo pode ter no máximo {{ limit }} caracteres.')]
     public ?string $motivoEncerramento = null;
+
+    public ?\DateTimeImmutable $dataFim = null;
 
     public ?string $observacao = null;
 }

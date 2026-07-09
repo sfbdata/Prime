@@ -8,14 +8,14 @@ use App\Cobranca\Enum\TipoVinculo;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Entrada da criação de um vínculo temporal entre Pessoa e Objeto de Cobrança (SPEC §7). A resolução
- * de pessoa e objeto por id + tenant (guarda multi-tenant) e a persistência ocorrem no
- * VincularPessoaAObjetoUseCase — aqui só se validam formato e presença dos campos. A data de início é
- * opcional (default = hoje no UseCase); o vínculo nasce ABERTO (sem data de fim).
+ * Entrada do formulário que vincula uma Pessoa a um Objeto de Cobrança (SPEC §7). Será a data_class
+ * do respectivo Type. A resolução de Pessoa e Objeto por id (guarda multi-tenant — ambos no MESMO
+ * tenant) e a persistência ocorrem no VincularPessoaAObjetoUseCase; aqui só se validam presença e
+ * formato. A data de início, se ausente, é assumida como hoje pelo UseCase.
  */
 final class VincularPessoaAObjetoInput
 {
-    #[Assert\NotNull(message: 'Informe a pessoa.')]
+    #[Assert\NotNull(message: 'Informe a pessoa a vincular.')]
     #[Assert\Positive(message: 'Pessoa inválida.')]
     public ?int $pessoaId = null;
 
