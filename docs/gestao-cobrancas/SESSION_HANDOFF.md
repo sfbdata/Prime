@@ -7,7 +7,7 @@
 
 ## Estado atual
 - **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
-- **HEAD:** `269cc6a` ("Integrar Etapa 4: fix bloqueante da re-substituição + cross-tenant DB") + este commit de docs.
+- **HEAD:** `ccfa2c6` (docs da Etapa 4) — código estável em `269cc6a` ("Integrar Etapa 4: fix bloqueante da re-substituição + cross-tenant DB"). Esta verificação de continuidade adiciona +1 commit só de docs.
 - **Etapa:** 4 (Acordos) → **✅ CONCLUÍDA**. Próxima = **Etapa 5** (Estados/Judicialização/Encerramento/ProximaAcao/Revisão/Alertas).
 - **Suíte:** GLOBAL **1400/1400 (3927 assert)**; `tests/Cobranca` 119/119.
 - **Working tree:** limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar).

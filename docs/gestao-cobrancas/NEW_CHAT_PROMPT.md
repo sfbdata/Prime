@@ -21,7 +21,8 @@ Você vai continuar a feature "Gestão de Cobranças" do projeto JusPrime. NÃO 
 3) Verifique o ESTADO REAL do repositório (não assuma):
    - git branch --show-current   (esperado: gestao-cobrancas)
    - git status --short
-   - git log --oneline -8        (topo esperado: docs 85a0fde / último commit de feature f6362f0, ou posterior)
+   - git log --oneline -8        (topo esperado: docs da Etapa 4 `ccfa2c6` / último commit de feature `269cc6a`, ou posterior)
+   - docker exec jusprime_php_dev bash -c 'cd app && php -d memory_limit=512M bin/console doctrine:migrations:status'  (migrations E1–E4 aplicadas em dev)
    - git worktree list
    - docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Cobranca'   (deve estar verde)
 

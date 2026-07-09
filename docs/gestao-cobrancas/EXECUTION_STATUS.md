@@ -13,7 +13,7 @@
 | **Tarefa atual** | Nenhuma em execução |
 | **Último checkpoint estável** | `269cc6a` — **suíte GLOBAL verde 1400/1400 (3927 assert)**; `tests/Cobranca` 119/119 (+ cross-tenant DB acordos/movimentos) |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `269cc6a` (+ este commit de docs) |
+| **HEAD** | `ccfa2c6` (docs da Etapa 4; código estável em `269cc6a`) — esta verificação de continuidade adiciona +1 commit só de docs |
 | **Working tree** | limpo (só untracked `.claude/worktrees/`) |
 | **Migrations (dev+test)** | E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; **E4 `Version20260709154458`** (cobranca_acordo + ALTER cobranca_obrigacao) |
 | **Escritor** | ÚNICO (sessão autônoma; fan-out concluído e integrado) |
