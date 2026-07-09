@@ -35,11 +35,11 @@ final class RegistrarEventoHistoricoTest extends TestCase
         $usuario = new User();
         $caso = (new CasoCobranca())->setTenant($tenant);
 
-        // Persiste na unidade de trabalho do UseCase — sem flush próprio (o UseCase flusha).
+        // Por padrão persiste SEM flush (o UseCase flusha junto da entidade principal).
         $this->eventoRepository
             ->expects($this->once())
             ->method('salvar')
-            ->with(self::isInstanceOf(EventoHistorico::class));
+            ->with(self::isInstanceOf(EventoHistorico::class), false);
 
         $evento = $this->sut->registrar(
             $caso,
@@ -67,6 +67,19 @@ final class RegistrarEventoHistoricoTest extends TestCase
 
         self::assertNull($evento->getUsuario());
         self::assertNull($evento->getDados());
+    }
+
+    #[Test]
+    public function flushTruePropagaParaOSalvarQuandoOEventoEAUnicaEscrita(): void
+    {
+        $caso = (new CasoCobranca())->setTenant(new Tenant());
+
+        $this->eventoRepository
+            ->expects($this->once())
+            ->method('salvar')
+            ->with(self::isInstanceOf(EventoHistorico::class), true);
+
+        $this->sut->registrar($caso, TipoEventoHistorico::BoletoEnviado, null, 'Boleto enviado', null, true);
     }
 
     #[Test]

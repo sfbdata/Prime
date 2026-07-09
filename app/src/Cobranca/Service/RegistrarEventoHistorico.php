@@ -14,9 +14,11 @@ use App\Entity\Auth\User;
  * Escreve na linha do tempo OPERACIONAL do Caso de Cobrança (SPEC §13). É o histórico de domínio,
  * gravado explicitamente pelos UseCases — não é auditoria técnica (invariável 26).
  *
- * NÃO faz flush: persiste o evento na mesma unidade de trabalho do UseCase, que faz um único
- * flush ao final (uma transação por caso de uso). O tenant do evento vem SEMPRE do caso (fonte
- * única de verdade), nunca de um parâmetro externo — evita evento cross-tenant.
+ * Persiste o evento na mesma unidade de trabalho do UseCase. Por padrão NÃO faz flush (o UseCase
+ * flusha uma vez, junto da entidade principal); quando o evento é a ÚNICA escrita do UseCase
+ * (ex.: registrar tentativa de cobrança), passe `flush: true` para commitar tudo aqui. O tenant do
+ * evento vem SEMPRE do caso (fonte única de verdade), nunca de um parâmetro externo — evita
+ * evento cross-tenant.
  */
 final class RegistrarEventoHistorico
 {
@@ -34,6 +36,7 @@ final class RegistrarEventoHistorico
         ?User $usuario,
         string $descricao,
         ?array $dados = null,
+        bool $flush = false,
     ): EventoHistorico {
         $tenant = $caso->getTenant();
 
@@ -49,7 +52,7 @@ final class RegistrarEventoHistorico
         $evento->setDescricao($descricao);
         $evento->setDados($dados);
 
-        $this->eventoRepository->salvar($evento);
+        $this->eventoRepository->salvar($evento, $flush);
 
         return $evento;
     }
