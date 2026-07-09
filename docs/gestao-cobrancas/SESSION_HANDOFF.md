@@ -1,67 +1,57 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: 2026-07-08 — **Etapa 1 CONCLUÍDA**.
+> Sessão encerrada em: 2026-07-09 — **Etapa 2 CONCLUÍDA e validada** (suíte global 1332/1332).
 
 ---
 
 ## Estado atual
-- **Branch:** `gestao-cobrancas` (dedicada da feature; `master` só com DJEN).
-- **HEAD:** `7019010` — "Integrar UseCases revisados da Onda 2 + teste cross-tenant" (commit do humano).
-- **Etapa:** 1 (Núcleo de cadastro) → **✅ CONCLUÍDA**. Próxima = **Etapa 2** (Caso de Cobrança, Obrigações, Saldo).
-- **Suíte:** **GLOBAL verde 1303/1303 (3507 assert)** no HEAD atual. `tests/Cobranca` verde.
-- **Working tree:** limpo, exceto docs (este handoff + `EXECUTION_STATUS.md`) e untracked `.claude/worktrees/` (worktrees de agente — NÃO commitar).
-- **Migrations (dev+test):** `Version20260708210509` (4 tabelas) + `Version20260708220000` (índices dedup Pessoa).
+- **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
+- **HEAD:** `4a094fe` ("Adicionar cross-tenant do Caso e cobrir EventoHistorico na auditoria") + este commit de docs.
+- **Etapa:** 2 (Caso/Obrigações/Saldo) → **✅ CONCLUÍDA**. Próxima = **Etapa 3** (Pagamentos/Liquidações/Honorários).
+- **Suíte:** GLOBAL **1332/1332 (3634 assert)**; `tests/Cobranca` 51/51 (inclui cross-tenant DB 6/6).
+- **Working tree:** limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar).
+- **Escritor:** ÚNICO. O processo autônomo concorrente da Etapa 1 foi encerrado; esta sessão confirmou escritor único. (Se abrir nova sessão, reconfirmar antes de reabrir escrita.)
+- **Migrations (dev+test):** `Version20260708210509` + `Version20260708220000` + `Version20260709123952`.
 
-## ⚠️ IMPORTANTE — sessão colaborativa (humano co-editou a branch)
-Durante a última sessão, o humano `sfbdata` **editou e committou na MESMA branch em tempo real**, em paralelo com o orquestrador:
-- `ab996f9` — índices de dedup `(tenant_id, cpf)`/`(tenant_id, cnpj)` + `#[ORM\Index]` em `Pessoa`.
-- `7019010` — revisão/consolidação de TODO o domínio Cobrança (21 arqs, −69 linhas) e **reconciliação da dedup** para **match EXATO** (`p.cpf = :cpf` via QueryBuilder), alinhando à decisão dos índices. Substituiu a dedup por dígitos normalizados que o orquestrador tinha integrado.
+## O que foi concluído nesta sessão
+1. **Etapa 1 fechada e reconciliada** (herança de sessão concorrente): código revisado (variante 1) + purga; global verde. Ver histórico no `EXECUTION_STATUS.md`.
+2. **Etapa 2 completa** (núcleo do Caso):
+   - Andaime `121c173`: 3 entidades (`CasoCobranca`/`Obrigacao`/`EventoHistorico`), enums `StatusCaso`/`TipoEventoHistorico`, 3 repos, migration `Version20260709123952` (dev+test), 3 factories, cobertura da purga + spec `docs/specs/cobranca-etapa2-caso-saldo.md`.
+   - Serviços `9d1aaa4`: `CalculadoraSaldo` (centavos) + `RegistrarEventoHistorico`.
+   - Contratos `f759976`: 4 exceptions + `flush` no serviço de evento.
+   - UseCases (fan-out 2 implementers → 1 review SEM BLOQUEANTES → cherry-pick individual): `3657aa6` (AbrirCaso, RegistrarObrigacao) + `8f90cfe` (ReconhecerValorAtualizado, RegistrarTentativaCobranca, AlterarPessoaCobrada).
+   - Validação `4a094fe`: cross-tenant DB (`CasoCobrancaIsolamentoTenantTest`) + fix de cobertura de auditoria.
 
-Como a identidade git da sessão é `sfbdata`, **commits do orquestrador e do humano têm o mesmo autor** — distinga por mensagem/escopo. O orquestrador **parou de escrever** nos arquivos de Cobrança ao detectar a co-edição (regra "escritor único por arquivo").
-
-**No início da próxima sessão:** reconfirme com o humano que ele encerrou a co-edição, reconfira `git log`/`git status`, e só então reabra a escrita.
-
-## O que foi concluído nesta sessão (Etapa 1 fechada)
-- **Onda 2 completa (7 UseCases):** `CriarCarteira`, `CriarPessoa` (piloto anterior) + `EditarConfiguracaoCarteira`, `CriarObjeto` (Frente A `aca727c`), `SugerirPessoasDuplicadas`, `VincularPessoaAObjeto` (guard same-tenant), `EncerrarVinculo` (Frente B `f2f6a42`). Fan-out real: 2 `feature-implementer` em worktree → 2 `feature-review-agent` (APROVADO) → cherry-pick individual + teste direcionado.
-- **Onda 3:** teste cross-tenant REAL do vínculo em DB (`CobrancaIsolamentoTenantTest`, `6fda56c`); `tenant-safety-review` SEM ACHADOS GRAVES; cobertura das 4 tabelas na purga de escritório (`92c48f3`); suíte global verde.
-- **Reconciliação do humano** (`ab996f9`+`7019010`): dedup → match exato index-friendly; limpeza do domínio. Suíte reverificada 1303/1303.
-
-## Decisões de design (Etapa 1)
-- **Dedup de Pessoa = MATCH EXATO** sobre o documento armazenado, usando os índices `(tenant_id, cpf)`/`(tenant_id, cnpj)`. `SugerirPessoasDuplicadasUseCase` normaliza só trim/null; NÃO faz strip de dígitos. Normalização por dígitos (casar formatado × cru) = **follow-up da Etapa 7** (importação, SPEC §21).
-- **Purga de escritório** cobre as 4 tabelas `cobranca_*` (ordem FK-safe vínculo→objeto→carteira→pessoa, antes de `cliente`). Ao criar QUALQUER tabela tenant-scoped nova (Etapa 2+), **adicioná-la à `PurgarEscritorioUseCase::ORDEM_DELECAO`** ou o `PurgaCoberturaSchemaTest` falha (guard anti-drift). O teste da purga semeia dados de Cobrança.
-- Guard same-tenant nos UseCases que cruzam entidades: resolver TODAS as entidades por `findOneByIdDoTenant(id, $tenant)` — provado em DB pelo `CobrancaIsolamentoTenantTest`.
+## Decisões de design (Etapa 2)
+- **Dinheiro = `INTEGER` centavos** (não bigint — evita atrito string; teto ~R$21M/obrigação; somas em PHP 64-bit).
+- **`pastaJudicial` adiado p/ Etapa 5.**
+- **`CalculadoraSaldo` incremental** — Etapa 3 estende (subtrai pagamentos/liquidações), Etapa 4 (exclui obrigação substituída por acordo). Saldo sempre derivado (invariável 20).
+- **`EventoHistorico` = log de domínio** (não Auditavel; invariável 26); está em `AuditavelCoberturaTest::NAO_AUDITAVEIS`.
+- **Padrão de flush:** UseCase persiste a entidade principal (`salvar(entidade)` sem flush) e chama `RegistrarEventoHistorico::registrar(..., flush: true)` — 1 flush atômico. UseCase que só gera evento passa `flush: true`.
+- **Guard same-tenant:** todo UseCase resolve TODAS as entidades por `findOneByIdDoTenant(id, $tenant)` — provado em DB.
 
 ## Git
-- **Branch:** `gestao-cobrancas`. **HEAD:** `7019010`.
-- **Commits da Etapa 1 (sobre `beef54c`):** `ab996f9` (índices, humano) · `aca727c` (Frente A) · `f2f6a42` (Frente B) · `6fda56c` (cross-tenant+hardening) · `92c48f3` (purga) · `7019010` (revisão/dedup, humano).
-- **Worktrees do fan-out:** removidas pelo runtime; branches-sobra `worktree-agent-*` → limpeza opcional do humano (`branch -D` é bloqueado p/ o Claude).
+- **HEAD:** `4a094fe` (+ docs). Ancestralidade Etapa 2 sobre `2719738`: `121c173`→`9d1aaa4`→`f759976`→`3657aa6`→`8f90cfe`→`4a094fe`.
 - **`master`:** NÃO contém Cobranças. Mergear DEPOIS do DJEN, só no fim.
+- **Worktrees ativas:** só `.worktrees/sincronizacao-drive` (outra feature). `.claude/worktrees/agent-*` são sobras de agente (limpeza do humano).
 
-## Testes
-- `php bin/phpunit` (global) → **1303 testes, 3507 assert, OK** (HEAD `7019010`).
-- `php bin/phpunit tests/Cobranca` → verde.
-- Cross-tenant real: `php bin/phpunit --filter CobrancaIsolamentoTenantTest` → 5 testes OK.
-- Purga: `php bin/phpunit --filter "PurgaCoberturaSchemaTest|PurgarEscritorioUseCaseTest"` → OK.
+## Testes (comandos úteis)
+- `php bin/phpunit tests/Cobranca` → 51/51.
+- `php bin/phpunit --filter CasoCobrancaIsolamentoTenantTest` → 6/6 (cross-tenant DB).
+- `php bin/phpunit --filter "PurgarEscritorioUseCaseTest|PurgaCoberturaSchemaTest"` → OK.
+- `php bin/phpunit` (global) → 1332/1332.
 
-## Pendências conhecidas / follow-ups (não bloqueantes)
-- Data-migration de permissões `cobrancas` p/ **produção** (dev/test já via fixture) — no deploy.
-- Dedup por dígitos normalizados + índice funcional → Etapa 7 (importação).
-- Validação cross-field `formaHonorarios × percentualHonorarios` e `dataFim ≥ dataInicio` → Etapa 8 (Forms) / decisão.
-- `EditarConfiguracaoCarteira`/`EncerrarVinculo` confiam na validação do DTO (padrão do projeto; guard final no controller da Etapa 8).
+## Follow-ups (não bloqueiam — detalhe no EXECUTION_STATUS)
+- **Endurecer 4 testes de evento** (asserir `tipo`+`dados`) — MENOR do review.
+- Cobertura de borda: `encargosReconhecidos=0`; fallback de descrição do `RegistrarTentativaCobranca`.
+- Dedup por dígitos (Pessoa) → Etapa 7. Permissões `cobrancas` em prod → data-migration no deploy.
 
 ## Próxima ação exata
-> Iniciar a **Etapa 2 — Caso de Cobrança, Obrigações e Saldo derivado** (PLAN §8; paralelização BAIXA, núcleo acoplado). Passos:
-> 1. **Reconfirmar** que o humano encerrou a co-edição da branch e `git status` limpo.
-> 2. Storytelling dos UseCases (skill `criar-usecase`) → testes → implementação (fluxo CLAUDE.md).
-> 3. Andaime committado ANTES de qualquer fan-out: entidades `CasoCobranca`/`Obrigacao`/`EventoHistorico`, enum `StatusCaso`, repos-stub, migration (`cobranca_caso`/`cobranca_obrigacao`/`cobranca_evento_historico`, aplicar dev+test via `migrations:execute --up`), factories. **Cobrir as 3 tabelas novas na purga** (`ORDEM_DELECAO`) + seed no teste da purga.
-> 4. Serviços `CalculadoraSaldo` (saldo exigível/vencido/consolidado — coração financeiro; centavos inteiros) e `RegistrarEventoHistorico`.
-> 5. UseCases `AbrirCaso`, `RegistrarObrigacao` (modo A/B), `ReconhecerValorAtualizado`, `RegistrarTentativaCobranca`, `AlterarPessoaCobrada`.
-> 6. Testes: cenários de saldo (parcial/encargos/substituição), modo A×B, `EventoHistorico` correto, cross-tenant. Suíte global + `tenant-safety-review`. Atualizar estes docs.
+> **Etapa 3 — Pagamentos, Liquidações e Honorários** (PLAN §8; paralelização MÉDIA). Ordem: (1) confirmar Git + escritor único; (2) spec ALTO risco em `docs/specs/` + storytelling; (3) andaime committado — entidades `Pagamento`(+`AlocacaoPagamento`)/`Liquidacao`, enum `TipoLiquidacao`, serviço `CalculadoraHonorarios` (4 formas §18 + rateio proporcional, centavos) como contrato central, migration (aplicar dev+test via `migrations:execute --up`), factories, **cobrir 3 tabelas novas na purga** + seed, e **estender `CalculadoraSaldo`** (subtrair Σ alocações + Σ liquidação reconhecida); (4) fan-out dos UseCases `RegistrarPagamento`/`CorrigirPagamento` (SEM estorno)/`RegistrarLiquidacao`; (5) testes de rateio (fecha com o total, centavos), 4 formas de honorário, pagamento não atravessa casos (invariável 12), cross-tenant; suíte global + tenant-safety + commit + docs.
 
 ## Ordem de retomada
-1. Ler `NEW_CHAT_PROMPT.md` + este handoff.
-2. Reconferir `git log`/`git status` — HEAD `7019010` (ou posterior do humano), working tree limpo.
-3. Confirmar fim da co-edição humana antes de reabrir escrita.
-4. Iniciar Etapa 2 pelo andaime (contratos), committar, e só então fan-out (se aplicável).
-5. Atualizar `EXECUTION_STATUS.md` + este arquivo ao fim.
+1. Confirmar branch `gestao-cobrancas`, HEAD `4a094fe` (ou posterior), working tree limpo, escritor único.
+2. Ler `PLAN.md` §8 Etapa 3 + `PARALLELIZATION_MAP.md` §1 + `docs/specs/cobranca-etapa2-caso-saldo.md` (padrões do núcleo).
+3. Andaime da Etapa 3 (contratos + `CalculadoraHonorarios` + migration + estender `CalculadoraSaldo`) → commit → fan-out → integração → validação.
+4. Atualizar `EXECUTION_STATUS.md` + este arquivo ao fim.
