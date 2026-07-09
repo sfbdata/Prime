@@ -36,6 +36,7 @@ final class CorrigirPagamentoInput
     #[Assert\Count(min: 1, minMessage: 'Informe ao menos uma alocação do pagamento.')]
     public array $alocacoes = [];
 
-    #[Assert\NotBlank(message: 'Informe o motivo da correção.')]
+    // normalizer 'trim': rejeita motivo só com espaços (o UseCase também aplica trim antes de gravar).
+    #[Assert\NotBlank(message: 'Informe o motivo da correção.', normalizer: 'trim')]
     public ?string $motivoCorrecao = null;
 }

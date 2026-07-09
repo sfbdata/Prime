@@ -8,7 +8,7 @@ use App\Cobranca\Enum\TipoLiquidacao;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
- * Entrada do registro de uma Liquidação NÃO monetária num Caso de Cobrança (SPEC §11). O caso é
+ * Entrada do registro de uma Liquidação num Caso de Cobrança (SPEC §11). O caso é
  * resolvido por id + tenant no RegistrarLiquidacaoUseCase (guarda multi-tenant). Valores em CENTAVOS
  * inteiros. Regra central (§11): o valor ATRIBUÍDO ao bem é OPCIONAL e pode DIFERIR do valor
  * RECONHECIDO — quem reduz o saldo é o `valorReconhecido`, nunca o `valorAtribuidoBem`; não se força

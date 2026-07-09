@@ -13,10 +13,12 @@ use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
- * Liquidação NÃO monetária de um Caso de Cobrança (SPEC §11): reduz o saldo por bem móvel/imóvel,
- * direito ou outra forma aceita. Regra central — o valor ATRIBUÍDO ao bem e o valor RECONHECIDO
- * para liquidação da dívida podem ser DIFERENTES; o saldo é reduzido pelo `valorReconhecido`,
- * nunca pelo `valorAtribuidoBem`. Valores em CENTAVOS. Saldo derivado (invariável 20).
+ * Liquidação de um Caso de Cobrança (SPEC §11): redução RECONHECIDA do saldo por bem móvel/imóvel,
+ * direito ou outra forma aceita na negociação (tipicamente não monetária). Distinta do Pagamento —
+ * que abate obrigações e rateia honorários (§18): a liquidação reduz o saldo diretamente, sem
+ * rateio. Regra central — o valor ATRIBUÍDO ao bem e o valor RECONHECIDO para liquidação da dívida
+ * podem ser DIFERENTES; o saldo é reduzido pelo `valorReconhecido`, nunca pelo `valorAtribuidoBem`.
+ * Valores em CENTAVOS. Saldo derivado (invariável 20).
  */
 #[ORM\Entity(repositoryClass: LiquidacaoRepository::class)]
 #[ORM\Table(name: 'cobranca_liquidacao')]

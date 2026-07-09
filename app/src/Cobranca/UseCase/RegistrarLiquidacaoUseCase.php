@@ -16,8 +16,9 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Registra uma Liquidação NÃO monetária num Caso de Cobrança (SPEC §11): reduz a dívida por bem
- * móvel/imóvel, direito ou outra forma aceita.
+ * Registra uma Liquidação num Caso de Cobrança (SPEC §11): reduz a dívida por bem móvel/imóvel,
+ * direito ou outra forma aceita — reconhecimento direto do saldo extinto, sem o rateio de honorários
+ * do Pagamento (§18).
  *
  * História: o gestor reconhece que parte (ou o todo) da dívida foi extinta por algo diferente de
  * dinheiro — um carro dado em pagamento, um imóvel, uma cessão de direito. O que reduz o saldo é o
