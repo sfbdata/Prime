@@ -79,7 +79,8 @@ class PessoaRepository extends ServiceEntityRepository
             return [];
         }
 
-        // Ids já são tenant-scoped pela query acima; hidrata as entidades correspondentes.
-        return $this->findBy(['id' => $ids]);
+        // Ids já são tenant-scoped pela query acima; o 'tenant' no findBy é cinto-e-suspensório
+        // (defesa em profundidade) caso o WHERE do SQL seja afrouxado numa edição futura.
+        return $this->findBy(['id' => $ids, 'tenant' => $tenant]);
     }
 }
