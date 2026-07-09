@@ -550,8 +550,10 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 | Design / spec | ✅ | 2026-06-26 (este documento) |
 | Pré-requisitos de ops (§6: service account, Shared Drive, backup+disco) | ⬜ | bloqueia execução da Fase 1a |
 | Fase 0 — Fundação | ✅ | 2026-07-01 — implementada e revisada (Tasks 1–5); suíte 876/876; migration provada no banco de teste isolado (aplicação real na Fase 1a) |
-| Fase 1 — motor (código): PASTAS | ✅ | 2026-07-01 — `app:sync:reconciliar` bidirecional de pastas, revisado (ALTO-1/2/3 corrigidos); suíte 884/884 |
-| Fase 1 — motor (código): ARQUIVOS | ⬜ | próximo incremento (upload/download, seções, achatamento) — plano próprio |
+| Fase 1 — motor (código): PASTAS | ✅ | 2026-07-01 — `app:sync:reconciliar` bidirecional de pastas, revisado; suíte 886/886 |
+| NUP alfanumérico (10A/10B) | ✅ | 2026-07-01 — desambiguação de repetidos; motor aceita `^\d+[A-Za-z]?$` (`ehNupValido`), ordenação natural via `CAST_INT_PREFIXO`; commits `7c16e8e`+`a2671be`; sem migration |
+| Saneamento do Drive: nº repetidos | ✅ | 2026-07-01 — 40 pastas → `10A`/`10B` renomeadas via rclone (ID preservado, conteúdo intacto); nup_repetido 40→0. Vazias/sem-cliente/descartáveis (25) aguardam P.O. |
+| Fase 1 — motor (código): ARQUIVOS | ⬜ | **PRÓXIMO** — upload/download por pasta, seções §11.6, arquivos grandes §11.4 — plano próprio |
 | Fase 1a — Reconciliação manual (execução) | ⬜ | depende do motor + pré-requisitos ops |
 | Fase 1b — Automático (cron) | ⬜ | só após 1a provar (D12) |
 | Fase 2 — Baixa latência sistema→Drive | ⬜ | spec própria |
@@ -563,11 +565,15 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 - Branch: **`sincronizacao-drive`**. Worktree isolado: **`/home/prime/projetos/jusprime/.worktrees/sincronizacao-drive`** (a `master` fica livre para outra frente). Trabalhar SEMPRE dentro do worktree.
 - Banco de teste **isolado** do worktree: `saas_testwt` (via `app/.env.test.local` com `TEST_TOKEN=wt`, gitignored). `GOOGLE_DRIVE_SHARED_DRIVE_ID=ROOT` está no `app/.env.test` (commitado, fixture dos testes).
 - Rodar tudo no container apontando pro worktree:
-  `docker exec jusprime_php_dev bash -c 'cd /var/www/.worktrees/sincronizacao-drive/app && php bin/phpunit'` (suíte atual: **884/884**).
+  `docker exec jusprime_php_dev bash -c 'cd /var/www/.worktrees/sincronizacao-drive/app && php bin/phpunit'` (suíte atual: **886/886**). HEAD da branch: **`a2671be`**. O **main repo está em `gestao-cobrancas`** (frente ATIVA em paralelo) — NÃO tocar; ver isolamento verificado abaixo.
 
 **O que já está pronto (código na branch)**
 - **Fase 0 (Fundação):** `Pasta.driveFolderId`/`driveSyncedAt`, `PastaDocumento.driveFileId`; UNIQUE de NUP removido (índice não-único `(tenant_id, nup)`; isolamento de tenant intacto); migration `Version20260701144054` (**provada up/down só no banco de teste isolado — NÃO aplicada no `saas` compartilhado**; aplicação real fica pra Fase 1a); `App\Sync\Service\GoogleDriveClient` + `GoogleDriveClientInterface` + `FakeGoogleDriveClient`; comandos `app:sync:backfill-pastas` e `app:sync:backfill-arquivos`; barreira de NUP duplicado removida em `CriarPastaUseCase` e `EditarPastaUseCase`.
-- **Fase 1 — motor de PASTAS:** `app:sync:reconciliar` bidirecional (aditivo, nunca apaga), com dry-run, lock (flock), `--limit`/`--pasta-id`, D9 (sem NUP → pula) e D10 (divergência → só reporta). Revisado (ALTO-1/2/3 corrigidos).
+- **Fase 1 — motor de PASTAS:** `app:sync:reconciliar` bidirecional (aditivo, nunca apaga), com dry-run, lock (flock), `--limit`/`--pasta-id`, D9 (sem NUP → pula) e D10 (divergência → só reporta). Revisado.
+- **NUP alfanumérico (10A/10B) — commits `7c16e8e`+`a2671be`:** motor aceita `^\d+[A-Za-z]?$` (`ReconciliarCommand::ehNupValido`); ordenação natural nas 3 listas do Expediente via nova DQL `CAST_INT_PREFIXO` (§11.5). Sem migration. Revisado (feature-review-agent).
+- **Drive saneado (ação real, via rclone):** os 20 números repetidos → 40 pastas `10A`/`10B` renomeadas no Drive real (ID preservado, conteúdo intacto). Parser: nup_repetido 40→0. Rollback `tmp/acervo/rename_map_20260701.json`. Pendências restantes no Drive (aguardam P.O.): 15 vazias, 7 sem cliente, 3 descartáveis.
+
+**Isolamento vs `gestao-cobrancas` (verificado):** COMPARTILHAM containers dev (projeto `jusprime`), dev DB `saas`, `.git` common dir, token rclone. ISOLADOS: working trees, banco de teste (`saas_testwt`≠`saas_test`), `var/cache`, uploads. NÃO: migration/DDL no `saas`, `docker compose down/build`, `git worktree prune`/`gc`/`branch -D`, phpunit fora do path do worktree.
 
 **Próximo passo (retomar aqui): Fase 1 — motor de ARQUIVOS**
 - Estender `app:sync:reconciliar` (ou comando irmão) para os ARQUIVOS por pasta vinculada: **sistema→Drive** (doc sem `drive_file_id` → `enviarArquivo`, grava id) e **Drive→sistema** (arquivo do Drive sem par → `baixarArquivo` + cria `PastaDocumento`).
@@ -575,10 +581,10 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 - Reusar padrões: `CopiarArquivosAcervoCommand` (seções/achatamento), `BackfillArquivosCommand` (match por `nome_original` exato, guard de colisão). Escrever plano próprio (`plano-fase1-arquivos.md`) antes de codar.
 
 **Convenções/gotchas desta frente**
-- Git é **humano** (hook `block-git-writes.py`): o orquestrador monta os comandos, o dev commita. Commits cirúrgicos (scoped `git add`).
-- Testes: `KernelTestCase` + `use Factories;` — **nunca `ResetDatabase`** (o projeto usa DAMA; misturar quebra a suíte).
-- O `GoogleDriveClient` **real** é fronteira de validação manual (não entra no CI); testes usam o fake.
-- Arquivos temporários **untracked** no worktree: `plano.md` (Fase 0), `plano-fase1-pastas.md` (Fase 1 pastas). Não commitar.
+- Git: o Claude **pode criar commits LOCAIS scoped** (autorizado); **nunca push/merge/rebase**. Commitar SEMPRE via `git -C <worktree>` p/ cair na branch `sincronizacao-drive` (o main repo está noutra branch). `git add` cirúrgico por arquivo, sem arrastar os `plano*.md`.
+- Testes: `KernelTestCase` + `use Factories;` — **nunca `ResetDatabase`** (o projeto usa DAMA; misturar quebra a suíte). Rodar SÓ pelo path do worktree (usa `saas_testwt`).
+- O `GoogleDriveClient` **real** é fronteira de validação manual (não entra no CI); testes usam o fake. rclone (host, remote `gdrive:`, folder ID `1WBY-…`) é o que já tem escrita real no Drive — ver memória `reference_acervo_report_rclone`.
+- Arquivos temporários **untracked** no worktree: `plano.md`, `plano-fase1-pastas.md`, `plano-nup-alfanumerico.md`. Não commitar.
 
 **Bloqueios de ops (não-código; destravam a Fase 1a de EXECUÇÃO)**
 1. Backup de uploads + disco (§6 item 7, §12.3). 2. Service account + Shared Drive compartilhado + `driveId` (§6). 3. Validar o `GoogleDriveClient` real contra um Shared Drive de teste. 4. `composer audit` das deps do google/apiclient.
