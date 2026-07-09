@@ -9,6 +9,7 @@ use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Pasta\Entity\Pasta;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
 use Doctrine\ORM\Mapping as ORM;
@@ -55,6 +56,16 @@ class CasoCobranca implements TenantAware, Auditavel
     #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
     private ?string $percentualHonorarios = null;
 
+    /**
+     * Pasta judicial vinculada na judicialização (SPEC §16). Ligação UNIDIRECIONAL Caso → Pasta
+     * (sem lado inverso na Pasta; não tocar PastaController). Nulo enquanto extrajudicial. A Pasta
+     * DEVE ser do mesmo tenant (garantido no UseCase). ON DELETE SET NULL: apagar a Pasta apenas
+     * desfaz o vínculo, não derruba o Caso.
+     */
+    #[ORM\ManyToOne(targetEntity: Pasta::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?Pasta $pastaJudicial = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 
@@ -84,6 +95,11 @@ class CasoCobranca implements TenantAware, Auditavel
     public function estaEncerrado(): bool
     {
         return $this->status === StatusCaso::Encerrado;
+    }
+
+    public function estaJudicializado(): bool
+    {
+        return $this->status === StatusCaso::Judicializado;
     }
 
     /** Troca a pessoa cobrada (SPEC §8) — decisão manual; não afeta dívida/pagamentos/acordos. */
@@ -167,6 +183,18 @@ class CasoCobranca implements TenantAware, Auditavel
     public function setPercentualHonorarios(?string $percentualHonorarios): self
     {
         $this->percentualHonorarios = $percentualHonorarios;
+
+        return $this;
+    }
+
+    public function getPastaJudicial(): ?Pasta
+    {
+        return $this->pastaJudicial;
+    }
+
+    public function setPastaJudicial(?Pasta $pastaJudicial): self
+    {
+        $this->pastaJudicial = $pastaJudicial;
 
         return $this;
     }
