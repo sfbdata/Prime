@@ -6,6 +6,7 @@ namespace App\Cobranca\UseCase;
 
 use App\Cobranca\DTO\ConcluirAcaoInput;
 use App\Cobranca\Entity\ProximaAcao;
+use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\ProximaAcaoNaoEncontradaException;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Entity\Auth\User;
@@ -42,10 +43,18 @@ final class ConcluirAcaoUseCase
             throw new ProximaAcaoNaoEncontradaException((int) $acao->getId());
         }
 
-        $acao->concluir((string) $input->resultado);
-
         // O gestor pode definir a próxima no mesmo passo (§14): concluir a atual libera o limite de 1.
         $proximaDescricao = (string) $input->proximaDescricao;
+
+        // Definir uma NOVA ação exige caso não encerrado (§17) — coerente com DefinirProximaAcao;
+        // fecha a janela de criar pendência num caso encerrado enquanto ainda havia ação ativa.
+        $caso = $acao->getCaso();
+
+        if ($proximaDescricao !== '' && $caso !== null && $caso->estaEncerrado()) {
+            throw new CasoEncerradoException((int) $caso->getId());
+        }
+
+        $acao->concluir((string) $input->resultado);
 
         if ($proximaDescricao !== '') {
             // Conclusão sem flush; a nova ação pendente fecha a transação (flush único).

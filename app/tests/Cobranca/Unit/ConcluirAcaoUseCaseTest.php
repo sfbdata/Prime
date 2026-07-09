@@ -7,7 +7,9 @@ namespace App\Tests\Cobranca\Unit;
 use App\Cobranca\DTO\ConcluirAcaoInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ProximaAcao;
+use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\StatusProximaAcao;
+use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\ProximaAcaoNaoEncontradaException;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\UseCase\ConcluirAcaoUseCase;
@@ -106,6 +108,29 @@ final class ConcluirAcaoUseCaseTest extends TestCase
         self::assertSame($this->tenant, $proxima->getTenant());
         self::assertSame($this->usuario, $proxima->getResponsavel());
         self::assertSame($this->usuario, $proxima->getCriadoPor());
+    }
+
+    #[Test]
+    public function concluiSemCriarProximaEmCasoEncerrado(): void
+    {
+        // Caso encerrado com ação ainda pendente: concluir é permitido (fecha o trabalho), mas
+        // definir uma NOVA ação num caso encerrado é rejeitado (§17) — coerente com DefinirProximaAcao.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $caso->setStatus(StatusCaso::Encerrado);
+        $acao = (new ProximaAcao())->setTenant($this->tenant)->setCaso($caso)->setDescricao('Pendente antiga');
+
+        $this->proximaAcaoRepository->method('findOneByIdDoTenant')->willReturn($acao);
+        // Nada é persistido: a exceção é lançada antes de concluir/salvar.
+        $this->proximaAcaoRepository->expects($this->never())->method('salvar');
+
+        $this->expectException(CasoEncerradoException::class);
+
+        $input = new ConcluirAcaoInput();
+        $input->acaoId = 50;
+        $input->resultado = 'Fechando';
+        $input->proximaDescricao = 'Tentar criar ação nova';
+
+        $this->sut->executar($input, $this->tenant, $this->usuario);
     }
 
     #[Test]
