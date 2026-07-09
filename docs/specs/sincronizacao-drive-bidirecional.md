@@ -392,6 +392,13 @@ desempate. Fora do escopo: "Minhas Demandas" (ordena por prioridade/data) e o
 converte os pares de `nup_repetido` do relatório de pendências em pastas
 bem-formadas, importadas automaticamente pela reconciliação.
 
+> **Follow-up (pendente):** a tela **"Minhas Demandas"**
+> (`demandas.html.twig` → `findAtivasPorResponsavel`, ordena por prioridade/data)
+> reordena por NUP no cliente via `localeCompare` puro, então NÃO segue a ordem
+> natural (mostra 9, 11, 10B, 10A, 10). Decisão do P.O.: tratar depois para também
+> ficar natural. Não bloqueia esta frente. (Outro follow-up opcional: endurecer o
+> `AcervoNomesParser` para o caso raro "10A - VAZIA", hoje não filtrado como vazia.)
+
 ### 11.6 Hierarquia de pastas no Drive (declaração canônica)
 
 Mapeamento de níveis entre o Shared Drive e o sistema (referenciado por §10.3):
