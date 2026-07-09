@@ -59,6 +59,14 @@ final class PurgarEscritorioUseCase
         // são SET NULL, então não caem por cascata — precisam de deleção explícita).
         ['publicacao_djen', 'tenant_id = :tenant'],
         ['oab_monitorada', 'tenant_id = :tenant'],
+        // Cobranças — cadastro (Etapa 1). As FKs entre si e para cliente/tenant são NO ACTION
+        // (não cascateiam), então deleção explícita de baixo para cima: vínculo → objeto →
+        // carteira → pessoa. A carteira referencia cliente (NO ACTION), por isso todo o bloco
+        // vem ANTES de apagar cliente na Fase 2.
+        ['cobranca_vinculo_pessoa_objeto', 'tenant_id = :tenant'],
+        ['cobranca_objeto', 'tenant_id = :tenant'],
+        ['cobranca_carteira', 'tenant_id = :tenant'],
+        ['cobranca_pessoa', 'tenant_id = :tenant'],
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).
         ['tarefa', 'tenant_id = :tenant'],
         ['notificacao', 'tenant_id = :tenant'],

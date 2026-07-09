@@ -290,6 +290,13 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $cli = $this->ins('cliente', $this->dadosCliente($t));
         $this->ins('cliente_documento', ['titulo' => 'Doc', 'categoria' => 'geral', 'caminho_arquivo' => $hex(), 'nome_original' => 'd.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => 1, 'uploaded_at' => $ts, 'cliente_id' => $cli, 'tenant_id' => $t]);
 
+        // Cobranças (Etapa 1): carteira→cliente, objeto→carteira, vínculo→pessoa+objeto. Exercita a
+        // ordem FK-safe da purga (carteira apagada antes de cliente) e o isolamento entre escritórios.
+        $carteira = $this->ins('cobranca_carteira', ['nome' => 'Carteira', 'modo' => 'unico', 'forma_honorarios' => 'sem_percentual', 'tolerancia_atraso_dias' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'cliente_id' => $cli]);
+        $pessoa   = $this->ins('cobranca_pessoa', ['nome' => 'Pessoa', 'criado_em' => $ts, 'tenant_id' => $t]);
+        $objeto   = $this->ins('cobranca_objeto', ['identificacao' => 'Objeto', 'criado_em' => $ts, 'tenant_id' => $t, 'carteira_id' => $carteira]);
+        $this->ins('cobranca_vinculo_pessoa_objeto', ['tipo_vinculo' => 'proprietario', 'data_inicio' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'pessoa_id' => $pessoa, 'objeto_id' => $objeto]);
+
         // Pasta + seção + documento (bloqueador intermediário)
         $pasta = $this->ins('pasta', ['nup' => 'NUP-' . $uid, 'data_abertura' => $ts, 'created_at' => $ts, 'tenant_id' => $t]);
         $this->ins('pasta_secao', ['nome' => 'Secao', 'criada_em' => $ts, 'pasta_id' => $pasta, 'tenant_id' => $t]);
