@@ -5,16 +5,23 @@ declare(strict_types=1);
 namespace App\Cobranca\Controller;
 
 use App\Cobranca\DTO\EncerrarCasoInput;
+use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\SaldoNaoResolvidoException;
+use App\Cobranca\Form\ConcluirAcaoType;
+use App\Cobranca\Form\DefinirProximaAcaoType;
 use App\Cobranca\Form\EncerrarCasoType;
+use App\Cobranca\Form\GerarRevisaoType;
 use App\Cobranca\Form\ReconhecerValorAtualizadoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
+use App\Cobranca\Form\RegistrarTentativaCobrancaType;
+use App\Cobranca\Form\ResolverRevisaoType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\ListarCasosUseCase;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
+use App\Cobranca\UseCase\RegistrarTentativaCobrancaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -45,6 +52,7 @@ final class CasoController extends AbstractController
         private readonly ListarCasosUseCase $listarCasos,
         private readonly MontarDetalheCasoUseCase $montarDetalheCaso,
         private readonly EncerrarCasoUseCase $encerrarCaso,
+        private readonly RegistrarTentativaCobrancaUseCase $registrarTentativa,
     ) {
     }
 
@@ -137,6 +145,34 @@ final class CasoController extends AbstractController
         return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
     }
 
+    #[Route('/{id}/tentativas', name: 'cobranca_tentativa_registrar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function registrarTentativa(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $caso = $this->casoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($caso === null) {
+            throw $this->createNotFoundException('Caso de cobrança não encontrado.');
+        }
+
+        $input = new RegistrarTentativaCobrancaInput();
+        $input->casoId = $id;
+        $form = $this->createForm(RegistrarTentativaCobrancaType::class, $input);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            $this->registrarTentativa->executar($input, $tenant, $this->usuarioLogado());
+            $this->addFlash('success', 'Tentativa de cobrança registrada.');
+        } else {
+            $this->flashErrosDoForm($form);
+        }
+
+        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+    }
+
     /**
      * Views (vazias) dos formulários de mutação renderizados como modais no detalhe do Caso. O
      * processamento POST vive em cada controller de recurso; aqui só o render. Cresce por fatia da 8B.
@@ -149,6 +185,11 @@ final class CasoController extends AbstractController
             'registrarObrigacao' => $this->createForm(RegistrarObrigacaoType::class)->createView(),
             'reconhecerValor' => $this->createForm(ReconhecerValorAtualizadoType::class)->createView(),
             'encerrarCaso' => $this->createForm(EncerrarCasoType::class)->createView(),
+            'definirProximaAcao' => $this->createForm(DefinirProximaAcaoType::class)->createView(),
+            'concluirAcao' => $this->createForm(ConcluirAcaoType::class)->createView(),
+            'registrarTentativa' => $this->createForm(RegistrarTentativaCobrancaType::class)->createView(),
+            'gerarRevisao' => $this->createForm(GerarRevisaoType::class)->createView(),
+            'resolverRevisao' => $this->createForm(ResolverRevisaoType::class)->createView(),
         ];
     }
 }

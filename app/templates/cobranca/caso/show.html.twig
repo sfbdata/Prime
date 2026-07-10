@@ -12,7 +12,13 @@
             <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
             {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
             {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
-            <div class="ms-auto d-flex gap-2">
+            <div class="ms-auto d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
+                    <i class="bi bi-telephone me-1"></i>Tentativa
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalGerarRevisao">
+                    <i class="bi bi-person-exclamation me-1"></i>Revisão
+                </button>
                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
                     <i class="bi bi-flag me-1"></i>Encerrar caso
                 </button>
@@ -60,13 +66,23 @@
                 <div class="caso-metric flex-grow-1">
                     {% if caso.proximaAcao %}
                         <div class="caso-proxima-acao {{ caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
-                            <div class="caso-proxima-acao-titulo"><i class="bi bi-flag-fill me-1"></i>Próxima ação{% if caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis">atrasada</span>{% endif %}</div>
+                            <div class="caso-proxima-acao-titulo d-flex align-items-center gap-2">
+                                <span><i class="bi bi-flag-fill me-1"></i>Próxima ação{% if caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis">atrasada</span>{% endif %}</span>
+                                {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                                <button type="button" class="btn btn-sm btn-outline-primary py-0 ms-auto" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
+                                {% endif %}
+                            </div>
                             <div class="fw-semibold">{{ caso.proximaAcao.descricao }}</div>
                             {% if caso.proximaAcao.prazo %}<div class="small text-muted">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</div>{% endif %}
                         </div>
                     {% else %}
                         <div class="caso-metric-label">Próxima ação</div>
-                        <div class="text-muted"><i class="bi bi-dash-circle me-1"></i>Nenhuma ação definida</div>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted"><i class="bi bi-dash-circle me-1"></i>Nenhuma ação definida</span>
+                            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                            <button type="button" class="btn btn-sm btn-outline-primary py-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
+                            {% endif %}
+                        </div>
                     {% endif %}
                 </div>
             </div>
@@ -88,9 +104,19 @@
         {% if caso.revisoesPendentes|length > 0 %}
         <div class="alert alert-warning d-flex align-items-start gap-2">
             <i class="bi bi-person-exclamation fs-5"></i>
-            <div>
+            <div class="flex-grow-1">
                 <strong>Revisão de pessoa cobrada pendente</strong>
-                {% for r in caso.revisoesPendentes %}<div class="small">{{ r.motivo }}</div>{% endfor %}
+                {% for r in caso.revisoesPendentes %}
+                <div class="small d-flex align-items-center gap-2">
+                    <span>{{ r.motivo }}</span>
+                    {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                    <button type="button" class="btn btn-sm btn-outline-primary py-0"
+                            data-bs-toggle="modal" data-bs-target="#modalResolverRevisao"
+                            data-acao-url="{{ path('cobranca_revisao_resolver', {id: r.id}) }}"
+                            data-revisao-motivo="{{ r.motivo }}">Resolver</button>
+                    {% endif %}
+                </div>
+                {% endfor %}
             </div>
         </div>
         {% endif %}
@@ -254,6 +280,19 @@ document.addEventListener('DOMContentLoaded', function () {
             if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
             var ctx = modalReconhecer.querySelector('[data-obrigacao-contexto]');
             if (ctx) { ctx.textContent = 'Obrigação: ' + (botao.getAttribute('data-obrigacao-descricao') || ''); }
+        });
+    }
+
+    /* Modal reutilizável de "resolver revisão". */
+    var modalResolver = document.getElementById('modalResolverRevisao');
+    if (modalResolver) {
+        modalResolver.addEventListener('show.bs.modal', function (event) {
+            var botao = event.relatedTarget;
+            if (!botao) { return; }
+            var form = document.getElementById('formResolverRevisao');
+            if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
+            var ctx = modalResolver.querySelector('[data-revisao-contexto]');
+            if (ctx) { ctx.textContent = 'Revisão: ' + (botao.getAttribute('data-revisao-motivo') || ''); }
         });
     }
 });

@@ -73,3 +73,119 @@
         </div>
     </div>
 </div>
+
+{# ── Definir próxima ação ────────────────────────────────────────── #}
+<div class="modal fade" id="modalDefinirAcao" tabindex="-1" aria-labelledby="tituloDefinirAcao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.definirProximaAcao, {action: path('cobranca_acao_definir', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloDefinirAcao"><i class="bi bi-flag me-1"></i>Definir próxima ação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.definirProximaAcao.descricao) }}
+                {{ form_row(forms.definirProximaAcao.prazo) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Definir</button>
+            </div>
+            {{ form_end(forms.definirProximaAcao) }}
+        </div>
+    </div>
+</div>
+
+{# ── Concluir ação (só quando há ação pendente) ──────────────────── #}
+{% if caso.proximaAcao and caso.proximaAcao.pendente %}
+<div class="modal fade" id="modalConcluirAcao" tabindex="-1" aria-labelledby="tituloConcluirAcao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.concluirAcao, {action: path('cobranca_acao_concluir', {id: caso.proximaAcao.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloConcluirAcao"><i class="bi bi-check2-circle me-1"></i>Concluir ação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">{{ caso.proximaAcao.descricao }}</p>
+                {{ form_row(forms.concluirAcao.resultado) }}
+                <hr class="my-3">
+                <p class="small text-muted mb-2">Se já quiser encadear a próxima ação (opcional):</p>
+                {{ form_row(forms.concluirAcao.proximaDescricao) }}
+                {{ form_row(forms.concluirAcao.proximoPrazo) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Concluir</button>
+            </div>
+            {{ form_end(forms.concluirAcao) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Registrar tentativa de cobrança ─────────────────────────────── #}
+<div class="modal fade" id="modalRegistrarTentativa" tabindex="-1" aria-labelledby="tituloRegistrarTentativa" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.registrarTentativa, {action: path('cobranca_tentativa_registrar', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloRegistrarTentativa"><i class="bi bi-telephone me-1"></i>Registrar tentativa de cobrança</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.registrarTentativa.valorSolicitado) }}
+                {{ form_row(forms.registrarTentativa.novoPrazo) }}
+                {{ form_row(forms.registrarTentativa.observacao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar</button>
+            </div>
+            {{ form_end(forms.registrarTentativa) }}
+        </div>
+    </div>
+</div>
+
+{# ── Gerar revisão de pessoa cobrada ─────────────────────────────── #}
+<div class="modal fade" id="modalGerarRevisao" tabindex="-1" aria-labelledby="tituloGerarRevisao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.gerarRevisao, {action: path('cobranca_revisao_gerar', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloGerarRevisao"><i class="bi bi-person-exclamation me-1"></i>Abrir revisão de pessoa cobrada</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.gerarRevisao.motivo) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-warning"><i class="bi bi-check-lg me-1"></i>Abrir revisão</button>
+            </div>
+            {{ form_end(forms.gerarRevisao) }}
+        </div>
+    </div>
+</div>
+
+{# ── Resolver revisão (modal reutilizável; JS injeta a URL da revisão) ── #}
+<div class="modal fade" id="modalResolverRevisao" tabindex="-1" aria-labelledby="tituloResolverRevisao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.resolverRevisao, {attr: {id: 'formResolverRevisao'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloResolverRevisao"><i class="bi bi-person-check me-1"></i>Resolver revisão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" data-revisao-contexto>Revisão selecionada.</p>
+                {{ form_row(forms.resolverRevisao.resolucao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Resolver</button>
+            </div>
+            {{ form_end(forms.resolverRevisao) }}
+        </div>
+    </div>
+</div>
