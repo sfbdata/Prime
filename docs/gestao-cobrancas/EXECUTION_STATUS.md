@@ -1,7 +1,7 @@
 # EXECUTION_STATUS — Gestão de Cobranças
 
 > Panorama VIVO da implementação. Fonte de verdade do progresso. **Confirmar sempre contra o Git/código — nunca contra memória de chat.**
-> Última atualização: 2026-07-09 (Etapa 5 CONCLUÍDA e validada).
+> Última atualização: 2026-07-10 (Etapa 6 CONCLUÍDA e validada).
 
 ---
 
@@ -9,14 +9,14 @@
 
 | Campo | Valor real |
 |---|---|
-| **Etapa atual** | Etapa 5 — Estados/Judicialização/Encerramento/ProximaAcao/Revisão/Alertas → **✅ CONCLUÍDA**; próxima = Etapa 6 (Documentos do Caso) |
+| **Etapa atual** | Etapa 6 — Documentos do Caso → **✅ CONCLUÍDA**; próxima = Etapa 7 (Importação em massa) |
 | **Tarefa atual** | Nenhuma em execução |
-| **Último checkpoint estável** | `8cbd937` — **suíte GLOBAL verde 1441/1441**; `tests/Cobranca` 160/160 (+ cross-tenant DB judicialização/encerramento/revisão/ação, isolamento da Pasta provado) |
+| **Último checkpoint estável** | `2ab1783` — **suíte GLOBAL verde 1472/1472**; `tests/Cobranca` 191/191 (+ cross-tenant DB+disco dos documentos: INV-25, judicialização preserva docs, isolamento físico por tenant, IDOR) |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `8cbd937` (código estável; +docs a seguir) |
+| **HEAD** | `2ab1783` (código estável; +docs a seguir) |
 | **Working tree** | limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar) |
-| **Migrations (dev+test)** | E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; E4 `Version20260709154458`; **E5 `Version20260709191327`** (cobranca_proxima_acao + cobranca_revisao_pessoa_cobrada + ALTER cobranca_caso add pasta_judicial_id) |
-| **Escritor** | ÚNICO (orquestrador) + fan-out de 3 `feature-implementer` em worktrees (concluído e integrado) |
+| **Migrations (dev+test)** | E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; E4 `Version20260709154458`; E5 `Version20260709191327`; **E6 `Version20260709215805`** (cobranca_secao + cobranca_documento; FKs caso_id/secao_id ON DELETE CASCADE) |
+| **Escritor** | ÚNICO (orquestrador) + fan-out de 2 `feature-implementer` em worktrees (concluído e integrado) |
 
 ### Commits da Etapa 2 (sobre `2719738`)
 - `121c173` — andaime: entidades `CasoCobranca`/`Obrigacao`/`EventoHistorico`, enums `StatusCaso`/`TipoEventoHistorico`, 3 repos-stub (+queries tenant-scoped), migration `Version20260709123952` (dev+test), 3 factories, **cobertura da purga** (3 tabelas) + seed no teste da purga, spec `docs/specs/cobranca-etapa2-caso-saldo.md`.
@@ -76,6 +76,20 @@
 - **Alertas read-only** (invariável 28): nenhum muda estado. Caso encerrado → `AlertasCobranca` retorna `[]` (short-circuit; decisão de design documentada — aceita: encerrado = final, sem alertas operacionais).
 - **Próxima ação NÃO é evento de histórico** (§13) nem alerta — só persiste; máx. 1 pendente garantido por `findAtivaDoCaso` no UseCase.
 
+### Commits da Etapa 6 (sobre `102601d`)
+- `ea3a21f` — **andaime**: entidades `CobrancaSecao`/`CobrancaDocumento` (FK `caso` nn **unidirecional** — `CasoCobranca` intocada; navegação pelos repos; `Secao→Documento` bidirecional c/ cascade remove); enum `CategoriaDocumentoCobranca`; repos tenant-safe (`findOneByIdDoTenant`/`documentosDoCaso`/`secoesDoCaso`/`proximaOrdem`); 4 exceptions; 2 factories; parâmetro `cobrancas_uploads_dir` (test→`var/uploads-test/cobrancas`) + bind; purga cobre `cobranca_documento`/`cobranca_secao` (ORDEM_DELECAO) + remove `cobrancas/<tenantId>/`; migration `Version20260709215805` (dev+test); spec.
+- `b45c341` — exception `TipoArquivoNaoPermitidoException` que escapou do staging de `ea3a21f` (referenciada pelo `EnviarDocumento`).
+- `c9560d0` — **fan-out B** (Seções): `CriarSecao`/`RenomearSecao`/`ExcluirSecao` + testes (cherry-pick de `a19e62d`). ExcluirSecao apaga arquivos físicos ANTES do remove/cascade.
+- `09659e7` — **fan-out A** (Documentos): `EnviarDocumento` (whitelist MIME 19 tipos + limite tamanho + compressão opcional + isolamento físico por tenant) / `MoverDocumento` / `ExcluirDocumento` + testes (cherry-pick de `37e55de`).
+- `2ab1783` — **integração**: `DocumentosCobrancaIsolamentoTenantTest` (DB+disco reais): INV-25 (doc sem Pasta), judicialização preserva documentos (não migra/duplica, §15/§16), isolamento físico por tenant, IDOR de Enviar/Mover/ExcluirSecao + seção de outro caso.
+
+### Decisões de design da Etapa 6
+- **Documento vive no Caso, NUNCA na Pasta** (invariável 25). FK `caso` obrigatória; caso sem Pasta pode ter documentos. Ao judicializar, documentos permanecem (não migram/duplicam) — provado ponta-a-ponta no DB.
+- **Entidades próprias só pela FK ao Caso** (§24: não recriar Pasta/Documento). Mecânica de arquivo 100% reusada do `App\Shared\Service`. Front `pasta-arquivos.js/.css` religado por `data-*` na Etapa 8 (sem tocar o JS).
+- **Isolamento físico por tenant** (padrão M5): `cobrancas/<tenantId>/<hash>`; `caminhoArquivo` = só o hash; diretório efetivo = `$cobrancasUploadsDir.'/'.$tenant->getId()` (contrato congelado, idêntico no salvar/excluir/purga).
+- **ExcluirSecao exclui os documentos** (espelha Pasta); arquivo físico apagado ANTES do remove (senão o cascade perde o hash) — sem transação disco+DB (aceito, follow-up #16).
+- **Categoria = enum** (default `Outro`). **Sem camada HTTP** (controllers/CSRF/gate/wiring do file manager) → Etapa 8.
+
 ---
 
 ## Checklist (Etapas 0–9 do PLAN)
@@ -85,7 +99,8 @@
 - ✅ **Etapa 3** — Pagamentos/Liquidações/Honorários: 3 entidades (`Pagamento`+`AlocacaoPagamento`, `Liquidacao`), enum `TipoLiquidacao`, serviços `CalculadoraHonorarios` (4 formas + rateio, centavos) e `AlocadorPagamento`, `CalculadoraSaldo` estendida (subtrai alocações+liquidações), UseCases `RegistrarPagamento`/`CorrigirPagamento` (SEM estorno)/`RegistrarLiquidacao`; cross-tenant DB dos movimentos + invariável 12; global 1380/1380.
 - ✅ **Etapa 4** — Acordos: entidade `Acordo`+enum `StatusAcordo`, FKs `Obrigacao.acordoOrigem`/`acordoSubstituto`, `doCasoExigiveis` status-aware, `CalculadoraSaldo` deriva por status (rompido/cancelado restaura originais), 4 UseCases (`CriarAcordo`/`RomperAcordo`/`CancelarAcordo`/`MarcarAcordoCumprido`), cross-tenant DB, global 1400/1400.
 - ✅ **Etapa 5** — Estados/Judicialização (`pastaJudicial`)/Encerramento/ProximaAcao/Revisão/Alertas: 2 entidades (`ProximaAcao`/`RevisaoPessoaCobrada`) + 2 enums, FK `CasoCobranca.pastaJudicial` (unidirecional), 6 UseCases (`Judicializar`/`Encerrar`/`Definir`/`Concluir`/`Gerar`/`Resolver`), serviço `AlertasCobranca` (5 alertas derivados), cross-tenant DB (isolamento da Pasta provado), global 1441/1441.
-- ⬜ **Etapa 6** — Documentos do caso · **7** Importação · **8** Telas/UX · **9** Alertas UI + Dashboard.
+- ✅ **Etapa 6** — Documentos do caso: entidades `CobrancaSecao`/`CobrancaDocumento` (FK caso nn, INV-25: sem Pasta), enum `CategoriaDocumentoCobranca`, 6 UseCases (`Enviar`/`Mover`/`Excluir` documento + `Criar`/`Renomear`/`Excluir` seção) reusando `ArquivoStorageService`, isolamento físico por tenant no disco, purga coberta, cross-tenant DB+disco (judicialização preserva docs), global 1472/1472.
+- ⬜ **Etapa 7** — Importação em massa · **8** Telas/UX · **9** Alertas UI + Dashboard.
 
 ### Transversal / deploy (fim)
 - ⬜ Data-migration de permissões `cobrancas` p/ **produção** (dev/test já via fixture).
@@ -109,16 +124,18 @@
 12. **✅ RESOLVIDO na Etapa 5:** parcela de acordo vencida → ALERTA derivado (`AlertasCobranca::ParcelaAcordoVencida`), sem rompimento automático (§12.7).
 13. **Índice único de "máx. 1 próxima ação pendente" (MENOR, do review de B):** a garantia é o check `findAtivaDoCaso` no UseCase (fiel à SPEC §14, que nomeia esse mecanismo). Há janela TOCTOU teórica sob concorrência real; um índice parcial único `UNIQUE (caso_id) WHERE status='pendente'` fecharia a invariável no banco. Decisão de aceitar/endurecer é do humano.
 14. **Short-circuit de alertas em caso encerrado (MENOR, do review de C):** `AlertasCobranca` retorna `[]` para caso encerrado — oculta uma `RevisaoPessoaCobrada` pendente que sobreviva ao encerramento (o `EncerrarCaso` não força resolver revisões). Coerente com §14 (encerrado = final); documentado no código. Confirmar com o humano se é intencional (é).
-15. **Gate de permissão `pastas` na judicialização (Etapa 8):** o UseCase garante o isolamento de tenant; o `can_access_module('pastas')` do controller entra com a camada HTTP na Etapa 8 (não há controllers nesta etapa).
+15. **Gate de permissão `pastas`/`cobrancas` na camada HTTP (Etapa 8):** os UseCases garantem o isolamento de tenant; o `can_access_module(...)` do controller entra com a camada HTTP na Etapa 8 (não há controllers nas etapas 5/6).
+16. **(E6) Exclusão disco-antes-de-DB (MENOR):** `ExcluirDocumento`/`ExcluirSecao` apagam o arquivo físico ANTES de remover a linha; se o `flush` falhar depois, o arquivo some mas a linha permanece (sem transação abarcando disco+DB). Aceito por design (apagar antes preserva o hash; espelha `ExcluirPastaSecao`). Endurecer só se virar problema real.
+17. **(E6) Cobertura de borda (MENOR):** branch `descricao === '' → null` no `EnviarDocumento` sem teste dedicado (uma mutação que remova `&& $descricao !== ''` passaria). Entrada vazia real chega via form; MENOR.
 
 ---
 
 ## Próxima ação exata
-> Iniciar a **Etapa 6 — Documentos do Caso de Cobrança** (PLAN §8; paralelização Baixa, 1–2 agentes). Passos:
-> 1. Confirmar branch `gestao-cobrancas`, HEAD `8cbd937` (ou posterior), working tree limpo, escritor único.
-> 2. Investigar `App\Shared\Service\ArquivoStorageService` (+ `CompressorArquivo`) e o file manager (`pasta-arquivos.js/.css`) — reusar, NÃO duplicar (§15/§24, invariável 25). Ver como `PastaDocumento`/`PastaSecao` mapeiam FK obrigatória a `pasta` (por isso criam-se entidades PRÓPRIAS `CobrancaDocumento`/`CobrancaSecao` com FK `caso`).
-> 3. Andaime: entidades `CobrancaDocumento`/`CobrancaSecao` (TenantAware+Auditavel, FK `caso` nn), parâmetro `cobrancas_uploads_dir` (`public/uploads/cobrancas`; test → `var/uploads-test/cobrancas`) + bind; migration (dev+test); factories; **cobrir na purga** + seed. Documento existe **sem** Pasta (invariável 25); ao judicializar, documentos PERMANECEM no Caso (não migram/duplicam).
-> 4. UseCases: `EnviarDocumento`/`MoverDocumento`/`ExcluirDocumento`/`CriarSecao`/`RenomearSecao`/`ExcluirSecao` reusando `ArquivoStorageService`.
-> 5. Testes: upload/serve/exclusão; guard IDOR + tenant + (CSRF quando houver controller, Etapa 8); documento sem Pasta; isolamento por tenant no disco (subpasta por tenant, padrão M5). Suíte global + tenant-safety + commit + docs.
+> Iniciar a **Etapa 7 — Importação em massa** (PLAN §9; SPEC §21; paralelização a definir). Passos:
+> 1. Confirmar branch `gestao-cobrancas`, HEAD `2ab1783` (ou posterior), working tree limpo, escritor único; `tests/Cobranca` 191/191.
+> 2. Ler `PLAN.md` §9 + `PARALLELIZATION_MAP.md` + SPEC §21. Investigar se já existe infra de importação/parser de planilha no projeto (reusar, não duplicar — §24: NÃO é importador universal).
+> 3. Storytelling do(s) UseCase(s) de importação ANTES de implementar (quem importa, o quê, validação de linha, idempotência, mapeamento de colunas, o que acontece com linha inválida). Decidir se há entidade de "job de importação" persistida ou fluxo stateless.
+> 4. Dedup por dígitos de CPF/CNPJ **dentro do tenant** (follow-up #3 — precisa índice funcional; avaliar na migration da etapa).
+> 5. Andaime → commit → fan-out se útil → review read-only → cherry-pick individual → cross-tenant DB → suíte global → tenant-safety → docs.
 
-> **Sem decisões de negócio pendentes.** Atenção da Etapa 6: é a primeira etapa a mexer em **disco/uploads** — respeitar subpasta por tenant (isolamento físico) e reusar a infra de arquivos existente sem duplicar.
+> **Sem decisões de negócio pendentes conhecidas** (confirmar no storytelling da E7). Atenção da Etapa 7: volume/performance de importação em lote e idempotência; manter o escopo do MVP (§24 — sem importador universal de planilhas).
