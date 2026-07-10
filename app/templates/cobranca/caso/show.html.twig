@@ -19,6 +19,11 @@
                 <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalGerarRevisao">
                     <i class="bi bi-person-exclamation me-1"></i>Revisão
                 </button>
+                {% if can_access_module('pastas') and not caso.pastaJudicialId %}
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
+                    <i class="bi bi-bank me-1"></i>Judicializar
+                </button>
+                {% endif %}
                 <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
                     <i class="bi bi-flag me-1"></i>Encerrar caso
                 </button>

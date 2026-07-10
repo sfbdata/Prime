@@ -124,6 +124,33 @@
 </div>
 {% endif %}
 
+{# ── Judicializar caso (só com o módulo pastas: forms.judicializar existe) ── #}
+{% if forms.judicializar is defined %}
+<div class="modal fade" id="modalJudicializar" tabindex="-1" aria-labelledby="tituloJudicializar" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.judicializar, {action: path('cobranca_caso_judicializar', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloJudicializar"><i class="bi bi-bank me-1"></i>Judicializar caso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <div>Vincula uma pasta judicial existente ao caso. A judicialização <strong>não encerra</strong> o caso — o acompanhamento financeiro continua.</div>
+                </div>
+                {{ form_row(forms.judicializar.pastaId) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Judicializar</button>
+            </div>
+            {{ form_end(forms.judicializar) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {# ── Registrar tentativa de cobrança ─────────────────────────────── #}
 <div class="modal fade" id="modalRegistrarTentativa" tabindex="-1" aria-labelledby="tituloRegistrarTentativa" aria-hidden="true">
     <div class="modal-dialog">

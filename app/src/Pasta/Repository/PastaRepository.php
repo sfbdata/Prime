@@ -74,6 +74,32 @@ class PastaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Mapa `label → id` das pastas do tenant, para selects (ex.: judicialização de Cobranças). Escopo
+     * multi-tenant obrigatório; label = NUP quando houver, senão "Pasta #id".
+     *
+     * @return array<string, int>
+     */
+    public function opcoesDoTenant(Tenant $tenant): array
+    {
+        $rows = $this->createQueryBuilder('p')
+            ->select('p.id', 'p.nup')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.nup', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $opcoes = [];
+        foreach ($rows as $row) {
+            $id = (int) $row['id'];
+            $label = ($row['nup'] !== null && $row['nup'] !== '') ? (string) $row['nup'] : 'Pasta #' . $id;
+            $opcoes[$label] = $id;
+        }
+
+        return $opcoes;
+    }
+
+    /**
      * @return Pasta[]
      */
     public function findByCliente(Cliente $cliente, Tenant $tenant): array
