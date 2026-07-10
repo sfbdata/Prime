@@ -11,6 +11,13 @@
             <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-briefcase"></i>{{ caso.objetoIdentificacao }}</h1>
             <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
             {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
+            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+            <div class="ms-auto d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
+                    <i class="bi bi-flag me-1"></i>Encerrar caso
+                </button>
+            </div>
+            {% endif %}
         </div>
         <div class="text-muted small">
             {% if caso.objetoDescricao %}{{ caso.objetoDescricao }} · {% endif %}
@@ -99,6 +106,13 @@
         <div class="tab-content border border-top-0 rounded-bottom p-3 bg-body">
             {# Obrigações #}
             <div class="tab-pane fade show active" id="tab-obrigacoes">
+                {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
+                        <i class="bi bi-plus-lg me-1"></i>Registrar obrigação
+                    </button>
+                </div>
+                {% endif %}
                 {% if caso.obrigacoes|length > 0 %}
                 <div class="table-responsive"><table class="table table-sm mb-0">
                     <thead><tr><th>Descrição</th><th>Vencimento</th><th class="text-end">Original</th><th class="text-end">Encargos</th><th class="text-end">Valor atual</th><th></th></tr></thead>
@@ -110,9 +124,18 @@
                         <td class="text-end">{{ o.valorOriginal|centavos }}</td>
                         <td class="text-end">{{ o.encargosReconhecidos|centavos }}</td>
                         <td class="text-end fw-semibold">{{ o.valorAtual|centavos }}</td>
-                        <td>
+                        <td class="text-end">
                             {% if o.substituidaPorAcordo %}<span class="badge text-bg-secondary" data-bs-toggle="tooltip" title="Substituída por acordo vigente — fora do saldo (invariável 15)">Substituída</span>{% endif %}
                             {% if o.ehParcelaAcordo %}<span class="badge text-bg-info" data-bs-toggle="tooltip" title="Parcela de acordo">Parcela</span>{% endif %}
+                            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                                    data-bs-toggle="modal" data-bs-target="#modalReconhecerValor"
+                                    data-acao-url="{{ path('cobranca_obrigacao_reconhecer', {id: o.id}) }}"
+                                    data-obrigacao-descricao="{{ o.descricao }}"
+                                    title="Reconhecer valor atualizado">
+                                <i class="bi bi-arrow-repeat"></i>
+                            </button>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}
@@ -200,6 +223,10 @@
         </div>
     </div>
 </section>
+
+{% if has_permission('resources.cobranca.gerenciar') %}
+{{ include('cobranca/caso/_acoes_modais.html.twig') }}
+{% endif %}
 </div>
 {% endblock %}
 
@@ -216,6 +243,19 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.cobrancas-page [data-bs-toggle="tooltip"]').forEach(function (el) {
         new bootstrap.Tooltip(el);
     });
+
+    /* Modal reutilizável de "reconhecer valor": o botão da linha injeta a URL de ação e o contexto. */
+    var modalReconhecer = document.getElementById('modalReconhecerValor');
+    if (modalReconhecer) {
+        modalReconhecer.addEventListener('show.bs.modal', function (event) {
+            var botao = event.relatedTarget;
+            if (!botao) { return; }
+            var form = document.getElementById('formReconhecerValor');
+            if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
+            var ctx = modalReconhecer.querySelector('[data-obrigacao-contexto]');
+            if (ctx) { ctx.textContent = 'Obrigação: ' + (botao.getAttribute('data-obrigacao-descricao') || ''); }
+        });
+    }
 });
 </script>
 {% endblock %}

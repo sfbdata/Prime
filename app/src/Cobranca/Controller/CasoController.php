@@ -4,8 +4,15 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\DTO\EncerrarCasoInput;
+use App\Cobranca\Exception\CasoEncerradoException;
+use App\Cobranca\Exception\SaldoNaoResolvidoException;
+use App\Cobranca\Form\EncerrarCasoType;
+use App\Cobranca\Form\ReconhecerValorAtualizadoType;
+use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
+use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\ListarCasosUseCase;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Service\PermissionChecker;
@@ -37,6 +44,7 @@ final class CasoController extends AbstractController
         private readonly CarteiraRepository $carteiraRepository,
         private readonly ListarCasosUseCase $listarCasos,
         private readonly MontarDetalheCasoUseCase $montarDetalheCaso,
+        private readonly EncerrarCasoUseCase $encerrarCaso,
     ) {
     }
 
@@ -93,6 +101,54 @@ final class CasoController extends AbstractController
 
         return $this->render('cobranca/caso/show.html.twig', [
             'caso' => $this->montarDetalheCaso->executar($caso),
+            'forms' => $this->formulariosDeMutacao(),
         ]);
+    }
+
+    #[Route('/{id}/encerrar', name: 'cobranca_caso_encerrar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function encerrar(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $caso = $this->casoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($caso === null) {
+            throw $this->createNotFoundException('Caso de cobrança não encontrado.');
+        }
+
+        $input = new EncerrarCasoInput();
+        $input->casoId = $id;
+        $form = $this->createForm(EncerrarCasoType::class, $input);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->encerrarCaso->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Caso encerrado.');
+            } catch (CasoEncerradoException | SaldoNaoResolvidoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        } else {
+            $this->flashErrosDoForm($form);
+        }
+
+        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+    }
+
+    /**
+     * Views (vazias) dos formulários de mutação renderizados como modais no detalhe do Caso. O
+     * processamento POST vive em cada controller de recurso; aqui só o render. Cresce por fatia da 8B.
+     *
+     * @return array<string, \Symfony\Component\Form\FormView>
+     */
+    private function formulariosDeMutacao(): array
+    {
+        return [
+            'registrarObrigacao' => $this->createForm(RegistrarObrigacaoType::class)->createView(),
+            'reconhecerValor' => $this->createForm(ReconhecerValorAtualizadoType::class)->createView(),
+            'encerrarCaso' => $this->createForm(EncerrarCasoType::class)->createView(),
+        ];
     }
 }

@@ -1,0 +1,75 @@
+{# Modais de mutação do Caso (Onda 8B). Só renderizados para quem tem a capacidade de gerenciar
+   cobranças; o gate real é no controller. Cada fatia da 8B acrescenta seus modais aqui. #}
+
+{# ── Registrar obrigação ─────────────────────────────────────────── #}
+<div class="modal fade" id="modalRegistrarObrigacao" tabindex="-1" aria-labelledby="tituloRegistrarObrigacao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.registrarObrigacao, {action: path('cobranca_obrigacao_registrar', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloRegistrarObrigacao"><i class="bi bi-plus-circle me-1"></i>Registrar obrigação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.registrarObrigacao.descricao) }}
+                {{ form_row(forms.registrarObrigacao.valorOriginal) }}
+                {{ form_row(forms.registrarObrigacao.vencimentoOriginal) }}
+                {{ form_row(forms.registrarObrigacao.referenciaExterna) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar</button>
+            </div>
+            {{ form_end(forms.registrarObrigacao) }}
+        </div>
+    </div>
+</div>
+
+{# ── Reconhecer valor atualizado (modal reutilizável; JS injeta action + contexto da linha) ── #}
+<div class="modal fade" id="modalReconhecerValor" tabindex="-1" aria-labelledby="tituloReconhecerValor" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.reconhecerValor, {attr: {id: 'formReconhecerValor'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloReconhecerValor"><i class="bi bi-arrow-repeat me-1"></i>Reconhecer valor atualizado</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" data-obrigacao-contexto>Obrigação selecionada.</p>
+                {{ form_row(forms.reconhecerValor.encargosReconhecidos) }}
+                <div class="form-text mb-2">Total de encargos reconhecidos — substitui o valor anterior; o principal (valor original) é preservado.</div>
+                {{ form_row(forms.reconhecerValor.motivo) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Reconhecer</button>
+            </div>
+            {{ form_end(forms.reconhecerValor) }}
+        </div>
+    </div>
+</div>
+
+{# ── Encerrar caso ───────────────────────────────────────────────── #}
+<div class="modal fade" id="modalEncerrarCaso" tabindex="-1" aria-labelledby="tituloEncerrarCaso" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.encerrarCaso, {action: path('cobranca_caso_encerrar', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloEncerrarCaso"><i class="bi bi-flag me-1"></i>Encerrar caso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <div>O encerramento só é aceito com o <strong>saldo exigível zerado</strong> (invariável 17). A judicialização não impede encerrar.</div>
+                </div>
+                {{ form_row(forms.encerrarCaso.observacao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-flag me-1"></i>Encerrar caso</button>
+            </div>
+            {{ form_end(forms.encerrarCaso) }}
+        </div>
+    </div>
+</div>

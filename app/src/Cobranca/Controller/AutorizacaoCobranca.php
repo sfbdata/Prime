@@ -6,6 +6,7 @@ namespace App\Cobranca\Controller;
 
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -77,5 +78,21 @@ trait AutorizacaoCobranca
         $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de Cobranças.');
 
         return $this->redirectToRoute('homepage');
+    }
+
+    /**
+     * Mutações da Onda 8B são POST-only com PRG (redirect sempre). Quando o Form é inválido, não há
+     * página para re-renderizar com erros inline — então os erros de validação viram flashes, exibidos
+     * ao voltar para a tela de origem.
+     */
+    private function flashErrosDoForm(FormInterface $form): void
+    {
+        foreach ($form->getErrors(true) as $erro) {
+            $this->addFlash('danger', $erro->getMessage());
+        }
+
+        if (!$form->isSubmitted()) {
+            $this->addFlash('danger', 'Não foi possível processar o formulário.');
+        }
     }
 }
