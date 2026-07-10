@@ -116,12 +116,11 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
         self::assertCount(0, $em->getRepository(Pasta::class)->findBy(['tenant' => $tenant]));
     }
 
-    #[TestDox('POST /nova com NUP duplicado redireciona para expediente_index e mantém apenas uma pasta')]
-    public function testNupDuplicadoNaoCriaPasta(): void
+    #[TestDox('POST /nova com NUP duplicado agora cria segunda pasta (NUP repetível)')]
+    public function testNupDuplicadoCriaSegundaPasta(): void
     {
         $client          = static::createClient();
         [$user, $tenant] = $this->criarUsuarioAdmin();
-        // NUP em maiúsculas para a checagem findOneBy bater com o que setNup() armazena
         $nup = 'NUP-DUP-' . strtoupper(uniqid());
 
         $this->logarComTenant($client, $user, $tenant);
@@ -132,10 +131,10 @@ final class CriarPastaControllerTest extends JusPrimeWebTestCase
 
         $client->request('POST', '/pasta/nova', ['nup' => $nup]);
         self::assertResponseRedirects();
-        self::assertStringContainsString('expediente', (string) $client->getResponse()->headers->get('Location'));
+        self::assertMatchesRegularExpression('#/pasta/\d+$#', (string) $client->getResponse()->headers->get('Location'));
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        self::assertCount(1, $em->getRepository(Pasta::class)->findBy(['nup' => $nup]));
+        self::assertCount(2, $em->getRepository(Pasta::class)->findBy(['nup' => $nup]));
     }
 
     #[TestDox('POST /nova sem módulo pastas redireciona para expediente_index sem criar pasta')]

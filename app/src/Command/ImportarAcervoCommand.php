@@ -20,7 +20,14 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  * Importa pastas do acervo via CriarPastaUseCase, usando alta_confianca.csv
  * gerado pela Fase 0 (app:acervo:parsear).
  *
- * Uso:
+ * ⚠️ LEGADO / NÃO RE-EXECUTAR: este comando é de uma carga one-time já concluída
+ * (maio/2026). Desde a feature de sincronização com o Drive o NUP pode repetir
+ * (o UNIQUE foi removido e o CriarPastaUseCase não barra mais NUP duplicado), então
+ * re-rodar este import CRIARIA PASTAS DUPLICADAS (risco R2 da spec
+ * docs/specs/sincronizacao-drive-bidirecional.md). A idempotência por NUP não existe
+ * mais; a dedup do futuro é por drive_folder_id, feita pelo motor de reconciliação.
+ *
+ * Uso (histórico):
  *   docker exec jusprime_php_dev bash -c \
  *     'cd app && php bin/console app:acervo:importar \
  *      --csv=/tmp/acervo/alta_confianca.csv \
@@ -239,7 +246,9 @@ final class ImportarAcervoCommand extends Command
                 }
                 $importadas++;
             } catch (\InvalidArgumentException $e) {
-                // NUP duplicado ou NUP vazio — sempre pula, independente de --pular-erros
+                // Só NUP vazio cai aqui agora: o CriarPastaUseCase não barra mais NUP
+                // duplicado (NUP pode repetir desde a feature de sync com o Drive). Sempre
+                // pula, independente de --pular-erros. Ver aviso "NÃO RE-EXECUTAR" no topo.
                 $puladas++;
                 $io->writeln(sprintf(
                     '  <comment>[pulada]</comment> Linha %d NUP=%s: %s',

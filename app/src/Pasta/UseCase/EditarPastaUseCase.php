@@ -6,14 +6,12 @@ namespace App\Pasta\UseCase;
 
 use App\Pasta\Entity\Pasta;
 use App\Pasta\DTO\EditarPastaDTO;
-use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class EditarPastaUseCase
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
-        private readonly PastaRepository $pastaRepository,
     ) {}
 
     public function executar(EditarPastaDTO $dto, Pasta $pasta): void
@@ -24,16 +22,7 @@ final class EditarPastaUseCase
             throw new \InvalidArgumentException('O NUP é obrigatório.');
         }
 
-        // NOTA: findOneBy busca pelo valor cru (pré-normalização da entidade).
-        // setNup() faz mb_strtoupper(), então "abc" e "ABC" geram conflito silencioso na DB.
-        // Bug latente replicado fielmente do controller legado — não corrigir aqui.
-        // Escopo explícito por tenant: NUP único por escritório (não depender só do filtro global,
-        // desligado em CLI). O tenant vem da própria pasta sendo editada.
-        $existente = $this->pastaRepository->findOneBy(['nup' => $nup, 'tenant' => $pasta->getTenant()]);
-        if ($existente !== null && $existente->getId() !== $pasta->getId()) {
-            throw new \InvalidArgumentException(sprintf('O NUP "%s" já está em uso por outra pasta.', $nup));
-        }
-
+        // NUP pode repetir (sync Drive): a identidade é o driveFolderId, não o NUP.
         $pasta->setNup($nup);
         $pasta->setNomeCliente($dto->nomeCliente);
         $pasta->setNomeAcao($dto->nomeAcao);

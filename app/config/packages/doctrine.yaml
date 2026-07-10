@@ -93,6 +93,7 @@ doctrine:
         dql:
             numeric_functions:
                 CAST_INT: App\Shared\Doctrine\DQL\CastInteger
+                CAST_INT_PREFIXO: App\Shared\Doctrine\DQL\CastIntegerPrefixo
             string_functions:
                 UNACCENT: App\Shared\Doctrine\DQL\Unaccent
 

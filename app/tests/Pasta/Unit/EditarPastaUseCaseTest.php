@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Pasta\Unit;
 
-use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\UseCase\EditarPastaUseCase;
-use App\Pasta\Repository\PastaRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -19,23 +17,20 @@ use PHPUnit\Framework\TestCase;
 final class EditarPastaUseCaseTest extends TestCase
 {
     private EntityManagerInterface&MockObject $em;
-    private PastaRepository&MockObject $pastaRepository;
     private EditarPastaUseCase $useCase;
 
     protected function setUp(): void
     {
-        $this->em              = $this->createMock(EntityManagerInterface::class);
-        $this->pastaRepository = $this->createMock(PastaRepository::class);
-        $this->useCase         = new EditarPastaUseCase($this->em, $this->pastaRepository);
+        $this->em      = $this->createMock(EntityManagerInterface::class);
+        $this->useCase = new EditarPastaUseCase($this->em);
     }
 
-    #[TestDox('NUP vazio lança InvalidArgumentException')]
+    #[TestDox('NUP vazio lança InvalidArgumentException e não persiste')]
     public function testNupVazioLancaExcecao(): void
     {
         $pasta = new Pasta();
         $dto   = new EditarPastaDTO(nup: '   ', situacao: Pasta::SITUACAO_ATIVA);
 
-        $this->pastaRepository->expects($this->never())->method('findOneBy');
         $this->em->expects($this->never())->method('flush');
 
         $this->expectException(\InvalidArgumentException::class);
@@ -44,58 +39,11 @@ final class EditarPastaUseCaseTest extends TestCase
         $this->useCase->executar($dto, $pasta);
     }
 
-    #[TestDox('NUP duplicado de outra pasta lança InvalidArgumentException')]
-    public function testNupDuplicadoDeOutraPastaLancaExcecao(): void
+    #[TestDox('NUP repetido agora é permitido: persiste sem lançar')]
+    public function testNupRepetidoEhPermitido(): void
     {
-        $tenant   = new Tenant();
-        $pasta    = new Pasta();
-        $pasta->setTenant($tenant);
-        // Simula ID da pasta sendo editada
-        $refPasta = new \ReflectionClass($pasta);
-        $refId    = $refPasta->getProperty('id');
-        $refId->setValue($pasta, 42);
-
-        $outra = new Pasta();
-        $refId->setValue($outra, 99);
-
-        $dto = new EditarPastaDTO(nup: 'NUP-001', situacao: Pasta::SITUACAO_ATIVA);
-
-        // A checagem de duplicidade deve ser escopada pelo tenant da própria pasta.
-        $this->pastaRepository
-            ->expects($this->once())
-            ->method('findOneBy')
-            ->with(['nup' => 'NUP-001', 'tenant' => $tenant])
-            ->willReturn($outra);
-
-        $this->em->expects($this->never())->method('flush');
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('O NUP "NUP-001" já está em uso por outra pasta.');
-
-        $this->useCase->executar($dto, $pasta);
-    }
-
-    #[TestDox('NUP igual ao da própria pasta não lança exceção e persiste')]
-    public function testNupIgualAoProprioPastaPermiteEdicao(): void
-    {
-        $tenant = new Tenant();
         $pasta = new Pasta();
-        $pasta->setTenant($tenant);
-        $ref   = new \ReflectionClass($pasta);
-        $refId = $ref->getProperty('id');
-        $refId->setValue($pasta, 42);
-
-        $dto = new EditarPastaDTO(
-            nup: 'NUP-001',
-            nomeCliente: 'Cliente X',
-            situacao: Pasta::SITUACAO_ATIVA,
-        );
-
-        $this->pastaRepository
-            ->expects($this->once())
-            ->method('findOneBy')
-            ->with(['nup' => 'NUP-001', 'tenant' => $tenant])
-            ->willReturn($pasta);
+        $dto   = new EditarPastaDTO(nup: 'NUP-001', nomeCliente: 'Cliente X', situacao: Pasta::SITUACAO_ATIVA);
 
         $this->em->expects($this->once())->method('flush');
 
@@ -104,18 +52,12 @@ final class EditarPastaUseCaseTest extends TestCase
         self::assertSame('NUP-001', $pasta->getNup());
     }
 
-    #[TestDox('Situação inválida é ignorada, não chama setSituacao')]
+    #[TestDox('Situação inválida é ignorada')]
     public function testSituacaoInvalidaEhIgnorada(): void
     {
         $pasta = new Pasta();
         $pasta->setSituacao(Pasta::SITUACAO_ATIVA);
-
         $dto = new EditarPastaDTO(nup: 'NUP-002', situacao: 'xpto');
-
-        $this->pastaRepository
-            ->expects($this->once())
-            ->method('findOneBy')
-            ->willReturn(null);
 
         $this->em->expects($this->once())->method('flush');
 
@@ -129,13 +71,7 @@ final class EditarPastaUseCaseTest extends TestCase
     {
         $pasta = new Pasta();
         $pasta->setSituacao(Pasta::SITUACAO_ATIVA);
-
         $dto = new EditarPastaDTO(nup: 'NUP-003', situacao: Pasta::SITUACAO_ARQUIVADA);
-
-        $this->pastaRepository
-            ->expects($this->once())
-            ->method('findOneBy')
-            ->willReturn(null);
 
         $this->em->expects($this->once())->method('flush');
 
