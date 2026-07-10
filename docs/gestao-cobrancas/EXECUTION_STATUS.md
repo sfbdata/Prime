@@ -1,7 +1,7 @@
 # EXECUTION_STATUS — Gestão de Cobranças
 
 > Panorama VIVO da implementação. Fonte de verdade do progresso. **Confirmar sempre contra o Git/código — nunca contra memória de chat.**
-> Última atualização: 2026-07-10 (Etapa 7 — ponto seguro entregue; importador REAL bloqueado por falta de fonte).
+> Última atualização: 2026-07-10 (Etapa 7 — importação em massa CONCLUÍDA: adapter real TOPLIFE + importador idempotente).
 
 ---
 
@@ -9,14 +9,14 @@
 
 | Campo | Valor real |
 |---|---|
-| **Etapa atual** | Etapa 7 — Importação em massa → **PARCIAL**: importador REAL **BLOQUEADO** (fonte de contabilidade ausente do repo); **ponto seguro ENTREGUE** (dedup de Pessoa por dígitos, intra-tenant) |
+| **Etapa atual** | Etapa 7 — Importação em massa → **✅ CONCLUÍDA** (ponto seguro dedup-dígitos + adapter real TOPLIFE + importador `prever`/`confirmar` idempotente). Próxima = Etapa 8 (Telas/UX) |
 | **Tarefa atual** | Nenhuma em execução |
-| **Último checkpoint estável** | Etapa 7 ponto seguro — **suíte GLOBAL verde 1482/1482**; `tests/Cobranca` 201/201 (+ dedup por dígitos formatado×cru cross-tenant) |
+| **Último checkpoint estável** | `5a5ecd6` — **suíte GLOBAL verde 1501/1501**; `tests/Cobranca` 220/220 |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `93445b0` no início da sessão; +2 commits da Etapa 7 (implementação + docs vivos) |
-| **Working tree** | limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar) |
-| **Migrations (dev+test)** | E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; E4 `Version20260709154458`; E5 `Version20260709191327`; E6 `Version20260709215805`; **E7 `Version20260710130000`** (índices FUNCIONAIS de dedup por dígitos de cpf/cnpj — SEM coluna nova; ver aviso de drift na migration) |
-| **Escritor** | ÚNICO (orquestrador). Etapa 7 (ponto seguro) NÃO teve fan-out — mudança coesa e pequena |
+| **HEAD** | `5a5ecd6` (+1 commit de docs vivos a seguir) |
+| **Working tree** | limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar; + os `.xlsx` reais TOPLIFE gitignorados) |
+| **Migrations (dev+test)** | E1..E6 (ver histórico); **E7 `Version20260710130000`** (índices funcionais dedup dígitos cpf/cnpj) **+ `Version20260710160000`** (índice PARCIAL ÚNICO de idempotência da importação: obrigacao(caso_id, referencia_externa) WHERE NOT NULL) |
+| **Escritor** | ÚNICO (orquestrador). Etapa 7 sem fan-out — fluxo coeso e acoplado |
 
 ### Commits da Etapa 2 (sobre `2719738`)
 - `121c173` — andaime: entidades `CasoCobranca`/`Obrigacao`/`EventoHistorico`, enums `StatusCaso`/`TipoEventoHistorico`, 3 repos-stub (+queries tenant-scoped), migration `Version20260709123952` (dev+test), 3 factories, **cobertura da purga** (3 tabelas) + seed no teste da purga, spec `docs/specs/cobranca-etapa2-caso-saldo.md`.
@@ -100,12 +100,19 @@
 - ✅ **Etapa 4** — Acordos: entidade `Acordo`+enum `StatusAcordo`, FKs `Obrigacao.acordoOrigem`/`acordoSubstituto`, `doCasoExigiveis` status-aware, `CalculadoraSaldo` deriva por status (rompido/cancelado restaura originais), 4 UseCases (`CriarAcordo`/`RomperAcordo`/`CancelarAcordo`/`MarcarAcordoCumprido`), cross-tenant DB, global 1400/1400.
 - ✅ **Etapa 5** — Estados/Judicialização (`pastaJudicial`)/Encerramento/ProximaAcao/Revisão/Alertas: 2 entidades (`ProximaAcao`/`RevisaoPessoaCobrada`) + 2 enums, FK `CasoCobranca.pastaJudicial` (unidirecional), 6 UseCases (`Judicializar`/`Encerrar`/`Definir`/`Concluir`/`Gerar`/`Resolver`), serviço `AlertasCobranca` (5 alertas derivados), cross-tenant DB (isolamento da Pasta provado), global 1441/1441.
 - ✅ **Etapa 6** — Documentos do caso: entidades `CobrancaSecao`/`CobrancaDocumento` (FK caso nn, INV-25: sem Pasta), enum `CategoriaDocumentoCobranca`, 6 UseCases (`Enviar`/`Mover`/`Excluir` documento + `Criar`/`Renomear`/`Excluir` seção) reusando `ArquivoStorageService`, isolamento físico por tenant no disco, purga coberta, cross-tenant DB+disco (judicialização preserva docs), global 1472/1472.
-- 🟡 **Etapa 7** — Importação em massa: importador REAL **BLOQUEADO** (fonte de contabilidade ausente do repo — SPEC §21 exige o relatório real p/ adapter/colunas/idempotência); **ponto seguro ENTREGUE** — dedup de Pessoa por dígitos de CPF/CNPJ (intra-tenant, advisory; fecha o núcleo do follow-up #3). Ver `docs/specs/cobranca-etapa7-importacao.md`.
+- ✅ **Etapa 7** — Importação em massa: **CONCLUÍDA**. Ponto seguro (dedup dígitos) + adapter real TOPLIFE + importador idempotente. Ver `docs/specs/cobranca-etapa7-importacao.md` e `docs/gestao-cobrancas/MAPEAMENTO_FONTE_TOPLIFE.md`.
 - ⬜ **Etapa 8** Telas/UX · **9** Alertas UI + Dashboard.
 
-### Etapa 7 — o que foi entregue (ponto seguro; importador diferido)
-- **Bloqueio documentado:** nenhuma fonte real de cobrança/contabilidade no repositório (só CSVs de acervo/pastas em `tmp/acervo/`, gitignored, sem relação). Adapter/mapeamento de colunas/`referenciaExterna`/regras finas de reimportação ficam para quando o relatório real (anonimizado) entrar — SPEC §21 proíbe inventar o formato.
-- **Entregue (independe da fonte, invariável §23.24):** `NormalizadorDocumento::apenasDigitos()` (Service, ponto único de normalização); `SugerirPessoasDuplicadasUseCase` normaliza param p/ dígitos; `PessoaRepository::buscarPossiveisDuplicadas` vira **fronteira auto-defensiva** e compara por dígitos via `regexp_replace(...)` em SQL nativo (RSM), sempre intra-tenant; migration `Version20260710130000` com **índices funcionais** (aviso de drift embutido). Testes: `NormalizadorDocumentoTest` (8), unit da sugestão atualizado, funcional `testDedupCasaPorDigitosSemAtravessarTenant` (formatado×cru + cross-tenant). Sem tocar caminho de escrita nem entidades do núcleo. Global 1482/1482, `tests/Cobranca` 201/201. Revisado (feature-review-agent): 0 bloqueantes; 2 achados tratados (#1 drift, #2 fronteira), 2 aceitos (#3 índices planos redundantes, #4 `\D` Unicode).
+### Etapa 7 — o que foi entregue
+**Parte 1 — ponto seguro (independe da fonte, invariável §23.24):** dedup de Pessoa por **dígitos** de CPF/CNPJ (`NormalizadorDocumento`, `SugerirPessoasDuplicadas`, `PessoaRepository::buscarPossiveisDuplicadas` com `regexp_replace`, índices funcionais `Version20260710130000`). Fecha o núcleo do follow-up #3.
+
+**Parte 2 — importador real TOPLIFE (fonte real fornecida pelo humano):**
+- **Fonte:** relatórios "Inadimplência detalhada" da contábil L.G (condomínios TOPLIFE I/II). `.xlsx` reais têm PII → **gitignorados** (`docs/gestao-cobrancas/*.xlsx`). Análise + mapeamento fonte→domínio + decisões A–E do humano em `MAPEAMENTO_FONTE_TOPLIFE.md`.
+- **Adapter** `TopLifeInadimplenciaAdapter` (fonte-específico, §24 sem universal): lê o layout, agrupa por **(Objeto, NN)** em `BoletoImportavel` (principal Taxa+Energia−Descontos; encargos Juros+Multa; honorários informados sem dupla contagem — só preview); classifica ignorados (rodapé) e rejeitados com motivo. VOs `BoletoImportavel`/`LinhaRejeitada`/`ResultadoLeitura`/`ResultadoImportacao`. Fixture anonimizada `app/tests/Fixtures/Cobranca/importacao/toplife_amostra.xlsx`.
+- **UseCase** `ImportarRelatorioCarteiraUseCase` (`prever` dry-run honesto + `confirmar` transacional): dentro de UMA Carteira; reusa `CriarObjeto`/`CriarPessoa`/`Vincular`/`AbrirCaso`/`RegistrarObrigacao`; **idempotente** (dedup Objeto por identificação, Obrigação por refExterna=NN, Pessoa por nome normalizado no Objeto); reimport atualiza SÓ encargos (preserva `valorOriginal`, invariável 20); honorários NÃO persistidos (derivados, §18/§19); acordo só como observação (decisão E); NUNCA cruza tenant.
+- **Migration** `Version20260710160000`: índice PARCIAL ÚNICO de idempotência (aviso de drift embutido).
+- **Testes:** adapter (7), NormalizadorNome (5), funcional DB (7: import, reimport idempotente, **reimport de sacado divergente sem acúmulo**, preview honesto sem persistir, cross-tenant, 2 tenants isolados, índice único barra duplicata). Global **1501/1501**.
+- **Revisão adversarial:** 1 bloqueante (B1: reimport divergente duplicava Pessoa) **CORRIGIDO** + NB1 (agrupar por Objeto+NN), NB2 (preview honesto), NB4 (teste do índice), NB5 (reimport só encargos) tratados; NB3/NB6/NB7/NB8 avaliados e aceitos/diferidos (NB7 gate HTTP = Etapa 8).
 
 ### Transversal / deploy (fim)
 - ⬜ Data-migration de permissões `cobrancas` p/ **produção** (dev/test já via fixture).
@@ -136,12 +143,8 @@
 ---
 
 ## Próxima ação exata
-> **DECISÃO DO HUMANO** entre duas frentes — a Etapa 7 (importador real) está BLOQUEADA por falta da fonte:
+> **Etapa 8 — Telas operacionais / UX** (PLAN §9 item Etapa 8 + SPEC §26). A Etapa 7 está concluída (importador com back-end pronto, mas SEM camada HTTP — o disparo da importação por tela/upload é parte da Etapa 8, follow-up #15/NB7 da revisão).
+> Escopo E8: item de menu **gated `can_access_module('cobrancas')`**; lista de carteiras → visão da carteira → lista de casos (filtro reutilizável) → **detalhe do caso** (tela central) → formulários de ação; **tela de importação** (upload `.xlsx` → `TopLifeInadimplenciaAdapter::ler` → `ImportarRelatorioCarteiraUseCase::prever` (preview) → confirmar); controllers finos com guard permissão/tenant/IDOR/CSRF; religar o file manager `pasta-arquivos.js` por `data-*`.
+> Passos: (1) confirmar Git/escritor único/`tests/Cobranca` verde; (2) storytelling das rotas + permissões; (3) controllers + templates + forms; (4) functional por rota (permissão/tenant/IDOR/CSRF/render) + E2E opcional; (5) tenant-safety-review antes de fechar.
 >
-> **Opção A — desbloquear a Etapa 7:** fornecer 1 relatório real **anonimizado** da contabilidade (`.xlsx`/`.csv`) em local versionável (ex.: `app/tests/Fixtures/Cobranca/importacao/`). Só então: storytelling do importador → adapter da fonte específica (mapeamento colunas→conceitos) → upload/parse/preview/confirmação/relatório → idempotência (`referenciaExterna` definida com o real) → cross-tenant → docs. NÃO inventar colunas/regras sem o relatório (§21/§24).
->
-> **Opção B — seguir para a Etapa 8 (Telas/UX), que NÃO está bloqueada:** PLAN §9 (item 221) + §26 da SPEC. Item de menu gated `can_access_module('cobrancas')`, lista de carteiras → visão da carteira → lista de casos (filtro reutilizável) → **detalhe do caso** (tela central) → formulários de ação; controllers finos com guard permissão/tenant/IDOR/CSRF; religar o file manager `pasta-arquivos.js` por `data-*` (follow-up #15). A E7 (importador) volta quando a fonte real chegar.
->
-> **Recomendação:** Opção B (destrava trabalho substancial imediato), mantendo a E7 aberta até o relatório real. O ponto seguro da E7 (dedup por dígitos) já está entregue e serve tanto ao cadastro manual quanto ao futuro importador.
->
-> Atenção permanente: §24 — nunca importador universal; §21 — dentro de uma Carteira explícita; dedup só intra-tenant.
+> Atenção permanente: §24 — nunca importador universal; §21 — importação dentro de uma Carteira explícita; dedup só intra-tenant; honorários derivados (§18/§19).
