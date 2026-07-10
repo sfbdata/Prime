@@ -47,6 +47,10 @@ Controller fino: `Request → Form/DTO → UseCase → (flush interno) → redir
 - **Coleções aninhadas** → `CollectionType` com `entry_type` do sub-Form (`AlocacaoPagamentoInput` → `AlocacaoPagamentoType`; `ParcelaAcordoInput` → `ParcelaAcordoType`), `allow_add`/`allow_delete`/`by_reference:false`, `prototype` p/ JS. `CriarAcordoInput.obrigacoesSubstituidasIds` = `int[]` → `ChoiceType` multiselect das obrigações exigíveis do caso.
 - Todo Form: `data_class => <Input>::class`; CSRF default do Symfony; classe `final`; validação via `#[Assert]` do DTO (nada de constraint no Form).
 
+## Estado de execução (2026-07-10)
+
+Ordem REAL executada (reordenada por complexidade/independência — mecânicas primeiro, coleção/seleção depois): **8B-0 fundação → 8B-A obrigações/encerrar → 8B-B ação/tentativa/revisão → 8B-C acordo** ✅ (commits `29e7a8e`→`30e4cf4`, revisados sem bloqueante, `tests/Cobranca` 288/288). **Faltam: 8B-D financeiro (pagamento/corrigir/liquidação) e 8B-E cadastro+seleção (carteira/objeto/pessoa/vínculo/abrir/alterar-pessoa/judicializar).** Detalhe operacional e "padrão estabelecido" no `docs/gestao-cobrancas/SESSION_HANDOFF.md`.
+
 ## Decomposição em fatias (single-writer sequencial — decisão de paralelização)
 
 **Fan-out foi avaliado e recusado para o cluster do Caso.** O `PARALLELIZATION_MAP` prevê 3–4 agentes na 8B, MAS o pré-requisito é independência real de arquivos. As mutações caso-aninhadas (obrigação, pagamento, liquidação, acordo, ação, tentativa, revisão, alterar pessoa, encerrar, judicializar) **todas editam o template compartilhado `caso/show.html.twig`** (botões + modais) — não são file-independentes. Conforme a instrução da onda ("Use paralelização apenas onde houver grupos de ações realmente isolados. Caso contrário, use um único escritor") e o workflow ("na dúvida sobre independência → sequencial"), o cluster do Caso é **single-writer (orquestrador)**. O cluster de Cadastro é file-independente do Caso, porém pequeno; sequencial evita overhead de fan-out sem perda real. **Portanto: orquestrador único, fatias sequenciais, cada uma committada e testada.** (Se uma fatia futura crescer e ficar isolada por partials, reavaliar.)

@@ -1,54 +1,55 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: 2026-07-10 — **Etapa 8 Onda 8A (Telas de LEITURA) CONCLUÍDA**: menu gated + lista de carteiras + visão da carteira + lista de casos (filtro reutilizável) + detalhe do caso (tela central). Mutações/forms (8B) e importação/file-manager (8C) ficam para as próximas ondas.
+> Sessão encerrada em: 2026-07-10 — **Etapa 8 Onda 8B PARCIAL: fundação + 3 fatias de mutações caso-level (obrigações/encerrar, ação/tentativa/revisão, acordo) CONCLUÍDAS, testadas e revisadas.** Faltam 2 fatias: **8B-D financeiro** e **8B-E cadastro+seleção**.
 
 ---
 
 ## Estado atual
 - **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
-- **HEAD:** feature da Onda 8A em `3e20b3e`; docs vivos em `5950015` e no commit de preparação de handoff a seguir (o topo real pode ser esse último — confirme com `git log`). Tudo sobre `d2101a7` (Etapa 7).
-- **Etapa:** 8 → **Onda 8A CONCLUÍDA**. Próxima = **Onda 8B** (Formulários/mutações), depois **8C** (Importação visual + Documentos file-manager).
-- **Suíte:** GLOBAL **1515/1515**; `tests/Cobranca` **234/234** (+14 da 8A).
-- **Working tree:** limpo (untracked só `.claude/worktrees/` — worktrees de agente, NÃO commitar; e os `.xlsx` reais TOPLIFE gitignorados).
-- **Escritor:** ÚNICO (orquestrador). Onda 8A SEM fan-out — camada acoplada (DTOs→controllers→templates); protocolo permite 1 agente para trabalho acoplado.
+- **HEAD:** `30e4cf4` (correções da revisão). Cadeia da 8B sobre a Onda 8A (`b0d2786`).
+- **Etapa:** 8 → **Onda 8B EM ANDAMENTO**. Fatias 8B-0/A/B/C ✅. Próxima = **8B-D (financeiro)**, depois **8B-E (cadastro+seleção)**; depois **8C** (importação visual + file-manager) e **Etapa 9**.
+- **Suíte:** `tests/Cobranca` **288/288**; GLOBAL **1569/1569** (medido no HEAD `30e4cf4`).
+- **Working tree:** limpo (untracked só `.claude/worktrees/` e os `.xlsx` TOPLIFE gitignorados).
+- **Escritor:** ÚNICO (orquestrador). **Fan-out foi AVALIADO e RECUSADO** para o cluster do Caso: todas as mutações caso-aninhadas editam o template compartilhado `caso/show.html.twig` + `caso/_acoes_modais.html.twig` → não são file-independentes. Decisão registrada na spec §Decomposição.
 - **Migrations:** nenhuma na Etapa 8 (só camada HTTP).
 
-## O que foi concluído nesta sessão (Onda 8A)
-**Camada HTTP de LEITURA da Gestão de Cobranças** (só GET; sem mutação):
-- **Fundação:** `badgeClass()` nos enums `StatusCaso`/`StatusAcordo`/`StatusProximaAcao`/`StatusRevisao` + `badgeClass()`/`icone()` em `TipoAlerta`; filtro Twig `|centavos` (`App\Cobranca\Twig\CobrancaExtension` — centavos int → "R$ x"); métodos de listagem tenant-scoped nos repos (`CarteiraRepository::findByFilters/countByFilters/opcoesFacetaDoTenant`, `CasoCobrancaRepository::findByFilters/countByFilters/daCarteira`, `ObjetoCobrancaRepository::contarDaCarteira`, `Pagamento/Liquidacao/AcordoRepository::doCaso`); 11 Output DTOs de leitura (`CarteiraResumoOutput`, `CarteiraDetalheOutput`, `CasoResumoOutput`, `CasoDetalheOutput` + sub-DTOs `Obrigacao/Pagamento/Liquidacao/Acordo/ProximaAcao/EventoHistorico/RevisaoOutput`); 4 UseCases de leitura (`ListarCarteiras`, `ListarCasos`, `MontarVisaoCarteira`, `MontarDetalheCaso`).
-- **Rotas (4, prefixo `cobranca_`):** `cobranca_carteira_index` (`GET /cobrancas`, landing do menu, filtro reutilizável XHR), `cobranca_carteira_show` (`GET /cobrancas/carteiras/{id}`, visão da carteira), `cobranca_caso_index` (`GET /cobrancas/casos`, filtro reutilizável XHR), `cobranca_caso_show` (`GET /cobrancas/casos/{id}`, **detalhe central** com abas Obrigações/Pagamentos&Liquidações/Acordos/Documentos[placeholder 8C]/Histórico[timeline] + cabeçalho com saldo/estado/pessoa cobrada/próxima ação/alertas).
-- **Menu:** item "Cobranças" no `_sidebar.html.twig` gated por `can_access_module('cobrancas')`; `pageTitle` no `base.html.twig`.
-- **UX:** `public/css/cobrancas.css` (tema claro/escuro via `--bs-*`/`--jp-accent`); badges `text-bg-*`; realce de linha para saldo vencido; tooltips; sub-nav Carteiras×Casos; empty states; cards mobile.
-- **Segurança:** gate `canAccessModule('cobrancas')` nas 4 rotas; `findOneByIdDoTenant` → 404 (anti-IDOR) nos 2 `show`; toda query de listagem com `WHERE tenant = :tenant` explícito. GET-only → sem CSRF (mutações são 8B).
-- **Testes:** `CobrancaTelasControllerTest` (14): sem-auth→login, sem-módulo→redirect, render 200, XHR fragmento (carteira e caso), IDOR cross-tenant 404 (carteira e caso), não-vazamento na lista, facetas status/carteira, ordenação/paginação, faceta modo.
-- **Revisão adversarial** (feature-review-agent): SEM bloqueante. #2 (facetas/ordenação/paginação sem teste) TRATADO (+4 testes). #1 (INNER JOIN em nullable) e #3 (tooltip morre no XHR) verificados como NON-ISSUE (objeto/pessoa são `JoinColumn(nullable:false)` = NOT NULL no DB; e `filtro-tabela.js::injetarHtml` RECRIA `<script>` do fragmento → tooltips re-executam). NITs #4–#7 aceitos/documentados.
-- **Tenant-safety-review:** LIMPO (0 crítico/alto/médio).
+## Commits desta sessão (Onda 8B, sobre `b0d2786`)
+- `29e7a8e` — **8B-0 Fundação**: trait `AutorizacaoCobranca` (gate módulo + capacidade via `hasPermission`), `CentavosType`+`CentavosParaReaisTransformer` (int centavos ↔ reais pt-BR, aritmética inteira, unit-testado), refactor dos 2 controllers 8A p/ o trait, **fix de flake latente do teste 8A** (asserção contra HTML escapado), spec `docs/specs/cobranca-etapa8b-mutacoes.md`.
+- `4973dac` — **8B-A**: registrar obrigação, reconhecer valor (modal reutilizável), encerrar caso. `ObrigacaoController`+`CasoController::encerrar`. Base de teste `CobrancaWebTestCase`.
+- `c190d04` — **8B-B**: definir/concluir próxima ação (`AcaoCobrancaController`), registrar tentativa (`CasoController`), gerar/resolver revisão (`RevisaoCobrancaController`).
+- `e718a4d` — **8B-C**: criar acordo (multiselect obrigações escopado + coleção de parcelas), romper/cancelar (modais reutilizáveis), cumprir (CSRF manual). `AcordoController`. Flag `AcordoOutput.ativo` (aditivo).
+- `30e4cf4` — **correções da revisão** (sem bloqueantes): `formulariosDeMutacao` só monta forms se `hasPermission('resources.cobranca.gerenciar')`; matriz de teste de cancelar acordo fechada (sem-cap/IDOR/CSRF).
 
-## Decisão mantida da Etapa 7 (NÃO alterar)
-Linhas da fonte só com encargos/honorários, sem principal identificável: rejeitadas com motivo claro, visíveis no relatório, sem criar Obrigação com principal zero. Intacta.
+## Padrão ESTABELECIDO da 8B (replicar em 8B-D/E — NÃO reinventar)
+Toda mutação, na ordem: **1) gate** `tenantComCapacidade('resources.cobranca.gerenciar' | 'resources.carteira.gerenciar' | 'resources.cobranca.movimentacao_financeira')` → null = `semAcesso()`; **2) resolver entidade** `findOneByIdDoTenant($id,$tenant)` → null = `createNotFoundException` (404 anti-IDOR), **antes** do CSRF; **3) CSRF** (Symfony Form automático; ou `isCsrfTokenValid('nome_'.$id)` manual em ação sem campos); **4) mutação** `try { $useCase->executar($input,$tenant,$user) } catch (<domínio>) { addFlash danger }`, sucesso → `addFlash success`; **5) PRG sempre** `redirectToRoute('cobranca_caso_show', ...)`. Controller fino; UseCases fazem flush internamente (NÃO chamar flush).
+- **Forms**: `data_class = Input DTO`; dinheiro = `CentavosType`; datas = `DateType single_text input:datetime_immutable`; enums = `EnumType`; coleção = `CollectionType` (ver acordo/parcelas). `casoId`/`obrigacaoId`/etc. vêm da ROTA (setados no controller, não são campos).
+- **Modais**: em `caso/_acoes_modais.html.twig` (só sob `has_permission`). Ação caso-level = 1 modal com Form. Ação **por-item** = 1 modal reutilizável + JS que injeta `form.action` via `data-acao-url` (ver reconhecer/resolver/romper/cancelar). Views criadas em `CasoController::formulariosDeMutacao($caso)` (gated por capacidade).
+- **Choices escopadas ao caso** (ex.: obrigações do acordo): helper estático no Form (`AcordoCriarType::opcoesObrigacoes(...)`), chamado IDÊNTICO no render (show) e no POST, senão o ChoiceType reprova. **Reusar esse padrão na alocação de pagamento (8B-D).**
+- **Testes**: `CobrancaWebTestCase` (base) → `criarAdminLogado` (isSystem = bypass de capacidade), `criarOperadorSemCapacidade` (não-system, só `modules.cobrancas.view` → prova negação de capacidade), `semearGrafo($tenant, $overridesCaso)`, `tenantAvulso()`, `tokenDoFormulario($crawler, 'nome_do_form')`. Por mutação: happy + capacidade-negada + IDOR 404 + CSRF inválido + erro de domínio relevante.
 
-## Decisões de design da Onda 8A
-- **Autorização (SPEC §22):** módulo `cobrancas` em TODA rota (leitura para nisso). Capacidades `resources.cobranca.gerenciar`/`resources.carteira.gerenciar`/`resources.cobranca.movimentacao_financeira` (já no `PermissionFixture`, flag "Etapas 3/8") entram nas MUTAÇÕES da Onda 8B via `hasPermission` (capacidade de papel, NÃO per-item ACL `resource_access` — esse trilho só está wired p/ cliente/pasta/processo). Sem advogado responsável obrigatório (SPEC §22 proíbe no MVP).
-- **Dinheiro:** DTOs carregam centavos int; formatação SÓ via filtro Twig `|centavos`. Nunca aritmética de dinheiro no Twig.
-- **`prontoParaEncerrar`:** indicador DERIVADO (`status != encerrado && saldoExigivel == 0`), não 4º estado do enum (SPEC §17).
-- **Saldo na lista:** derivado por `CalculadoraSaldo` por caso da PÁGINA (custo limitado; follow-up de perf se crescer).
-- **`COALESCE` no ORDER BY:** DQL não aceita direto → alias `AS HIDDEN ordCol` (não altera o hidratado; `countByFilters` reusa base SEM o addSelect).
+## PRÓXIMA AÇÃO EXATA — 8B-D (Financeiro)
+Ligar: **Registrar pagamento** (`RegistrarPagamentoUseCase`, cap `resources.cobranca.movimentacao_financeira`) · **Corrigir pagamento** (`CorrigirPagamentoUseCase`) · **Registrar liquidação** (`RegistrarLiquidacaoUseCase`).
+- **Pagamento** = o mais complexo: `RegistrarPagamentoInput` tem `alocacoes[]` (`AlocacaoPagamentoInput{obrigacaoId,valor}`) → `CollectionType` de um `AlocacaoPagamentoType`. O `obrigacaoId` de cada alocação deve ser escopado às obrigações exigíveis do caso — **reusar o padrão `opcoesObrigacoes` do acordo** (ChoiceType com choices idênticas no render e no POST). Alocação MANUAL explícita (FIFO é follow-up #8, NÃO fazer). Botões na aba "Pagamentos & Liquidações".
+- **Corrigir pagamento** = por-item (modal reutilizável), `CorrigirPagamentoInput{pagamentoId,data?,valorPago,alocacoes[],motivoCorrecao(NotBlank)}`. Resolver `Pagamento` por `findOneByIdDoTenant`; redirect via `$pagamento->getCaso()->getId()` (confirmar getter). Correção SEM estorno.
+- **Liquidação** = simples (SEM coleção): `RegistrarLiquidacaoType` com `tipo` (EnumType `TipoLiquidacao`, NotNull), `descricaoBem`, `valorAtribuidoBem?`, `valorReconhecido` (CentavosType), `data`. Só formas NÃO monetárias (dinheiro é Pagamento — follow-up #7). Botão na mesma aba.
+- Contratos exatos (campos/exceptions) no relatório de investigação já feito — reconferir os Input DTOs em `src/Cobranca/DTO/`. `PagamentoOutput`/`LiquidacaoOutput` já têm o que a UI precisa (id etc.) — conferir se `PagamentoOutput` tem `id` p/ o botão de corrigir; se faltar, adicionar (aditivo).
 
-## ⚠️ Gotchas / lembretes
-- **`.xlsx` reais = PII, gitignorados.** Só a fixture anonimizada é versionada.
-- **cache:clear/warmup e phpunit** exigem `php -d memory_limit=512M`.
-- **Se DB falhar por conexão:** `docker start jusprime_db_dev`.
-- **Dev não tem dados de cobrança** (módulo novo, não liberado) → telas mostram empty states no smoke manual; a prova real é via testes funcionais (Foundry).
-- **Migrations com índice funcional/parcial da E7** (`Version20260710130000`/`160000`) sofrem drift no `doctrine:migrations:diff` — remover o DROP à mão (aviso embutido).
+## Depois — 8B-E (Cadastro + seleção)
+CRUD Carteira (`CriarCarteira` cap `carteira.gerenciar` / `EditarConfiguracaoCarteira`) · Objeto (`CriarObjeto`) · Pessoa (`CriarPessoa`) · Vínculo (`Vincular`/`EncerrarVinculo`) · Abrir caso (`AbrirCaso`) · Alterar pessoa cobrada (`AlterarPessoaCobrada`) · Judicializar (`JudicializarCaso`, gate ADICIONAL `pastas` p/ escolher a Pasta). Templates: `carteira/index` (nova carteira) e `carteira/show` (editar config, novo objeto, abrir caso); alterar-pessoa/judicializar em `caso/show`. **Desafio de UX**: seleção de Pessoa (criar + escolher) e de Pasta — decidir selector/`ChoiceType` escopado ao tenant (`PessoaRepository::doTenant` pode não existir ainda; criar se preciso). Pré-preencher `EditarConfiguracaoCarteiraInput` a partir da entidade (DTO sem `fromEntity` — popular à mão no controller).
 
-## Próxima ação exata — Onda 8B (Formulários / mutações)
-> Forms + rotas POST reusando os UseCases de escrita JÁ existentes. Cada mutação: gate módulo + capacidade (`gerenciar` p/ operação; `movimentacao_financeira` p/ pagamento/liquidação/correção; `carteira.gerenciar` p/ config de carteira) via `hasPermission`; **CSRF obrigatório**; resolução por `findOneByIdDoTenant`; controller fino (Request→Form/DTO→UseCase→flush; sem lógica no controller).
-> Ações a ligar (UseCases prontos): CRUD Carteira (`CriarCarteira`/`EditarConfiguracaoCarteira`) · Objeto (`CriarObjeto`) · Pessoa (`CriarPessoa`, dedup via `SugerirPessoasDuplicadas`) · Vínculo (`VincularPessoaAObjeto`/`EncerrarVinculo`) · Caso (`AbrirCaso`/`AlterarPessoaCobrada`/`EncerrarCaso`) · Obrigação (`RegistrarObrigacao`/`ReconhecerValorAtualizado`) · Pagamento (`RegistrarPagamento` c/ sugestão FIFO — follow-up #8/`CorrigirPagamento`) · Liquidação (`RegistrarLiquidacao`) · Acordo (`CriarAcordo`/`RomperAcordo`/`CancelarAcordo`/`MarcarAcordoCumprido`) · Próxima ação (`DefinirProximaAcao`/`ConcluirAcao`) · Tentativa (`RegistrarTentativaCobranca`) · Judicialização (`JudicializarCaso` — gate `pastas` p/ escolher a Pasta) · Revisão (`GerarRevisao`/`ResolverRevisao`). Storytelling do Form antes; functional por rota (permissão/capacidade/tenant/IDOR/CSRF).
-> Depois: **Onda 8C** — importação visual (upload `.xlsx` → `TopLifeInadimplenciaAdapter::ler` → `ImportarRelatorioCarteiraUseCase::prever` [preview] → `confirmar` [relatório importado/ignorado/rejeitado]) + religar `pasta-arquivos.js` por `data-*` para os documentos do Caso (contrato: 12 `data-*` + IDs internos + `enviarArquivoComProgresso` + modais — ver a investigação; criar rotas cobrança equivalentes 1:1 às da Pasta).
+## Follow-ups da revisão (registrar; decisão de negócio para o humano)
+1. **Assimetria "caso encerrado" (IMPORTANTE, DECISÃO DO HUMANO):** `ReconhecerValorAtualizado`, `RegistrarTentativaCobranca` e `GerarRevisao` **não** bloqueiam num caso encerrado no servidor (a UI esconde o botão, mas a rota POST muta). Os "irmãos" (RegistrarObrigacao/DefinirProximaAcao/ConcluirAcao/CriarAcordo) lançam `CasoEncerradoException`. O guard vive na camada UseCase (Etapas 1–7) — **não alterei regra de domínio de etapa anterior numa onda HTTP**. **Reconhecer-valor é o de risco de integridade** (encerrado exige saldo 0; reconhecer encargos criaria encerrado-com-saldo). Decidir: adicionar o guard nos 3 UseCases (consistência) ou aceitar/documentar a assimetria. Tentativa/revisão são cosméticos (alertas de encerrado já dão short-circuit).
+2. **Matriz de teste (IMPORTANTE, parcial):** a spec pede happy·erro·capacidade·IDOR·CSRF por mutação. Cancelar-acordo foi fechado. Ainda faltam células de **capacidade-negada e CSRF-inválido** em: reconhecer-valor, tentativa, concluir-ação, gerar-revisão, resolver-revisão, romper-acordo (todas têm IDOR + happy; o mecanismo `tenantComCapacidade`/CSRF é centralizado e já provado em várias rotas → risco de regressão, não vulnerabilidade). Fechar por completude quando conveniente.
+3. **NIT:** `RegistrarTentativaCobrancaInput::observacao` é o único texto livre sem `Assert\Length` (DTO da Etapa 5). Adicionar `Length(max: ...)` se for mexer nesse DTO.
+
+## Decisões mantidas (NÃO alterar)
+- Etapa 7: linha só-encargos rejeitada, sem obrigação principal-zero. Intacta.
+- Dinheiro = int centavos; formatação de saída só via `|centavos`; entrada só via `CentavosType`. Nunca float/aritmética de dinheiro no Twig.
+- Autorização: módulo em TODA rota; capacidade via `hasPermission` nas mutações (não per-item ACL). `isSystem`/`ROLE_SUPER_ADMIN` = bypass (por design do checker).
 
 ## Ordem de retomada
-1. Confirmar branch `gestao-cobrancas`, HEAD `5950015` ou posterior (feature 8A em `3e20b3e`), working tree limpo, escritor único.
-2. `php -d memory_limit=512M bin/phpunit tests/Cobranca` deve dar 234/234.
-3. Ler este handoff + `docs/specs/cobranca-etapa8-telas-ux.md` (§Onda 8B) + EXECUTION_STATUS §"Próxima ação".
-4. Storytelling dos Forms/rotas de mutação antes de implementar. Seguir o AUTONOMOUS_EXECUTION_PROTOCOL (fan-out por grupos de ação independentes só com contratos committados).
+1. Confirmar branch `gestao-cobrancas`, HEAD `30e4cf4` ou posterior, working tree limpo.
+2. `php -d memory_limit=512M bin/phpunit tests/Cobranca` = 288/288.
+3. Ler este handoff + `docs/specs/cobranca-etapa8b-mutacoes.md` + EXECUTION_STATUS §"Próxima ação".
+4. Carregar skill `workflow`. Retomar por **8B-D (financeiro)** seguindo o "Padrão ESTABELECIDO" acima. Storytelling dos Forms antes; single-writer (o cluster do Caso não paraleliza).
