@@ -11,9 +11,9 @@
 |---|---|
 | **Etapa atual** | Etapa 8 — Telas/UX. **Onda 8A (LEITURA) ✅ CONCLUÍDA** (menu gated + lista/visão de carteiras + lista de casos c/ filtro + detalhe do caso). Próxima = **Onda 8B** (formulários/mutações), depois **8C** (importação visual + file-manager de documentos) |
 | **Tarefa atual** | Nenhuma em execução |
-| **Último checkpoint estável** | `3e20b3e` — **suíte GLOBAL verde 1515/1515**; `tests/Cobranca` 234/234 |
+| **Último checkpoint estável** | feature 8A `3e20b3e` — **suíte GLOBAL verde 1515/1515**; `tests/Cobranca` 234/234 |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `3e20b3e` (+1 commit de docs vivos a seguir) |
+| **HEAD** | `5950015` (docs 8A) + commit de preparação de handoff a seguir — confirmar com `git log` |
 | **Working tree** | limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar; + os `.xlsx` reais TOPLIFE gitignorados) |
 | **Migrations (dev+test)** | E1..E6 (ver histórico); **E7 `Version20260710130000`** (índices funcionais dedup dígitos cpf/cnpj) **+ `Version20260710160000`** (índice PARCIAL ÚNICO de idempotência da importação: obrigacao(caso_id, referencia_externa) WHERE NOT NULL) |
 | **Escritor** | ÚNICO (orquestrador). Etapa 7 sem fan-out — fluxo coeso e acoplado |

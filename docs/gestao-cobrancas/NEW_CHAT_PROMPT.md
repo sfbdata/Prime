@@ -20,19 +20,19 @@ Você vai continuar a feature "Gestão de Cobranças" do projeto JusPrime. NÃO 
 
 3) Verifique o ESTADO REAL do repositório (não assuma):
    - git branch --show-current   (esperado: gestao-cobrancas)
-   - git status --short
-   - git log --oneline -8        (topo esperado: docs da Etapa 4 `ccfa2c6` / último commit de feature `269cc6a`, ou posterior)
-   - docker exec jusprime_php_dev bash -c 'cd app && php -d memory_limit=512M bin/console doctrine:migrations:status'  (migrations E1–E4 aplicadas em dev)
+   - git status --short          (limpo, salvo untracked .claude/worktrees/ e os .xlsx TOPLIFE gitignorados)
+   - git log --oneline -8        (topo esperado: docs da Onda 8A `5950015` / feature da Onda 8A `3e20b3e`, OU POSTERIOR)
+   - docker exec jusprime_php_dev bash -c 'cd app && php -d memory_limit=512M bin/console doctrine:migrations:status'  (migrations E1–E7 aplicadas em dev; Etapa 8 NÃO tem migration)
    - git worktree list
-   - docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Cobranca'   (deve estar verde)
+   - docker exec jusprime_php_dev bash -c 'cd app && php -d memory_limit=512M bin/phpunit tests/Cobranca'   (esperado: 234/234)
 
 4) COMPARE a documentação com o repositório. Se divergirem (commits a mais/menos, testes falhando, working tree suja, branch diferente), PARE e reporte a divergência antes de agir — corrija o entendimento a partir do Git, não dos docs.
 
 5) A branch já está resolvida: trabalhe em gestao-cobrancas (master ficou só com DJEN; a feature vive só nesta branch). Não faça switch/rebase/move de commits por conta própria.
 
-6) Retome pela "Próxima ação exata" do EXECUTION_STATUS.md / SESSION_HANDOFF.md, seguindo o AUTONOMOUS_EXECUTION_PROTOCOL.md. Continue autonomamente sem pedir aprovação a cada passo — pare apenas para: (a) commit obrigatório do humano antes de fan-out se aplicável, (b) decisão de negócio bloqueante, (c) inconsistência grave SPEC/PLAN/código, (d) conclusão de etapa, (e) ~90% de contexto (entrar em modo handoff).
+6) A Etapa 8 (Telas/UX) está DIVIDIDA em ondas. Confirme que a **Onda 8A (leitura/navegação) está CONCLUÍDA** (4 rotas `cobranca_*` GET: carteira index/show + caso index/show; menu gated; filtro reutilizável; 234/234). **Retome pela Onda 8B — mutações e formulários operacionais** (a "Próxima ação exata" do EXECUTION_STATUS.md / SESSION_HANDOFF.md). NÃO refaça a 8A. A Onda 8C (importação visual + file-manager de documentos) e a Etapa 9 continuam pendentes — NÃO antecipe. Siga o AUTONOMOUS_EXECUTION_PROTOCOL.md; continue autonomamente sem pedir aprovação a cada passo — pare apenas para: (a) commit obrigatório antes de fan-out, (b) decisão de negócio bloqueante, (c) inconsistência grave SPEC/PLAN/código, (d) conclusão de onda/etapa, (e) ~90% de contexto (entrar em modo handoff).
 
-7) Regras duras: sem push/deploy/produção; sem Git destrutivo (merge/rebase/reset/branch -D); cherry-pick só com um hash; sem expandir o MVP; sem criar o futuro domínio Financeiro. Git de escrita é local e limitado pelo hook block-git-writes.py.
+7) Regras duras: sem push/deploy/produção; sem Git destrutivo (merge/rebase/reset/branch -D); cherry-pick só com um hash; sem expandir o MVP; sem criar o futuro domínio Financeiro. Git de escrita é local e limitado pelo hook block-git-writes.py. **Toda mutação da 8B: gate módulo `cobrancas` + capacidade via hasPermission (`resources.cobranca.gerenciar`/`carteira.gerenciar`/`cobranca.movimentacao_financeira`) + CSRF + findOneByIdDoTenant (IDOR) + controller fino.** Mantenha intacta a decisão da Etapa 7 (linha só-encargos é rejeitada, sem Obrigação principal-zero).
 
 8) Ao se aproximar do limite de contexto, reescreva SESSION_HANDOFF.md e atualize EXECUTION_STATUS.md, deixe a working tree limpa e os commits locais criados, e encerre de forma controlada.
 ```
@@ -41,5 +41,5 @@ Você vai continuar a feature "Gestão de Cobranças" do projeto JusPrime. NÃO 
 
 **Observações para quem cola o prompt:**
 - O prompt não faz `push` nem deploy — só trabalho local e commits locais.
-- Se você quiser que o novo chat comece por uma etapa específica, adicione uma linha ao final do bloco (ex.: "Comece pela Onda 2 restante da Etapa 1").
+- Estado atual (2026-07-10): Etapa 8 Onda 8A concluída (HEAD `5950015`); o próximo chat deve retomar a **Onda 8B** (mutações/forms). Se quiser forçar outra frente, adicione uma linha ao final do bloco.
 - Mantenha este arquivo e os demais versionados; eles são a ponte entre chats.

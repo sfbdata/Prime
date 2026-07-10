@@ -7,7 +7,7 @@
 
 ## Estado atual
 - **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
-- **HEAD:** `3e20b3e` (Onda 8A) + 1 commit de docs vivos a seguir. Sobre `d2101a7` (Etapa 7).
+- **HEAD:** feature da Onda 8A em `3e20b3e`; docs vivos em `5950015` e no commit de preparação de handoff a seguir (o topo real pode ser esse último — confirme com `git log`). Tudo sobre `d2101a7` (Etapa 7).
 - **Etapa:** 8 → **Onda 8A CONCLUÍDA**. Próxima = **Onda 8B** (Formulários/mutações), depois **8C** (Importação visual + Documentos file-manager).
 - **Suíte:** GLOBAL **1515/1515**; `tests/Cobranca` **234/234** (+14 da 8A).
 - **Working tree:** limpo (untracked só `.claude/worktrees/` — worktrees de agente, NÃO commitar; e os `.xlsx` reais TOPLIFE gitignorados).
@@ -48,7 +48,7 @@ Linhas da fonte só com encargos/honorários, sem principal identificável: reje
 > Depois: **Onda 8C** — importação visual (upload `.xlsx` → `TopLifeInadimplenciaAdapter::ler` → `ImportarRelatorioCarteiraUseCase::prever` [preview] → `confirmar` [relatório importado/ignorado/rejeitado]) + religar `pasta-arquivos.js` por `data-*` para os documentos do Caso (contrato: 12 `data-*` + IDs internos + `enviarArquivoComProgresso` + modais — ver a investigação; criar rotas cobrança equivalentes 1:1 às da Pasta).
 
 ## Ordem de retomada
-1. Confirmar branch `gestao-cobrancas`, HEAD `3e20b3e` (ou posterior), working tree limpo, escritor único.
+1. Confirmar branch `gestao-cobrancas`, HEAD `5950015` ou posterior (feature 8A em `3e20b3e`), working tree limpo, escritor único.
 2. `php -d memory_limit=512M bin/phpunit tests/Cobranca` deve dar 234/234.
 3. Ler este handoff + `docs/specs/cobranca-etapa8-telas-ux.md` (§Onda 8B) + EXECUTION_STATUS §"Próxima ação".
 4. Storytelling dos Forms/rotas de mutação antes de implementar. Seguir o AUTONOMOUS_EXECUTION_PROTOCOL (fan-out por grupos de ação independentes só com contratos committados).
