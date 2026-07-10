@@ -206,9 +206,16 @@
 
             {# Acordos #}
             <div class="tab-pane fade" id="tab-acordos">
+                {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarAcordo">
+                        <i class="bi bi-plus-lg me-1"></i>Novo acordo
+                    </button>
+                </div>
+                {% endif %}
                 {% if caso.acordos|length > 0 %}
                 <div class="table-responsive"><table class="table table-sm mb-0">
-                    <thead><tr><th>Data</th><th>Estado</th><th class="text-center">Obrig. substituídas</th><th class="text-center">Parcelas</th><th>Observação</th></tr></thead>
+                    <thead><tr><th>Data</th><th>Estado</th><th class="text-center">Obrig. substituídas</th><th class="text-center">Parcelas</th><th>Observação</th><th></th></tr></thead>
                     <tbody>
                     {% for a in caso.acordos %}
                     <tr>
@@ -217,6 +224,33 @@
                         <td class="text-center">{{ a.qtdObrigacoesSubstituidas }}</td>
                         <td class="text-center">{{ a.qtdParcelas }}</td>
                         <td class="small text-muted">{{ a.motivoRompimento ?: a.motivoCancelamento ?: '—' }}</td>
+                        <td class="text-end">
+                            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado and a.ativo %}
+                            <button type="button" class="btn btn-sm btn-outline-success py-0" title="Marcar cumprido"
+                                    data-bs-toggle="modal" data-bs-target="#modalCumprirAcordo-{{ a.id }}"><i class="bi bi-check2-all"></i></button>
+                            <button type="button" class="btn btn-sm btn-outline-danger py-0" title="Romper"
+                                    data-bs-toggle="modal" data-bs-target="#modalRomperAcordo"
+                                    data-acao-url="{{ path('cobranca_acordo_romper', {id: a.id}) }}"><i class="bi bi-x-octagon"></i></button>
+                            <button type="button" class="btn btn-sm btn-outline-warning py-0" title="Cancelar"
+                                    data-bs-toggle="modal" data-bs-target="#modalCancelarAcordo"
+                                    data-acao-url="{{ path('cobranca_acordo_cancelar', {id: a.id}) }}"><i class="bi bi-slash-circle"></i></button>
+                            {# Cumprir: form inline (sem campos) com CSRF manual #}
+                            <div class="modal fade" id="modalCumprirAcordo-{{ a.id }}" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog"><div class="modal-content">
+                                    <form method="POST" action="{{ path('cobranca_acordo_cumprir', {id: a.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('marcar_cumprido_' ~ a.id) }}">
+                                        <div class="modal-header"><h5 class="modal-title">Marcar acordo cumprido</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+                                        <div class="modal-body">Confirmar que este acordo foi integralmente cumprido? As obrigações substituídas permanecem fora do saldo.</div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                            <button type="submit" class="btn btn-success"><i class="bi bi-check2-all me-1"></i>Confirmar</button>
+                                        </div>
+                                    </form>
+                                </div></div>
+                            </div>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                     </tbody>
@@ -293,6 +327,37 @@ document.addEventListener('DOMContentLoaded', function () {
             if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
             var ctx = modalResolver.querySelector('[data-revisao-contexto]');
             if (ctx) { ctx.textContent = 'Revisão: ' + (botao.getAttribute('data-revisao-motivo') || ''); }
+        });
+    }
+
+    /* Modais reutilizáveis de romper/cancelar acordo: o botão da linha injeta a URL. */
+    ['modalRomperAcordo:formRomperAcordo', 'modalCancelarAcordo:formCancelarAcordo'].forEach(function (par) {
+        var ids = par.split(':');
+        var modal = document.getElementById(ids[0]);
+        if (!modal) { return; }
+        modal.addEventListener('show.bs.modal', function (event) {
+            var botao = event.relatedTarget;
+            var form = document.getElementById(ids[1]);
+            if (form && botao) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
+        });
+    });
+
+    /* Coleção dinâmica de parcelas do acordo (prototype do Symfony CollectionType). */
+    var parcelasContainer = document.getElementById('parcelasContainer');
+    var addParcela = document.getElementById('addParcela');
+    if (parcelasContainer && addParcela) {
+        addParcela.addEventListener('click', function () {
+            var index = parseInt(parcelasContainer.dataset.index || '0', 10);
+            var html = (parcelasContainer.dataset.prototype || '').replace(/__name__/g, index);
+            var linha = document.createElement('div');
+            linha.className = 'parcela-linha border rounded p-2 mb-2';
+            linha.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-parcela">Remover</button>';
+            parcelasContainer.appendChild(linha);
+            parcelasContainer.dataset.index = (index + 1).toString();
+        });
+        parcelasContainer.addEventListener('click', function (e) {
+            var btn = e.target.closest('.remover-parcela');
+            if (btn) { var linha = btn.closest('.parcela-linha'); if (linha) { linha.remove(); } }
         });
     }
 });

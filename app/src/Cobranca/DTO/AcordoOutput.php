@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\DTO;
 
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Enum\StatusAcordo;
 
 /**
  * Leitura de um Acordo para a aba Acordos do Caso (Etapa 8). Estado com badge (`badgeClass()` do
@@ -18,6 +19,7 @@ final class AcordoOutput
         public readonly string $statusLabel,
         public readonly string $statusBadgeClass,
         public readonly bool $vigente,
+        public readonly bool $ativo,
         public readonly ?string $motivoRompimento,
         public readonly ?string $motivoCancelamento,
         public readonly int $qtdObrigacoesSubstituidas,
@@ -33,6 +35,7 @@ final class AcordoOutput
             statusLabel: $a->getStatus()->label(),
             statusBadgeClass: $a->getStatus()->badgeClass(),
             vigente: $a->getStatus()->ehVigente(),
+            ativo: $a->getStatus() === StatusAcordo::Ativo,
             motivoRompimento: $a->getMotivoRompimento(),
             motivoCancelamento: $a->getMotivoCancelamento(),
             qtdObrigacoesSubstituidas: $a->getObrigacoesSubstituidas()->count(),

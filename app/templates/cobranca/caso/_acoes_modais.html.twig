@@ -189,3 +189,87 @@
         </div>
     </div>
 </div>
+
+{# ── Criar acordo (obrigações substituídas + parcelas dinâmicas) ──── #}
+<div class="modal fade" id="modalCriarAcordo" tabindex="-1" aria-labelledby="tituloCriarAcordo" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            {{ form_start(forms.acordoCriar, {action: path('cobranca_acordo_criar', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloCriarAcordo"><i class="bi bi-file-earmark-text me-1"></i>Criar acordo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.acordoCriar.dataAcordo) }}
+                <div class="mb-3">
+                    <label class="form-label">Obrigações substituídas</label>
+                    {{ form_widget(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+                    {{ form_errors(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+                    <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas.</div>
+                </div>
+                <hr>
+                <label class="form-label">Parcelas do acordo</label>
+                <div id="parcelasContainer"
+                     data-prototype="{{ form_widget(forms.acordoCriar.parcelas.vars.prototype)|e('html_attr') }}"
+                     data-index="{{ forms.acordoCriar.parcelas|length }}">
+                    {% for parcela in forms.acordoCriar.parcelas %}
+                    <div class="parcela-linha border rounded p-2 mb-2">{{ form_widget(parcela) }}
+                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-parcela">Remover</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {{ form_errors(forms.acordoCriar.parcelas) }}
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcela"><i class="bi bi-plus-lg me-1"></i>Adicionar parcela</button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Criar acordo</button>
+            </div>
+            {{ form_end(forms.acordoCriar) }}
+        </div>
+    </div>
+</div>
+
+{# ── Romper acordo (modal reutilizável) ──────────────────────────── #}
+<div class="modal fade" id="modalRomperAcordo" tabindex="-1" aria-labelledby="tituloRomperAcordo" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.romperAcordo, {attr: {id: 'formRomperAcordo'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloRomperAcordo"><i class="bi bi-x-octagon me-1"></i>Romper acordo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">O rompimento restaura as obrigações originais.</p>
+                {{ form_row(forms.romperAcordo.motivo) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>Romper</button>
+            </div>
+            {{ form_end(forms.romperAcordo) }}
+        </div>
+    </div>
+</div>
+
+{# ── Cancelar acordo (modal reutilizável) ────────────────────────── #}
+<div class="modal fade" id="modalCancelarAcordo" tabindex="-1" aria-labelledby="tituloCancelarAcordo" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.cancelarAcordo, {attr: {id: 'formCancelarAcordo'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloCancelarAcordo"><i class="bi bi-slash-circle me-1"></i>Cancelar acordo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">O cancelamento (erro de lançamento) restaura as obrigações originais.</p>
+                {{ form_row(forms.cancelarAcordo.motivo) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                <button type="submit" class="btn btn-warning"><i class="bi bi-slash-circle me-1"></i>Cancelar acordo</button>
+            </div>
+            {{ form_end(forms.cancelarAcordo) }}
+        </div>
+    </div>
+</div>

@@ -6,8 +6,11 @@ namespace App\Cobranca\Controller;
 
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
+use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\SaldoNaoResolvidoException;
+use App\Cobranca\Form\AcordoCriarType;
+use App\Cobranca\Form\CancelarAcordoType;
 use App\Cobranca\Form\ConcluirAcaoType;
 use App\Cobranca\Form\DefinirProximaAcaoType;
 use App\Cobranca\Form\EncerrarCasoType;
@@ -16,8 +19,10 @@ use App\Cobranca\Form\ReconhecerValorAtualizadoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Form\ResolverRevisaoType;
+use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
+use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\ListarCasosUseCase;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
@@ -53,6 +58,7 @@ final class CasoController extends AbstractController
         private readonly MontarDetalheCasoUseCase $montarDetalheCaso,
         private readonly EncerrarCasoUseCase $encerrarCaso,
         private readonly RegistrarTentativaCobrancaUseCase $registrarTentativa,
+        private readonly ObrigacaoRepository $obrigacaoRepository,
     ) {
     }
 
@@ -109,7 +115,7 @@ final class CasoController extends AbstractController
 
         return $this->render('cobranca/caso/show.html.twig', [
             'caso' => $this->montarDetalheCaso->executar($caso),
-            'forms' => $this->formulariosDeMutacao(),
+            'forms' => $this->formulariosDeMutacao($caso),
         ]);
     }
 
@@ -179,8 +185,10 @@ final class CasoController extends AbstractController
      *
      * @return array<string, \Symfony\Component\Form\FormView>
      */
-    private function formulariosDeMutacao(): array
+    private function formulariosDeMutacao(CasoCobranca $caso): array
     {
+        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
+
         return [
             'registrarObrigacao' => $this->createForm(RegistrarObrigacaoType::class)->createView(),
             'reconhecerValor' => $this->createForm(ReconhecerValorAtualizadoType::class)->createView(),
@@ -190,6 +198,9 @@ final class CasoController extends AbstractController
             'registrarTentativa' => $this->createForm(RegistrarTentativaCobrancaType::class)->createView(),
             'gerarRevisao' => $this->createForm(GerarRevisaoType::class)->createView(),
             'resolverRevisao' => $this->createForm(ResolverRevisaoType::class)->createView(),
+            'acordoCriar' => $this->createForm(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
+            'romperAcordo' => $this->createForm(RomperAcordoType::class)->createView(),
+            'cancelarAcordo' => $this->createForm(CancelarAcordoType::class)->createView(),
         ];
     }
 }
