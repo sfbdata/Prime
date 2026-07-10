@@ -1,0 +1,133 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cobranças · {{ confirmado ? 'Importado' : 'Prévia' }} · {{ carteiraNome }}{% endblock %}
+
+{% block body %}
+<div class="cobrancas-page">
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h1 class="m-0 d-flex align-items-center gap-2">
+                <i class="bi {{ confirmado ? 'bi-check-circle text-success' : 'bi-eye' }}"></i>
+                {{ confirmado ? 'Importação concluída' : 'Prévia da importação' }}
+            </h1>
+        </div>
+        <div class="text-muted">
+            <i class="bi bi-folder2-open me-1"></i>{{ carteiraNome }}
+            {% if nomeArquivo %} · <i class="bi bi-filetype-xlsx me-1"></i>{{ nomeArquivo }}{% endif %}
+        </div>
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        {% if not confirmado %}
+        <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Esta é uma <strong>prévia</strong> — nada foi gravado ainda. Confira os números e confirme para importar de verdade.
+        </div>
+        {% endif %}
+
+        {# ── Resumo ────────────────────────────────────────────── #}
+        <div class="caso-header mb-3">
+            <div class="caso-metrics">
+                <div class="caso-metric">
+                    <div class="caso-metric-label">{{ confirmado ? 'Obrigações importadas' : 'Serão importadas' }}</div>
+                    <div class="caso-metric-valor text-success">{{ resultado.totalImportadas }}</div>
+                </div>
+                <div class="caso-metric">
+                    <div class="caso-metric-label">{{ confirmado ? 'Atualizadas' : 'Serão atualizadas' }}</div>
+                    <div class="caso-metric-valor">{{ resultado.totalAtualizadas }}</div>
+                </div>
+                <div class="caso-metric">
+                    <div class="caso-metric-label">Rejeitadas</div>
+                    <div class="caso-metric-valor {{ resultado.totalRejeitadas > 0 ? 'text-danger' : '' }}">{{ resultado.totalRejeitadas }}</div>
+                </div>
+                <div class="caso-metric">
+                    <div class="caso-metric-label">Ignoradas</div>
+                    <div class="caso-metric-valor text-muted">{{ resultado.linhasIgnoradas }}</div>
+                </div>
+            </div>
+            <div class="text-muted small mt-2">
+                Novos: {{ resultado.objetosCriados }} objeto(s) · {{ resultado.pessoasCriadas }} pessoa(s) · {{ resultado.casosCriados }} caso(s).
+            </div>
+        </div>
+
+        {% if resultado.sacadosDivergentes|length > 0 %}
+        <div class="alert alert-info">
+            <i class="bi bi-people me-1"></i>
+            <strong>Sacado divergente</strong> em {{ resultado.sacadosDivergentes|length }} objeto(s): o devedor do relatório difere da pessoa cobrada atual do caso.
+            Uma nova pessoa foi vinculada, mas a <strong>pessoa cobrada não foi trocada automaticamente</strong> (decisão do gestor).
+            Objetos: {{ resultado.sacadosDivergentes|join(', ') }}.
+        </div>
+        {% endif %}
+
+        <div class="row g-3">
+            {# ── Rejeitadas ────────────────────────────────────── #}
+            <div class="col-lg-6">
+                <div class="card cobranca-card h-100">
+                    <div class="card-header fw-semibold"><i class="bi bi-x-octagon me-1 text-danger"></i>Rejeitadas ({{ resultado.totalRejeitadas }})</div>
+                    <div class="table-responsive">
+                        {% if resultado.rejeitadas|length > 0 %}
+                        <table class="table mb-0 small">
+                            <thead><tr><th class="ps-3">Referência</th><th>Motivo</th></tr></thead>
+                            <tbody>
+                                {% for linha in resultado.rejeitadas %}
+                                <tr>
+                                    <td class="ps-3 align-middle fw-semibold">{{ linha.referencia }}</td>
+                                    <td class="align-middle">{{ linha.motivo }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <div class="cobranca-empty py-3"><p class="empty-title mb-0">Nenhuma linha rejeitada.</p></div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            {# ── Importadas / Atualizadas ──────────────────────── #}
+            <div class="col-lg-6">
+                <div class="card cobranca-card h-100">
+                    <div class="card-header fw-semibold"><i class="bi bi-list-check me-1"></i>Boletos</div>
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <span class="badge text-bg-success">{{ confirmado ? 'Importadas' : 'A importar' }}</span>
+                            <span class="small text-muted">{{ resultado.obrigacoesCriadas|length > 0 ? (resultado.obrigacoesCriadas|join(', ')) : '—' }}</span>
+                        </div>
+                        <div>
+                            <span class="badge text-bg-secondary">{{ confirmado ? 'Atualizadas' : 'A atualizar' }}</span>
+                            <span class="small text-muted">{{ resultado.obrigacoesAtualizadas|length > 0 ? (resultado.obrigacoesAtualizadas|join(', ')) : '—' }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ── Ações ─────────────────────────────────────────────── #}
+        <div class="d-flex justify-content-end gap-2 mt-3">
+            {% if confirmado %}
+                <a href="{{ path('cobranca_carteira_show', {id: carteiraId}) }}" class="btn btn-primary"><i class="bi bi-check2 me-1"></i>Concluir</a>
+            {% else %}
+                <a href="{{ path('cobranca_importacao_upload', {id: carteiraId}) }}" class="btn btn-outline-secondary">Trocar arquivo</a>
+                {% if resultado.totalImportadas > 0 or resultado.totalAtualizadas > 0 %}
+                <form method="POST" action="{{ path('cobranca_importacao_confirmar', {id: carteiraId}) }}" class="d-inline">
+                    <input type="hidden" name="_token" value="{{ csrf_token('importar_confirmar_' ~ carteiraId) }}">
+                    <button type="submit" class="btn btn-success"><i class="bi bi-database-check me-1"></i>Confirmar importação</button>
+                </form>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</section>
+</div>
+{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/cobrancas.css') }}">
+{% endblock %}
