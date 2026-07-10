@@ -54,5 +54,6 @@ Você vai continuar a feature "Gestão de Cobranças" do projeto JusPrime. NÃO 
 
 **Observações para quem cola o prompt:**
 - O prompt não faz `push` nem deploy — só trabalho local e commits locais.
-- Estado atual (2026-07-10): Etapa 8 Ondas 8A + 8B CONCLUÍDAS (HEAD `69faab4`; `tests/Cobranca` 343/343; global 1624/1624). O próximo chat deve retomar por **Onda 8C** (importação visual + file-manager de documentos). A Etapa 9 (Dashboard/alertas) segue pendente.
+- **Estado atual (2026-07-10): Etapas 0–9 CONCLUÍDAS — a IMPLEMENTAÇÃO da feature está COMPLETA** (HEAD `3cd426a`; `tests/Cobranca` 398/398; global 1679/1679). A Etapa 9 (Dashboard `/cobrancas/painel` + Central de Alertas `/cobrancas/alertas`) foi entregue, testada e revisada (SEM bloqueante). O próximo chat **não retoma implementação**: resta só o **preparo de deploy/homologação** (data-migration de permissões `cobrancas` p/ prod + semear grafo no dev + smoke de navegador + deploy), tudo detalhado no `SESSION_HANDOFF.md` §"PRÓXIMA AÇÃO". Não iniciar domínio Financeiro (fora do MVP, §19/§24).
+- O passo 7 do prompt abaixo (retomar por 8C) está **desatualizado** — 8C e 9 já foram concluídas; siga o `SESSION_HANDOFF.md`, que é a fonte viva.
 - Mantenha este arquivo e os demais versionados; eles são a ponte entre chats.

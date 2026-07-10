@@ -1,7 +1,7 @@
 # EXECUTION_STATUS — Gestão de Cobranças
 
 > Panorama VIVO da implementação. Fonte de verdade do progresso. **Confirmar sempre contra o Git/código — nunca contra memória de chat.**
-> Última atualização: 2026-07-10 (Etapa 8 **Onda 8C COMPLETA**: importação visual (8C-A) + file-manager de documentos religado (8C-B). HEAD `6a6283e`; `tests/Cobranca` 373/373; GLOBAL 1654/1654. Próxima = **Etapa 9** Dashboard/alertas).
+> Última atualização: 2026-07-10 (**Etapa 9 COMPLETA**: Dashboard + Central de Alertas. HEAD `3cd426a`; `tests/Cobranca` 398/398; GLOBAL 1679/1679. **Etapas 0–9 CONCLUÍDAS** — resta só o preparo de deploy/homologação, não bloqueante).
 
 ---
 
@@ -9,11 +9,11 @@
 
 | Campo | Valor real |
 |---|---|
-| **Etapa atual** | Etapa 8 — Telas/UX. **8A (LEITURA) ✅** + **8B (ESCRITA) ✅** + **8C (importação visual + documentos) ✅ COMPLETA**. Próxima = **Etapa 9** (Dashboard/central de alertas) |
+| **Etapa atual** | **Etapa 9 — Dashboard + Central de Alertas ✅ COMPLETA.** Etapas 0–9 concluídas. Resta só preparo de deploy (não bloqueante) |
 | **Tarefa atual** | Nenhuma em execução (handoff controlado) |
-| **Último checkpoint estável** | `6a6283e` — **GLOBAL verde 1654/1654**; `tests/Cobranca` 373/373 |
+| **Último checkpoint estável** | `3cd426a` — **GLOBAL verde 1679/1679**; `tests/Cobranca` 398/398 |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `6a6283e` (fixes das revisões 8C) — confirmar com `git log` |
+| **HEAD** | `3cd426a` (impl. Etapa 9; spec em `c80b4e5`) — confirmar com `git log` |
 | **Working tree** | limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar; + os `.xlsx` reais TOPLIFE gitignorados) |
 | **Migrations (dev+test)** | E1..E6 (ver histórico); **E7 `Version20260710130000`** (índices funcionais dedup dígitos cpf/cnpj) **+ `Version20260710160000`** (índice PARCIAL ÚNICO de idempotência da importação: obrigacao(caso_id, referencia_externa) WHERE NOT NULL) |
 | **Escritor** | ÚNICO (orquestrador). Etapa 7 sem fan-out — fluxo coeso e acoplado |
@@ -101,7 +101,19 @@
 - ✅ **Etapa 5** — Estados/Judicialização (`pastaJudicial`)/Encerramento/ProximaAcao/Revisão/Alertas: 2 entidades (`ProximaAcao`/`RevisaoPessoaCobrada`) + 2 enums, FK `CasoCobranca.pastaJudicial` (unidirecional), 6 UseCases (`Judicializar`/`Encerrar`/`Definir`/`Concluir`/`Gerar`/`Resolver`), serviço `AlertasCobranca` (5 alertas derivados), cross-tenant DB (isolamento da Pasta provado), global 1441/1441.
 - ✅ **Etapa 6** — Documentos do caso: entidades `CobrancaSecao`/`CobrancaDocumento` (FK caso nn, INV-25: sem Pasta), enum `CategoriaDocumentoCobranca`, 6 UseCases (`Enviar`/`Mover`/`Excluir` documento + `Criar`/`Renomear`/`Excluir` seção) reusando `ArquivoStorageService`, isolamento físico por tenant no disco, purga coberta, cross-tenant DB+disco (judicialização preserva docs), global 1472/1472.
 - ✅ **Etapa 7** — Importação em massa: **CONCLUÍDA**. Ponto seguro (dedup dígitos) + adapter real TOPLIFE + importador idempotente. Ver `docs/specs/cobranca-etapa7-importacao.md` e `docs/gestao-cobrancas/MAPEAMENTO_FONTE_TOPLIFE.md`.
-- 🟨 **Etapa 8** Telas/UX — **8A (LEITURA) ✅**; **8B (mutações/forms) ✅**; **8C (importação visual + file-manager de documentos) ✅ COMPLETA**. **Etapa 9** (Dashboard/alertas) pendente.
+- ✅ **Etapa 8** Telas/UX — **8A (LEITURA) ✅**; **8B (mutações/forms) ✅**; **8C (importação visual + file-manager de documentos) ✅ COMPLETA**.
+- ✅ **Etapa 9** Dashboard + Central de Alertas — **COMPLETA** (ver seção abaixo).
+
+### Etapa 9 — o que foi entregue (commits `c80b4e5` spec + `3cd426a` impl.)
+Camada visual final de LEITURA, visão do ESCRITÓRIO (não per-caso). Spec `docs/specs/cobranca-etapa9-dashboard-alertas.md` (risco MÉDIO). Escritor ÚNICO (agregação de leitura coesa). **Sem migration, sem escrita.**
+- **Repo**: `CasoCobrancaRepository::doTenant(Tenant, ?Carteira)` — todos os casos do tenant (opcional por carteira), tenant sempre explícito, inclui encerrados; **NÃO** soma saldo em SQL (derivação continua nos serviços).
+- **UseCases** (query, read-only): `MontarDashboardCobrancaUseCase` (financeiro: saldo aberto/vencido, recuperado no período, honorários projetados/realizados por forma §18; operacional: pagamentos-a-verificar=ObrigacaoVencida, ações atrasadas, parcelas vencidas, revisões, judicializados; resultado: total recuperado, em aberto, taxa em basis points, objetos inadimplentes vs casos ativos). `MontarCentralAlertasUseCase` (reusa `AlertasCobranca::alertasDoCaso`, agrupa casos-com-alerta por carteira + resumo global por tipo na ordem do enum).
+- **DTOs**: `DashboardCobrancaOutput`, `CentralAlertasOutput`, `CarteiraAlertasOutput`, `CasoComAlertasOutput` (readonly; sem entidade crua no Twig).
+- **Controller**: `DashboardController` fino — `GET /cobrancas/painel` (`cobranca_dashboard`) + `GET /cobrancas/alertas` (`cobranca_alertas`); gate `tenantComModulo`; filtro de carteira por `findOneByIdDoTenant`→404 (anti-IDOR); período defensivo (mês corrente default). Sem escrita → sem CSRF.
+- **Templates**: `dashboard/index` (3 seções de cards `.caso-metric`/`.dash-card`, barra de taxa, empty state) + `alertas/index` (chips por tipo, grupos por carteira, empty state); `_subnav` ganhou **Painel** e **Alertas**; CSS `cobrancas.css` (tiles/chips tema-aware). Menu lateral inalterado (landing segue `cobranca_carteira_index`).
+- **Decisões documentadas na spec §5**: "pagamentos a verificar"=alerta ObrigacaoVencida; honorários realizados por forma (acrescido usa `valorHonorarios` do pagamento; retido/cobrado usa `realizadosSobreRecuperacao`; sem_percentual 0); liquidação recupera sem gerar honorário; encerrado só no recuperado (período + all-time), fora do aberto/operacional; taxa = recuperado/(recuperado+em aberto), aritmética inteira.
+- **Testes**: 25 novos — `MontarDashboardCobrancaUseCaseTest` (10, DB real: financeiro/resultado/honorários por forma/encerrado/tenant/carteira/objetos-vs-casos/empty), `MontarCentralAlertasUseCaseTest` (4: agrupamento/resumo/encerrado/tenant/filtro), `DashboardControllerTest` (11: auth/módulo/render/empty/IDOR 404/não-vazamento HTTP central+painel/operador-com-módulo). `tests/Cobranca` 398/398; GLOBAL 1679/1679.
+- **Segurança**: revisão adversarial read-only + tenant-safety scan — **SEM BLOQUEANTE** (achados MENOR/NIT tratados: card judicializadas virou link N3; asserção HTTP de não-vazamento do painel N2; notas de perf/ambiguidade na spec M1/N1/M2).
 
 ### Etapa 8 Onda 8C — o que foi entregue (commits `b0c73bd` importação + `d0fb161` documentos, sobre `54a0ab1` spec)
 Camada visual restante. Spec `docs/specs/cobranca-etapa8c-importacao-documentos.md`. Escritor ÚNICO (front compartilhado força single-writer).
@@ -177,10 +189,13 @@ Camada HTTP de **LEITURA** (só GET; mutação = 8B). Spec `docs/specs/cobranca-
 ---
 
 ## Próxima ação exata
-> **Etapa 9 — Dashboard + central visual de alertas.** A Etapa 8 (Telas/UX) está **COMPLETA** — 8A (leitura) + 8B (mutações) + 8C (importação visual + file-manager de documentos). HEAD `d0fb161`; `tests/Cobranca` 368/368, GLOBAL 1649/1649; tenant-safety verificado + 2 revisões adversariais. A Etapa 9 monta a visão consolidada (dashboard do gestor) e a central de alertas global, sobre o serviço read-only `AlertasCobranca` (E5) já existente — **NÃO** é per-caso (isso já está no detalhe do caso), é a visão do escritório. Fora do escopo até aqui (§ da spec 8): dashboard/central global, domínio Financeiro (§19/§24), importador universal, per-item ACL.
-> **Se houver escrita nova**, seguir o padrão consolidado (gate capacidade → `findOneByIdDoTenant`→404 → CSRF → UseCase → PRG; selects via `opcoesDoTenant`+ChoiceType; controller fino; testes happy/capacidade/IDOR/CSRF/erro).
+> **Etapas 0–9 CONCLUÍDAS. A implementação da feature está COMPLETA.** HEAD `3cd426a`; `tests/Cobranca` 398/398, GLOBAL 1679/1679; tenant-safety + revisão adversarial SEM bloqueante em todas as etapas.
+> **Resta apenas o PREPARO DE DEPLOY/HOMOLOGAÇÃO (não bloqueia a feature; decisão do humano):**
+> 1. **Data-migration de permissões `cobrancas`/`resources.cobranca.*` para PRODUÇÃO** (dev/test já via fixture). É o único item que falta para prod poder usar o módulo.
+> 2. **Semear um grafo realista no dev** e validar manualmente no navegador: drag/upload XHR de documentos (8C-B), fluxo visual de importação (8C-A), file-manager, e as novas telas Painel/Alertas (9). Dev não tem dados de Cobrança (módulo novo, ausente do dump de prod). Os testes funcionais já renderizam os templates reais no container (smoke de renderização OK).
+> 3. **Deploy** via `deploy-prod-tls.sh` (rebuild) — só no fim; **nenhuma migration nova nas Etapas 8–9** (só a data-migration de permissões do item 1).
+> 4. **Integração da branch**: `gestao-cobrancas` carrega o DJEN `b044c0c` na base (inofensivo) + caronas (metas/Datajud). Mergear no master DEPOIS do DJEN — decisão do humano.
 >
-> **Decisão de negócio aplicada nesta sessão:** caso encerrado NÃO aceita mutação — guard no servidor em reconhecer-valor/tentativa/revisão (fechou a assimetria). Nova inadimplência = NOVO caso.
-> **Follow-ups restantes** (ver SESSION_HANDOFF §Follow-ups): FIFO de alocação (#8, adiado); cobertura positiva granular de `gerenciar` no cadastro (aceito p/ MVP; separação/negação JÁ provadas); NITs teóricos aceitos.
+> **Follow-ups técnicos restantes** (não bloqueiam; ver SESSION_HANDOFF §Follow-ups): perf O(casos) do dashboard (constante ~6–8 queries/caso — agregado materializado se escalar); coletor de temporários órfãos de importação; FIFO de alocação (#8); NITs teóricos aceitos.
 >
-> Atenção permanente: §24 — nunca importador universal; §21 — importação dentro de uma Carteira explícita; dedup só intra-tenant; honorários derivados (§18/§19); **decisão da E7 sobre linhas só-encargos permanece intacta**.
+> Atenção permanente: §24 — nunca importador universal; §21 — importação dentro de uma Carteira explícita; dedup só intra-tenant; honorários derivados (§18/§19); **decisão da E7 sobre linhas só-encargos permanece intacta**; saldo/alertas SEMPRE derivados por serviço, nunca coluna/SQL.
