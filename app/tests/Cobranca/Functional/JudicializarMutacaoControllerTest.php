@@ -69,13 +69,15 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(StatusCaso::Ativo, $em->find(CasoCobranca::class, $casoId)->getStatus(), 'pasta cross-tenant não pode judicializar');
     }
 
-    #[TestDox('Judicializar caso já judicializado: erro de domínio, sem novo efeito')]
+    #[TestDox('Judicializar caso já judicializado: erro de domínio, mantém a pasta original')]
     public function testJudicializarJaJudicializado(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant, ['status' => StatusCaso::Judicializado]);
-        $pasta = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        // Caso já judicializado COM uma pasta original: tentar revincular outra não pode trocá-la.
+        $pastaOriginal = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        [, $caso] = $this->semearGrafo($tenant, ['status' => StatusCaso::Judicializado, 'pastaJudicial' => $pastaOriginal]);
+        $pastaNova = PastaFactory::createOne(['tenant' => $tenant])->_real();
         $casoId = (int) $caso->getId();
 
         // Token colhido de um caso ativo (o judicializado esconde o botão, mas o token é por form/sessão).
@@ -84,14 +86,36 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
-            'judicializar_caso' => ['pastaId' => (string) $pasta->getId(), '_token' => $token],
+            'judicializar_caso' => ['pastaId' => (string) $pastaNova->getId(), '_token' => $token],
         ]);
 
         self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
-        self::assertNull($em->find(CasoCobranca::class, $casoId)->getPastaJudicial(), 'não revincula pasta num caso já judicializado');
+        self::assertSame((int) $pastaOriginal->getId(), (int) $em->find(CasoCobranca::class, $casoId)->getPastaJudicial()->getId(), 'não revincula pasta num caso já judicializado');
+    }
+
+    #[TestDox('Judicializar sem o módulo pastas (mesmo com gerenciar): negado no servidor')]
+    public function testJudicializarSemModuloPastas(): void
+    {
+        $client = static::createClient();
+        // Operador COM cobranca.gerenciar mas SEM o módulo `pastas` — gate adicional do SPEC §16/§22.
+        [, $tenant] = $this->criarOperadorComCapacidades($client, ['resources.cobranca.gerenciar']);
+        [, $caso] = $this->semearGrafo($tenant);
+        $pasta = PastaFactory::createOne(['tenant' => $tenant])->_real();
+        $casoId = (int) $caso->getId();
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
+            'judicializar_caso' => ['pastaId' => (string) $pasta->getId(), '_token' => 'irrelevante'],
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertStringNotContainsString('/cobrancas/casos/' . $casoId, (string) $client->getResponse()->headers->get('Location'), 'sem o módulo pastas a judicialização é negada');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame(StatusCaso::Ativo, $em->find(CasoCobranca::class, $casoId)->getStatus());
     }
 
     #[TestDox('Judicializar sem a capacidade: negado (redirect, não caso)')]
