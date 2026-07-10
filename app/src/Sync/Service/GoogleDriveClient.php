@@ -9,10 +9,18 @@ use Google\Service\Drive;
 use Google\Service\Drive\DriveFile;
 
 /**
- * Cliente fino sobre a API do Google Drive (Shared Drive + service account).
+ * Cliente fino sobre a API do Google Drive. Dois modos de autenticação:
+ *  - OAuth (login de usuário — ex.: a conta do rclone): client_id + client_secret + refresh_token.
+ *    É a ponte atual e o mesmo mecanismo do futuro "Conectar meu Drive" por escritório. Tem
+ *    precedência quando o refresh_token está presente.
+ *  - Service account (Shared Drive): caminho de um JSON.
  *
- * Fronteira de integração: validado manualmente contra um Shared Drive de teste
- * (não entra no CI). Os testes do domínio usam GoogleDriveClientInterface via fake.
+ * As listagens usam corpora=allDrives (sem driveId), o que cobre tanto pasta compartilhada no
+ * My Drive quanto Shared Drive. A "raiz" da sincronização é um folder id comum, passado pelos
+ * chamadores (não é necessariamente um Shared Drive).
+ *
+ * Fronteira de integração: validado manualmente contra o Drive real (não entra no CI). Os testes
+ * do domínio usam GoogleDriveClientInterface via fake.
  */
 final class GoogleDriveClient implements GoogleDriveClientInterface
 {
@@ -20,18 +28,31 @@ final class GoogleDriveClient implements GoogleDriveClientInterface
 
     public function __construct(
         private readonly string $googleDriveCredentials,
-        private readonly string $googleDriveSharedDriveId,
+        private readonly string $googleDriveOauthClientId,
+        private readonly string $googleDriveOauthClientSecret,
+        private readonly string $googleDriveOauthRefreshToken,
     ) {}
 
     private function drive(): Drive
     {
         if ($this->drive === null) {
-            if (trim($this->googleDriveCredentials) === '' || !is_file($this->googleDriveCredentials)) {
-                throw new \RuntimeException('GOOGLE_DRIVE_CREDENTIALS não configurada ou arquivo inexistente.');
+            $client = new Client();
+
+            if (trim($this->googleDriveOauthRefreshToken) !== '') {
+                // Modo OAuth (conta de usuário). O access token é obtido sob demanda pelo refresh token.
+                if (trim($this->googleDriveOauthClientId) === '' || trim($this->googleDriveOauthClientSecret) === '') {
+                    throw new \RuntimeException('OAuth do Drive incompleto: faltam GOOGLE_DRIVE_OAUTH_CLIENT_ID/SECRET.');
+                }
+                $client->setClientId($this->googleDriveOauthClientId);
+                $client->setClientSecret($this->googleDriveOauthClientSecret);
+                $client->refreshToken($this->googleDriveOauthRefreshToken);
+            } elseif (trim($this->googleDriveCredentials) !== '' && is_file($this->googleDriveCredentials)) {
+                // Modo service account (Shared Drive).
+                $client->setAuthConfig($this->googleDriveCredentials);
+            } else {
+                throw new \RuntimeException('Credenciais do Drive ausentes: configure OAuth (refresh token) ou service account (JSON).');
             }
 
-            $client = new Client();
-            $client->setAuthConfig($this->googleDriveCredentials);
             $client->addScope(Drive::DRIVE);
             $this->drive = new Drive($client);
         }
@@ -95,8 +116,7 @@ final class GoogleDriveClient implements GoogleDriveClientInterface
                 'fields'                    => $fields,
                 'supportsAllDrives'         => true,
                 'includeItemsFromAllDrives' => true,
-                'corpora'                   => 'drive',
-                'driveId'                   => $this->googleDriveSharedDriveId,
+                'corpora'                   => 'allDrives',
                 'pageSize'                  => 1000,
             ];
             if ($pageToken !== null) {
