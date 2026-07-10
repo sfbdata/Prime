@@ -1,7 +1,7 @@
 # EXECUTION_STATUS — Gestão de Cobranças
 
 > Panorama VIVO da implementação. Fonte de verdade do progresso. **Confirmar sempre contra o Git/código — nunca contra memória de chat.**
-> Última atualização: 2026-07-10 (Etapa 7 — importação em massa CONCLUÍDA: adapter real TOPLIFE + importador idempotente).
+> Última atualização: 2026-07-10 (Etapa 8 Onda 8A — telas de LEITURA CONCLUÍDAS: menu gated + carteiras + casos + detalhe do caso).
 
 ---
 
@@ -9,11 +9,11 @@
 
 | Campo | Valor real |
 |---|---|
-| **Etapa atual** | Etapa 7 — Importação em massa → **✅ CONCLUÍDA** (ponto seguro dedup-dígitos + adapter real TOPLIFE + importador `prever`/`confirmar` idempotente). Próxima = Etapa 8 (Telas/UX) |
+| **Etapa atual** | Etapa 8 — Telas/UX. **Onda 8A (LEITURA) ✅ CONCLUÍDA** (menu gated + lista/visão de carteiras + lista de casos c/ filtro + detalhe do caso). Próxima = **Onda 8B** (formulários/mutações), depois **8C** (importação visual + file-manager de documentos) |
 | **Tarefa atual** | Nenhuma em execução |
-| **Último checkpoint estável** | `5a5ecd6` — **suíte GLOBAL verde 1501/1501**; `tests/Cobranca` 220/220 |
+| **Último checkpoint estável** | `3e20b3e` — **suíte GLOBAL verde 1515/1515**; `tests/Cobranca` 234/234 |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `5a5ecd6` (+1 commit de docs vivos a seguir) |
+| **HEAD** | `3e20b3e` (+1 commit de docs vivos a seguir) |
 | **Working tree** | limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar; + os `.xlsx` reais TOPLIFE gitignorados) |
 | **Migrations (dev+test)** | E1..E6 (ver histórico); **E7 `Version20260710130000`** (índices funcionais dedup dígitos cpf/cnpj) **+ `Version20260710160000`** (índice PARCIAL ÚNICO de idempotência da importação: obrigacao(caso_id, referencia_externa) WHERE NOT NULL) |
 | **Escritor** | ÚNICO (orquestrador). Etapa 7 sem fan-out — fluxo coeso e acoplado |
@@ -101,7 +101,17 @@
 - ✅ **Etapa 5** — Estados/Judicialização (`pastaJudicial`)/Encerramento/ProximaAcao/Revisão/Alertas: 2 entidades (`ProximaAcao`/`RevisaoPessoaCobrada`) + 2 enums, FK `CasoCobranca.pastaJudicial` (unidirecional), 6 UseCases (`Judicializar`/`Encerrar`/`Definir`/`Concluir`/`Gerar`/`Resolver`), serviço `AlertasCobranca` (5 alertas derivados), cross-tenant DB (isolamento da Pasta provado), global 1441/1441.
 - ✅ **Etapa 6** — Documentos do caso: entidades `CobrancaSecao`/`CobrancaDocumento` (FK caso nn, INV-25: sem Pasta), enum `CategoriaDocumentoCobranca`, 6 UseCases (`Enviar`/`Mover`/`Excluir` documento + `Criar`/`Renomear`/`Excluir` seção) reusando `ArquivoStorageService`, isolamento físico por tenant no disco, purga coberta, cross-tenant DB+disco (judicialização preserva docs), global 1472/1472.
 - ✅ **Etapa 7** — Importação em massa: **CONCLUÍDA**. Ponto seguro (dedup dígitos) + adapter real TOPLIFE + importador idempotente. Ver `docs/specs/cobranca-etapa7-importacao.md` e `docs/gestao-cobrancas/MAPEAMENTO_FONTE_TOPLIFE.md`.
-- ⬜ **Etapa 8** Telas/UX · **9** Alertas UI + Dashboard.
+- 🟨 **Etapa 8** Telas/UX — **Onda 8A (LEITURA) ✅ CONCLUÍDA**; **8B (mutações/forms)** e **8C (importação visual + file-manager)** pendentes.
+- ⬜ **Etapa 9** Alertas UI + Dashboard.
+
+### Etapa 8 Onda 8A — o que foi entregue (commit `3e20b3e`, sobre `d2101a7`)
+Camada HTTP de **LEITURA** (só GET; mutação = 8B). Spec `docs/specs/cobranca-etapa8-telas-ux.md`.
+- **Fundação:** `badgeClass()` nos enums de estado (+`icone()` em `TipoAlerta`); filtro Twig `|centavos` (`CobrancaExtension`); métodos de listagem tenant-scoped (`findByFilters`/`countByFilters`/`opcoesFacetaDoTenant`/`daCarteira`/`contarDaCarteira`/`doCaso`); 11 Output DTOs de leitura; 4 UseCases de leitura (`ListarCarteiras`/`ListarCasos`/`MontarVisaoCarteira`/`MontarDetalheCaso`).
+- **4 rotas `cobranca_*`:** `carteira_index` (landing, filtro XHR) · `carteira_show` (visão da carteira: config + agregados + saldo consolidado + casos) · `caso_index` (filtro XHR) · `caso_show` (**detalhe central**: cabeçalho saldo/estado/pessoa/próxima ação/alertas + abas Obrigações/Pagamentos&Liquidações/Acordos/Documentos[placeholder 8C]/Histórico[timeline]).
+- **Menu** gated `can_access_module('cobrancas')` + `pageTitle`; **UX** `cobrancas.css` tema-aware, badges, realce vencido, tooltips, sub-nav, empty states, cards mobile.
+- **Segurança:** gate módulo nas 4 rotas; `findOneByIdDoTenant`→404 (IDOR); toda listagem com `WHERE tenant` explícito; GET-only (CSRF em 8B). Tenant-safety LIMPO.
+- **Testes:** `CobrancaTelasControllerTest` (14) — auth/módulo, render, XHR fragmento, IDOR 404, não-vazamento, facetas/ordenação/paginação. Revisão adversarial SEM bloqueante (#2 tratado; #1/#3 non-issue verificados).
+- **Autorização (decisão SPEC §22):** módulo em tudo; capacidades `resources.cobranca.*` (pré-registradas) entram nas mutações da 8B via `hasPermission` (capacidade de papel, não per-item ACL).
 
 ### Etapa 7 — o que foi entregue
 **Parte 1 — ponto seguro (independe da fonte, invariável §23.24):** dedup de Pessoa por **dígitos** de CPF/CNPJ (`NormalizadorDocumento`, `SugerirPessoasDuplicadas`, `PessoaRepository::buscarPossiveisDuplicadas` com `regexp_replace`, índices funcionais `Version20260710130000`). Fecha o núcleo do follow-up #3.
@@ -143,8 +153,9 @@
 ---
 
 ## Próxima ação exata
-> **Etapa 8 — Telas operacionais / UX** (PLAN §9 item Etapa 8 + SPEC §26). A Etapa 7 está concluída (importador com back-end pronto, mas SEM camada HTTP — o disparo da importação por tela/upload é parte da Etapa 8, follow-up #15/NB7 da revisão).
-> Escopo E8: item de menu **gated `can_access_module('cobrancas')`**; lista de carteiras → visão da carteira → lista de casos (filtro reutilizável) → **detalhe do caso** (tela central) → formulários de ação; **tela de importação** (upload `.xlsx` → `TopLifeInadimplenciaAdapter::ler` → `ImportarRelatorioCarteiraUseCase::prever` (preview) → confirmar); controllers finos com guard permissão/tenant/IDOR/CSRF; religar o file manager `pasta-arquivos.js` por `data-*`.
-> Passos: (1) confirmar Git/escritor único/`tests/Cobranca` verde; (2) storytelling das rotas + permissões; (3) controllers + templates + forms; (4) functional por rota (permissão/tenant/IDOR/CSRF/render) + E2E opcional; (5) tenant-safety-review antes de fechar.
+> **Etapa 8 — Onda 8B (Formulários / mutações).** A Onda 8A (leitura/navegação) está concluída e commitada (`3e20b3e`). Agora: ligar as AÇÕES de escrita reusando os UseCases já prontos.
+> Escopo 8B: Forms (`data_class` = Input DTO) + rotas POST para: CRUD Carteira/Objeto/Pessoa/Vínculo · Caso (abrir/alterar pessoa cobrada/encerrar) · Obrigação (registrar/reconhecer valor) · Pagamento (registrar c/ sugestão FIFO — follow-up #8/corrigir) · Liquidação · Acordo (criar/romper/cancelar/cumprir) · Próxima ação (definir/concluir) · Tentativa de cobrança · Judicialização (gate `pastas` p/ escolher Pasta) · Revisão (gerar/resolver). **Cada mutação:** gate módulo `cobrancas` + **capacidade** via `hasPermission` (`resources.cobranca.gerenciar` operação · `resources.cobranca.movimentacao_financeira` pagamento/liquidação/correção · `resources.carteira.gerenciar` config de carteira) + **CSRF** + `findOneByIdDoTenant` + controller fino (Request→Form/DTO→UseCase→flush).
+> Passos: (1) confirmar Git/escritor único/`tests/Cobranca` 234/234; (2) storytelling dos Forms/rotas de mutação + capacidades; (3) Forms + controllers + templates; (4) functional por rota (permissão/**capacidade**/tenant/IDOR/**CSRF**/happy+erro); (5) tenant-safety-review.
+> Depois: **Onda 8C** — importação visual (upload `.xlsx` → `TopLifeInadimplenciaAdapter::ler` → `prever`[preview] → `confirmar`[relatório importado/ignorado/rejeitado]) + religar `pasta-arquivos.js` por `data-*` (documentos do Caso; contrato 1:1 com as rotas da Pasta).
 >
-> Atenção permanente: §24 — nunca importador universal; §21 — importação dentro de uma Carteira explícita; dedup só intra-tenant; honorários derivados (§18/§19).
+> Atenção permanente: §24 — nunca importador universal; §21 — importação dentro de uma Carteira explícita; dedup só intra-tenant; honorários derivados (§18/§19); **decisão da E7 sobre linhas só-encargos permanece intacta**.
