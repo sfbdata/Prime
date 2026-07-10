@@ -8,8 +8,6 @@ use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\UseCase\ListarCasosUseCase;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
-use App\Entity\Auth\User;
-use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -28,6 +26,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_USER')]
 final class CasoController extends AbstractController
 {
+    use AutorizacaoCobranca;
+
     private const POR_PAGINA = 20;
 
     public function __construct(
@@ -43,8 +43,8 @@ final class CasoController extends AbstractController
     #[Route('', name: 'cobranca_caso_index', methods: ['GET'])]
     public function index(Request $request): Response
     {
-        [$usuario, $tenant] = $this->contexto();
-        if (!$this->permissionChecker->canAccessModule($usuario, $tenant, 'cobrancas')) {
+        $tenant = $this->tenantComModulo();
+        if ($tenant === null) {
             return $this->semAcesso();
         }
 
@@ -81,8 +81,8 @@ final class CasoController extends AbstractController
     #[Route('/{id}', name: 'cobranca_caso_show', methods: ['GET'], requirements: ['id' => '\d+'])]
     public function show(int $id): Response
     {
-        [$usuario, $tenant] = $this->contexto();
-        if (!$this->permissionChecker->canAccessModule($usuario, $tenant, 'cobrancas')) {
+        $tenant = $this->tenantComModulo();
+        if ($tenant === null) {
             return $this->semAcesso();
         }
 
@@ -94,23 +94,5 @@ final class CasoController extends AbstractController
         return $this->render('cobranca/caso/show.html.twig', [
             'caso' => $this->montarDetalheCaso->executar($caso),
         ]);
-    }
-
-    /**
-     * @return array{0: User, 1: ?Tenant}
-     */
-    private function contexto(): array
-    {
-        /** @var User $usuario */
-        $usuario = $this->getUser();
-
-        return [$usuario, $this->tenantContext->getCurrentTenant()];
-    }
-
-    private function semAcesso(): Response
-    {
-        $this->addFlash('warning', 'Você não tem permissão para acessar o módulo de Cobranças.');
-
-        return $this->redirectToRoute('homepage');
     }
 }

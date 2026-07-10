@@ -97,6 +97,21 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
         return [$carteira->_real(), $caso->_real()];
     }
 
+    /**
+     * Asserção robusta contra o HTML renderizado: nomes vindos do Faker podem conter caracteres que o
+     * Twig escapa (apóstrofo → &#039;, & → &amp;). Comparar o texto CRU contra o HTML falha nesses
+     * casos (flake dependente de seed). Aqui comparamos o texto JÁ escapado como o template o produz.
+     */
+    private static function assertHtmlContem(string $textoCru, string $html, string $mensagem = ''): void
+    {
+        self::assertStringContainsString(htmlspecialchars($textoCru, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $html, $mensagem);
+    }
+
+    private static function assertHtmlNaoContem(string $textoCru, string $html, string $mensagem = ''): void
+    {
+        self::assertStringNotContainsString(htmlspecialchars($textoCru, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $html, $mensagem);
+    }
+
     #[TestDox('GET /cobrancas sem autenticação redireciona para login')]
     public function testSemAutenticacaoRedireciona(): void
     {
@@ -156,7 +171,7 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('data-filtro-root', $html);
-        self::assertStringContainsString((string) $carteira->getNome(), $html);
+        self::assertHtmlContem((string) $carteira->getNome(), $html);
     }
 
     #[TestDox('GET /cobrancas/casos autenticado retorna 200 e mostra a pessoa cobrada')]
@@ -171,7 +186,7 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('data-filtro-root', $html);
-        self::assertStringContainsString((string) $caso->getPessoaCobradaAtual()->getNome(), $html);
+        self::assertHtmlContem((string) $caso->getPessoaCobradaAtual()->getNome(), $html);
     }
 
     #[TestDox('XHR em /cobrancas/casos devolve só o fragmento (sem layout nem barra de filtro)')]
@@ -185,7 +200,7 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString((string) $caso->getObjeto()->getIdentificacao(), $html);
+        self::assertHtmlContem((string) $caso->getObjeto()->getIdentificacao(), $html);
         self::assertStringContainsString('caso(s)', $html);
         self::assertStringNotContainsString('<!DOCTYPE', $html);
         self::assertStringNotContainsString('data-filtro-root', $html);
@@ -202,7 +217,7 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString((string) $carteira->getNome(), $html);
+        self::assertHtmlContem((string) $carteira->getNome(), $html);
         self::assertStringContainsString('Saldo consolidado', $html);
     }
 
@@ -217,7 +232,7 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString((string) $caso->getPessoaCobradaAtual()->getNome(), $html);
+        self::assertHtmlContem((string) $caso->getPessoaCobradaAtual()->getNome(), $html);
         self::assertStringContainsString('Saldo exig', $html);
     }
 
@@ -267,7 +282,7 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString((string) $carteira->getNome(), $html);
+        self::assertHtmlContem((string) $carteira->getNome(), $html);
         self::assertStringContainsString('carteira(s)', $html);
         self::assertStringNotContainsString('<!DOCTYPE', $html);
         self::assertStringNotContainsString('data-filtro-root', $html);
@@ -298,8 +313,8 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString((string) $casoEncerrado->getObjeto()->getIdentificacao(), $html);
-        self::assertStringNotContainsString((string) $casoAtivo->getObjeto()->getIdentificacao(), $html);
+        self::assertHtmlContem((string) $casoEncerrado->getObjeto()->getIdentificacao(), $html);
+        self::assertHtmlNaoContem((string) $casoAtivo->getObjeto()->getIdentificacao(), $html);
     }
 
     #[TestDox('Faceta carteira estreita a lista de casos (filtro numérico validado)')]
@@ -320,8 +335,8 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString((string) $casoA->getObjeto()->getIdentificacao(), $html);
-        self::assertStringNotContainsString((string) $casoB->getObjeto()->getIdentificacao(), $html);
+        self::assertHtmlContem((string) $casoA->getObjeto()->getIdentificacao(), $html);
+        self::assertHtmlNaoContem((string) $casoB->getObjeto()->getIdentificacao(), $html);
     }
 
     #[TestDox('Ordenação e paginação não quebram (COALESCE HIDDEN + whitelist)')]
@@ -360,7 +375,7 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
-        self::assertStringContainsString((string) $casoProprio->getObjeto()->getIdentificacao(), $html);
-        self::assertStringNotContainsString((string) $casoAlheio->getObjeto()->getIdentificacao(), $html);
+        self::assertHtmlContem((string) $casoProprio->getObjeto()->getIdentificacao(), $html);
+        self::assertHtmlNaoContem((string) $casoAlheio->getObjeto()->getIdentificacao(), $html);
     }
 }
