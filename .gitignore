@@ -78,3 +78,6 @@ relatorio-commits-10-11-jun-2026.md
 
 # Snapshots de prod usados como fixture de dev (contêm PII — nunca versionar)
 /fixtures/
+
+# Relatórios reais da fonte de importação de Cobranças (PII) — nunca versionar
+docs/gestao-cobrancas/*.xlsx
