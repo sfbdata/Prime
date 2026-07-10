@@ -1,7 +1,7 @@
 # EXECUTION_STATUS — Gestão de Cobranças
 
 > Panorama VIVO da implementação. Fonte de verdade do progresso. **Confirmar sempre contra o Git/código — nunca contra memória de chat.**
-> Última atualização: 2026-07-10 (Etapa 8 **Onda 8B PARCIAL**: fundação + 3 fatias de mutações caso-level — obrigações/encerrar, ação/tentativa/revisão, acordo — CONCLUÍDAS, testadas, revisadas. Faltam 8B-D financeiro e 8B-E cadastro).
+> Última atualização: 2026-07-10 (Etapa 8 **Onda 8B COMPLETA**: todas as mutações operacionais ligadas — caso-level + financeiro (8B-D) + cadastro/seleção (8B-E) + judicializar + alterar-pessoa + guard de caso encerrado no servidor — testadas e revisadas em 2 frentes, SEM bloqueantes. HEAD `642a9ef`; `tests/Cobranca` 343/343; GLOBAL 1624/1624. Próxima = **Onda 8C**).
 
 ---
 
@@ -9,7 +9,7 @@
 
 | Campo | Valor real |
 |---|---|
-| **Etapa atual** | Etapa 8 — Telas/UX. **Onda 8A (LEITURA) ✅** + **Onda 8B PARCIAL** (fundação + obrigações/encerrar + ação/tentativa/revisão + acordo ✅). Próxima = **8B-D financeiro** (pagamento/corrigir/liquidação), depois **8B-E cadastro+seleção**, depois **8C** (importação visual + file-manager) |
+| **Etapa atual** | Etapa 8 — Telas/UX. **Onda 8A (LEITURA) ✅** + **Onda 8B (ESCRITA) ✅ COMPLETA** (caso-level + 8B-D financeiro + 8B-E cadastro/seleção + judicializar + alterar-pessoa + guard de caso encerrado). Próxima = **8C** (importação visual + file-manager de documentos), depois **Etapa 9** (Dashboard/alertas) |
 | **Tarefa atual** | Nenhuma em execução (handoff controlado) |
 | **Último checkpoint estável** | `30e4cf4` — **GLOBAL verde 1569/1569**; `tests/Cobranca` 288/288 |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
@@ -101,7 +101,7 @@
 - ✅ **Etapa 5** — Estados/Judicialização (`pastaJudicial`)/Encerramento/ProximaAcao/Revisão/Alertas: 2 entidades (`ProximaAcao`/`RevisaoPessoaCobrada`) + 2 enums, FK `CasoCobranca.pastaJudicial` (unidirecional), 6 UseCases (`Judicializar`/`Encerrar`/`Definir`/`Concluir`/`Gerar`/`Resolver`), serviço `AlertasCobranca` (5 alertas derivados), cross-tenant DB (isolamento da Pasta provado), global 1441/1441.
 - ✅ **Etapa 6** — Documentos do caso: entidades `CobrancaSecao`/`CobrancaDocumento` (FK caso nn, INV-25: sem Pasta), enum `CategoriaDocumentoCobranca`, 6 UseCases (`Enviar`/`Mover`/`Excluir` documento + `Criar`/`Renomear`/`Excluir` seção) reusando `ArquivoStorageService`, isolamento físico por tenant no disco, purga coberta, cross-tenant DB+disco (judicialização preserva docs), global 1472/1472.
 - ✅ **Etapa 7** — Importação em massa: **CONCLUÍDA**. Ponto seguro (dedup dígitos) + adapter real TOPLIFE + importador idempotente. Ver `docs/specs/cobranca-etapa7-importacao.md` e `docs/gestao-cobrancas/MAPEAMENTO_FONTE_TOPLIFE.md`.
-- 🟨 **Etapa 8** Telas/UX — **Onda 8A (LEITURA) ✅**; **Onda 8B (mutações/forms) PARCIAL**: fundação + obrigações/encerrar + ação/tentativa/revisão + acordo ✅ (13 mutações); **8B-D financeiro** e **8B-E cadastro** pendentes. **8C** (importação visual + file-manager) pendente.
+- 🟨 **Etapa 8** Telas/UX — **Onda 8A (LEITURA) ✅**; **Onda 8B (mutações/forms) ✅ COMPLETA** (caso-level + financeiro + cadastro/seleção + judicializar + alterar-pessoa + guard de caso encerrado). **8C** (importação visual + file-manager) pendente; **Etapa 9** (Dashboard/alertas) pendente.
 
 ### Etapa 8 Onda 8B — o que foi entregue (commits `29e7a8e`→`30e4cf4`, sobre 8A `b0d2786`)
 Camada HTTP de **ESCRITA** (mutações). Spec `docs/specs/cobranca-etapa8b-mutacoes.md`.
@@ -111,7 +111,15 @@ Camada HTTP de **ESCRITA** (mutações). Spec `docs/specs/cobranca-etapa8b-mutac
 - **8B-C** (`e718a4d`): criar acordo (multiselect de obrigações escopado + coleção de parcelas) · romper/cancelar (modais reutilizáveis) · cumprir (CSRF manual). `AcordoController`. Flag `AcordoOutput.ativo`.
 - **Correções da revisão** (`30e4cf4`, SEM bloqueantes): `formulariosDeMutacao` gated por capacidade; matriz de teste de cancelar acordo fechada.
 - **Segurança (revisão adversarial: tenant/IDOR/ordem gate→CSRF→mutação/dinheiro VERIFICADOS OK).** Padrão: gate capacidade → `findOneByIdDoTenant`→404 → CSRF → UseCase → PRG. Controllers finos; UseCases flusham. 46 testes funcionais de mutação + 15 unit do transformer.
-- ⬜ **Etapa 9** Alertas UI + Dashboard.
+
+### Etapa 8 Onda 8B — 2ª metade (commits `936408a`→`642a9ef`, sobre `ba667b4`) — CONCLUSÃO DA ONDA
+- **Guard de caso encerrado no servidor** (`936408a`): `ReconhecerValorAtualizado`/`RegistrarTentativa`/`GerarRevisao` lançam `CasoEncerradoException` num caso encerrado (fecha a assimetria — antes só a UI barrava). Decisão de negócio do humano. Testes unit + `CasoEncerradoBloqueiaMutacaoControllerTest` (provam o não-efeito).
+- **8B-D financeiro** (`b9ead49` + correções `e593978`): `PagamentoController` (registrar/corrigir), `LiquidacaoController` (registrar). Capacidade SEPARADA `resources.cobranca.movimentacao_financeira`. `CentavosType` + coleção `AlocacaoPagamentoType`; modais em `_acoes_modais_financeiro.html.twig` (gate próprio). `CapacidadeSeparacaoControllerTest` prova gerenciar×financeiro independentes.
+- **Judicializar** (`9a4908a` + `642a9ef`): `CasoController::judicializar`, gate `gerenciar` + módulo `pastas` (no controller), `PastaRepository::opcoesDoTenant`. Teste de negação do gate `pastas`.
+- **8B-E cadastro** (`eedbb05` + fix `e4c5c71`, fan-out `feature-implementer`→cherry-pick): `CarteiraController` escrita (criar/configurar/objeto/abrir-caso + leitura objetos/vínculos em arrays), `PessoaController` (criar/vincular/encerrar). 7 forms. `Pessoa/ClienteRepository::opcoesDoTenant`. Templates `carteira/{index,show,_acoes_modais}`.
+- **Alterar pessoa cobrada** (`0353470`): `CasoController::alterarPessoaCobrada`, select escopado ao tenant, motivo obrigatório.
+- **Segurança:** 2 revisões adversariais read-only (frente CASO e frente CARTEIRA/judicializar/alterar-pessoa) + tenant-safety scan — **SEM bloqueantes**. Multi-tenant/IDOR com defesa dupla (ChoiceType escopado + revalidação por tenant no UseCase). `criarOperadorComCapacidades` prova gates granulares. `tests/Cobranca` 343/343; GLOBAL 1624/1624.
+- ⬜ **Onda 8C** Importação visual + file-manager de documentos. ⬜ **Etapa 9** Alertas UI + Dashboard.
 
 ### Etapa 8 Onda 8A — o que foi entregue (commit `3e20b3e`, sobre `d2101a7`)
 Camada HTTP de **LEITURA** (só GET; mutação = 8B). Spec `docs/specs/cobranca-etapa8-telas-ux.md`.
@@ -162,12 +170,13 @@ Camada HTTP de **LEITURA** (só GET; mutação = 8B). Spec `docs/specs/cobranca-
 ---
 
 ## Próxima ação exata
-> **Etapa 8 — Onda 8B-D (Financeiro).** 8B-0/A/B/C concluídas (`30e4cf4`). Ver o **"Padrão ESTABELECIDO da 8B"** e a **"PRÓXIMA AÇÃO EXATA"** detalhada no `SESSION_HANDOFF.md` — é a fonte operacional. Resumo:
-> - **8B-D**: Registrar pagamento (cap `movimentacao_financeira`; `alocacoes[]` via `CollectionType` + `obrigacaoId` escopado ao caso reusando o padrão `AcordoCriarType::opcoesObrigacoes`; alocação MANUAL, FIFO é follow-up #8) · Corrigir pagamento (por-item, SEM estorno) · Registrar liquidação (simples, só formas não-monetárias).
-> - **8B-E**: CRUD Carteira/Objeto/Pessoa/Vínculo · Abrir caso · Alterar pessoa cobrada · Judicializar (gate ADICIONAL `pastas`). Desafio: seletores de Pessoa/Pasta escopados ao tenant; pré-preencher `EditarConfiguracaoCarteiraInput` à mão.
-> - Depois: **8C** — importação visual + file-manager de documentos (religar `pasta-arquivos.js` por `data-*`).
-> **Cada mutação segue o padrão da 8B** (gate capacidade → `findOneByIdDoTenant`→404 → CSRF → UseCase → PRG; controller fino; testes happy/capacidade/IDOR/CSRF/erro). Single-writer (cluster do Caso não paraleliza — template compartilhado).
+> **Etapa 8 — Onda 8C.** A Onda 8B está **COMPLETA** (HEAD `642a9ef`; todas as mutações operacionais ligadas — caso-level + 8B-D financeiro + 8B-E cadastro/seleção + judicializar + alterar-pessoa + guard de caso encerrado; `tests/Cobranca` 343/343, GLOBAL 1624/1624; 2 revisões adversariais + tenant-safety SEM bloqueantes). Ver a **"PRÓXIMA AÇÃO EXATA — Onda 8C"** detalhada no `SESSION_HANDOFF.md` — é a fonte operacional. Resumo:
+> - **8C — Importação visual**: fluxo upload→prever→confirmar sobre o `ImportarRelatorioCarteiraUseCase` (E7, idempotente; **linha só-encargos REJEITADA — NÃO alterar**). Preview/dry-run antes do commit real; provável rota/aba na Carteira.
+> - **8C — File-manager de documentos do Caso**: religar `pasta-arquivos.js` na aba "Documentos" do `caso/show.html.twig` (hoje placeholder). Entidades `CobrancaDocumento`/`CobrancaSecao` e UseCases de documento/seção já existem.
+> - Depois: **Etapa 9** — Dashboard + central visual de alertas. NÃO antecipar.
+> **Cada mutação (se houver escrita nova) segue o padrão da 8B** (gate capacidade → `findOneByIdDoTenant`→404 → CSRF → UseCase → PRG; selects via `opcoesDoTenant`+ChoiceType; controller fino; testes happy/capacidade/IDOR/CSRF/erro). Single-writer (cluster do Caso não paraleliza — template compartilhado); cadastro/importação é file-independente e pode paralelizar se crescer.
 >
-> **Follow-ups da revisão 8B** (ver SESSION_HANDOFF §Follow-ups): (1) assimetria "caso encerrado" em reconhecer-valor/tentativa/revisão — DECISÃO DO HUMANO (guard é regra de domínio das Etapas 1–7); (2) completar matriz de teste capacidade/CSRF nas rotas por-item; (3) `Length` na observação da tentativa.
+> **Decisão de negócio aplicada nesta sessão:** caso encerrado NÃO aceita mutação — guard no servidor em reconhecer-valor/tentativa/revisão (fechou a assimetria). Nova inadimplência = NOVO caso.
+> **Follow-ups restantes** (ver SESSION_HANDOFF §Follow-ups): FIFO de alocação (#8, adiado); cobertura positiva granular de `gerenciar` no cadastro (aceito p/ MVP; separação/negação JÁ provadas); NITs teóricos aceitos.
 >
 > Atenção permanente: §24 — nunca importador universal; §21 — importação dentro de uma Carteira explícita; dedup só intra-tenant; honorários derivados (§18/§19); **decisão da E7 sobre linhas só-encargos permanece intacta**.

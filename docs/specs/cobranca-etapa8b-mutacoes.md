@@ -47,9 +47,9 @@ Controller fino: `Request → Form/DTO → UseCase → (flush interno) → redir
 - **Coleções aninhadas** → `CollectionType` com `entry_type` do sub-Form (`AlocacaoPagamentoInput` → `AlocacaoPagamentoType`; `ParcelaAcordoInput` → `ParcelaAcordoType`), `allow_add`/`allow_delete`/`by_reference:false`, `prototype` p/ JS. `CriarAcordoInput.obrigacoesSubstituidasIds` = `int[]` → `ChoiceType` multiselect das obrigações exigíveis do caso.
 - Todo Form: `data_class => <Input>::class`; CSRF default do Symfony; classe `final`; validação via `#[Assert]` do DTO (nada de constraint no Form).
 
-## Estado de execução (2026-07-10)
+## Estado de execução (2026-07-10) — ONDA 8B COMPLETA
 
-Ordem REAL executada (reordenada por complexidade/independência — mecânicas primeiro, coleção/seleção depois): **8B-0 fundação → 8B-A obrigações/encerrar → 8B-B ação/tentativa/revisão → 8B-C acordo** ✅ (commits `29e7a8e`→`30e4cf4`, revisados sem bloqueante, `tests/Cobranca` 288/288). **Faltam: 8B-D financeiro (pagamento/corrigir/liquidação) e 8B-E cadastro+seleção (carteira/objeto/pessoa/vínculo/abrir/alterar-pessoa/judicializar).** Detalhe operacional e "padrão estabelecido" no `docs/gestao-cobrancas/SESSION_HANDOFF.md`.
+Ordem REAL executada: **8B-0 fundação → 8B-A obrigações/encerrar → 8B-B ação/tentativa/revisão → 8B-C acordo** (commits `29e7a8e`→`30e4cf4`) → **guard de caso encerrado no servidor** (`936408a`) → **8B-D financeiro** pagamento/corrigir/liquidação (`b9ead49`+`e593978`) → **judicializar** (`9a4908a`+`642a9ef`) → **8B-E cadastro/seleção** carteira/objeto/pessoa/vínculo/abrir-caso (`eedbb05`+`e4c5c71`, fan-out isolado) → **alterar pessoa cobrada** (`0353470`). ✅ **TODAS as mutações operacionais ligadas.** HEAD `642a9ef`; `tests/Cobranca` **343/343**; GLOBAL **1624/1624**. 2 revisões adversariais read-only + tenant-safety scan — SEM bloqueantes (multi-tenant/IDOR com defesa dupla: ChoiceType escopado via `opcoesDoTenant` + revalidação por tenant no UseCase). **Decisão de negócio aplicada:** caso encerrado bloqueia mutação no servidor (fecha a assimetria da UI). **Próximo = Onda 8C** (importação visual + file-manager de documentos). Detalhe operacional e "padrão estabelecido" no `docs/gestao-cobrancas/SESSION_HANDOFF.md`.
 
 ## Decomposição em fatias (single-writer sequencial — decisão de paralelização)
 
