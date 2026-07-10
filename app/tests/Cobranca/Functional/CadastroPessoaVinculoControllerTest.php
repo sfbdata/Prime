@@ -22,22 +22,24 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(PessoaController::class)]
 final class CadastroPessoaVinculoControllerTest extends CobrancaWebTestCase
 {
-    #[TestDox('Criar pessoa: happy path persiste; sem referer interno volta à lista')]
+    #[TestDox('Criar pessoa: happy path persiste e volta à origem (carteira)')]
     public function testCriarPessoaHappy(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [$carteira] = $this->semearGrafo($tenant);
+        $origem = '/cobrancas/carteiras/' . $carteira->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+        // O BrowserKit usa a própria página como Referer (mesmo host) — exigido pelo CSRF stateless
+        // (valida same-origin por Origin/Referer). redirecionarParaOrigem volta ao Referer interno.
+        $crawler = $client->request('GET', $origem);
         $token = $this->tokenDoFormulario($crawler, 'criar_pessoa');
 
-        // Referer externo → cai na lista de carteiras (branch "não é do próprio host").
         $client->request('POST', '/cobrancas/pessoas', [
             'criar_pessoa' => ['nome' => 'Fulano de Cadastro', '_token' => $token],
-        ], [], ['HTTP_REFERER' => 'https://externo.example.com/pagina']);
+        ]);
 
-        self::assertResponseRedirects('/cobrancas');
+        self::assertResponseRedirects('http://localhost' . $origem);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
