@@ -299,6 +299,42 @@ final class ReconciliarCommandTest extends KernelTestCase
         self::assertSame('sentenca.pdf', $row['nome_original']);
     }
 
+    #[TestDox('--skip-arquivos reconcilia só as pastas: cria a pasta nova mas NÃO baixa arquivo do Drive')]
+    public function testSkipArquivosReconciliaSoPastas(): void
+    {
+        self::bootKernel();
+        $tenant = TenantFactory::createOne();
+        $user   = UserFactory::createOne();
+        // Pasta já vinculada com um arquivo no Drive que, num run normal, seria baixado.
+        PastaFactory::createOne(['tenant' => $tenant, 'nup' => '600', 'nomeCliente' => 'COM ARQUIVO', 'driveFolderId' => 'CASE-SKIP']);
+
+        $fake = new FakeGoogleDriveClient();
+        $fake->seedArquivo('F-SKIP', 'nao-deve-baixar.pdf', 'CASE-SKIP');
+        // Subpasta nova no Drive: deve virar pasta MESMO com --skip-arquivos (folder-level roda).
+        $fake->seedPasta('DRV-SKIP', '601 - CLIENTE NOVO SKIP', self::ROOT);
+
+        $tester = $this->tester($fake);
+        $tester->execute([
+            '--tenant-id'     => (string) $tenant->getId(),
+            '--usuario-id'    => (string) $user->getId(),
+            '--skip-arquivos' => true,
+        ]);
+        $tester->assertCommandIsSuccessful();
+
+        $em = $this->em();
+        $em->clear();
+        // Folder-level rodou: a subpasta nova do Drive virou Pasta.
+        self::assertNotNull(
+            $em->getRepository(Pasta::class)->findOneBy(['driveFolderId' => 'DRV-SKIP']),
+            'com --skip-arquivos, a via de pastas ainda deve rodar',
+        );
+        // Mas o arquivo do Drive NÃO foi baixado (nenhum PastaDocumento criado).
+        $doc = $em->getConnection()->fetchAssociative(
+            'SELECT id FROM pasta_documento WHERE drive_file_id = :id', ['id' => 'F-SKIP'],
+        );
+        self::assertFalse($doc, 'com --skip-arquivos, nenhum arquivo do Drive deve ser baixado');
+    }
+
     #[TestDox('arquivo em subpasta do Drive cria a seção e vincula o documento a ela')]
     public function testBaixaArquivoDeSubpastaCriaSecao(): void
     {

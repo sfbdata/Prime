@@ -66,7 +66,8 @@ final class ReconciliarCommand extends Command
             ->addOption('usuario-id', null, InputOption::VALUE_REQUIRED, 'ID do usuário criadoPor das pastas nascidas no Drive')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Simula (sem mutação no Drive; DB revertido)')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Processa só as N primeiras de cada via (amostra)')
-            ->addOption('pasta-id', null, InputOption::VALUE_REQUIRED, 'Processa só uma pasta do sistema→Drive (debug); pula a via Drive→sistema');
+            ->addOption('pasta-id', null, InputOption::VALUE_REQUIRED, 'Processa só uma pasta do sistema→Drive (debug); pula a via Drive→sistema')
+            ->addOption('skip-arquivos', null, InputOption::VALUE_NONE, 'Reconcilia só PASTAS (pula a sincronização de arquivos) — a carga de arquivos fica para fase própria');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -77,6 +78,7 @@ final class ReconciliarCommand extends Command
         $uid  = $input->getOption('usuario-id');
         $dryRun = (bool) $input->getOption('dry-run');
         $limit  = $input->getOption('limit') !== null ? (int) $input->getOption('limit') : null;
+        $skipArquivos = (bool) $input->getOption('skip-arquivos');
 
         $tenant = $tid !== null ? $this->tenantRepository->find((int) $tid) : null;
         if ($tenant === null) {
@@ -138,7 +140,7 @@ final class ReconciliarCommand extends Command
             if (!$fatal && $input->getOption('pasta-id') === null) {
                 $fatal = !$this->driveParaSistema((int) $tid, (int) $uid, $dryRun, $limit, $totais, $io);
             }
-            if (!$fatal) {
+            if (!$fatal && !$skipArquivos) {
                 $pastaIdOpt = $input->getOption('pasta-id') !== null ? (int) $input->getOption('pasta-id') : null;
                 $fatal = !$this->reconciliarArquivos((int) $tid, $pastaIdOpt, $dryRun, $limit, $totais, $io);
             }
@@ -157,6 +159,10 @@ final class ReconciliarCommand extends Command
             ['Pastas do Drive sem NUP (puladas)', $totais['semNup']],
             ['Divergências de nome (só reporta)', $totais['divergencias']],
         ]);
+
+        if ($skipArquivos) {
+            $io->note('Sincronização de arquivos PULADA (--skip-arquivos): só as pastas foram reconciliadas.');
+        }
 
         $io->section('Resumo da reconciliação de arquivos');
         $io->table(['Métrica', 'Total'], [
