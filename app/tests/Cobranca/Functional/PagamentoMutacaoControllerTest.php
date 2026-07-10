@@ -216,4 +216,35 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         $em->clear();
         self::assertNull($em->find(Pagamento::class, $pagamentoId)->getMotivoCorrecao(), 'sem capacidade não corrige');
     }
+
+    #[TestDox('CSRF inválido: corrigir pagamento não altera a composição')]
+    public function testCorrigirPagamentoCsrfInvalido(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 20000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        $pagamento = PagamentoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 20000, 'valorHonorarios' => 0,
+        ])->_real();
+        $pagamentoId = (int) $pagamento->getId();
+
+        $client->request('POST', '/cobrancas/pagamentos/' . $pagamentoId . '/corrigir', [
+            'corrigir_pagamento' => [
+                'valorPago' => '80,00',
+                'alocacoes' => [['obrigacaoId' => (string) $obrigacao->getId(), 'valor' => '80,00']],
+                'motivoCorrecao' => 'MARCADOR CSRF', '_token' => 'token-falso',
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->find(Pagamento::class, $pagamentoId);
+        self::assertSame(20000, $fresh->getValorDivida(), 'CSRF inválido não reescreve a composição');
+        self::assertNull($fresh->getMotivoCorrecao());
+    }
 }

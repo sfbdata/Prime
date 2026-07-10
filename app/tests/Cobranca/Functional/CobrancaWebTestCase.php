@@ -128,6 +128,68 @@ abstract class CobrancaWebTestCase extends JusPrimeWebTestCase
     }
 
     /**
+     * Operador com papel NÃO-system que possui o módulo `cobrancas` (leitura) MAIS um conjunto
+     * específico de capacidades — para provar que as capacidades são INDEPENDENTES entre si (ex.:
+     * `movimentacao_financeira` sem `gerenciar`, ou o inverso). Só as capacidades passadas são
+     * concedidas; qualquer outra continua negada.
+     *
+     * @param list<string> $capacidades códigos de permissão (ex.: `resources.cobranca.movimentacao_financeira`)
+     *
+     * @return array{0: User, 1: Tenant}
+     */
+    protected function criarOperadorComCapacidades(KernelBrowser $client, array $capacidades): array
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+
+        $tenant = new Tenant();
+        $tenant->setName('Tenant CapEspecifica ' . uniqid());
+        $em->persist($tenant);
+
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Operador Capacidade ' . uniqid());
+        $role->setIsSystem(false);
+        $em->persist($role);
+
+        // Módulo de leitura (para passar o gate de módulo) + cada capacidade pedida.
+        foreach (array_merge(['modules.cobrancas.view'], $capacidades) as $code) {
+            $perm = $em->getRepository(Permission::class)->findOneBy(['code' => $code]);
+            if ($perm === null) {
+                $perm = new Permission();
+                $perm->setCode($code);
+                $perm->setDescription($code);
+                $perm->setGroup(str_contains($code, 'modules.') ? 'modules' : 'resources');
+                $em->persist($perm);
+                $em->flush();
+            }
+
+            $trp = new TenantRolePermission();
+            $trp->setTenantRole($role);
+            $trp->setPermission($perm);
+            $em->persist($trp);
+            $role->getTenantRolePermissions()->add($trp);
+        }
+
+        $user = new User();
+        $user->setEmail('cobranca_cap_' . uniqid() . '@test.com');
+        $user->setFullName('Operador Capacidade');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        $em->persist($user);
+
+        $userTenant = new UserTenant($user, $tenant);
+        $userTenant->setTenantRole($role);
+        $em->persist($userTenant);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        return [$user, $tenant];
+    }
+
+    /**
      * Semeia Carteira→Objeto→Caso (+ Pessoa cobrada) no tenant. Aceita overrides do Caso.
      *
      * @param array<string, mixed> $overridesCaso

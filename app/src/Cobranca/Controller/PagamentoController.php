@@ -97,7 +97,11 @@ final class PagamentoController extends AbstractController
         if ($pagamento === null) {
             throw $this->createNotFoundException('Pagamento não encontrado.');
         }
+        // Defensivo: a JoinColumn é NOT NULL, mas o getter é nullable — sem caso não há o que corrigir.
         $caso = $pagamento->getCaso();
+        if ($caso === null) {
+            throw $this->createNotFoundException('Pagamento sem caso associado.');
+        }
         $casoId = $caso->getId();
 
         $input = new CorrigirPagamentoInput();
