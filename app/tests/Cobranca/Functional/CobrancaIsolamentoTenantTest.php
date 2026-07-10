@@ -168,9 +168,8 @@ final class CobrancaIsolamentoTenantTest extends KernelTestCase
         $tenantB = $this->criarTenant();
 
         // MESMO documento (mesma forma) em dois escritórios distintos. A dedup é advisory e SÓ
-        // intra-tenant (invariável 24). No MVP o match é exato sobre o documento armazenado; a
-        // normalização por dígitos (CPF formatado x cru) é follow-up documentado e não altera o
-        // isolamento por tenant, que é o que este teste prova.
+        // intra-tenant (invariável 24). O match é por dígitos (Etapa 7), mas o isolamento por
+        // tenant — o que este teste prova — vale independentemente da formatação.
         $cpf = '111.222.333-44';
         $pessoaA = PessoaFactory::createOne(['tenant' => $tenantA, 'cpf' => $cpf]);
         PessoaFactory::createOne(['tenant' => $tenantB, 'cpf' => $cpf]);
@@ -187,6 +186,35 @@ final class CobrancaIsolamentoTenantTest extends KernelTestCase
 
         self::assertCount(1, $sugeridasB);
         self::assertSame($tenantB->getId(), $sugeridasB[0]->getTenant()?->getId());
+    }
+
+    #[TestDox('Dedup casa CPF/CNPJ por dígitos, ignorando a formatação, mas nunca cruza tenant')]
+    public function testDedupCasaPorDigitosSemAtravessarTenant(): void
+    {
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+
+        // No A a Pessoa foi gravada FORMATADA; a busca chega com dígitos crus — devem casar (§24).
+        $pessoaCpfFormatado = PessoaFactory::createOne(['tenant' => $tenantA, 'cpf' => '529.982.247-25']);
+        // No A a Pessoa foi gravada em DÍGITOS; a busca chega FORMATADA — também casa (simétrico).
+        $pessoaCnpjDigitos = PessoaFactory::createOne(['tenant' => $tenantA, 'cnpj' => '11444777000161']);
+        // MESMO CPF (formatado) num OUTRO escritório: não pode ser sugerido no A.
+        PessoaFactory::createOne(['tenant' => $tenantB, 'cpf' => '52998224725']);
+
+        // CPF cru casa a pessoa gravada formatada — e só a do A.
+        $porCpf = $this->sugerir->executar($tenantA, '52998224725', null);
+        self::assertCount(1, $porCpf, 'o CPF por dígitos não casou a pessoa gravada formatada, ou vazou entre tenants');
+        self::assertSame($pessoaCpfFormatado->getId(), $porCpf[0]->getId());
+
+        // CNPJ formatado casa a pessoa gravada em dígitos.
+        $porCnpj = $this->sugerir->executar($tenantA, null, '11.444.777/0001-61');
+        self::assertCount(1, $porCnpj, 'o CNPJ formatado não casou a pessoa gravada em dígitos');
+        self::assertSame($pessoaCnpjDigitos->getId(), $porCnpj[0]->getId());
+
+        // O mesmo CPF por dígitos no tenant B casa só a pessoa de B — nunca a de A.
+        $doOutroTenant = $this->sugerir->executar($tenantB, '529.982.247-25', null);
+        self::assertCount(1, $doOutroTenant);
+        self::assertSame($tenantB->getId(), $doOutroTenant[0]->getTenant()?->getId());
     }
 
     // ----------------------------------------------------------------- helpers

@@ -42,15 +42,24 @@ final class SugerirPessoasDuplicadasUseCaseTest extends TestCase
     {
         $esperado = [new Pessoa()];
 
-        // O documento é normalizado (trim) antes de chegar ao repositório; escopo intra-tenant.
+        // CPF formatado vira apenas dígitos antes de chegar ao repositório; escopo intra-tenant.
         $this->pessoaRepository
             ->expects($this->once())
             ->method('buscarPossiveisDuplicadas')
-            ->with($this->tenant, '123.456', null)
+            ->with($this->tenant, '12345678901', null)
             ->willReturn($esperado);
 
-        $resultado = $this->sut->executar($this->tenant, '  123.456  ', null);
+        $resultado = $this->sut->executar($this->tenant, '  123.456.789-01  ', null);
 
         self::assertSame($esperado, $resultado);
+    }
+
+    #[Test]
+    public function documentoSemNenhumDigitoEhTratadoComoAusente(): void
+    {
+        // Só pontuação/letras (sem dígitos) não identifica ninguém: não toca o repositório.
+        $this->pessoaRepository->expects($this->never())->method('buscarPossiveisDuplicadas');
+
+        self::assertSame([], $this->sut->executar($this->tenant, '.-/', '  '));
     }
 }

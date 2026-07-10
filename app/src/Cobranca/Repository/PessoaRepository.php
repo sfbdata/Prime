@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\Pessoa;
+use App\Cobranca\Service\NormalizadorDocumento;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -48,32 +50,49 @@ class PessoaRepository extends ServiceEntityRepository
     }
 
     /**
-     * Pessoas do MESMO tenant cujo CPF ou CNPJ coincide com os informados — suporte à
-     * sugestão advisory de duplicidades (SPEC §7/§24). Escopo intra-tenant SEMPRE; nunca
+     * Pessoas do MESMO tenant cujo CPF ou CNPJ coincide (por DÍGITOS) com os informados — suporte
+     * à sugestão advisory de duplicidades (SPEC §7/§24; Etapa 7). Escopo intra-tenant SEMPRE; nunca
      * atravessa escritórios (invariável 24). Sem documentos informados, retorna vazio.
+     *
+     * A comparação ignora a formatação armazenada: `regexp_replace(..., '\D', '', 'g')` reduz o
+     * valor gravado a dígitos, então "123.456.789-01" casa com "12345678901". O parâmetro também é
+     * reduzido a dígitos AQUI (fronteira auto-defensiva): qualquer chamador — inclusive o futuro
+     * importador da Etapa 7 — pode passar o documento formatado sem perder o match. Índices
+     * funcionais equivalentes dão performance (migration Version20260710130000). Usa consulta nativa
+     * porque o DQL não expõe `regexp_replace`; hidrata entidades `Pessoa` via ResultSetMappingBuilder.
      *
      * @return Pessoa[]
      */
     public function buscarPossiveisDuplicadas(Tenant $tenant, ?string $cpf, ?string $cnpj): array
     {
+        $cpf = NormalizadorDocumento::apenasDigitos($cpf);
+        $cnpj = NormalizadorDocumento::apenasDigitos($cnpj);
+
         if ($cpf === null && $cnpj === null) {
             return [];
         }
 
-        $qb = $this->createQueryBuilder('p')
-            ->andWhere('p.tenant = :tenant')
-            ->setParameter('tenant', $tenant);
+        $em = $this->getEntityManager();
+        $rsm = new ResultSetMappingBuilder($em);
+        $rsm->addRootEntityFromClassMetadata(Pessoa::class, 'p');
+        $select = $rsm->generateSelectClause(['p' => 'p']);
 
-        $orX = $qb->expr()->orX();
+        $condicoes = [];
+        $parametros = ['tenant' => $tenant->getId()];
         if ($cpf !== null) {
-            $orX->add('p.cpf = :cpf');
-            $qb->setParameter('cpf', $cpf);
+            $condicoes[] = "regexp_replace(coalesce(p.cpf, ''), '\\D', '', 'g') = :cpf";
+            $parametros['cpf'] = $cpf;
         }
         if ($cnpj !== null) {
-            $orX->add('p.cnpj = :cnpj');
-            $qb->setParameter('cnpj', $cnpj);
+            $condicoes[] = "regexp_replace(coalesce(p.cnpj, ''), '\\D', '', 'g') = :cnpj";
+            $parametros['cnpj'] = $cnpj;
         }
 
-        return $qb->andWhere($orX)->getQuery()->getResult();
+        $sql = "SELECT {$select} FROM cobranca_pessoa p"
+            . ' WHERE p.tenant_id = :tenant AND (' . implode(' OR ', $condicoes) . ')';
+
+        return $em->createNativeQuery($sql, $rsm)
+            ->setParameters($parametros)
+            ->getResult();
     }
 }
