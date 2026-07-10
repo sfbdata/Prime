@@ -14,6 +14,7 @@ use App\Tests\Factory\Cobranca\CarteiraFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
+use Symfony\Component\Security\Csrf\TokenStorage\ClearableTokenStorageInterface;
 
 /**
  * Importação VISUAL (Etapa 8C) via HTTP: fluxo upload → prévia (dry-run, não persiste) → confirmar
@@ -103,6 +104,22 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
         self::assertSame(0, $obrigacaoRepo->count(['tenant' => $tenant]), 'CSRF inválido barra a gravação');
     }
 
+    #[TestDox('Confirmar sem prévia na sessão redireciona para o upload (sessão expirada)')]
+    public function testConfirmarSemPreviaRedirecionaParaUpload(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteiraId = $this->semearCarteira($tenant);
+        $obrigacaoRepo = static::getContainer()->get(EntityManagerInterface::class)->getRepository(Obrigacao::class);
+        $this->instalarCsrfStorage();
+
+        // CSRF VÁLIDO mas sem prévia → o ramo "sessão expirada" (não é o de CSRF) redireciona ao upload.
+        $client->request('POST', "/cobrancas/carteiras/{$carteiraId}/importar/confirmar", ['_token' => 'TOKEN_importar_confirmar_' . $carteiraId]);
+
+        self::assertResponseRedirects("/cobrancas/carteiras/{$carteiraId}/importar");
+        self::assertSame(0, $obrigacaoRepo->count(['tenant' => $tenant]));
+    }
+
     #[TestDox('Arquivo de tipo inválido é rejeitado sem persistir')]
     public function testArquivoInvalidoRejeitado(): void
     {
@@ -123,6 +140,19 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
         self::assertSame(0, $obrigacaoRepo->count(['tenant' => $tenant]));
 
         @unlink($txt);
+    }
+
+    private function instalarCsrfStorage(): void
+    {
+        $storage = new class implements ClearableTokenStorageInterface {
+            public function getToken(string $tokenId): string { return 'TOKEN_' . $tokenId; }
+            public function setToken(string $tokenId, string $token): void {}
+            public function removeToken(string $tokenId): ?string { return null; }
+            public function hasToken(string $tokenId): bool { return true; }
+            public function clear(): void {}
+        };
+
+        static::getContainer()->set('security.csrf.token_storage', $storage);
     }
 
     private function semearCarteira(Tenant $tenant): int

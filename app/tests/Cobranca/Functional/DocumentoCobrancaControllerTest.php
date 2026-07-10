@@ -138,6 +138,78 @@ final class DocumentoCobrancaControllerTest extends CobrancaWebTestCase
         self::assertSame(2, $em->getRepository(CobrancaDocumento::class)->find($a->getId())->getOrdem());
     }
 
+    #[TestDox('Reordenar seções aceita o corpo JSON e responde 2xx')]
+    public function testReordenarSecoes(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+
+        $a = CobrancaSecaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'ordem' => 1]);
+        $b = CobrancaSecaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'ordem' => 2]);
+        $this->instalarCsrfStorage();
+
+        $client->request('POST', "/cobrancas/casos/{$casoId}/secoes/reordenar", [], [], ['CONTENT_TYPE' => 'application/json'], json_encode([
+            '_token' => $this->csrf('reordenar_secoes_cobranca_' . $casoId),
+            'ids' => [(int) $b->getId(), (int) $a->getId()],
+        ]));
+
+        self::assertResponseIsSuccessful();
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame(1, $em->getRepository(CobrancaSecao::class)->find($b->getId())->getOrdem());
+        self::assertSame(2, $em->getRepository(CobrancaSecao::class)->find($a->getId())->getOrdem());
+    }
+
+    #[TestDox('Download de documento de outro tenant retorna 404 (anti-IDOR)')]
+    public function testIdorDownloadDeOutroTenant(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        [, $casoOutro] = $this->semearGrafo($this->tenantAvulso());
+        $docOutro = CobrancaDocumentoFactory::createOne(['tenant' => $casoOutro->getTenant(), 'caso' => $casoOutro]);
+
+        $client->request('GET', "/cobrancas/documentos/{$docOutro->getId()}/download");
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Renomear seção de outro tenant retorna 404 (anti-IDOR)')]
+    public function testIdorRenomearSecaoDeOutroTenant(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        [, $casoOutro] = $this->semearGrafo($this->tenantAvulso());
+        $secaoOutra = CobrancaSecaoFactory::createOne(['tenant' => $casoOutro->getTenant(), 'caso' => $casoOutro]);
+
+        $client->request('POST', "/cobrancas/secoes/{$secaoOutra->getId()}/renomear", ['_token' => 'x', 'nome' => 'X']);
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Upload com secao_id de outro tenant retorna 404 (anti-IDOR)')]
+    public function testUploadComSecaoDeOutroTenant(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        [, $casoOutro] = $this->semearGrafo($this->tenantAvulso());
+        $secaoOutra = CobrancaSecaoFactory::createOne(['tenant' => $casoOutro->getTenant(), 'caso' => $casoOutro]);
+        $this->instalarCsrfStorage();
+
+        $client->request(
+            'POST',
+            "/cobrancas/casos/{$casoId}/documentos",
+            ['_token' => $this->csrf('cobranca_documento_upload_' . $casoId), 'secao_id' => (string) $secaoOutra->getId()],
+            ['arquivo' => $this->arquivoTexto()],
+        );
+
+        self::assertResponseStatusCodeSame(404);
+        self::assertSame(0, static::getContainer()->get(EntityManagerInterface::class)->getRepository(CobrancaDocumento::class)->count(['tenant' => $tenant]));
+    }
+
     #[TestDox('Excluir documento (form) redireciona para o caso e remove a linha')]
     public function testExcluirDocumentoRedireciona(): void
     {

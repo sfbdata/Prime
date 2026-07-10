@@ -87,6 +87,10 @@ final class ImportacaoController extends AbstractController
             return $this->redirectToRoute('cobranca_importacao_upload', ['id' => $id]);
         }
 
+        // Uma nova prévia para a mesma carteira descarta o temporário da prévia anterior (contém PII):
+        // evita órfão acumulado quando o usuário troca de arquivo sem confirmar.
+        $this->descartarPreviaAnterior($request, $id, $tenant);
+
         /** @var UploadedFile $arquivo */
         $arquivo = $input->arquivo;
         $nomeOriginal = $arquivo->getClientOriginalName();
@@ -192,6 +196,16 @@ final class ImportacaoController extends AbstractController
         $arquivo->move($this->diretorioTemporario($tenant), $token . '.xlsx');
 
         return $token;
+    }
+
+    /** Apaga o temporário de uma prévia anterior desta carteira (se houver) e limpa o ponteiro. */
+    private function descartarPreviaAnterior(Request $request, int $carteiraId, Tenant $tenant): void
+    {
+        $anterior = $request->getSession()->get($this->chaveSessao($carteiraId));
+        if (is_array($anterior) && isset($anterior['token']) && $this->tokenValido((string) $anterior['token'])) {
+            $this->descartarTemporario($tenant, (string) $anterior['token']);
+        }
+        $request->getSession()->remove($this->chaveSessao($carteiraId));
     }
 
     private function descartarTemporario(Tenant $tenant, string $token): void
