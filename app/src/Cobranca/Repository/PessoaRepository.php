@@ -50,6 +50,32 @@ class PessoaRepository extends ServiceEntityRepository
     }
 
     /**
+     * Opções (nome legível => id) das Pessoas do tenant, ordenadas por nome, para popular o ChoiceType
+     * de seleção (vincular pessoa / abrir caso — Onda 8B). Escalares via DQL (leve, sem expor Doctrine
+     * ao Twig); tenant SEMPRE explícito (defesa em profundidade). Nomes idênticos colidem na chave do
+     * mapa (edge raro); para o select isso é aceitável no MVP.
+     *
+     * @return array<string, int>
+     */
+    public function opcoesDoTenant(Tenant $tenant): array
+    {
+        $linhas = $this->createQueryBuilder('p')
+            ->select('p.id AS id', 'p.nome AS nome')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('p.nome', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        $opcoes = [];
+        foreach ($linhas as $linha) {
+            $opcoes[$linha['nome']] = (int) $linha['id'];
+        }
+
+        return $opcoes;
+    }
+
+    /**
      * Pessoas do MESMO tenant cujo CPF ou CNPJ coincide (por DÍGITOS) com os informados — suporte
      * à sugestão advisory de duplicidades (SPEC §7/§24; Etapa 7). Escopo intra-tenant SEMPRE; nunca
      * atravessa escritórios (invariável 24). Sem documentos informados, retorna vazio.

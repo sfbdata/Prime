@@ -9,9 +9,45 @@
         <h1 class="m-0 d-flex align-items-center gap-2">
             <i class="bi bi-cash-coin"></i>Cobranças
         </h1>
-        {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'carteiras' }) }}
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'carteiras' }) }}
+            {% if formCriarCarteira is defined and formCriarCarteira is not null %}
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarCarteira">
+                <i class="bi bi-plus-lg me-1"></i>Nova carteira
+            </button>
+            {% endif %}
+        </div>
     </div>
 </section>
+
+{% if formCriarCarteira is defined and formCriarCarteira is not null %}
+<div class="modal fade" id="modalCriarCarteira" tabindex="-1" aria-labelledby="tituloCriarCarteira" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(formCriarCarteira, {action: path('cobranca_carteira_criar')}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloCriarCarteira"><i class="bi bi-plus-circle me-1"></i>Nova carteira</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(formCriarCarteira.nome) }}
+                {{ form_row(formCriarCarteira.clienteId) }}
+                {{ form_row(formCriarCarteira.modo) }}
+                {{ form_row(formCriarCarteira.formaHonorarios) }}
+                {{ form_row(formCriarCarteira.percentualHonorarios) }}
+                {{ form_row(formCriarCarteira.toleranciaAtrasoDias) }}
+                {{ form_row(formCriarCarteira.tipoVinculoPreferido) }}
+                {{ form_row(formCriarCarteira.rotuloObjeto) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Criar carteira</button>
+            </div>
+            {{ form_end(formCriarCarteira) }}
+        </div>
+    </div>
+</div>
+{% endif %}
 
 <section class="content">
     <div class="container-fluid">

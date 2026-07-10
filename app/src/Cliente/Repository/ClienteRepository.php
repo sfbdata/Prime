@@ -5,6 +5,7 @@ namespace App\Cliente\Repository;
 use App\Cliente\Entity\Cliente;
 use App\Cliente\Entity\ClientePF;
 use App\Cliente\Entity\ClientePJ;
+use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -84,6 +85,31 @@ class ClienteRepository extends ServiceEntityRepository
         }
 
         return array_values($results);
+    }
+
+    /**
+     * Opções (nome de exibição => id) dos clientes do tenant, ordenadas por nome, para popular o
+     * ChoiceType de credor ao criar uma Carteira de Cobrança (Cobranças 8B). Tenant SEMPRE explícito
+     * (isolamento multi-tenant). Como o nome vem de subtipos distintos (PF: nomeCompleto, PJ:
+     * razaoSocial) via `getNomeExibicao()`, hidratam-se as entidades e o mapa é montado em PHP.
+     *
+     * @return array<string, int>
+     */
+    public function opcoesDoTenant(Tenant $tenant): array
+    {
+        $clientes = $this->findBy(['tenant' => $tenant]);
+
+        $opcoes = [];
+        foreach ($clientes as $cliente) {
+            $id = $cliente->getId();
+            if ($id !== null) {
+                $opcoes[$cliente->getNomeExibicao()] = $id;
+            }
+        }
+
+        uksort($opcoes, static fn (string $a, string $b): int => strcasecmp($a, $b));
+
+        return $opcoes;
     }
 
     /**

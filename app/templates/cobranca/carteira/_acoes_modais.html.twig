@@ -1,0 +1,162 @@
+{# Modais de mutação da Carteira (Onda 8B-E). Só renderizados para quem tem a capacidade correspondente
+   (o gate real é no controller). Config exige gerenciar carteira; objeto/vínculo/abrir-caso exigem
+   gerenciar cobrança. Vincular/encerrar/abrir-caso são modais REUTILIZÁVEIS: o botão da linha injeta a
+   URL de ação (data-acao-url) via JS. #}
+
+{# ── Editar configuração da carteira ─────────────────────────────── #}
+{% if forms.editarConfiguracao is defined %}
+<div class="modal fade" id="modalEditarConfiguracao" tabindex="-1" aria-labelledby="tituloEditarConfiguracao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.editarConfiguracao, {action: path('cobranca_carteira_configurar', {id: carteira.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloEditarConfiguracao"><i class="bi bi-gear me-1"></i>Editar configuração</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.editarConfiguracao.modo) }}
+                {{ form_row(forms.editarConfiguracao.formaHonorarios) }}
+                {{ form_row(forms.editarConfiguracao.percentualHonorarios) }}
+                {{ form_row(forms.editarConfiguracao.toleranciaAtrasoDias) }}
+                {{ form_row(forms.editarConfiguracao.tipoVinculoPreferido) }}
+                {{ form_row(forms.editarConfiguracao.rotuloObjeto) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Salvar</button>
+            </div>
+            {{ form_end(forms.editarConfiguracao) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Novo objeto (por carteira; action fixa) ─────────────────────── #}
+{% if forms.criarObjeto is defined %}
+<div class="modal fade" id="modalCriarObjeto" tabindex="-1" aria-labelledby="tituloCriarObjeto" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.criarObjeto, {action: path('cobranca_objeto_criar', {id: carteira.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloCriarObjeto"><i class="bi bi-plus-circle me-1"></i>Novo objeto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.criarObjeto.identificacao) }}
+                {{ form_row(forms.criarObjeto.descricao) }}
+                {{ form_row(forms.criarObjeto.referenciaExterna) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Criar</button>
+            </div>
+            {{ form_end(forms.criarObjeto) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Nova pessoa (cadastro reutilizável; volta ao referer) ────────── #}
+{% if forms.criarPessoa is defined %}
+<div class="modal fade" id="modalCriarPessoa" tabindex="-1" aria-labelledby="tituloCriarPessoa" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.criarPessoa, {action: path('cobranca_pessoa_criar')}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloCriarPessoa"><i class="bi bi-person-plus me-1"></i>Nova pessoa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.criarPessoa.nome) }}
+                {{ form_row(forms.criarPessoa.cpf) }}
+                {{ form_row(forms.criarPessoa.cnpj) }}
+                {{ form_row(forms.criarPessoa.email) }}
+                {{ form_row(forms.criarPessoa.telefone) }}
+                {{ form_row(forms.criarPessoa.observacao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Cadastrar</button>
+            </div>
+            {{ form_end(forms.criarPessoa) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Vincular pessoa (reutilizável; JS injeta a URL do objeto) ────── #}
+{% if forms.vincularPessoa is defined %}
+<div class="modal fade" id="modalVincularPessoa" tabindex="-1" aria-labelledby="tituloVincularPessoa" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.vincularPessoa, {attr: {id: 'formVincularPessoa'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloVincularPessoa"><i class="bi bi-person-plus me-1"></i>Vincular pessoa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" data-objeto-contexto>Objeto selecionado.</p>
+                {{ form_row(forms.vincularPessoa.pessoaId) }}
+                {{ form_row(forms.vincularPessoa.tipoVinculo) }}
+                {{ form_row(forms.vincularPessoa.dataInicio) }}
+                {{ form_row(forms.vincularPessoa.observacao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Vincular</button>
+            </div>
+            {{ form_end(forms.vincularPessoa) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Encerrar vínculo (reutilizável; JS injeta a URL do vínculo) ──── #}
+{% if forms.encerrarVinculo is defined %}
+<div class="modal fade" id="modalEncerrarVinculo" tabindex="-1" aria-labelledby="tituloEncerrarVinculo" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.encerrarVinculo, {attr: {id: 'formEncerrarVinculo'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloEncerrarVinculo"><i class="bi bi-person-dash me-1"></i>Encerrar vínculo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" data-vinculo-contexto>Vínculo selecionado.</p>
+                {{ form_row(forms.encerrarVinculo.motivoEncerramento) }}
+                {{ form_row(forms.encerrarVinculo.dataFim) }}
+                {{ form_row(forms.encerrarVinculo.observacao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-person-dash me-1"></i>Encerrar</button>
+            </div>
+            {{ form_end(forms.encerrarVinculo) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ── Abrir caso (reutilizável; JS injeta a URL do objeto) ─────────── #}
+{% if forms.abrirCaso is defined %}
+<div class="modal fade" id="modalAbrirCaso" tabindex="-1" aria-labelledby="tituloAbrirCaso" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.abrirCaso, {attr: {id: 'formAbrirCaso'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloAbrirCaso"><i class="bi bi-briefcase me-1"></i>Abrir caso</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" data-objeto-caso-contexto>Objeto selecionado.</p>
+                {{ form_row(forms.abrirCaso.pessoaCobradaId) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Abrir caso</button>
+            </div>
+            {{ form_end(forms.abrirCaso) }}
+        </div>
+    </div>
+</div>
+{% endif %}
