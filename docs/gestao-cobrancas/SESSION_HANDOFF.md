@@ -1,51 +1,51 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: 2026-07-10 — **Etapa 8 Onda 8B CONCLUÍDA** (todas as mutações operacionais ligadas: caso-level + financeiro + cadastro/seleção + judicializar + alterar-pessoa), testada e revisada (2 frentes, SEM bloqueantes). Próximo = **Onda 8C** (importação visual + file-manager de documentos).
+> Sessão encerrada em: 2026-07-10 — **Etapa 8 Onda 8C CONCLUÍDA** (importação visual 8C-A + file-manager de documentos 8C-B). Com isso a **Etapa 8 (Telas/UX) inteira está COMPLETA** (8A leitura + 8B mutações + 8C). Próximo = **Etapa 9** (Dashboard + central visual de alertas).
 
 ---
 
 ## Estado atual
 - **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
-- **HEAD:** `642a9ef`. Cadeia da 8B (2ª metade) sobre `ba667b4`.
-- **Etapa:** 8 → **Onda 8B ✅ COMPLETA**. Próxima = **8C** (importação visual: upload→prever→confirmar; file-manager de documentos do Caso — religar `pasta-arquivos.js`) e depois **Etapa 9** (Dashboard/central de alertas).
-- **Suíte:** `tests/Cobranca` **343/343**; GLOBAL **1624/1624** (medido no HEAD `642a9ef`).
-- **Working tree:** limpo (untracked só `.claude/worktrees/` e os `.xlsx` TOPLIFE gitignorados).
-- **Migrations:** nenhuma na Etapa 8 (só camada HTTP).
+- **HEAD:** `d0fb161`. Cadeia da 8C sobre `e3c8385`: `54a0ab1` (spec) → `b0c73bd` (8C-A importação) → `d0fb161` (8C-B documentos).
+- **Etapa:** 8 → **8C ✅ COMPLETA**. **Etapa 8 inteira COMPLETA.** Próxima = **Etapa 9** (Dashboard/central de alertas — visão do escritório, sobre `AlertasCobranca` da E5; NÃO é per-caso).
+- **Suíte:** `tests/Cobranca` **368/368**; GLOBAL **1649/1649** (medido no HEAD `d0fb161`).
+- **Working tree:** limpo (untracked só `.claude/worktrees/`; docs vivos com edições desta sessão).
+- **Migrations:** nenhuma na Etapa 8 (só camada HTTP/visual).
 
-## Commits desta sessão (sobre `ba667b4`)
-- `936408a` — **Guard de caso encerrado no servidor** (decisão de negócio): `ReconhecerValorAtualizado`/`RegistrarTentativaCobranca`/`GerarRevisao` passam a lançar `CasoEncerradoException` num caso encerrado (fecha a assimetria — antes só a UI escondia o botão). Catch nos 3 controllers. Testes unit + funcional (`CasoEncerradoBloqueiaMutacaoControllerTest`) provam o não-efeito.
-- `b9ead49` — **8B-D financeiro**: `PagamentoController` (registrar/corrigir), `LiquidacaoController` (registrar). Gate capacidade SEPARADA `resources.cobranca.movimentacao_financeira`. Forms com `CentavosType` + coleção de alocações (`AlocacaoPagamentoType`); modais na aba Pagamentos & Liquidações (`_acoes_modais_financeiro.html.twig`, gate próprio). Alocação MANUAL (FIFO segue follow-up).
-- `e593978` — **correções da revisão 8B-D**: guard defensivo `getCaso()` nullable em corrigir; helper `criarOperadorComCapacidades` + `CapacidadeSeparacaoControllerTest` (prova gerenciar vs movimentacao_financeira independentes); CSRF-inválido de corrigir.
-- `9a4908a` + `642a9ef` — **judicializar** (`CasoController::judicializar`): vincula Pasta existente, muda status p/ judicializado (não encerra). Gate `gerenciar` + módulo `pastas` (no controller). `PastaRepository::opcoesDoTenant`. `642a9ef` fecha a revisão: teste de negação do gate `pastas` + reforço do já-judicializado.
-- `eedbb05` + `e4c5c71` — **8B-E cadastro** (cluster Carteira, fan-out isolado `feature-implementer` → cherry-pick): `CarteiraController` escrita (criar/configurar/criarObjeto/abrirCaso + leitura de objetos/vínculos em arrays), `PessoaController` (criar/vincular/encerrar). 7 forms. `PessoaRepository::opcoesDoTenant`, `ClienteRepository::opcoesDoTenant`. Templates `carteira/{index,show,_acoes_modais}`. `e4c5c71` = fix de teste (referer interno vs CSRF stateless).
-- `0353470` — **alterar pessoa cobrada** (`CasoController::alterarPessoaCobrada`): troca manual com motivo; select escopado ao tenant; botão + modal.
+## Commits desta sessão (sobre `e3c8385`)
+- `54a0ab1` — **spec da 8C** (`docs/specs/cobranca-etapa8c-importacao-documentos.md`, risco MÉDIO/ALTO), alvo da revisão.
+- `b0c73bd` — **8C-A Importação visual**: `ImportacaoController` (upload→prever(dry-run)→confirmar) sobre `ImportarRelatorioCarteiraUseCase` (E7). Temp file ISOLADO POR TENANT (`import-tmp/<tenantId>/<token>.xlsx`, token do servidor), ponteiro na SESSÃO. Gate `resources.cobranca.gerenciar` + `findOneByIdDoTenant`→404 + CSRF no confirmar. `ImportarRelatorioInput`/`Type` (`#[Assert\File]` xlsx/xls/zip). Templates `importacao/{upload,preview}` + botão na carteira. **Decisão E7 intocada: linha só-encargos REJEITADA com motivo.** 5 testes.
+- `d0fb161` — **8C-B Documentos**: religa `public/js/pasta-arquivos.js` SEM editá-lo. `DocumentoCobrancaController` (9 rotas) serve o MESMO contrato `data-*`/JSON via partial `caso/_documentos.html.twig`. 2 UseCases NOVOS `Reordenar{Documentos,Secoes}CasoUseCase`. `CasoController::show` monta `secoes`/`arquivosFm`. Assets no `caso/show.html.twig`. 10 testes funcionais + 10 unit.
 
-## Padrão ESTABELECIDO da 8B (já replicado em TODAS as mutações — manter em 8C se surgir escrita)
-Toda mutação, na ordem: **1) gate** `tenantComCapacidade('<code>')` → null = `semAcesso()`; **2) resolver entidade** `findOneByIdDoTenant($id,$tenant)` → null = `createNotFoundException` (404 anti-IDOR), **antes** do CSRF; **3) CSRF** (Symfony Form automático); **4) mutação** `try { $useCase->executar(...) } catch (<domínio>) { addFlash danger }`, sucesso → `addFlash success`; **5) PRG sempre** `redirectToRoute`. Controller fino; UseCases fazem flush interno.
-- **Selects escopados ao tenant** via `Repository::opcoesDoTenant($tenant)` → `array<label,int>` para `ChoiceType` (NUNCA `EntityType`), choices IDÊNTICAS no render e no POST. Defesa dupla: ChoiceType rejeita id fora do escopo + UseCase revalida por tenant.
-- **Capacidades**: `resources.carteira.gerenciar` (carteira/config) · `resources.cobranca.gerenciar` (operar) · `resources.cobranca.movimentacao_financeira` (financeiro, SEPARADA) · judicializar exige TAMBÉM `canAccessModule('pastas')`.
-- **Modais**: caso-level fixos em `caso/_acoes_modais.html.twig`; financeiros em `caso/_acoes_modais_financeiro.html.twig` (gate próprio); cadastro em `carteira/_acoes_modais.html.twig`. Ação por-item = modal reutilizável + JS `data-acao-url`. Coleções (parcelas/alocações) via helper JS `initColecao`.
-- **Testes**: `CobrancaWebTestCase` → `criarAdminLogado` (isSystem = bypass), `criarOperadorSemCapacidade` (nega tudo), **`criarOperadorComCapacidades([...codes])`** (concede só o que se lista — prova gate granular/separação), `semearGrafo($tenant, $overrides)` (aceita `status`, `pastaJudicial`), `tenantAvulso()`, `tokenDoFormulario($crawler, '<nome_snake_do_form>')`. **Atenção CSRF stateless** (`config/packages/csrf.yaml`, `stateless_token_ids: [submit]`): valida same-origin por Referer/Origin — NÃO usar `HTTP_REFERER` externo em teste (o BrowserKit já põe o referer interno).
+## Padrão da 8C (manter em Etapa 9 se houver escrita)
+- **Importação** = fluxo stateful de 2 passos: o adapter lê de um CAMINHO e `ResultadoLeitura` não serializa → arquivo temporário por tenant + ponteiro na sessão (por-usuário → sem IDOR); confirmar re-lê e apaga o temp (o UseCase é idempotente). Preview = `prever` (dry-run, não persiste).
+- **File-manager** = reuso 1:1 do `pasta-arquivos.js` (genérico, ancora em `#fileManager`, lê tudo de `data-*`): renderizar o MESMO markup apontando `path()` para rotas de Cobrança + prover `window.enviarArquivoComProgresso` global + devolver o MESMO formato de resposta por ação (upload `{success:true}`; seção/mover `{ok:true}`; criar seção 201 `{id,nome,csrfRenomear,csrfExcluir}`; erro upload `{success:false,error}`; erro seção `{erro}`). CSRF NOMEADO por ação (stateful — os endpoints AJAX não usam o token stateless `submit`).
+- **AJAX**: falha de gate/entidade → JSON 403/404 (NÃO redirect). Ordem: gate capacidade → `findOneByIdDoTenant`→404 → CSRF → UseCase.
+- **Rota `*Tpl` com `__ID__`**: as rotas `cobranca_secao_renomear`/`_excluir` NÃO têm `requirements:['\d+']` (o JS gera a URL com `__ID__` e substitui pelo id real) — a validação vem do type-hint `int`.
+- **CSRF em teste** (endpoints AJAX nomeados = stateful): usar o padrão do `PastaSecaoControllerTest` — substituir `security.csrf.token_storage` por stub determinístico (`TOKEN_<id>`) + `disableReboot()` quando o teste faz mais de uma requisição (o reboot do kernel ocorre ANTES de cada request, menos a 1ª, e derrubaria o stub/sessão).
 
-## PRÓXIMA AÇÃO EXATA — Onda 8C
-1. **Importação visual** da carteira: fluxo upload→prever→confirmar sobre o `ImportarRelatorioCarteiraUseCase` (Etapa 7, idempotente, linha só-encargos REJEITADA — NÃO alterar). Provavelmente em `CarteiraController` (aba/rota de importação na carteira). Decidir preview (dry-run) antes do commit real.
-2. **File-manager de documentos do Caso**: religar o `pasta-arquivos.js` na aba "Documentos" do `caso/show.html.twig` (hoje é placeholder — ver linha do `tab-documentos`). Reusar o gerenciador de arquivos das pastas (`CobrancaDocumento`/`CobrancaSecao` já existem como entidades desde etapas anteriores; UseCases `EnviarDocumento`/`ExcluirDocumento`/`MoverDocumento`/`CriarSecao`/`RenomearSecao`/`ExcluirSecao` já existem).
-3. Depois: **Etapa 9** (Dashboard + central visual de alertas). NÃO antecipar.
+## PRÓXIMA AÇÃO EXATA — Etapa 9 (Dashboard + central de alertas)
+1. **Central de alertas global**: visão consolidada dos alertas do escritório (não do caso individual), sobre o serviço read-only `App\Cobranca\Service\AlertasCobranca` (E5, 5 alertas derivados: vencimento, parcela de acordo vencida, ação atrasada, pronto-para-encerrar, revisão pendente). Precisa de um método de listagem tenant-scoped que agregue alertas por caso/carteira (hoje `AlertasCobranca::alertasDoCaso` é por caso — avaliar um `alertasDoTenant`).
+2. **Dashboard**: métricas do escritório (saldos consolidados por carteira, contagens por estado, casos que exigem atenção). Reusar `CalculadoraSaldo`/repos existentes; nenhuma regra nova.
+3. Só GET/leitura (a menos que surja ação nova — aí padrão 8B/8C). Rota provável `/cobrancas/dashboard` ou landing enriquecida. Menu já gated.
 
 ## Follow-ups conhecidos (não bloqueiam; decisão do humano)
-- **FIFO de alocação de pagamento** (sugestão automática) — follow-up #8, adiado; hoje alocação manual explícita.
-- **Cobertura granular positiva**: happy-paths de 8B-E usam admin `isSystem` (bypass). A separação/negação de capacidade É provada (`CapacidadeSeparacaoControllerTest` p/ gerenciar×financeiro; teste do gate `pastas`). A concessão positiva granular de `gerenciar` para cadastro fica sem teste dedicado (aceito p/ MVP).
-- **NITs aceitos**: redirect de erro usa `$objeto->getCarteira()?->getId()` (FK NOT NULL → teórico); colisão de nomes na chave do map `PessoaRepository::opcoesDoTenant` (edge, documentado).
+- **Smoke de navegador (JS) pendente**: dev não tem dados de Cobrança (módulo novo, ausente do dump de prod) → o file-manager/importação não foram exercitados via browser real. Os testes funcionais renderizam os templates reais no container (smoke de renderização OK) e o contrato JS replica 1:1 o das Pastas (provado). Recomendado: semear um grafo no dev e validar drag/upload/preview no navegador antes do deploy.
+- **Coletor de temporários órfãos de importação**: se o usuário faz preview 2× para a mesma carteira sem confirmar, o 1º `import-tmp/<tenantId>/<token>.xlsx` fica órfão (o ponteiro da sessão passa a apontar o 2º). Não há coletor. MENOR (disco); confirmar limpa o do fluxo. Follow-up: comando de limpeza por idade.
+- **FIFO de alocação de pagamento** (#8, adiado); cobertura positiva granular de `gerenciar` (aceito p/ MVP); NITs teóricos aceitos (herdados da 8B).
+- **Deploy/prod (fim da feature):** data-migration de permissões `cobrancas` p/ produção + `deploy-prod-tls.sh` (rebuild) — só no fim; nenhuma migration nova na Etapa 8.
 
 ## Decisões mantidas (NÃO alterar)
-- Etapa 7: linha só-encargos rejeitada, sem obrigação principal-zero. Intacta.
-- **Caso encerrado NÃO aceita mutação** (guard no servidor em TODAS as mutações caso-level, incl. as 3 que antes só a UI barrava). Nova inadimplência = NOVO caso.
-- Dinheiro = int centavos; saída só via `|centavos`; entrada só via `CentavosType`. Nunca float/aritmética de dinheiro no Twig.
-- Autorização: módulo em TODA rota; capacidade via `hasPermission` nas mutações. `isSystem`/`ROLE_SUPER_ADMIN` = bypass (por design do checker).
+- **E7:** linha só-encargos rejeitada com motivo, sem obrigação principal-zero. A UI de importação só EXIBE o motivo — não altera a regra.
+- **Documento vive no Caso, nunca na Pasta (INV-25).** Ao judicializar, permanece. A 8C não move/duplica documento para Pasta.
+- **Caso encerrado**: bloqueia mutação OPERACIONAL/financeira (guard no servidor — 8B). **Documentos permanecem gerenciáveis** num caso encerrado (arquivamento de comprovantes finais é legítimo; decisão registrada na spec 8C).
+- Dinheiro = int centavos; saída via `|centavos`; entrada via `CentavosType`.
+- Autorização: módulo em TODA rota; capacidade via `hasPermission` nas mutações; `isSystem`/`ROLE_SUPER_ADMIN` = bypass (por design).
+- CSRF stateless (`submit`) valida same-origin; tokens NOMEADOS (file-manager) são stateful.
 
 ## Ordem de retomada
-1. Confirmar branch `gestao-cobrancas`, HEAD `642a9ef` ou posterior, working tree limpo.
-2. Subir containers de dev se preciso (`docker start jusprime_db_dev jusprime_php_dev jusprime_nginx_dev`); `php -d memory_limit=512M bin/phpunit tests/Cobranca` = 343/343.
-3. Ler este handoff + `docs/specs/cobranca-etapa8-telas-ux.md` (Onda 8C) + EXECUTION_STATUS.
-4. Carregar skill `workflow`. Retomar por **8C** (importação visual → file-manager). Single-writer (cluster do Caso não paraleliza); cadastro/importação é file-independente e pode paralelizar se crescer.
+1. Confirmar branch `gestao-cobrancas`, HEAD `d0fb161` ou posterior, working tree limpo.
+2. Subir containers de dev se preciso; `php -d memory_limit=512M bin/phpunit tests/Cobranca` = 368/368; global 1649/1649.
+3. Ler este handoff + `docs/specs/cobranca-etapa8-telas-ux.md` (a Etapa 9 é "fora do escopo" da 8, mas a spec descreve a fronteira) + EXECUTION_STATUS.
+4. Carregar skill `workflow`. Retomar por **Etapa 9** (Dashboard + central de alertas). Provavelmente single-writer (leitura agregada); avaliar `AlertasCobranca::alertasDoTenant` e um `MontarDashboardUseCase`.

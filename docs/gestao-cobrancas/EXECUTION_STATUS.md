@@ -1,7 +1,7 @@
 # EXECUTION_STATUS — Gestão de Cobranças
 
 > Panorama VIVO da implementação. Fonte de verdade do progresso. **Confirmar sempre contra o Git/código — nunca contra memória de chat.**
-> Última atualização: 2026-07-10 (Etapa 8 **Onda 8B COMPLETA**: todas as mutações operacionais ligadas — caso-level + financeiro (8B-D) + cadastro/seleção (8B-E) + judicializar + alterar-pessoa + guard de caso encerrado no servidor — testadas e revisadas em 2 frentes, SEM bloqueantes. HEAD `642a9ef`; `tests/Cobranca` 343/343; GLOBAL 1624/1624. Próxima = **Onda 8C**).
+> Última atualização: 2026-07-10 (Etapa 8 **Onda 8C COMPLETA**: importação visual (8C-A) + file-manager de documentos religado (8C-B). HEAD `6a6283e`; `tests/Cobranca` 373/373; GLOBAL 1654/1654. Próxima = **Etapa 9** Dashboard/alertas).
 
 ---
 
@@ -9,11 +9,11 @@
 
 | Campo | Valor real |
 |---|---|
-| **Etapa atual** | Etapa 8 — Telas/UX. **Onda 8A (LEITURA) ✅** + **Onda 8B (ESCRITA) ✅ COMPLETA** (caso-level + 8B-D financeiro + 8B-E cadastro/seleção + judicializar + alterar-pessoa + guard de caso encerrado). Próxima = **8C** (importação visual + file-manager de documentos), depois **Etapa 9** (Dashboard/alertas) |
+| **Etapa atual** | Etapa 8 — Telas/UX. **8A (LEITURA) ✅** + **8B (ESCRITA) ✅** + **8C (importação visual + documentos) ✅ COMPLETA**. Próxima = **Etapa 9** (Dashboard/central de alertas) |
 | **Tarefa atual** | Nenhuma em execução (handoff controlado) |
-| **Último checkpoint estável** | `30e4cf4` — **GLOBAL verde 1569/1569**; `tests/Cobranca` 288/288 |
+| **Último checkpoint estável** | `6a6283e` — **GLOBAL verde 1654/1654**; `tests/Cobranca` 373/373 |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `30e4cf4` (correções da revisão 8B) — confirmar com `git log` |
+| **HEAD** | `6a6283e` (fixes das revisões 8C) — confirmar com `git log` |
 | **Working tree** | limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar; + os `.xlsx` reais TOPLIFE gitignorados) |
 | **Migrations (dev+test)** | E1..E6 (ver histórico); **E7 `Version20260710130000`** (índices funcionais dedup dígitos cpf/cnpj) **+ `Version20260710160000`** (índice PARCIAL ÚNICO de idempotência da importação: obrigacao(caso_id, referencia_externa) WHERE NOT NULL) |
 | **Escritor** | ÚNICO (orquestrador). Etapa 7 sem fan-out — fluxo coeso e acoplado |
@@ -101,7 +101,14 @@
 - ✅ **Etapa 5** — Estados/Judicialização (`pastaJudicial`)/Encerramento/ProximaAcao/Revisão/Alertas: 2 entidades (`ProximaAcao`/`RevisaoPessoaCobrada`) + 2 enums, FK `CasoCobranca.pastaJudicial` (unidirecional), 6 UseCases (`Judicializar`/`Encerrar`/`Definir`/`Concluir`/`Gerar`/`Resolver`), serviço `AlertasCobranca` (5 alertas derivados), cross-tenant DB (isolamento da Pasta provado), global 1441/1441.
 - ✅ **Etapa 6** — Documentos do caso: entidades `CobrancaSecao`/`CobrancaDocumento` (FK caso nn, INV-25: sem Pasta), enum `CategoriaDocumentoCobranca`, 6 UseCases (`Enviar`/`Mover`/`Excluir` documento + `Criar`/`Renomear`/`Excluir` seção) reusando `ArquivoStorageService`, isolamento físico por tenant no disco, purga coberta, cross-tenant DB+disco (judicialização preserva docs), global 1472/1472.
 - ✅ **Etapa 7** — Importação em massa: **CONCLUÍDA**. Ponto seguro (dedup dígitos) + adapter real TOPLIFE + importador idempotente. Ver `docs/specs/cobranca-etapa7-importacao.md` e `docs/gestao-cobrancas/MAPEAMENTO_FONTE_TOPLIFE.md`.
-- 🟨 **Etapa 8** Telas/UX — **Onda 8A (LEITURA) ✅**; **Onda 8B (mutações/forms) ✅ COMPLETA** (caso-level + financeiro + cadastro/seleção + judicializar + alterar-pessoa + guard de caso encerrado). **8C** (importação visual + file-manager) pendente; **Etapa 9** (Dashboard/alertas) pendente.
+- 🟨 **Etapa 8** Telas/UX — **8A (LEITURA) ✅**; **8B (mutações/forms) ✅**; **8C (importação visual + file-manager de documentos) ✅ COMPLETA**. **Etapa 9** (Dashboard/alertas) pendente.
+
+### Etapa 8 Onda 8C — o que foi entregue (commits `b0c73bd` importação + `d0fb161` documentos, sobre `54a0ab1` spec)
+Camada visual restante. Spec `docs/specs/cobranca-etapa8c-importacao-documentos.md`. Escritor ÚNICO (front compartilhado força single-writer).
+- **8C-A Importação visual** (`b0c73bd`): `ImportacaoController` (fluxo `upload → prever(dry-run) → confirmar`) sobre `ImportarRelatorioCarteiraUseCase` (E7, idempotente). Arquivo temporário ISOLADO POR TENANT (`import-tmp/<tenantId>/<token>.xlsx`, token do servidor → sem path traversal), ponteiro na SESSÃO (por-usuário → sem IDOR). Gate `resources.cobranca.gerenciar` + carteira por `findOneByIdDoTenant`→404 + CSRF no confirmar. `ImportarRelatorioInput`/`ImportarRelatorioType` (`#[Assert\File]` xlsx). Templates `importacao/{upload,preview}` + botão na carteira. **Decisão E7 intocada:** linha só-encargos REJEITADA com motivo. Testes: fluxo (preview não persiste + confirmar persiste 6), gate, IDOR 404, CSRF, arquivo inválido (5).
+- **8C-B Documentos file-manager** (`d0fb161`): reusa `public/js/pasta-arquivos.js` SEM editá-lo — partial `caso/_documentos.html.twig` serve o MESMO contrato `data-*`/JSON via `DocumentoCobrancaController` (9 rotas: upload/criar-renomear-excluir seção/mover/excluir/download + reordenar docs/seções). Gate `resources.cobranca.gerenciar` (falha AJAX → JSON 403), `findOneByIdDoTenant`→404 anti-IDOR antes do CSRF, CSRF nomeado por ação (stateful). Reusa UseCases E6 + 2 UseCases NOVOS `Reordenar{Documentos,Secoes}CasoUseCase` (escopados caso+tenant, flush único via `salvar`). Categoria do FM (`DEMAIS`) → `Outro`. Leitor puro (sem `gerenciar`) vê lista read-only com download, sem `#fileManager`. Documento vive no Caso sem Pasta (INV-25). `CasoController::show` monta `secoes`/`arquivosFm` (arrays, sem entidade crua); assets `pasta-arquivos.css`+SortableJS+`pasta-arquivos.js`+helper `enviarArquivoComProgresso`; `id="documentos-tab"`/`id="pastaTabs"` para o restore de aba do JS. Testes: 10 funcionais + 10 unit dos reorder.
+- **Segurança:** tenant-safety verificado (gates + `findOneByIdDoTenant` em TODA mutação, sem `find()` puro, guards de tenant nos reorder, CSRF por ação, sem entidade crua no Twig) + 2 revisões adversariais read-only (importação | documentos).
+- ⬜ **Etapa 9** Alertas UI + Dashboard.
 
 ### Etapa 8 Onda 8B — o que foi entregue (commits `29e7a8e`→`30e4cf4`, sobre 8A `b0d2786`)
 Camada HTTP de **ESCRITA** (mutações). Spec `docs/specs/cobranca-etapa8b-mutacoes.md`.
@@ -170,11 +177,8 @@ Camada HTTP de **LEITURA** (só GET; mutação = 8B). Spec `docs/specs/cobranca-
 ---
 
 ## Próxima ação exata
-> **Etapa 8 — Onda 8C.** A Onda 8B está **COMPLETA** (HEAD `642a9ef`; todas as mutações operacionais ligadas — caso-level + 8B-D financeiro + 8B-E cadastro/seleção + judicializar + alterar-pessoa + guard de caso encerrado; `tests/Cobranca` 343/343, GLOBAL 1624/1624; 2 revisões adversariais + tenant-safety SEM bloqueantes). Ver a **"PRÓXIMA AÇÃO EXATA — Onda 8C"** detalhada no `SESSION_HANDOFF.md` — é a fonte operacional. Resumo:
-> - **8C — Importação visual**: fluxo upload→prever→confirmar sobre o `ImportarRelatorioCarteiraUseCase` (E7, idempotente; **linha só-encargos REJEITADA — NÃO alterar**). Preview/dry-run antes do commit real; provável rota/aba na Carteira.
-> - **8C — File-manager de documentos do Caso**: religar `pasta-arquivos.js` na aba "Documentos" do `caso/show.html.twig` (hoje placeholder). Entidades `CobrancaDocumento`/`CobrancaSecao` e UseCases de documento/seção já existem.
-> - Depois: **Etapa 9** — Dashboard + central visual de alertas. NÃO antecipar.
-> **Cada mutação (se houver escrita nova) segue o padrão da 8B** (gate capacidade → `findOneByIdDoTenant`→404 → CSRF → UseCase → PRG; selects via `opcoesDoTenant`+ChoiceType; controller fino; testes happy/capacidade/IDOR/CSRF/erro). Single-writer (cluster do Caso não paraleliza — template compartilhado); cadastro/importação é file-independente e pode paralelizar se crescer.
+> **Etapa 9 — Dashboard + central visual de alertas.** A Etapa 8 (Telas/UX) está **COMPLETA** — 8A (leitura) + 8B (mutações) + 8C (importação visual + file-manager de documentos). HEAD `d0fb161`; `tests/Cobranca` 368/368, GLOBAL 1649/1649; tenant-safety verificado + 2 revisões adversariais. A Etapa 9 monta a visão consolidada (dashboard do gestor) e a central de alertas global, sobre o serviço read-only `AlertasCobranca` (E5) já existente — **NÃO** é per-caso (isso já está no detalhe do caso), é a visão do escritório. Fora do escopo até aqui (§ da spec 8): dashboard/central global, domínio Financeiro (§19/§24), importador universal, per-item ACL.
+> **Se houver escrita nova**, seguir o padrão consolidado (gate capacidade → `findOneByIdDoTenant`→404 → CSRF → UseCase → PRG; selects via `opcoesDoTenant`+ChoiceType; controller fino; testes happy/capacidade/IDOR/CSRF/erro).
 >
 > **Decisão de negócio aplicada nesta sessão:** caso encerrado NÃO aceita mutação — guard no servidor em reconhecer-valor/tentativa/revisão (fechou a assimetria). Nova inadimplência = NOVO caso.
 > **Follow-ups restantes** (ver SESSION_HANDOFF §Follow-ups): FIFO de alocação (#8, adiado); cobertura positiva granular de `gerenciar` no cadastro (aceito p/ MVP; separação/negação JÁ provadas); NITs teóricos aceitos.
