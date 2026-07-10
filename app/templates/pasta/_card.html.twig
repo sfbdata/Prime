@@ -3,9 +3,12 @@
    paridade das ações inline (responsável, situação, mover marcador) sem JS novo.
    NÃO usar id= por-pasta: tabela e cartão coexistem no DOM. #}
 {% set dias = date().diff(pasta.dataAbertura).days %}
-{% set acaoTexto = pasta.processoPrincipal
-    ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso)
-    : pasta.nomeAcao %}
+{# Nome da ação digitado manualmente tem precedência; a classe do processo
+   vinculado é só fallback quando não há nome manual. #}
+{% set acaoTexto = pasta.nomeAcao
+    ?: (pasta.processoPrincipal
+        ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso)
+        : null) %}
 <div class="pasta-card pasta-row-link pasta-prio-{{ pasta.prioridade.value }}"
      data-href="{{ path('pasta_show', {id: pasta.id}) }}">
 

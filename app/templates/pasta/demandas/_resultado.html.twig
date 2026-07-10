@@ -125,7 +125,7 @@
                     </span>
                 </div>
 
-                {% set acaoTexto = pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso) : pasta.nomeAcao %}
+                {% set acaoTexto = pasta.nomeAcao ?: (pasta.processoPrincipal ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso) : null) %}
                 {% if acaoTexto %}
                 <div class="pasta-card-row">
                     <span class="pasta-card-label"><i class="bi bi-briefcase"></i></span>
