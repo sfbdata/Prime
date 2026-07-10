@@ -94,8 +94,12 @@ final class ObrigacaoController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->reconhecerValor->executar($input, $tenant, $this->usuarioLogado());
-            $this->addFlash('success', 'Valor atualizado reconhecido.');
+            try {
+                $this->reconhecerValor->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Valor atualizado reconhecido.');
+            } catch (CasoEncerradoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
         } else {
             $this->flashErrosDoForm($form);
         }

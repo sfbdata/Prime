@@ -6,6 +6,7 @@ namespace App\Cobranca\Controller;
 
 use App\Cobranca\DTO\GerarRevisaoInput;
 use App\Cobranca\DTO\ResolverRevisaoInput;
+use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\RevisaoJaResolvidaException;
 use App\Cobranca\Form\GerarRevisaoType;
 use App\Cobranca\Form\ResolverRevisaoType;
@@ -61,8 +62,12 @@ final class RevisaoCobrancaController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->gerarRevisao->executar($input, $tenant, $this->usuarioLogado());
-            $this->addFlash('success', 'Revisão de pessoa cobrada aberta.');
+            try {
+                $this->gerarRevisao->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Revisão de pessoa cobrada aberta.');
+            } catch (CasoEncerradoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
         } else {
             $this->flashErrosDoForm($form);
         }

@@ -7,7 +7,9 @@ namespace App\Tests\Cobranca\Unit;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
@@ -89,6 +91,22 @@ final class RegistrarTentativaCobrancaUseCaseTest extends TestCase
         $input->casoId = 999;
 
         $this->expectException(CasoNaoEncontradoException::class);
+
+        $this->sut->executar($input, $this->tenant, $this->usuario);
+    }
+
+    #[Test]
+    public function rejeitaTentativaEmCasoEncerrado(): void
+    {
+        // Caso encerrado não aceita novos movimentos (SPEC §17): não muta o histórico.
+        $caso = (new CasoCobranca())->setTenant($this->tenant)->setStatus(StatusCaso::Encerrado);
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $this->expectException(CasoEncerradoException::class);
+
+        $input = new RegistrarTentativaCobrancaInput();
+        $input->casoId = 12;
 
         $this->sut->executar($input, $this->tenant, $this->usuario);
     }

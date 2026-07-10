@@ -174,8 +174,12 @@ final class CasoController extends AbstractController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
-            $this->registrarTentativa->executar($input, $tenant, $this->usuarioLogado());
-            $this->addFlash('success', 'Tentativa de cobrança registrada.');
+            try {
+                $this->registrarTentativa->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Tentativa de cobrança registrada.');
+            } catch (CasoEncerradoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
         } else {
             $this->flashErrosDoForm($form);
         }

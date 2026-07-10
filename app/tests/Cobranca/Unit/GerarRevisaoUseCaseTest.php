@@ -8,7 +8,9 @@ use App\Cobranca\DTO\GerarRevisaoInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Entity\RevisaoPessoaCobrada;
+use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\StatusRevisao;
+use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
@@ -92,6 +94,24 @@ final class GerarRevisaoUseCaseTest extends TestCase
 
         $input = new GerarRevisaoInput();
         $input->casoId = 999;
+        $input->motivo = 'Qualquer';
+
+        $this->sut->executar($input, $this->tenant, $this->usuario);
+    }
+
+    #[Test]
+    public function rejeitaRevisaoEmCasoEncerrado(): void
+    {
+        // Caso encerrado não aceita novos movimentos (SPEC §17): não gera revisão nem evento.
+        $caso = (new CasoCobranca())->setTenant($this->tenant)->setStatus(StatusCaso::Encerrado);
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->revisaoRepository->expects($this->never())->method('salvar');
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $this->expectException(CasoEncerradoException::class);
+
+        $input = new GerarRevisaoInput();
+        $input->casoId = 50;
         $input->motivo = 'Qualquer';
 
         $this->sut->executar($input, $this->tenant, $this->usuario);

@@ -7,6 +7,7 @@ namespace App\Cobranca\UseCase;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
@@ -38,6 +39,12 @@ final class RegistrarTentativaCobrancaUseCase
 
         if ($caso === null) {
             throw new CasoNaoEncontradoException((int) $input->casoId);
+        }
+
+        // Caso encerrado não aceita novos lançamentos/movimentos (SPEC §17): fim do ciclo do Caso.
+        // Nova inadimplência deve abrir um novo Caso, nunca reativar por mutação indireta.
+        if ($caso->estaEncerrado()) {
+            throw new CasoEncerradoException((int) $caso->getId());
         }
 
         // SPEC §10: só registra o movimento — não cria obrigação nem altera o valor original.

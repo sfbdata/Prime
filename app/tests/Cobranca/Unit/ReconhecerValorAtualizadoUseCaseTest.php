@@ -8,6 +8,8 @@ use App\Cobranca\DTO\ReconhecerValorAtualizadoInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\StatusCaso;
+use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
@@ -91,5 +93,30 @@ final class ReconhecerValorAtualizadoUseCaseTest extends TestCase
         $this->expectException(ObrigacaoNaoEncontradaException::class);
 
         $this->sut->executar($input, $this->tenant, $this->usuario);
+    }
+
+    #[Test]
+    public function rejeitaReconhecimentoEmCasoEncerrado(): void
+    {
+        // Caso encerrado exige saldo exigível 0 (invariável 17); reconhecer encargos criaria
+        // "encerrado com saldo". O guard barra ANTES de alterar os encargos e sem registrar evento.
+        $obrigacao = (new Obrigacao())
+            ->setCaso((new CasoCobranca())->setTenant($this->tenant)->setStatus(StatusCaso::Encerrado))
+            ->setValorOriginal(10000);
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $input = new ReconhecerValorAtualizadoInput();
+        $input->obrigacaoId = 55;
+        $input->encargosReconhecidos = 1500;
+
+        try {
+            $this->sut->executar($input, $this->tenant, $this->usuario);
+            self::fail('Esperava CasoEncerradoException.');
+        } catch (CasoEncerradoException) {
+            // Encargos não foram alterados: o guard barra antes de reconhecerEncargos().
+            self::assertSame(0, $obrigacao->getEncargosReconhecidos());
+        }
     }
 }

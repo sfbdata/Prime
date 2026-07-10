@@ -7,6 +7,7 @@ namespace App\Cobranca\UseCase;
 use App\Cobranca\DTO\ReconhecerValorAtualizadoInput;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
@@ -40,10 +41,17 @@ final class ReconhecerValorAtualizadoUseCase
             throw new ObrigacaoNaoEncontradaException((int) $input->obrigacaoId);
         }
 
+        $caso = $obrigacao->getCaso();
+
+        // Caso encerrado não aceita novos lançamentos/movimentos (SPEC §17): fim do ciclo do Caso.
+        // Reconhecer encargos num caso encerrado criaria "encerrado com saldo" (fere a invariável 17,
+        // que exige saldo exigível 0 para encerrar). Nova inadimplência deve abrir um novo Caso.
+        if ($caso !== null && $caso->estaEncerrado()) {
+            throw new CasoEncerradoException((int) $caso->getId());
+        }
+
         // Preserva o valor original (SPEC §10, invariável 20): só ajusta os encargos reconhecidos.
         $obrigacao->reconhecerEncargos($input->encargosReconhecidos);
-
-        $caso = $obrigacao->getCaso();
 
         // A obrigação é managed: o flush do evento commita, na mesma transação, a alteração + o evento.
         $this->registrarEvento->registrar(
