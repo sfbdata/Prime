@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Repository;
 
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -45,5 +46,19 @@ class ObjetoCobrancaRepository extends ServiceEntityRepository
     public function findOneByIdDoTenant(int $id, Tenant $tenant): ?ObjetoCobranca
     {
         return $this->findOneBy(['id' => $id, 'tenant' => $tenant]);
+    }
+
+    /**
+     * Objeto de uma carteira por sua identificação (dedup da importação — decisão C). Escopo por
+     * tenant SEMPRE (a carteira já é tenant-bound; o tenant é defesa em profundidade). Usado para NÃO
+     * recriar o mesmo objeto (unidade) na reimportação.
+     */
+    public function findOnePorIdentificacaoNaCarteira(Carteira $carteira, string $identificacao, Tenant $tenant): ?ObjetoCobranca
+    {
+        return $this->findOneBy([
+            'carteira' => $carteira,
+            'identificacao' => $identificacao,
+            'tenant' => $tenant,
+        ]);
     }
 }

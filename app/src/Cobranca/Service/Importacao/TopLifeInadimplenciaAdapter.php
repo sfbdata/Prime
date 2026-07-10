@@ -65,7 +65,10 @@ final class TopLifeInadimplenciaAdapter
             }
 
             $nn = trim((string) ($linha[self::COL_NN] ?? ''));
-            $chave = $nn !== '' ? $nn : '__sem_nn_' . $i;
+            // Chave = Objeto (unidade principal) + NN (decisão C). Não assume NN globalmente único:
+            // o mesmo NN em duas unidades vira boletos separados, sem fundir dinheiro de unidades.
+            [$identificacao] = $this->separarUnidade(trim((string) ($linha[self::COL_UNIDADE] ?? '')));
+            $chave = $nn !== '' ? $identificacao . "\x1f" . $nn : '__sem_nn_' . $i;
             if (!isset($grupos[$chave])) {
                 $grupos[$chave] = ['ordem' => $ordem++, 'linhas' => []];
             }

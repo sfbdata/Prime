@@ -50,6 +50,25 @@ class ObrigacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Obrigação de um caso por sua referência externa (o NN do boleto na importação — decisão C).
+     * Chave de idempotência: reimportar o mesmo boleto ATUALIZA em vez de duplicar. Escopo por tenant
+     * do caso (defesa em profundidade). A referência é comparada aparada; null/'' nunca casa.
+     */
+    public function findOnePorReferenciaExternaNoCaso(CasoCobranca $caso, string $referenciaExterna): ?Obrigacao
+    {
+        $referencia = trim($referenciaExterna);
+        if ($referencia === '') {
+            return null;
+        }
+
+        return $this->findOneBy([
+            'caso' => $caso,
+            'tenant' => $caso->getTenant(),
+            'referenciaExterna' => $referencia,
+        ]);
+    }
+
+    /**
      * Obrigações de um caso (fonte do saldo derivado — SPEC §10, invariável 20). Escopo por
      * tenant do caso (defesa em profundidade).
      *
