@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\DTO\AlterarPessoaCobradaInput;
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\JudicializarCasoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
@@ -12,8 +13,10 @@ use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoJaJudicializadoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
+use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Exception\SaldoNaoResolvidoException;
 use App\Cobranca\Form\AcordoCriarType;
+use App\Cobranca\Form\AlterarPessoaCobradaType;
 use App\Cobranca\Form\CancelarAcordoType;
 use App\Cobranca\Form\ConcluirAcaoType;
 use App\Cobranca\Form\DefinirProximaAcaoType;
@@ -31,6 +34,8 @@ use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
+use App\Cobranca\Repository\PessoaRepository;
+use App\Cobranca\UseCase\AlterarPessoaCobradaUseCase;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
 use App\Cobranca\UseCase\ListarCasosUseCase;
@@ -71,6 +76,8 @@ final class CasoController extends AbstractController
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly JudicializarCasoUseCase $judicializarCaso,
         private readonly PastaRepository $pastaRepository,
+        private readonly AlterarPessoaCobradaUseCase $alterarPessoaCobrada,
+        private readonly PessoaRepository $pessoaRepository,
     ) {
     }
 
@@ -179,6 +186,40 @@ final class CasoController extends AbstractController
         return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
     }
 
+    #[Route('/{id}/pessoa-cobrada', name: 'cobranca_caso_alterar_pessoa', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function alterarPessoaCobrada(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $caso = $this->casoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($caso === null) {
+            throw $this->createNotFoundException('Caso de cobrança não encontrado.');
+        }
+
+        $input = new AlterarPessoaCobradaInput();
+        $input->casoId = $id;
+        $form = $this->createForm(AlterarPessoaCobradaType::class, $input, [
+            'pessoas' => $this->pessoaRepository->opcoesDoTenant($tenant),
+        ]);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->alterarPessoaCobrada->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Pessoa cobrada alterada.');
+            } catch (CasoNaoEncontradoException | PessoaNaoEncontradaException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        } else {
+            $this->flashErrosDoForm($form);
+        }
+
+        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+    }
+
     #[Route('/{id}/judicializar', name: 'cobranca_caso_judicializar', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function judicializar(int $id, Request $request): Response
     {
@@ -270,6 +311,9 @@ final class CasoController extends AbstractController
             'acordoCriar' => $this->createForm(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
             'romperAcordo' => $this->createForm(RomperAcordoType::class)->createView(),
             'cancelarAcordo' => $this->createForm(CancelarAcordoType::class)->createView(),
+            'alterarPessoa' => $this->createForm(AlterarPessoaCobradaType::class, null, [
+                'pessoas' => $this->pessoaRepository->opcoesDoTenant($caso->getTenant()),
+            ])->createView(),
         ];
 
         // Judicializar só entra com o módulo `pastas` (para o select da Pasta a vincular).

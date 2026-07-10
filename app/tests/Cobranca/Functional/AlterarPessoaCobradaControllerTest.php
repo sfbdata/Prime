@@ -1,0 +1,121 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Cobranca\Functional;
+
+use App\Cobranca\Controller\CasoController;
+use App\Cobranca\Entity\CasoCobranca;
+use App\Tests\Factory\Cobranca\PessoaFactory;
+use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\TestDox;
+
+/**
+ * Alteração manual da pessoa cobrada do caso (Onda 8B, em CasoController). Cobre gate de capacidade
+ * `resources.cobranca.gerenciar`, CSRF, anti-IDOR (404 no caso, Pessoa de outro tenant →
+ * PessoaNaoEncontrada) e o happy path. A troca não afeta dívida/pagamentos/acordos (SPEC §8).
+ */
+#[CoversClass(CasoController::class)]
+final class AlterarPessoaCobradaControllerTest extends CobrancaWebTestCase
+{
+    #[TestDox('Alterar pessoa cobrada: happy path troca a pessoa e volta ao caso')]
+    public function testAlterarPessoaHappy(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $nova = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'Nova Devedora'])->_real();
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $token = $this->tokenDoFormulario($crawler, 'alterar_pessoa_cobrada');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $nova->getId(), 'motivo' => 'Mudança de titularidade', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->find(CasoCobranca::class, $casoId);
+        self::assertSame((int) $nova->getId(), (int) $fresh->getPessoaCobradaAtual()->getId(), 'pessoa cobrada trocada');
+    }
+
+    #[TestDox('Alterar para Pessoa de OUTRO tenant: erro de domínio, não troca')]
+    public function testAlterarPessoaDeOutroTenant(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $pessoaAtualId = (int) $caso->getPessoaCobradaAtual()->getId();
+        $pessoaAlheia = PessoaFactory::createOne(['tenant' => $this->tenantAvulso()])->_real();
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $token = $this->tokenDoFormulario($crawler, 'alterar_pessoa_cobrada');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $pessoaAlheia->getId(), 'motivo' => 'x', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        // ChoiceType rejeita id fora do escopo do tenant → form inválido, sem troca (defesa em profundidade).
+        self::assertSame($pessoaAtualId, (int) $em->find(CasoCobranca::class, $casoId)->getPessoaCobradaAtual()->getId());
+    }
+
+    #[TestDox('Alterar pessoa sem a capacidade: negado (redirect, não caso)')]
+    public function testAlterarPessoaSemCapacidade(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => '1', 'motivo' => 'x', '_token' => 'irrelevante'],
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertStringNotContainsString('/cobrancas/casos/' . $casoId, (string) $client->getResponse()->headers->get('Location'));
+    }
+
+    #[TestDox('IDOR: alterar pessoa em caso de OUTRO tenant devolve 404')]
+    public function testAlterarPessoaCrossTenant404(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        [, $casoAlheio] = $this->semearGrafo($this->tenantAvulso());
+
+        $client->request('POST', '/cobrancas/casos/' . $casoAlheio->getId() . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => '1', 'motivo' => 'x', '_token' => 'irrelevante'],
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('CSRF inválido: alterar pessoa não troca')]
+    public function testAlterarPessoaCsrfInvalido(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $pessoaAtualId = (int) $caso->getPessoaCobradaAtual()->getId();
+        $nova = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+        $casoId = (int) $caso->getId();
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $nova->getId(), 'motivo' => 'x', '_token' => 'token-falso'],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame($pessoaAtualId, (int) $em->find(CasoCobranca::class, $casoId)->getPessoaCobradaAtual()->getId());
+    }
+}

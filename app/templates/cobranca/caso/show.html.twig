@@ -44,7 +44,14 @@
         <div class="caso-header mb-3">
             <div class="caso-header-top">
                 <div>
-                    <div class="caso-metric-label">Pessoa cobrada atual</div>
+                    <div class="caso-metric-label d-flex align-items-center gap-2">
+                        Pessoa cobrada atual
+                        {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa" title="Alterar pessoa cobrada">
+                            <i class="bi bi-arrow-left-right"></i>
+                        </button>
+                        {% endif %}
+                    </div>
                     <p class="caso-header-titulo mb-0">{{ caso.pessoaCobradaNome }}</p>
                     <div class="caso-header-sub">
                         {% if caso.pessoaCobradaCpf %}<span data-bs-toggle="tooltip" title="CPF">{{ caso.pessoaCobradaCpf }}</span>{% endif %}
