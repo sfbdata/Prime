@@ -1,61 +1,58 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: 2026-07-10 — **Etapa 6 CONCLUÍDA e validada** (suíte global 1472/1472; `tests/Cobranca` 191/191).
+> Sessão encerrada em: 2026-07-10 — **Etapa 7: ponto seguro entregue; importador REAL bloqueado por falta de fonte**.
 
 ---
 
 ## Estado atual
 - **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
-- **HEAD:** `2ab1783`. Ancestralidade Etapa 6 sobre `102601d` (docs E5): `ea3a21f`(andaime)→`b45c341`(exception faltante)→`c9560d0`(fan-out B Seções)→`09659e7`(fan-out A Documentos)→`2ab1783`(integração cross-tenant DB). +1 commit de docs a seguir.
-- **Etapa:** 6 (Documentos do Caso) → **✅ CONCLUÍDA**. Próxima = **Etapa 7** (Importação em massa).
-- **Suíte:** GLOBAL **1472/1472**; `tests/Cobranca` 191/191.
+- **HEAD no início da sessão:** `93445b0`. Etapa 7 (ponto seguro) = **2 commits** a seguir: implementação + docs vivos.
+- **Etapa:** 7 (Importação em massa) → **PARCIAL**. Importador real **BLOQUEADO**; **ponto seguro CONCLUÍDO** (dedup de Pessoa por dígitos).
+- **Suíte:** GLOBAL **1482/1482**; `tests/Cobranca` **201/201**.
 - **Working tree:** limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar; limpeza é do humano, follow-up #6).
-- **Escritor:** ÚNICO (orquestrador) + fan-out de 2 `feature-implementer` em worktrees (concluído/integrado). Se abrir nova sessão, reconfirmar escritor único antes de reabrir escrita.
-- **Migrations (dev+test):** E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; E4 `Version20260709154458`; E5 `Version20260709191327`; **E6 `Version20260709215805`** (cobranca_secao + cobranca_documento; FKs caso_id/secao_id ON DELETE CASCADE; tenant NO ACTION).
+- **Escritor:** ÚNICO (orquestrador). Etapa 7 (ponto seguro) NÃO teve fan-out — mudança coesa e pequena.
+- **Migrations (dev+test):** E1–E6 (ver EXECUTION_STATUS) + **E7 `Version20260710130000`** (índices FUNCIONAIS de dedup por dígitos de cpf/cnpj; SEM coluna nova). Já aplicada em dev e test via `doctrine:migrations:execute --up`.
 
-## O que foi concluído nesta sessão (Etapa 6)
-Pipeline autônomo: `investigação infra de arquivos→spec→andaime→commit→fan-out (2 worktrees)→review read-only (2)→cherry-pick individual→teste direcionado→cross-tenant DB→suíte global→tenant-safety→docs`.
-- **Andaime** `ea3a21f` (+ `b45c341` exception que escapou do staging): entidades `CobrancaSecao`/`CobrancaDocumento` (FK `caso` nn, **unidirecional** — não toca `CasoCobranca`; navegação pelos repos), enum `CategoriaDocumentoCobranca`, 2 repos tenant-safe (`findOneByIdDoTenant`/`documentosDoCaso`/`secoesDoCaso`/`proximaOrdem`), 4 exceptions, 2 factories; parâmetro `cobrancas_uploads_dir` (test→`var/uploads-test/cobrancas`) + bind; purga cobre `cobranca_documento`/`cobranca_secao` na ORDEM_DELECAO + remove `cobrancas/<tenantId>/`; migration; spec `docs/specs/cobranca-etapa6-documentos.md`.
-- **Fan-out B** `c9560d0`: `CriarSecao`/`RenomearSecao`/`ExcluirSecao` (excluir seção exclui seus documentos, espelha ExcluirPastaSecao; apaga arquivo físico ANTES do remove/cascade).
-- **Fan-out A** `09659e7`: `EnviarDocumento` (whitelist MIME + limite tamanho, isolamento físico por tenant, compressão opcional) / `MoverDocumento` / `ExcluirDocumento`.
-- **Integração** `2ab1783`: `DocumentosCobrancaIsolamentoTenantTest` (DB+disco reais): INV-25 (doc sem Pasta), judicialização preserva documentos (não migra/duplica), isolamento físico por tenant, IDOR de Enviar/Mover/ExcluirSecao + seção de outro caso.
+## ⚠️ BLOQUEIO da Etapa 7 (o ponto central desta sessão)
+O importador REAL **não pôde ser implementado**: **não existe fonte real de importação (relatórios da contabilidade) no repositório**. Verificado: nenhum `.xlsx/.csv/.xls/.ods` de cobrança versionado ou no working tree; as únicas planilhas são os CSVs de acervo/pastas em `tmp/acervo/` (colunas `nup;cliente;parte_contraria;acao` — domínio Pasta/Drive, gitignored, PII, **sem relação**). A SPEC §21 e o PLAN §9 **exigem** o relatório real (anonimizado) para definir adapter, mapeamento de colunas, chave de idempotência (`referenciaExterna`) e regras finas de dedup/reimportação. A tarefa proíbe **inventar** colunas/regras. Logo: importador **diferido** até a fonte chegar. Detalhe completo em `docs/specs/cobranca-etapa7-importacao.md`.
 
-## Decisões de design (Etapa 6)
-- **Documento vive no Caso, NUNCA na Pasta** (invariável 25): FK `caso` obrigatória; caso sem Pasta pode ter documentos. Ao judicializar, documentos **permanecem** (não migram/duplicam, §15/§16) — provado no DB.
-- **Entidades próprias** (`CobrancaDocumento`/`CobrancaSecao`) só porque a FK aponta para `CasoCobranca` (§24: não recriar Pasta/Documento). Mecânica de arquivo 100% reusada do `App\Shared\Service` (`ArquivoStorageService`/`CompressorArquivo`). Front `pasta-arquivos.js/.css` será religado por `data-*` na Etapa 8 (sem tocar o JS).
-- **FK Caso→Documento/Seção UNIDIRECIONAL** (sem `inversedBy`): `CasoCobranca` (entidade compartilhada da E2) fica **intocada**; navegação pelos repositórios. `Secao→Documento` bidirecional (coleção `documentos`, cascade remove).
-- **Isolamento físico por tenant** (padrão M5): arquivo em `cobrancas/<tenantId>/<hash>`; `caminhoArquivo` guarda só o hash; diretório efetivo = `$cobrancasUploadsDir.'/'.$tenant->getId()` (contrato congelado, idêntico no salvar/excluir/purga).
-- **ExcluirSecao exclui os documentos** da seção (decisão de negócio; espelha Pasta). Apaga arquivo físico ANTES do `remover(flush:true)` (senão o cascade derruba as linhas e perde o hash) — sem transação disco+DB (aceito, follow-up #16).
-- **Categoria = enum** `CategoriaDocumentoCobranca` (TermoAcordo/Boleto/Comprovante/Notificacao/Negociacao/Outro; default Outro).
-- **Sem camada HTTP nesta etapa:** controllers/rotas/templates/CSRF + gate `can_access_module('cobrancas')` + wiring do file manager → **Etapa 8**.
+## O que foi concluído nesta sessão (Etapa 7 — ponto seguro, independe da fonte)
+Único trabalho seguro e mandado por invariável (§23.24: CPF/CNPJ ajudam a evitar duplicidades **só intra-tenant**): fechar o núcleo do follow-up #3 (dedup por **dígitos**). Serve ao cadastro manual E ao futuro importador.
+- **`App\Cobranca\Service\NormalizadorDocumento::apenasDigitos()`** — utilitário puro, ponto único de normalização (null/vazio→null).
+- **`SugerirPessoasDuplicadasUseCase`** — normaliza o parâmetro CPF/CNPJ para dígitos (curto-circuito quando ambos ausentes).
+- **`PessoaRepository::buscarPossiveisDuplicadas`** — **fronteira auto-defensiva**: normaliza o param E compara por dígitos via `regexp_replace(coalesce(cpf,''),'\D','','g')` em **SQL nativo** (RSM hidrata `Pessoa`), sempre `tenant_id = :tenant`. Assim `123.456.789-01` casa `12345678901`.
+- **Migration `Version20260710130000`** — índices funcionais `(tenant_id, regexp_replace(...))` p/ cpf e cnpj. **Traz aviso de drift**: o próximo `migrations:diff` vai emitir `DROP INDEX` deles (não são mapeáveis por `#[ORM\Index]`) → remover o DROP à mão.
+- **Testes:** `NormalizadorDocumentoTest` (8, DataProvider); unit da sugestão atualizado (param→dígitos + doc sem dígito); funcional `CobrancaIsolamentoTenantTest::testDedupCasaPorDigitosSemAtravessarTenant` (formatado×cru + cross-tenant).
+- **NÃO tocado:** caminho de escrita (`CriarPessoaUseCase`), entidades do núcleo, `Pessoa.php` (nada de `referenciaExterna`, nada de importador universal §24).
+
+## Revisão (feature-review-agent, read-only, adversarial)
+**0 bloqueantes.** Achados tratados nesta sessão: **#1** drift de schema (aviso na migration + spec) e **#2** normalização na fronteira do repo (extraído `NormalizadorDocumento`, repo agora auto-defensivo). Aceitos/documentados: **#3** índices planos `idx_cobranca_pessoa_tenant_cpf`/`_cnpj` ficaram redundantes (não removidos p/ não criar drift reverso — cosmético); **#4** `\D` PCRE×Postgres só diverge p/ dígitos Unicode não-ASCII (irrelevante p/ CPF/CNPJ).
 
 ## Git
-- **HEAD:** `2ab1783` (+ docs). **`master`:** NÃO contém Cobranças. Mergear DEPOIS do DJEN, só no fim.
-- **Worktrees de agente (limpeza do humano):** E6 `agent-a883d877c2c86a236`(A)/`agent-a8473a2a7bf7a9edb`(B) + branches `worktree-agent-*`; somam-se às sobras das etapas 2/3/4/5.
+- **`master`:** NÃO contém Cobranças. Mergear DEPOIS do DJEN, só no fim.
+- **Worktrees de agente (limpeza do humano):** dirs `.claude/worktrees/agent-*` + branches `worktree-agent-*` das etapas anteriores (follow-up #6). Nenhuma worktree nova nesta sessão.
 
 ## Testes (comandos úteis) — **sempre `php -d memory_limit=512M`**
-- `php bin/phpunit tests/Cobranca` → 191/191.
-- `php bin/phpunit --filter "DocumentosCobrancaIsolamentoTenantTest"` → cross-tenant DB+disco da Etapa 6 (6 testes).
-- `php bin/phpunit --filter "Documento|Secao" tests/Cobranca/Unit` → unit dos 6 UseCases (27 testes).
-- `php bin/phpunit --filter "PurgaCoberturaSchemaTest|PurgarEscritorioUseCaseTest"` → cobertura da purga (10 testes).
-- `php bin/phpunit` (global) → 1472/1472.
-- **Se testes de DB falharem com erro de conexão:** confira `docker ps` — `jusprime_db_dev` pode ter parado (`docker start jusprime_db_dev`).
+- `php bin/phpunit tests/Cobranca` → 201/201.
+- `php bin/phpunit --filter "NormalizadorDocumento|SugerirPessoasDuplicadas|CobrancaIsolamentoTenantTest"` → dedup por dígitos + cross-tenant.
+- `php bin/phpunit` (global) → 1482/1482.
+- **Se testes de DB falharem com erro de conexão:** `docker ps` — `jusprime_db_dev` pode ter parado (`docker start jusprime_db_dev`).
 
 ## Follow-ups (não bloqueiam — detalhe no EXECUTION_STATUS §Follow-ups)
-- **#13** Índice único "máx. 1 próxima ação pendente" (janela TOCTOU) — decisão do humano (E5).
-- **#14** Short-circuit de alertas em caso encerrado oculta revisão pendente — coerente/documentado (E5).
-- **#15** Gate `can_access_module('pastas'/'cobrancas')` na camada HTTP → Etapa 8.
-- **#16 (NOVO, E6)** `ExcluirDocumento`/`ExcluirSecao` apagam o arquivo físico ANTES de remover a linha; se o `flush` falhar depois, o arquivo some mas a linha permanece (sem transação disco+DB). Aceito por design (não perder o hash). Endurecer só se virar problema real.
-- **#17 (NOVO, E6)** Cobertura de borda: branch `descricao === ''` → null no `EnviarDocumento` sem teste dedicado (mutação passaria). MENOR.
-- **#10/#11** Endurecer testes de evento (asserir `tipo`+`dados`) — segue aberto das etapas 3/4.
+- **#3** ✅ RESOLVIDO nesta sessão (dedup por dígitos). Resíduo cosmético: índices planos redundantes.
+- **#15** Gate `can_access_module('cobrancas')` na camada HTTP → Etapa 8.
+- **#16/#17** (E6) exclusão disco-antes-de-DB / cobertura de borda `descricao` — aceitos.
+- **#10/#11** Endurecer testes de evento (asserir `tipo`+`dados`) — abertos das etapas 3/4.
+- **Drift E7:** ao gerar a próxima migration por diff, remover à mão o `DROP INDEX idx_cobranca_pessoa_tenant_c*_digitos`.
 
-## Próxima ação exata
-> **Etapa 7 — Importação em massa** (PLAN §9; §21 da SPEC). Ler `PLAN.md` §9 + `PARALLELIZATION_MAP.md` + SPEC §21. Escopo: importar carteiras/objetos/pessoas/casos/obrigações em lote (planilha), com dedup por dígitos de CPF/CNPJ **dentro do tenant** (follow-up #3: precisa índice funcional). Riscos: validação de linha, idempotência, mapeamento de colunas, performance. NÃO é importador universal (§24). Ordem: (1) confirmar Git + escritor único; (2) investigar como outras importações existem no projeto (se houver) + o parser de planilha disponível; (3) andaime (entidade de job de importação? ou stateless?) → decidir com storytelling do UseCase; (4) fan-out se útil.
+## Próxima ação exata — DECISÃO DO HUMANO
+A Etapa 7 (importador real) está BLOQUEADA. Duas frentes (ver EXECUTION_STATUS §Próxima ação):
+- **Opção A — desbloquear E7:** humano fornece 1 relatório real **anonimizado** (`.xlsx`/`.csv`) em `app/tests/Fixtures/Cobranca/importacao/`. Só então construir o adapter da fonte (storytelling → colunas→conceitos → upload/parse/preview/confirmação/relatório → idempotência → cross-tenant).
+- **Opção B (RECOMENDADA) — seguir para a Etapa 8 (Telas/UX), NÃO bloqueada:** menu gated, lista de carteiras → carteira → casos (filtro reutilizável) → detalhe do caso → formulários; controllers finos com guard permissão/tenant/IDOR/CSRF; religar file manager por `data-*`. A E7 volta quando a fonte real chegar.
 
 ## Ordem de retomada
-1. Confirmar branch `gestao-cobrancas`, HEAD `2ab1783` (ou posterior), working tree limpo, escritor único.
-2. `git log --oneline -6` (topo esperado: docs E6 a seguir / `2ab1783`).
-3. `php bin/phpunit tests/Cobranca` deve dar 191/191 antes de começar a E7.
-4. Ler `PLAN.md` §9 (Etapa 7) + SPEC §21 + investigar infra de importação/planilha.
-5. Ao fim da E7, atualizar `EXECUTION_STATUS.md` + este arquivo.
+1. Confirmar branch `gestao-cobrancas`, HEAD = os 2 commits da E7 (ou posterior), working tree limpo, escritor único.
+2. `php bin/phpunit tests/Cobranca` deve dar 201/201.
+3. Ler este handoff + EXECUTION_STATUS §"Próxima ação". **Perguntar ao humano: Opção A ou B?** (não escolher sozinho — é decisão de produto/negócio).
+4. Seguir o AUTONOMOUS_EXECUTION_PROTOCOL para a frente escolhida.

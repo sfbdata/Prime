@@ -1,7 +1,7 @@
 # EXECUTION_STATUS — Gestão de Cobranças
 
 > Panorama VIVO da implementação. Fonte de verdade do progresso. **Confirmar sempre contra o Git/código — nunca contra memória de chat.**
-> Última atualização: 2026-07-10 (Etapa 6 CONCLUÍDA e validada).
+> Última atualização: 2026-07-10 (Etapa 7 — ponto seguro entregue; importador REAL bloqueado por falta de fonte).
 
 ---
 
@@ -9,14 +9,14 @@
 
 | Campo | Valor real |
 |---|---|
-| **Etapa atual** | Etapa 6 — Documentos do Caso → **✅ CONCLUÍDA**; próxima = Etapa 7 (Importação em massa) |
+| **Etapa atual** | Etapa 7 — Importação em massa → **PARCIAL**: importador REAL **BLOQUEADO** (fonte de contabilidade ausente do repo); **ponto seguro ENTREGUE** (dedup de Pessoa por dígitos, intra-tenant) |
 | **Tarefa atual** | Nenhuma em execução |
-| **Último checkpoint estável** | `2ab1783` — **suíte GLOBAL verde 1472/1472**; `tests/Cobranca` 191/191 (+ cross-tenant DB+disco dos documentos: INV-25, judicialização preserva docs, isolamento físico por tenant, IDOR) |
+| **Último checkpoint estável** | Etapa 7 ponto seguro — **suíte GLOBAL verde 1482/1482**; `tests/Cobranca` 201/201 (+ dedup por dígitos formatado×cru cross-tenant) |
 | **Branch** | `gestao-cobrancas` (dedicada; `master` só com DJEN) |
-| **HEAD** | `2ab1783` (código estável; +docs a seguir) |
+| **HEAD** | `93445b0` no início da sessão; +2 commits da Etapa 7 (implementação + docs vivos) |
 | **Working tree** | limpo (só untracked `.claude/worktrees/` — worktrees de agente, NÃO commitar) |
-| **Migrations (dev+test)** | E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; E4 `Version20260709154458`; E5 `Version20260709191327`; **E6 `Version20260709215805`** (cobranca_secao + cobranca_documento; FKs caso_id/secao_id ON DELETE CASCADE) |
-| **Escritor** | ÚNICO (orquestrador) + fan-out de 2 `feature-implementer` em worktrees (concluído e integrado) |
+| **Migrations (dev+test)** | E1 `Version20260708210509`+`Version20260708220000`; E2 `Version20260709123952`; E3 `Version20260709142845`; E4 `Version20260709154458`; E5 `Version20260709191327`; E6 `Version20260709215805`; **E7 `Version20260710130000`** (índices FUNCIONAIS de dedup por dígitos de cpf/cnpj — SEM coluna nova; ver aviso de drift na migration) |
+| **Escritor** | ÚNICO (orquestrador). Etapa 7 (ponto seguro) NÃO teve fan-out — mudança coesa e pequena |
 
 ### Commits da Etapa 2 (sobre `2719738`)
 - `121c173` — andaime: entidades `CasoCobranca`/`Obrigacao`/`EventoHistorico`, enums `StatusCaso`/`TipoEventoHistorico`, 3 repos-stub (+queries tenant-scoped), migration `Version20260709123952` (dev+test), 3 factories, **cobertura da purga** (3 tabelas) + seed no teste da purga, spec `docs/specs/cobranca-etapa2-caso-saldo.md`.
@@ -100,7 +100,12 @@
 - ✅ **Etapa 4** — Acordos: entidade `Acordo`+enum `StatusAcordo`, FKs `Obrigacao.acordoOrigem`/`acordoSubstituto`, `doCasoExigiveis` status-aware, `CalculadoraSaldo` deriva por status (rompido/cancelado restaura originais), 4 UseCases (`CriarAcordo`/`RomperAcordo`/`CancelarAcordo`/`MarcarAcordoCumprido`), cross-tenant DB, global 1400/1400.
 - ✅ **Etapa 5** — Estados/Judicialização (`pastaJudicial`)/Encerramento/ProximaAcao/Revisão/Alertas: 2 entidades (`ProximaAcao`/`RevisaoPessoaCobrada`) + 2 enums, FK `CasoCobranca.pastaJudicial` (unidirecional), 6 UseCases (`Judicializar`/`Encerrar`/`Definir`/`Concluir`/`Gerar`/`Resolver`), serviço `AlertasCobranca` (5 alertas derivados), cross-tenant DB (isolamento da Pasta provado), global 1441/1441.
 - ✅ **Etapa 6** — Documentos do caso: entidades `CobrancaSecao`/`CobrancaDocumento` (FK caso nn, INV-25: sem Pasta), enum `CategoriaDocumentoCobranca`, 6 UseCases (`Enviar`/`Mover`/`Excluir` documento + `Criar`/`Renomear`/`Excluir` seção) reusando `ArquivoStorageService`, isolamento físico por tenant no disco, purga coberta, cross-tenant DB+disco (judicialização preserva docs), global 1472/1472.
-- ⬜ **Etapa 7** — Importação em massa · **8** Telas/UX · **9** Alertas UI + Dashboard.
+- 🟡 **Etapa 7** — Importação em massa: importador REAL **BLOQUEADO** (fonte de contabilidade ausente do repo — SPEC §21 exige o relatório real p/ adapter/colunas/idempotência); **ponto seguro ENTREGUE** — dedup de Pessoa por dígitos de CPF/CNPJ (intra-tenant, advisory; fecha o núcleo do follow-up #3). Ver `docs/specs/cobranca-etapa7-importacao.md`.
+- ⬜ **Etapa 8** Telas/UX · **9** Alertas UI + Dashboard.
+
+### Etapa 7 — o que foi entregue (ponto seguro; importador diferido)
+- **Bloqueio documentado:** nenhuma fonte real de cobrança/contabilidade no repositório (só CSVs de acervo/pastas em `tmp/acervo/`, gitignored, sem relação). Adapter/mapeamento de colunas/`referenciaExterna`/regras finas de reimportação ficam para quando o relatório real (anonimizado) entrar — SPEC §21 proíbe inventar o formato.
+- **Entregue (independe da fonte, invariável §23.24):** `NormalizadorDocumento::apenasDigitos()` (Service, ponto único de normalização); `SugerirPessoasDuplicadasUseCase` normaliza param p/ dígitos; `PessoaRepository::buscarPossiveisDuplicadas` vira **fronteira auto-defensiva** e compara por dígitos via `regexp_replace(...)` em SQL nativo (RSM), sempre intra-tenant; migration `Version20260710130000` com **índices funcionais** (aviso de drift embutido). Testes: `NormalizadorDocumentoTest` (8), unit da sugestão atualizado, funcional `testDedupCasaPorDigitosSemAtravessarTenant` (formatado×cru + cross-tenant). Sem tocar caminho de escrita nem entidades do núcleo. Global 1482/1482, `tests/Cobranca` 201/201. Revisado (feature-review-agent): 0 bloqueantes; 2 achados tratados (#1 drift, #2 fronteira), 2 aceitos (#3 índices planos redundantes, #4 `\D` Unicode).
 
 ### Transversal / deploy (fim)
 - ⬜ Data-migration de permissões `cobrancas` p/ **produção** (dev/test já via fixture).
@@ -112,7 +117,7 @@
 ## Follow-ups registrados (não bloqueiam)
 1. **Endurecer testes de evento (MENOR, do review da Etapa 2):** 4 dos 5 testes unit de UseCase asseram só `salvar(isInstanceOf(EventoHistorico), true)` — não checam `tipo`+`dados` do evento (o log de domínio §13). Produção está correta (reviewer confirmou); é lacuna de rede de segurança. Arquivos: `AbrirCasoUseCaseTest`, `RegistrarObrigacaoUseCaseTest`, `ReconhecerValorAtualizadoUseCaseTest`, `AlterarPessoaCobradaUseCaseTest`. Fix: capturar o evento no mock e asserir `getTipo()` + chaves de `getDados()`.
 2. **Cobertura de borda (MENOR):** `encargosReconhecidos = 0` (zera reconhecimento) e o fallback de `descricao` do `RegistrarTentativaCobranca` (quando `observacao` vazia) sem teste dedicado.
-3. **Dedup por dígitos** (Pessoa) → Etapa 7 (importação); precisaria índice funcional.
+3. **✅ RESOLVIDO (Etapa 7):** dedup de Pessoa por **dígitos** de CPF/CNPJ, intra-tenant, advisory — `NormalizadorDocumento` + `buscarPossiveisDuplicadas` por `regexp_replace` + índices funcionais (`Version20260710130000`). Resíduo cosmético: índices planos `idx_cobranca_pessoa_tenant_cpf`/`_cnpj` ficaram redundantes (não removidos p/ evitar drift reverso).
 4. **`CriarCarteiraUseCase`** usar `findOneByIdDoTenant` nomeado (hoje `findOneBy(['id','tenant'])` — seguro, só estilo).
 5. **Análise estática** (se CI rodar PHPStan/Psalm estrito): `?CasoCobranca`→`CasoCobranca` em `ReconhecerValorAtualizado` e `?Carteira`→`getModo()` em `AbrirCaso` (seguros em runtime — FKs nn).
 6. **Limpeza (humano):** branches-sobra `worktree-agent-*` + dirs `.claude/worktrees/agent-*` (`branch -D`/`worktree remove` são do humano). Da Etapa 3: `worktree-agent-a3a6acd67246f2c65` (A) e `worktree-agent-a4e00b60da03d350b` (B).
@@ -131,11 +136,12 @@
 ---
 
 ## Próxima ação exata
-> Iniciar a **Etapa 7 — Importação em massa** (PLAN §9; SPEC §21; paralelização a definir). Passos:
-> 1. Confirmar branch `gestao-cobrancas`, HEAD `2ab1783` (ou posterior), working tree limpo, escritor único; `tests/Cobranca` 191/191.
-> 2. Ler `PLAN.md` §9 + `PARALLELIZATION_MAP.md` + SPEC §21. Investigar se já existe infra de importação/parser de planilha no projeto (reusar, não duplicar — §24: NÃO é importador universal).
-> 3. Storytelling do(s) UseCase(s) de importação ANTES de implementar (quem importa, o quê, validação de linha, idempotência, mapeamento de colunas, o que acontece com linha inválida). Decidir se há entidade de "job de importação" persistida ou fluxo stateless.
-> 4. Dedup por dígitos de CPF/CNPJ **dentro do tenant** (follow-up #3 — precisa índice funcional; avaliar na migration da etapa).
-> 5. Andaime → commit → fan-out se útil → review read-only → cherry-pick individual → cross-tenant DB → suíte global → tenant-safety → docs.
-
-> **Sem decisões de negócio pendentes conhecidas** (confirmar no storytelling da E7). Atenção da Etapa 7: volume/performance de importação em lote e idempotência; manter o escopo do MVP (§24 — sem importador universal de planilhas).
+> **DECISÃO DO HUMANO** entre duas frentes — a Etapa 7 (importador real) está BLOQUEADA por falta da fonte:
+>
+> **Opção A — desbloquear a Etapa 7:** fornecer 1 relatório real **anonimizado** da contabilidade (`.xlsx`/`.csv`) em local versionável (ex.: `app/tests/Fixtures/Cobranca/importacao/`). Só então: storytelling do importador → adapter da fonte específica (mapeamento colunas→conceitos) → upload/parse/preview/confirmação/relatório → idempotência (`referenciaExterna` definida com o real) → cross-tenant → docs. NÃO inventar colunas/regras sem o relatório (§21/§24).
+>
+> **Opção B — seguir para a Etapa 8 (Telas/UX), que NÃO está bloqueada:** PLAN §9 (item 221) + §26 da SPEC. Item de menu gated `can_access_module('cobrancas')`, lista de carteiras → visão da carteira → lista de casos (filtro reutilizável) → **detalhe do caso** (tela central) → formulários de ação; controllers finos com guard permissão/tenant/IDOR/CSRF; religar o file manager `pasta-arquivos.js` por `data-*` (follow-up #15). A E7 (importador) volta quando a fonte real chegar.
+>
+> **Recomendação:** Opção B (destrava trabalho substancial imediato), mantendo a E7 aberta até o relatório real. O ponto seguro da E7 (dedup por dígitos) já está entregue e serve tanto ao cadastro manual quanto ao futuro importador.
+>
+> Atenção permanente: §24 — nunca importador universal; §21 — dentro de uma Carteira explícita; dedup só intra-tenant.
