@@ -1,8 +1,13 @@
 {# ───────────────────────────────────────────────────────────────────────────
-   Sub-navegação do módulo Cobranças (Carteiras × Casos). Consistência de
-   navegação (SPEC §26). Parâmetro: ativo ('carteiras' | 'casos').
+   Sub-navegação do módulo Cobranças (Painel · Carteiras · Casos · Alertas).
+   Consistência de navegação (SPEC §26). Parâmetro: ativo
+   ('painel' | 'carteiras' | 'casos' | 'alertas').
 ─────────────────────────────────────────────────────────────────────────── #}
 <nav class="cobranca-subnav" aria-label="Seções de Cobranças">
+    <a href="{{ path('cobranca_dashboard') }}"
+       class="cobranca-subnav-item {{ ativo == 'painel' ? 'active' : '' }}">
+        <i class="bi bi-speedometer2"></i><span>Painel</span>
+    </a>
     <a href="{{ path('cobranca_carteira_index') }}"
        class="cobranca-subnav-item {{ ativo == 'carteiras' ? 'active' : '' }}">
         <i class="bi bi-folder2-open"></i><span>Carteiras</span>
@@ -10,5 +15,9 @@
     <a href="{{ path('cobranca_caso_index') }}"
        class="cobranca-subnav-item {{ ativo == 'casos' ? 'active' : '' }}">
         <i class="bi bi-briefcase"></i><span>Casos</span>
+    </a>
+    <a href="{{ path('cobranca_alertas') }}"
+       class="cobranca-subnav-item {{ ativo == 'alertas' ? 'active' : '' }}">
+        <i class="bi bi-bell"></i><span>Alertas</span>
     </a>
 </nav>

@@ -145,6 +145,32 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    /**
+     * TODOS os casos do tenant (opcionalmente de uma carteira), mais recentes primeiro — base da
+     * agregação tenant-wide do Dashboard e da Central de Alertas (Etapa 9). Tenant SEMPRE explícito no
+     * WHERE. Inclui casos encerrados de propósito: o "valor total recuperado" (all-time) precisa deles;
+     * a derivação por-caso naturalmente zera saldo/alertas do encerrado. Sem paginação — o Dashboard
+     * consome tudo; se o volume crescer, migrar para agregação materializada (follow-up de perf, coerente
+     * com a nota do `findByFilters`). Saldo/alertas continuam derivados por serviço, nunca por SQL aqui.
+     *
+     * @return CasoCobranca[]
+     */
+    public function doTenant(Tenant $tenant, ?Carteira $carteira = null): array
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->innerJoin('c.objeto', 'o')
+            ->addSelect('COALESCE(c.atualizadoEm, c.criadoEm) AS HIDDEN ordCol')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('tenant', $tenant)
+            ->orderBy('ordCol', 'DESC');
+
+        if ($carteira !== null) {
+            $qb->andWhere('o.carteira = :carteira')->setParameter('carteira', $carteira);
+        }
+
+        return $qb->getQuery()->getResult();
+    }
+
     /** @param array<string, string> $filtros */
     private function baseFiltro(array $filtros, Tenant $tenant): QueryBuilder
     {

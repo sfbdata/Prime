@@ -1,0 +1,85 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cobranças · Alertas{% endblock %}
+
+{% block body %}
+<div class="cobrancas-page">
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-bell"></i>Cobranças</h1>
+        {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'alertas' }) }}
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        {# ── Filtro por carteira ──────────────────────────────── #}
+        <form method="get" action="{{ path('cobranca_alertas') }}" class="row g-2 align-items-end mb-3">
+            <div class="col-12 col-md-4">
+                <label class="form-label small mb-1" for="filtroCarteira">Carteira</label>
+                <select class="form-select form-select-sm" id="filtroCarteira" name="carteira" onchange="this.form.submit()">
+                    <option value="">Todas as carteiras</option>
+                    {% for c in carteiras %}
+                    <option value="{{ c.id }}" {{ carteiraId == c.id ? 'selected' : '' }}>{{ c.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </form>
+
+        {% if central.totalCasosComAlerta == 0 %}
+            <div class="cobranca-empty">
+                <div class="empty-ico"><i class="bi bi-check2-circle"></i></div>
+                <div class="empty-title">Nenhum alerta pendente</div>
+                <div class="text-muted">
+                    {% if carteiraId %}Esta carteira não tem alertas operacionais no momento.{% else %}Nenhum caso do escritório exige atenção agora.{% endif %}
+                </div>
+            </div>
+        {% else %}
+            {# ── Resumo global por tipo ───────────────────────── #}
+            <div class="dash-chips mb-3">
+                {% for r in central.resumoPorTipo %}
+                <span class="dash-chip">
+                    <span class="badge {{ r.tipo.badgeClass }}"><i class="bi {{ r.tipo.icone }}"></i></span>
+                    {{ r.tipo.label }}
+                    <strong>{{ r.total }}</strong>
+                </span>
+                {% endfor %}
+            </div>
+
+            {# ── Alertas agrupados por carteira ───────────────── #}
+            {% for grupo in central.porCarteira %}
+            <div class="dash-carteira-grupo">
+                <div class="dash-carteira-cabecalho">
+                    <span><i class="bi bi-folder2-open me-1"></i><a href="{{ path('cobranca_carteira_show', {id: grupo.carteiraId}) }}">{{ grupo.carteiraNome }}</a></span>
+                    <span class="badge text-bg-secondary">{{ grupo.totalAlertas }} alerta(s)</span>
+                </div>
+                {% for caso in grupo.casos %}
+                <div class="dash-alerta-caso">
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <a href="{{ path('cobranca_caso_show', {id: caso.casoId}) }}" class="fw-semibold text-decoration-none">
+                            <i class="bi bi-briefcase me-1"></i>{{ caso.objetoIdentificacao }}
+                        </a>
+                        <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
+                        <span class="text-muted small">{{ caso.pessoaCobradaNome }}</span>
+                    </div>
+                    <div class="dash-alerta-caso-badges">
+                        {% for alerta in caso.alertas %}
+                        <span class="badge {{ alerta.tipo.badgeClass }}" data-bs-toggle="tooltip" title="{{ alerta.descricao }}">
+                            <i class="bi {{ alerta.tipo.icone }} me-1"></i>{{ alerta.tipo.label }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</section>
+</div>
+{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/cobrancas.css') }}">
+{% endblock %}

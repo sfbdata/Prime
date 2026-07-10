@@ -28,7 +28,11 @@ serviço — proibido pela regra "não duplicar regra de saldo ou alerta em Cont
 
 Custo O(casos) por tela é aceito para o MVP (volume moderado) e limitável pelos filtros de carteira/período;
 o mesmo trade-off já está sinalizado em `CasoCobrancaRepository` (comentário do `findByFilters`) e
-`ListarCasosUseCase`. **Follow-up de performance registrado** (agregados materializados se escalar).
+`ListarCasosUseCase`. **Follow-up de performance registrado** (agregados materializados se escalar). Nota: a
+constante por caso é ~6–8 queries (o dashboard chama `saldoExigivel`, `saldoVencido` e `alertasDoCaso`, e
+`doCasoExigiveis` acaba repetido; `saldoExigivel` é recomputado dentro de `alertasDoCaso` para o
+`ProntoParaEncerrar`) — a redução futura é tanto de materialização quanto dessa constante (ex.: um método
+agregado que reúna exigível+movimentos por caso numa passada). Correção não é afetada, só custo.
 
 ## 3. Superfície reutilizada (já existe)
 
@@ -139,8 +143,10 @@ carteiraNome, pessoaNome, statusLabel, statusBadgeClass, alertas: AlertaCobranca
    E3: liquidação sem rateio de honorários; recebimento efetivo é do futuro Financeiro §19).
 4. **Recuperado no período vs total recuperado**: a visão financeira mostra o período; o resultado mostra o
    acumulado (all-time). `taxaRecuperacao = recuperado_total / (recuperado_total + em_aberto)`.
-5. **Encerrados** entram só no acumulado (recuperado); ficam fora de saldo em aberto/vencido, alertas e
-   contagens operacionais (naturalmente, via derivação).
+5. **Encerrados** entram no "valor recuperado" — tanto no acumulado (all-time) quanto no do período (uma
+   recuperação dentro da janela é uma recuperação, independentemente de o caso ter sido encerrado depois);
+   ficam fora de saldo em aberto/vencido, honorários projetados, alertas e contagens operacionais
+   (naturalmente, via derivação — saldo 0 e `alertasDoCaso == []`).
 6. **Regra da Etapa 7 intocada** (linhas só-encargos): esta etapa não importa nem altera obrigações.
 
 ## 6. Segurança (obrigatória em TODA rota)
@@ -162,8 +168,10 @@ carteiraNome, pessoaNome, statusLabel, statusBadgeClass, alertas: AlertaCobranca
 - **Functional `DashboardControllerTest`**: sem auth→redirect; sem módulo→`semAcesso`; render painel; render
   alertas; filtro por carteira; **IDOR** (carteira de outro tenant→404); **não-vazamento** (dados de outro
   tenant ausentes dos totais); empty states.
-- **Isolamento `DashboardCobrancaIsolamentoTenantTest`** (DB real): dois tenants com casos; dashboard/alertas
-  de A jamais somam/mostram B.
+- **Isolamento multi-tenant** (DB real): coberto por `MontarDashboardCobrancaUseCaseTest::testTenantScoping`
+  e `MontarCentralAlertasUseCaseTest::testTenantScoping` (dois tenants; A jamais soma B) + o não-vazamento
+  no nível HTTP em `DashboardControllerTest` (`testAlertasNaoVazaOutroTenant` e
+  `testPainelNaoVazaValoresDeOutroTenant`, que assere que valores de outro tenant não aparecem nos totais).
 - Suíte `tests/Cobranca` verde + global verde + `tenant-safety-review`.
 
 ## 8. Fora do escopo (reafirmado)

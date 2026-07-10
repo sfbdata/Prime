@@ -121,3 +121,61 @@ html[data-bs-theme="dark"] .cobrancas-page {
 }
 .caso-timeline-tipo { font-weight: 600; }
 .caso-timeline-meta { font-size: .8rem; color: var(--bs-secondary-color); }
+
+/* ── Dashboard do escritório (Etapa 9) ─────────────────────────── */
+.dash-section { margin-bottom: 1.5rem; }
+.dash-section-titulo {
+    font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color); margin: 0 0 .6rem;
+    display: flex; align-items: center; gap: .5rem;
+}
+.dash-grid {
+    display: grid; gap: .9rem;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+.dash-card {
+    border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    padding: .9rem 1rem; background: var(--bs-body-bg);
+}
+.dash-card-label {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .03em;
+    color: var(--bs-secondary-color); margin-bottom: .3rem;
+    display: flex; align-items: center; gap: .35rem;
+}
+.dash-card-valor { font-size: 1.5rem; font-weight: 700; line-height: 1.15; }
+.dash-card-valor.is-vencido { color: var(--bs-danger); }
+.dash-card-valor.is-ok { color: var(--bs-success); }
+.dash-card-sub { font-size: .78rem; color: var(--bs-secondary-color); margin-top: .2rem; }
+/* Cartão operacional clicável (leva à central de alertas/casos filtrados) */
+a.dash-card { text-decoration: none; color: inherit; display: block; transition: border-color .12s, background .12s; }
+a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-accent-rgb), .06); }
+.dash-card-valor.is-alerta { color: var(--bs-warning); }
+.dash-card-valor.is-zero { color: var(--bs-secondary-color); }
+
+/* Barra da taxa de recuperação */
+.dash-taxa-wrap {
+    border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    padding: 1rem 1.25rem; background: var(--bs-body-bg);
+}
+.dash-taxa-num { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--jp-accent); }
+.dash-taxa-bar { height: 10px; border-radius: 5px; background: var(--bs-tertiary-bg); overflow: hidden; margin-top: .6rem; }
+.dash-taxa-fill { height: 100%; background: var(--jp-accent); border-radius: 5px; }
+
+/* Chips do resumo global da central de alertas */
+.dash-chips { display: flex; flex-wrap: wrap; gap: .5rem; }
+.dash-chip {
+    display: inline-flex; align-items: center; gap: .4rem;
+    border: 1px solid var(--bs-border-color); border-radius: 2rem;
+    padding: .3rem .75rem; font-size: .85rem; background: var(--bs-body-bg);
+}
+.dash-chip .badge { font-weight: 600; }
+
+/* Grupo por carteira na central de alertas */
+.dash-carteira-grupo { border: 1px solid var(--bs-border-color); border-radius: .75rem; overflow: hidden; margin-bottom: 1rem; }
+.dash-carteira-cabecalho {
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    padding: .7rem 1rem; background: var(--bs-tertiary-bg); font-weight: 600;
+}
+.dash-alerta-caso { padding: .7rem 1rem; border-top: 1px solid var(--bs-border-color); }
+.dash-alerta-caso:first-of-type { border-top: none; }
+.dash-alerta-caso-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
