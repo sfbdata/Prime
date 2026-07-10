@@ -577,18 +577,22 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 
 **Isolamento vs `gestao-cobrancas` (verificado):** COMPARTILHAM containers dev (projeto `jusprime`), dev DB `saas`, `.git` common dir, token rclone. ISOLADOS: working trees, banco de teste (`saas_testwt`≠`saas_test`), `var/cache`, uploads. NÃO: migration/DDL no `saas`, `docker compose down/build`, `git worktree prune`/`gc`/`branch -D`, phpunit fora do path do worktree.
 
-**Próximo passo (retomar aqui): Fase 1a — EXECUÇÃO supervisionada (ou Fase 2)**
-- O motor de código (pastas + arquivos) e o `GoogleDriveClient` OAuth estão **completos e a leitura está validada** contra o acervo real. O que falta na Fase 1 é a **execução** da carga manual supervisionada (§10.6).
-- **Auth:** a conexão já usa a **conta do rclone via OAuth** (não mais service account/Shared Drive). Para escrever, **re-autorizar com escopo `drive` completo** (hoje o refresh_token é `drive.readonly`) e tornar o token **durável** (o app está em modo Teste → refresh_token expira ~7 dias; publicar o app OU regenerar pelo link). Segredos vão em env fora do git (`GOOGLE_DRIVE_OAUTH_*`), e `GOOGLE_DRIVE_SHARED_DRIVE_ID` = folder id `1WBY-…`.
-- **Bloqueio de ops que resta:** backup de uploads + disco (§6 item 7, §12.3) antes do pull-down.
-- Ao ligar a escrita: fechar o **Fork 2 (D8)** — trocar o `enviarArquivo`/`baixarArquivo` in-memory por **upload resumável + download streaming** (procurar o `TODO (Fork 2 / D8)` em `ReconciliarCommand` e nos métodos do client). Elimina o risco R1 de OOM em arquivo grande.
+**🛑 PRÓXIMO PASSO REAL (retomar aqui): INTEGRAR `sincronizacao-drive` → `master` ANTES de qualquer deploy**
+- **Descoberto em 2026-07-10:** o branch está **71 commits ATRÁS do prod** (`origin/master`=`8e90ab3`). **Deployar o branch puro REVERTERIA produção** (DJEN, Datajud, gerenciador de arquivos, filtros, modo lista, OAB, ponto). **Fora de questão.**
+- Antes de deploy/sync, **integrar o sync ao master atual**. Conflito só em **8 arquivos** (o resto do sync é arquivo novo). O passo a passo de resolução por arquivo está em **`plano-integracao-sync-master.md`** (untracked, na raiz do worktree) — os 2 substanciais são `PastaRepository.php` (reaplicar `CAST_INT_PREFIXO` + desempate na versão reescrita do master) e o teste de ordenação; o resto é mecânico (doctrine.yaml, composer.json/lock, services.yaml, .env.prod.example, Pasta.php provável auto-merge).
+- `merge`/`rebase`/`checkout` são **do humano** (hooks bloqueiam); o Claude **edita os arquivos em conflito + `git add`/`commit` + retesta + revisa**. Depois: suíte completa verde → `feature-review` → deploy (humano) → configurar prod → backfill → carga supervisionada.
+
+**Depois da integração+deploy: Fase 1a — EXECUÇÃO supervisionada**
+- **Auth:** a conexão já usa a **conta do rclone via OAuth** (não mais service account/Shared Drive). Para escrever, **re-autorizar com escopo `drive` completo** (hoje o refresh_token é `drive.readonly`) e tornar o token **durável** (app em modo Teste → refresh_token expira ~7 dias; publicar o app OU regenerar pelo link). Segredos em env fora do git (`GOOGLE_DRIVE_OAUTH_*`); `GOOGLE_DRIVE_SHARED_DRIVE_ID` = folder id `1WBY-…`.
+- **Estado de prod (mapeado 2026-07-10):** disco OK (54 GB livres), backup do **banco** diário funcionando (2h), mas backup de **uploads DESLIGADO** (seção comentada no `scripts/backup.sh`) — religar antes do pull-down (aditivo + Drive-sourced ⇒ risco baixo, mas fazer). Sondagem só-leitura: das 1051 pastas, **1033 importariam limpo**, 18 puladas (vazias/lixo, correto).
+- Ao ligar a escrita: fechar o **Fork 2 (D8)** — trocar `enviarArquivo`/`baixarArquivo` in-memory por **upload resumável + download streaming** (`TODO (Fork 2 / D8)` no client). Elimina o R1 (OOM).
 - Fase 2 (baixa latência sistema→Drive, Messenger) é a próxima frente de código, se priorizada.
 
 **Convenções/gotchas desta frente**
 - Git: o Claude **pode criar commits LOCAIS scoped** (autorizado); **nunca push/merge/rebase**. Commitar SEMPRE via `git -C <worktree>` p/ cair na branch `sincronizacao-drive` (o main repo está noutra branch). `git add` cirúrgico por arquivo, sem arrastar os `plano*.md`.
 - Testes: `KernelTestCase` + `use Factories;` — **nunca `ResetDatabase`** (o projeto usa DAMA; misturar quebra a suíte). Rodar SÓ pelo path do worktree (usa `saas_testwt`).
 - O `GoogleDriveClient` **real** é fronteira de validação manual (não entra no CI); testes usam o fake. **Leitura já validada** (OAuth, conta do rclone) — o client PHP listou 1051 pastas do acervo. rclone (host, remote `gdrive:`, folder ID `1WBY-…`) segue como ferramenta de escrita direta — ver memória `reference_acervo_report_rclone`.
-- Arquivos temporários **untracked** no worktree: `plano.md`, `plano-fase1-pastas.md`, `plano-nup-alfanumerico.md`, `plano-fase1-arquivos.md`. Não commitar.
+- Arquivos temporários **untracked** no worktree: `plano.md`, `plano-fase1-pastas.md`, `plano-nup-alfanumerico.md`, `plano-fase1-arquivos.md`, **`plano-integracao-sync-master.md`** (guia da integração 71-commits). Não commitar.
 
 **Bloqueios de ops (não-código; destravam a Fase 1a de EXECUÇÃO)**
 1. Backup de uploads + disco (§6 item 7, §12.3) — **o que resta**. 2. ~~Service account + Shared Drive~~ → **resolvido por OAuth (conta do rclone)**; falta só re-autorizar com escopo de escrita + token durável (app em modo Teste). 3. ~~Validar o `GoogleDriveClient` real~~ → **FEITO (leitura, 1051 pastas)**. 4. `composer audit` das deps do google/apiclient.
