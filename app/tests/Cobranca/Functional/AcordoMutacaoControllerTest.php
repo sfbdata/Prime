@@ -190,6 +190,58 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(StatusAcordo::Cancelado, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
 
+    #[TestDox('Cancelar acordo sem capacidade: negado, status inalterado')]
+    public function testCancelarSemCapacidade(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+        $acordoId = (int) $acordo->getId();
+
+        $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cancelar', [
+            'cancelar_acordo' => ['motivo' => 'X', '_token' => 'irrelevante'],
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertStringNotContainsString('/cobrancas/casos/', (string) $client->getResponse()->headers->get('Location'));
+        $this->em()->clear();
+        self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus());
+    }
+
+    #[TestDox('IDOR: cancelar acordo de outro tenant → 404')]
+    public function testCancelarCrossTenant404(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        [, $casoAlheio] = $this->semearGrafo($this->tenantAvulso());
+        $acordoAlheio = AcordoFactory::createOne(['tenant' => $casoAlheio->getTenant(), 'caso' => $casoAlheio, 'status' => StatusAcordo::Ativo])->_real();
+
+        $client->request('POST', '/cobrancas/acordos/' . $acordoAlheio->getId() . '/cancelar', [
+            'cancelar_acordo' => ['motivo' => 'X', '_token' => 'irrelevante'],
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Cancelar acordo com CSRF inválido: status inalterado')]
+    public function testCancelarCsrfInvalido(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+        $acordoId = (int) $acordo->getId();
+
+        $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cancelar', [
+            'cancelar_acordo' => ['motivo' => 'X', '_token' => 'falso'],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        $this->em()->clear();
+        self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus());
+    }
+
     #[TestDox('Cumprir acordo: happy path (CSRF manual do modal inline)')]
     public function testCumprirHappy(): void
     {

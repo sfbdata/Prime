@@ -113,9 +113,13 @@ final class CasoController extends AbstractController
             throw $this->createNotFoundException('Caso de cobrança não encontrado.');
         }
 
+        // Só monta as views dos formulários (11 forms + query das obrigações) para quem pode gerenciar
+        // — o mesmo gate que esconde os modais no Twig. Leitor puro não paga esse custo.
+        $podeGerenciar = $this->permissionChecker->hasPermission($this->usuarioLogado(), $tenant, 'resources.cobranca.gerenciar');
+
         return $this->render('cobranca/caso/show.html.twig', [
             'caso' => $this->montarDetalheCaso->executar($caso),
-            'forms' => $this->formulariosDeMutacao($caso),
+            'forms' => $podeGerenciar ? $this->formulariosDeMutacao($caso) : [],
         ]);
     }
 
