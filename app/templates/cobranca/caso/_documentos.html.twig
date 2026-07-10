@@ -1,0 +1,189 @@
+{# File-manager de documentos do Caso (Onda 8C) — reusa o public/js/pasta-arquivos.js SEM editá-lo,
+   servindo o MESMO contrato data-*/JSON via rotas de Cobrança. Só monta o gerenciador de ESCRITA para
+   quem tem resources.cobranca.gerenciar; leitor puro vê uma lista read-only com download. #}
+{% if podeGerenciarDocumentos %}
+<div class="fm" id="fileManager"
+     data-pasta-id="{{ casoId }}"
+     data-url-upload="{{ path('cobranca_documento_upload', {id: casoId}) }}"
+     data-csrf-upload="{{ csrf_token('cobranca_documento_upload_' ~ casoId) }}"
+     data-url-criar-secao="{{ path('cobranca_secao_criar', {id: casoId}) }}"
+     data-csrf-criar-secao="{{ csrf_token('cobranca_secao_criar_' ~ casoId) }}"
+     data-url-reordenar-secoes="{{ path('cobranca_secoes_reordenar', {id: casoId}) }}"
+     data-csrf-reordenar-secoes="{{ csrf_token('reordenar_secoes_cobranca_' ~ casoId) }}"
+     data-url-reordenar-docs="{{ path('cobranca_documentos_reordenar', {id: casoId}) }}"
+     data-csrf-reordenar-docs="{{ csrf_token('reordenar_docs_cobranca_' ~ casoId) }}"
+     data-url-renomear-tpl="{{ path('cobranca_secao_renomear', {secaoId: '__ID__'}) }}"
+     data-url-excluir-tpl="{{ path('cobranca_secao_excluir', {secaoId: '__ID__'}) }}">
+
+    <div class="fm-toolbar">
+        <nav class="fm-breadcrumb" aria-label="Navegação de pastas">
+            <button type="button" class="fm-crumb" data-nav="root"><i class="bi bi-folder2-open"></i> Documentos</button>
+            <span class="fm-crumb-sep fm-oculto" id="fmCrumbSep"><i class="bi bi-chevron-right"></i></span>
+            <span class="fm-crumb-atual fm-oculto" id="fmCrumbAtual"></span>
+        </nav>
+        <div class="fm-busca">
+            <i class="bi bi-search"></i>
+            <input type="search" id="fmBusca" placeholder="Buscar arquivos..." autocomplete="off" aria-label="Buscar arquivos">
+        </div>
+        <div class="fm-acoes">
+            <button type="button" class="btn btn-sm btn-primary" id="fmNovaPasta"><i class="bi bi-folder-plus me-1"></i> Nova pasta</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="fmUpload"><i class="bi bi-upload me-1"></i> Enviar</button>
+            <input type="file" id="fmFileInput" multiple class="d-none" accept=".png,.jpg,.jpeg,.pdf,.kml,.xml,.xls,.xlsx,.doc,.docx,.txt,.zip,.mp3,.ogg,.opus,.m4a,.mp4,.mov">
+            <div class="fm-view-toggle" role="group" aria-label="Modo de exibição">
+                <button type="button" class="fm-view-btn ativo" data-view="lista" title="Lista" aria-label="Lista"><i class="bi bi-list-ul"></i></button>
+                <button type="button" class="fm-view-btn" data-view="grade" title="Grade" aria-label="Grade"><i class="bi bi-grid-3x3-gap-fill"></i></button>
+            </div>
+            <select class="fm-select" id="fmOrdenar" aria-label="Ordenar arquivos por">
+                <option value="manual">Manual (arrastar)</option>
+                <option value="nome">Nome (A–Z)</option>
+                <option value="nome_desc">Nome (Z–A)</option>
+                <option value="data_desc">Mais recentes</option>
+                <option value="data">Mais antigos</option>
+                <option value="tamanho_desc">Maiores</option>
+                <option value="tamanho">Menores</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="fm-upload-bar" id="fmUploadBar">
+        <i class="bi bi-cloud-arrow-up"></i>
+        <span class="fm-upload-nome" id="fmUploadNome"></span>
+        <div class="progress" role="progressbar" aria-label="Progresso do upload"><div class="progress-bar" id="fmUploadProgresso" style="width:0%"></div></div>
+        <span class="text-muted small text-nowrap" id="fmUploadContador"></span>
+    </div>
+
+    <div class="fm-body" id="fmBody">
+        {# Pastas (seções) — só na raiz #}
+        <div class="fm-grupo" id="fmGrupoPastas">
+            <div class="fm-grupo-titulo"><i class="bi bi-folder2"></i> Pastas</div>
+            <div class="fm-pastas" id="fmPastas">
+                {% for secao in secoes %}
+                    <div class="fm-pasta" data-secao-id="{{ secao.id }}" data-nome="{{ secao.nome|e('html_attr') }}"
+                         data-url-renomear="{{ path('cobranca_secao_renomear', {secaoId: secao.id}) }}"
+                         data-csrf-renomear="{{ csrf_token('cobranca_secao_renomear_' ~ secao.id) }}"
+                         data-url-excluir="{{ path('cobranca_secao_excluir', {secaoId: secao.id}) }}"
+                         data-csrf-excluir="{{ csrf_token('cobranca_secao_excluir_' ~ secao.id) }}"
+                         tabindex="0" role="button" aria-label="Abrir pasta {{ secao.nome|e('html_attr') }}">
+                        <span class="fm-pasta-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
+                        <span class="fm-pasta-icone"><i class="bi bi-folder-fill"></i></span>
+                        <span class="fm-pasta-info">
+                            <span class="fm-pasta-nome">{{ secao.nome }}</span>
+                            <span class="fm-pasta-contagem" data-secao-contagem="{{ secao.id }}">{{ secao.total }} {{ secao.total == 1 ? 'arquivo' : 'arquivos' }}</span>
+                        </span>
+                        <div class="dropdown">
+                            <button class="fm-pasta-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações da pasta" onclick="event.stopPropagation()"><i class="bi bi-three-dots-vertical"></i></button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><button class="dropdown-item fm-pasta-abrir" type="button"><i class="bi bi-folder2-open me-2"></i>Abrir</button></li>
+                                <li><button class="dropdown-item fm-pasta-renomear" type="button"><i class="bi bi-pencil me-2"></i>Renomear</button></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><button class="dropdown-item text-danger fm-pasta-excluir" type="button"><i class="bi bi-trash me-2"></i>Excluir</button></li>
+                            </ul>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {# Arquivos #}
+        <div class="fm-grupo" id="fmGrupoArquivos">
+            <div class="fm-grupo-titulo"><i class="bi bi-files"></i> <span id="fmArquivosTitulo">Arquivos</span></div>
+            <div class="fm-arquivos fm-lista" id="fmArquivos">
+                <div class="fm-lista-head">
+                    <span class="fmh-grip"></span><span>Nome</span><span class="fmh-tipo">Categoria</span>
+                    <span class="fmh-tam">Tamanho</span><span class="fmh-data">Modificado</span><span class="fmh-acoes"></span>
+                </div>
+                {% for item in arquivosFm %}
+                    {% set doc = item.doc %}
+                    {% set ic = arquivo_icone(doc.nomeOriginal, doc.mimeType) %}
+                    <div class="fm-arquivo" data-secao="{{ item.secao }}" data-doc-id="{{ doc.id }}" data-ordem="{{ doc.ordem }}"
+                         data-nome="{{ doc.nomeOriginal|e('html_attr') }}" data-tamanho="{{ doc.tamanhoBytes }}"
+                         data-data="{{ doc.carregadoEm|date('Y-m-d H:i:s') }}" data-tipo="{{ ic.rotulo|e('html_attr') }}"
+                         data-mime="{{ doc.mimeType|e('html_attr') }}"
+                         data-url-mover="{{ path('cobranca_documento_mover', {docId: doc.id}) }}"
+                         data-csrf-mover="{{ csrf_token('cobranca_doc_mover_' ~ doc.id) }}">
+                        <span class="fm-arq-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
+                        <div class="fm-arq-principal">
+                            <span class="fm-arq-icone"><i class="bi {{ ic.icone }}" style="color: {{ ic.cor }}"></i></span>
+                            <span class="text-truncate">
+                                <a href="{{ path('cobranca_documento_download', {docId: doc.id}) }}" target="_blank" rel="noopener noreferrer" class="fm-arq-nome" title="{{ doc.nomeOriginal|e('html_attr') }}">{{ doc.nomeOriginal }}</a>
+                                <span class="fm-arq-sub">{{ doc.descricao ?? '' }}</span>
+                            </span>
+                        </div>
+                        <div class="fm-arq-tipo"><span class="fm-badge-cat">{{ doc.categoriaLabel }}</span></div>
+                        <div class="fm-arq-tam">{{ doc.tamanhoBytes|formatar_bytes }}</div>
+                        <div class="fm-arq-data">{{ doc.carregadoEm|date('d/m/Y') }}</div>
+                        <div class="fm-arq-acoes">
+                            <div class="dropdown">
+                                <button class="fm-arq-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações do arquivo"><i class="bi bi-three-dots-vertical"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><a class="dropdown-item" href="{{ path('cobranca_documento_download', {docId: doc.id}) }}" target="_blank" rel="noopener"><i class="bi bi-download me-2"></i>Baixar</a></li>
+                                    <li><button type="button" class="dropdown-item fm-arq-mover"><i class="bi bi-folder-symlink me-2"></i>Mover para…</button></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <form method="post" action="{{ path('cobranca_documento_excluir', {docId: doc.id}) }}" onsubmit="return confirm('Excluir este arquivo? Esta ação não pode ser desfeita.');">
+                                            <input type="hidden" name="_token" value="{{ csrf_token('delete_documento_cobranca_' ~ doc.id) }}">
+                                            <button type="submit" class="dropdown-item text-danger"><i class="bi bi-trash me-2"></i>Excluir</button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="fm-vazio fm-oculto" id="fmArquivosVazio">
+                <div class="fm-vazio-icone"><i class="bi bi-cloud-arrow-up"></i></div>
+                <div class="fm-vazio-titulo">Nenhum arquivo aqui</div>
+                <div class="fm-vazio-dica">Arraste arquivos do computador para esta área ou clique em <strong>Enviar</strong>.</div>
+            </div>
+        </div>
+    </div>{# /fm-body #}
+</div>{# /fm #}
+
+{# Modal reutilizável de texto (nova pasta / renomear) #}
+<div class="modal fade" id="fmInputModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title" id="fmInputTitulo">Nova pasta</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-body">
+                <input type="text" class="form-control" id="fmInputCampo" maxlength="255" placeholder="Nome da pasta...">
+                <div class="text-danger small mt-1 d-none" id="fmInputErro"></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="fmInputConfirmar">Salvar</button></div>
+        </div>
+    </div>
+</div>
+
+{# Modal mover arquivo para pasta #}
+<div class="modal fade" id="fmMoverModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title"><i class="bi bi-folder-symlink me-1"></i> Mover para…</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-body"><div class="list-group" id="fmMoverLista"></div></div>
+        </div>
+    </div>
+</div>
+
+{% else %}
+    {# Modo leitura: quem não gerencia vê a lista com download, sem o file-manager de escrita. #}
+    {% if arquivosFm|length > 0 %}
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead><tr><th class="ps-3">Nome</th><th>Categoria</th><th class="text-end">Tamanho</th><th style="width:110px">Data</th></tr></thead>
+            <tbody>
+                {% for item in arquivosFm %}
+                {% set doc = item.doc %}
+                <tr>
+                    <td class="ps-3 align-middle"><a href="{{ path('cobranca_documento_download', {docId: doc.id}) }}" target="_blank" rel="noopener">{{ doc.nomeOriginal }}</a></td>
+                    <td class="align-middle">{{ doc.categoriaLabel }}</td>
+                    <td class="align-middle text-end">{{ doc.tamanhoBytes|formatar_bytes }}</td>
+                    <td class="align-middle">{{ doc.carregadoEm|date('d/m/Y') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center text-muted py-4"><i class="bi bi-folder2-open fs-3 d-block mb-2"></i>Nenhum documento neste caso.</div>
+    {% endif %}
+{% endif %}

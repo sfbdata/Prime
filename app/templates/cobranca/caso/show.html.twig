@@ -134,11 +134,11 @@
         {% endif %}
 
         {# ── Abas ──────────────────────────────────────────────── #}
-        <ul class="nav nav-tabs" id="casoTabs" role="tablist">
+        <ul class="nav nav-tabs" id="pastaTabs" role="tablist">
             <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-obrigacoes" type="button">Obrigações <span class="badge text-bg-secondary">{{ caso.obrigacoes|length }}</span></button></li>
             <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-movimentos" type="button">Pagamentos & Liquidações <span class="badge text-bg-secondary">{{ caso.pagamentos|length + caso.liquidacoes|length }}</span></button></li>
             <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-acordos" type="button">Acordos <span class="badge text-bg-secondary">{{ caso.acordos|length }}</span></button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-documentos" type="button">Documentos</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#tab-documentos" type="button">Documentos</button></li>
             <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">Histórico <span class="badge text-bg-secondary">{{ caso.historico|length }}</span></button></li>
         </ul>
         <div class="tab-content border border-top-0 rounded-bottom p-3 bg-body">
@@ -292,12 +292,9 @@
                 {% else %}<p class="text-muted mb-0 text-center py-3">Nenhum acordo registrado.</p>{% endif %}
             </div>
 
-            {# Documentos (file manager religado na Onda 8C) #}
+            {# Documentos (file manager religado na Onda 8C — reusa pasta-arquivos.js sem editá-lo) #}
             <div class="tab-pane fade" id="tab-documentos">
-                <div class="text-center text-muted py-4">
-                    <i class="bi bi-folder2-open fs-3 d-block mb-2"></i>
-                    Os documentos do caso serão gerenciados aqui.
-                </div>
+                {{ include('cobranca/caso/_documentos.html.twig') }}
             </div>
 
             {# Histórico (timeline — SPEC §13) #}
@@ -330,6 +327,7 @@
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/cobrancas.css') }}">
+<link rel="stylesheet" href="{{ asset('css/pasta-arquivos.css') }}">
 {% endblock %}
 
 {% block javascripts %}
@@ -421,4 +419,47 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 });
 </script>
+
+{# File-manager de documentos (Onda 8C): reusa o public/js/pasta-arquivos.js SEM editá-lo. O helper
+   window.enviarArquivoComProgresso é dependência externa do JS (upload via XHR) e precisa existir global. #}
+{% if has_permission('resources.cobranca.gerenciar') %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" crossorigin="anonymous"></script>
+<script>
+// Envia 1 arquivo via XHR, reportando progresso — contrato idêntico ao das Pastas (resolve com {success:true}).
+window.enviarArquivoComProgresso = function (file, opts) {
+    return new Promise(function (resolve, reject) {
+        const fd = new FormData();
+        fd.append('arquivo', file);
+        fd.append('_token', opts.csrf);
+        fd.append('categoria', opts.categoria || '');
+        fd.append('descricao', opts.descricao || '');
+        if (opts.secaoId) fd.append('secao_id', opts.secaoId);
+        fd.append('reduzir_tamanho', opts.reduzir ? '1' : '0');
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', opts.url);
+        xhr.upload.addEventListener('progress', function (ev) {
+            if (ev.lengthComputable && typeof opts.onProgress === 'function') {
+                opts.onProgress(Math.round((ev.loaded / ev.total) * 100));
+            }
+        });
+        xhr.upload.addEventListener('load', function () {
+            if (typeof opts.onComprimindo === 'function') opts.onComprimindo();
+        });
+        xhr.addEventListener('load', function () {
+            let data = null;
+            try { data = JSON.parse(xhr.responseText); } catch (_) {}
+            if (xhr.status >= 200 && xhr.status < 300 && data && data.success) {
+                resolve(data);
+            } else {
+                reject(new Error((data && data.error) ? data.error : 'Erro ao enviar o arquivo.'));
+            }
+        });
+        xhr.addEventListener('error', function () { reject(new Error('Erro de comunicação.')); });
+        xhr.send(fd);
+    });
+};
+</script>
+<script src="{{ asset('js/pasta-arquivos.js') }}"></script>
+{% endif %}
 {% endblock %}

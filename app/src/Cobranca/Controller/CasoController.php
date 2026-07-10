@@ -33,6 +33,8 @@ use App\Cobranca\Form\ResolverRevisaoType;
 use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
+use App\Cobranca\Repository\CobrancaDocumentoRepository;
+use App\Cobranca\Repository\CobrancaSecaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\UseCase\AlterarPessoaCobradaUseCase;
@@ -78,6 +80,8 @@ final class CasoController extends AbstractController
         private readonly PastaRepository $pastaRepository,
         private readonly AlterarPessoaCobradaUseCase $alterarPessoaCobrada,
         private readonly PessoaRepository $pessoaRepository,
+        private readonly CobrancaSecaoRepository $secaoRepository,
+        private readonly CobrancaDocumentoRepository $documentoRepository,
     ) {
     }
 
@@ -148,10 +152,58 @@ final class CasoController extends AbstractController
             $forms += $this->formulariosFinanceiros($caso);
         }
 
+        $documentos = $this->documentosDoCasoParaFm($caso);
+
         return $this->render('cobranca/caso/show.html.twig', [
             'caso' => $this->montarDetalheCaso->executar($caso),
             'forms' => $forms,
+            'casoId' => $caso->getId(),
+            'podeGerenciarDocumentos' => $podeGerenciar,
+            'secoes' => $documentos['secoes'],
+            'arquivosFm' => $documentos['arquivos'],
         ]);
+    }
+
+    /**
+     * Documentos e seções do caso mapeados em arrays simples para o file-manager (Onda 8C) — sem expor
+     * entidades Doctrine ao Twig. Leitura tenant-scoped (os repos filtram por caso+tenant). A contagem
+     * por seção é derivada dos próprios documentos (sem N+1). O documento "sem seção" fica em `geral`.
+     *
+     * @return array{secoes: list<array{id: int, nome: string, total: int}>, arquivos: list<array{doc: array<string, mixed>, secao: string}>}
+     */
+    private function documentosDoCasoParaFm(CasoCobranca $caso): array
+    {
+        $contagem = [];
+        $arquivos = [];
+        foreach ($this->documentoRepository->documentosDoCaso($caso) as $doc) {
+            $secaoId = $doc->getSecao()?->getId();
+            $chave = $secaoId !== null ? (string) $secaoId : 'geral';
+            $contagem[$chave] = ($contagem[$chave] ?? 0) + 1;
+            $arquivos[] = [
+                'doc' => [
+                    'id' => (int) $doc->getId(),
+                    'nomeOriginal' => $doc->getNomeOriginal(),
+                    'ordem' => $doc->getOrdem(),
+                    'tamanhoBytes' => $doc->getTamanhoBytes(),
+                    'carregadoEm' => $doc->getCarregadoEm(),
+                    'mimeType' => $doc->getMimeType(),
+                    'categoriaLabel' => $doc->getCategoria()->rotulo(),
+                    'descricao' => $doc->getDescricao(),
+                ],
+                'secao' => $chave,
+            ];
+        }
+
+        $secoes = [];
+        foreach ($this->secaoRepository->secoesDoCaso($caso) as $secao) {
+            $secoes[] = [
+                'id' => (int) $secao->getId(),
+                'nome' => $secao->getNome(),
+                'total' => $contagem[(string) $secao->getId()] ?? 0,
+            ];
+        }
+
+        return ['secoes' => $secoes, 'arquivos' => $arquivos];
     }
 
     #[Route('/{id}/encerrar', name: 'cobranca_caso_encerrar', methods: ['POST'], requirements: ['id' => '\d+'])]
