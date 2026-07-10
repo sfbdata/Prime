@@ -16,7 +16,10 @@ use App\Cobranca\Form\DefinirProximaAcaoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\GerarRevisaoType;
 use App\Cobranca\Form\ReconhecerValorAtualizadoType;
+use App\Cobranca\Form\RegistrarLiquidacaoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
+use App\Cobranca\Form\RegistrarPagamentoType;
+use App\Cobranca\Form\CorrigirPagamentoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Form\ResolverRevisaoType;
 use App\Cobranca\Form\RomperAcordoType;
@@ -113,13 +116,21 @@ final class CasoController extends AbstractController
             throw $this->createNotFoundException('Caso de cobrança não encontrado.');
         }
 
-        // Só monta as views dos formulários (11 forms + query das obrigações) para quem pode gerenciar
-        // — o mesmo gate que esconde os modais no Twig. Leitor puro não paga esse custo.
-        $podeGerenciar = $this->permissionChecker->hasPermission($this->usuarioLogado(), $tenant, 'resources.cobranca.gerenciar');
+        // Só monta as views dos formulários para quem tem a capacidade — o mesmo gate que esconde os
+        // modais no Twig. Leitor puro não paga esse custo. Movimentação financeira é capacidade
+        // SEPARADA de gerenciar (SPEC §22): um caixa pode movimentar sem gerenciar, e vice-versa.
+        $usuario = $this->usuarioLogado();
+        $podeGerenciar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.gerenciar');
+        $podeMovimentar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.movimentacao_financeira');
+
+        $forms = $podeGerenciar ? $this->formulariosDeMutacao($caso) : [];
+        if ($podeMovimentar) {
+            $forms += $this->formulariosFinanceiros($caso);
+        }
 
         return $this->render('cobranca/caso/show.html.twig', [
             'caso' => $this->montarDetalheCaso->executar($caso),
-            'forms' => $podeGerenciar ? $this->formulariosDeMutacao($caso) : [],
+            'forms' => $forms,
         ]);
     }
 
@@ -209,6 +220,24 @@ final class CasoController extends AbstractController
             'acordoCriar' => $this->createForm(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
             'romperAcordo' => $this->createForm(RomperAcordoType::class)->createView(),
             'cancelarAcordo' => $this->createForm(CancelarAcordoType::class)->createView(),
+        ];
+    }
+
+    /**
+     * Views dos formulários financeiros (8B-D) renderizados como modais na aba Pagamentos &
+     * Liquidações. Gated pela capacidade `resources.cobranca.movimentacao_financeira` (separada de
+     * gerenciar). Pagamento/correção reusam as obrigações exigíveis do caso para o select de alocação.
+     *
+     * @return array<string, \Symfony\Component\Form\FormView>
+     */
+    private function formulariosFinanceiros(CasoCobranca $caso): array
+    {
+        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
+
+        return [
+            'registrarPagamento' => $this->createForm(RegistrarPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
+            'corrigirPagamento' => $this->createForm(CorrigirPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
+            'registrarLiquidacao' => $this->createForm(RegistrarLiquidacaoType::class)->createView(),
         ];
     }
 }

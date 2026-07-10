@@ -1,0 +1,107 @@
+{# Modais financeiros do Caso (Onda 8B-D). Só renderizados para quem tem a capacidade
+   `resources.cobranca.movimentacao_financeira` (separada de gerenciar) e num caso NÃO encerrado; o
+   gate real é no controller. Registrar/corrigir pagamento e registrar liquidação. #}
+
+{# ── Registrar pagamento (alocações dinâmicas entre obrigações exigíveis) ── #}
+<div class="modal fade" id="modalRegistrarPagamento" tabindex="-1" aria-labelledby="tituloRegistrarPagamento" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            {{ form_start(forms.registrarPagamento, {action: path('cobranca_pagamento_registrar', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloRegistrarPagamento"><i class="bi bi-cash-coin me-1"></i>Registrar pagamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.registrarPagamento.data) }}
+                {{ form_row(forms.registrarPagamento.valorPago) }}
+                <hr>
+                <label class="form-label">Alocações do pagamento</label>
+                <div id="alocacoesPagamentoContainer"
+                     data-prototype="{{ form_widget(forms.registrarPagamento.alocacoes.vars.prototype)|e('html_attr') }}"
+                     data-index="{{ forms.registrarPagamento.alocacoes|length }}">
+                    {% for alocacao in forms.registrarPagamento.alocacoes %}
+                    <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
+                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {{ form_errors(forms.registrarPagamento.alocacoes) }}
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoPagamento"><i class="bi bi-plus-lg me-1"></i>Adicionar alocação</button>
+                <div class="form-text">Distribua manualmente a parte da dívida do valor pago entre as obrigações exigíveis. Os honorários são derivados (não se digitam).</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar pagamento</button>
+            </div>
+            {{ form_end(forms.registrarPagamento) }}
+        </div>
+    </div>
+</div>
+
+{# ── Corrigir pagamento (modal reutilizável; JS injeta action + contexto da linha) ── #}
+<div class="modal fade" id="modalCorrigirPagamento" tabindex="-1" aria-labelledby="tituloCorrigirPagamento" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            {{ form_start(forms.corrigirPagamento, {attr: {id: 'formCorrigirPagamento'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloCorrigirPagamento"><i class="bi bi-pencil-square me-1"></i>Corrigir pagamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                    <div>A correção <strong>reescreve</strong> a composição do pagamento (sem estorno) e fica registrada na auditoria. Reinforme o valor pago e as alocações.</div>
+                </div>
+                <p class="text-muted small mb-3" data-pagamento-contexto>Pagamento selecionado.</p>
+                {{ form_row(forms.corrigirPagamento.data) }}
+                {{ form_row(forms.corrigirPagamento.valorPago) }}
+                <hr>
+                <label class="form-label">Alocações do pagamento</label>
+                <div id="alocacoesCorrigirContainer"
+                     data-prototype="{{ form_widget(forms.corrigirPagamento.alocacoes.vars.prototype)|e('html_attr') }}"
+                     data-index="{{ forms.corrigirPagamento.alocacoes|length }}">
+                    {% for alocacao in forms.corrigirPagamento.alocacoes %}
+                    <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
+                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                    </div>
+                    {% endfor %}
+                </div>
+                {{ form_errors(forms.corrigirPagamento.alocacoes) }}
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoCorrigir"><i class="bi bi-plus-lg me-1"></i>Adicionar alocação</button>
+                {{ form_row(forms.corrigirPagamento.motivoCorrecao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Corrigir pagamento</button>
+            </div>
+            {{ form_end(forms.corrigirPagamento) }}
+        </div>
+    </div>
+</div>
+
+{# ── Registrar liquidação não monetária ──────────────────────────── #}
+<div class="modal fade" id="modalRegistrarLiquidacao" tabindex="-1" aria-labelledby="tituloRegistrarLiquidacao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.registrarLiquidacao, {action: path('cobranca_liquidacao_registrar', {id: caso.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloRegistrarLiquidacao"><i class="bi bi-box-seam me-1"></i>Registrar liquidação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(forms.registrarLiquidacao.tipo) }}
+                {{ form_row(forms.registrarLiquidacao.descricaoBem) }}
+                {{ form_row(forms.registrarLiquidacao.valorAtribuidoBem) }}
+                <div class="form-text mb-2">O valor do bem é opcional e pode diferir do reconhecido.</div>
+                {{ form_row(forms.registrarLiquidacao.valorReconhecido) }}
+                <div class="form-text mb-2">O valor reconhecido é o que reduz o saldo exigível da dívida.</div>
+                {{ form_row(forms.registrarLiquidacao.data) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar liquidação</button>
+            </div>
+            {{ form_end(forms.registrarLiquidacao) }}
+        </div>
+    </div>
+</div>

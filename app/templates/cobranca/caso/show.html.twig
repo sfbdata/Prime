@@ -172,6 +172,16 @@
 
             {# Pagamentos & Liquidações #}
             <div class="tab-pane fade" id="tab-movimentos">
+                {% if has_permission('resources.cobranca.movimentacao_financeira') and not caso.encerrado %}
+                <div class="d-flex justify-content-end gap-2 mb-2">
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento">
+                        <i class="bi bi-cash-coin me-1"></i>Registrar pagamento
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarLiquidacao">
+                        <i class="bi bi-box-seam me-1"></i>Registrar liquidação
+                    </button>
+                </div>
+                {% endif %}
                 <h6 class="text-muted"><i class="bi bi-cash-stack me-1"></i>Pagamentos</h6>
                 {% if caso.pagamentos|length > 0 %}
                 <div class="table-responsive mb-3"><table class="table table-sm mb-0">
@@ -184,7 +194,19 @@
                         <td class="text-end">{{ p.valorEncargos|centavos }}</td>
                         <td class="text-end">{{ p.valorHonorarios|centavos }}</td>
                         <td class="text-end fw-semibold">{{ p.valorTotal|centavos }}</td>
-                        <td>{% if p.foiCorrigido %}<span class="badge text-bg-warning" data-bs-toggle="tooltip" title="Correção sem estorno: {{ p.motivoCorrecao }}">Corrigido</span>{% endif %}</td>
+                        <td class="text-end">
+                            {% if p.foiCorrigido %}<span class="badge text-bg-warning" data-bs-toggle="tooltip" title="Correção sem estorno: {{ p.motivoCorrecao }}">Corrigido</span>{% endif %}
+                            {% if has_permission('resources.cobranca.movimentacao_financeira') and not caso.encerrado %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                                    data-bs-toggle="modal" data-bs-target="#modalCorrigirPagamento"
+                                    data-acao-url="{{ path('cobranca_pagamento_corrigir', {id: p.id}) }}"
+                                    data-pagamento-data="{{ p.data|date('d/m/Y') }}"
+                                    data-pagamento-total="{{ p.valorTotal|centavos }}"
+                                    title="Corrigir pagamento (sem estorno)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                     </tbody>
@@ -287,6 +309,9 @@
 {% if has_permission('resources.cobranca.gerenciar') %}
 {{ include('cobranca/caso/_acoes_modais.html.twig') }}
 {% endif %}
+{% if has_permission('resources.cobranca.movimentacao_financeira') and not caso.encerrado %}
+{{ include('cobranca/caso/_acoes_modais_financeiro.html.twig') }}
+{% endif %}
 </div>
 {% endblock %}
 
@@ -342,22 +367,44 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* Coleção dinâmica de parcelas do acordo (prototype do Symfony CollectionType). */
-    var parcelasContainer = document.getElementById('parcelasContainer');
-    var addParcela = document.getElementById('addParcela');
-    if (parcelasContainer && addParcela) {
-        addParcela.addEventListener('click', function () {
-            var index = parseInt(parcelasContainer.dataset.index || '0', 10);
-            var html = (parcelasContainer.dataset.prototype || '').replace(/__name__/g, index);
+    /* Coleção dinâmica genérica do Symfony CollectionType (prototype). Reusada por parcelas do acordo
+       e alocações de pagamento/correção. */
+    function initColecao(containerId, addBtnId, classeLinha, rotuloRemover) {
+        var container = document.getElementById(containerId);
+        var addBtn = document.getElementById(addBtnId);
+        if (!container || !addBtn) { return; }
+        addBtn.addEventListener('click', function () {
+            var index = parseInt(container.dataset.index || '0', 10);
+            var html = (container.dataset.prototype || '').replace(/__name__/g, index);
             var linha = document.createElement('div');
-            linha.className = 'parcela-linha border rounded p-2 mb-2';
-            linha.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-parcela">Remover</button>';
-            parcelasContainer.appendChild(linha);
-            parcelasContainer.dataset.index = (index + 1).toString();
+            linha.className = classeLinha;
+            linha.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">' + rotuloRemover + '</button>';
+            container.appendChild(linha);
+            container.dataset.index = (index + 1).toString();
         });
-        parcelasContainer.addEventListener('click', function (e) {
-            var btn = e.target.closest('.remover-parcela');
-            if (btn) { var linha = btn.closest('.parcela-linha'); if (linha) { linha.remove(); } }
+        container.addEventListener('click', function (e) {
+            var btn = e.target.closest('.remover-linha');
+            if (btn) { var linha = btn.closest('.' + classeLinha.split(' ')[0]); if (linha) { linha.remove(); } }
+        });
+    }
+
+    initColecao('parcelasContainer', 'addParcela', 'parcela-linha border rounded p-2 mb-2', 'Remover');
+    initColecao('alocacoesPagamentoContainer', 'addAlocacaoPagamento', 'alocacao-linha border rounded p-2 mb-2', 'Remover');
+    initColecao('alocacoesCorrigirContainer', 'addAlocacaoCorrigir', 'alocacao-linha border rounded p-2 mb-2', 'Remover');
+
+    /* Modal reutilizável de "corrigir pagamento": o botão da linha injeta a URL de ação e o contexto. */
+    var modalCorrigir = document.getElementById('modalCorrigirPagamento');
+    if (modalCorrigir) {
+        modalCorrigir.addEventListener('show.bs.modal', function (event) {
+            var botao = event.relatedTarget;
+            if (!botao) { return; }
+            var form = document.getElementById('formCorrigirPagamento');
+            if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
+            var ctx = modalCorrigir.querySelector('[data-pagamento-contexto]');
+            if (ctx) {
+                ctx.textContent = 'Pagamento de ' + (botao.getAttribute('data-pagamento-data') || '')
+                    + ' · total ' + (botao.getAttribute('data-pagamento-total') || '');
+            }
         });
     }
 });
