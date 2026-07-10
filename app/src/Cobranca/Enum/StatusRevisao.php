@@ -22,6 +22,15 @@ enum StatusRevisao: string
         };
     }
 
+    /** Classe Bootstrap `text-bg-*` para o badge de estado (apresentação, Etapa 8). */
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Pendente => 'text-bg-danger',
+            self::Resolvida => 'text-bg-success',
+        };
+    }
+
     /** Revisão ainda em aberto: gera alerta até ser resolvida. */
     public function estaPendente(): bool
     {

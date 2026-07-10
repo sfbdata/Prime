@@ -1,0 +1,60 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cobranças · Casos{% endblock %}
+
+{% block body %}
+<div class="cobrancas-page">
+<section class="content-header">
+    <div class="container-fluid d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <h1 class="m-0 d-flex align-items-center gap-2">
+            <i class="bi bi-cash-coin"></i>Cobranças
+        </h1>
+        {{ include('cobranca/_partials/_subnav.html.twig', { ativo: 'casos' }) }}
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        <div data-filtro-root data-filtro-endpoint="{{ path('cobranca_caso_index') }}">
+            {{ include('_partials/_filtro_barra.html.twig', {
+                busca_placeholder: 'Buscar por objeto ou pessoa cobrada…',
+                filtros: filtros,
+                facetas: [
+                    { name: 'status', rotulo: 'Estado', tipo: 'select', opcoes: [
+                        { valor: 'ativo', label: 'Ativo' },
+                        { valor: 'judicializado', label: 'Judicializado' },
+                        { valor: 'encerrado', label: 'Encerrado' }
+                    ] },
+                    { name: 'carteira', rotulo: 'Carteira', tipo: 'select', opcoes: carteiras|map(c => { valor: c.id, label: c.nome }) }
+                ]
+            }) }}
+
+            <div data-filtro-resultado>
+                {{ include('cobranca/caso/_resultado.html.twig') }}
+            </div>
+        </div>
+    </div>
+</section>
+</div>
+{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/filtro-tabela.css') }}">
+<link rel="stylesheet" href="{{ asset('css/cobrancas.css') }}">
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script src="{{ asset('js/filtro-tabela.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('click', function (e) {
+        var tr = e.target.closest('tr.cobranca-row-link');
+        if (!tr) { return; }
+        if (e.target.closest('button, a, form, input, select')) { return; }
+        window.location.href = tr.dataset.href;
+    });
+});
+</script>
+{% endblock %}

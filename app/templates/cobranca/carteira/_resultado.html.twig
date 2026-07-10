@@ -1,0 +1,70 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Fragmento trocável da lista de Carteiras (dentro de [data-filtro-resultado]).
+   Reexecutado a cada filtro/página por public/js/filtro-tabela.js.
+   Recebe Output DTOs (CarteiraResumoOutput), nunca entidades cruas.
+─────────────────────────────────────────────────────────────────────────── #}
+{% set temFiltro = filtros.busca or filtros.modo %}
+
+<div class="cobranca-resultado-head">
+    <div class="cobranca-count">
+        <i class="bi bi-folder2-open"></i> <strong>{{ total }}</strong>&nbsp;carteira(s)
+    </div>
+    {{ include('_partials/_filtro_paginacao.html.twig', { pagina: pagina, total_paginas: total_paginas }) }}
+</div>
+
+{% if carteiras|length > 0 %}
+    <div class="card cobranca-card d-none d-md-block">
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead>
+                    <tr>
+                        <th class="sortable ps-3{{ filtros.ordenar == 'nome' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="nome"><i class="bi bi-folder2 me-1"></i>Carteira <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                        <th><i class="bi bi-person-badge me-1"></i>Cliente credor</th>
+                        <th style="width:120px"><i class="bi bi-diagram-3 me-1"></i>Modo</th>
+                        <th style="width:180px"><i class="bi bi-percent me-1"></i>Honorários</th>
+                        <th class="sortable{{ filtros.ordenar == 'atualizacao' ? ' ' ~ filtros.direcao : '' }}" data-ordenar="atualizacao" style="width:110px"><i class="bi bi-clock-history me-1"></i>Modificado <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in carteiras %}
+                    <tr class="cobranca-row-link" style="cursor:pointer;" data-href="{{ path('cobranca_carteira_show', {id: c.id}) }}">
+                        <td class="ps-3 align-middle fw-semibold">{{ c.nome }}</td>
+                        <td class="align-middle">{{ c.clienteNome }}</td>
+                        <td class="align-middle"><span class="badge text-bg-secondary" style="font-size:.7rem;">{{ c.modoLabel }}</span></td>
+                        <td class="align-middle">
+                            {{ c.formaHonorariosLabel }}{% if c.percentualHonorarios %} <span class="text-muted">({{ c.percentualHonorarios }}%)</span>{% endif %}
+                        </td>
+                        <td class="align-middle text-muted" style="font-size:.82rem;">{{ c.atualizadoEm ? c.atualizadoEm|date('d/m/Y') : '—' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-md-none cobranca-cards-lista">
+        {% for c in carteiras %}
+        <div class="cobranca-card-item" style="cursor:pointer;" onclick="window.location.href='{{ path('cobranca_carteira_show', {id: c.id}) }}'">
+            <div class="cobranca-card-title"><i class="bi bi-folder2 me-1"></i>{{ c.nome }}</div>
+            <div class="cobranca-card-sub text-muted">{{ c.clienteNome }}</div>
+            <div class="mt-1 d-flex gap-2 flex-wrap">
+                <span class="badge text-bg-secondary">{{ c.modoLabel }}</span>
+                <span class="badge text-bg-light text-dark">{{ c.formaHonorariosLabel }}{% if c.percentualHonorarios %} {{ c.percentualHonorarios }}%{% endif %}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="card cobranca-card">
+        <div class="cobranca-empty">
+            <div class="empty-ico"><i class="bi bi-folder-x"></i></div>
+            {% if temFiltro %}
+                <p class="empty-title">Nenhuma carteira encontrada</p>
+                <p class="text-muted small mb-0">Ajuste ou limpe os filtros aplicados.</p>
+            {% else %}
+                <p class="empty-title">Nenhuma carteira cadastrada</p>
+                <p class="text-muted small mb-0">As carteiras de cobrança aparecerão aqui.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endif %}

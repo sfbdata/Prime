@@ -28,4 +28,28 @@ enum TipoAlerta: string
             self::RevisaoPendente => 'Revisão de vínculo pendente',
         };
     }
+
+    /** Classe Bootstrap `text-bg-*` para o badge do alerta (apresentação, Etapa 8). */
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::ObrigacaoVencida => 'text-bg-danger',
+            self::ParcelaAcordoVencida => 'text-bg-danger',
+            self::AcaoAtrasada => 'text-bg-warning',
+            self::ProntoParaEncerrar => 'text-bg-success',
+            self::RevisaoPendente => 'text-bg-warning',
+        };
+    }
+
+    /** Ícone Bootstrap Icons para o alerta (apresentação, Etapa 8). */
+    public function icone(): string
+    {
+        return match ($this) {
+            self::ObrigacaoVencida => 'bi-exclamation-triangle-fill',
+            self::ParcelaAcordoVencida => 'bi-exclamation-triangle-fill',
+            self::AcaoAtrasada => 'bi-clock-history',
+            self::ProntoParaEncerrar => 'bi-check-circle-fill',
+            self::RevisaoPendente => 'bi-person-exclamation',
+        };
+    }
 }

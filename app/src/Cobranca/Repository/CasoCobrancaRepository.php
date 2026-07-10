@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Repository;
 
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Enum\StatusCaso;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -83,5 +85,93 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
 
         return $total > 0;
+    }
+
+    /**
+     * Lista paginada de casos do tenant, com busca (objeto/pessoa cobrada), faceta de status
+     * e faceta de carteira (Etapa 8). Tenant SEMPRE explícito no WHERE. Facetas derivadas do
+     * saldo (vencido, pronto p/ encerrar) NÃO entram aqui: o saldo é derivado por
+     * `CalculadoraSaldo`, não é coluna — filtro/ordenação por saldo fica p/ a Etapa 9 (dashboard).
+     *
+     * @param array<string, string> $filtros busca, status, carteira
+     * @return CasoCobranca[]
+     */
+    public function findByFilters(array $filtros, Tenant $tenant, int $pagina, int $porPagina, string $ordenar, string $direcao): array
+    {
+        $qb = $this->baseFiltro($filtros, $tenant);
+        $dir = strtolower($direcao) === 'asc' ? 'ASC' : 'DESC';
+
+        // COALESCE não é aceito direto no ORDER BY do DQL → alias HIDDEN (não altera o hidratado).
+        if ($ordenar === 'criacao') {
+            $qb->orderBy('c.criadoEm', $dir);
+        } else {
+            $qb->addSelect('COALESCE(c.atualizadoEm, c.criadoEm) AS HIDDEN ordCol')->orderBy('ordCol', $dir);
+        }
+
+        return $qb
+            ->setFirstResult(($pagina - 1) * $porPagina)
+            ->setMaxResults($porPagina)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @param array<string, string> $filtros */
+    public function countByFilters(array $filtros, Tenant $tenant): int
+    {
+        return (int) $this->baseFiltro($filtros, $tenant)
+            ->select('COUNT(c.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Casos de uma carteira (mais recentes primeiro) para a visão da carteira (Etapa 8). Escopo por
+     * tenant da carteira. Sem paginação — a carteira do MVP tem volume moderado; se crescer, migrar
+     * para paginação (follow-up de perf).
+     *
+     * @return CasoCobranca[]
+     */
+    public function daCarteira(Carteira $carteira): array
+    {
+        return $this->createQueryBuilder('c')
+            ->innerJoin('c.objeto', 'o')
+            ->addSelect('COALESCE(c.atualizadoEm, c.criadoEm) AS HIDDEN ordCol')
+            ->andWhere('o.carteira = :carteira')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $carteira->getTenant())
+            ->orderBy('ordCol', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /** @param array<string, string> $filtros */
+    private function baseFiltro(array $filtros, Tenant $tenant): QueryBuilder
+    {
+        // INNER JOIN é seguro: objeto e pessoaCobradaAtual são JoinColumn(nullable: false) —
+        // um caso persistido sempre tem ambos (o `?` no type-hint é só o estado pré-persist).
+        $qb = $this->createQueryBuilder('c')
+            ->innerJoin('c.objeto', 'o')
+            ->innerJoin('c.pessoaCobradaAtual', 'p')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('tenant', $tenant);
+
+        $busca = trim($filtros['busca'] ?? '');
+        if ($busca !== '') {
+            $qb->andWhere('LOWER(o.identificacao) LIKE :busca OR LOWER(o.descricao) LIKE :busca OR LOWER(p.nome) LIKE :busca')
+                ->setParameter('busca', '%' . mb_strtolower($busca) . '%');
+        }
+
+        $status = $filtros['status'] ?? '';
+        if ($status !== '') {
+            $qb->andWhere('c.status = :status')->setParameter('status', $status);
+        }
+
+        $carteira = $filtros['carteira'] ?? '';
+        if ($carteira !== '' && ctype_digit($carteira)) {
+            $qb->andWhere('o.carteira = :carteira')->setParameter('carteira', (int) $carteira);
+        }
+
+        return $qb;
     }
 }

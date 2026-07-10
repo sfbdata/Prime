@@ -74,6 +74,16 @@
                     </li>
                 {% endif %}
 
+                {% if can_access_module('cobrancas') %}
+                    <li class="pje-menu-item">
+                        <a href="{{ path('cobranca_carteira_index') }}"
+                           class="pje-menu-link {{ currentRoute starts with 'cobranca_' ? 'active' : '' }}">
+                            <i class="bi bi-cash-coin pje-nav-icon"></i>
+                            <span>Cobranças</span>
+                        </a>
+                    </li>
+                {% endif %}
+
                 {% if can_access_module('tarefas') %}
                     <li class="pje-menu-item">
                         <a href="{{ path('tarefa_minhas') }}"

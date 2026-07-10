@@ -1,0 +1,14 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Sub-navegação do módulo Cobranças (Carteiras × Casos). Consistência de
+   navegação (SPEC §26). Parâmetro: ativo ('carteiras' | 'casos').
+─────────────────────────────────────────────────────────────────────────── #}
+<nav class="cobranca-subnav" aria-label="Seções de Cobranças">
+    <a href="{{ path('cobranca_carteira_index') }}"
+       class="cobranca-subnav-item {{ ativo == 'carteiras' ? 'active' : '' }}">
+        <i class="bi bi-folder2-open"></i><span>Carteiras</span>
+    </a>
+    <a href="{{ path('cobranca_caso_index') }}"
+       class="cobranca-subnav-item {{ ativo == 'casos' ? 'active' : '' }}">
+        <i class="bi bi-briefcase"></i><span>Casos</span>
+    </a>
+</nav>

@@ -146,6 +146,8 @@
                                 {% set pageTitle = 'Meu Perfil' %}
                             {% elseif currentRoute starts with 'expediente_' %}
                                 {% set pageTitle = 'Expediente' %}
+                            {% elseif currentRoute starts with 'cobranca_' %}
+                                {% set pageTitle = 'Cobranças' %}
                             {% endif %}
                             {% if pageTitle %}
                                 <span class="navtop-page-sep">|</span>

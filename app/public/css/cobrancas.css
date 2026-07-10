@@ -1,0 +1,123 @@
+/* ───────────────────────────────────────────────────────────────────────────
+   Gestão de Cobranças — estilos das telas operacionais (Etapa 8).
+   Só variáveis --bs-* + um accent local --jp-accent (tema claro/escuro).
+   Nada de cor hardcoded fora do accent; nenhuma regra de negócio no CSS.
+─────────────────────────────────────────────────────────────────────────── */
+.cobrancas-page {
+    --jp-accent: #1f7a4d;
+    --jp-accent-rgb: 31, 122, 77;
+}
+html[data-bs-theme="dark"] .cobrancas-page {
+    --jp-accent: #4cc38a;
+    --jp-accent-rgb: 76, 195, 138;
+}
+
+.cobrancas-page .content-header h1 { font-weight: 700; letter-spacing: -.01em; }
+.cobrancas-page .content-header h1 > .bi { color: var(--jp-accent); }
+
+/* ── Sub-navegação (Carteiras × Casos) ─────────────────────────── */
+.cobranca-subnav { display: flex; gap: .25rem; }
+.cobranca-subnav-item {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .4rem .85rem; border-radius: .5rem;
+    color: var(--bs-secondary-color); text-decoration: none; font-weight: 500;
+    border: 1px solid transparent;
+}
+.cobranca-subnav-item:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+.cobranca-subnav-item.active {
+    background: rgba(var(--jp-accent-rgb), .12);
+    color: var(--jp-accent); border-color: rgba(var(--jp-accent-rgb), .25);
+}
+
+/* ── Cabeçalho do resultado + contagem ─────────────────────────── */
+.cobranca-resultado-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin: .25rem 0 .75rem; flex-wrap: wrap; gap: .5rem;
+}
+.cobranca-count { color: var(--bs-secondary-color); }
+.cobranca-count strong { color: var(--bs-body-color); }
+
+/* ── Cartão/tabela ─────────────────────────────────────────────── */
+.cobranca-card { border: 1px solid var(--bs-border-color); }
+.cobranca-card .table > thead th {
+    font-size: .78rem; text-transform: uppercase; letter-spacing: .02em;
+    color: var(--bs-secondary-color); border-bottom: 1px solid var(--bs-border-color);
+    white-space: nowrap;
+}
+.cobranca-card .table > tbody > tr { border-top: 1px solid var(--bs-border-color); }
+.cobranca-card .table > tbody > tr:hover { background: var(--bs-tertiary-bg); }
+.cobranca-row-link .sort-icon { opacity: .35; }
+
+/* Realce de linha com saldo vencido (SPEC §26: priorizar o que exige atenção) */
+.cobranca-row-vencido { background: rgba(var(--bs-danger-rgb), .05); }
+.cobranca-row-vencido td:first-child { box-shadow: inset 3px 0 0 var(--bs-danger); }
+
+/* ── Cards mobile ──────────────────────────────────────────────── */
+.cobranca-cards-lista { display: flex; flex-direction: column; gap: .6rem; }
+.cobranca-card-item {
+    border: 1px solid var(--bs-border-color); border-radius: .6rem;
+    padding: .75rem .9rem; background: var(--bs-body-bg);
+}
+.cobranca-card-item.cobranca-row-vencido { box-shadow: inset 3px 0 0 var(--bs-danger); }
+.cobranca-card-title { font-weight: 600; }
+.cobranca-card-sub { font-size: .85rem; }
+
+/* ── Estado vazio ──────────────────────────────────────────────── */
+.cobranca-empty { text-align: center; padding: 2.5rem 1rem; }
+.cobranca-empty .empty-ico { font-size: 2.2rem; color: var(--bs-secondary-color); opacity: .5; }
+.cobranca-empty .empty-title { font-weight: 600; margin: .5rem 0 .15rem; }
+
+/* ── Detalhe do Caso: cabeçalho operacional ────────────────────── */
+.caso-header { border: 1px solid var(--bs-border-color); border-radius: .75rem; overflow: hidden; }
+.caso-header-top {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 1rem; flex-wrap: wrap; padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
+}
+.caso-header-titulo { font-weight: 700; font-size: 1.15rem; margin: 0; }
+.caso-header-sub { color: var(--bs-secondary-color); font-size: .9rem; }
+
+.caso-metrics { display: flex; gap: 1.5rem; flex-wrap: wrap; padding: 1rem 1.25rem; }
+.caso-metric { min-width: 140px; }
+.caso-metric-label {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .03em;
+    color: var(--bs-secondary-color);
+}
+.caso-metric-valor { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
+.caso-metric-valor.saldo-vencido { color: var(--bs-danger); }
+.caso-metric-valor.saldo-zerado { color: var(--bs-success); }
+
+/* Bloco "próxima ação" em destaque */
+.caso-proxima-acao {
+    border: 1px solid rgba(var(--jp-accent-rgb), .3);
+    background: rgba(var(--jp-accent-rgb), .07);
+    border-radius: .6rem; padding: .75rem 1rem;
+}
+.caso-proxima-acao.atrasada {
+    border-color: rgba(var(--bs-warning-rgb), .5);
+    background: rgba(var(--bs-warning-rgb), .1);
+}
+.caso-proxima-acao-titulo { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); }
+
+/* Alertas (derivados, read-only) */
+.caso-alertas { display: flex; flex-direction: column; gap: .4rem; }
+.caso-alerta {
+    display: flex; align-items: center; gap: .5rem;
+    padding: .5rem .75rem; border-radius: .5rem;
+    border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
+}
+
+/* Timeline do histórico (SPEC §13) */
+.caso-timeline { list-style: none; margin: 0; padding: 0; position: relative; }
+.caso-timeline::before {
+    content: ""; position: absolute; left: 7px; top: 4px; bottom: 4px;
+    width: 2px; background: var(--bs-border-color);
+}
+.caso-timeline-item { position: relative; padding: 0 0 1rem 1.75rem; }
+.caso-timeline-item::before {
+    content: ""; position: absolute; left: 2px; top: 4px;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--jp-accent); border: 2px solid var(--bs-body-bg);
+}
+.caso-timeline-tipo { font-weight: 600; }
+.caso-timeline-meta { font-size: .8rem; color: var(--bs-secondary-color); }

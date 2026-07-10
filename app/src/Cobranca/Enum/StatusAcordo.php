@@ -27,6 +27,17 @@ enum StatusAcordo: string
         };
     }
 
+    /** Classe Bootstrap `text-bg-*` para o badge de estado (apresentação, Etapa 8). */
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Ativo => 'text-bg-primary',
+            self::Cumprido => 'text-bg-success',
+            self::Rompido => 'text-bg-danger',
+            self::Cancelado => 'text-bg-secondary',
+        };
+    }
+
     /** Acordo vigente: a substituição das obrigações vale e as parcelas compõem o saldo. */
     public function ehVigente(): bool
     {

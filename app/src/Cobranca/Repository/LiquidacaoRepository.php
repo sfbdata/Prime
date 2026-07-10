@@ -63,4 +63,23 @@ class LiquidacaoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    /**
+     * Liquidações do caso (mais recentes primeiro) para a aba do detalhe (Etapa 8). Escopo por
+     * tenant do caso (defesa em profundidade).
+     *
+     * @return Liquidacao[]
+     */
+    public function doCaso(CasoCobranca $caso): array
+    {
+        return $this->createQueryBuilder('l')
+            ->andWhere('l.caso = :caso')
+            ->andWhere('l.tenant = :tenant')
+            ->setParameter('caso', $caso)
+            ->setParameter('tenant', $caso->getTenant())
+            ->orderBy('l.data', 'DESC')
+            ->addOrderBy('l.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
 }

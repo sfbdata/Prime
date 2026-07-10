@@ -61,4 +61,17 @@ class ObjetoCobrancaRepository extends ServiceEntityRepository
             'tenant' => $tenant,
         ]);
     }
+
+    /** Nº de objetos de cobrança da carteira (visão da carteira, Etapa 8). Escopo por tenant da carteira. */
+    public function contarDaCarteira(Carteira $carteira): int
+    {
+        return (int) $this->createQueryBuilder('o')
+            ->select('COUNT(o.id)')
+            ->andWhere('o.carteira = :carteira')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $carteira->getTenant())
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

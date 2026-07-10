@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Repository;
 
+use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Pagamento;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -45,5 +46,24 @@ class PagamentoRepository extends ServiceEntityRepository
     public function findOneByIdDoTenant(int $id, Tenant $tenant): ?Pagamento
     {
         return $this->findOneBy(['id' => $id, 'tenant' => $tenant]);
+    }
+
+    /**
+     * Pagamentos do caso (mais recentes primeiro) para a aba do detalhe (Etapa 8). Escopo por
+     * tenant do caso (defesa em profundidade — o caso já é tenant-bound).
+     *
+     * @return Pagamento[]
+     */
+    public function doCaso(CasoCobranca $caso): array
+    {
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.caso = :caso')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('caso', $caso)
+            ->setParameter('tenant', $caso->getTenant())
+            ->orderBy('p.data', 'DESC')
+            ->addOrderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult();
     }
 }

@@ -24,4 +24,14 @@ enum StatusCaso: string
             self::Encerrado => 'Encerrado',
         };
     }
+
+    /** Classe Bootstrap `text-bg-*` para o badge de estado (apresentação, Etapa 8). */
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Ativo => 'text-bg-primary',
+            self::Judicializado => 'text-bg-warning',
+            self::Encerrado => 'text-bg-secondary',
+        };
+    }
 }

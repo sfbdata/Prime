@@ -21,6 +21,15 @@ enum StatusProximaAcao: string
         };
     }
 
+    /** Classe Bootstrap `text-bg-*` para o badge de estado (apresentação, Etapa 8). */
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::Pendente => 'text-bg-warning',
+            self::Concluida => 'text-bg-success',
+        };
+    }
+
     /** Ação ainda ativa (a "próxima coisa a fazer"); conta para o limite de 1 por caso. */
     public function estaPendente(): bool
     {
