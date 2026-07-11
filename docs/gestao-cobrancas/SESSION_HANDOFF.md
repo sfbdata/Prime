@@ -41,18 +41,21 @@ Camada visual final de LEITURA, visão do ESCRITÓRIO (não per-caso):
 3. **Deploy** via `deploy-prod-tls.sh` (rebuild) — só no fim. **Nenhuma migration nova nas Etapas 8–9**; só a data-migration de permissões do item 1.
 4. **Integração da branch** (decisão do humano): `gestao-cobrancas` tem o DJEN `b044c0c` na base (inofensivo) + caronas (metas/Datajud). Mergear no master DEPOIS do DJEN.
 
-## PENDÊNCIA ABERTA — Otimização de queries (N+1) em TODAS as telas (perf)
-> Plano completo e faseado: **`docs/gestao-cobrancas/PLANO_OTIMIZACAO_QUERIES.md`**. O humano pediu para
-> aplicar o batch-load (que resolveu o Dashboard) a TODAS as páginas de Cobrança.
-- **Dashboard ✅ FEITO** (commit `2a9315c`): 2731 → ~7 queries no dev; `CalculadoraSaldo::derivarSaldos` +
-  6 métodos de repo `*DosCasos`/`doTenant` já existem e são **reutilizáveis**.
-- **Falta (por prioridade):** P0 extrair primitivas `CalculadoraSaldo::saldosDosCasos` +
-  `AlertasCobranca::alertasDosCasos` + fetch-joins nas listagens; **P1 Central de Alertas** (maior ganho,
-  tenant-wide); **P2 Visão da Carteira**; **P3 Lista de Casos** (saldo + hidratação lazy); **P4** Lista de
-  Carteiras (fetch-join cliente) + dedupe do Detalhe do Caso.
-- **Protocolo por fase:** medir no profiler (dev já tem os dados TOPLIFE) → implementar reusando a infra
-  (sem duplicar regra) → **teste de consistência batch==per-caso** → suíte verde → medir depois → revisão →
-  commit isolado. Detalhes/riscos/tabela de N+1 no PLANO.
+## ✅ CONCLUÍDO — Otimização de queries (N+1) em TODAS as telas (perf) — 2026-07-11
+> Plano completo e medições antes/depois: **`docs/gestao-cobrancas/PLANO_OTIMIZACAO_QUERIES.md`** (§1.1 + §6).
+> Fases **P0–P4 TODAS CONCLUÍDAS**, revisadas (SEM bloqueante) e commitadas isoladamente sobre `eba6a70`:
+> `091315c` (P0) → `153fc24` (P1) → `991f7ac` (P2) → `7909d96` (P3) → `51b23c2` (P4). `tests/Cobranca`
+> **409/409**; suíte global **1690/1690**.
+- **P0** — primitivas reutilizáveis `CalculadoraSaldo::saldosDosCasos`/`derivarSaldosDosCasos` +
+  `AlertasCobranca::alertasDosCasos`/`montarAlertas` (regra única compartilhada); Dashboard refatorado (dedup, 42→42).
+- **P1 Central de Alertas 1592→44** (fetch-join `doTenant`) · **P2 Visão da Carteira 876→221†** (saldo batch +
+  fetch-join `daCarteira` + fix N+1 vínculo→pessoa) · **P3 Lista de Casos 199→41** (saldo batch + fetch-join
+  `findByFilters`) · **P4** Lista de Carteiras 40→38 (fetch-join cliente) + Detalhe 96→92 (dedupe `alertasComContexto`).
+- **As queries de Cobrança de toda tela agora são O(1)+O(#datasets)** (não O(#casos)); testes de consistência batch==per-caso.
+- **† ÚNICO resíduo aberto = N+1 de AUTORIZAÇÃO `user_tenant`** (`PermissionChecker::hasPermission` e
+  `TenantContext` re-consultam `UserTenant` por chamada, sem memoização por request). **PRÉ-EXISTENTE,
+  transversal a todo o app, MÉDIO risco (docs/AUTORIZACAO.md), FORA do escopo desta frente** — follow-up
+  SEPARADO destacado no PLANO §1.1 (decisão do humano; memoizar derrubaria Visão da Carteira e Detalhe ao piso ~44).
 
 ## Follow-ups conhecidos (não bloqueiam; decisão do humano)
 - **Perf O(casos) do dashboard (Etapa 9):** a agregação itera todos os casos do tenant e reusa os serviços por caso (~6–8 queries/caso; `saldoExigivel`/`doCasoExigiveis` acabam repetidos). Aceito p/ MVP (volume moderado; limitável por carteira/período). Redução futura = método agregado que reúna exigível+movimentos por caso numa passada (não materializar saldo).
