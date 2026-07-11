@@ -194,7 +194,8 @@ Coberto por testes DB-real + revisão adversarial + tenant-safety scan em TODAS 
 | Merge conflita com sync-drive/DJEN já em master (§3) | MÉDIA | `git merge origin/master` na branch primeiro, resolver conflitos semânticos, rodar suíte, só então PR. |
 | ~~Dev sem dados → smoke JS não exercitado~~ | RESOLVIDO | ✅ Smoke real feito no dev com os relatórios TOPLIFE reais (§4.5): Painel, Casos, Alertas e detalhe do Caso validados no navegador. |
 | **Importação grande estoura timeout de request HTTP (504)** (§4.5) | **ALTA (operacional)** | Aumentar `proxy_read_timeout` (nginx) + `max_execution_time`/`memory_limit` (PHP) na rota de importação em prod, e/ou importação assíncrona em lote. ~2800 obrigações num request só não passam no timeout padrão. |
-| Perf O(casos) do dashboard sob volume alto | BAIXA | Aceito p/ MVP; filtros carteira/período limitam; follow-up de agregação materializada. |
+| ~~Perf O(casos) do dashboard (N+1)~~ | RESOLVIDO | ✅ Dashboard passou a carregar em LOTE (batch): ~2731 → ~7 queries no dev (commit `2a9315c`). Limite conhecido: `IN (:casoIds)` (teto ~65535 params) só com dezenas de milhares de casos. |
+| Perf O(casos) da **Central de Alertas** (`/cobrancas/alertas`) | BAIXA | Ainda chama `AlertasCobranca::alertasDoCaso` por caso (mesmo N+1 do dashboard antes do fix). Aplicar o mesmo batch-load se ficar lenta. |
 | Temporário órfão de importação (preview 2× sem confirmar) | BAIXA (disco) | Follow-up: comando de limpeza por idade. |
 | Deploy prod é imagem **baked** (não bind-mount) | Operacional | Rebuild obrigatório via `deploy-prod-tls.sh`; `git pull` na VPS NÃO aplica nada. |
 
@@ -281,7 +282,7 @@ docker exec jusprime_php_dev bash -c 'cd app && php bin/console doctrine:migrati
 
 ## 11. Pendências NÃO bloqueantes (follow-ups)
 
-- Perf O(casos) do dashboard (~6–8 queries/caso) — agregação materializada se escalar.
+- ✅ RESOLVIDO: Perf O(casos) do dashboard — batch-load (commit `2a9315c`). A **Central de Alertas** ainda tem o mesmo N+1 (follow-up: aplicar o mesmo batch se necessário).
 - Coletor de temporários órfãos de importação (preview 2× sem confirmar) — comando de limpeza por idade.
 - FIFO de alocação de pagamento (#8, adiado) — hoje alocação manual.
 - Endurecer testes de evento de histórico (asserir `tipo`+`dados`) — #1/#10/#11 do EXECUTION_STATUS.
