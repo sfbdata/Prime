@@ -30,6 +30,38 @@ final class ArquivoStorageService implements ArquivoStorageInterface
         return $nomeUnico;
     }
 
+    public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string
+    {
+        $this->garantirDiretorio($diretorio);
+
+        $nomeUnico = bin2hex(random_bytes(16)) . '.' . ltrim($extensao, '.');
+        $destino   = $diretorio . '/' . $nomeUnico;
+
+        // rename() é atômico e não relê o conteúdo, mas falha entre sistemas de arquivos distintos
+        // (ex.: /tmp e o volume de uploads em mounts diferentes → EXDEV). Nesse caso, copia e apaga.
+        if (@rename($caminhoOrigem, $destino)) {
+            return $nomeUnico;
+        }
+
+        if (@copy($caminhoOrigem, $destino)) {
+            @unlink($caminhoOrigem);
+
+            return $nomeUnico;
+        }
+
+        // copy falhou (ex.: disco cheio no meio da cópia): remove o destino parcial p/ não deixar órfão.
+        if (is_file($destino)) {
+            @unlink($destino);
+        }
+        $erro = error_get_last();
+
+        throw new \RuntimeException(sprintf(
+            'Não foi possível mover o arquivo para %s: %s',
+            $destino,
+            $erro['message'] ?? 'motivo desconhecido',
+        ));
+    }
+
     public function servir(string $caminhoCompleto, string $nomeOriginal, bool $inline = true): BinaryFileResponse
     {
         $disposicao = $inline

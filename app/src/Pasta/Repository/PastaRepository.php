@@ -504,8 +504,9 @@ class PastaRepository extends ServiceEntityRepository
 
         switch ($ordenar) {
             case 'nup':
-                $qb->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
-                   ->addOrderBy('CAST_INT(p.nup)', $dir);
+                $qb->orderBy('CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
+                   ->addOrderBy('CAST_INT_PREFIXO(p.nup)', $dir)
+                   ->addOrderBy('p.nup', $dir);
                 break;
 
             case 'situacao':
@@ -540,8 +541,9 @@ class PastaRepository extends ServiceEntityRepository
                 break;
 
             default:
-                $qb->orderBy('CASE WHEN CAST_INT(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
-                   ->addOrderBy('CAST_INT(p.nup)', 'DESC');
+                $qb->orderBy('CASE WHEN CAST_INT_PREFIXO(p.nup) IS NULL THEN 1 ELSE 0 END', 'ASC')
+                   ->addOrderBy('CAST_INT_PREFIXO(p.nup)', 'DESC')
+                   ->addOrderBy('p.nup', 'DESC');
                 break;
         }
 

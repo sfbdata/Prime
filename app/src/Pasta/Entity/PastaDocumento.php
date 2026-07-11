@@ -14,6 +14,7 @@ use Symfony\Component\Validator\Constraints as Assert;
 #[ORM\Entity(repositoryClass: PastaDocumentoRepository::class)]
 #[ORM\Table(name: 'pasta_documento')]
 #[ORM\Index(name: 'idx_pasta_documento_tenant', columns: ['tenant_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_pasta_documento_drive_file_id', columns: ['drive_file_id'])]
 class PastaDocumento implements Auditavel, TenantAware
 {
     public const CATEGORIA_PECA = 'PECA';
@@ -58,6 +59,9 @@ class PastaDocumento implements Auditavel, TenantAware
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $numero = null;
+
+    #[ORM\Column(name: 'drive_file_id', length: 255, nullable: true)]
+    private ?string $driveFileId = null;
 
     #[ORM\ManyToOne(targetEntity: Pasta::class, inversedBy: 'documentos')]
     #[ORM\JoinColumn(nullable: false)]
@@ -217,6 +221,18 @@ class PastaDocumento implements Auditavel, TenantAware
     public function setOrdem(int $ordem): void
     {
         $this->ordem = $ordem;
+    }
+
+    public function getDriveFileId(): ?string
+    {
+        return $this->driveFileId;
+    }
+
+    public function setDriveFileId(?string $driveFileId): self
+    {
+        $this->driveFileId = $driveFileId;
+
+        return $this;
     }
 
     public function getTenant(): ?Tenant

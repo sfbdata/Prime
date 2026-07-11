@@ -3,10 +3,10 @@
 # JusPrime — Script de Backup de Produção
 # =============================================================================
 # O que faz:
-#   1. Dump do PostgreSQL (pg_dump via container Docker)
-#   2. Backup dos uploads (volume Docker)
-#   3. Comprime tudo em um único arquivo .tar.gz
-#   4. Rotação automática: mantém apenas os últimos N backups
+#   1. Dump do PostgreSQL (pg_dump via container Docker) → jusprime_<TS>.tar.gz
+#   2. Backup dos uploads (volume Docker) → uploads_<TS>.tar (arquivo SEPARADO,
+#      grande; gerado direto do volume, com retenção própria KEEP_UPLOADS)
+#   3. Rotação automática independente: KEEP_BACKUPS (banco) e KEEP_UPLOADS (uploads)
 #
 # Uso:
 #   ./scripts/backup.sh
@@ -27,8 +27,11 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Diretório onde os backups serão salvos
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/jusprime}"
 
-# Quantos backups manter (rotação)
+# Quantos backups do BANCO manter (rotação — arquivo pequeno)
 KEEP_BACKUPS="${KEEP_BACKUPS:-7}"
+
+# Quantos backups de UPLOADS manter (arquivo grande ~11GB+, retenção própria p/ não estourar disco)
+KEEP_UPLOADS="${KEEP_UPLOADS:-2}"
 
 # Nome do container do banco de dados
 DB_CONTAINER="jusprime_db_prod"
@@ -111,25 +114,33 @@ DB_SIZE=$(du -sh "${DB_DUMP_FILE}" | cut -f1)
 log "Dump concluído (${DB_SIZE} comprimido)."
 
 # ---------------------------------------------------------------------------
-# 2. Backup dos uploads
+# 2. Backup dos uploads — arquivo SEPARADO do banco (uploads_<TS>.tar)
 # ---------------------------------------------------------------------------
+# Uploads é grande (~11GB) e cresce: NÃO cabe no tarball do banco rotacionado
+# em 7x (7 x 11GB estouraria o disco). Fica num tar próprio, gerado DIRETO do
+# volume montado read-only (sem cópia intermediária no /tmp, que gastaria +11GB),
+# escrito no BACKUP_DIR e com retenção própria (KEEP_UPLOADS). Sem gzip: o acervo
+# é PDF/imagem (já comprimido) — gzip só gastaria CPU sem reduzir tamanho.
 
-# log "Copiando uploads do volume Docker (${UPLOADS_VOLUME})..."
-#
-# UPLOADS_DIR="${TEMP_DIR}/uploads"
-# mkdir -p "${UPLOADS_DIR}"
-#
-# # Usa um container temporário para copiar os dados do volume
-# docker run --rm \
-#     -v "${UPLOADS_VOLUME}:/source:ro" \
-#     -v "${UPLOADS_DIR}:/dest" \
-#     alpine sh -c "cp -a /source/. /dest/"
-#
-# UPLOADS_COUNT=$(find "${UPLOADS_DIR}" -type f | wc -l)
-# log "Uploads copiados: ${UPLOADS_COUNT} arquivo(s)."
+UPLOADS_BACKUP="${BACKUP_DIR}/uploads_${TIMESTAMP}.tar"
+log "Arquivando uploads do volume '${UPLOADS_VOLUME}' direto para ${UPLOADS_BACKUP} ..."
 
-log "AVISO: backup de uploads DESABILITADO temporariamente (ver scripts/backup.sh)"
-UPLOADS_COUNT=0
+# tar direto do volume (read-only) para o diretório de backup (montado no container).
+docker run --rm \
+    -v "${UPLOADS_VOLUME}:/source:ro" \
+    -v "${BACKUP_DIR}:/backup" \
+    alpine sh -c "tar -cf '/backup/uploads_${TIMESTAMP}.tar' -C /source ."
+
+UPLOADS_COUNT=$(docker run --rm -v "${UPLOADS_VOLUME}:/source:ro" alpine sh -c 'find /source -type f | wc -l')
+UPLOADS_SIZE=$(du -sh "${UPLOADS_BACKUP}" | cut -f1)
+log "Uploads arquivados: ${UPLOADS_COUNT} arquivo(s), ${UPLOADS_SIZE}."
+
+# Rotação própria dos backups de uploads (retenção KEEP_UPLOADS).
+log "Aplicando rotação dos uploads (mantendo os últimos ${KEEP_UPLOADS})..."
+find "${BACKUP_DIR}" -maxdepth 1 -name "uploads_*.tar" \
+    | sort \
+    | head -n "-${KEEP_UPLOADS}" \
+    | xargs -r rm -v
 
 # ---------------------------------------------------------------------------
 # 3. Cria o arquivo de backup final
@@ -144,10 +155,12 @@ JusPrime Backup
 Data/Hora : ${TIMESTAMP}
 Banco     : ${POSTGRES_DB}
 Usuário DB: ${POSTGRES_USER}
-Uploads   : ${UPLOADS_COUNT} arquivo(s)
+Uploads   : arquivo separado uploads_${TIMESTAMP}.tar (${UPLOADS_COUNT} arquivo(s), ${UPLOADS_SIZE})
 Gerado por: $(hostname)
 EOF
 
+# Este tarball leva SÓ o banco + metadados (pequeno, rotação de 7). Os uploads vão
+# no arquivo próprio uploads_<TS>.tar (seção 2), com retenção separada.
 tar -czf "${BACKUP_DIR}/${BACKUP_NAME}.tar.gz" \
     -C "${TEMP_DIR}" \
     database.sql.gz \

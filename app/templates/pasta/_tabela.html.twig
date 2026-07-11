@@ -107,10 +107,10 @@
                     </td>
                     <td class="col-acao-tabela align-middle">
                         <span class="text-truncate d-block" style="width:100%;">
-                        {% if pasta.processoPrincipal %}
-                            {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
-                        {% elseif pasta.nomeAcao %}
+                        {% if pasta.nomeAcao %}
                             {{ pasta.nomeAcao }}
+                        {% elseif pasta.processoPrincipal %}
+                            {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}

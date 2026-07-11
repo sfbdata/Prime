@@ -75,7 +75,7 @@ final class NotificadorPublicacoesDjen implements NotificadorPublicacoesDjenInte
             ->join(
                 'App\Entity\Auth\UserTenant',
                 'ut',
-                'WITH',
+                'ON',
                 'ut.user = u AND ut.tenant = :tenant AND ut.isActive = true'
             )
             ->setParameter('tenant', $tenant)

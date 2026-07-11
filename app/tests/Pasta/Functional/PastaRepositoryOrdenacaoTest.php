@@ -123,6 +123,21 @@ final class PastaRepositoryOrdenacaoTest extends KernelTestCase
         self::assertTrue($this->vemAntes('100', '50', $desc));
     }
 
+    #[TestDox('findByFilters ordena NUP com sufixo de letra de forma natural (10A/10B junto do 10, não no fim)')]
+    public function testOrdenacaoNaturalComSufixoDeLetra(): void
+    {
+        $t = $this->criarTenant();
+        foreach (['9', '10', '10A', '10B', '11'] as $nup) {
+            $this->criarPasta($t, $nup);
+        }
+        $this->em->flush();
+
+        // Direção padrão (DESC): número maior primeiro; dentro do mesmo número, a letra
+        // fica adjacente (10B > 10A > 10), nunca jogada para o fim da lista.
+        $nups = $this->nupsOrdenados($t, '', 'desc');
+        self::assertSame(['11', '10B', '10A', '10', '9'], $nups);
+    }
+
     #[TestDox('ordena por prioridade (desc = urgente primeiro)')]
     public function testOrdenaPorPrioridade(): void
     {

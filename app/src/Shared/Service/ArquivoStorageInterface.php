@@ -13,6 +13,13 @@ interface ArquivoStorageInterface
 
     public function salvarConteudo(string $conteudo, string $diretorio, string $extensao): string;
 
+    /**
+     * Move um arquivo já existente em disco para o armazenamento, sem reler o conteúdo em memória.
+     * Ideal para arquivos grandes (ex.: download em streaming do Drive → storage). Retorna o nome
+     * único gerado. O arquivo de origem deixa de existir no caminho original em caso de sucesso.
+     */
+    public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string;
+
     public function servir(string $caminhoCompleto, string $nomeOriginal, bool $inline = true): BinaryFileResponse;
 
     public function excluir(string $caminhoCompleto): void;

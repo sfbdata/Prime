@@ -403,10 +403,10 @@
                                     <div class="col-12 col-sm-6 col-lg-4">
                                         <p class="text-sm text-muted mb-1">Ação</p>
                                         <b>
-                                            {% if pasta.processoPrincipal %}
-                                                {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
-                                            {% elseif pasta.nomeAcao %}
+                                            {% if pasta.nomeAcao %}
                                                 {{ pasta.nomeAcao }}
+                                            {% elseif pasta.processoPrincipal %}
+                                                {{ pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso }}
                                             {% else %}
                                                 <span class="text-muted">—</span>
                                             {% endif %}
