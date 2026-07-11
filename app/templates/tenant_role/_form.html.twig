@@ -164,6 +164,44 @@
             {% endfor %}
         </div>
 
+        {# Fallback: permissões de 'resources' fora dos subgrupos hardcoded (ex.: Cobranças). Sem isto elas
+           ficam SEM render → form.permissions parcial → o form_rest (do form_end) re-renderiza o widget
+           inteiro e quebra com "Field 0 has already been rendered". Aqui garantimos que TODA permissão de
+           recurso seja renderizada (e portanto concedível), robusto a novos módulos. #}
+        {% set knownResourceCodes = [] %}
+        {% for subkey in resourceSubgroups|keys %}
+            {% for action in actionLabels|keys %}
+                {% set knownResourceCodes = knownResourceCodes|merge(['resources.' ~ subkey ~ '.' ~ action]) %}
+            {% endfor %}
+        {% endfor %}
+        {% set outrosCodes = [] %}
+        {% for perm in allPermissions.resources %}
+            {% if perm.code not in knownResourceCodes %}{% set outrosCodes = outrosCodes|merge([perm.code]) %}{% endif %}
+        {% endfor %}
+        {% if outrosCodes|length %}
+        <div class="row g-3 mt-1">
+            <div class="col-12">
+                <div class="card border-secondary">
+                    <div class="card-header py-2 bg-body-tertiary">
+                        <strong class="small"><i class="bi bi-grid me-1"></i>Outros recursos</strong>
+                    </div>
+                    <div class="card-body p-2 d-flex flex-column gap-1">
+                        {% for child in form.permissions %}
+                            {% if child.vars.value in outrosCodes %}
+                                <div class="perm-check perm-group-resources d-flex align-items-center gap-2">
+                                    {{ form_widget(child, {attr: {class: 'form-check-input flex-shrink-0 mt-0 ms-0'}}) }}
+                                    <label class="small mb-0" for="{{ child.vars.id }}">
+                                        <i class="bi bi-dot me-1 text-muted"></i>{{ child.vars.label }}
+                                    </label>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
     </div>
 </div>
 {% endif %}
