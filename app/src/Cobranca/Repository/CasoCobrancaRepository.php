@@ -133,8 +133,16 @@ class CasoCobrancaRepository extends ServiceEntityRepository
      */
     public function daCarteira(Carteira $carteira): array
     {
+        // Fetch-join (addSelect) de objeto/carteira/pessoa: o `CasoResumoOutput` monta a linha a partir
+        // dessas associações to-one; sem o fetch-join cada caso dispararia hidratação lazy (a pessoa é
+        // ~distinta por caso → N+1). ManyToOne → não multiplicam linhas; sem paginação aqui → seguro.
         return $this->createQueryBuilder('c')
             ->innerJoin('c.objeto', 'o')
+            ->addSelect('o')
+            ->leftJoin('o.carteira', 'cart')
+            ->addSelect('cart')
+            ->leftJoin('c.pessoaCobradaAtual', 'p')
+            ->addSelect('p')
             ->addSelect('COALESCE(c.atualizadoEm, c.criadoEm) AS HIDDEN ordCol')
             ->andWhere('o.carteira = :carteira')
             ->andWhere('c.tenant = :tenant')

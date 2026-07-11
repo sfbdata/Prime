@@ -33,16 +33,16 @@ final class MontarVisaoCarteiraUseCase
     {
         $casos = $this->casoRepository->daCarteira($carteira);
 
+        // Saldos derivados em LOTE (uma carga tenant-scoped) — fim do N+1 de saldoExigivel+saldoVencido
+        // por caso. Mesma regra dos métodos por-caso (via `CalculadoraSaldo::saldosDosCasos`).
+        $saldos = $this->calculadoraSaldo->saldosDosCasos($casos, $carteira->getTenant());
+
         $saldoConsolidado = 0;
         $casosOutput = [];
         foreach ($casos as $caso) {
-            $saldoExigivel = $this->calculadoraSaldo->saldoExigivel($caso);
-            $saldoConsolidado += $saldoExigivel;
-            $casosOutput[] = CasoResumoOutput::fromEntity(
-                $caso,
-                $saldoExigivel,
-                $this->calculadoraSaldo->saldoVencido($caso),
-            );
+            $saldo = $saldos[$caso->getId() ?? 0] ?? ['exigivel' => 0, 'vencido' => 0];
+            $saldoConsolidado += $saldo['exigivel'];
+            $casosOutput[] = CasoResumoOutput::fromEntity($caso, $saldo['exigivel'], $saldo['vencido']);
         }
 
         return [

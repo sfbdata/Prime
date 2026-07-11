@@ -79,4 +79,33 @@ class VinculoPessoaObjetoRepository extends ServiceEntityRepository
 
         return $pessoas;
     }
+
+    /**
+     * Vínculos ABERTOS (dataFim NULL) dos objetos informados, com a PESSOA fetch-joined (`addSelect`) —
+     * para a visão da carteira ler `pessoa->getNome()` por vínculo sem disparar hidratação lazy (N+1).
+     * `pessoa` é `nullable: false` → `innerJoin` seguro (não descarta linhas). Escopo por tenant explícito.
+     * `$objetos` vazio → `[]`.
+     *
+     * @param ObjetoCobranca[] $objetos
+     *
+     * @return VinculoPessoaObjeto[]
+     */
+    public function abertosDosObjetosComPessoa(array $objetos, Tenant $tenant): array
+    {
+        if ($objetos === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('v')
+            ->innerJoin('v.pessoa', 'p')
+            ->addSelect('p')
+            ->andWhere('v.objeto IN (:objetos)')
+            ->andWhere('v.tenant = :tenant')
+            ->andWhere('v.dataFim IS NULL')
+            ->setParameter('objetos', $objetos)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('v.dataInicio', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

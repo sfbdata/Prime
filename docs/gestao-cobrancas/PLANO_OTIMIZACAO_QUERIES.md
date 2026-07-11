@@ -46,7 +46,7 @@ com dezenas de milhares de casos; ponto de evolução (chunk / materialização)
 |---|---|---:|---:|---|
 | Dashboard | `/cobrancas/painel` | 42 | **44** (+2 = O(#carteiras), NÃO O(casos); ver nota P1) | ✅ (já era batch) |
 | Central de Alertas | `/cobrancas/alertas` | **1592** | **44** (~36×; 960→237 ms SQL) | ✅ P1 |
-| Visão da Carteira (TOPLIFE I, 81 casos) | `/cobrancas/carteiras/1` | **876** | — | P2 |
+| Visão da Carteira (TOPLIFE I, 81 casos) | `/cobrancas/carteiras/1` | **876** | **221** (Cobrança O(1); resíduo = N+1 de autorização, ver nota P2) | ✅ P2 |
 | Lista de Casos (20/página) | `/cobrancas/casos` | **199** | — | P3 |
 | Lista de Carteiras (2) | `/cobrancas` | 40 | — | P4 |
 | Detalhe do Caso | `/cobrancas/casos/101` | 96 | — | P4 (dedupe) |
@@ -61,6 +61,29 @@ com dezenas de milhares de casos; ponto de evolução (chunk / materialização)
 > A dupla-carga de `exigiveis` do `alertasDosCasos` (achado MENOR do review de P0) foi **mantida** (O(1); a
 > página está no piso de framework e o identity-map do Doctrine deduplica a hidratação) — não justifica inflar
 > a API da `CalculadoraSaldo`.
+
+> **Nota P2 (Visão da Carteira):** `MontarVisaoCarteiraUseCase` passou a derivar saldo via
+> `CalculadoraSaldo::saldosDosCasos` (lote) e `CasoCobrancaRepository::daCarteira` ganhou fetch-join de
+> objeto/carteira/pessoa (mata a hidratação lazy do `CasoResumoOutput`). Também foi corrigido um N+1 residual
+> no controller: `CarteiraController::objetosDaCarteira` fazia `$vinculo->getPessoa()->getNome()` por vínculo
+> (hidratação lazy) — novo `VinculoPessoaObjetoRepository::abertosDosObjetosComPessoa` faz fetch-join da pessoa.
+> Teste de UseCase novo `MontarVisaoCarteiraUseCaseTest` (saldoConsolidado + saldos por caso batem com o
+> per-caso). **Resultado: 876 → 221.** As queries de **Cobrança** na página caíram a O(1) (uma por dataset:
+> caso/obrigação/alocação/liquidação/vínculo/objeto/carteira). O resíduo dominante (**~202 queries
+> `user_tenant`**) NÃO é de Cobrança — é um **N+1 da camada de AUTORIZAÇÃO** (ver follow-up abaixo).
+
+### ⚠️ Follow-up SEPARADO (fora do escopo deste plano) — N+1 de autorização `user_tenant`
+
+Ao medir P2 apareceu um N+1 **pré-existente e transversal** (estava nos 876 originais; não é regressão): o
+`PermissionChecker::hasPermission` (`app/src/Service/PermissionChecker.php:126`) e o `TenantContext`
+(`app/src/Service/Tenant/TenantContext.php:47,60`) fazem `UserTenant::findOneBy(['user','tenant'])` **a cada
+chamada**, sem memoização por request. Toda página que checa permissão/capacidade num loop paga uma query
+`SELECT ... FROM user_tenant WHERE user_id=? AND tenant_id=? LIMIT 1` por iteração — na Visão da Carteira são
+~202 (≈ por caso + por objeto). **Isto é da camada de AUTORIZAÇÃO, MÉDIO risco (regida por
+`docs/AUTORIZACAO.md`), compartilhada por todo o app — NÃO é o N+1 de saldo/hidratação que este plano ataca.**
+Fix provável: memoizar o `UserTenant` por `(user_id, tenant_id)` dentro do request no `PermissionChecker`/
+`TenantContext`. Derrubaria a Visão da Carteira de ~221 para ~44 (piso de framework) e beneficiaria o app
+inteiro. **Decisão do humano** (tarefa própria, com spec, fora desta frente de perf de Cobrança).
 
 ## 2. Passo P0 — extrair primitivas batch reutilizáveis (fazer PRIMEIRO)
 

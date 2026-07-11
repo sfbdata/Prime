@@ -277,10 +277,7 @@ final class CarteiraController extends AbstractController
 
         $vinculosPorObjeto = [];
         if ($objetos !== []) {
-            $vinculosAbertos = $this->vinculoRepository->findBy(
-                ['objeto' => $objetos, 'tenant' => $tenant, 'dataFim' => null],
-                ['dataInicio' => 'ASC'],
-            );
+            $vinculosAbertos = $this->vinculoRepository->abertosDosObjetosComPessoa($objetos, $tenant);
             foreach ($vinculosAbertos as $vinculo) {
                 $objetoId = $vinculo->getObjeto()?->getId();
                 if ($objetoId === null) {
