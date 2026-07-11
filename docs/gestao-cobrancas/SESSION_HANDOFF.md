@@ -33,6 +33,9 @@ Camada visual final de LEITURA, visão do ESCRITÓRIO (não per-caso):
 - `CalculadoraHonorarios` e `AlertasCobranca` são `final` → **não mockáveis**: os testes de UseCase são DB-backed (KernelTestCase + Foundry + serviços reais montados no setUp), não unit com mocks.
 
 ## PRÓXIMA AÇÃO — Preparo de deploy/homologação (NÃO é mais implementação)
+> **Checklist final consolidado em `docs/gestao-cobrancas/RELEASE_CHECKLIST.md`** (pré-merge / pré-deploy /
+> pós-deploy, smoke manual, riscos, rollback, comandos seguros de validação). Use-o como guia do humano.
+
 1. **Data-migration de permissões `cobrancas` + `resources.cobranca.*` para PRODUÇÃO** (dev/test já têm via fixture). É o ÚNICO item de banco que falta para prod usar o módulo. Gerar migration idempotente que insere as Permissions e concede aos papéis system.
 2. **Semear grafo realista no dev + smoke manual no navegador** (dev não tem dados de Cobrança — módulo novo, ausente do dump de prod): validar drag/upload XHR de documentos (8C-B), fluxo visual de importação (8C-A), file-manager, e as telas novas **Painel** (`/cobrancas/painel`) e **Alertas** (`/cobrancas/alertas`). Os testes funcionais já provam a renderização real no container (smoke de render OK) — falta o smoke de interação JS.
 3. **Deploy** via `deploy-prod-tls.sh` (rebuild) — só no fim. **Nenhuma migration nova nas Etapas 8–9**; só a data-migration de permissões do item 1.

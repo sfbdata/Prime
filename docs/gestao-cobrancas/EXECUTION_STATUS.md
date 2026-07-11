@@ -190,6 +190,7 @@ Camada HTTP de **LEITURA** (só GET; mutação = 8B). Spec `docs/specs/cobranca-
 
 ## Próxima ação exata
 > **Etapas 0–9 CONCLUÍDAS. A implementação da feature está COMPLETA.** HEAD `3cd426a`; `tests/Cobranca` 398/398, GLOBAL 1679/1679; tenant-safety + revisão adversarial SEM bloqueante em todas as etapas.
+> **Checklist final de merge/deploy: `docs/gestao-cobrancas/RELEASE_CHECKLIST.md`** (bloqueador nº1 = data-migration de permissões p/ prod).
 > **Resta apenas o PREPARO DE DEPLOY/HOMOLOGAÇÃO (não bloqueia a feature; decisão do humano):**
 > 1. **Data-migration de permissões `cobrancas`/`resources.cobranca.*` para PRODUÇÃO** (dev/test já via fixture). É o único item que falta para prod poder usar o módulo.
 > 2. **Semear um grafo realista no dev** e validar manualmente no navegador: drag/upload XHR de documentos (8C-B), fluxo visual de importação (8C-A), file-manager, e as novas telas Painel/Alertas (9). Dev não tem dados de Cobrança (módulo novo, ausente do dump de prod). Os testes funcionais já renderizam os templates reais no container (smoke de renderização OK).
