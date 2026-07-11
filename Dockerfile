@@ -74,7 +74,7 @@ COPY app/ ./
 RUN printf "APP_ENV=prod\nAPP_SECRET=build_placeholder\nDATABASE_URL=pgsql://u:p@db:5432/db\nMAILER_DSN=null://null\nDATAJUD_API_KEY=x\nDATAJUD_BASE_URL=x\nDEFAULT_URI=http://localhost\n" > .env
 
 RUN composer dump-autoload --classmap-authoritative --no-dev --no-interaction \
-    && APP_ENV=prod APP_DEBUG=0 php bin/console cache:warmup
+    && APP_ENV=prod APP_DEBUG=0 php -d memory_limit=512M bin/console cache:warmup
 
 RUN rm .env
 
