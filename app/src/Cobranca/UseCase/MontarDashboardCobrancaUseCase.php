@@ -91,6 +91,26 @@ final class MontarDashboardCobrancaUseCase
         $acoesPorCaso = $this->proximaAcaoRepository->ativasDosCasos($casoIds, $tenant);
         $revisaoPendente = array_fill_keys($this->revisaoRepository->casoIdsComPendente($casoIds, $tenant), true);
 
+        // Σ reconhecido de liquidações por caso (a partir do lote já carregado — sem query extra).
+        $liquidadoPorCaso = [];
+        foreach ($liquidacoesPorCaso as $cid => $liquidacoesDoCaso) {
+            $soma = 0;
+            foreach ($liquidacoesDoCaso as $liquidacao) {
+                $soma += $liquidacao->getValorReconhecido();
+            }
+            $liquidadoPorCaso[$cid] = $soma;
+        }
+
+        // Saldos derivados em LOTE reusando a primitiva compartilhada (mesma regra pura `derivarSaldos`),
+        // sobre os datasets já em memória — nenhuma carga adicional (mantém a contagem de queries do Dashboard).
+        $saldosPorCaso = $this->calculadoraSaldo->derivarSaldosDosCasos(
+            $casos,
+            $exigiveisPorCaso,
+            $alocadoPorObrigacao,
+            $liquidadoPorCaso,
+            $hoje,
+        );
+
         $saldoEmAberto = 0;
         $saldoVencido = 0;
         $valorRecuperadoNoPeriodo = 0;
@@ -115,12 +135,10 @@ final class MontarDashboardCobrancaUseCase
             $liquidacoes = $liquidacoesPorCaso[$casoId] ?? [];
 
             // Resultado acumulado (all-time): pagamentos (parte da dívida) + liquidações reconhecidas.
-            $totalLiquidadoDoCaso = 0;
             foreach ($pagamentos as $pagamento) {
                 $valorTotalRecuperado += $pagamento->valorRecuperadoDivida();
             }
             foreach ($liquidacoes as $liquidacao) {
-                $totalLiquidadoDoCaso += $liquidacao->getValorReconhecido();
                 $valorTotalRecuperado += $liquidacao->getValorReconhecido();
             }
 
@@ -157,7 +175,7 @@ final class MontarDashboardCobrancaUseCase
             }
 
             $exigiveis = $exigiveisPorCaso[$casoId] ?? [];
-            $saldos = $this->calculadoraSaldo->derivarSaldos($exigiveis, $alocadoPorObrigacao, $totalLiquidadoDoCaso, $hoje);
+            $saldos = $saldosPorCaso[$casoId] ?? ['exigivel' => 0, 'vencido' => 0];
             $saldoExigivelCaso = $saldos['exigivel'];
 
             $saldoEmAberto += $saldoExigivelCaso;

@@ -6,10 +6,13 @@ namespace App\Cobranca\Service;
 
 use App\Cobranca\DTO\AlertaCobranca;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Entity\ProximaAcao;
 use App\Cobranca\Enum\TipoAlerta;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
+use App\Entity\Tenant\Tenant;
 
 /**
  * Deriva os alertas operacionais de um Caso de Cobrança (SPEC §14, invariável 28: o sistema alerta,
@@ -49,9 +52,96 @@ final class AlertasCobranca
         }
 
         $hoje ??= new \DateTimeImmutable();
-        $alertas = [];
 
-        $exigiveis = $this->obrigacaoRepository->doCasoExigiveis($caso);
+        // Carga por-caso (usada pelo detalhe do caso; mantém o N+1 aceitável de 1 caso só).
+        return $this->montarAlertas(
+            $this->obrigacaoRepository->doCasoExigiveis($caso),
+            $this->proximaAcaoRepository->findAtivaDoCaso($caso),
+            $this->calculadoraSaldo->saldoExigivel($caso),
+            $this->revisaoRepository->existePendenteDoCaso($caso),
+            $hoje,
+        );
+    }
+
+    /**
+     * Versão em LOTE de `alertasDoCaso` para a visão tenant-wide (Central de Alertas, Etapa 9) — evita o
+     * N+1 de ~6 queries por caso. Carrega de UMA vez, para todos os casos: obrigações exigíveis, ações
+     * pendentes, revisões pendentes e os saldos (via `CalculadoraSaldo::saldosDosCasos`), e deriva os
+     * MESMOS alertas por caso via `montarAlertas` — mesma regra de `alertasDoCaso`, que fica intacto.
+     * Caso encerrado → `[]` (idêntico). Tenant SEMPRE explícito nas cargas; `$casos` vazio → `[]`.
+     * `$hoje` injetável (default = agora).
+     *
+     * @param CasoCobranca[] $casos
+     *
+     * @return array<int, AlertaCobranca[]> casoId => alertas
+     */
+    public function alertasDosCasos(array $casos, Tenant $tenant, ?\DateTimeImmutable $hoje = null): array
+    {
+        if ($casos === []) {
+            return [];
+        }
+
+        $hoje ??= new \DateTimeImmutable();
+
+        $casoIds = [];
+        foreach ($casos as $caso) {
+            $id = $caso->getId();
+            if ($id !== null) {
+                $casoIds[] = $id;
+            }
+        }
+
+        $exigiveisPorCaso = [];
+        foreach ($this->obrigacaoRepository->exigiveisDosCasos($casoIds, $tenant) as $obrigacao) {
+            $casoId = $obrigacao->getCaso()?->getId();
+            if ($casoId !== null) {
+                $exigiveisPorCaso[$casoId][] = $obrigacao;
+            }
+        }
+
+        $acoesPorCaso = $this->proximaAcaoRepository->ativasDosCasos($casoIds, $tenant);
+        $revisaoPendente = array_fill_keys($this->revisaoRepository->casoIdsComPendente($casoIds, $tenant), true);
+        $saldosPorCaso = $this->calculadoraSaldo->saldosDosCasos($casos, $tenant, $hoje);
+
+        $resultado = [];
+        foreach ($casos as $caso) {
+            $casoId = $caso->getId() ?? 0;
+
+            // Encerrado é estado final: sem alertas operacionais (mesma decisão de `alertasDoCaso`).
+            if ($caso->estaEncerrado()) {
+                $resultado[$casoId] = [];
+
+                continue;
+            }
+
+            $resultado[$casoId] = $this->montarAlertas(
+                $exigiveisPorCaso[$casoId] ?? [],
+                $acoesPorCaso[$casoId] ?? null,
+                $saldosPorCaso[$casoId]['exigivel'] ?? 0,
+                isset($revisaoPendente[$casoId]),
+                $hoje,
+            );
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Regra ÚNICA de derivação dos alertas operacionais, a partir de fatos JÁ RESOLVIDOS do caso (SPEC §14).
+     * Fonte compartilhada por `alertasDoCaso` (per-caso) e `alertasDosCasos` (lote) — nenhuma regra duplicada.
+     *
+     * @param Obrigacao[] $exigiveis obrigações EXIGÍVEIS do caso
+     *
+     * @return AlertaCobranca[]
+     */
+    private function montarAlertas(
+        array $exigiveis,
+        ?ProximaAcao $acaoAtiva,
+        int $saldoExigivel,
+        bool $temRevisaoPendente,
+        \DateTimeImmutable $hoje,
+    ): array {
+        $alertas = [];
         $vencidas = 0;
         $parcelasVencidas = 0;
 
@@ -82,8 +172,6 @@ final class AlertasCobranca
             );
         }
 
-        $acaoAtiva = $this->proximaAcaoRepository->findAtivaDoCaso($caso);
-
         if ($acaoAtiva !== null && $acaoAtiva->estaAtrasada($hoje)) {
             $alertas[] = new AlertaCobranca(
                 TipoAlerta::AcaoAtrasada,
@@ -92,7 +180,7 @@ final class AlertasCobranca
         }
 
         // Saldo exigível zero (e caso não encerrado): pronto para o gestor decidir encerrar (SPEC §14).
-        if ($this->calculadoraSaldo->saldoExigivel($caso) === 0) {
+        if ($saldoExigivel === 0) {
             $alertas[] = new AlertaCobranca(
                 TipoAlerta::ProntoParaEncerrar,
                 'Saldo exigível zerado: pronto para encerrar.',
@@ -100,7 +188,7 @@ final class AlertasCobranca
         }
 
         // Revisão de pessoa cobrada pendente (§8): cessa assim que a revisão é resolvida.
-        if ($this->revisaoRepository->existePendenteDoCaso($caso)) {
+        if ($temRevisaoPendente) {
             $alertas[] = new AlertaCobranca(
                 TipoAlerta::RevisaoPendente,
                 'Há revisão de vínculo pendente de decisão.',

@@ -10,6 +10,7 @@ use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
+use App\Entity\Tenant\Tenant;
 
 /**
  * Deriva o saldo do Caso de Cobrança a partir das obrigações e dos movimentos (SPEC §10,
@@ -145,5 +146,90 @@ class CalculadoraSaldo
             'exigivel' => $bruto - $alocadoTotal - $totalLiquidado,
             'vencido' => max(0, $brutoVencido - $alocadoVencidas - $totalLiquidado),
         ];
+    }
+
+    /**
+     * Deriva os saldos (exigível/vencido) de VÁRIOS casos a partir de datasets JÁ CARREGADOS em lote —
+     * é o núcleo de ORQUESTRAÇÃO sem I/O, reaproveitado tanto por `saldosDosCasos` (que carrega e delega)
+     * quanto pelo Dashboard (que já tem os datasets em mãos e não deve recarregá-los). Aplica a MESMA regra
+     * pura `derivarSaldos` por caso — nenhuma regra nova. `$alocadoPorObrigacao` é global (obrigacaoId => Σ
+     * alocado); `$liquidadoPorCaso` é o Σ reconhecido de liquidações por caso.
+     *
+     * @param CasoCobranca[]                                $casos
+     * @param array<int, \App\Cobranca\Entity\Obrigacao[]>  $exigiveisPorCaso    casoId => obrigações exigíveis
+     * @param array<int, int>                               $alocadoPorObrigacao obrigacaoId => Σ alocado (centavos)
+     * @param array<int, int>                               $liquidadoPorCaso    casoId => Σ liquidação reconhecida (centavos)
+     *
+     * @return array<int, array{exigivel: int, vencido: int}> casoId => saldos
+     */
+    public function derivarSaldosDosCasos(
+        array $casos,
+        array $exigiveisPorCaso,
+        array $alocadoPorObrigacao,
+        array $liquidadoPorCaso,
+        \DateTimeImmutable $hoje,
+    ): array {
+        $saldos = [];
+
+        foreach ($casos as $caso) {
+            $casoId = $caso->getId() ?? 0;
+            $saldos[$casoId] = $this->derivarSaldos(
+                $exigiveisPorCaso[$casoId] ?? [],
+                $alocadoPorObrigacao,
+                $liquidadoPorCaso[$casoId] ?? 0,
+                $hoje,
+            );
+        }
+
+        return $saldos;
+    }
+
+    /**
+     * Saldos (exigível/vencido) de VÁRIOS casos numa carga em LOTE — evita o N+1 de chamar
+     * `saldoExigivel`/`saldoVencido` por caso (fonte do gargalo nas telas tenant-wide e por carteira).
+     * Carrega, de UMA vez para todos os casos, as obrigações exigíveis, as somas de alocação por obrigação
+     * e as liquidações; agrupa e deriva via `derivarSaldosDosCasos` (mesma regra dos métodos por-caso, que
+     * ficam intactos). Tenant SEMPRE explícito nas cargas; `$casos` vazio → `[]`. `$hoje` injetável para
+     * testes determinísticos (default = agora), igual ao `saldoVencido` por-caso.
+     *
+     * @param CasoCobranca[] $casos
+     *
+     * @return array<int, array{exigivel: int, vencido: int}> casoId => saldos
+     */
+    public function saldosDosCasos(array $casos, Tenant $tenant, ?\DateTimeImmutable $hoje = null): array
+    {
+        if ($casos === []) {
+            return [];
+        }
+
+        $hoje ??= new \DateTimeImmutable();
+
+        $casoIds = [];
+        foreach ($casos as $caso) {
+            $id = $caso->getId();
+            if ($id !== null) {
+                $casoIds[] = $id;
+            }
+        }
+
+        $exigiveisPorCaso = [];
+        foreach ($this->obrigacaoRepository->exigiveisDosCasos($casoIds, $tenant) as $obrigacao) {
+            $casoId = $obrigacao->getCaso()?->getId();
+            if ($casoId !== null) {
+                $exigiveisPorCaso[$casoId][] = $obrigacao;
+            }
+        }
+
+        $alocadoPorObrigacao = $this->alocacaoRepository->somasPorObrigacaoDosCasos($casoIds, $tenant);
+
+        $liquidadoPorCaso = [];
+        foreach ($this->liquidacaoRepository->dosCasos($casoIds, $tenant) as $liquidacao) {
+            $casoId = $liquidacao->getCaso()?->getId();
+            if ($casoId !== null) {
+                $liquidadoPorCaso[$casoId] = ($liquidadoPorCaso[$casoId] ?? 0) + $liquidacao->getValorReconhecido();
+            }
+        }
+
+        return $this->derivarSaldosDosCasos($casos, $exigiveisPorCaso, $alocadoPorObrigacao, $liquidadoPorCaso, $hoje);
     }
 }

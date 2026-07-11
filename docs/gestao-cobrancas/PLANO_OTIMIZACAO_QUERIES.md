@@ -37,7 +37,30 @@ com dezenas de milhares de casos; ponto de evolução (chunk / materialização)
 | **Detalhe do Caso** `MontarDetalheCasoUseCase` | `/cobrancas/casos/{id}` | 1 caso (sem N+1 de lista); `saldoExigivel` recalculado dentro de `alertasDoCaso` (redundância) | 1 caso | **P4 (menor, dedupe)** |
 | Importação preview | `/carteiras/{id}/importar/prever` | lê arquivo (não é N+1 de DB) | — | — |
 
+### 1.1 Medições reais (profiler do dev, tenant 1 = TOPLIFE I+II: 2 carteiras / 194 casos / 3270 obrigações / 0 encerrados)
+
+> Baseline capturado em 2026-07-11 no navegador (super-admin farlei), contador "Database Queries" da toolbar.
+> A coluna DEPOIS é preenchida ao fim de cada fase.
+
+| Página | Rota | ANTES | DEPOIS | Fase |
+|---|---|---:|---:|---|
+| Dashboard | `/cobrancas/painel` | 42 | **42** (sem regressão após P0) | ✅ (já era batch) |
+| Central de Alertas | `/cobrancas/alertas` | **1592** | — | P1 |
+| Visão da Carteira (TOPLIFE I, 81 casos) | `/cobrancas/carteiras/1` | **876** | — | P2 |
+| Lista de Casos (20/página) | `/cobrancas/casos` | **199** | — | P3 |
+| Lista de Carteiras (2) | `/cobrancas` | 40 | — | P4 |
+| Detalhe do Caso | `/cobrancas/casos/101` | 96 | — | P4 (dedupe) |
+
 ## 2. Passo P0 — extrair primitivas batch reutilizáveis (fazer PRIMEIRO)
+
+> **✅ P0.1 + P0.2 CONCLUÍDOS (2026-07-11).** Extraídas as primitivas de saldo/alerta e o Dashboard foi
+> refatorado para reusar `derivarSaldosDosCasos` (dedup da orquestração inline) SEM regressão de query
+> (42→42). Teste de equivalência `CobrancaBatchConsistenciaTest` (saldo + alertas batem caso-a-caso com os
+> métodos por-caso, cenário com alocação+liquidação). Revisão adversarial SEM bloqueante. `tests/Cobranca`
+> 404/404. **P0.3 (fetch-joins nas listagens) foi movido para as fases que os consomem (P1/P2/P3/P4)** — cada
+> fetch-join só tem efeito verificável na página que hidrata o DTO correspondente, então é aplicado e medido
+> lá. Achado MENOR aceito: `alertasDosCasos` recarrega `exigiveis` ao chamar `saldosDosCasos` (O(1), sem
+> N+1) — reavaliar a fiação na P1.
 
 Hoje a orquestração batch está **inline** no `MontarDashboardCobrancaUseCase`. Antes de replicar, extrair
 para serviços, para que Alertas/Carteira/Caso reusem sem duplicar:
