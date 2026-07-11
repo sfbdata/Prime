@@ -205,6 +205,11 @@ final class ArquivoStorageStub implements ArquivoStorageInterface
         throw new \LogicException('Não deve ser chamado nos testes de unidade.');
     }
 
+    public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string
+    {
+        throw new \LogicException('Não deve ser chamado nos testes de unidade.');
+    }
+
     public function caminho(string $diretorio, string $nomeArquivo): string
     {
         return $diretorio . '/' . $nomeArquivo;

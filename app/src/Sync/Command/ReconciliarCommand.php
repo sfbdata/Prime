@@ -640,19 +640,14 @@ final class ReconciliarCommand extends Command
         }
         $nomeStorage = null;
         try {
-            // TODO (Fork 2 / D8): baixar em streaming direto para o storage, sem carregar o arquivo
-            // inteiro em memória. O encanamento resumável/streaming fica para a Fase 1a (validação
-            // manual contra o Shared Drive real). O motor já é path-based, então não há retrabalho aqui.
+            // Fork 2 / D8: o client baixa em streaming direto para o $tmp (sem carregar o arquivo
+            // inteiro em memória) e aqui o $tmp é MOVIDO para o storage, também sem reler o conteúdo.
             $this->drive->baixarArquivo($arq['id'], $tmp);
-            $conteudo = file_get_contents($tmp);
-            if ($conteudo === false) {
-                throw new \RuntimeException('Falha ao ler o arquivo baixado do Drive.');
-            }
             $extensao = pathinfo($arq['nome'], PATHINFO_EXTENSION);
             if ($extensao === '') {
                 $extensao = 'bin';
             }
-            $nomeStorage = $this->storage->salvarConteudo($conteudo, $this->uploadsDir, $extensao);
+            $nomeStorage = $this->storage->moverParaArmazenamento($tmp, $this->uploadsDir, $extensao);
 
             $pasta = $this->em->find(Pasta::class, $pastaId);
             if ($pasta === null) {

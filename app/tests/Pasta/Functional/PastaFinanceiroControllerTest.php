@@ -119,6 +119,11 @@ final class PastaFinanceiroControllerTest extends JusPrimeWebTestCase
                 return 'fake_' . uniqid() . '.' . $extensao;
             }
 
+            public function moverParaArmazenamento(string $caminhoOrigem, string $diretorio, string $extensao): string
+            {
+                return 'fake_' . uniqid() . '.' . $extensao;
+            }
+
             public function caminho(string $diretorio, string $nomeArquivo): string
             {
                 return $diretorio . '/' . $nomeArquivo;

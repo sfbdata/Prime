@@ -56,7 +56,7 @@ services:
             string $ghostscriptBin: '%ghostscript_bin%'
             int $tenantMaxPorUsuario: '%tenant_max_por_usuario%'
             int $carenciaPurgaDias: '%tenant_carencia_purga_dias%'
-            string $googleDriveCredentials: '%google_drive_credentials%'
+            $googleDriveCredentials: '%google_drive_credentials%'
             string $googleDriveSharedDriveId: '%google_drive_shared_drive_id%'
             string $googleDriveOauthClientId: '%google_drive_oauth_client_id%'
             string $googleDriveOauthClientSecret: '%google_drive_oauth_client_secret%'
