@@ -38,6 +38,9 @@ final class MontarCentralAlertasUseCase
 
         $casos = $this->casoRepository->doTenant($tenant, $carteira);
 
+        // Alertas derivados em LOTE (uma carga tenant-scoped) — fim do N+1 de ~6 queries por caso.
+        $alertasPorCaso = $this->alertasCobranca->alertasDosCasos($casos, $tenant, $hoje);
+
         /** @var array<int, array{nome: string, casos: CasoComAlertasOutput[], total: int}> $grupos */
         $grupos = [];
         /** @var array<string, int> $contagemPorTipo */
@@ -46,7 +49,7 @@ final class MontarCentralAlertasUseCase
         $totalAlertas = 0;
 
         foreach ($casos as $caso) {
-            $alertas = $this->alertasCobranca->alertasDoCaso($caso, $hoje);
+            $alertas = $alertasPorCaso[$caso->getId() ?? 0] ?? [];
 
             if ($alertas === []) {
                 continue;

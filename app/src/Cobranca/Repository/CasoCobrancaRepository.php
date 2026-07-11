@@ -157,8 +157,16 @@ class CasoCobrancaRepository extends ServiceEntityRepository
      */
     public function doTenant(Tenant $tenant, ?Carteira $carteira = null): array
     {
+        // Fetch-join (addSelect) de objeto/carteira/pessoa: os consumidores tenant-wide (Central de Alertas,
+        // Dashboard) montam Output DTOs a partir dessas associações to-one; sem o fetch-join cada caso
+        // dispararia a hidratação lazy (N+1). São ManyToOne → não multiplicam linhas nem afetam a ordenação.
         $qb = $this->createQueryBuilder('c')
             ->innerJoin('c.objeto', 'o')
+            ->addSelect('o')
+            ->leftJoin('o.carteira', 'cart')
+            ->addSelect('cart')
+            ->leftJoin('c.pessoaCobradaAtual', 'p')
+            ->addSelect('p')
             ->addSelect('COALESCE(c.atualizadoEm, c.criadoEm) AS HIDDEN ordCol')
             ->andWhere('c.tenant = :tenant')
             ->setParameter('tenant', $tenant)

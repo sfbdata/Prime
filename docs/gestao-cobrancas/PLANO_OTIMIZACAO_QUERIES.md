@@ -44,12 +44,23 @@ com dezenas de milhares de casos; ponto de evolução (chunk / materialização)
 
 | Página | Rota | ANTES | DEPOIS | Fase |
 |---|---|---:|---:|---|
-| Dashboard | `/cobrancas/painel` | 42 | **42** (sem regressão após P0) | ✅ (já era batch) |
-| Central de Alertas | `/cobrancas/alertas` | **1592** | — | P1 |
+| Dashboard | `/cobrancas/painel` | 42 | **44** (+2 = O(#carteiras), NÃO O(casos); ver nota P1) | ✅ (já era batch) |
+| Central de Alertas | `/cobrancas/alertas` | **1592** | **44** (~36×; 960→237 ms SQL) | ✅ P1 |
 | Visão da Carteira (TOPLIFE I, 81 casos) | `/cobrancas/carteiras/1` | **876** | — | P2 |
 | Lista de Casos (20/página) | `/cobrancas/casos` | **199** | — | P3 |
 | Lista de Carteiras (2) | `/cobrancas` | 40 | — | P4 |
 | Detalhe do Caso | `/cobrancas/casos/101` | 96 | — | P4 (dedupe) |
+
+> **Nota P1 (Central de Alertas):** `MontarCentralAlertasUseCase` passou a usar `AlertasCobranca::alertasDosCasos`
+> (uma carga tenant-scoped) e `CasoCobrancaRepository::doTenant` ganhou fetch-join (`addSelect`) de
+> objeto/carteira/pessoa (associações to-one) para matar a hidratação lazy do `CasoComAlertasOutput` (a
+> `pessoa` é ~distinta por caso → sem o fetch-join seria N+1 de verdade). Como o `doTenant` é compartilhado, o
+> **Dashboard** herda o fetch-join e passou de 42→44: são **2 queries `cliente` = O(#carteiras)=2**, bounded,
+> NÃO O(casos) — não é N+1 (na própria Central, com 194 casos, `cliente` também são só ~2). Aceito: os números
+> do Dashboard seguem exatos (10 testes verdes) e ambas as telas tenant-wide ficam no piso de framework (~44).
+> A dupla-carga de `exigiveis` do `alertasDosCasos` (achado MENOR do review de P0) foi **mantida** (O(1); a
+> página está no piso de framework e o identity-map do Doctrine deduplica a hidratação) — não justifica inflar
+> a API da `CalculadoraSaldo`.
 
 ## 2. Passo P0 — extrair primitivas batch reutilizáveis (fazer PRIMEIRO)
 
