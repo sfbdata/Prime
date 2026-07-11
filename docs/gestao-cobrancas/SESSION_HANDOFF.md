@@ -1,17 +1,24 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: 2026-07-10 — **Etapa 9 CONCLUÍDA** (Dashboard + Central de Alertas). Com isso as **Etapas 0–9 estão COMPLETAS**: a implementação da feature Gestão de Cobranças está FECHADA. Só resta o **preparo de deploy/homologação** (não bloqueia; decisão do humano).
+> Sessão encerrada em: **2026-07-11 — ✅ MÓDULO 100% EM PRODUÇÃO E POPULADO.** Perf N+1 (P0–P4) + módulo Cobranças + migration de permissões mergeados no `master` e **deployados em prod** (bluejus.com.br); permissões concedidas aos papéis; smoke OK; **dados reais importados** (194 casos / 3270 obrigações). A feature está NO AR.
 
 ---
 
-## Estado atual
-- **Branch:** `gestao-cobrancas` (dedicada; `master` só com DJEN).
-- **HEAD:** `3cd426a`. Cadeia da Etapa 9 sobre `790fe95`: `c80b4e5` (spec) → `3cd426a` (implementação).
-- **Etapa:** **9 ✅ COMPLETA. Etapas 0–9 COMPLETAS.** Próximo = **preparo de deploy** (ver abaixo), não mais implementação.
-- **Suíte:** `tests/Cobranca` **398/398**; GLOBAL **1679/1679** (medido no HEAD `3cd426a`).
-- **Working tree:** limpo após o commit de docs (untracked só `.claude/worktrees/` + os `.xlsx` reais TOPLIFE gitignorados).
-- **Migrations:** **nenhuma nas Etapas 8–9** (só camada HTTP/visual). A ÚNICA pendência de banco p/ prod é a data-migration de permissões `cobrancas` (item de deploy, abaixo).
+## Estado atual (2026-07-11)
+- **`master` = `278ac2e`(+ hotfixes)`;** `gestao-cobrancas` mergeada ao master e deployada. Fluxo usado: caronas isoladas → ff-merge; `git merge origin/master` na branch (merge-commit LIMPO) → ff-merge; deploy.
+- **Suíte:** GLOBAL **1723/1723** medido no merge; depois +1 teste de regressão dos papéis (`TenantRoleFormRenderControllerTest`, em `tests/Tenant`). `tests/Cobranca` = 409. Reconferir com o Git.
+- **Deploy teve 3 correções pós-merge (todas em prod):** (1) `cache:warmup` OOM 128M → `-d memory_limit=512M` no Dockerfile+entrypoint (`c4d36d0`); (2) **500 na edição de papéis** — `_form.html.twig` hardcodava recursos; qualquer `resources.*` novo (Cobranças) quebrava o `form_rest` → bloco "Outros recursos" + teste `TenantRoleFormRenderControllerTest` (`0c2a780`); (3) sem terceiro — os dois acima.
+- **Import em prod:** comando CLI novo **`app:cobranca:importar`** (evita timeout HTTP do arquivo grande). TOP LIFE I/II importados (194 casos / 3270 obrig, = dev). Procedimento completo na memória `[[project_gestao_cobrancas]]` e no `DEPLOY_RUNBOOK.md`.
+- **Migrations em prod:** todas E2–E7 + permissões `Version20260711120000` aplicadas. As 2 "New" restantes = fantasmas antigas do Ponto (benignas).
+- **Working tree:** commits de docs/handoff podem ficar 1–2 à frente do master (docs, sem deploy). Untracked só `.claude/worktrees/` + `.xlsx` TOPLIFE gitignorados.
+
+### Follow-ups abertos (não bloqueiam; próximo chat)
+1. **Teste CommandTester** do `app:cobranca:importar` (o comando é wrapper verificado só por dry-run real; falta teste automatizado — contexto acabou).
+2. **N+1 de autorização `user_tenant`** (`PermissionChecker`/`TenantContext` re-consultam por chamada; transversal, MÉDIO risco) — ver `PLANO_OTIMIZACAO_QUERIES.md` §1.1.
+3. `RELEASE_CHECKLIST.md` já tem banner de deploy; ajuste fino se quiser.
+
+_(Histórico da implementação Etapas 0–9 preservado abaixo.)_
 
 ## Commits desta sessão (sobre `790fe95`)
 - `c80b4e5` — **spec da Etapa 9** (`docs/specs/cobranca-etapa9-dashboard-alertas.md`, risco MÉDIO), alvo da revisão.
