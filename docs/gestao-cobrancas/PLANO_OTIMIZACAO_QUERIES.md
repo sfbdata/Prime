@@ -47,7 +47,7 @@ com dezenas de milhares de casos; ponto de evolução (chunk / materialização)
 | Dashboard | `/cobrancas/painel` | 42 | **44** (+2 = O(#carteiras), NÃO O(casos); ver nota P1) | ✅ (já era batch) |
 | Central de Alertas | `/cobrancas/alertas` | **1592** | **44** (~36×; 960→237 ms SQL) | ✅ P1 |
 | Visão da Carteira (TOPLIFE I, 81 casos) | `/cobrancas/carteiras/1` | **876** | **221** (Cobrança O(1); resíduo = N+1 de autorização, ver nota P2) | ✅ P2 |
-| Lista de Casos (20/página) | `/cobrancas/casos` | **199** | — | P3 |
+| Lista de Casos (20/página) | `/cobrancas/casos` | **199** | **41** (piso de framework) | ✅ P3 |
 | Lista de Carteiras (2) | `/cobrancas` | 40 | — | P4 |
 | Detalhe do Caso | `/cobrancas/casos/101` | 96 | — | P4 (dedupe) |
 
@@ -84,6 +84,13 @@ chamada**, sem memoização por request. Toda página que checa permissão/capac
 Fix provável: memoizar o `UserTenant` por `(user_id, tenant_id)` dentro do request no `PermissionChecker`/
 `TenantContext`. Derrubaria a Visão da Carteira de ~221 para ~44 (piso de framework) e beneficiaria o app
 inteiro. **Decisão do humano** (tarefa própria, com spec, fora desta frente de perf de Cobrança).
+
+> **Nota P3 (Lista de Casos):** `ListarCasosUseCase` deriva saldo via `saldosDosCasos` sobre os casos da
+> PÁGINA; `findByFilters` ganhou fetch-join (`addSelect`) de objeto/carteira/pessoa — só no `findByFilters`,
+> NÃO no `baseFiltro` (compartilhado com `countByFilters` que usa `COUNT`, incompatível com `addSelect`).
+> Fetch-joins to-one → seguros com `setMaxResults` (paginação). Teste `ListarCasosUseCaseTest` (saldos da
+> página == per-caso; paginação/faceta de status/total íntegros). **Resultado: 199 → 41 (piso de framework;
+> esta lista não tem o N+1 de autorização do carteira_show).**
 
 ## 2. Passo P0 — extrair primitivas batch reutilizáveis (fazer PRIMEIRO)
 

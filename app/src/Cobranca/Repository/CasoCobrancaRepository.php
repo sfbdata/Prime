@@ -101,6 +101,13 @@ class CasoCobrancaRepository extends ServiceEntityRepository
         $qb = $this->baseFiltro($filtros, $tenant);
         $dir = strtolower($direcao) === 'asc' ? 'ASC' : 'DESC';
 
+        // Fetch-join (addSelect) das associações to-one que o `CasoResumoOutput` hidrata (objeto/carteira/
+        // pessoa) — mata o N+1 de hidratação lazy por caso da página. `o`/`p` já vêm de `baseFiltro`. Todas
+        // ManyToOne → seguras com `setMaxResults` (não multiplicam linhas, sem paginação em memória).
+        $qb->addSelect('o', 'p')
+            ->leftJoin('o.carteira', 'cart')
+            ->addSelect('cart');
+
         // COALESCE não é aceito direto no ORDER BY do DQL → alias HIDDEN (não altera o hidratado).
         if ($ordenar === 'criacao') {
             $qb->orderBy('c.criadoEm', $dir);

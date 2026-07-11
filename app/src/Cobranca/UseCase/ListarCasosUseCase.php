@@ -31,13 +31,14 @@ final class ListarCasosUseCase
     {
         $casos = $this->repository->findByFilters($filtros, $tenant, $pagina, $porPagina, $ordenar, $direcao);
 
+        // Saldos derivados em LOTE para os casos da PÁGINA (uma carga tenant-scoped) — fim do N+1 de
+        // saldoExigivel+saldoVencido por caso. Mesma regra dos métodos por-caso.
+        $saldos = $this->calculadoraSaldo->saldosDosCasos($casos, $tenant);
+
         $itens = [];
         foreach ($casos as $caso) {
-            $itens[] = CasoResumoOutput::fromEntity(
-                $caso,
-                $this->calculadoraSaldo->saldoExigivel($caso),
-                $this->calculadoraSaldo->saldoVencido($caso),
-            );
+            $saldo = $saldos[$caso->getId() ?? 0] ?? ['exigivel' => 0, 'vencido' => 0];
+            $itens[] = CasoResumoOutput::fromEntity($caso, $saldo['exigivel'], $saldo['vencido']);
         }
 
         return [
