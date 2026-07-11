@@ -66,4 +66,28 @@ class PagamentoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Pagamentos de VÁRIOS casos numa única query — versão em LOTE para a agregação tenant-wide do
+     * Dashboard (Etapa 9). O recuperado usa só campos escalares (`valorRecuperadoDivida`/`valorHonorarios`),
+     * sem tocar as alocações. Escopo por tenant explícito. `$casoIds` vazio → `[]`.
+     *
+     * @param int[] $casoIds
+     *
+     * @return Pagamento[]
+     */
+    public function dosCasos(array $casoIds, Tenant $tenant): array
+    {
+        if ($casoIds === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('p')
+            ->andWhere('p.caso IN (:casos)')
+            ->andWhere('p.tenant = :tenant')
+            ->setParameter('casos', $casoIds)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getResult();
+    }
 }

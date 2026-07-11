@@ -106,4 +106,44 @@ class CalculadoraSaldo
 
         return $total;
     }
+
+    /**
+     * Núcleo PURO da derivação de saldo (SPEC §10/§11, invariável 20): a partir das obrigações EXIGÍVEIS
+     * já carregadas de um caso, do mapa `obrigacaoId => Σ alocado` e do total liquidado reconhecido do
+     * caso, deriva o saldo exigível e o vencido — a MESMA regra de `saldoExigivel`/`saldoVencido` acima
+     * (exigível = bruto − alocado − liquidado; vencido com piso 0), só que sem I/O. É o ponto reutilizado
+     * pela agregação em LOTE do Dashboard (Etapa 9), que carrega obrigações/alocações/liquidações do tenant
+     * de uma vez e chama isto por caso — evitando o N+1 dos métodos por-caso.
+     *
+     * @param \App\Cobranca\Entity\Obrigacao[] $exigiveis           obrigações EXIGÍVEIS do caso (já filtradas)
+     * @param array<int, int>                  $alocadoPorObrigacao obrigacaoId => Σ alocado (centavos)
+     *
+     * @return array{exigivel: int, vencido: int}
+     */
+    public function derivarSaldos(array $exigiveis, array $alocadoPorObrigacao, int $totalLiquidado, \DateTimeImmutable $hoje): array
+    {
+        $bruto = 0;
+        $brutoVencido = 0;
+        $alocadoTotal = 0;
+        $alocadoVencidas = 0;
+
+        foreach ($exigiveis as $obrigacao) {
+            $valor = $obrigacao->valorExigivel();
+            $id = $obrigacao->getId();
+            $alocado = $id !== null ? ($alocadoPorObrigacao[$id] ?? 0) : 0;
+
+            $bruto += $valor;
+            $alocadoTotal += $alocado;
+
+            if ($obrigacao->getVencimentoOriginal() <= $hoje) {
+                $brutoVencido += $valor;
+                $alocadoVencidas += $alocado;
+            }
+        }
+
+        return [
+            'exigivel' => $bruto - $alocadoTotal - $totalLiquidado,
+            'vencido' => max(0, $brutoVencido - $alocadoVencidas - $totalLiquidado),
+        ];
+    }
 }

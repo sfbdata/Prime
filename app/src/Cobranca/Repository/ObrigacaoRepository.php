@@ -111,4 +111,36 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Versão em LOTE de `doCasoExigiveis` para a agregação tenant-wide (Dashboard, Etapa 9): as obrigações
+     * EXIGÍVEIS de VÁRIOS casos numa única query, com o MESMO filtro de exclusão (substituídas por acordo
+     * vigente / parcelas de acordo rompido-cancelado — SPEC §12, invariáveis 15/20). Evita o N+1 de chamar
+     * `doCasoExigiveis` por caso. Tenant SEMPRE explícito. `$casoIds` vazio → `[]` (sem query).
+     *
+     * @param int[] $casoIds
+     *
+     * @return Obrigacao[]
+     */
+    public function exigiveisDosCasos(array $casoIds, Tenant $tenant): array
+    {
+        if ($casoIds === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('o')
+            ->leftJoin('o.acordoSubstituto', 'asub')
+            ->leftJoin('o.acordoOrigem', 'aorig')
+            ->andWhere('o.caso IN (:casos)')
+            ->andWhere('o.tenant = :tenant')
+            ->andWhere('(asub.id IS NULL OR asub.status IN (:naoVigentes))')
+            ->andWhere('(aorig.id IS NULL OR aorig.status IN (:vigentes))')
+            ->setParameter('casos', $casoIds)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
+            ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value])
+            ->orderBy('o.vencimentoOriginal', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
 }

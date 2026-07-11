@@ -82,4 +82,27 @@ class LiquidacaoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * Liquidações de VÁRIOS casos numa única query — versão em LOTE para a agregação tenant-wide do
+     * Dashboard (Etapa 9), evitando um `doCaso` por caso. Escopo por tenant explícito. `$casoIds` vazio → `[]`.
+     *
+     * @param int[] $casoIds
+     *
+     * @return Liquidacao[]
+     */
+    public function dosCasos(array $casoIds, Tenant $tenant): array
+    {
+        if ($casoIds === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('l')
+            ->andWhere('l.caso IN (:casos)')
+            ->andWhere('l.tenant = :tenant')
+            ->setParameter('casos', $casoIds)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getResult();
+    }
 }

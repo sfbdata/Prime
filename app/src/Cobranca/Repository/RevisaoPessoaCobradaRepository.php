@@ -87,4 +87,33 @@ class RevisaoPessoaCobradaRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    /**
+     * IDs dos casos (dentre os informados) que têm ≥1 revisão PENDENTE — versão em LOTE para a agregação
+     * tenant-wide do Dashboard (Etapa 9), evitando um `existePendenteDoCaso` por caso. Escopo por tenant
+     * explícito. `$casoIds` vazio → `[]`.
+     *
+     * @param int[] $casoIds
+     *
+     * @return int[]
+     */
+    public function casoIdsComPendente(array $casoIds, Tenant $tenant): array
+    {
+        if ($casoIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('r')
+            ->select('DISTINCT IDENTITY(r.caso) AS casoId')
+            ->andWhere('r.caso IN (:casos)')
+            ->andWhere('r.tenant = :tenant')
+            ->andWhere('r.status = :pendente')
+            ->setParameter('casos', $casoIds)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pendente', StatusRevisao::Pendente->value)
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_map(static fn (array $l): int => (int) $l['casoId'], $linhas);
+    }
 }

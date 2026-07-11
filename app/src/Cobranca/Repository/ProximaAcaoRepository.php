@@ -66,4 +66,40 @@ class ProximaAcaoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * Ações PENDENTES de VÁRIOS casos numa única query — versão em LOTE para a agregação tenant-wide do
+     * Dashboard (Etapa 9), evitando um `findAtivaDoCaso` por caso. Como há no máximo 1 pendente por caso
+     * (SPEC §14), retorna um mapa `casoId => ProximaAcao`. Escopo por tenant explícito. `$casoIds` vazio → `[]`.
+     *
+     * @param int[] $casoIds
+     *
+     * @return array<int, ProximaAcao>
+     */
+    public function ativasDosCasos(array $casoIds, Tenant $tenant): array
+    {
+        if ($casoIds === []) {
+            return [];
+        }
+
+        $acoes = $this->createQueryBuilder('a')
+            ->andWhere('a.caso IN (:casos)')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('a.status = :pendente')
+            ->setParameter('casos', $casoIds)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('pendente', StatusProximaAcao::Pendente->value)
+            ->getQuery()
+            ->getResult();
+
+        $mapa = [];
+        foreach ($acoes as $acao) {
+            $casoId = $acao->getCaso()?->getId();
+            if ($casoId !== null) {
+                $mapa[$casoId] = $acao;
+            }
+        }
+
+        return $mapa;
+    }
 }

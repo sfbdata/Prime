@@ -158,6 +158,36 @@ final class CalculadoraSaldoTest extends TestCase
         self::assertSame(15250, $this->sut->saldoConsolidadoObjeto($objeto));
     }
 
+    #[Test]
+    public function derivarSaldosEspelhaExigivelEVencidoComAlocacaoELiquidacao(): void
+    {
+        $hoje = new \DateTimeImmutable('today');
+        $vencidaA = $this->obrigacaoComId(1, 10000, 2000, '-2 day'); // exigível 12000, vencida
+        $vencidaB = $this->obrigacaoComId(2, 5000, 0, '-1 day');     // exigível 5000, vencida
+        $aVencer = $this->obrigacaoComId(3, 20000, 0, '+1 day');     // exigível 20000, a vencer
+
+        // Alocado só às vencidas; liquidação do caso = 2000.
+        $saldos = $this->sut->derivarSaldos([$vencidaA, $vencidaB, $aVencer], [1 => 3000, 2 => 1000], 2000, $hoje);
+
+        // exigível = (12000+5000+20000) − (3000+1000) − 2000 = 31000
+        self::assertSame(31000, $saldos['exigivel']);
+        // vencido = (12000+5000) − (3000+1000) − 2000 = 11000
+        self::assertSame(11000, $saldos['vencido']);
+    }
+
+    #[Test]
+    public function derivarSaldosVencidoTemPisoZeroEExigivelPodeSerNegativo(): void
+    {
+        $hoje = new \DateTimeImmutable('today');
+        $vencida = $this->obrigacaoComId(1, 5000, 0, '-1 day');
+
+        // Over-liquidação: liquidado (9000) > exigível (5000).
+        $saldos = $this->sut->derivarSaldos([$vencida], [], 9000, $hoje);
+
+        self::assertSame(-4000, $saldos['exigivel']); // exigível sem piso (fiel à regra por-caso)
+        self::assertSame(0, $saldos['vencido']);       // vencido com piso 0
+    }
+
     private function obrigacao(int $valorOriginal, int $encargos, string $vencimento): Obrigacao
     {
         $obrigacao = new Obrigacao();

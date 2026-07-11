@@ -11,7 +11,9 @@ use App\Cobranca\Entity\Liquidacao;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
+use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
+use App\Cobranca\Enum\TipoAlerta;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\LiquidacaoRepository;
@@ -25,6 +27,7 @@ use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\UseCase\MontarDashboardCobrancaUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cliente\ClientePFFactory;
+use App\Tests\Factory\Cobranca\AcordoFactory;
 use App\Tests\Factory\Cobranca\AlocacaoPagamentoFactory;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
 use App\Tests\Factory\Cobranca\CasoCobrancaFactory;
@@ -33,6 +36,8 @@ use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use App\Tests\Factory\Cobranca\PagamentoFactory;
 use App\Tests\Factory\Cobranca\PessoaFactory;
+use App\Tests\Factory\Cobranca\ProximaAcaoFactory;
+use App\Tests\Factory\Cobranca\RevisaoPessoaCobradaFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -79,15 +84,17 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
 
         $calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
         $calcHon = new CalculadoraHonorarios();
-        $alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $revisaoRepo, $calcSaldo);
 
         $this->sut = new MontarDashboardCobrancaUseCase(
             $casoRepo,
+            $obrigacaoRepo,
+            $alocacaoRepo,
             $pagamentoRepo,
             $liquidacaoRepo,
+            $acaoRepo,
+            $revisaoRepo,
             $calcSaldo,
             $calcHon,
-            $alertas,
         );
 
         $this->inicio = new \DateTimeImmutable('2026-07-01 00:00:00');
@@ -345,5 +352,78 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
         self::assertSame(0, $d->valorTotalRecuperado);
         self::assertSame(0, $d->taxaRecuperacaoBasisPoints);
         self::assertSame(0, $d->objetosInadimplentes);
+    }
+
+    #[TestDox('Consistência: os agregados em LOTE batem com a soma dos serviços por-caso (saldo + alertas)')]
+    public function testConsistenciaComServicosPorCaso(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant); // SemPercentual — foco em saldo/contagens
+
+        // Cenário variado cobrindo cada condição de alerta + um encerrado (só recuperado).
+        // casoVencida também carrega pagamento parcial ALOCADO + liquidação → prova a fiação do mapa
+        // `alocadoPorObrigacao` e do `totalLiquidadoDoCaso` dentro do batch (não só a aritmética pura).
+        $casoVencida = $this->caso($tenant, $carteira);
+        $obrVencida = $this->obrigacao($tenant, $casoVencida, 100000, '2026-06-01'); // vencida, sem acordo
+        $this->pagamento($tenant, $casoVencida, $obrVencida, 20000, 0, '2026-07-10'); // alocado 20000
+        LiquidacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $casoVencida,
+            'valorReconhecido' => 10000, 'data' => new \DateTimeImmutable('2026-07-10'),
+        ]);
+
+        $casoRevisao = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $casoRevisao, 50000, '2026-09-01'); // a vencer
+        RevisaoPessoaCobradaFactory::createOne(['tenant' => $tenant, 'caso' => $casoRevisao]);
+
+        $casoAcao = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $casoAcao, 70000, '2026-06-15'); // vencida
+        ProximaAcaoFactory::createOne(['tenant' => $tenant, 'caso' => $casoAcao, 'prazo' => new \DateTimeImmutable('2026-07-01')]); // atrasada
+
+        $casoParcela = $this->caso($tenant, $carteira);
+        $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $casoParcela, 'status' => StatusAcordo::Ativo])->_real();
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $casoParcela,
+            'valorOriginal' => 30000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-06-20'), 'acordoOrigem' => $acordo,
+        ]); // parcela de acordo vigente, vencida
+
+        $casoEncerrado = $this->caso($tenant, $carteira, StatusCaso::Encerrado);
+        $obrEnc = $this->obrigacao($tenant, $casoEncerrado, 40000, '2026-06-01');
+        $this->pagamento($tenant, $casoEncerrado, $obrEnc, 40000, 0, '2026-07-10');
+
+        $d = $this->sut->executar($tenant, null, $this->inicio, $this->fim, $this->hoje);
+
+        // Fonte de verdade por-caso que o LOTE deve espelhar.
+        $obrigacaoRepo = $this->em->getRepository(Obrigacao::class);
+        $calcSaldo = new CalculadoraSaldo(
+            $obrigacaoRepo,
+            $this->em->getRepository(CasoCobranca::class),
+            $this->em->getRepository(AlocacaoPagamento::class),
+            $this->em->getRepository(Liquidacao::class),
+        );
+        $alertas = new AlertasCobranca(
+            $obrigacaoRepo,
+            $this->em->getRepository(\App\Cobranca\Entity\ProximaAcao::class),
+            $this->em->getRepository(\App\Cobranca\Entity\RevisaoPessoaCobrada::class),
+            $calcSaldo,
+        );
+
+        $saldoEsperado = 0;
+        $contagem = [];
+        foreach ([$casoVencida, $casoRevisao, $casoAcao, $casoParcela] as $c) {
+            $saldoEsperado += $calcSaldo->saldoExigivel($c);
+            foreach ($alertas->alertasDoCaso($c, $this->hoje) as $a) {
+                $contagem[$a->tipo->value] = ($contagem[$a->tipo->value] ?? 0) + 1;
+            }
+        }
+
+        self::assertSame($saldoEsperado, $d->saldoEmAberto);
+        self::assertSame($contagem[TipoAlerta::ObrigacaoVencida->value] ?? 0, $d->pagamentosAVerificar);
+        self::assertSame($contagem[TipoAlerta::ParcelaAcordoVencida->value] ?? 0, $d->parcelasAcordoVencidas);
+        self::assertSame($contagem[TipoAlerta::AcaoAtrasada->value] ?? 0, $d->proximasAcoesAtrasadas);
+        self::assertSame($contagem[TipoAlerta::RevisaoPendente->value] ?? 0, $d->revisoesPendentes);
+        // recuperado all-time = 20000 (pgto casoVencida) + 10000 (liquidação casoVencida) + 40000 (pgto encerrado)
+        self::assertSame(70000, $d->valorTotalRecuperado);
+        self::assertSame(4, $d->casosAtivos);
     }
 }

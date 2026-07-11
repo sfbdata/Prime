@@ -8,44 +8,60 @@ use App\Cobranca\DTO\DashboardCobrancaOutput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusCaso;
-use App\Cobranca\Enum\TipoAlerta;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\LiquidacaoRepository;
+use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
-use App\Cobranca\Service\AlertasCobranca;
+use App\Cobranca\Repository\ProximaAcaoRepository;
+use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Entity\Tenant\Tenant;
 
 /**
  * Leitura: monta o Dashboard consolidado do escritório (SPEC §20, Etapa 9). É a visão do TENANT, não de
- * um caso — agrega as métricas financeiras, operacionais e de resultado iterando os casos do tenant e
- * reutilizando os serviços de derivação (saldo, honorários, alertas). Nada de regra nova nem de SQL de
- * saldo: o saldo/honorário/alerta continuam derivados por serviço (invariável 20, §18/§19, invariável 28).
+ * um caso — agrega as métricas financeiras, operacionais e de resultado reutilizando os serviços de
+ * derivação (saldo, honorários). Nada de regra nova nem de SQL de saldo: o saldo continua derivado
+ * (invariável 20, §18/§19, invariável 28).
+ *
+ * PERFORMANCE (batch-load): a agregação NÃO chama os serviços por caso (o que gerava um N+1 de ~14
+ * queries × N casos). Em vez disso carrega, de UMA vez para todos os casos do tenant, as obrigações
+ * exigíveis, as somas de alocação por obrigação, as liquidações, os pagamentos, as próximas ações
+ * pendentes e as revisões pendentes (≈7 queries no total), e computa tudo em memória — o saldo pela regra
+ * PURA `CalculadoraSaldo::derivarSaldos` (mesma regra dos métodos por-caso) e os honorários por
+ * `CalculadoraHonorarios`. As contagens operacionais espelham os alertas de `AlertasCobranca` (obrigação
+ * vencida, parcela de acordo vencida, ação atrasada, revisão pendente), verificado por teste de
+ * consistência.
+ *
+ * Limite conhecido: as cargas em lote usam `caso IN (:casoIds)`; com dezenas de milhares de casos num
+ * tenant o teto de bind params do Postgres (~65535) seria atingido — ponto de evolução (chunk dos ids ou
+ * agregação materializada), fora do escopo do MVP.
  *
  * História: o gestor abre o painel para decidir prioridades — quanto está em aberto/vencido, quanto foi
- * recuperado no período, o que exige ação (pagamentos a verificar, ações atrasadas, parcelas vencidas,
- * revisões) e o resultado acumulado (taxa de recuperação). O tenant e a carteira opcional já chegam
- * resolvidos e tenant-safe do controller; este UseCase não toca HTTP nem persiste nada.
+ * recuperado no período, o que exige ação e o resultado acumulado (taxa de recuperação). O tenant e a
+ * carteira opcional já chegam resolvidos e tenant-safe do controller; este UseCase não toca HTTP nem persiste.
  *
  * Decisões (ver spec da Etapa 9):
  * - Casos ENCERRADOS entram só no acumulado (valor total recuperado); ficam fora de saldo em aberto/vencido,
- *   honorários projetados, contagens operacionais — o que a própria derivação já garante (saldo 0, alertas []).
- * - "Pagamentos a verificar" = casos com alerta `ObrigacaoVencida` (obrigação vencida a verificar, §14).
+ *   honorários projetados e contagens operacionais.
+ * - "Pagamentos a verificar" = casos com obrigação vencida a verificar (§14).
  * - Honorários realizados por forma (§18): `acrescido_divida` usa o `valorHonorarios` já separado no
  *   pagamento; `retido`/`cobrado_separado` aplicam o percentual sobre a dívida recuperada; `sem_percentual` 0.
- * - Liquidações (não monetárias) contam como recuperação de dívida, mas NÃO geram honorários realizados
- *   (decisão E3; recebimento efetivo é do futuro Financeiro, §19).
+ * - Liquidações (não monetárias) contam como recuperação, mas NÃO geram honorários realizados (decisão E3).
  */
 final class MontarDashboardCobrancaUseCase
 {
     public function __construct(
         private readonly CasoCobrancaRepository $casoRepository,
+        private readonly ObrigacaoRepository $obrigacaoRepository,
+        private readonly AlocacaoPagamentoRepository $alocacaoRepository,
         private readonly PagamentoRepository $pagamentoRepository,
         private readonly LiquidacaoRepository $liquidacaoRepository,
+        private readonly ProximaAcaoRepository $proximaAcaoRepository,
+        private readonly RevisaoPessoaCobradaRepository $revisaoRepository,
         private readonly CalculadoraSaldo $calculadoraSaldo,
         private readonly CalculadoraHonorarios $calculadoraHonorarios,
-        private readonly AlertasCobranca $alertasCobranca,
     ) {
     }
 
@@ -59,6 +75,21 @@ final class MontarDashboardCobrancaUseCase
         $hoje ??= new \DateTimeImmutable('today');
 
         $casos = $this->casoRepository->doTenant($tenant, $carteira);
+        $casoIds = [];
+        foreach ($casos as $caso) {
+            $id = $caso->getId();
+            if ($id !== null) {
+                $casoIds[] = $id;
+            }
+        }
+
+        // ── Carga em LOTE (uma query cada) para todos os casos do tenant ──────────────────────────
+        $exigiveisPorCaso = $this->agruparPorCaso($this->obrigacaoRepository->exigiveisDosCasos($casoIds, $tenant));
+        $alocadoPorObrigacao = $this->alocacaoRepository->somasPorObrigacaoDosCasos($casoIds, $tenant);
+        $pagamentosPorCaso = $this->agruparPorCaso($this->pagamentoRepository->dosCasos($casoIds, $tenant));
+        $liquidacoesPorCaso = $this->agruparPorCaso($this->liquidacaoRepository->dosCasos($casoIds, $tenant));
+        $acoesPorCaso = $this->proximaAcaoRepository->ativasDosCasos($casoIds, $tenant);
+        $revisaoPendente = array_fill_keys($this->revisaoRepository->casoIdsComPendente($casoIds, $tenant), true);
 
         $saldoEmAberto = 0;
         $saldoVencido = 0;
@@ -77,16 +108,19 @@ final class MontarDashboardCobrancaUseCase
         $objetosInadimplentes = [];
 
         foreach ($casos as $caso) {
+            $casoId = $caso->getId() ?? 0;
             $encerrado = $caso->getStatus() === StatusCaso::Encerrado;
 
-            $pagamentos = $this->pagamentoRepository->doCaso($caso);
-            $liquidacoes = $this->liquidacaoRepository->doCaso($caso);
+            $pagamentos = $pagamentosPorCaso[$casoId] ?? [];
+            $liquidacoes = $liquidacoesPorCaso[$casoId] ?? [];
 
             // Resultado acumulado (all-time): pagamentos (parte da dívida) + liquidações reconhecidas.
+            $totalLiquidadoDoCaso = 0;
             foreach ($pagamentos as $pagamento) {
                 $valorTotalRecuperado += $pagamento->valorRecuperadoDivida();
             }
             foreach ($liquidacoes as $liquidacao) {
+                $totalLiquidadoDoCaso += $liquidacao->getValorReconhecido();
                 $valorTotalRecuperado += $liquidacao->getValorReconhecido();
             }
 
@@ -117,14 +151,17 @@ final class MontarDashboardCobrancaUseCase
                 );
             }
 
-            // Encerrado: fora das métricas de "em aberto"/operacionais (saldo 0 e alertas [] por derivação).
+            // Encerrado: fora das métricas de "em aberto"/operacionais (saldo 0 e sem alertas).
             if ($encerrado) {
                 continue;
             }
 
-            $saldoExigivelCaso = $this->calculadoraSaldo->saldoExigivel($caso);
+            $exigiveis = $exigiveisPorCaso[$casoId] ?? [];
+            $saldos = $this->calculadoraSaldo->derivarSaldos($exigiveis, $alocadoPorObrigacao, $totalLiquidadoDoCaso, $hoje);
+            $saldoExigivelCaso = $saldos['exigivel'];
+
             $saldoEmAberto += $saldoExigivelCaso;
-            $saldoVencido += $this->calculadoraSaldo->saldoVencido($caso, $hoje);
+            $saldoVencido += $saldos['vencido'];
             $honorariosProjetados += $this->calculadoraHonorarios->projetados($caso, $saldoExigivelCaso);
 
             ++$casosAtivos;
@@ -140,14 +177,32 @@ final class MontarDashboardCobrancaUseCase
                 ++$casosJudicializados;
             }
 
-            foreach ($this->alertasCobranca->alertasDoCaso($caso, $hoje) as $alerta) {
-                match ($alerta->tipo) {
-                    TipoAlerta::ObrigacaoVencida => ++$pagamentosAVerificar,
-                    TipoAlerta::AcaoAtrasada => ++$proximasAcoesAtrasadas,
-                    TipoAlerta::ParcelaAcordoVencida => ++$parcelasAcordoVencidas,
-                    TipoAlerta::RevisaoPendente => ++$revisoesPendentes,
-                    TipoAlerta::ProntoParaEncerrar => null,
-                };
+            // Contagens operacionais = espelho dos alertas de AlertasCobranca (um por caso, por condição).
+            $temVencida = false;
+            $temParcelaVencida = false;
+            foreach ($exigiveis as $obrigacao) {
+                if ($obrigacao->getVencimentoOriginal() > $hoje) {
+                    continue;
+                }
+                $temVencida = true;
+                if ($obrigacao->getAcordoOrigem() !== null) {
+                    $temParcelaVencida = true;
+                }
+            }
+
+            if ($temVencida) {
+                ++$pagamentosAVerificar;
+            }
+            if ($temParcelaVencida) {
+                ++$parcelasAcordoVencidas;
+            }
+
+            $acao = $acoesPorCaso[$casoId] ?? null;
+            if ($acao !== null && $acao->estaAtrasada($hoje)) {
+                ++$proximasAcoesAtrasadas;
+            }
+            if (isset($revisaoPendente[$casoId])) {
+                ++$revisoesPendentes;
             }
         }
 
@@ -178,6 +233,26 @@ final class MontarDashboardCobrancaUseCase
             periodoFim: $fim,
             carteiraId: $carteira?->getId(),
         );
+    }
+
+    /**
+     * Agrupa entidades que expõem `getCaso()` por id do caso.
+     *
+     * @param array<int, object> $itens
+     *
+     * @return array<int, list<object>>
+     */
+    private function agruparPorCaso(array $itens): array
+    {
+        $grupos = [];
+        foreach ($itens as $item) {
+            $casoId = $item->getCaso()?->getId();
+            if ($casoId !== null) {
+                $grupos[$casoId][] = $item;
+            }
+        }
+
+        return $grupos;
     }
 
     /** Data (date_immutable, sem hora) dentro do período inclusivo [inicio, fim]. */

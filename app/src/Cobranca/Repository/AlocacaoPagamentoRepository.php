@@ -61,4 +61,39 @@ class AlocacaoPagamentoRepository extends ServiceEntityRepository
             ->getQuery()
             ->getSingleScalarResult();
     }
+
+    /**
+     * Σ alocado POR OBRIGAÇÃO (centavos) das obrigações dos casos informados — versão em LOTE para a
+     * agregação tenant-wide do Dashboard (Etapa 9), evitando um `totalAlocadoEmObrigacoes` por caso.
+     * Retorna um mapa `obrigacaoId => Σ valor`. Escopo por tenant explícito. `$casoIds` vazio → `[]`.
+     *
+     * @param int[] $casoIds
+     *
+     * @return array<int, int>
+     */
+    public function somasPorObrigacaoDosCasos(array $casoIds, Tenant $tenant): array
+    {
+        if ($casoIds === []) {
+            return [];
+        }
+
+        $linhas = $this->createQueryBuilder('a')
+            ->select('IDENTITY(a.obrigacao) AS obrigacaoId', 'COALESCE(SUM(a.valor), 0) AS total')
+            ->innerJoin('a.obrigacao', 'o')
+            ->andWhere('o.caso IN (:casos)')
+            ->andWhere('a.tenant = :tenant')
+            ->andWhere('o.tenant = :tenant')
+            ->groupBy('a.obrigacao')
+            ->setParameter('casos', $casoIds)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getScalarResult();
+
+        $mapa = [];
+        foreach ($linhas as $linha) {
+            $mapa[(int) $linha['obrigacaoId']] = (int) $linha['total'];
+        }
+
+        return $mapa;
+    }
 }
