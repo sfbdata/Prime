@@ -120,6 +120,24 @@ telas mostram só empty states. Rotas do módulo (todas sob `/cobrancas`, gate `
 - [ ] **Confirmar** (`/importar/confirmar`): persiste; reimportar o MESMO arquivo é **idempotente** (não duplica).
 - [ ] Arquivo temporário isolado por tenant (`import-tmp/<tenantId>/...`) some após confirmar.
 
+> **✅ SMOKE REAL EXECUTADO NO DEV (2026-07-10):** os dois relatórios reais foram importados no tenant 1
+> (super-admin `farlei.rocha@gmail.com`): carteiras **TOPLIFE I** (credor id 5) e **TOPLIFE II** (id 6).
+> Resultado: **TOPLIFE I → 2826 obrigações / 81 casos importados, 100 rejeitadas** (linhas só-encargos, decisão
+> E7 comprovada) · **TOPLIFE II → 444 / 0 rejeitadas**. Total no tenant: **2 carteiras, 194 casos, 194 objetos,
+> 3270 obrigações, 207 pessoas.** Painel, Casos, Central de Alertas e o detalhe do Caso renderizaram com os
+> dados reais (honorários projetados = 10% do saldo, alertas "Obrigação exigível vencida" agregados por
+> carteira, tabela de obrigações com encargos/valor atual). **A prévia (dry-run) foi validada pela UI real** no
+> navegador; a **persistência do TOPLIFE I foi concluída via CLI** por causa do achado de timeout abaixo.
+
+> **⚠️ ACHADO — importação grande estoura o timeout de request (BLOQUEADOR OPERACIONAL p/ prod):** importar
+> ~2800 obrigações num **único request HTTP síncrono** excede o `proxy_read_timeout` do nginx do dev (~60s →
+> **504 Gateway Timeout**; o worker do FrankenPHP fica bloqueado e derruba requests paralelos). No dev foi
+> preciso subir `memory_limit`/`max_execution_time` do PHP **e** rodar a confirmação por fora do request web.
+> **Antes do deploy, para relatórios grandes:** (a) aumentar `proxy_read_timeout`/`fastcgi_read_timeout` no
+> nginx de prod e `max_execution_time`/`memory_limit` do PHP para a rota de importação; e/ou (b) tratar a
+> importação de forma **assíncrona/em lote** (fila) — recomendado como follow-up para volumes desse porte. Os
+> arquivos TOPLIFE reais têm ~3963 e ~472 linhas; o maior é o que estoura.
+
 ### 4.6 Upload / drag-drop / file-manager de documentos (Etapa 8C-B)
 - [ ] `GET /cobrancas/casos/{id}` → aba **Documentos** renderiza o file-manager (`pasta-arquivos.js` religado por `data-*`).
 - [ ] Criar seção (`/casos/{id}/secoes`), renomear, excluir.
@@ -174,7 +192,8 @@ Coberto por testes DB-real + revisão adversarial + tenant-safety scan em TODAS 
 |---|---|---|
 | **Permissões ausentes em prod** (§2) | ALTA (funcional) | Data-migration idempotente + concessão via UI. Sem isso o módulo fica inacessível a operadores comuns. |
 | Merge conflita com sync-drive/DJEN já em master (§3) | MÉDIA | `git merge origin/master` na branch primeiro, resolver conflitos semânticos, rodar suíte, só então PR. |
-| Dev sem dados → smoke JS não exercitado (§4) | MÉDIA | Semear grafo realista antes do smoke manual (drag/upload/importação). Testes funcionais já provam o render real no container. |
+| ~~Dev sem dados → smoke JS não exercitado~~ | RESOLVIDO | ✅ Smoke real feito no dev com os relatórios TOPLIFE reais (§4.5): Painel, Casos, Alertas e detalhe do Caso validados no navegador. |
+| **Importação grande estoura timeout de request HTTP (504)** (§4.5) | **ALTA (operacional)** | Aumentar `proxy_read_timeout` (nginx) + `max_execution_time`/`memory_limit` (PHP) na rota de importação em prod, e/ou importação assíncrona em lote. ~2800 obrigações num request só não passam no timeout padrão. |
 | Perf O(casos) do dashboard sob volume alto | BAIXA | Aceito p/ MVP; filtros carteira/período limitam; follow-up de agregação materializada. |
 | Temporário órfão de importação (preview 2× sem confirmar) | BAIXA (disco) | Follow-up: comando de limpeza por idade. |
 | Deploy prod é imagem **baked** (não bind-mount) | Operacional | Rebuild obrigatório via `deploy-prod-tls.sh`; `git pull` na VPS NÃO aplica nada. |
