@@ -41,6 +41,19 @@ Camada visual final de LEITURA, visão do ESCRITÓRIO (não per-caso):
 3. **Deploy** via `deploy-prod-tls.sh` (rebuild) — só no fim. **Nenhuma migration nova nas Etapas 8–9**; só a data-migration de permissões do item 1.
 4. **Integração da branch** (decisão do humano): `gestao-cobrancas` tem o DJEN `b044c0c` na base (inofensivo) + caronas (metas/Datajud). Mergear no master DEPOIS do DJEN.
 
+## PENDÊNCIA ABERTA — Otimização de queries (N+1) em TODAS as telas (perf)
+> Plano completo e faseado: **`docs/gestao-cobrancas/PLANO_OTIMIZACAO_QUERIES.md`**. O humano pediu para
+> aplicar o batch-load (que resolveu o Dashboard) a TODAS as páginas de Cobrança.
+- **Dashboard ✅ FEITO** (commit `2a9315c`): 2731 → ~7 queries no dev; `CalculadoraSaldo::derivarSaldos` +
+  6 métodos de repo `*DosCasos`/`doTenant` já existem e são **reutilizáveis**.
+- **Falta (por prioridade):** P0 extrair primitivas `CalculadoraSaldo::saldosDosCasos` +
+  `AlertasCobranca::alertasDosCasos` + fetch-joins nas listagens; **P1 Central de Alertas** (maior ganho,
+  tenant-wide); **P2 Visão da Carteira**; **P3 Lista de Casos** (saldo + hidratação lazy); **P4** Lista de
+  Carteiras (fetch-join cliente) + dedupe do Detalhe do Caso.
+- **Protocolo por fase:** medir no profiler (dev já tem os dados TOPLIFE) → implementar reusando a infra
+  (sem duplicar regra) → **teste de consistência batch==per-caso** → suíte verde → medir depois → revisão →
+  commit isolado. Detalhes/riscos/tabela de N+1 no PLANO.
+
 ## Follow-ups conhecidos (não bloqueiam; decisão do humano)
 - **Perf O(casos) do dashboard (Etapa 9):** a agregação itera todos os casos do tenant e reusa os serviços por caso (~6–8 queries/caso; `saldoExigivel`/`doCasoExigiveis` acabam repetidos). Aceito p/ MVP (volume moderado; limitável por carteira/período). Redução futura = método agregado que reúna exigível+movimentos por caso numa passada (não materializar saldo).
 - **Coletor de temporários órfãos de importação** (8C-A): preview 2× sem confirmar deixa o 1º `import-tmp/<tenantId>/<token>.xlsx` órfão. MENOR (disco). Follow-up: comando de limpeza por idade.
