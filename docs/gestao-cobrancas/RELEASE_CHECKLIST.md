@@ -1,5 +1,21 @@
 # RELEASE CHECKLIST — Gestão de Cobranças (App\Cobranca)
 
+> ## ✅ DEPLOYADO EM PRODUÇÃO — 2026-07-11
+> A feature está **NO AR** (bluejus.com.br). Master em `278ac2e`(+`c4d36d0` do fix de deploy). Verificado em
+> prod: **15 tabelas `cobranca_*`** criadas + **4 permissões** no catálogo + migrations aplicadas (as 2 "New"
+> restantes são as fantasmas antigas do Ponto, benignas). Suíte pós-merge **1723/1723**.
+> **Ordem executada:** caronas isoladas (metas+Datajud) → master (ff-merge) → deploy; depois
+> `git merge origin/master` na branch (merge-commit `278ac2e`, LIMPO) → master (ff-merge) → deploy.
+> **Bloqueador nº1 RESOLVIDO:** data-migration de permissões `Version20260711120000` (idempotente) criada e
+> aplicada. **Gotcha do deploy:** o `cache:warmup` estourou 128M (muitos templates de Cobrança) e quebrou o
+> build → fix `c4d36d0` (`-d memory_limit=512M` no Dockerfile + `entrypoint.prod.sh`); prod ficou intacto no
+> build falho (sem downtime). **FALTAM só passos operacionais (humano):** (a) conceder as 4 permissões aos
+> papéis por escritório na UI; (b) smoke logado; (c) subir `proxy_read_timeout`/`max_execution_time` antes de
+> importar arquivos GRANDES (senão 504, §4.5). Perf N+1 (P0–P4) incluída. Follow-ups conhecidos → §11.
+>
+> _(Abaixo: o checklist original de preparação, mantido como histórico/referência. Números antigos — a suíte
+> hoje é `tests/Cobranca` 409 / global 1723.)_
+
 > Checklist final para o **humano** revisar antes de **merge → deploy**. A implementação (Etapas 0–9) está
 > concluída na branch `gestao-cobrancas`. Este documento **não executa** merge/push/deploy — é um guia de
 > verificação. Última atualização: 2026-07-10.
@@ -282,7 +298,9 @@ docker exec jusprime_php_dev bash -c 'cd app && php bin/console doctrine:migrati
 
 ## 11. Pendências NÃO bloqueantes (follow-ups)
 
-- ✅ RESOLVIDO: Perf O(casos) do dashboard — batch-load (commit `2a9315c`). A **Central de Alertas** ainda tem o mesmo N+1 (follow-up: aplicar o mesmo batch se necessário).
+- ✅ RESOLVIDO: Perf N+1 de saldo/hidratação em **TODAS as telas** de Cobrança (P0–P4, ver `PLANO_OTIMIZACAO_QUERIES.md`): Central de Alertas 1592→44, Visão da Carteira 876→221, Lista de Casos 199→41, etc. Dashboard já era batch (`2a9315c`).
+- ⏳ **N+1 de AUTORIZAÇÃO `user_tenant` (pré-existente, transversal, MÉDIO risco):** `PermissionChecker::hasPermission`/`TenantContext` re-consultam `UserTenant` por chamada sem memoização por request → páginas com checagem em loop pagam ~1 query/iteração (Visão da Carteira ~202, Detalhe ~56). NÃO é de Cobrança; tarefa própria com spec. Ver `PLANO_OTIMIZACAO_QUERIES.md` §1.1.
+- ⏳ **`cache:warmup` e o teto de 128M (lição do deploy 2026-07-11):** todo módulo novo com muitos templates aproxima o teto; o deploy quebra no build se o warmup não tiver `-d memory_limit=512M` (já corrigido no Dockerfile + entrypoint em `c4d36d0`). Manter o flag em qualquer novo `php bin/console` de build/boot.
 - Coletor de temporários órfãos de importação (preview 2× sem confirmar) — comando de limpeza por idade.
 - FIFO de alocação de pagamento (#8, adiado) — hoje alocação manual.
 - Endurecer testes de evento de histórico (asserir `tipo`+`dados`) — #1/#10/#11 do EXECUTION_STATUS.
