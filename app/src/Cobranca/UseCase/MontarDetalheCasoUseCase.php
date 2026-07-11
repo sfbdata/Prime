@@ -79,7 +79,9 @@ final class MontarDetalheCasoUseCase
             percentualHonorarios: $caso->getPercentualHonorarios(),
             pastaJudicialId: $caso->getPastaJudicial()?->getId(),
             proximaAcao: $acaoAtiva !== null ? ProximaAcaoOutput::fromEntity($acaoAtiva, $hoje) : null,
-            alertas: $this->alertasCobranca->alertasDoCaso($caso, $hoje),
+            // Dedupe: reusa o saldoExigivel e a ação ativa já computados acima (evita o recálculo interno
+            // do saldo e a re-busca da ação que `alertasDoCaso` faria).
+            alertas: $this->alertasCobranca->alertasComContexto($caso, $saldoExigivel, $acaoAtiva, $hoje),
             obrigacoes: array_map(ObrigacaoOutput::fromEntity(...), $this->obrigacaoRepository->doCaso($caso)),
             pagamentos: array_map(PagamentoOutput::fromEntity(...), $this->pagamentoRepository->doCaso($caso)),
             liquidacoes: array_map(LiquidacaoOutput::fromEntity(...), $this->liquidacaoRepository->doCaso($caso)),

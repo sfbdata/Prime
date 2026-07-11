@@ -60,6 +60,11 @@ class CarteiraRepository extends ServiceEntityRepository
         $qb = $this->baseFiltro($filtros, $tenant);
         $dir = strtolower($direcao) === 'desc' ? 'DESC' : 'ASC';
 
+        // Fetch-join (addSelect) do cliente (to-one, herança JOINED PF/PJ) que o `CarteiraResumoOutput`
+        // hidrata via `getNomeExibicao()` — mata o N+1 lazy por carteira da página. Só no `findByFilters`,
+        // NÃO no `baseFiltro` (compartilhado com `countByFilters`/`COUNT`). To-one → seguro com `setMaxResults`.
+        $qb->leftJoin('c.cliente', 'cl')->addSelect('cl');
+
         // COALESCE não é aceito direto no ORDER BY do DQL → alias HIDDEN (não altera o hidratado).
         if ($ordenar === 'atualizacao') {
             $qb->addSelect('COALESCE(c.atualizadoEm, c.criadoEm) AS HIDDEN ordCol')->orderBy('ordCol', $dir);

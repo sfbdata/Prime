@@ -57,6 +57,7 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
 
     private EntityManagerInterface $em;
     private CasoCobrancaRepository $casoRepo;
+    private ProximaAcaoRepository $acaoRepo;
     private CalculadoraSaldo $calcSaldo;
     private AlertasCobranca $alertas;
     private \DateTimeImmutable $hoje;
@@ -77,6 +78,7 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
         $liquidacaoRepo = $this->em->getRepository(Liquidacao::class);
         /** @var ProximaAcaoRepository $acaoRepo */
         $acaoRepo = $this->em->getRepository(ProximaAcao::class);
+        $this->acaoRepo = $acaoRepo;
         /** @var RevisaoPessoaCobradaRepository $revisaoRepo */
         $revisaoRepo = $this->em->getRepository(RevisaoPessoaCobrada::class);
 
@@ -240,6 +242,32 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
             $textosLote = array_map(static fn ($a) => $a->descricao, $emLote[$id]);
             $textosPorCaso = array_map(static fn ($a) => $a->descricao, $porCaso);
             self::assertSame($textosPorCaso, $textosLote, sprintf('descrição divergente no caso %d', $id));
+        }
+    }
+
+    #[TestDox('alertasComContexto (dedupe do Detalhe) bate com alertasDoCaso, caso a caso')]
+    public function testAlertasComContextoBateComAlertasDoCaso(): void
+    {
+        [, $casos] = $this->cenarioVariado();
+
+        foreach ($casos as $caso) {
+            $porCaso = $this->alertas->alertasDoCaso($caso, $this->hoje);
+
+            // Reproduz o que o MontarDetalheCasoUseCase já tem em mãos ao chamar alertasComContexto.
+            $comContexto = $this->alertas->alertasComContexto(
+                $caso,
+                $this->calcSaldo->saldoExigivel($caso),
+                $this->acaoRepo->findAtivaDoCaso($caso),
+                $this->hoje,
+            );
+
+            $tiposCtx = array_map(static fn ($a) => $a->tipo->value, $comContexto);
+            $tiposPorCaso = array_map(static fn ($a) => $a->tipo->value, $porCaso);
+            self::assertSame($tiposPorCaso, $tiposCtx, sprintf('tipos divergentes no caso %d', (int) $caso->getId()));
+
+            $textosCtx = array_map(static fn ($a) => $a->descricao, $comContexto);
+            $textosPorCaso = array_map(static fn ($a) => $a->descricao, $porCaso);
+            self::assertSame($textosPorCaso, $textosCtx, sprintf('descrição divergente no caso %d', (int) $caso->getId()));
         }
     }
 

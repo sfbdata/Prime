@@ -48,8 +48,8 @@ com dezenas de milhares de casos; ponto de evolução (chunk / materialização)
 | Central de Alertas | `/cobrancas/alertas` | **1592** | **44** (~36×; 960→237 ms SQL) | ✅ P1 |
 | Visão da Carteira (TOPLIFE I, 81 casos) | `/cobrancas/carteiras/1` | **876** | **221** (Cobrança O(1); resíduo = N+1 de autorização, ver nota P2) | ✅ P2 |
 | Lista de Casos (20/página) | `/cobrancas/casos` | **199** | **41** (piso de framework) | ✅ P3 |
-| Lista de Carteiras (2) | `/cobrancas` | 40 | — | P4 |
-| Detalhe do Caso | `/cobrancas/casos/101` | 96 | — | P4 (dedupe) |
+| Lista de Carteiras (2) | `/cobrancas` | 40 | **38** (fetch-join cliente; escala com a página) | ✅ P4 |
+| Detalhe do Caso | `/cobrancas/casos/101` | 96 | **92** (dedupe; resíduo = user_tenant autz) | ✅ P4 |
 
 > **Nota P1 (Central de Alertas):** `MontarCentralAlertasUseCase` passou a usar `AlertasCobranca::alertasDosCasos`
 > (uma carga tenant-scoped) e `CasoCobrancaRepository::doTenant` ganhou fetch-join (`addSelect`) de
@@ -165,7 +165,29 @@ para serviços, para que Alertas/Carteira/Caso reusem sem duplicar:
   (objeto/pessoa/carteira/cliente/acordoOrigem) dispara query; usar fetch-join ou `getId()` no proxy.
 - **`IN (:casoIds)`:** teto ~65535 params; hoje irrelevante, registrar se algum tenant crescer muito.
 
+> **Nota P4 (menores):** **Lista de Carteiras** — `CarteiraRepository::findByFilters` ganhou fetch-join do
+> `cliente` (to-one, herança JOINED PF/PJ) que o `CarteiraResumoOutput` hidrata via `getNomeExibicao()`; só no
+> `findByFilters` (não no `baseFiltro`/`COUNT`). **40 → 38** (na amostra só 2 carteiras; o ganho escala com a
+> página — até ~20 queries a menos numa página cheia). **Detalhe do Caso** — dedupe: novo
+> `AlertasCobranca::alertasComContexto($caso, $saldoExigivel, $acaoAtiva, $hoje)` reusa o saldo e a ação que o
+> `MontarDetalheCasoUseCase` já computa, evitando o recálculo interno do `saldoExigivel` (−3 queries) e a
+> re-busca da ação (−1). **96 → 92.** Teste de equivalência `alertasComContexto == alertasDoCaso` em
+> `CobrancaBatchConsistenciaTest`. O resíduo do Detalhe (56 `user_tenant`) é o N+1 de autorização (follow-up).
+
 ## 6. Definição de pronto (feature toda)
 Todas as telas de Cobrança com contagem de queries O(1)+O(#datasets) por request (não O(#casos)), com testes de
 consistência, medições antes/depois registradas aqui, e revisão SEM bloqueante por fase. Ao concluir, marcar o
 follow-up de perf como 100% resolvido no `EXECUTION_STATUS.md`/`RELEASE_CHECKLIST.md`.
+
+### ✅ STATUS FINAL (2026-07-11) — N+1 de saldo/hidratação de Cobrança ELIMINADO em TODAS as telas
+
+Todas as fases P0–P4 concluídas, revisadas (SEM bloqueante) e commitadas isoladamente. Medições (dev real,
+tenant 1): Dashboard 42→44*, Central de Alertas **1592→44**, Visão da Carteira **876→221†**, Lista de Casos
+**199→41**, Lista de Carteiras 40→38, Detalhe do Caso 96→92†. As queries **de Cobrança** de toda tela agora são
+O(1)+O(#datasets) (não O(#casos)); os testes de consistência provam batch==per-caso. `tests/Cobranca` 409/409.
+
+- \* Dashboard +2 = 2 queries `cliente` O(#carteiras) por compartilhar o `doTenant` fetch-joined (bounded, não N+1).
+- † O resíduo da Visão da Carteira (~202) e do Detalhe (~56) é o **N+1 de autorização `user_tenant`**
+  (`PermissionChecker`/`TenantContext` re-consultam `UserTenant` por chamada) — **PRÉ-EXISTENTE, transversal,
+  MÉDIO risco, FORA do escopo desta frente**. É o ÚNICO item aberto de perf destas telas; ver o follow-up
+  destacado acima (§1.1). Com ele resolvido, Visão da Carteira e Detalhe cairiam ao piso de framework (~44).

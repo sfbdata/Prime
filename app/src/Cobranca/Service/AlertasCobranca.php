@@ -64,6 +64,35 @@ final class AlertasCobranca
     }
 
     /**
+     * Como `alertasDoCaso`, mas reaproveitando o `saldoExigivel` e a ação ativa que o chamador JÁ computou
+     * (dedupe — evita recalcular o saldo e re-buscar a ação dentro deste serviço). Usado pelo Detalhe do Caso
+     * (`MontarDetalheCasoUseCase`), que precisa desses dois valores para o cabeçalho e a próxima ação. Mesma
+     * regra de `alertasDoCaso` (via `montarAlertas`); caso encerrado → `[]`. `$hoje` injetável.
+     *
+     * @return AlertaCobranca[]
+     */
+    public function alertasComContexto(
+        CasoCobranca $caso,
+        int $saldoExigivel,
+        ?ProximaAcao $acaoAtiva,
+        ?\DateTimeImmutable $hoje = null,
+    ): array {
+        if ($caso->estaEncerrado()) {
+            return [];
+        }
+
+        $hoje ??= new \DateTimeImmutable();
+
+        return $this->montarAlertas(
+            $this->obrigacaoRepository->doCasoExigiveis($caso),
+            $acaoAtiva,
+            $saldoExigivel,
+            $this->revisaoRepository->existePendenteDoCaso($caso),
+            $hoje,
+        );
+    }
+
+    /**
      * Versão em LOTE de `alertasDoCaso` para a visão tenant-wide (Central de Alertas, Etapa 9) — evita o
      * N+1 de ~6 queries por caso. Carrega de UMA vez, para todos os casos: obrigações exigíveis, ações
      * pendentes, revisões pendentes e os saldos (via `CalculadoraSaldo::saldosDosCasos`), e deriva os
