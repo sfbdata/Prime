@@ -32,7 +32,7 @@ Por item: **implementar → MOSTRAR o resultado (smoke visual quando dá) → o 
 4. Replicar 1–3 no modal de Editar configuração.
 - *Flag menor (fora do escopo, só anotar):* hoje o DTO permite percentual vazio mesmo quando a forma exige (`exigePercentual()==true`); poderia validar presença — decidir se entra.
 
-## 2. Objeto e Caso viram UMA COISA (na experiência) — `✅ ideia fechada` (spec no planejamento)
+## 2. Objeto e Caso viram UMA COISA (na experiência) — `📐 planejado (spec)` — `docs/specs/cobranca-ajuste2-objeto-caso-unificado.md`
 **Pedido (esclarecido):** "quero que o objeto e o caso se tornem uma coisa só; abrir o objeto e ver a página igual à página de caso." O objeto tem pessoa e obrigações — a camada "caso" não deve aparecer. Na página da carteira: **cards de objeto** (nome do objeto, pessoa, estado, total da dívida); clicar → página do objeto.
 **Risco:** MÉDIO (navegação + camada de leitura + redirects das mutações). NÃO toca o modelo de dados.
 
