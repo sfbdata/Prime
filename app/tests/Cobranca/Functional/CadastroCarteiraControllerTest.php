@@ -48,6 +48,27 @@ final class CadastroCarteiraControllerTest extends CobrancaWebTestCase
         self::assertCount(1, $em->getRepository(Carteira::class)->findBy(['nome' => 'Carteira Nova Teste']));
     }
 
+    #[TestDox('Form da carteira renderiza popover de ajuda, input-group de % e o JS do form')]
+    public function testFormCarteiraRenderizaAjudaEInputGroup(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+
+        $client->request('GET', '/cobrancas');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        // Popover de ajuda (modo/forma de honorários) presente no modal de criar.
+        self::assertStringContainsString('data-bs-toggle="popover"', $html);
+        self::assertStringContainsString('Modo de operação', $html);
+        self::assertStringContainsString('Forma de honorários', $html);
+        // Campo de percentual com input-group + sufixo "%".
+        self::assertStringContainsString('input-group', $html);
+        self::assertStringContainsString('data-percentual-wrapper', $html);
+        // JS do form da carteira (popover init + toggle do percentual).
+        self::assertStringContainsString('cobranca-carteira-form.js', $html);
+    }
+
     #[TestDox('Criar carteira: percentual em pt-BR (vírgula) é gravado no formato decimal')]
     public function testCriarCarteiraPercentualComVirgula(): void
     {
