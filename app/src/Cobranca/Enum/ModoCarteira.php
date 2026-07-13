@@ -22,4 +22,13 @@ enum ModoCarteira: string
             self::Multiplo => 'Várias cobranças ativas por objeto',
         };
     }
+
+    /** Explicação de ajuda (tooltip/popover) do que o modo significa na prática. */
+    public function descricao(): string
+    {
+        return match ($this) {
+            self::Unico => 'Cada objeto tem no máximo uma cobrança ativa por vez. Novas dívidas do mesmo objeto entram na cobrança que já está aberta.',
+            self::Multiplo => 'O mesmo objeto pode ter várias cobranças ativas ao mesmo tempo, cada uma com o seu próprio saldo.',
+        };
+    }
 }

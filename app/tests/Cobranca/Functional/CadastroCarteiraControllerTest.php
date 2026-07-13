@@ -48,6 +48,37 @@ final class CadastroCarteiraControllerTest extends CobrancaWebTestCase
         self::assertCount(1, $em->getRepository(Carteira::class)->findBy(['nome' => 'Carteira Nova Teste']));
     }
 
+    #[TestDox('Criar carteira: percentual em pt-BR (vírgula) é gravado no formato decimal')]
+    public function testCriarCarteiraPercentualComVirgula(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $cliente = ClientePFFactory::createOne(['tenant' => $tenant]);
+
+        $crawler = $client->request('GET', '/cobrancas');
+        $token = $this->tokenDoFormulario($crawler, 'criar_carteira');
+
+        $client->request('POST', '/cobrancas/carteiras/nova', [
+            'criar_carteira' => [
+                'nome' => 'Carteira Percentual Virgula',
+                'clienteId' => (string) $cliente->getId(),
+                'modo' => 'unico',
+                'formaHonorarios' => 'acrescido_divida',
+                'percentualHonorarios' => '10,50',
+                'toleranciaAtrasoDias' => '0',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $carteiras = $em->getRepository(Carteira::class)->findBy(['nome' => 'Carteira Percentual Virgula']);
+        self::assertCount(1, $carteiras);
+        self::assertSame('10.50', $carteiras[0]->getPercentualHonorarios());
+    }
+
     #[TestDox('Criar carteira sem a capacidade: negado, nada é criado')]
     public function testCriarCarteiraSemCapacidade(): void
     {
@@ -116,6 +147,35 @@ final class CadastroCarteiraControllerTest extends CobrancaWebTestCase
         $recarregada = $em->find(Carteira::class, $carteiraId);
         self::assertSame(ModoCarteira::Multiplo, $recarregada->getModo());
         self::assertSame(5, $recarregada->getToleranciaAtrasoDias());
+    }
+
+    #[TestDox('Editar configuração: percentual em pt-BR (vírgula) é gravado no formato decimal')]
+    public function testConfigurarPercentualComVirgula(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira] = $this->semearGrafo($tenant);
+        $carteiraId = (int) $carteira->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteiraId);
+        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_carteira');
+
+        $client->request('POST', '/cobrancas/carteiras/' . $carteiraId . '/configuracao', [
+            'editar_configuracao_carteira' => [
+                'modo' => 'unico',
+                'formaHonorarios' => 'retido_recuperado',
+                'percentualHonorarios' => '12,75',
+                'toleranciaAtrasoDias' => '0',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/carteiras/' . $carteiraId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $recarregada = $em->find(Carteira::class, $carteiraId);
+        self::assertSame('12.75', $recarregada->getPercentualHonorarios());
     }
 
     #[TestDox('IDOR: configurar carteira de OUTRO tenant devolve 404')]

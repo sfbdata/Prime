@@ -16,6 +16,8 @@ use App\Cobranca\Exception\ClienteCredorNaoEncontradoException;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Form\AbrirCasoType;
+use App\Cobranca\Enum\FormaHonorarios;
+use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Form\CriarCarteiraType;
 use App\Cobranca\Form\CriarObjetoType;
 use App\Cobranca\Form\CriarPessoaType;
@@ -109,6 +111,7 @@ final class CarteiraController extends AbstractController
         $dados['formCriarCarteira'] = $podeGerenciarCarteira
             ? $this->createForm(CriarCarteiraType::class, null, ['clientes' => $this->clienteRepository->opcoesDoTenant($tenant)])->createView()
             : null;
+        $dados['ajudaCarteira'] = self::ajudaDosCampos();
 
         return $this->render('cobranca/carteira/index.html.twig', $dados);
     }
@@ -133,6 +136,7 @@ final class CarteiraController extends AbstractController
             'casos' => $visao['casos'],
             'objetos' => $this->objetosDaCarteira($carteira, $tenant),
             'forms' => $this->formulariosDaCarteira($carteira, $tenant),
+            'ajudaCarteira' => self::ajudaDosCampos(),
         ]);
     }
 
@@ -259,6 +263,27 @@ final class CarteiraController extends AbstractController
         }
 
         return $this->redirectToRoute('cobranca_carteira_show', ['id' => $carteiraId]);
+    }
+
+    /**
+     * Texto de ajuda (popover) dos campos de configuração da carteira, a partir dos enums (fonte única).
+     * Consumido pelo partial `_campos_config.html.twig` nos modais de criar e editar.
+     *
+     * @return array{modo: list<array{label: string, descricao: string}>, honorarios: list<array{label: string, descricao: string}>}
+     */
+    private static function ajudaDosCampos(): array
+    {
+        $modo = [];
+        foreach (ModoCarteira::cases() as $caso) {
+            $modo[] = ['label' => $caso->label(), 'descricao' => $caso->descricao()];
+        }
+
+        $honorarios = [];
+        foreach (FormaHonorarios::cases() as $caso) {
+            $honorarios[] = ['label' => $caso->label(), 'descricao' => $caso->descricao()];
+        }
+
+        return ['modo' => $modo, 'honorarios' => $honorarios];
     }
 
     /**

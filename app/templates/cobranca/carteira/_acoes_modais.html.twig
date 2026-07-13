@@ -14,12 +14,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                {{ form_row(forms.editarConfiguracao.modo) }}
-                {{ form_row(forms.editarConfiguracao.formaHonorarios) }}
-                {{ form_row(forms.editarConfiguracao.percentualHonorarios) }}
-                {{ form_row(forms.editarConfiguracao.toleranciaAtrasoDias) }}
-                {{ form_row(forms.editarConfiguracao.tipoVinculoPreferido) }}
-                {{ form_row(forms.editarConfiguracao.rotuloObjeto) }}
+                {{ include('cobranca/carteira/_campos_config.html.twig', { form: forms.editarConfiguracao }) }}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>

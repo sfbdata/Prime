@@ -50,10 +50,10 @@ final class CriarCarteiraType extends AbstractType
                 'choice_label' => static fn (FormaHonorarios $f): string => $f->label(),
                 'attr' => ['class' => 'form-select'],
             ])
-            ->add('percentualHonorarios', TextType::class, [
+            ->add('percentualHonorarios', PercentualType::class, [
                 'label' => 'Percentual de honorários (opcional)',
                 'required' => false,
-                'attr' => ['class' => 'form-control', 'placeholder' => 'Ex.: 10.00'],
+                'attr' => ['class' => 'form-control'],
             ])
             ->add('toleranciaAtrasoDias', IntegerType::class, [
                 'label' => 'Tolerância de atraso (dias)',

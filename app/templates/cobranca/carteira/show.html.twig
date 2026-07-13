@@ -204,6 +204,7 @@
 
 {% block javascripts %}
 {{ parent() }}
+<script src="{{ asset('js/cobranca-carteira-form.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     document.addEventListener('click', function (e) {

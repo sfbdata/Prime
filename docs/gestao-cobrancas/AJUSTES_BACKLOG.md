@@ -12,7 +12,9 @@
 
 ---
 
-## 1. Tooltips + formatação do % no formulário de criação da Carteira — `✅ ideia fechada`
+## 1. Tooltips + formatação do % no formulário de criação da Carteira — `🔍 revisado` (commitado)
+> Implementado: `PercentualType` + `PercentualParaTextoTransformer` (vírgula pt-BR ⇄ ponto); `descricao()` nos enums `ModoCarteira`/`FormaHonorarios`; partial `carteira/_campos_config.html.twig` (popover `?` + input-group `%`) usado nos modais criar/editar; `cobranca-carteira-form.js` (init popover + toggle/disable percentual em "sem percentual"); `CarteiraController::ajudaDosCampos()`. Testes: `CadastroCarteiraControllerTest` +2 (criar/editar com vírgula). `tests/Cobranca` 411/411. Revisão `feature-review-agent`: aprovado, 3 achados menores CORRIGIDOS (disable do %; teste editar; `form_errors` global).
+
 **Pedido:** acrescentar tooltips de informação sobre as opções do formulário de criação da carteira (modos de operação, formas de honorários). Melhorar a formatação do campo de percentual de honorários.
 **Risco:** BAIXO (UI/form, sem regra de negócio nem permissão).
 
