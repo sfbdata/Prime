@@ -17,6 +17,7 @@ final class CasoResumoOutput
 {
     public function __construct(
         public readonly int $id,
+        public readonly int $objetoId,
         public readonly string $objetoIdentificacao,
         public readonly ?string $objetoDescricao,
         public readonly int $carteiraId,
@@ -41,6 +42,7 @@ final class CasoResumoOutput
 
         return new self(
             id: $c->getId() ?? 0,
+            objetoId: $objeto?->getId() ?? 0,
             objetoIdentificacao: $objeto?->getIdentificacao() ?? '—',
             objetoDescricao: $objeto?->getDescricao(),
             carteiraId: $carteira?->getId() ?? 0,

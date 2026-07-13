@@ -8,38 +8,25 @@ use App\Cobranca\DTO\AlterarPessoaCobradaInput;
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\JudicializarCasoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
-use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoJaJudicializadoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Exception\SaldoNaoResolvidoException;
-use App\Cobranca\Form\AcordoCriarType;
 use App\Cobranca\Form\AlterarPessoaCobradaType;
-use App\Cobranca\Form\CancelarAcordoType;
-use App\Cobranca\Form\ConcluirAcaoType;
-use App\Cobranca\Form\DefinirProximaAcaoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\JudicializarCasoType;
-use App\Cobranca\Form\ReconhecerValorAtualizadoType;
-use App\Cobranca\Form\RegistrarLiquidacaoType;
-use App\Cobranca\Form\RegistrarObrigacaoType;
-use App\Cobranca\Form\RegistrarPagamentoType;
-use App\Cobranca\Form\CorrigirPagamentoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
-use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
-use App\Cobranca\Repository\CobrancaDocumentoRepository;
-use App\Cobranca\Repository\CobrancaSecaoRepository;
-use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PessoaRepository;
+use App\Cobranca\Service\MontadorModaisCaso;
+use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Cobranca\UseCase\AlterarPessoaCobradaUseCase;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
 use App\Cobranca\UseCase\ListarCasosUseCase;
-use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Cobranca\UseCase\RegistrarTentativaCobrancaUseCase;
 use App\Pasta\Repository\PastaRepository;
 use App\Service\PermissionChecker;
@@ -71,15 +58,13 @@ final class CasoController extends AbstractController
         private readonly CarteiraRepository $carteiraRepository,
         private readonly ListarCasosUseCase $listarCasos,
         private readonly MontarDetalheCasoUseCase $montarDetalheCaso,
+        private readonly MontadorModaisCaso $montadorModais,
         private readonly EncerrarCasoUseCase $encerrarCaso,
         private readonly RegistrarTentativaCobrancaUseCase $registrarTentativa,
-        private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly JudicializarCasoUseCase $judicializarCaso,
         private readonly PastaRepository $pastaRepository,
         private readonly AlterarPessoaCobradaUseCase $alterarPessoaCobrada,
         private readonly PessoaRepository $pessoaRepository,
-        private readonly CobrancaSecaoRepository $secaoRepository,
-        private readonly CobrancaDocumentoRepository $documentoRepository,
     ) {
     }
 
@@ -137,20 +122,21 @@ final class CasoController extends AbstractController
         }
 
         // Só monta as views dos formulários para quem tem a capacidade — o mesmo gate que esconde os
-        // modais no Twig. Leitor puro não paga esse custo. Movimentação financeira é capacidade
-        // SEPARADA de gerenciar (SPEC §22): um caixa pode movimentar sem gerenciar, e vice-versa.
+        // modais no Twig. Leitor puro não paga esse custo. Movimentação financeira é capacidade SEPARADA
+        // de gerenciar (SPEC §22). A construção dos modais/documentos é compartilhada com a página do
+        // objeto via `MontadorModaisCaso` (ajuste 2). O redirect deste deep-link para o objeto entra na
+        // Fatia 5 (junto com os redirects de mutação e a atualização dos testes).
         $usuario = $this->usuarioLogado();
         $podeGerenciar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.gerenciar');
         $podeMovimentar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.movimentacao_financeira');
-        // Judicializar precisa do módulo `pastas` (para escolher a Pasta): gate ADICIONAL (SPEC §16/§22).
         $podeAcessarPastas = $this->permissionChecker->canAccessModule($usuario, $tenant, self::MODULO_PASTAS);
 
-        $forms = $podeGerenciar ? $this->formulariosDeMutacao($caso, $podeAcessarPastas) : [];
+        $forms = $podeGerenciar ? $this->montadorModais->deMutacao($caso, $podeAcessarPastas) : [];
         if ($podeMovimentar) {
-            $forms += $this->formulariosFinanceiros($caso);
+            $forms += $this->montadorModais->financeiros($caso);
         }
 
-        $documentos = $this->documentosDoCasoParaFm($caso);
+        $documentos = $this->montadorModais->documentosParaFm($caso);
 
         return $this->render('cobranca/caso/show.html.twig', [
             'caso' => $this->montarDetalheCaso->executar($caso),
@@ -160,48 +146,6 @@ final class CasoController extends AbstractController
             'secoes' => $documentos['secoes'],
             'arquivosFm' => $documentos['arquivos'],
         ]);
-    }
-
-    /**
-     * Documentos e seções do caso mapeados em arrays simples para o file-manager (Onda 8C) — sem expor
-     * entidades Doctrine ao Twig. Leitura tenant-scoped (os repos filtram por caso+tenant). A contagem
-     * por seção é derivada dos próprios documentos (sem N+1). O documento "sem seção" fica em `geral`.
-     *
-     * @return array{secoes: list<array{id: int, nome: string, total: int}>, arquivos: list<array{doc: array<string, mixed>, secao: string}>}
-     */
-    private function documentosDoCasoParaFm(CasoCobranca $caso): array
-    {
-        $contagem = [];
-        $arquivos = [];
-        foreach ($this->documentoRepository->documentosDoCaso($caso) as $doc) {
-            $secaoId = $doc->getSecao()?->getId();
-            $chave = $secaoId !== null ? (string) $secaoId : 'geral';
-            $contagem[$chave] = ($contagem[$chave] ?? 0) + 1;
-            $arquivos[] = [
-                'doc' => [
-                    'id' => (int) $doc->getId(),
-                    'nomeOriginal' => $doc->getNomeOriginal(),
-                    'ordem' => $doc->getOrdem(),
-                    'tamanhoBytes' => $doc->getTamanhoBytes(),
-                    'carregadoEm' => $doc->getCarregadoEm(),
-                    'mimeType' => $doc->getMimeType(),
-                    'categoriaLabel' => $doc->getCategoria()->rotulo(),
-                    'descricao' => $doc->getDescricao(),
-                ],
-                'secao' => $chave,
-            ];
-        }
-
-        $secoes = [];
-        foreach ($this->secaoRepository->secoesDoCaso($caso) as $secao) {
-            $secoes[] = [
-                'id' => (int) $secao->getId(),
-                'nome' => $secao->getNome(),
-                'total' => $contagem[(string) $secao->getId()] ?? 0,
-            ];
-        }
-
-        return ['secoes' => $secoes, 'arquivos' => $arquivos];
     }
 
     #[Route('/{id}/encerrar', name: 'cobranca_caso_encerrar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -339,56 +283,4 @@ final class CasoController extends AbstractController
         return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
     }
 
-    /**
-     * Views (vazias) dos formulários de mutação renderizados como modais no detalhe do Caso. O
-     * processamento POST vive em cada controller de recurso; aqui só o render. Cresce por fatia da 8B.
-     *
-     * @return array<string, \Symfony\Component\Form\FormView>
-     */
-    private function formulariosDeMutacao(CasoCobranca $caso, bool $incluirJudicializar = false): array
-    {
-        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
-
-        $views = [
-            'registrarObrigacao' => $this->createForm(RegistrarObrigacaoType::class)->createView(),
-            'reconhecerValor' => $this->createForm(ReconhecerValorAtualizadoType::class)->createView(),
-            'encerrarCaso' => $this->createForm(EncerrarCasoType::class)->createView(),
-            'definirProximaAcao' => $this->createForm(DefinirProximaAcaoType::class)->createView(),
-            'concluirAcao' => $this->createForm(ConcluirAcaoType::class)->createView(),
-            'registrarTentativa' => $this->createForm(RegistrarTentativaCobrancaType::class)->createView(),
-            'acordoCriar' => $this->createForm(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
-            'romperAcordo' => $this->createForm(RomperAcordoType::class)->createView(),
-            'cancelarAcordo' => $this->createForm(CancelarAcordoType::class)->createView(),
-            'alterarPessoa' => $this->createForm(AlterarPessoaCobradaType::class, null, [
-                'pessoas' => $this->pessoaRepository->opcoesDoTenant($caso->getTenant()),
-            ])->createView(),
-        ];
-
-        // Judicializar só entra com o módulo `pastas` (para o select da Pasta a vincular).
-        if ($incluirJudicializar) {
-            $views['judicializar'] = $this->createForm(JudicializarCasoType::class, null, [
-                'pastas' => $this->pastaRepository->opcoesDoTenant($caso->getTenant()),
-            ])->createView();
-        }
-
-        return $views;
-    }
-
-    /**
-     * Views dos formulários financeiros (8B-D) renderizados como modais na aba Pagamentos &
-     * Liquidações. Gated pela capacidade `resources.cobranca.movimentacao_financeira` (separada de
-     * gerenciar). Pagamento/correção reusam as obrigações exigíveis do caso para o select de alocação.
-     *
-     * @return array<string, \Symfony\Component\Form\FormView>
-     */
-    private function formulariosFinanceiros(CasoCobranca $caso): array
-    {
-        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
-
-        return [
-            'registrarPagamento' => $this->createForm(RegistrarPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
-            'corrigirPagamento' => $this->createForm(CorrigirPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
-            'registrarLiquidacao' => $this->createForm(RegistrarLiquidacaoType::class)->createView(),
-        ];
-    }
 }

@@ -58,9 +58,13 @@
 
 ---
 
-## Fatia 2 — Página do objeto (leitura) + extrair corpo do caso num partial
+## Fatia 2 — Página do objeto (leitura)
 
-**Objetivo:** nova rota/tela `cobranca_objeto_show` renderiza cabeçalho do objeto + cobrada em destaque + aba Pessoas (só leitura) + o corpo do caso (abas) via partial extraído. `caso_show` vira redirect.
+**Objetivo:** nova rota/tela `cobranca_objeto_show` renderiza cabeçalho do objeto + cobrada em destaque + aba Pessoas (só leitura) + o corpo operacional (abas).
+
+> **Desvio de plano (decidido na implementação, registrado 2026-07-13):**
+> 1. **Sem partial `_corpo_cobranca`.** Como `caso_show` vira redirect (Fatia 5), o corpo do caso teria um único consumidor → YAGNI. Em vez do partial, o corpo foi **movido** para `objeto/show.html.twig` (o template do caso segue vivo até a Fatia 5). Os 3 helpers de construção de modais/documentos do `CasoController` viraram o serviço **`MontadorModaisCaso`** (DRY real: usado pelas duas páginas).
+> 2. **`caso_show` NÃO vira redirect na Fatia 2 — só na Fatia 5.** Fazer o redirect aqui quebraria os testes de mutação existentes (eles fazem `GET /cobrancas/casos/{id}` para pegar o token CSRF e conferem o conteúdo após o POST, que ainda redireciona para `caso_show`). O flip de TODOS os redirects (`caso_show` + mutações) + atualização dos testes + remoção do `caso/show.html.twig` morto fica coeso na **Fatia 5**.
 
 **Files:**
 - Create: `app/src/Cobranca/Controller/ObjetoController.php` (rota `cobranca_objeto_show`)
