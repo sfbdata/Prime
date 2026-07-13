@@ -21,8 +21,10 @@
 {% if pastas|length > 0 %}
 <div class="pastas-view pastas-view--tabela" id="pastasView">
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-1">
-    <span class="text-muted">
-        <i class="bi bi-list-ul me-1"></i> {{ pastas|length }} resultado(s) encontrado(s)
+    <span class="expediente-results-summary">
+        <i class="bi bi-list-ul"></i>
+        <strong>{{ pagination.total_items|default(pastas|length) }}</strong>
+        resultado{{ pagination.total_items|default(pastas|length) != 1 ? 's' : '' }}
     </span>
     <div class="d-flex align-items-center flex-wrap gap-2">
         {# "Ordenar por" — só no modo lista (no desktop) e no mobile (nenhum tem cabeçalho de coluna) #}
@@ -43,16 +45,13 @@
         </div>
         {# Toggle Tabela | Lista — só desktop (mobile é sempre cartão) #}
         <div class="btn-group btn-group-sm pasta-view-toggle d-none d-md-inline-flex" role="group" aria-label="Alternar visual">
-            <button type="button" class="btn btn-outline-secondary js-view-toggle" data-view="tabela" title="Ver em tabela">
-                <i class="bi bi-table"></i>
-            </button>
             <button type="button" class="btn btn-outline-secondary js-view-toggle" data-view="lista" title="Ver em lista">
-                <i class="bi bi-card-list"></i>
+                <i class="bi bi-card-list me-1"></i>Lista
+            </button>
+            <button type="button" class="btn btn-outline-secondary js-view-toggle" data-view="tabela" title="Ver em tabela">
+                <i class="bi bi-table me-1"></i>Tabela
             </button>
         </div>
-        {% if pagination is defined and pagination is not null %}
-            {{ include('expediente/_paginacao.html.twig') }}
-        {% endif %}
     </div>
 </div>
 
@@ -61,13 +60,13 @@
     <div class="card-body table-responsive p-0">
         <table class="table table-hover mb-0" id="tabelaPastas">
             <colgroup>
-                <col style="width:66px">           <!-- NUP -->
-                <col style="width:23%">            <!-- Cliente (elástica dominante) -->
-                <col style="width:17%">            <!-- Ação (elástica, cede primeiro) -->
+                <col style="width:150px">          <!-- NUP -->
+                <col style="width:21%">            <!-- Cliente (elástica dominante) -->
+                <col style="width:15%">            <!-- Ação (elástica, cede primeiro) -->
                 <col style="width:100px">          <!-- Prioridade -->
-                <col style="width:140px">          <!-- Responsável -->
-                <col style="width:66px">           <!-- Metas -->
-                <col style="width:170px">          <!-- Marcadores (chip + badge + botão na mesma linha) -->
+                <col style="width:150px">          <!-- Responsável -->
+                <col style="width:90px">           <!-- Metas -->
+                <col style="width:155px">          <!-- Marcadores (chip + badge + botão na mesma linha) -->
                 <col style="width:96px">           <!-- Situação -->
             </colgroup>
             <thead class="table-light">
@@ -84,13 +83,19 @@
             </thead>
             <tbody>
                 {% for pasta in pastas %}
-                {% set dias = date().diff(pasta.dataAbertura).days %}
+                {% set ultimaAtividade = pasta.modificadoEm ?: pasta.criadoEm %}
+                {% set diasAtividade = date().diff(ultimaAtividade).days %}
+                {% set tarefasAbertas = pasta.tarefas|filter(t => t.status != 'concluida') %}
+                {% set tarefasAtrasadas = tarefasAbertas|filter(t => t.prazo and t.prazo < date()) %}
                 <tr class="pasta-row-link{% if pasta.prioridade.value == 'urgente' %} pasta-row-urgente{% endif %}" style="cursor:pointer;" data-href="{{ path('pasta_show', {id: pasta.id}) }}">
-                    <td class="fw-semibold ps-3 align-middle">{{ pasta.nup }}</td>
+                    <td class="ps-3 align-middle">
+                        <span class="expediente-table-nup">{{ pasta.nup }}</span>
+                        <small class="expediente-table-meta">{% if diasAtividade == 0 %}Atualizada hoje{% elseif diasAtividade == 1 %}Há 1 dia{% else %}Há {{ diasAtividade }} dias{% endif %}</small>
+                    </td>
                     <td class="align-middle">
                         {% if pasta.clientes|length > 0 %}
                             {% if pasta.clientes|length == 1 %}
-                                <span class="text-truncate d-block" style="width:100%;">{{ pasta.clientes[0].nomeExibicao }}</span>
+                                <span class="expediente-table-primary text-truncate d-block" style="width:100%;">{{ pasta.clientes[0].nomeExibicao }}</span>
                             {% else %}
                                 <span class="clientes-resumo text-truncate d-block" style="width:100%;"
                                       data-bs-placement="right"
@@ -100,10 +105,11 @@
                                 </span>
                             {% endif %}
                         {% elseif pasta.nomeCliente %}
-                            <span class="text-truncate d-block" style="width:100%;">{{ pasta.nomeCliente }}</span>
+                            <span class="expediente-table-primary text-truncate d-block" style="width:100%;">{{ pasta.nomeCliente }}</span>
                         {% else %}
                             <span class="text-muted">—</span>
                         {% endif %}
+                        <small class="expediente-table-meta">{% if pasta.processoPrincipal %}Processo principal vinculado{% elseif pasta.clientes|length > 0 %}{{ pasta.clientes|length }} cliente{{ pasta.clientes|length != 1 ? 's' : '' }} vinculado{{ pasta.clientes|length != 1 ? 's' : '' }}{% else %}Sem vínculo informado{% endif %}</small>
                     </td>
                     <td class="col-acao-tabela align-middle">
                         <span class="text-truncate d-block" style="width:100%;">
@@ -125,15 +131,14 @@
                         {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotosResponsaveis}) }}
                     </td>
                     <td class="col-tarefas-tabela align-middle">
-                        {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
-                        {% set totalTarefas = pasta.tarefas|length %}
-                        {% if totalTarefas > 0 %}
-                            {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
+                        {% if tarefasAtrasadas|length > 0 %}
                             <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
-                               class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
-                               title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
-                                <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
+                               class="expediente-table-deadline expediente-table-deadline--late"
+                               title="{{ tarefasAtrasadas|length }} meta(s) atrasada(s)">
+                                {{ tarefasAtrasadas|length }} atrasada{{ tarefasAtrasadas|length != 1 ? 's' : '' }}
                             </a>
+                        {% elseif tarefasAbertas|length > 0 %}
+                            <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas" class="expediente-table-deadline">{{ tarefasAbertas|length }} aberta{{ tarefasAbertas|length != 1 ? 's' : '' }}</a>
                         {% else %}
                             <span class="text-muted" style="font-size:.8rem;">—</span>
                         {% endif %}
@@ -173,7 +178,7 @@
                               data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}"
                               data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
                               title="Dê duplo-clique para alternar entre ativo e arquivado">
-                            {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
+                            {{ pasta.situacao == 'ativo' ? 'Ativa' : 'Arquivada' }}
                         </span>
                     </td>
                 </tr>
@@ -209,12 +214,16 @@
 </div>
 </div>{# /#pastasView #}
 {% else %}
-<div class="alert alert-info mb-0">
-    <i class="bi bi-info-circle me-1"></i>
+<div class="expediente-empty-state">
+    <span class="expediente-empty-icon"><i class="bi bi-folder2-open"></i></span>
+    <h3>Nenhuma pasta encontrada</h3>
     {% if filters.busca or filters.status or filters.responsavel or filters.prioridade or filters.data_de or filters.data_ate %}
-        Nenhuma pasta encontrada com os filtros aplicados.
+        <p>Não encontramos pastas com os filtros atuais. Remova um ou mais filtros para ampliar a busca.</p>
+        <button type="button" class="btn btn-sm btn-outline-primary js-pasta-limpar">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Limpar filtros
+        </button>
     {% else %}
-        Nenhuma pasta cadastrada.
+        <p>As novas pastas aparecerão aqui assim que forem cadastradas.</p>
     {% endif %}
 </div>
 {% endif %}

@@ -253,6 +253,22 @@ class TarefaRepository extends ServiceEntityRepository
         return $counts;
     }
 
+    public function countVencidas(Tenant $tenant, \DateTimeImmutable $referencia): int
+    {
+        return (int) $this->createQueryBuilder('t')
+            ->select('COUNT(t.id)')
+            ->join('t.pasta', 'p')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('t.status != :concluida')
+            ->andWhere('t.prazo IS NOT NULL')
+            ->andWhere('t.prazo < :referencia')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('concluida', Tarefa::STATUS_CONCLUIDA)
+            ->setParameter('referencia', $referencia)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     /**
      * @return array<int, int>  userId => total (ativas com prazo entre $referencia e $referencia+7 dias)
      */

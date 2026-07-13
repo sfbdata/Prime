@@ -247,6 +247,19 @@ class PastaRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
+    public function countSemResponsavel(Tenant $tenant): int
+    {
+        return (int) $this->createQueryBuilder('p')
+            ->select('COUNT(p.id)')
+            ->andWhere('p.tenant = :tenant')
+            ->andWhere('p.situacao = :situacao')
+            ->andWhere('p.responsavel IS NULL')
+            ->setParameter('tenant', $tenant)
+            ->setParameter('situacao', Pasta::SITUACAO_ATIVA)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     /**
      * @param array<string, mixed> $filtros  filtros do Dashboard (data_de, data_ate, responsavel)
      */
@@ -400,9 +413,13 @@ class PastaRepository extends ServiceEntityRepository
         }
 
         if (!empty($filters['responsavel'])) {
-            $qb->join('p.responsavel', 'r')
-               ->andWhere('r.id = :responsavel')
-               ->setParameter('responsavel', (int) $filters['responsavel']);
+            if ($filters['responsavel'] === 'sem') {
+                $qb->andWhere('p.responsavel IS NULL');
+            } else {
+                $qb->join('p.responsavel', 'r')
+                   ->andWhere('r.id = :responsavel')
+                   ->setParameter('responsavel', (int) $filters['responsavel']);
+            }
         }
 
         $precisaJoinCliente  = !empty($filters['cliente']) || !empty($filters['busca']);

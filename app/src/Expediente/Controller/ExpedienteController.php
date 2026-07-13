@@ -16,6 +16,7 @@ use App\Pasta\Repository\PastaRepository;
 use App\Repository\UserRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Tarefa\Repository\TarefaRepository;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -40,6 +41,7 @@ final class ExpedienteController extends AbstractController
         private readonly ValidatorInterface $validator,
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
+        private readonly TarefaRepository $tarefaRepository,
     ) {
     }
 
@@ -58,6 +60,15 @@ final class ExpedienteController extends AbstractController
             'pastas'          => $marcadores,
             'todosMarcadores' => $todosMarcadores,
             'contagemPastas'  => $contagemPastas,
+            'metricas'        => [
+                'total'           => $this->pastaRepository->countByFilters([], $tenant),
+                'minhas'          => $this->pastaRepository->countByFilters(['responsavel' => (string) $user->getId()], $tenant),
+                'ativas'          => $this->pastaRepository->countAtivas($tenant),
+                'urgentes'        => $this->pastaRepository->countUrgentes($tenant),
+                'metasAtrasadas'  => $this->tarefaRepository->countVencidas($tenant, new \DateTimeImmutable()),
+                'semResponsavel'  => $this->pastaRepository->countSemResponsavel($tenant),
+            ],
+            'usuarioAtualId' => $user->getId(),
         ]);
     }
 
@@ -253,6 +264,15 @@ final class ExpedienteController extends AbstractController
         $filters             = $this->filtrosDaRequest($request);
         [$ordenar, $direcao] = $this->ordenacaoDaRequest($request);
 
+        $tituloPainel = match (true) {
+            $filters['responsavel'] === (string) $user->getId() => 'Minhas pastas',
+            $filters['responsavel'] === 'sem'                   => 'Sem responsável',
+            $filters['prioridade'] === 'urgente'                => 'Urgentes',
+            $filters['status'] === 'arquivado'                  => 'Arquivadas',
+            $filters['status'] === 'ativo'                      => 'Pastas ativas',
+            default                                             => 'Todas as pastas',
+        };
+
         $page = max(1, $request->query->getInt('page', 1));
 
         $totalItems = $this->pastaRepository->countByFilters($filters, $tenant);
@@ -267,6 +287,7 @@ final class ExpedienteController extends AbstractController
             'responsaveis' => $this->userRepository->findColaboradoresAtivosPorTenant($tenant),
             'fotosResponsaveis' => $this->userRepository->findFotoPorColaboradores($tenant),
             'formAction'   => $this->generateUrl('expediente_acervo_geral'),
+            'tituloPainel' => $tituloPainel,
             'pagination'   => [
                 'current_page' => $page,
                 'per_page'     => self::PER_PAGE,

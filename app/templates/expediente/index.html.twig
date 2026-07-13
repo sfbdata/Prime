@@ -21,8 +21,39 @@
 
 {% block body %}
 <section class="content-header">
-    <div class="container-fluid d-flex justify-content-between align-items-center">
-        <h1 class="m-0"><i class="bi bi-inbox-fill me-2"></i>Expediente</h1>
+    <div class="container-fluid expediente-page-heading">
+        <div>
+            <div class="expediente-eyebrow">Workspace jurídico</div>
+            <h1 class="m-0">Expediente</h1>
+            <p class="expediente-page-description mb-0">Gerencie e acompanhe as pastas e casos do escritório.</p>
+        </div>
+        <button type="button" class="btn btn-primary expediente-primary-action"
+                data-bs-toggle="modal" data-bs-target="#modalNovaPasta">
+            <i class="bi bi-plus-lg me-1"></i> Nova pasta
+        </button>
+    </div>
+</section>
+
+<section class="expediente-kpi-section" aria-label="Indicadores do Expediente">
+    <div class="container-fluid">
+        <div class="expediente-kpi-strip">
+            <a href="#" class="expediente-kpi" data-painel-kpi="{{ path('expediente_acervo_geral', {status: 'ativo'}) }}" data-kpi="ativas" data-value="{{ metricas.ativas }}">
+                <span class="expediente-kpi-icon"><i class="bi bi-folder-check"></i></span>
+                <span><strong>{{ metricas.ativas }}</strong><small>Pastas ativas</small></span>
+            </a>
+            <a href="#" class="expediente-kpi expediente-kpi--danger" data-painel-kpi="{{ path('expediente_acervo_geral', {prioridade: 'urgente'}) }}" data-kpi="urgentes" data-value="{{ metricas.urgentes }}">
+                <span class="expediente-kpi-icon"><i class="bi bi-exclamation-triangle"></i></span>
+                <span><strong>{{ metricas.urgentes }}</strong><small>Urgentes</small></span>
+            </a>
+            <div class="expediente-kpi expediente-kpi--warning" data-kpi="metas-atrasadas" data-value="{{ metricas.metasAtrasadas }}">
+                <span class="expediente-kpi-icon"><i class="bi bi-clock-history"></i></span>
+                <span><strong>{{ metricas.metasAtrasadas }}</strong><small>Metas atrasadas</small></span>
+            </div>
+            <a href="#" class="expediente-kpi expediente-kpi--attention" data-painel-kpi="{{ path('expediente_acervo_geral', {responsavel: 'sem', status: 'ativo'}) }}" data-kpi="sem-responsavel" data-value="{{ metricas.semResponsavel }}">
+                <span class="expediente-kpi-icon"><i class="bi bi-person-exclamation"></i></span>
+                <span><strong>{{ metricas.semResponsavel }}</strong><small>Sem responsável</small></span>
+            </a>
+        </div>
     </div>
 </section>
 
@@ -54,11 +85,17 @@
                     </button>
                 </div>
 
-                {# Botão de colapsar — visível apenas em desktop #}
-                <button type="button" class="expediente-sidebar-toggle-btn d-none d-md-flex" id="expedienteSidebarToggleBtn"
-                        title="Retrair menu" aria-label="Retrair/expandir menu lateral">
-                    <i class="bi bi-chevron-left" id="expedienteSidebarToggleIcon"></i>
-                </button>
+                {# Cabeçalho e controle de recolhimento — desktop #}
+                <div class="expediente-sidebar-top d-none d-md-flex">
+                    <span class="expediente-sidebar-title">
+                        <i class="bi bi-compass"></i>
+                        <span>Navegação</span>
+                    </span>
+                    <button type="button" class="expediente-sidebar-toggle-btn" id="expedienteSidebarToggleBtn"
+                            title="Retrair menu" aria-label="Retrair/expandir menu lateral">
+                        <i class="bi bi-chevron-left" id="expedienteSidebarToggleIcon"></i>
+                    </button>
+                </div>
 
                 <div class="expediente-menu">
 
@@ -82,6 +119,30 @@
                                    data-painel="{{ path('expediente_acervo_geral') }}">
                                     <i class="bi bi-folder2-open expediente-icon expediente-icon--no-chevron"></i>
                                     <span>Todas as pastas</span>
+                                    <span class="expediente-nav-count">{{ metricas.total }}</span>
+                                </a>
+                            </li>
+                            <li class="expediente-menu-item">
+                                <a href="#" class="expediente-menu-link" data-painel="{{ path('expediente_acervo_geral', {responsavel: usuarioAtualId}) }}">
+                                    <i class="bi bi-person-check expediente-icon expediente-icon--no-chevron"></i><span>Minhas pastas</span>
+                                    <span class="expediente-nav-count">{{ metricas.minhas }}</span>
+                                </a>
+                            </li>
+                            <li class="expediente-menu-item">
+                                <a href="#" class="expediente-menu-link" data-painel="{{ path('expediente_acervo_geral', {prioridade: 'urgente'}) }}">
+                                    <i class="bi bi-exclamation-triangle expediente-icon expediente-icon--no-chevron"></i><span>Urgentes</span>
+                                    <span class="expediente-nav-count">{{ metricas.urgentes }}</span>
+                                </a>
+                            </li>
+                            <li class="expediente-menu-item">
+                                <a href="#" class="expediente-menu-link" data-painel="{{ path('expediente_acervo_geral', {responsavel: 'sem', status: 'ativo'}) }}">
+                                    <i class="bi bi-person-dash expediente-icon expediente-icon--no-chevron"></i><span>Sem responsável</span>
+                                    <span class="expediente-nav-count">{{ metricas.semResponsavel }}</span>
+                                </a>
+                            </li>
+                            <li class="expediente-menu-item">
+                                <a href="#" class="expediente-menu-link" data-painel="{{ path('expediente_acervo_geral', {status: 'arquivado'}) }}">
+                                    <i class="bi bi-archive expediente-icon expediente-icon--no-chevron"></i><span>Arquivadas</span>
                                 </a>
                             </li>
                         </ul>
@@ -899,6 +960,7 @@ html[data-bs-theme="dark"] .btn-expediente-pull-tab.drawer-aberto {
     background: var(--bs-secondary-bg);
 }
 </style>
+<link rel="stylesheet" href="{{ asset('css/expediente-ux.css') }}">
 {% endblock %}
 
 {% block javascripts %}
@@ -912,37 +974,67 @@ document.addEventListener('click', function (e) {
     window.location.href = alvo.dataset.href;
 });
 
-/* ── Alternar situação da pasta por duplo-clique na badge ── */
-document.addEventListener('dblclick', function (e) {
-    var badge = e.target.closest('.js-toggle-situacao');
-    if (!badge) return;
-    e.stopPropagation();
+function alternarSituacaoPasta(acionador) {
+    if (acionador.dataset.ocupado === '1') return;
+    acionador.dataset.ocupado = '1';
 
-    if (badge.dataset.ocupado === '1') return;
-    badge.dataset.ocupado = '1';
-
-    fetch(badge.dataset.url, {
+    fetch(acionador.dataset.url, {
         method: 'POST',
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: '_token=' + encodeURIComponent(badge.dataset.csrf),
+        body: '_token=' + encodeURIComponent(acionador.dataset.csrf),
     })
     .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
     .then(function (res) {
-        badge.dataset.ocupado = '';
+        acionador.dataset.ocupado = '';
         if (!res.ok || !res.data.sucesso) {
             alert(res.data.erro || 'Erro ao alterar situação.');
             return;
         }
         var eAtivo = res.data.novaSituacao === 'ativo';
-        badge.classList.remove('text-bg-success', 'text-bg-secondary');
-        badge.classList.add(eAtivo ? 'text-bg-success' : 'text-bg-secondary');
-        badge.textContent      = eAtivo ? 'Ativo' : 'Arquivado';
-        badge.dataset.situacao = res.data.novaSituacao;
+
+        document.querySelectorAll('.js-toggle-situacao').forEach(function (elemento) {
+            if (elemento.dataset.url !== acionador.dataset.url) return;
+            elemento.dataset.situacao = res.data.novaSituacao;
+            if (elemento.classList.contains('dropdown-item')) {
+                elemento.innerHTML = '<i class="bi bi-archive me-2"></i>' + (eAtivo ? 'Arquivar' : 'Reativar');
+                return;
+            }
+            elemento.classList.remove('text-bg-success', 'text-bg-secondary');
+            elemento.classList.add(eAtivo ? 'text-bg-success' : 'text-bg-secondary');
+            elemento.textContent = eAtivo ? 'Ativa' : 'Arquivada';
+        });
+
+        document.querySelectorAll('.pasta-card .js-toggle-situacao').forEach(function (elemento) {
+            if (elemento.dataset.url !== acionador.dataset.url) return;
+            var status = elemento.closest('.pasta-card')?.querySelector('.expediente-status');
+            if (!status) return;
+            status.classList.toggle('expediente-status--ativo', eAtivo);
+            status.classList.toggle('expediente-status--arquivado', !eAtivo);
+            status.textContent = eAtivo ? 'Ativa' : 'Arquivada';
+        });
     })
     .catch(function () {
-        badge.dataset.ocupado = '';
+        acionador.dataset.ocupado = '';
         alert('Erro de comunicação com o servidor.');
     });
+}
+
+/* A badge da tabela mantém o gesto legado de duplo-clique. */
+document.addEventListener('dblclick', function (e) {
+    var badge = e.target.closest('.js-toggle-situacao:not(.dropdown-item)');
+    if (!badge) return;
+    e.preventDefault();
+    e.stopPropagation();
+    alternarSituacaoPasta(badge);
+});
+
+/* No menu do cartão a ação é explícita e responde a um clique. */
+document.addEventListener('click', function (e) {
+    var item = e.target.closest('.pasta-card-menu-wrap .js-toggle-situacao');
+    if (!item) return;
+    e.preventDefault();
+    e.stopPropagation();
+    alternarSituacaoPasta(item);
 });
 
 document.addEventListener('DOMContentLoaded', function () {
@@ -1557,7 +1649,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function carregarPainel(url, nomeAtivo) {
-        document.querySelectorAll('.expediente-menu-link').forEach(function (l) { l.classList.remove('active'); });
         painel.innerHTML = '<div class="p-4 text-center text-muted"><i class="bi bi-hourglass-split"></i> Carregando...</div>';
         if (labelPainel && nomeAtivo) labelPainel.textContent = nomeAtivo;
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -1938,10 +2029,10 @@ document.addEventListener('DOMContentLoaded', function () {
             var bg0    = primeiro.cor || 'var(--bs-tertiary-bg)';
             var cor0   = primeiro.cor ? '#333' : 'var(--bs-body-color)';
             var borda0 = primeiro.cor ? 'border:1px solid rgba(0,0,0,.1);' : '';
-            novosHtml += '<span class="badge rounded-pill px-2 marcador-principal" style="background:' + bg0 + ';color:' + cor0 + ';' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
+            novosHtml += '<span class="badge rounded-pill px-2 marcador-principal expediente-marker" style="background:' + bg0 + ';color:' + cor0 + ';' + borda0 + 'font-size:.68rem;">' + escHtml(primeiro.nome) + '</span>';
             if (data.marcadores.length > 1) {
                 var extrasJson = JSON.stringify(data.marcadores.slice(1).map(function (m) { return { nome: m.nome, cor: m.cor || '' }; }));
-                novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra" style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;" data-marcadores-json=\'' + extrasJson.replace(/'/g, '&#39;') + '\'>+' + (data.marcadores.length - 1) + '</span>';
+                novosHtml += ' <span class="badge rounded-pill px-2 marcadores-extra expediente-marker-extra" style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;" data-marcadores-json=\'' + extrasJson.replace(/'/g, '&#39;') + '\'>+' + (data.marcadores.length - 1) + '</span>';
             }
         }
 
@@ -1950,12 +2041,26 @@ document.addEventListener('DOMContentLoaded', function () {
             var wrapper = col.querySelector('.d-flex');
             if (wrapper) {
                 wrapper.querySelectorAll('span.badge').forEach(function (s) { s.remove(); });
-                wrapper.insertAdjacentHTML('afterbegin', novosHtml);
+                wrapper.querySelectorAll('.pasta-operation-muted').forEach(function (s) { s.remove(); });
+                if (novosHtml) {
+                    wrapper.insertAdjacentHTML('afterbegin', novosHtml);
+                } else if (col.classList.contains('pasta-card-marc')) {
+                    wrapper.insertAdjacentHTML('afterbegin', '<span class="pasta-operation-muted">Sem marcador</span>');
+                }
             }
-            var btn = col.querySelector('.js-mover-para');
-            if (btn) btn.dataset.marcadoresAtivos = newIds.join(',');
+        });
+
+        document.querySelectorAll('.js-mover-para[data-pasta-id="' + data.pastaId + '"]').forEach(function (btn) {
+            btn.dataset.marcadoresAtivos = newIds.join(',');
         });
     };
+
+    document.querySelectorAll('[data-painel-kpi]').forEach(function (kpi) {
+        kpi.addEventListener('click', function (event) {
+            event.preventDefault();
+            carregarPainel(kpi.dataset.painelKpi, kpi.querySelector('small')?.textContent || 'Expediente');
+        });
+    });
 
 });
 </script>

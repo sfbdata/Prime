@@ -1,77 +1,59 @@
-{% if pagination.total_pages > 1 %}
-    {% set max_botoes = 8 %}
-    {% set total = pagination.total_pages %}
-    {% set atual = pagination.current_page %}
-    {% set metade = (max_botoes / 2)|round(0, 'floor') %}
-    {% set start = atual - metade %}
-    {% set end   = start + max_botoes - 1 %}
-    {% if start < 1 %}
-        {% set start = 1 %}
+{% set inicio = pagination.total_items > 0 ? ((pagination.current_page - 1) * pagination.per_page) + 1 : 0 %}
+{% set fim = min(pagination.current_page * pagination.per_page, pagination.total_items) %}
+
+<div class="expediente-pagination">
+    <small class="expediente-pagination-summary">
+        Exibindo {{ inicio }}–{{ fim }} de {{ pagination.total_items }} pasta{{ pagination.total_items != 1 ? 's' : '' }}
+    </small>
+
+    {% if pagination.total_pages > 1 %}
+        {% set max_botoes = 5 %}
+        {% set total = pagination.total_pages %}
+        {% set atual = pagination.current_page %}
+        {% set metade = (max_botoes / 2)|round(0, 'floor') %}
+        {% set start = max(1, atual - metade) %}
         {% set end = min(total, start + max_botoes - 1) %}
-    {% endif %}
-    {% if end > total %}
-        {% set end = total %}
-        {% set start = max(1, end - max_botoes + 1) %}
-    {% endif %}
+        {% if end - start + 1 < max_botoes %}
+            {% set start = max(1, end - max_botoes + 1) %}
+        {% endif %}
 
-    <nav aria-label="Paginação" class="d-flex align-items-center justify-content-end my-0">
-        <ul class="pagination pagination-sm mb-0">
-
-            <li class="page-item {{ pagination.current_page <= 1 ? 'disabled' : '' }}">
-                <button type="button"
-                        class="page-link btn-pagina"
-                        data-page="1"
-                        aria-label="Primeira página"
-                        {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    &laquo;
-                </button>
-            </li>
-
-            <li class="page-item {{ pagination.current_page <= 1 ? 'disabled' : '' }}">
-                <button type="button"
-                        class="page-link btn-pagina"
-                        data-page="{{ pagination.current_page - 1 }}"
-                        aria-label="Página anterior"
-                        {% if pagination.current_page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    &lsaquo;
-                </button>
-            </li>
-
-            {% for p in start..end %}
-                <li class="page-item {{ p == pagination.current_page ? 'active' : '' }}">
-                    <button type="button"
-                            class="page-link btn-pagina"
-                            data-page="{{ p }}"
-                            aria-label="Página {{ p }}"
-                            {% if p == pagination.current_page %}aria-current="page"{% endif %}>
-                        {{ p }}
+        <nav aria-label="Paginação">
+            <ul class="pagination pagination-sm mb-0">
+                <li class="page-item {{ atual <= 1 ? 'disabled' : '' }}">
+                    <button type="button" class="page-link btn-pagina" data-page="1"
+                            aria-label="Primeira página" {% if atual <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
+                        &laquo;
                     </button>
                 </li>
-            {% endfor %}
+                <li class="page-item {{ atual <= 1 ? 'disabled' : '' }}">
+                    <button type="button" class="page-link btn-pagina" data-page="{{ atual - 1 }}"
+                            aria-label="Página anterior" {% if atual <= 1 %}aria-disabled="true" tabindex="-1"{% endif %}>
+                        Anterior
+                    </button>
+                </li>
 
-            <li class="page-item {{ pagination.current_page >= pagination.total_pages ? 'disabled' : '' }}">
-                <button type="button"
-                        class="page-link btn-pagina"
-                        data-page="{{ pagination.current_page + 1 }}"
-                        aria-label="Próxima página"
-                        {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    &rsaquo;
-                </button>
-            </li>
+                {% for p in start..end %}
+                    <li class="page-item {{ p == atual ? 'active' : '' }}">
+                        <button type="button" class="page-link btn-pagina" data-page="{{ p }}"
+                                aria-label="Página {{ p }}" {% if p == atual %}aria-current="page"{% endif %}>
+                            {{ p }}
+                        </button>
+                    </li>
+                {% endfor %}
 
-            <li class="page-item {{ pagination.current_page >= pagination.total_pages ? 'disabled' : '' }}">
-                <button type="button"
-                        class="page-link btn-pagina"
-                        data-page="{{ pagination.total_pages }}"
-                        aria-label="Última página"
-                        {% if pagination.current_page >= pagination.total_pages %}aria-disabled="true" tabindex="-1"{% endif %}>
-                    &raquo;
-                </button>
-            </li>
-
-        </ul>
-        <small class="text-muted ms-2">
-            {{ pagination.total_items }} resultado{{ pagination.total_items != 1 ? 's' : '' }}
-        </small>
-    </nav>
-{% endif %}
+                <li class="page-item {{ atual >= total ? 'disabled' : '' }}">
+                    <button type="button" class="page-link btn-pagina" data-page="{{ atual + 1 }}"
+                            aria-label="Próxima página" {% if atual >= total %}aria-disabled="true" tabindex="-1"{% endif %}>
+                        Próxima
+                    </button>
+                </li>
+                <li class="page-item {{ atual >= total ? 'disabled' : '' }}">
+                    <button type="button" class="page-link btn-pagina" data-page="{{ total }}"
+                            aria-label="Última página" {% if atual >= total %}aria-disabled="true" tabindex="-1"{% endif %}>
+                        &raquo;
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    {% endif %}
+</div>

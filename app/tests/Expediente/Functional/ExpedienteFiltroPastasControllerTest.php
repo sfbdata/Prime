@@ -26,6 +26,28 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 #[CoversClass(ExpedienteController::class)]
 final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
 {
+    #[TestDox('expediente: KPIs usam somente dados do tenant ativo')]
+    public function testKpisRespeitamTenantAtivo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $outroTenant = $this->criarTenant();
+        $admin = $this->criarUsuario($tenant, 'Admin KPI', admin: true);
+
+        $this->criarPasta($tenant, 'KPI-URGENTE', prioridade: PrioridadePasta::Urgente);
+        $this->criarPasta($outroTenant, 'KPI-OUTRO', prioridade: PrioridadePasta::Urgente);
+
+        $this->logarComTenant($client, $admin, $tenant);
+        $client->request('GET', '/expediente');
+
+        self::assertResponseIsSuccessful();
+        $body = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('data-kpi="urgentes" data-value="1"', $body);
+        self::assertStringContainsString('data-kpi="sem-responsavel" data-value="1"', $body);
+        self::assertStringContainsString('responsavel=sem&amp;status=ativo', $body);
+        self::assertStringContainsString('Metas atrasadas', $body);
+    }
+
     #[TestDox('acervo geral: busca livre retorna só a pasta cujo nome da ação casa com o termo')]
     public function testBuscaLivreFiltraPorNomeAcao(): void
     {
@@ -87,6 +109,28 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString($normal->getNup(), $body);
     }
 
+    #[TestDox('acervo geral: atalhos contextuais atualizam o título do painel')]
+    public function testAtalhosContextuaisAtualizamTituloDoPainel(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $admin  = $this->criarUsuario($tenant, 'Admin Título', admin: true);
+
+        $this->logarComTenant($client, $admin, $tenant);
+
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?prioridade=urgente');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('>Urgentes</h2>', (string) $client->getResponse()->getContent());
+
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?status=ativo');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('>Pastas ativas</h2>', (string) $client->getResponse()->getContent());
+
+        $client->xmlHttpRequest('GET', '/expediente/painel/acervo-geral?responsavel=sem');
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('>Sem responsável</h2>', (string) $client->getResponse()->getContent());
+    }
+
     #[TestDox('acervo geral: filtro de período retorna só as pastas abertas no intervalo')]
     public function testFiltraPorPeriodo(): void
     {
@@ -107,8 +151,8 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         self::assertStringNotContainsString($fora->getNup(), $body);
     }
 
-    #[TestDox('acervo geral: fragmento traz o modo lista (cartões), o toggle e o "Ordenar por"')]
-    public function testAcervoGeralRenderizaCartoesDoModoLista(): void
+    #[TestDox('acervo geral: fragmento abre em tabela e preserva o modo lista com cartões')]
+    public function testAcervoGeralRenderizaTabelaComoModoPadrao(): void
     {
         $client = static::createClient();
         $tenant = $this->criarTenant();
@@ -123,6 +167,7 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         self::assertResponseIsSuccessful();
         $body = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('id="pastasView"', $body);
+        self::assertStringContainsString('pastas-view--tabela', $body);
         self::assertStringContainsString('pastas-lista', $body);
         self::assertStringContainsString('pasta-card', $body);
         self::assertStringContainsString('js-view-toggle', $body);
@@ -132,6 +177,11 @@ final class ExpedienteFiltroPastasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('pasta-resp-chip', $body);
         self::assertStringContainsString('id="pastaRespMenu"', $body);
         self::assertStringContainsString('pasta-resp-opcao', $body);
+        self::assertStringContainsString('pasta-card-file-icon', $body);
+        self::assertStringContainsString('pasta-card-reference-label', $body);
+        self::assertStringContainsString('pasta-card-open-link', $body);
+        self::assertStringContainsString('pasta-card-marker-action', $body);
+        self::assertStringContainsString('dropdown-item js-toggle-situacao', $body);
         // admin sem foto → avatar de iniciais (fallback) aparece no menu
         self::assertStringContainsString('resp-avatar-ini', $body);
         self::assertStringContainsString($pasta->getNup(), $body);

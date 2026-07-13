@@ -1,5 +1,5 @@
 {% set grupoId = 'pasta-' ~ marcador.id %}
-{% set estiloLink = marcador.cor ? 'background:' ~ marcador.cor ~ ';border-left:3px solid rgba(0,0,0,0.15);' : '' %}
+{% set estiloLink = marcador.cor ? '--marcador-cor:' ~ marcador.cor ~ ';' : '' %}
 <li class="expediente-menu-item" id="item-pasta-{{ marcador.id }}">
     <a href="#" class="expediente-menu-link{{ marcador.cor ? ' com-cor' : '' }}"
        data-grupo="{{ grupoId }}" data-cor="{{ marcador.cor }}"
@@ -31,7 +31,7 @@
     </a>
     <ul class="expediente-submenu" id="grupo-{{ grupoId }}">
         {% for sub in marcador.filhos %}
-            {% set estiloSub = sub.cor ? 'background:' ~ sub.cor ~ ';border-left:3px solid rgba(0,0,0,0.15);' : '' %}
+            {% set estiloSub = sub.cor ? '--marcador-cor:' ~ sub.cor ~ ';' : '' %}
             <li id="item-pasta-{{ sub.id }}">
                 <a href="#" class="expediente-submenu-link{{ sub.cor ? ' com-cor' : '' }}"
                    data-cor="{{ sub.cor }}" data-marcador-id="{{ sub.id }}"

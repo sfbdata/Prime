@@ -1,23 +1,23 @@
 {% set corFundo = marcador.cor ? 'background:' ~ marcador.cor ~ ';border-left:4px solid rgba(0,0,0,0.12);' : '' %}
-<div class="p-2 p-md-3" id="painel-marcador-wrapper" data-marcador-id="{{ marcador.id }}">
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-            <span class="badge rounded-pill px-2 py-1 fs-6"
+<div class="expediente-workspace" id="painel-marcador-wrapper" data-marcador-id="{{ marcador.id }}">
+    <div class="expediente-context-bar">
+        <div>
+            <span class="expediente-context-kicker">Marcador</span>
+            <h2 class="expediente-context-title d-flex align-items-center gap-2">
+            <span class="expediente-marker-dot"
                   {% if marcador.cor %}style="background:{{ marcador.cor }};color:#333;border:1px solid rgba(0,0,0,0.1);"{% else %}style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);"{% endif %}>
-                <i class="bi bi-tag me-1"></i>{{ marcador.nome }}
             </span>
-            <span class="text-muted small fw-normal">{{ pagination.total_items }} pasta{{ pagination.total_items != 1 ? 's' : '' }}</span>
+            {{ marcador.nome }}
+            </h2>
         </div>
-        <button type="button" class="btn btn-sm btn-primary" style="background-color:#0069a0;border-color:#0069a0;" data-bs-toggle="modal" data-bs-target="#modalNovaPasta">
-            <i class="bi bi-plus-lg me-1"></i><span class="d-none d-sm-inline">Nova Pasta</span><span class="d-sm-none">Nova</span>
-        </button>
+        <div class="expediente-total"><strong>{{ pagination.total_items }}</strong><span>pasta{{ pagination.total_items != 1 ? 's' : '' }}</span></div>
     </div>
 
     {{ include('pasta/_filtros.html.twig') }}
 
     <div id="pastas-resultado">
         {{ include('pasta/_tabela.html.twig') }}
-        <div class="mt-2">
+        <div class="expediente-pagination-footer">
             {{ include('expediente/_paginacao.html.twig') }}
         </div>
     </div>

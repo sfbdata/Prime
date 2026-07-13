@@ -1,109 +1,129 @@
-{# Cartão de UMA pasta — modo lista (desktop) e mobile.
-   Reaproveita as MESMAS classes/data-* da tabela (_tabela.html.twig) para manter a
-   paridade das ações inline (responsável, situação, mover marcador) sem JS novo.
-   NÃO usar id= por-pasta: tabela e cartão coexistem no DOM. #}
-{% set dias = date().diff(pasta.dataAbertura).days %}
-{# Nome da ação digitado manualmente tem precedência; a classe do processo
-   vinculado é só fallback quando não há nome manual. #}
 {% set acaoTexto = pasta.nomeAcao
     ?: (pasta.processoPrincipal
         ? (pasta.processoPrincipal.classeProcessual ?: pasta.processoPrincipal.assuntoProcessual ?: pasta.processoPrincipal.numeroProcesso)
         : null) %}
-<div class="pasta-card pasta-row-link pasta-prio-{{ pasta.prioridade.value }}"
-     data-href="{{ path('pasta_show', {id: pasta.id}) }}">
+{% set clienteTexto = pasta.clientes|length > 0 ? pasta.clientes[0].nomeExibicao : (pasta.nomeCliente ?: 'Cliente não informado') %}
+{% set tarefasAbertas = pasta.tarefas|filter(t => t.status != 'concluida') %}
+{% set tarefasAtrasadas = tarefasAbertas|filter(t => t.prazo and t.prazo < date()) %}
+{% set tarefasComPrazo = tarefasAbertas|filter(t => t.prazo)|sort((a, b) => a.prazo <=> b.prazo) %}
+{% set proximoPrazo = tarefasComPrazo|first %}
+{% set ultimaAtividade = pasta.modificadoEm ?: pasta.criadoEm %}
+{% set diasAtividade = date().diff(ultimaAtividade).days %}
 
-    {# Linha 1: NUP + cliente | prioridade + situação #}
-    <div class="pasta-card-topo">
-        <div class="pasta-card-ident">
-            <span class="pasta-card-nup"><i class="bi bi-folder2 me-1"></i>{{ pasta.nup }}</span>
-            <span class="pasta-card-cliente">
-                {% if pasta.clientes|length > 0 %}
-                    {% if pasta.clientes|length == 1 %}
-                        {{ pasta.clientes[0].nomeExibicao }}
-                    {% else %}
-                        <span class="clientes-resumo" data-bs-placement="bottom"
-                              data-clientes="{{ pasta.clientes|map(c => c.nomeExibicao)|join('||') }}">
-                            {{ pasta.clientes[0].nomeExibicao }}
-                            <span class="badge text-bg-secondary ms-1" style="font-size:.6rem;">+{{ pasta.clientes|length - 1 }}</span>
-                        </span>
-                    {% endif %}
-                {% elseif pasta.nomeCliente %}
-                    {{ pasta.nomeCliente }}
-                {% else %}
-                    <span class="text-muted">—</span>
-                {% endif %}
-            </span>
+<article class="pasta-card pasta-row-link pasta-prio-{{ pasta.prioridade.value }}"
+         data-href="{{ path('pasta_show', {id: pasta.id}) }}">
+    <div class="pasta-card-main">
+        <div class="pasta-card-identity-wrap">
+            <span class="pasta-card-file-icon" aria-hidden="true"><i class="bi bi-folder2-open"></i></span>
+            <div class="pasta-card-identity">
+                <div class="pasta-card-reference">
+                    <span class="pasta-card-reference-label">NUP</span>
+                    <span class="pasta-card-nup">{{ pasta.nup }}</span>
+                </div>
+                <h3 class="pasta-card-cliente">
+                    {{ clienteTexto }}
+                    {% if pasta.clientes|length > 1 %}<small>+{{ pasta.clientes|length - 1 }}</small>{% endif %}
+                </h3>
+                <p class="pasta-card-acao"><i class="bi bi-briefcase"></i>{{ acaoTexto ?: 'Assunto não informado' }}</p>
+            </div>
         </div>
+
         <div class="pasta-card-flags">
-            <span class="badge {{ pasta.prioridadeBadgeClass }}{% if pasta.prioridade.value == 'urgente' %} badge-urgente-pulso{% endif %}">
+            <span class="expediente-priority expediente-priority--{{ pasta.prioridade.value }}">
+                {% if pasta.prioridade.value == 'urgente' %}<i class="bi bi-exclamation-triangle-fill"></i>{% else %}<i class="bi bi-flag"></i>{% endif %}
                 {{ pasta.prioridadeLabel }}
             </span>
-            <span class="badge js-toggle-situacao {{ pasta.situacao == 'ativo' ? 'text-bg-success' : 'text-bg-secondary' }}"
-                  style="cursor:pointer;user-select:none;"
-                  data-situacao="{{ pasta.situacao }}"
-                  data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}"
-                  data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}"
-                  title="Dê duplo-clique para alternar entre ativo e arquivado">
-                {{ pasta.situacao == 'ativo' ? 'Ativo' : 'Arquivado' }}
+            <span class="expediente-status expediente-status--{{ pasta.situacao }}">
+                <span class="expediente-status-dot" aria-hidden="true"></span>
+                {{ pasta.situacao == 'ativo' ? 'Ativa' : 'Arquivada' }}
             </span>
+            <a href="{{ path('pasta_show', {id: pasta.id}) }}" class="pasta-card-open-link" aria-label="Abrir pasta {{ pasta.nup }}">
+                Abrir <i class="bi bi-arrow-up-right"></i>
+            </a>
+            <div class="dropdown pasta-card-menu-wrap">
+                <button type="button" class="pasta-card-menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Ações da pasta {{ pasta.nup }}">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end">
+                    <a class="dropdown-item" href="{{ path('pasta_show', {id: pasta.id}) }}"><i class="bi bi-box-arrow-up-right me-2"></i>Abrir pasta</a>
+                    <button type="button" class="dropdown-item js-mover-para"
+                            data-pasta-id="{{ pasta.id }}" data-pasta-nome="{{ pasta.nup }}"
+                            data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
+                            data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}">
+                        <i class="bi bi-tags me-2"></i>Mover para marcador
+                    </button>
+                    <button type="button" class="dropdown-item js-toggle-situacao"
+                            data-situacao="{{ pasta.situacao }}"
+                            data-url="{{ path('pasta_alternar_situacao', {id: pasta.id}) }}"
+                            data-csrf="{{ csrf_token('pasta_alternar_situacao_' ~ pasta.id) }}">
+                        <i class="bi bi-archive me-2"></i>{{ pasta.situacao == 'ativo' ? 'Arquivar' : 'Reativar' }}
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
-    {# Linha 2: ação / processo #}
-    {% if acaoTexto %}
-    <div class="pasta-card-acao"><i class="bi bi-briefcase me-1"></i>{{ acaoTexto }}</div>
-    {% endif %}
+    <div class="pasta-card-operations">
+        <div class="pasta-card-operation pasta-card-operation--responsavel pasta-responsavel-cel" data-pasta-id="{{ pasta.id }}">
+            <span class="pasta-operation-label"><i class="bi bi-person"></i>Responsável</span>
+            {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotos|default({})}) }}
+        </div>
 
-    {# Linha 3: responsável | marcadores | metas | dias #}
-    <div class="pasta-card-acoes">
-        {{ include('pasta/_resp_chip.html.twig', {pasta: pasta, fotos: fotos|default({})}) }}
+        <div class="pasta-card-operation pasta-card-operation--prazo {{ proximoPrazo and proximoPrazo.prazo < date() ? 'is-critical' : '' }}">
+            <span class="pasta-operation-label"><i class="bi bi-calendar-event"></i>Próximo prazo</span>
+            {% if proximoPrazo %}
+                <span class="pasta-operation-value"><i class="bi bi-calendar-event"></i>{{ proximoPrazo.prazo|date('d/m/Y') }}</span>
+            {% else %}
+                <span class="pasta-operation-muted">Sem prazo próximo</span>
+            {% endif %}
+        </div>
 
-        {# Mesma estrutura da coluna de marcadores da tabela: .pasta-marcadores-col > .d-flex,
-           para o callback moverParaAtualizarBadgesTabela atualizar o cartão também. #}
-        <div class="pasta-card-marc pasta-marcadores-col" data-pasta-id="{{ pasta.id }}">
-            <div class="d-flex flex-nowrap gap-1 align-items-center">
+        <div class="pasta-card-operation pasta-card-operation--metas {{ tarefasAtrasadas|length > 0 ? 'is-critical' : '' }}">
+            <span class="pasta-operation-label"><i class="bi bi-check2-square"></i>Metas</span>
+            {% if tarefasAtrasadas|length > 0 %}
+                <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas" class="pasta-operation-alert">
+                    {{ tarefasAtrasadas|length }} atrasada{{ tarefasAtrasadas|length != 1 ? 's' : '' }}
+                </a>
+            {% elseif tarefasAbertas|length > 0 %}
+                <span class="pasta-operation-value">{{ tarefasAbertas|length }} em andamento</span>
+            {% else %}
+                <span class="pasta-operation-muted">Sem metas abertas</span>
+            {% endif %}
+        </div>
+
+        <div class="pasta-card-operation pasta-card-operation--marcadores pasta-card-marc pasta-marcadores-col" data-pasta-id="{{ pasta.id }}">
+            <span class="pasta-operation-label"><i class="bi bi-tags"></i>Marcadores</span>
+            <div class="d-flex gap-1 align-items-center">
                 {% if pasta.marcadores|length > 0 %}
                     {% set primeiro = pasta.marcadores|first %}
-                    <span class="badge rounded-pill px-2 marcador-principal"
-                          style="{% if primeiro.cor %}background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}font-size:.68rem;">
+                    <span class="badge rounded-pill px-2 marcador-principal expediente-marker"
+                          style="{% if primeiro.cor %}--marker-color:{{ primeiro.cor }};background:{{ primeiro.cor }};color:#333;border:1px solid rgba(0,0,0,.1);{% else %}background:var(--bs-tertiary-bg);color:var(--bs-body-color);{% endif %}">
                         {{ primeiro.nome }}
                     </span>
                     {% if pasta.marcadores|length > 1 %}
-                        <span class="badge rounded-pill px-2 marcadores-extra"
-                              style="background:var(--bs-tertiary-bg);color:var(--bs-body-color);font-size:.68rem;cursor:default;"
+                        <span class="badge rounded-pill px-2 marcadores-extra expediente-marker-extra"
                               data-marcadores-json="{{ pasta.marcadores|slice(1)|map(m => {nome: m.nome, cor: m.cor})|json_encode }}">
                             +{{ pasta.marcadores|length - 1 }}
                         </span>
                     {% endif %}
+                {% else %}
+                    <span class="pasta-operation-muted">Sem marcador</span>
                 {% endif %}
                 <button type="button"
-                        class="btn btn-xs py-0 px-1 btn-outline-secondary js-mover-para"
-                        style="font-size:.7rem;line-height:1.4;"
+                        class="pasta-card-marker-action js-mover-para"
                         data-pasta-id="{{ pasta.id }}"
                         data-pasta-nome="{{ pasta.nup }}"
                         data-marcadores-ativos="{{ pasta.marcadores|map(m => m.id)|join(',') }}"
                         data-csrf-token="{{ csrf_token('pasta_marcadores_' ~ pasta.id) }}"
-                        title="Mover para…">
+                        title="Mover para marcador" aria-label="Mover pasta {{ pasta.nup }} para marcador">
                     <i class="bi bi-tags"></i>
                 </button>
             </div>
         </div>
 
-        <div class="pasta-card-metas">
-            {% set tarefasAtivas = pasta.tarefas|filter(t => t.status != 'concluida') %}
-            {% set totalTarefas = pasta.tarefas|length %}
-            {% if totalTarefas > 0 %}
-                {% set temRevisao = pasta.tarefas|filter(t => t.status == 'em_revisao')|length > 0 %}
-                <a href="{{ path('pasta_show', {id: pasta.id}) }}#tarefas"
-                   class="badge {{ temRevisao ? 'text-bg-warning' : (tarefasAtivas|length > 0 ? 'text-bg-secondary' : 'text-bg-success') }} text-decoration-none"
-                   title="{{ totalTarefas }} meta(s) · {{ tarefasAtivas|length }} ativa(s)">
-                    <i class="bi bi-check2-square me-1"></i>{{ totalTarefas }}
-                </a>
-            {% endif %}
+        <div class="pasta-card-operation pasta-card-operation--atividade pasta-card-activity">
+            <span class="pasta-operation-label"><i class="bi bi-clock-history"></i>Última atividade</span>
+            <span class="pasta-operation-value"><i class="bi bi-activity"></i>{% if diasAtividade == 0 %}Hoje{% elseif diasAtividade == 1 %}Há 1 dia{% else %}Há {{ diasAtividade }} dias{% endif %}</span>
         </div>
-
-        <span class="pasta-card-dias text-muted ms-auto">
-            {% if dias == 0 %}Hoje{% elseif dias == 1 %}1d{% else %}{{ dias }}d{% endif %}
-        </span>
     </div>
-</div>
+</article>
