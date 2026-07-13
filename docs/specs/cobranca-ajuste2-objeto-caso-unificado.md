@@ -69,8 +69,8 @@ Carteira (do Cliente)
 - **`cobranca_caso_show`** (`CasoController::show`): vira redirect 302 para `cobranca_objeto_show` do objeto correspondente.
 - **Palavra "caso" some dos textos visíveis** (botões, títulos, labels). Onde "encerrar caso" for confuso, ajustar copy (ex.: "encerrar cobrança") — sem renomear rotas/símbolos de backend.
 
-### G. Lista global "Casos" (`cobranca_caso_index`) — **SUB-DECISÃO (recomendação)**
-- **Recomendação:** **remover o item "Casos" do menu** e fazer a navegação ser sempre **Carteira → Objeto**. `cobranca_caso_index` deixa de ser link de menu; a rota pode permanecer (deep-link) ou ser transformada numa **lista de objetos tenant-wide** se o usuário quiser uma visão global. *Decisão final do humano no review da spec.*
+### G. Lista global "Casos" (`cobranca_caso_index`) — **DECIDIDO: remover do menu**
+- **Decisão do humano (2026-07-13):** **remover o item "Casos" do menu**; a navegação passa a ser sempre **Carteira → Objeto**. A rota `cobranca_caso_index` deixa de ser link de menu — pode permanecer como deep-link inofensiva ou ser removida na limpeza posterior (preferência: tirar do menu agora, remover a rota/template na fatia de limpeza). **Não** haverá lista global de objetos tenant-wide nesta frente.
 
 ## Camadas afetadas (resumo)
 
