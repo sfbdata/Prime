@@ -37,7 +37,7 @@
 - Create: `app/src/Cobranca/UseCase/MontarDetalheObjetoUseCase.php`
 - Modify: `app/src/Cobranca/Repository/CasoCobrancaRepository.php` (novo `casoAncoraDoObjeto`)
 - Modify: `app/src/Cobranca/Repository/VinculoPessoaObjetoRepository.php` (fetch-join dos vínculos de um objeto, se ainda não houver)
-- Test: `app/tests/Cobranca/Unit/MontarDetalheObjetoUseCaseTest.php`
+- Test: `app/tests/Cobranca/Functional/MontarDetalheObjetoUseCaseTest.php` (integração/KernelTestCase — `MontarDetalheCasoUseCase` é `final`, não-mockável, então usa banco + Foundry, o que `tests/CLAUDE.md` classifica como Functional)
 
 **Interfaces (Produces):**
 - `CasoCobrancaRepository::casoAncoraDoObjeto(ObjetoCobranca $objeto): ?CasoCobranca` — retorna o caso Ativo mais recente do objeto; se >1, escolhe o mais recente e `logger->warning(...)`; null se objeto sem caso.
