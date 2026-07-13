@@ -30,8 +30,14 @@ BACKUP_DIR="${BACKUP_DIR:-/var/backups/jusprime}"
 # Quantos backups do BANCO manter (rotação — arquivo pequeno)
 KEEP_BACKUPS="${KEEP_BACKUPS:-7}"
 
-# Quantos backups de UPLOADS manter (arquivo grande ~11GB+, retenção própria p/ não estourar disco)
-KEEP_UPLOADS="${KEEP_UPLOADS:-2}"
+# Backup de uploads LOCAL: desligado por padrão. Os arquivos já são espelhados no Google Drive
+# pelo sync (App\Sync), então a cópia local (~11GB+ e crescendo) é redundante e ENCHE o disco da
+# VPS. Ligue com BACKUP_UPLOADS=1 só se tiver disco sobrando. Para backup offsite, prefira mandar
+# direto pra um remoto (rclone) sem passar pelo disco.
+BACKUP_UPLOADS="${BACKUP_UPLOADS:-0}"
+
+# Quantos backups de UPLOADS manter, se BACKUP_UPLOADS=1 (arquivo grande — cuidado com o disco)
+KEEP_UPLOADS="${KEEP_UPLOADS:-1}"
 
 # Nome do container do banco de dados
 DB_CONTAINER="jusprime_db_prod"
@@ -122,25 +128,31 @@ log "Dump concluído (${DB_SIZE} comprimido)."
 # escrito no BACKUP_DIR e com retenção própria (KEEP_UPLOADS). Sem gzip: o acervo
 # é PDF/imagem (já comprimido) — gzip só gastaria CPU sem reduzir tamanho.
 
-UPLOADS_BACKUP="${BACKUP_DIR}/uploads_${TIMESTAMP}.tar"
-log "Arquivando uploads do volume '${UPLOADS_VOLUME}' direto para ${UPLOADS_BACKUP} ..."
+if [[ "${BACKUP_UPLOADS}" == "1" ]]; then
+    UPLOADS_BACKUP="${BACKUP_DIR}/uploads_${TIMESTAMP}.tar"
+    log "Arquivando uploads do volume '${UPLOADS_VOLUME}' direto para ${UPLOADS_BACKUP} ..."
 
-# tar direto do volume (read-only) para o diretório de backup (montado no container).
-docker run --rm \
-    -v "${UPLOADS_VOLUME}:/source:ro" \
-    -v "${BACKUP_DIR}:/backup" \
-    alpine sh -c "tar -cf '/backup/uploads_${TIMESTAMP}.tar' -C /source ."
+    # tar direto do volume (read-only) para o diretório de backup (montado no container).
+    docker run --rm \
+        -v "${UPLOADS_VOLUME}:/source:ro" \
+        -v "${BACKUP_DIR}:/backup" \
+        alpine sh -c "tar -cf '/backup/uploads_${TIMESTAMP}.tar' -C /source ."
 
-UPLOADS_COUNT=$(docker run --rm -v "${UPLOADS_VOLUME}:/source:ro" alpine sh -c 'find /source -type f | wc -l')
-UPLOADS_SIZE=$(du -sh "${UPLOADS_BACKUP}" | cut -f1)
-log "Uploads arquivados: ${UPLOADS_COUNT} arquivo(s), ${UPLOADS_SIZE}."
+    UPLOADS_COUNT=$(docker run --rm -v "${UPLOADS_VOLUME}:/source:ro" alpine sh -c 'find /source -type f | wc -l')
+    UPLOADS_SIZE=$(du -sh "${UPLOADS_BACKUP}" | cut -f1)
+    log "Uploads arquivados: ${UPLOADS_COUNT} arquivo(s), ${UPLOADS_SIZE}."
 
-# Rotação própria dos backups de uploads (retenção KEEP_UPLOADS).
-log "Aplicando rotação dos uploads (mantendo os últimos ${KEEP_UPLOADS})..."
-find "${BACKUP_DIR}" -maxdepth 1 -name "uploads_*.tar" \
-    | sort \
-    | head -n "-${KEEP_UPLOADS}" \
-    | xargs -r rm -v
+    # Rotação própria dos backups de uploads (retenção KEEP_UPLOADS).
+    log "Aplicando rotação dos uploads (mantendo os últimos ${KEEP_UPLOADS})..."
+    find "${BACKUP_DIR}" -maxdepth 1 -name "uploads_*.tar" \
+        | sort \
+        | head -n "-${KEEP_UPLOADS}" \
+        | xargs -r rm -v
+else
+    UPLOADS_COUNT="n/d"
+    UPLOADS_SIZE="desligado"
+    log "Backup de uploads LOCAL desligado (BACKUP_UPLOADS=0) — arquivos protegidos pelo espelho no Google Drive."
+fi
 
 # ---------------------------------------------------------------------------
 # 3. Cria o arquivo de backup final
