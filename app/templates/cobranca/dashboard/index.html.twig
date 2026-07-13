@@ -89,10 +89,6 @@
                         <div class="dash-card-label">Parcelas de acordo vencidas</div>
                         <div class="dash-card-valor {{ dashboard.parcelasAcordoVencidas > 0 ? 'is-alerta' : 'is-zero' }}">{{ dashboard.parcelasAcordoVencidas }}</div>
                     </a>
-                    <a class="dash-card" href="{{ path('cobranca_alertas', carteiraId ? {carteira: carteiraId} : {}) }}">
-                        <div class="dash-card-label">Revisões de pessoa cobrada</div>
-                        <div class="dash-card-valor {{ dashboard.revisoesPendentes > 0 ? 'is-alerta' : 'is-zero' }}">{{ dashboard.revisoesPendentes }}</div>
-                    </a>
                     <a class="dash-card" href="{{ path('cobranca_caso_index', carteiraId ? {status: 'judicializado', carteira: carteiraId} : {status: 'judicializado'}) }}">
                         <div class="dash-card-label">Cobranças judicializadas</div>
                         <div class="dash-card-valor {{ dashboard.casosJudicializados > 0 ? '' : 'is-zero' }}">{{ dashboard.casosJudicializados }}</div>

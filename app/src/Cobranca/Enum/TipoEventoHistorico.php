@@ -27,6 +27,8 @@ enum TipoEventoHistorico: string
     case PagamentoCorrigido = 'pagamento_corrigido';
     case LiquidacaoRegistrada = 'liquidacao_registrada';
     case PessoaCobradaAlterada = 'pessoa_cobrada_alterada';
+    /** Legado: a feature "Revisão de pessoa cobrada" foi removida; este caso permanece só para
+     *  hidratar eventos históricos já gravados (`revisao_vinculo`). Nenhum código novo o cria. */
     case RevisaoVinculo = 'revisao_vinculo';
     case Judicializacao = 'judicializacao';
     case VinculoPasta = 'vinculo_pasta';

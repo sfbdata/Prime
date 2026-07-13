@@ -6,29 +6,23 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\AcaoCobrancaController;
 use App\Cobranca\Controller\CasoController;
-use App\Cobranca\Controller\RevisaoCobrancaController;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ProximaAcao;
-use App\Cobranca\Entity\RevisaoPessoaCobrada;
 use App\Cobranca\Enum\StatusProximaAcao;
-use App\Cobranca\Enum\StatusRevisao;
 use App\Cobranca\Repository\EventoHistoricoRepository;
-use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Tests\Factory\Cobranca\ProximaAcaoFactory;
-use App\Tests\Factory\Cobranca\RevisaoPessoaCobradaFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * Mutações de próxima ação, tentativa e revisão (Onda 8B). Gate módulo + capacidade
- * `resources.cobranca.gerenciar`, CSRF, anti-IDOR (404), erro de domínio (máx. 1 ação pendente;
- * revisão já resolvida) e happy path com persistência.
+ * Mutações de próxima ação e tentativa (Onda 8B). Gate módulo + capacidade
+ * `resources.cobranca.gerenciar`, CSRF, anti-IDOR (404), erro de domínio (máx. 1 ação pendente)
+ * e happy path com persistência.
  */
 #[CoversClass(AcaoCobrancaController::class)]
-#[CoversClass(RevisaoCobrancaController::class)]
 #[CoversClass(CasoController::class)]
-final class AcaoRevisaoMutacaoControllerTest extends CobrancaWebTestCase
+final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
 {
     private function em(): EntityManagerInterface
     {
@@ -190,100 +184,6 @@ final class AcaoRevisaoMutacaoControllerTest extends CobrancaWebTestCase
 
         $client->request('POST', '/cobrancas/casos/' . $casoAlheio->getId() . '/tentativas', [
             'registrar_tentativa_cobranca' => ['observacao' => 'X', '_token' => 'irrelevante'],
-        ]);
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
-    #[TestDox('Gerar revisão: happy path cria revisão pendente')]
-    public function testGerarRevisaoHappy(): void
-    {
-        $client = static::createClient();
-        [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant);
-        $casoId = (int) $caso->getId();
-
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
-        $token = $this->tokenDoFormulario($crawler, 'gerar_revisao');
-
-        $client->request('POST', '/cobrancas/casos/' . $casoId . '/revisoes', [
-            'gerar_revisao' => ['motivo' => 'Possível homônimo', '_token' => $token],
-        ]);
-
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
-        $this->em()->clear();
-        $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
-        self::assertTrue(static::getContainer()->get(RevisaoPessoaCobradaRepository::class)->existePendenteDoCaso($casoFresh));
-    }
-
-    #[TestDox('IDOR: gerar revisão em caso de outro tenant → 404')]
-    public function testGerarRevisaoCrossTenant404(): void
-    {
-        $client = static::createClient();
-        $this->criarAdminLogado($client);
-        [, $casoAlheio] = $this->semearGrafo($this->tenantAvulso());
-
-        $client->request('POST', '/cobrancas/casos/' . $casoAlheio->getId() . '/revisoes', [
-            'gerar_revisao' => ['motivo' => 'X', '_token' => 'irrelevante'],
-        ]);
-
-        self::assertResponseStatusCodeSame(404);
-    }
-
-    #[TestDox('Resolver revisão: happy path muda o status para resolvida')]
-    public function testResolverHappy(): void
-    {
-        $client = static::createClient();
-        [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant);
-        $revisao = RevisaoPessoaCobradaFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusRevisao::Pendente])->_real();
-        $revisaoId = (int) $revisao->getId();
-
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $caso->getId());
-        $token = $this->tokenDoFormulario($crawler, 'resolver_revisao');
-
-        $client->request('POST', '/cobrancas/revisoes/' . $revisaoId . '/resolver', [
-            'resolver_revisao' => ['resolucao' => 'Confirmado que é a pessoa certa', '_token' => $token],
-        ]);
-
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
-        $this->em()->clear();
-        self::assertSame(StatusRevisao::Resolvida, $this->em()->find(RevisaoPessoaCobrada::class, $revisaoId)->getStatus());
-    }
-
-    #[TestDox('Resolver revisão já resolvida: erro de domínio, permanece resolvida')]
-    public function testResolverJaResolvida(): void
-    {
-        $client = static::createClient();
-        [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant);
-        $revisao = RevisaoPessoaCobradaFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusRevisao::Resolvida])->_real();
-        $revisaoId = (int) $revisao->getId();
-
-        // token de um form renderizado noutro caso ativo (a revisão resolvida não mostra o botão)
-        [, $casoAtivo] = $this->semearGrafo($tenant);
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoAtivo->getId());
-        $token = $this->tokenDoFormulario($crawler, 'resolver_revisao');
-
-        $client->request('POST', '/cobrancas/revisoes/' . $revisaoId . '/resolver', [
-            'resolver_revisao' => ['resolucao' => 'de novo', '_token' => $token],
-        ]);
-
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
-        $this->em()->clear();
-        self::assertSame(StatusRevisao::Resolvida, $this->em()->find(RevisaoPessoaCobrada::class, $revisaoId)->getStatus());
-    }
-
-    #[TestDox('IDOR: resolver revisão de outro tenant → 404')]
-    public function testResolverCrossTenant404(): void
-    {
-        $client = static::createClient();
-        $this->criarAdminLogado($client);
-        [, $casoAlheio] = $this->semearGrafo($this->tenantAvulso());
-        $revisaoAlheia = RevisaoPessoaCobradaFactory::createOne(['tenant' => $casoAlheio->getTenant(), 'caso' => $casoAlheio])->_real();
-
-        $client->request('POST', '/cobrancas/revisoes/' . $revisaoAlheia->getId() . '/resolver', [
-            'resolver_revisao' => ['resolucao' => 'X', '_token' => 'irrelevante'],
         ]);
 
         self::assertResponseStatusCodeSame(404);

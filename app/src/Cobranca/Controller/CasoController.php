@@ -21,7 +21,6 @@ use App\Cobranca\Form\CancelarAcordoType;
 use App\Cobranca\Form\ConcluirAcaoType;
 use App\Cobranca\Form\DefinirProximaAcaoType;
 use App\Cobranca\Form\EncerrarCasoType;
-use App\Cobranca\Form\GerarRevisaoType;
 use App\Cobranca\Form\JudicializarCasoType;
 use App\Cobranca\Form\ReconhecerValorAtualizadoType;
 use App\Cobranca\Form\RegistrarLiquidacaoType;
@@ -29,7 +28,6 @@ use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Form\RegistrarPagamentoType;
 use App\Cobranca\Form\CorrigirPagamentoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
-use App\Cobranca\Form\ResolverRevisaoType;
 use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
@@ -358,8 +356,6 @@ final class CasoController extends AbstractController
             'definirProximaAcao' => $this->createForm(DefinirProximaAcaoType::class)->createView(),
             'concluirAcao' => $this->createForm(ConcluirAcaoType::class)->createView(),
             'registrarTentativa' => $this->createForm(RegistrarTentativaCobrancaType::class)->createView(),
-            'gerarRevisao' => $this->createForm(GerarRevisaoType::class)->createView(),
-            'resolverRevisao' => $this->createForm(ResolverRevisaoType::class)->createView(),
             'acordoCriar' => $this->createForm(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
             'romperAcordo' => $this->createForm(RomperAcordoType::class)->createView(),
             'cancelarAcordo' => $this->createForm(CancelarAcordoType::class)->createView(),

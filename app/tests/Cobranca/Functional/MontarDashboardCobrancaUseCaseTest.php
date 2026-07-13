@@ -20,7 +20,6 @@ use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
-use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
@@ -37,7 +36,6 @@ use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use App\Tests\Factory\Cobranca\PagamentoFactory;
 use App\Tests\Factory\Cobranca\PessoaFactory;
 use App\Tests\Factory\Cobranca\ProximaAcaoFactory;
-use App\Tests\Factory\Cobranca\RevisaoPessoaCobradaFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -79,8 +77,6 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
         $pagamentoRepo = $this->em->getRepository(\App\Cobranca\Entity\Pagamento::class);
         /** @var ProximaAcaoRepository $acaoRepo */
         $acaoRepo = $this->em->getRepository(\App\Cobranca\Entity\ProximaAcao::class);
-        /** @var RevisaoPessoaCobradaRepository $revisaoRepo */
-        $revisaoRepo = $this->em->getRepository(\App\Cobranca\Entity\RevisaoPessoaCobrada::class);
 
         $calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
         $calcHon = new CalculadoraHonorarios();
@@ -92,7 +88,6 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             $pagamentoRepo,
             $liquidacaoRepo,
             $acaoRepo,
-            $revisaoRepo,
             $calcSaldo,
             $calcHon,
         );
@@ -371,9 +366,8 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             'valorReconhecido' => 10000, 'data' => new \DateTimeImmutable('2026-07-10'),
         ]);
 
-        $casoRevisao = $this->caso($tenant, $carteira);
-        $this->obrigacao($tenant, $casoRevisao, 50000, '2026-09-01'); // a vencer
-        RevisaoPessoaCobradaFactory::createOne(['tenant' => $tenant, 'caso' => $casoRevisao]);
+        $casoAVencer = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $casoAVencer, 50000, '2026-09-01'); // a vencer (ativo, saldo>0, sem alerta)
 
         $casoAcao = $this->caso($tenant, $carteira);
         $this->obrigacao($tenant, $casoAcao, 70000, '2026-06-15'); // vencida
@@ -404,13 +398,12 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
         $alertas = new AlertasCobranca(
             $obrigacaoRepo,
             $this->em->getRepository(\App\Cobranca\Entity\ProximaAcao::class),
-            $this->em->getRepository(\App\Cobranca\Entity\RevisaoPessoaCobrada::class),
             $calcSaldo,
         );
 
         $saldoEsperado = 0;
         $contagem = [];
-        foreach ([$casoVencida, $casoRevisao, $casoAcao, $casoParcela] as $c) {
+        foreach ([$casoVencida, $casoAVencer, $casoAcao, $casoParcela] as $c) {
             $saldoEsperado += $calcSaldo->saldoExigivel($c);
             foreach ($alertas->alertasDoCaso($c, $this->hoje) as $a) {
                 $contagem[$a->tipo->value] = ($contagem[$a->tipo->value] ?? 0) + 1;
@@ -421,7 +414,6 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
         self::assertSame($contagem[TipoAlerta::ObrigacaoVencida->value] ?? 0, $d->pagamentosAVerificar);
         self::assertSame($contagem[TipoAlerta::ParcelaAcordoVencida->value] ?? 0, $d->parcelasAcordoVencidas);
         self::assertSame($contagem[TipoAlerta::AcaoAtrasada->value] ?? 0, $d->proximasAcoesAtrasadas);
-        self::assertSame($contagem[TipoAlerta::RevisaoPendente->value] ?? 0, $d->revisoesPendentes);
         // recuperado all-time = 20000 (pgto casoVencida) + 10000 (liquidação casoVencida) + 40000 (pgto encerrado)
         self::assertSame(70000, $d->valorTotalRecuperado);
         self::assertSame(4, $d->casosAtivos);

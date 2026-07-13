@@ -197,49 +197,6 @@
     </div>
 </div>
 
-{# ── Gerar revisão de pessoa cobrada ─────────────────────────────── #}
-<div class="modal fade" id="modalGerarRevisao" tabindex="-1" aria-labelledby="tituloGerarRevisao" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            {{ form_start(forms.gerarRevisao, {action: path('cobranca_revisao_gerar', {id: caso.id})}) }}
-            <div class="modal-header">
-                <h5 class="modal-title" id="tituloGerarRevisao"><i class="bi bi-person-exclamation me-1"></i>Abrir revisão de pessoa cobrada</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                {{ form_row(forms.gerarRevisao.motivo) }}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-warning"><i class="bi bi-check-lg me-1"></i>Abrir revisão</button>
-            </div>
-            {{ form_end(forms.gerarRevisao) }}
-        </div>
-    </div>
-</div>
-
-{# ── Resolver revisão (modal reutilizável; JS injeta a URL da revisão) ── #}
-<div class="modal fade" id="modalResolverRevisao" tabindex="-1" aria-labelledby="tituloResolverRevisao" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            {{ form_start(forms.resolverRevisao, {attr: {id: 'formResolverRevisao'}}) }}
-            <div class="modal-header">
-                <h5 class="modal-title" id="tituloResolverRevisao"><i class="bi bi-person-check me-1"></i>Resolver revisão</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted small mb-3" data-revisao-contexto>Revisão selecionada.</p>
-                {{ form_row(forms.resolverRevisao.resolucao) }}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Resolver</button>
-            </div>
-            {{ form_end(forms.resolverRevisao) }}
-        </div>
-    </div>
-</div>
-
 {# ── Criar acordo (obrigações substituídas + parcelas dinâmicas) ──── #}
 <div class="modal fade" id="modalCriarAcordo" tabindex="-1" aria-labelledby="tituloCriarAcordo" aria-hidden="true">
     <div class="modal-dialog modal-lg">

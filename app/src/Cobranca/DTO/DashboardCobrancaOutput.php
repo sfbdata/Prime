@@ -24,7 +24,6 @@ final class DashboardCobrancaOutput
         public readonly int $pagamentosAVerificar,
         public readonly int $proximasAcoesAtrasadas,
         public readonly int $parcelasAcordoVencidas,
-        public readonly int $revisoesPendentes,
         public readonly int $casosJudicializados,
         // Resultado
         public readonly int $valorTotalRecuperado,

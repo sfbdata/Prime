@@ -12,7 +12,6 @@ use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoAlerta;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
-use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Entity\Tenant\Tenant;
@@ -26,7 +25,6 @@ final class AlertasCobrancaTest extends TestCase
 {
     private ObrigacaoRepository&MockObject $obrigacaoRepository;
     private ProximaAcaoRepository&MockObject $proximaAcaoRepository;
-    private RevisaoPessoaCobradaRepository&MockObject $revisaoRepository;
     private CalculadoraSaldo&MockObject $calculadoraSaldo;
     private AlertasCobranca $sut;
     private Tenant $tenant;
@@ -36,12 +34,10 @@ final class AlertasCobrancaTest extends TestCase
     {
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         $this->proximaAcaoRepository = $this->createMock(ProximaAcaoRepository::class);
-        $this->revisaoRepository = $this->createMock(RevisaoPessoaCobradaRepository::class);
         $this->calculadoraSaldo = $this->createMock(CalculadoraSaldo::class);
         $this->sut = new AlertasCobranca(
             $this->obrigacaoRepository,
             $this->proximaAcaoRepository,
-            $this->revisaoRepository,
             $this->calculadoraSaldo,
         );
         $this->tenant = new Tenant();
@@ -79,45 +75,11 @@ final class AlertasCobrancaTest extends TestCase
 
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
         $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn(null);
-        $this->revisaoRepository->method('existePendenteDoCaso')->willReturn(false);
         $this->calculadoraSaldo->method('saldoExigivel')->with($caso)->willReturn(0);
 
         $tipos = $this->tipos($this->sut->alertasDoCaso($caso, $this->hoje));
 
         self::assertContains(TipoAlerta::ProntoParaEncerrar, $tipos);
-        self::assertNotContains(TipoAlerta::RevisaoPendente, $tipos);
-    }
-
-    #[Test]
-    public function revisaoPendenteGeraAlertaDeRevisao(): void
-    {
-        $caso = $this->casoAtivo();
-
-        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
-        $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn(null);
-        $this->revisaoRepository->method('existePendenteDoCaso')->willReturn(true);
-        // Saldo diferente de zero para isolar o alerta de revisão.
-        $this->calculadoraSaldo->method('saldoExigivel')->willReturn(5000);
-
-        $tipos = $this->tipos($this->sut->alertasDoCaso($caso, $this->hoje));
-
-        self::assertContains(TipoAlerta::RevisaoPendente, $tipos);
-    }
-
-    #[Test]
-    public function revisaoResolvidaNaoGeraMaisAlerta(): void
-    {
-        // Invariável §8: depois de resolvida, existePendenteDoCaso é false e o alerta cessa.
-        $caso = $this->casoAtivo();
-
-        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
-        $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn(null);
-        $this->revisaoRepository->method('existePendenteDoCaso')->willReturn(false);
-        $this->calculadoraSaldo->method('saldoExigivel')->willReturn(5000);
-
-        $tipos = $this->tipos($this->sut->alertasDoCaso($caso, $this->hoje));
-
-        self::assertNotContains(TipoAlerta::RevisaoPendente, $tipos);
     }
 
     #[Test]
@@ -131,7 +93,6 @@ final class AlertasCobrancaTest extends TestCase
 
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
         $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn($acao);
-        $this->revisaoRepository->method('existePendenteDoCaso')->willReturn(false);
         $this->calculadoraSaldo->method('saldoExigivel')->willReturn(5000);
 
         $tipos = $this->tipos($this->sut->alertasDoCaso($caso, $this->hoje));
@@ -150,7 +111,6 @@ final class AlertasCobrancaTest extends TestCase
 
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
         $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn($acao);
-        $this->revisaoRepository->method('existePendenteDoCaso')->willReturn(false);
         $this->calculadoraSaldo->method('saldoExigivel')->willReturn(5000);
 
         $tipos = $this->tipos($this->sut->alertasDoCaso($caso, $this->hoje));
@@ -166,7 +126,6 @@ final class AlertasCobrancaTest extends TestCase
 
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([$vencida]);
         $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn(null);
-        $this->revisaoRepository->method('existePendenteDoCaso')->willReturn(false);
         $this->calculadoraSaldo->method('saldoExigivel')->willReturn(5000);
 
         $tipos = $this->tipos($this->sut->alertasDoCaso($caso, $this->hoje));
@@ -184,7 +143,6 @@ final class AlertasCobrancaTest extends TestCase
 
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([$parcela]);
         $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn(null);
-        $this->revisaoRepository->method('existePendenteDoCaso')->willReturn(false);
         $this->calculadoraSaldo->method('saldoExigivel')->willReturn(5000);
 
         $tipos = $this->tipos($this->sut->alertasDoCaso($caso, $this->hoje));
@@ -201,7 +159,6 @@ final class AlertasCobrancaTest extends TestCase
 
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([$aVencer]);
         $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn(null);
-        $this->revisaoRepository->method('existePendenteDoCaso')->willReturn(false);
         $this->calculadoraSaldo->method('saldoExigivel')->willReturn(5000);
 
         $tipos = $this->tipos($this->sut->alertasDoCaso($caso, $this->hoje));
@@ -218,7 +175,6 @@ final class AlertasCobrancaTest extends TestCase
 
         $this->obrigacaoRepository->expects($this->never())->method('doCasoExigiveis');
         $this->proximaAcaoRepository->expects($this->never())->method('findAtivaDoCaso');
-        $this->revisaoRepository->expects($this->never())->method('existePendenteDoCaso');
         $this->calculadoraSaldo->expects($this->never())->method('saldoExigivel');
 
         self::assertSame([], $this->sut->alertasDoCaso($caso, $this->hoje));

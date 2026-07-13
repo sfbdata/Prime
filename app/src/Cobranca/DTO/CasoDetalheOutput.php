@@ -17,7 +17,6 @@ namespace App\Cobranca\DTO;
  * @param list<PagamentoOutput>      $pagamentos
  * @param list<LiquidacaoOutput>     $liquidacoes
  * @param list<AcordoOutput>         $acordos
- * @param list<RevisaoOutput>        $revisoesPendentes
  * @param list<EventoHistoricoOutput> $historico
  */
 final class CasoDetalheOutput
@@ -48,7 +47,6 @@ final class CasoDetalheOutput
         public readonly array $pagamentos,
         public readonly array $liquidacoes,
         public readonly array $acordos,
-        public readonly array $revisoesPendentes,
         public readonly array $historico,
     ) {
     }

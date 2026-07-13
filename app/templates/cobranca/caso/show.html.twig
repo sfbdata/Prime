@@ -16,9 +16,6 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
                     <i class="bi bi-telephone me-1"></i>Tentativa
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalGerarRevisao">
-                    <i class="bi bi-person-exclamation me-1"></i>Revisão
-                </button>
                 {% if can_access_module('pastas') and not caso.pastaJudicialId %}
                 <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
                     <i class="bi bi-bank me-1"></i>Judicializar
@@ -109,27 +106,6 @@
                 <span>{{ alerta.descricao }}</span>
             </div>
             {% endfor %}
-        </div>
-        {% endif %}
-
-        {# ── Revisões pendentes ────────────────────────────────── #}
-        {% if caso.revisoesPendentes|length > 0 %}
-        <div class="alert alert-warning d-flex align-items-start gap-2">
-            <i class="bi bi-person-exclamation fs-5"></i>
-            <div class="flex-grow-1">
-                <strong>Revisão de pessoa cobrada pendente</strong>
-                {% for r in caso.revisoesPendentes %}
-                <div class="small d-flex align-items-center gap-2">
-                    <span>{{ r.motivo }}</span>
-                    {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
-                    <button type="button" class="btn btn-sm btn-outline-primary py-0"
-                            data-bs-toggle="modal" data-bs-target="#modalResolverRevisao"
-                            data-acao-url="{{ path('cobranca_revisao_resolver', {id: r.id}) }}"
-                            data-revisao-motivo="{{ r.motivo }}">Resolver</button>
-                    {% endif %}
-                </div>
-                {% endfor %}
-            </div>
         </div>
         {% endif %}
 
@@ -349,19 +325,6 @@ document.addEventListener('DOMContentLoaded', function () {
             if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
             var ctx = modalReconhecer.querySelector('[data-obrigacao-contexto]');
             if (ctx) { ctx.textContent = 'Obrigação: ' + (botao.getAttribute('data-obrigacao-descricao') || ''); }
-        });
-    }
-
-    /* Modal reutilizável de "resolver revisão". */
-    var modalResolver = document.getElementById('modalResolverRevisao');
-    if (modalResolver) {
-        modalResolver.addEventListener('show.bs.modal', function (event) {
-            var botao = event.relatedTarget;
-            if (!botao) { return; }
-            var form = document.getElementById('formResolverRevisao');
-            if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
-            var ctx = modalResolver.querySelector('[data-revisao-contexto]');
-            if (ctx) { ctx.textContent = 'Revisão: ' + (botao.getAttribute('data-revisao-motivo') || ''); }
         });
     }
 

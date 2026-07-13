@@ -314,10 +314,9 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $acordo = $this->ins('cobranca_acordo', ['status' => 'ativo', 'data_acordo' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
         $this->ins('cobranca_obrigacao', ['descricao' => 'Parcela de acordo', 'valor_original' => 5000, 'vencimento_original' => $d, 'encargos_reconhecidos' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso, 'acordo_origem_id' => $acordo]);
 
-        // Cobranças (Etapa 5): próxima ação e revisão de pessoa cobrada apontam o caso (NO ACTION).
-        // Exercita a ordem FK-safe (ambas apagadas antes do caso).
+        // Cobranças (Etapa 5): próxima ação aponta o caso (NO ACTION). Exercita a ordem FK-safe
+        // (apagada antes do caso).
         $this->ins('cobranca_proxima_acao', ['descricao' => 'Verificar pagamento', 'status' => 'pendente', 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
-        $this->ins('cobranca_revisao_pessoa_cobrada', ['motivo' => 'Mudança de proprietário', 'status' => 'pendente', 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
 
         // Cobranças (Etapa 6): seção→caso; documento→caso+seção. Exercita a ordem FK-safe (documento
         // antes de seção; ambos antes do caso) e a limpeza do diretório de disco por tenant.

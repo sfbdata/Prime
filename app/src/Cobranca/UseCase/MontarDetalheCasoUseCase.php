@@ -11,7 +11,6 @@ use App\Cobranca\DTO\LiquidacaoOutput;
 use App\Cobranca\DTO\ObrigacaoOutput;
 use App\Cobranca\DTO\PagamentoOutput;
 use App\Cobranca\DTO\ProximaAcaoOutput;
-use App\Cobranca\DTO\RevisaoOutput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\AcordoRepository;
@@ -20,7 +19,6 @@ use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
-use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraSaldo;
 
@@ -40,7 +38,6 @@ final class MontarDetalheCasoUseCase
         private readonly AcordoRepository $acordoRepository,
         private readonly EventoHistoricoRepository $eventoRepository,
         private readonly ProximaAcaoRepository $proximaAcaoRepository,
-        private readonly RevisaoPessoaCobradaRepository $revisaoRepository,
         private readonly CalculadoraSaldo $calculadoraSaldo,
         private readonly AlertasCobranca $alertasCobranca,
     ) {
@@ -86,7 +83,6 @@ final class MontarDetalheCasoUseCase
             pagamentos: array_map(PagamentoOutput::fromEntity(...), $this->pagamentoRepository->doCaso($caso)),
             liquidacoes: array_map(LiquidacaoOutput::fromEntity(...), $this->liquidacaoRepository->doCaso($caso)),
             acordos: array_map(AcordoOutput::fromEntity(...), $this->acordoRepository->doCaso($caso)),
-            revisoesPendentes: array_map(RevisaoOutput::fromEntity(...), $this->revisaoRepository->pendentesDoCaso($caso)),
             historico: array_map(EventoHistoricoOutput::fromEntity(...), $this->eventoRepository->doCaso($caso)),
         );
     }

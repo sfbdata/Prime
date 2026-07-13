@@ -10,6 +10,11 @@
 ## Legenda de status
 `📝 registrado` → `💬 em discussão` → `✅ ideia fechada` → `📐 planejado (spec)` → `🔨 implementado` → `🔍 revisado` → `🚢 pronto p/ deploy`
 
+## ⚠️ Cadência (acordada com o humano em 2026-07-13)
+Por item: **implementar → MOSTRAR o resultado (smoke visual quando dá) → o humano APROVA → SÓ ENTÃO suíte + `/review` + corrigir + commit atômico → próximo item.** Não rodar a suíte completa nem o `/review` antes do humano aprovar o resultado visual do item.
+
+**Andamento:** Item 1 = ✅ commitado (`854cade`,`35d8d12`). Item 4 = 🔨 implementado, **não commitado**, aguardando aval p/ verificar (migration já aplicada só no dev). Demais = ideias fechadas, não iniciados. Estado detalhado em `SESSION_HANDOFF.md`.
+
 ---
 
 ## 1. Tooltips + formatação do % no formulário de criação da Carteira — `🔍 revisado` (commitado)
@@ -57,7 +62,9 @@
 **Pedido:** a tentativa deve ser um registro de contato frustrado — o usuário informa que entrou em contato tal dia/hora (pré-preencher com a data/hora atual da abertura do formulário) por telefone/WhatsApp/e-mail e **não foi atendido**. Remover os campos "valor solicitado" e "novo prazo".
 **Risco:** a definir (form + UseCase de tentativa; provável BAIXO/MÉDIO).
 
-## 4. Remover a "Revisão de pessoa cobrada" — POR COMPLETO — `✅ ideia fechada`
+## 4. Remover a "Revisão de pessoa cobrada" — POR COMPLETO — `🔨 implementado (não commitado; falta suíte+review+commit)`
+> Implementado no working tree (~36 arquivos). Migration `Version20260713120000` (DROP IF EXISTS) **aplicada só no dev**. `TipoEventoHistorico::RevisaoVinculo` PRESERVADO (legado). Smoke no navegador OK. **Falta:** `php -d memory_limit=512M bin/phpunit tests/Cobranca` + global → `/review` → corrigir → commit. Spec: `docs/specs/cobranca-ajuste4-remover-revisao.md`.
+
 **Pedido:** remover o botão de Revisão — não serve para nada na prática. **Decisão: remoção completa** (código + tabela).
 **Risco:** MÉDIO (migration destrutiva em prod + toca AlertasCobranca/Dashboard/DetalheCaso e seus testes). Confirmar antes que não há dados reais na tabela `cobranca_revisao_pessoa_cobrada` em prod.
 

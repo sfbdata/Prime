@@ -16,7 +16,6 @@ enum TipoAlerta: string
     case ParcelaAcordoVencida = 'parcela_acordo_vencida';
     case AcaoAtrasada = 'acao_atrasada';
     case ProntoParaEncerrar = 'pronto_para_encerrar';
-    case RevisaoPendente = 'revisao_pendente';
 
     public function label(): string
     {
@@ -25,7 +24,6 @@ enum TipoAlerta: string
             self::ParcelaAcordoVencida => 'Parcela de acordo vencida',
             self::AcaoAtrasada => 'Próxima ação atrasada',
             self::ProntoParaEncerrar => 'Pronto para encerrar',
-            self::RevisaoPendente => 'Revisão de vínculo pendente',
         };
     }
 
@@ -37,7 +35,6 @@ enum TipoAlerta: string
             self::ParcelaAcordoVencida => 'text-bg-danger',
             self::AcaoAtrasada => 'text-bg-warning',
             self::ProntoParaEncerrar => 'text-bg-success',
-            self::RevisaoPendente => 'text-bg-warning',
         };
     }
 
@@ -49,7 +46,6 @@ enum TipoAlerta: string
             self::ParcelaAcordoVencida => 'bi-exclamation-triangle-fill',
             self::AcaoAtrasada => 'bi-clock-history',
             self::ProntoParaEncerrar => 'bi-check-circle-fill',
-            self::RevisaoPendente => 'bi-person-exclamation',
         };
     }
 }

@@ -1,22 +1,45 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: **2026-07-11 — ✅ MÓDULO 100% EM PRODUÇÃO E POPULADO.** Perf N+1 (P0–P4) + módulo Cobranças + migration de permissões mergeados no `master` e **deployados em prod** (bluejus.com.br); permissões concedidas aos papéis; smoke OK; **dados reais importados** (194 casos / 3270 obrigações). A feature está NO AR.
+> Sessão encerrada em: **2026-07-13 — RODADA DE AJUSTES no módulo (já em prod).** Item 1 fechado+commitado; Item 4 IMPLEMENTADO mas NÃO commitado (aguardando verificação). Módulo segue no ar; nada desta rodada foi deployado ainda.
 
 ---
 
-## Estado atual (2026-07-11)
-- **`master` = `278ac2e`(+ hotfixes)`;** `gestao-cobrancas` mergeada ao master e deployada. Fluxo usado: caronas isoladas → ff-merge; `git merge origin/master` na branch (merge-commit LIMPO) → ff-merge; deploy.
-- **Suíte:** GLOBAL **1723/1723** medido no merge; depois +1 teste de regressão dos papéis (`TenantRoleFormRenderControllerTest`, em `tests/Tenant`). `tests/Cobranca` = 409. Reconferir com o Git.
-- **Deploy teve 3 correções pós-merge (todas em prod):** (1) `cache:warmup` OOM 128M → `-d memory_limit=512M` no Dockerfile+entrypoint (`c4d36d0`); (2) **500 na edição de papéis** — `_form.html.twig` hardcodava recursos; qualquer `resources.*` novo (Cobranças) quebrava o `form_rest` → bloco "Outros recursos" + teste `TenantRoleFormRenderControllerTest` (`0c2a780`); (3) sem terceiro — os dois acima.
-- **Import em prod:** comando CLI novo **`app:cobranca:importar`** (evita timeout HTTP do arquivo grande). TOP LIFE I/II importados (194 casos / 3270 obrig, = dev). Procedimento completo na memória `[[project_gestao_cobrancas]]` e no `DEPLOY_RUNBOOK.md`.
-- **Migrations em prod:** todas E2–E7 + permissões `Version20260711120000` aplicadas. As 2 "New" restantes = fantasmas antigas do Ponto (benignas).
-- **Working tree:** commits de docs/handoff podem ficar 1–2 à frente do master (docs, sem deploy). Untracked só `.claude/worktrees/` + `.xlsx` TOPLIFE gitignorados.
+## 🎯 RODADA DE AJUSTES 2026-07-13 — LEIA PRIMEIRO
 
-### Follow-ups abertos (não bloqueiam; próximo chat)
-1. **Teste CommandTester** do `app:cobranca:importar` (o comando é wrapper verificado só por dry-run real; falta teste automatizado — contexto acabou).
-2. **N+1 de autorização `user_tenant`** (`PermissionChecker`/`TenantContext` re-consultam por chamada; transversal, MÉDIO risco) — ver `PLANO_OTIMIZACAO_QUERIES.md` §1.1.
-3. `RELEASE_CHECKLIST.md` já tem banner de deploy; ajuste fino se quiser.
+**Fonte de verdade da rodada:** [`docs/gestao-cobrancas/AJUSTES_BACKLOG.md`](AJUSTES_BACKLOG.md) — os 8 ajustes com a **ideia final de cada um já fechada com o humano** (decisões, riscos, escopo). Ler ANTES de tocar em código.
+
+**CADÊNCIA acordada com o humano (IMPORTANTE — não pular):**
+`implementar → MOSTRAR o resultado (smoke visual quando dá) → o humano APROVA → SÓ ENTÃO rodar suíte + /review + corrigir + commit atômico → próximo item`.
+Ou seja: **não rode a suíte completa nem o /review antes do humano aprovar o resultado visual do item.**
+
+**Ordem de execução:** `1 → 4 → 3 → 5 → 6 → 7 → 8 → 2`.
+
+### Estado do Git (reconferir sempre)
+- **`master` = `278ac2e`(+hotfixes até `61a1450`);** branch `gestao-cobrancas` local, não pushada. Deploy/push/merge são do humano.
+- **HEAD = `35d8d12`.** Commits desta rodada: `d0e4eb5` (backlog), `854cade` + `35d8d12` (item 1).
+- **Working tree SUJO com o item 4 inteiro (não commitado):** ~36 arquivos (deletados os do backend de Revisão; modificados alertas/dashboard/detalhe/templates/purga/testes; novos `migrations/Version20260713120000.php`, `tests/Cobranca/Functional/AcaoMutacaoControllerTest.php`, `docs/specs/cobranca-ajuste4-remover-revisao.md`). Rodar `git status` para a lista exata.
+
+### Item 1 — ✅ CONCLUÍDO E COMMITADO (`854cade`, `35d8d12`)
+Tooltips (popover `?` no hover em modo/forma de honorários) + campo de percentual (input-group `%`, aceita vírgula pt-BR gravando decimal, oculta/desabilita em "sem percentual"), nos modais de CRIAR e EDITAR carteira. `tests/Cobranca` 411/411. Review aprovado + smoke no navegador OK.
+
+### Item 4 — 🔨 IMPLEMENTADO, FALTA VERIFICAR/COMMITAR
+Remoção completa da "Revisão de pessoa cobrada". Spec: [`docs/specs/cobranca-ajuste4-remover-revisao.md`](../specs/cobranca-ajuste4-remover-revisao.md).
+- **Já feito:** apagado backend (controller/2 UseCases/entity/repo/StatusRevisao/2 forms/3 DTOs/2 exceptions/factory); removida dos serviços/telas (`AlertasCobranca`, `TipoAlerta`, Dashboard UseCase+DTO, Detalhe UseCase+DTO, templates dashboard/caso-show/_acoes_modais, purga); ajustados 8 testes; renomeado `AcaoRevisao…`→`AcaoMutacaoControllerTest`.
+- **PRESERVADO de propósito:** `TipoEventoHistorico::RevisaoVinculo` (há eventos `revisao_vinculo` gravados; removê-lo quebra hidratação) — marcado como legado no enum. **NÃO reintroduzir a remoção dele.**
+- **Migration `Version20260713120000`** (`DROP TABLE IF EXISTS`; down recria) **JÁ APLICADA NO DEV** (a tabela tinha 1 revisão resolvida). Em prod ainda NÃO.
+- **Smoke no navegador FEITO (dev):** card "Revisões" sumiu do dashboard (`/cobrancas/painel`); botão/banner/modais de Revisão sumiram da página do caso; páginas abrem OK; `cache:clear` sem erro de DI.
+- **FALTA (aguardando aval do humano — já mostrei o resultado):** `php -d memory_limit=512M bin/phpunit tests/Cobranca` + suíte global → `/review` → corrigir → **commit atômico do item 4**.
+- **Deploy (futuro):** o `DROP TABLE` em prod só é seguro com `SELECT count(*) FROM cobranca_revisao_pessoa_cobrada` = 0 (ou só resolvidas) — confirmar com o humano antes.
+
+### Itens seguintes (ideias fechadas no backlog; ainda não iniciados)
+**3** tentativa→registro de contato (canal Tel/Whats/Email/SMS + data default agora + resultado) · **5** editar+excluir obrigação (guardas+auditoria) · **6** pagamento auto-alocação FIFO + manual opcional + split dívida/honorários ao vivo · **7** acordo inteligente (total negociável+entrada+periodicidade+recálculo ao vivo+abrir/editar; **SPEC própria**) · **8** parcelas na aba Obrigações (dropdown+link) · **2** objeto=caso na UI (esconder "caso", página do objeto, cards de objeto; **SPEC**; premissa a validar: Modo Único).
+
+### Follow-ups antigos (não bloqueiam)
+1. Teste CommandTester do `app:cobranca:importar`. 2. N+1 de autorização `user_tenant` (transversal, MÉDIO — `PLANO_OTIMIZACAO_QUERIES.md` §1.1).
+
+## Estado do módulo em prod (contexto — 2026-07-11)
+- Módulo 100% em produção e populado (194 casos / 3270 obrigações no tenant 1). `master` deployado; import via CLI `app:cobranca:importar`. Detalhes na memória `[[project_gestao_cobrancas]]` e no `DEPLOY_RUNBOOK.md`.
 
 _(Histórico da implementação Etapas 0–9 preservado abaixo.)_
 

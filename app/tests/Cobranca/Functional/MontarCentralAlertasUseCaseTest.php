@@ -8,7 +8,6 @@ use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\ProximaAcao;
-use App\Cobranca\Entity\RevisaoPessoaCobrada;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoAlerta;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -16,7 +15,6 @@ use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
-use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\UseCase\MontarCentralAlertasUseCase;
@@ -27,7 +25,6 @@ use App\Tests\Factory\Cobranca\CasoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use App\Tests\Factory\Cobranca\PessoaFactory;
-use App\Tests\Factory\Cobranca\RevisaoPessoaCobradaFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -63,11 +60,9 @@ final class MontarCentralAlertasUseCaseTest extends KernelTestCase
         $liquidacaoRepo = $this->em->getRepository(\App\Cobranca\Entity\Liquidacao::class);
         /** @var ProximaAcaoRepository $acaoRepo */
         $acaoRepo = $this->em->getRepository(ProximaAcao::class);
-        /** @var RevisaoPessoaCobradaRepository $revisaoRepo */
-        $revisaoRepo = $this->em->getRepository(RevisaoPessoaCobrada::class);
 
         $calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
-        $alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $revisaoRepo, $calcSaldo);
+        $alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $calcSaldo);
 
         $this->sut = new MontarCentralAlertasUseCase($casoRepo, $alertas);
         $this->hoje = new \DateTimeImmutable('2026-07-20');
@@ -123,11 +118,10 @@ final class MontarCentralAlertasUseCaseTest extends KernelTestCase
         $casoA = $this->caso($tenant, $carteiraA);
         $this->obrigacao($tenant, $casoA, '2026-06-01'); // vencida
 
-        // Carteira B: caso com obrigação futura (saldo>0, não vencida) + revisão pendente → RevisaoPendente.
+        // Carteira B: outro caso com obrigação vencida → ObrigacaoVencida (segunda carteira com alerta).
         $carteiraB = $this->carteira($tenant);
         $casoB = $this->caso($tenant, $carteiraB);
-        $this->obrigacao($tenant, $casoB, '2026-09-01'); // futura
-        RevisaoPessoaCobradaFactory::createOne(['tenant' => $tenant, 'caso' => $casoB]);
+        $this->obrigacao($tenant, $casoB, '2026-06-15'); // vencida
 
         $central = $this->sut->executar($tenant, null, $this->hoje);
 
@@ -138,8 +132,7 @@ final class MontarCentralAlertasUseCaseTest extends KernelTestCase
         foreach ($central->resumoPorTipo as $r) {
             $totais[$r['tipo']->value] = $r['total'];
         }
-        self::assertSame(1, $totais[TipoAlerta::ObrigacaoVencida->value] ?? 0);
-        self::assertSame(1, $totais[TipoAlerta::RevisaoPendente->value] ?? 0);
+        self::assertSame(2, $totais[TipoAlerta::ObrigacaoVencida->value] ?? 0);
     }
 
     #[TestDox('Caso encerrado não aparece na central (sem alertas)')]
