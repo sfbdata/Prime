@@ -11,7 +11,7 @@ constraint recém-criada, integra serviço externo com credencial, e mexe na
 identidade de sincronização do acervo. Exige spec (este documento), revisão
 adversarial (`feature-review-agent`) antes de cada merge, e smoke manual.
 
-**Data:** 2026-06-26 · **Status:** em brainstorming/design (não implementado)
+**Data:** 2026-06-26 · **Status:** Fases 0, 1, 1a, 1b **em produção e automáticas** (2026-07-13) — ver §19/§21. Fase 2 (tempo real) não iniciada.
 
 ---
 
@@ -554,9 +554,10 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 | NUP alfanumérico (10A/10B) | ✅ | 2026-07-01 — desambiguação de repetidos; motor aceita `^\d+[A-Za-z]?$` (`ehNupValido`), ordenação natural via `CAST_INT_PREFIXO`; commits `7c16e8e`+`a2671be`; sem migration |
 | Saneamento do Drive: nº repetidos | ✅ | 2026-07-01 — 40 pastas → `10A`/`10B` renomeadas via rclone (ID preservado, conteúdo intacto); nup_repetido 40→0. Vazias/sem-cliente/descartáveis (25) aguardam P.O. |
 | Fase 1 — motor (código): ARQUIVOS | ✅ | 2026-07-09 — `app:sync:reconciliar` estendido para arquivos por pasta vinculada: **sistema→Drive** (doc sem `drive_file_id` → `enviarArquivo`; seção vira **subpasta-espelho por nome** no Drive) e **Drive→sistema** (varredura recursiva §11.6, sub-subpasta achatada p/ a seção-avó; cria `PastaDocumento`). Google-native pulado; **flush+clear por item** (idempotente por `drive_file_id`, nunca re-duplica na re-execução); guards de nome>255, tamanho INT4 e UNIQUE global de `drive_file_id`. Suíte **900/900**; revisado 2× pelo `feature-review-agent` (10 furos + 1 regressão corrigidos). **D8/upload-download resumável adiado p/ a Fase 1a** (Fork 2): client real segue in-memory com TODO; motor já é path-based |
-| Fase 1a — Reconciliação manual (execução) | ⬜ | depende do motor + pré-requisitos ops |
-| Fase 1b — Automático (cron) | ⬜ | só após 1a provar (D12) |
-| Fase 2 — Baixa latência sistema→Drive | ⬜ | spec própria |
+| Fork 2 / D8 — resumável + streaming | ✅ | 2026-07-11 — `enviarArquivo` upload resumável (8MB chunks), `baixarArquivo` streaming via Guzzle `sink`, `moverParaArmazenamento` no ArquivoStorage; elimina OOM nos 2 sentidos; suíte 1282/1282; revisado; commit `06cd7fe`, deployado |
+| Fase 1a — Reconciliação (execução em prod) | ✅ | 2026-07-11/13 — backfill 986 + reconcile de pastas (+48) + carga de arquivos (amostras 1003/51/lote-20 provadas, 0 erros) + sweep completo **em conclusão** via o próprio cron |
+| Fase 1b — Automático (cron) | ✅ | 2026-07-13 — app OAuth publicado (token permanente), creds em `/opt/jusprime/.sync-oauth.env`, wrapper `sync-reconciliar.sh`, cron `*/15` (tenant 1). Backup do banco religado (`backup-db.sh`, cron 02:30) |
+| Fase 2 — Baixa latência sistema→Drive | ⬜ | spec própria; pré-req: 1a/1b provadas + "Conectar meu Drive" se multi-tenant |
 | Fase 3 — Baixa latência Drive→sistema | ⏸ | adiada/opcional (D11) |
 
 ## 20. Estado de retomada (handoff para nova sessão) — 2026-07-01
@@ -599,3 +600,19 @@ A via Drive→sistema **baixa arquivos e faz o volume crescer**, e os uploads es
 
 **Bloqueios de ops (não-código; destravam a Fase 1a de EXECUÇÃO)**
 1. Backup de uploads + disco (§6 item 7, §12.3) — **o que resta**. 2. ~~Service account + Shared Drive~~ → **resolvido por OAuth (conta do rclone)**; falta só re-autorizar com escopo de escrita + token durável (app em modo Teste). 3. ~~Validar o `GoogleDriveClient` real~~ → **FEITO (leitura, 1051 pastas)**. 4. `composer audit` das deps do google/apiclient.
+
+## 21. Atualização operacional — 2026-07-13 (em produção e automático)
+
+**Onde vive o código:** as fases 0/1/Fork2 estão em `origin/master` (deployado). Frente atual no worktree `/home/prime/projetos/jusprime/.worktrees/integracao-sync-master`.
+
+**✅ Fork 2 / D8 (streaming) — commit `06cd7fe`, deployado.** Upload resumável (8MB chunks, `MediaFileUpload`, 0-byte via multipart), download streaming via Guzzle `sink`, novo `ArquivoStorage::moverParaArmazenamento` (move sem reler → sem OOM na Via B do motor), `$googleDriveCredentials` → `?string` (dispensa o dummy `oauth-mode-unused`). Suíte 1282/1282, revisado (3 achados corrigidos). Client real segue validação MANUAL.
+
+**✅ Fase 1a (execução em prod).** Amostras provadas: pasta 1003 (9 downloads), pasta 51 (1 up + 1 down), lote `--limit=20` (239 up + 224 down, 0 erros). Carga total em conclusão pelo próprio cron (em 2026-07-13: ~15k documentos, ~9k já com `drive_file_id`).
+
+**✅ Fase 1b (automático) — 2026-07-13.** App OAuth **publicado em Produção** no Google Cloud (`bluejus-sync` → Google Auth Platform → Público-alvo → PUBLICAR APP) → **refresh_token não expira** (o ~7d era do modo Teste). Peças na VPS (ainda **não versionadas** no git — pendência): `/opt/jusprime/.sync-oauth.env` (chmod 600, 4 vars), wrapper `/opt/jusprime/scripts/sync-reconciliar.sh` (flock + `docker exec … reconciliar --tenant-id=1 --usuario-id=1`, log `/var/log/jusprime-sync.log`), **cron `*/15`**. Backup do banco religado à parte: `/opt/jusprime/scripts/backup-db.sh` + cron `30 2`.
+
+**🚨 Incidente disco-cheio (RESOLVIDO).** O backup de uploads (`backup.sh`, `uploads_<TS>.tar` ~12-15G/noite, `KEEP_UPLOADS=2`) encheu o disco (96G→100%) e ameaçou o Postgres de todos os tenants. Resolvido apagando os 3 tars (~41G) + `docker system prune`. **Decisão do P.O.: NÃO fazer backup de arquivos** (redundante — os arquivos já estão no sistema + Drive). Correção commitada `ddb6ebd` (`BACKUP_UPLOADS` default=0 no `backup.sh`); o `backup.sh` antigo ficou com o cron desativado (obsoleto). Backup do banco segue via `backup-db.sh`.
+
+**Gotchas operacionais:** (a) `docker exec` sem `-it` vira processo ÓRFÃO no container (Ctrl-C/fechar terminal NÃO mata; sync é VPS↔Drive direto, independe do PC). (b) container prod **sem `ps`** → checar por `/proc`: `grep -la reconciliar /proc/[0-9]*/cmdline`. (c) Ctrl-C no `until … done` imprime "SWEEP COMPLETO" FALSO; fim real = tabelas de resumo com enviados/baixados 0. (d) heredoc multi-linha com `\` embaralha no paste do terminal → `docker exec` em 1 linha. (e) prod exige `-w /var/www/app` no `docker exec`.
+
+**Pendências (não bloqueiam o automático):** versionar no git os wrappers `sync-reconciliar.sh`/`backup-db.sh` + integrar `ddb6ebd` no master (cherry-pick; backup.sh não divergiu); provar Fase 1 estável 1-2 dias + teste real de criar pasta→Drive; **Fase 2 (tempo real, Messenger)** só depois disso, e **"Conectar meu Drive" por tenant** é pré-req se for multi-escritório (hoje só tenant 1); P.O. revisar ~426 divergências de nome (D10, só reportadas).
