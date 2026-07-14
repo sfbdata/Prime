@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\PessoaController;
-use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Entity\Tenant\Tenant;
@@ -15,82 +14,23 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
 /**
- * Mutações de Pessoa e Vínculo (Onda 8B-E): criar pessoa, vincular pessoa a objeto e encerrar vínculo.
- * Cobre gate módulo + capacidade, CSRF, anti-IDOR (404 cross-tenant), erro de domínio (vínculo já
- * encerrado) e o happy path com estado no DB.
+ * Mutações de Vínculo geridas DENTRO do objeto (ajuste 2): vincular pessoa existente e encerrar vínculo.
+ * Os formulários vivem na aba Pessoas da página do objeto e as ações redirecionam de volta para ela.
+ * Cobre gate módulo + capacidade, CSRF, anti-IDOR (404 cross-tenant) e erro de domínio (já encerrado).
  */
 #[CoversClass(PessoaController::class)]
 final class CadastroPessoaVinculoControllerTest extends CobrancaWebTestCase
 {
-    #[TestDox('Criar pessoa: happy path persiste e volta à origem (carteira)')]
-    public function testCriarPessoaHappy(): void
-    {
-        $client = static::createClient();
-        [, $tenant] = $this->criarAdminLogado($client);
-        [$carteira] = $this->semearGrafo($tenant);
-        $origem = '/cobrancas/carteiras/' . $carteira->getId();
-
-        // O BrowserKit usa a própria página como Referer (mesmo host) — exigido pelo CSRF stateless
-        // (valida same-origin por Origin/Referer). redirecionarParaOrigem volta ao Referer interno.
-        $crawler = $client->request('GET', $origem);
-        $token = $this->tokenDoFormulario($crawler, 'criar_pessoa');
-
-        $client->request('POST', '/cobrancas/pessoas', [
-            'criar_pessoa' => ['nome' => 'Fulano de Cadastro', '_token' => $token],
-        ]);
-
-        self::assertResponseRedirects('http://localhost' . $origem);
-
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $em->clear();
-        self::assertCount(1, $em->getRepository(Pessoa::class)->findBy(['nome' => 'Fulano de Cadastro']));
-    }
-
-    #[TestDox('Criar pessoa: com referer interno, volta para a tela de origem')]
-    public function testCriarPessoaVoltaAoReferer(): void
-    {
-        $client = static::createClient();
-        [, $tenant] = $this->criarAdminLogado($client);
-        [$carteira] = $this->semearGrafo($tenant);
-        $origem = '/cobrancas/carteiras/' . $carteira->getId();
-
-        $crawler = $client->request('GET', $origem);
-        $token = $this->tokenDoFormulario($crawler, 'criar_pessoa');
-
-        $client->request('POST', '/cobrancas/pessoas', [
-            'criar_pessoa' => ['nome' => 'Beltrano Origem', '_token' => $token],
-        ], [], ['HTTP_REFERER' => 'http://localhost' . $origem]);
-
-        self::assertResponseRedirects('http://localhost' . $origem);
-    }
-
-    #[TestDox('Criar pessoa sem a capacidade: negado, nada é criado')]
-    public function testCriarPessoaSemCapacidade(): void
-    {
-        $client = static::createClient();
-        $this->criarOperadorSemCapacidade($client);
-
-        $client->request('POST', '/cobrancas/pessoas', [
-            'criar_pessoa' => ['nome' => 'Pessoa Bloqueada', '_token' => 'irrelevante'],
-        ]);
-
-        self::assertResponseRedirects();
-
-        $em = static::getContainer()->get(EntityManagerInterface::class);
-        $em->clear();
-        self::assertCount(0, $em->getRepository(Pessoa::class)->findBy(['nome' => 'Pessoa Bloqueada']));
-    }
-
-    #[TestDox('Vincular pessoa a objeto: happy path cria o vínculo')]
+    #[TestDox('Vincular pessoa existente ao objeto: happy path cria o vínculo e volta ao objeto')]
     public function testVincularHappy(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [$carteira, $caso] = $this->semearGrafo($tenant);
+        [, $caso] = $this->semearGrafo($tenant);
         $objetoId = (int) $caso->getObjeto()->getId();
         $pessoa = PessoaFactory::createOne(['tenant' => $tenant]);
 
-        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
         $token = $this->tokenDoFormulario($crawler, 'vincular_pessoa_a_objeto');
 
         $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/vinculos', [
@@ -101,7 +41,7 @@ final class CadastroPessoaVinculoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/carteiras/' . $carteira->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -140,22 +80,23 @@ final class CadastroPessoaVinculoControllerTest extends CobrancaWebTestCase
         self::assertCount(0, $em->getRepository(VinculoPessoaObjeto::class)->findAll());
     }
 
-    #[TestDox('Encerrar vínculo: happy path define a data final')]
+    #[TestDox('Encerrar vínculo: happy path define a data final e volta ao objeto')]
     public function testEncerrarVinculoHappy(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [$carteira, $caso] = $this->semearGrafo($tenant);
+        [, $caso] = $this->semearGrafo($tenant);
+        $objetoId = (int) $caso->getObjeto()->getId();
         $vinculoId = $this->semearVinculoAberto($tenant, $caso->getObjeto());
 
-        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
         $token = $this->tokenDoFormulario($crawler, 'encerrar_vinculo');
 
         $client->request('POST', '/cobrancas/vinculos/' . $vinculoId . '/encerrar', [
             'encerrar_vinculo' => ['motivoEncerramento' => 'Venda do imóvel', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/carteiras/' . $carteira->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -167,17 +108,18 @@ final class CadastroPessoaVinculoControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [$carteira, $caso] = $this->semearGrafo($tenant);
+        [, $caso] = $this->semearGrafo($tenant);
+        $objetoId = (int) $caso->getObjeto()->getId();
         $vinculoId = $this->semearVinculoAberto($tenant, $caso->getObjeto(), new \DateTimeImmutable('2026-01-10'));
 
-        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
         $token = $this->tokenDoFormulario($crawler, 'encerrar_vinculo');
 
         $client->request('POST', '/cobrancas/vinculos/' . $vinculoId . '/encerrar', [
             'encerrar_vinculo' => ['motivoEncerramento' => 'Nova tentativa', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/carteiras/' . $carteira->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

@@ -15,14 +15,8 @@ use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Form\CriarCarteiraType;
 use App\Cobranca\Form\CriarObjetoType;
-use App\Cobranca\Form\CriarPessoaType;
 use App\Cobranca\Form\EditarConfiguracaoCarteiraType;
-use App\Cobranca\Form\EncerrarVinculoType;
-use App\Cobranca\Form\VincularPessoaAObjetoType;
 use App\Cobranca\Repository\CarteiraRepository;
-use App\Cobranca\Repository\ObjetoCobrancaRepository;
-use App\Cobranca\Repository\PessoaRepository;
-use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
 use App\Cobranca\UseCase\CriarCarteiraUseCase;
 use App\Cobranca\UseCase\CriarObjetoComCobrancaUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoCarteiraUseCase;
@@ -55,9 +49,6 @@ final class CarteiraController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly CarteiraRepository $carteiraRepository,
-        private readonly ObjetoCobrancaRepository $objetoRepository,
-        private readonly VinculoPessoaObjetoRepository $vinculoRepository,
-        private readonly PessoaRepository $pessoaRepository,
         private readonly ClienteRepository $clienteRepository,
         private readonly ListarCarteirasUseCase $listarCarteiras,
         private readonly MontarVisaoCarteiraUseCase $montarVisaoCarteira,
@@ -127,7 +118,6 @@ final class CarteiraController extends AbstractController
         return $this->render('cobranca/carteira/show.html.twig', [
             'carteira' => $visao['carteira'],
             'casos' => $visao['casos'],
-            'objetos' => $this->objetosDaCarteira($carteira, $tenant),
             'forms' => $this->formulariosDaCarteira($carteira, $tenant),
             'ajudaCarteira' => self::ajudaDosCampos(),
         ]);
@@ -249,53 +239,9 @@ final class CarteiraController extends AbstractController
     }
 
     /**
-     * Objetos da carteira (+ vínculos abertos) já mapeados em arrays simples para o Twig — sem expor
-     * entidades Doctrine. Leitura escopada ao tenant (defesa em profundidade). Vínculos abertos vêm em
-     * uma única query (IN nos objetos) para não gerar N+1.
-     *
-     * @return list<array{id: int, identificacao: string, descricao: ?string, vinculos: list<array{id: int, pessoaNome: string, tipoLabel: string}>}>
-     */
-    private function objetosDaCarteira(Carteira $carteira, Tenant $tenant): array
-    {
-        $objetos = $this->objetoRepository->findBy(
-            ['carteira' => $carteira, 'tenant' => $tenant],
-            ['identificacao' => 'ASC'],
-        );
-
-        $vinculosPorObjeto = [];
-        if ($objetos !== []) {
-            $vinculosAbertos = $this->vinculoRepository->abertosDosObjetosComPessoa($objetos, $tenant);
-            foreach ($vinculosAbertos as $vinculo) {
-                $objetoId = $vinculo->getObjeto()?->getId();
-                if ($objetoId === null) {
-                    continue;
-                }
-                $vinculosPorObjeto[$objetoId][] = [
-                    'id' => (int) $vinculo->getId(),
-                    'pessoaNome' => $vinculo->getPessoa()?->getNome() ?? '—',
-                    'tipoLabel' => $vinculo->getTipoVinculo()->label(),
-                ];
-            }
-        }
-
-        $lista = [];
-        foreach ($objetos as $objeto) {
-            $objetoId = (int) $objeto->getId();
-            $lista[] = [
-                'id' => $objetoId,
-                'identificacao' => $objeto->getIdentificacao(),
-                'descricao' => $objeto->getDescricao(),
-                'vinculos' => $vinculosPorObjeto[$objetoId] ?? [],
-            ];
-        }
-
-        return $lista;
-    }
-
-    /**
-     * Views dos formulários de mutação da carteira (modais no detalhe). Cada form só é montado se o
-     * usuário tiver a capacidade correspondente — o mesmo gate que esconde os modais no Twig. Config
-     * exige `resources.carteira.gerenciar`; objeto/vínculo/abrir-caso exigem `resources.cobranca.gerenciar`.
+     * Views dos formulários de mutação da carteira (modais). Config exige `resources.carteira.gerenciar`;
+     * "Novo objeto" exige `resources.cobranca.gerenciar`. Vínculos e pessoas passaram a ser geridos DENTRO
+     * do objeto (ajuste 2 — página unificada), não mais na carteira.
      *
      * @return array<string, \Symfony\Component\Form\FormView>
      */
@@ -321,11 +267,7 @@ final class CarteiraController extends AbstractController
         }
 
         if ($podeGerenciarCobranca) {
-            $pessoas = $this->pessoaRepository->opcoesDoTenant($tenant);
             $forms['criarObjeto'] = $this->createForm(CriarObjetoType::class)->createView();
-            $forms['criarPessoa'] = $this->createForm(CriarPessoaType::class)->createView();
-            $forms['vincularPessoa'] = $this->createForm(VincularPessoaAObjetoType::class, null, ['pessoas' => $pessoas])->createView();
-            $forms['encerrarVinculo'] = $this->createForm(EncerrarVinculoType::class)->createView();
         }
 
         return $forms;

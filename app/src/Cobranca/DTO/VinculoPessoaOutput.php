@@ -15,6 +15,7 @@ use App\Cobranca\Entity\VinculoPessoaObjeto;
 final class VinculoPessoaOutput
 {
     public function __construct(
+        public readonly int $vinculoId,
         public readonly int $pessoaId,
         public readonly string $nome,
         public readonly ?string $cpf,
@@ -35,6 +36,7 @@ final class VinculoPessoaOutput
         $pessoaId = $pessoa?->getId();
 
         return new self(
+            vinculoId: $vinculo->getId() ?? 0,
             pessoaId: $pessoaId ?? 0,
             nome: $pessoa?->getNome() ?? '—',
             cpf: $pessoa?->getCpf(),

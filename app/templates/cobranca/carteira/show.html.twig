@@ -128,52 +128,6 @@
             </div>
         </div>
 
-        {# ── Objetos da carteira ───────────────────────────────── #}
-        <div class="card cobranca-card mt-3">
-            <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                <span><i class="bi bi-box-seam me-1"></i>Objetos{% if carteira.rotuloObjeto %} · {{ carteira.rotuloObjeto }}{% endif %}</span>
-            </div>
-            <div class="card-body">
-                {% if objetos|length > 0 %}
-                <div class="d-flex flex-column gap-2">
-                    {% for objeto in objetos %}
-                    <div class="border rounded p-2">
-                        <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
-                            <div>
-                                <a href="{{ path('cobranca_objeto_show', {id: objeto.id}) }}" class="fw-semibold text-decoration-none stretched-link-none">{{ objeto.identificacao }}</a>
-                                {% if objeto.descricao %}<div class="text-muted small">{{ objeto.descricao }}</div>{% endif %}
-                                {% if objeto.vinculos|length > 0 %}
-                                <div class="mt-1 d-flex flex-wrap gap-1">
-                                    {% for vinculo in objeto.vinculos %}
-                                    <span class="badge text-bg-light border">
-                                        {{ vinculo.pessoaNome }} <span class="text-muted">({{ vinculo.tipoLabel }})</span>
-                                        {% if has_permission('resources.cobranca.gerenciar') %}
-                                        <button type="button" class="btn btn-sm btn-link p-0 ms-1 text-danger align-baseline"
-                                                data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
-                                                data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: vinculo.id}) }}"
-                                                data-vinculo-rotulo="{{ vinculo.pessoaNome }} ({{ vinculo.tipoLabel }})"
-                                                title="Encerrar vínculo"><i class="bi bi-x-circle"></i></button>
-                                        {% endif %}
-                                    </span>
-                                    {% endfor %}
-                                </div>
-                                {% endif %}
-                            </div>
-                            <a href="{{ path('cobranca_objeto_show', {id: objeto.id}) }}" class="btn btn-sm btn-outline-primary">
-                                Abrir <i class="bi bi-arrow-right ms-1"></i>
-                            </a>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div class="cobranca-empty">
-                    <div class="empty-ico"><i class="bi bi-box-seam"></i></div>
-                    <p class="empty-title">Nenhum objeto nesta carteira</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
     </div>
 </section>
 
@@ -199,22 +153,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
         if (typeof bootstrap !== 'undefined') { new bootstrap.Tooltip(el); }
-    });
-
-    /* Modais reutilizáveis: o botão da linha injeta a URL de ação (data-acao-url) e o contexto. */
-    [
-        { modal: 'modalEncerrarVinculo', form: 'formEncerrarVinculo', ctx: '[data-vinculo-contexto]', attr: 'data-vinculo-rotulo', prefixo: 'Vínculo: ' }
-    ].forEach(function (cfg) {
-        var modal = document.getElementById(cfg.modal);
-        if (!modal) { return; }
-        modal.addEventListener('show.bs.modal', function (event) {
-            var botao = event.relatedTarget;
-            if (!botao) { return; }
-            var form = document.getElementById(cfg.form);
-            if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
-            var ctx = modal.querySelector(cfg.ctx);
-            if (ctx) { ctx.textContent = cfg.prefixo + (botao.getAttribute(cfg.attr) || ''); }
-        });
     });
 });
 </script>

@@ -8,8 +8,11 @@ use App\Cobranca\DTO\CriarPessoaVinculadaInput;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Form\CriarPessoaVinculadaType;
+use App\Cobranca\Form\EncerrarVinculoType;
+use App\Cobranca\Form\VincularPessoaAObjetoType;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
+use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Service\MontadorModaisCaso;
 use App\Cobranca\UseCase\CriarPessoaVinculadaAoObjetoUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
@@ -44,6 +47,7 @@ final class ObjetoController extends AbstractController
         private readonly MontarDetalheObjetoUseCase $montarDetalheObjeto,
         private readonly MontadorModaisCaso $montadorModais,
         private readonly CriarPessoaVinculadaAoObjetoUseCase $criarPessoaVinculada,
+        private readonly PessoaRepository $pessoaRepository,
     ) {
     }
 
@@ -90,8 +94,13 @@ final class ObjetoController extends AbstractController
             'podeGerenciarDocumentos' => $podeGerenciar,
             'secoes' => $documentos['secoes'],
             'arquivosFm' => $documentos['arquivos'],
-            // "Nova pessoa" na aba Pessoas (cadastra + vincula ao objeto) — só para quem gerencia.
+            // Ações da aba Pessoas — só para quem gerencia. "Nova pessoa" cadastra+vincula; "Vincular"
+            // liga uma pessoa já existente do escritório; "Encerrar vínculo" fecha um vínculo aberto.
             'formNovaPessoa' => $podeGerenciar ? $this->createForm(CriarPessoaVinculadaType::class)->createView() : null,
+            'formVincular' => $podeGerenciar
+                ? $this->createForm(VincularPessoaAObjetoType::class, null, ['pessoas' => $this->pessoaRepository->opcoesDoTenant($tenant)])->createView()
+                : null,
+            'formEncerrarVinculo' => $podeGerenciar ? $this->createForm(EncerrarVinculoType::class)->createView() : null,
         ]);
     }
 

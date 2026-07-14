@@ -129,11 +129,18 @@
         <div class="tab-content border border-top-0 rounded-bottom p-3 bg-body">
             {# Pessoas (envolvidos) do objeto #}
             <div class="tab-pane fade show active" id="tab-pessoas">
-                {% if formNovaPessoa %}
-                <div class="d-flex justify-content-end mb-2">
+                {% if formNovaPessoa or formVincular %}
+                <div class="d-flex justify-content-end gap-2 mb-2">
+                    {% if formVincular %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
+                        <i class="bi bi-link-45deg me-1"></i>Vincular existente
+                    </button>
+                    {% endif %}
+                    {% if formNovaPessoa %}
                     <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
                         <i class="bi bi-person-plus me-1"></i>Nova pessoa
                     </button>
+                    {% endif %}
                 </div>
                 {% endif %}
                 {% if objeto.vinculos|length > 0 %}
@@ -146,7 +153,16 @@
                         <td>{{ v.papelLabel }}</td>
                         <td class="small text-muted">{% if v.cpf %}{{ v.cpf }}{% elseif v.cnpj %}{{ v.cnpj }}{% endif %}{% if v.telefone %} · {{ v.telefone }}{% endif %}{% if v.email %} · {{ v.email }}{% endif %}</td>
                         <td>{{ v.dataInicio|date('d/m/Y') }}{% if v.dataFim %} – {{ v.dataFim|date('d/m/Y') }}{% endif %}</td>
-                        <td class="text-end">{% if not v.ativo %}<span class="badge text-bg-secondary">Encerrado</span>{% endif %}</td>
+                        <td class="text-end">
+                            {% if not v.ativo %}<span class="badge text-bg-secondary">Encerrado</span>
+                            {% elseif formEncerrarVinculo %}
+                            <button type="button" class="btn btn-sm btn-link p-0 text-danger align-baseline"
+                                    data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
+                                    data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: v.vinculoId}) }}"
+                                    data-vinculo-rotulo="{{ v.nome }} ({{ v.papelLabel }})"
+                                    title="Encerrar vínculo"><i class="bi bi-x-circle"></i></button>
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                     </tbody>
@@ -361,6 +377,58 @@
     </div>
 </div>
 {% endif %}
+
+{# Vincular pessoa já existente do escritório a este objeto #}
+{% if formVincular %}
+<div class="modal fade" id="modalVincularPessoaObjeto" tabindex="-1" aria-labelledby="tituloVincularObjeto" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(formVincular, {action: path('cobranca_vinculo_criar', {id: objeto.objetoId})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloVincularObjeto"><i class="bi bi-link-45deg me-1"></i>Vincular pessoa existente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(formVincular.pessoaId) }}
+                {{ form_row(formVincular.tipoVinculo) }}
+                {{ form_row(formVincular.dataInicio) }}
+                {{ form_row(formVincular.observacao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Vincular</button>
+            </div>
+            {{ form_end(formVincular) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Encerrar vínculo (reutilizável; o botão da linha injeta a URL do vínculo via JS) #}
+{% if formEncerrarVinculo %}
+<div class="modal fade" id="modalEncerrarVinculo" tabindex="-1" aria-labelledby="tituloEncerrarVinculo" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(formEncerrarVinculo, {attr: {id: 'formEncerrarVinculo'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloEncerrarVinculo"><i class="bi bi-person-dash me-1"></i>Encerrar vínculo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3" data-vinculo-contexto>Vínculo selecionado.</p>
+                {{ form_row(formEncerrarVinculo.motivoEncerramento) }}
+                {{ form_row(formEncerrarVinculo.dataFim) }}
+                {{ form_row(formEncerrarVinculo.observacao) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-person-dash me-1"></i>Encerrar</button>
+            </div>
+            {{ form_end(formEncerrarVinculo) }}
+        </div>
+    </div>
+</div>
+{% endif %}
 </div>
 {% endblock %}
 
@@ -403,6 +471,19 @@ document.addEventListener('DOMContentLoaded', function () {
             if (form && botao) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
         });
     });
+
+    /* Encerrar vínculo: o botão da linha (aba Pessoas) injeta a URL de ação e o contexto. */
+    var modalEncerrarVinculo = document.getElementById('modalEncerrarVinculo');
+    if (modalEncerrarVinculo) {
+        modalEncerrarVinculo.addEventListener('show.bs.modal', function (event) {
+            var botao = event.relatedTarget;
+            if (!botao) { return; }
+            var form = document.getElementById('formEncerrarVinculo');
+            if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
+            var ctx = modalEncerrarVinculo.querySelector('[data-vinculo-contexto]');
+            if (ctx) { ctx.textContent = 'Vínculo: ' + (botao.getAttribute('data-vinculo-rotulo') || ''); }
+        });
+    }
 
     /* Coleção dinâmica genérica do Symfony CollectionType (prototype). Reusada por parcelas do acordo
        e alocações de pagamento/correção. */
