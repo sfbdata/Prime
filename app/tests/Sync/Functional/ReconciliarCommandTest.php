@@ -10,11 +10,12 @@ use App\Pasta\Entity\PastaDocumento;
 use App\Pasta\Entity\PastaSecao;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Sync\Command\ReconciliarCommand;
-use App\Sync\Service\GoogleDriveClientInterface;
+use App\Sync\Service\GoogleDriveClientFactoryInterface;
 use App\Tests\Factory\Auth\UserFactory;
 use App\Tests\Factory\Pasta\PastaFactory;
 use App\Tests\Factory\Tenant\TenantFactory;
 use App\Tests\Sync\Support\FakeGoogleDriveClient;
+use App\Tests\Sync\Support\FakeGoogleDriveClientFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -32,7 +33,11 @@ final class ReconciliarCommandTest extends KernelTestCase
 
     private function tester(FakeGoogleDriveClient $fake): CommandTester
     {
-        self::getContainer()->set(GoogleDriveClientInterface::class, $fake);
+        // A fábrica de teste devolve o fake + raiz 'ROOT' para qualquer tenant (sem tocar o banco/OAuth).
+        self::getContainer()->set(
+            GoogleDriveClientFactoryInterface::class,
+            new FakeGoogleDriveClientFactory($fake, self::ROOT),
+        );
 
         return new CommandTester((new Application(self::$kernel))->find('app:sync:reconciliar'));
     }
