@@ -131,6 +131,10 @@ final class DashboardControllerTest extends CobrancaWebTestCase
             htmlspecialchars((string) $caso->getObjeto()->getIdentificacao(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
             $html,
         );
+        // A Central de Alertas linka DIRETO para o Objeto (navegação Carteira→Objeto, ajuste 2 fatia 7) —
+        // sem hop pela tela do caso. Prova também que o objetoId do DTO foi resolvido (não caiu em 0).
+        self::assertStringContainsString('href="/cobrancas/objetos/' . $caso->getObjeto()->getId() . '"', $html);
+        self::assertStringNotContainsString('/cobrancas/casos/', $html, 'a tela de alertas não navega mais pela rota de caso');
     }
 
     #[TestDox('GET /cobrancas/alertas sem alertas mostra empty state')]

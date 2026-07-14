@@ -238,6 +238,27 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Saldo exig', $html);
     }
 
+    #[TestDox('Navegação (decisão G): o subnav não oferece mais "Casos" e a carteira não fala em "caso"')]
+    public function testNavegacaoSoCarteiraObjeto(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira] = $this->semearGrafo($tenant);
+
+        // O subnav de Cobranças (renderizado na lista de carteiras) não linka mais a lista de Casos;
+        // as demais seções continuam (prova que o menu não foi zerado).
+        $client->request('GET', '/cobrancas');
+        self::assertResponseIsSuccessful();
+        $subnav = (string) $client->getResponse()->getContent();
+        self::assertStringNotContainsString('href="/cobrancas/casos"', $subnav, 'o item "Casos" saiu do menu (decisão G)');
+        self::assertStringContainsString('href="/cobrancas/alertas"', $subnav, 'as demais seções do subnav permanecem');
+
+        // A visão da carteira não usa mais a palavra "caso" na copy (seção renomeada).
+        $client->request('GET', '/cobrancas/carteiras/' . $carteira->getId());
+        self::assertResponseIsSuccessful();
+        self::assertStringNotContainsString('Casos da carteira', (string) $client->getResponse()->getContent());
+    }
+
     #[TestDox('IDOR: carteira de OUTRO tenant devolve 404')]
     public function testCarteiraShowCrossTenant404(): void
     {

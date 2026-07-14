@@ -34,10 +34,6 @@
                     <div class="caso-metric-label">Objetos</div>
                     <div class="caso-metric-valor">{{ carteira.totalObjetos }}</div>
                 </div>
-                <div class="caso-metric">
-                    <div class="caso-metric-label">Casos</div>
-                    <div class="caso-metric-valor">{{ carteira.totalCasos }}</div>
-                </div>
             </div>
         </div>
 
@@ -78,11 +74,11 @@
                 </div>
             </div>
 
-            {# ── Casos da carteira ─────────────────────────────── #}
+            {# ── Cobranças da carteira ─────────────────────────── #}
             <div class="col-lg-8">
                 <div class="card cobranca-card h-100">
                     <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
-                        <span><i class="bi bi-briefcase me-1"></i>Casos da carteira</span>
+                        <span><i class="bi bi-briefcase me-1"></i>Cobranças da carteira</span>
                         {% if has_permission('resources.cobranca.gerenciar') %}
                         <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarObjeto">
                             <i class="bi bi-plus-lg me-1"></i>Novo objeto
@@ -120,7 +116,7 @@
                         {% else %}
                         <div class="cobranca-empty">
                             <div class="empty-ico"><i class="bi bi-briefcase"></i></div>
-                            <p class="empty-title">Nenhum caso nesta carteira</p>
+                            <p class="empty-title">Nenhuma cobrança nesta carteira</p>
                         </div>
                         {% endif %}
                     </div>

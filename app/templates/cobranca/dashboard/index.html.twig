@@ -42,7 +42,7 @@
                 <div class="empty-ico"><i class="bi bi-cash-stack"></i></div>
                 <div class="empty-title">Nenhuma cobrança para exibir</div>
                 <div class="text-muted">
-                    {% if carteiraId %}Esta carteira ainda não tem casos.{% else %}Cadastre uma carteira e abra casos para ver o painel.{% endif %}
+                    {% if carteiraId %}Esta carteira ainda não tem cobranças.{% else %}Cadastre uma carteira e crie cobranças para ver o painel.{% endif %}
                 </div>
             </div>
         {% else %}
@@ -67,7 +67,7 @@
                         <div class="dash-card-valor">{{ dashboard.honorariosProjetados|centavos }}</div>
                     </div>
                     <div class="dash-card">
-                        <div class="dash-card-label" data-bs-toggle="tooltip" title="Honorários realizados no período conforme a forma de cada caso (SPEC §18)">Honorários realizados</div>
+                        <div class="dash-card-label" data-bs-toggle="tooltip" title="Honorários realizados no período conforme a forma de cada cobrança (SPEC §18)">Honorários realizados</div>
                         <div class="dash-card-valor">{{ dashboard.honorariosRealizadosNoPeriodo|centavos }}</div>
                     </div>
                 </div>
@@ -78,7 +78,7 @@
                 <p class="dash-section-titulo"><i class="bi bi-list-check"></i>Visão operacional</p>
                 <div class="dash-grid">
                     <a class="dash-card" href="{{ path('cobranca_alertas', carteiraId ? {carteira: carteiraId} : {}) }}">
-                        <div class="dash-card-label" data-bs-toggle="tooltip" title="Casos com obrigação vencida a verificar (SPEC §14)">Pagamentos a verificar</div>
+                        <div class="dash-card-label" data-bs-toggle="tooltip" title="Cobranças com obrigação vencida a verificar (SPEC §14)">Pagamentos a verificar</div>
                         <div class="dash-card-valor {{ dashboard.pagamentosAVerificar > 0 ? 'is-alerta' : 'is-zero' }}">{{ dashboard.pagamentosAVerificar }}</div>
                     </a>
                     <a class="dash-card" href="{{ path('cobranca_alertas', carteiraId ? {carteira: carteiraId} : {}) }}">
@@ -123,7 +123,7 @@
                             <div class="dash-card">
                                 <div class="dash-card-label">Objetos inadimplentes</div>
                                 <div class="dash-card-valor">{{ dashboard.objetosInadimplentes }}</div>
-                                <div class="dash-card-sub">Casos ativos: {{ dashboard.casosAtivos }}</div>
+                                <div class="dash-card-sub">Cobranças ativas: {{ dashboard.casosAtivos }}</div>
                             </div>
                         </div>
                     </div>
