@@ -31,9 +31,9 @@ final class CriarAcordoInput
     #[Assert\Positive(message: 'O total negociado deve ser positivo.')]
     public ?int $valorTotalNegociado = null;
 
-    /** Entrada do acordo em CENTAVOS; 0 = sem entrada. Vira a 1ª obrigação do acordo. */
+    /** Entrada do acordo em CENTAVOS; null/0 = sem entrada. Vira a 1ª obrigação do acordo. */
     #[Assert\PositiveOrZero(message: 'A entrada não pode ser negativa.')]
-    public int $valorEntrada = 0;
+    public ?int $valorEntrada = 0;
 
     /** Vencimento da entrada; null = usa a data do acordo (só aplicável quando há entrada). */
     public ?\DateTimeImmutable $dataEntrada = null;
@@ -73,7 +73,7 @@ final class CriarAcordoInput
             $somaParcelas += (int) $parcela->valor;
         }
 
-        if ($this->valorEntrada + $somaParcelas !== $this->valorTotalNegociado) {
+        if (($this->valorEntrada ?? 0) + $somaParcelas !== $this->valorTotalNegociado) {
             $context->buildViolation('A entrada mais as parcelas devem somar exatamente o total negociado.')
                 ->atPath('valorTotalNegociado')
                 ->addViolation();

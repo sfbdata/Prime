@@ -22,6 +22,8 @@ final class AcordoCriarType extends AbstractType
 {
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
+        $valores = $options['valores'];
+
         $builder
             ->add('dataAcordo', DateType::class, [
                 'label' => 'Data do acordo',
@@ -35,6 +37,20 @@ final class AcordoCriarType extends AbstractType
                 'multiple' => true,
                 'expanded' => true,
                 'choice_translation_domain' => false,
+                // Cada checkbox carrega o valor exigível (centavos) para o gerador somar a seleção no JS.
+                'choice_attr' => static fn (mixed $id): array => ['data-valor-centavos' => (string) ($valores[$id] ?? 0)],
+            ])
+            // Total negociado (snapshot) e entrada — o gerador inteligente preenche/valida (Ajuste 7).
+            ->add('valorTotalNegociado', CentavosType::class, [
+                'label' => 'Total negociado',
+                'required' => false,
+                // Preserva os defaults do CentavosType (inputmode/placeholder), que attr sobrescreveria.
+                'attr' => ['inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-total' => ''],
+            ])
+            ->add('valorEntrada', CentavosType::class, [
+                'label' => 'Entrada (opcional)',
+                'required' => false,
+                'attr' => ['inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-entrada' => ''],
             ])
             ->add('parcelas', CollectionType::class, [
                 'entry_type' => ParcelaAcordoType::class,
@@ -52,8 +68,10 @@ final class AcordoCriarType extends AbstractType
         $resolver->setDefaults([
             'data_class' => CriarAcordoInput::class,
             'obrigacoes' => [],
+            'valores' => [],
         ]);
         $resolver->setAllowedTypes('obrigacoes', 'array');
+        $resolver->setAllowedTypes('valores', 'array');
     }
 
     /**
@@ -75,6 +93,24 @@ final class AcordoCriarType extends AbstractType
         }
 
         return $opcoes;
+    }
+
+    /**
+     * Mapa `id → valor exigível (centavos)` das obrigações substituíveis, para o gerador somar a
+     * seleção no JS (via `data-valor-centavos` em cada checkbox). Mesma lista de `opcoesObrigacoes`.
+     *
+     * @param list<Obrigacao> $obrigacoes
+     *
+     * @return array<int, int>
+     */
+    public static function valoresObrigacoes(array $obrigacoes): array
+    {
+        $valores = [];
+        foreach ($obrigacoes as $o) {
+            $valores[(int) $o->getId()] = $o->valorExigivel();
+        }
+
+        return $valores;
     }
 }
 

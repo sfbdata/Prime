@@ -234,14 +234,41 @@
                 <h5 class="modal-title" id="tituloCriarAcordo"><i class="bi bi-file-earmark-text me-1"></i>Criar acordo</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" id="corpoCriarAcordo">
                 {{ form_row(forms.acordoCriar.dataAcordo) }}
                 <div class="mb-3">
                     <label class="form-label">Obrigações substituídas</label>
                     {{ form_widget(forms.acordoCriar.obrigacoesSubstituidasIds) }}
                     {{ form_errors(forms.acordoCriar.obrigacoesSubstituidasIds) }}
-                    <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas.</div>
+                    <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Total selecionado: <strong data-acordo-total-selecionado>R$ 0,00</strong>.</div>
                 </div>
+                <hr>
+                {# ── Gerador de parcelamento (Ajuste 7) ── #}
+                <div class="row g-2 align-items-end mb-1" data-acordo-gerador>
+                    <div class="col-sm-6 col-md-4">{{ form_row(forms.acordoCriar.valorTotalNegociado) }}</div>
+                    <div class="col-sm-6 col-md-4">{{ form_row(forms.acordoCriar.valorEntrada) }}</div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label" for="acordoQtdParcelas">Nº de parcelas</label>
+                        <input type="number" min="1" step="1" value="1" class="form-control" id="acordoQtdParcelas">
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label" for="acordoData1">1º vencimento</label>
+                        <input type="date" class="form-control" id="acordoData1">
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label" for="acordoPeriodicidade">Periodicidade</label>
+                        <select class="form-select" id="acordoPeriodicidade">
+                            <option value="mensal">Mensal</option>
+                            <option value="quinzenal">Quinzenal</option>
+                            <option value="semanal">Semanal</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <button type="button" class="btn btn-outline-primary w-100" id="acordoGerar"><i class="bi bi-magic me-1"></i>Gerar parcelas</button>
+                    </div>
+                </div>
+                <div class="form-text">Informe o total negociado (desconto/juros ajustam) e a entrada; gere as parcelas e edite o que precisar. Ao mudar o valor de uma parcela, as demais se redistribuem.</div>
+                <div class="small text-danger mt-1" data-acordo-erro-gerador></div>
                 <hr>
                 <label class="form-label">Parcelas do acordo</label>
                 <div id="parcelasContainer"
@@ -249,12 +276,13 @@
                      data-index="{{ forms.acordoCriar.parcelas|length }}">
                     {% for parcela in forms.acordoCriar.parcelas %}
                     <div class="parcela-linha border rounded p-2 mb-2">{{ form_widget(parcela) }}
-                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-parcela">Remover</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
                     </div>
                     {% endfor %}
                 </div>
                 {{ form_errors(forms.acordoCriar.parcelas) }}
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcela"><i class="bi bi-plus-lg me-1"></i>Adicionar parcela</button>
+                <div class="mt-2 small" data-acordo-fechamento></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>

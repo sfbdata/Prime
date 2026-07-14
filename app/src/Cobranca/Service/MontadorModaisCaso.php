@@ -54,7 +54,9 @@ final class MontadorModaisCaso
      */
     public function deMutacao(CasoCobranca $caso, bool $incluirJudicializar = false): array
     {
-        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
+        $exigiveis = $this->obrigacaoRepository->doCasoExigiveis($caso);
+        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($exigiveis);
+        $valoresObrigacoes = AcordoCriarType::valoresObrigacoes($exigiveis);
 
         // O modal de contato abre com data/hora pré-preenchidas com "agora" (editável pelo gestor).
         $contatoAgora = new RegistrarTentativaCobrancaInput();
@@ -67,7 +69,7 @@ final class MontadorModaisCaso
             'definirProximaAcao' => $this->formFactory->create(DefinirProximaAcaoType::class)->createView(),
             'concluirAcao' => $this->formFactory->create(ConcluirAcaoType::class)->createView(),
             'registrarTentativa' => $this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora)->createView(),
-            'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
+            'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes, 'valores' => $valoresObrigacoes])->createView(),
             'romperAcordo' => $this->formFactory->create(RomperAcordoType::class)->createView(),
             'cancelarAcordo' => $this->formFactory->create(CancelarAcordoType::class)->createView(),
             'alterarPessoa' => $this->formFactory->create(AlterarPessoaCobradaType::class, null, [

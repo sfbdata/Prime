@@ -11,14 +11,17 @@ use App\Cobranca\DTO\RomperAcordoInput;
 use App\Cobranca\Exception\AcordoNaoAtivoException;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
+use App\Cobranca\Enum\Periodicidade;
 use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
+use App\Cobranca\Exception\ParcelamentoInvalidoException;
 use App\Cobranca\Form\AcordoCriarType;
 use App\Cobranca\Form\CancelarAcordoType;
 use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
+use App\Cobranca\Service\GeradorParcelamento;
 use App\Cobranca\UseCase\CancelarAcordoUseCase;
 use App\Cobranca\UseCase\CriarAcordoUseCase;
 use App\Cobranca\UseCase\MarcarAcordoCumpridoUseCase;
@@ -52,7 +55,52 @@ final class AcordoController extends AbstractController
         private readonly RomperAcordoUseCase $romperAcordo,
         private readonly CancelarAcordoUseCase $cancelarAcordo,
         private readonly MarcarAcordoCumpridoUseCase $marcarCumprido,
+        private readonly GeradorParcelamento $geradorParcelamento,
     ) {
+    }
+
+    /**
+     * Prévia ao vivo do parcelamento (Ajuste 7), fonte ÚNICA da aritmética de centavos — o gerador
+     * inteligente do modal de criar acordo consome este endpoint. GET read-only (sem CSRF); não toca
+     * banco (cálculo puro), só exige a capacidade de gerenciar. `total`/`entrada` em CENTAVOS.
+     */
+    #[Route('/acordos/previa-parcelamento', name: 'cobranca_acordo_previa_parcelamento', methods: ['GET'])]
+    public function previaParcelamento(Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->json(['ok' => false, 'erro' => 'Sem acesso.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $periodicidade = Periodicidade::tryFrom((string) $request->query->get('periodicidade'));
+        $data1 = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) $request->query->get('data1'));
+        // createFromFormat rola datas inválidas por overflow (31/02 → 03/03); rejeita explicitamente.
+        $dataValida = $data1 !== false && (\DateTimeImmutable::getLastErrors() ?: ['warning_count' => 0, 'error_count' => 0])['warning_count'] === 0;
+
+        if ($periodicidade === null || !$dataValida) {
+            return $this->json(['ok' => false, 'erro' => 'Parâmetros do parcelamento inválidos.']);
+        }
+
+        try {
+            $linhas = $this->geradorParcelamento->gerar(
+                $request->query->getInt('total'),
+                max(0, $request->query->getInt('entrada')),
+                $request->query->getInt('qtd'),
+                $data1,
+                $periodicidade,
+            );
+        } catch (ParcelamentoInvalidoException $e) {
+            return $this->json(['ok' => false, 'erro' => $e->getMessage()]);
+        }
+
+        return $this->json([
+            'ok' => true,
+            'parcelas' => array_map(static fn ($l): array => [
+                'descricao' => $l->descricao,
+                'valor' => $l->valor,
+                'vencimento' => $l->vencimento->format('Y-m-d'),
+            ], $linhas),
+        ]);
     }
 
     #[Route('/casos/{id}/acordos', name: 'cobranca_acordo_criar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -78,7 +126,7 @@ final class AcordoController extends AbstractController
             try {
                 $this->criarAcordo->executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Acordo criado.');
-            } catch (CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | ObrigacaoJaSubstituidaException $e) {
+            } catch (CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | ObrigacaoJaSubstituidaException | ParcelamentoInvalidoException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {

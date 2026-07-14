@@ -112,6 +112,143 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertCount(0, static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh));
     }
 
+    #[TestDox('Criar acordo pelo gerador: grava snapshot (total/entrada) e cria a entrada como obrigação')]
+    public function testCriarComGeradorGravaSnapshotEEntrada(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0])->_real();
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'acordo_criar');
+
+        // Total 1.000,00 = entrada 400,00 + 2 parcelas de 300,00.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/acordos', [
+            'acordo_criar' => [
+                'dataAcordo' => '2026-08-01',
+                'valorTotalNegociado' => '1.000,00',
+                'valorEntrada' => '400,00',
+                'obrigacoesSubstituidasIds' => [(string) $obrigacao->getId()],
+                'parcelas' => [
+                    ['descricao' => 'Parcela 1/2', 'valor' => '300,00', 'vencimento' => '2026-09-01'],
+                    ['descricao' => 'Parcela 2/2', 'valor' => '300,00', 'vencimento' => '2026-10-01'],
+                ],
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $this->em()->clear();
+        $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
+        $acordos = static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh);
+        self::assertCount(1, $acordos);
+        $acordo = $acordos[0];
+        self::assertSame(100000, $acordo->getValorTotalNegociado());
+        self::assertSame(40000, $acordo->getValorEntrada());
+        // Entrada + 2 parcelas = 3 obrigações-parcela; uma delas é a "Entrada".
+        $descricoes = array_map(static fn ($p): string => $p->getDescricao(), $acordo->getParcelas()->toArray());
+        self::assertContains('Entrada', $descricoes);
+        self::assertCount(3, $descricoes);
+    }
+
+    #[TestDox('Criar acordo pelo gerador com total que não fecha: rejeitado (INV-B), nada criado')]
+    public function testCriarComGeradorTotalNaoFechaRejeitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000])->_real();
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'acordo_criar');
+
+        // Total 1.000,00 mas entrada 100,00 + parcela 500,00 = 600,00 ≠ 1.000,00.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/acordos', [
+            'acordo_criar' => [
+                'dataAcordo' => '2026-08-01',
+                'valorTotalNegociado' => '1.000,00',
+                'valorEntrada' => '100,00',
+                'obrigacoesSubstituidasIds' => [(string) $obrigacao->getId()],
+                'parcelas' => [
+                    ['descricao' => 'Parcela 1/1', 'valor' => '500,00', 'vencimento' => '2026-09-01'],
+                ],
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $this->em()->clear();
+        $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
+        self::assertCount(0, static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh), 'INV-B deve barrar o acordo');
+    }
+
+    #[TestDox('Prévia de parcelamento: gera N parcelas que fecham com o total menos a entrada')]
+    public function testPreviaParcelamentoHappy(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+
+        $client->request('GET', '/cobrancas/acordos/previa-parcelamento', [
+            'total' => 100000, 'entrada' => 40000, 'qtd' => 3, 'data1' => '2026-09-01', 'periodicidade' => 'mensal',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($dados['ok']);
+        self::assertCount(3, $dados['parcelas']);
+        // 60.000 em 3 = 20.000 cada; soma fecha com total − entrada.
+        self::assertSame(60000, array_sum(array_column($dados['parcelas'], 'valor')));
+        self::assertSame('2026-09-01', $dados['parcelas'][0]['vencimento']);
+        self::assertSame('2026-11-01', $dados['parcelas'][2]['vencimento']);
+    }
+
+    #[TestDox('Prévia de parcelamento inválida (entrada consome o total): ok=false com erro')]
+    public function testPreviaParcelamentoInvalida(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+
+        $client->request('GET', '/cobrancas/acordos/previa-parcelamento', [
+            'total' => 50000, 'entrada' => 50000, 'qtd' => 3, 'data1' => '2026-09-01', 'periodicidade' => 'mensal',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($dados['ok']);
+        self::assertNotEmpty($dados['erro']);
+    }
+
+    #[TestDox('Prévia de parcelamento com data inválida (overflow 31/02): ok=false')]
+    public function testPreviaParcelamentoDataInvalida(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+
+        $client->request('GET', '/cobrancas/acordos/previa-parcelamento', [
+            'total' => 100000, 'entrada' => 0, 'qtd' => 2, 'data1' => '2026-02-31', 'periodicidade' => 'mensal',
+        ]);
+
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($dados['ok']);
+    }
+
+    #[TestDox('Prévia de parcelamento sem capacidade: 403')]
+    public function testPreviaParcelamentoSemCapacidade(): void
+    {
+        $client = static::createClient();
+        $this->criarOperadorSemCapacidade($client);
+
+        $client->request('GET', '/cobrancas/acordos/previa-parcelamento', [
+            'total' => 100000, 'entrada' => 0, 'qtd' => 2, 'data1' => '2026-09-01', 'periodicidade' => 'mensal',
+        ]);
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
     #[TestDox('Romper acordo ativo: happy path muda o status')]
     public function testRomperHappy(): void
     {

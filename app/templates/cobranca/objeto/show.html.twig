@@ -557,6 +557,153 @@ document.addEventListener('DOMContentLoaded', function () {
     initColecao('alocacoesPagamentoContainer', 'addAlocacaoPagamento', 'alocacao-linha border rounded p-2 mb-2', 'Remover');
     initColecao('alocacoesCorrigirContainer', 'addAlocacaoCorrigir', 'alocacao-linha border rounded p-2 mb-2', 'Remover');
 
+    /* Gerador de acordo inteligente (Ajuste 7): soma a seleção de obrigações, gera as parcelas pelo
+       endpoint (fonte única de centavos), redistribui as não-fixadas ao editar uma parcela, e valida
+       o fechamento (entrada + Σ parcelas == total) desabilitando o submit quando não fecha. O servidor
+       revalida INV-B no POST — este JS é só afordância. */
+    (function initGeradorAcordo() {
+        var modal = document.getElementById('modalCriarAcordo');
+        var container = document.getElementById('parcelasContainer');
+        if (!modal || !container) { return; }
+        var previaUrl = '{{ path('cobranca_acordo_previa_parcelamento') }}';
+        var form = container.closest('form');
+        var submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+        var totalInput = modal.querySelector('input[data-acordo-total]');
+        var entradaInput = modal.querySelector('input[data-acordo-entrada]');
+        var totalSelDisplay = modal.querySelector('[data-acordo-total-selecionado]');
+        var erroBox = modal.querySelector('[data-acordo-erro-gerador]');
+        var fechamentoBox = modal.querySelector('[data-acordo-fechamento]');
+        var checkboxes = Array.prototype.slice.call(modal.querySelectorAll('input[name*="obrigacoesSubstituidasIds"]'));
+
+        function valorInputDe(row) { return row.querySelector('input[name$="[valor]"]'); }
+        function linhas() { return Array.prototype.slice.call(container.querySelectorAll('.parcela-linha')); }
+        // Valor de campo em pt-BR (vírgula decimal), consistente com parseCentavos e o CentavosType.
+        function reaisInput(cent) { return (cent / 100).toFixed(2).replace('.', ','); }
+        function somaSelecionadas() {
+            return checkboxes.reduce(function (s, c) {
+                return c.checked ? s + parseInt(c.getAttribute('data-valor-centavos') || '0', 10) : s;
+            }, 0);
+        }
+
+        function atualizarFechamento() {
+            var total = parseCentavos(totalInput ? totalInput.value : '');
+            var entrada = parseCentavos(entradaInput ? entradaInput.value : '');
+            var rows = linhas();
+            // Total não informado → fluxo livre (o servidor deriva o total); não travar o submit.
+            if (total <= 0) {
+                if (fechamentoBox) { fechamentoBox.textContent = ''; }
+                if (submitBtn) { submitBtn.disabled = false; }
+                return;
+            }
+            var soma = entrada;
+            var todasPositivas = rows.length > 0;
+            rows.forEach(function (r) {
+                var v = parseCentavos(valorInputDe(r).value);
+                soma += v;
+                if (v <= 0) { todasPositivas = false; }
+            });
+            var fecha = soma === total && todasPositivas;
+            if (fechamentoBox) {
+                fechamentoBox.classList.toggle('text-danger', !fecha);
+                fechamentoBox.classList.toggle('text-success', fecha);
+                fechamentoBox.textContent = fecha
+                    ? 'Entrada + parcelas fecham em ' + fmtReais(total) + '.'
+                    : 'Entrada + parcelas somam ' + fmtReais(soma) + ' — deve fechar em ' + fmtReais(total) + '.';
+            }
+            if (submitBtn) { submitBtn.disabled = !fecha; }
+        }
+
+        function redistribuir() {
+            var total = parseCentavos(totalInput ? totalInput.value : '');
+            var entrada = parseCentavos(entradaInput ? entradaInput.value : '');
+            if (total <= 0) { atualizarFechamento(); return; }
+            var rows = linhas();
+            var fixas = rows.filter(function (r) { return r.dataset.fixada === '1'; });
+            var naoFixas = rows.filter(function (r) { return r.dataset.fixada !== '1'; });
+            var somaFixas = fixas.reduce(function (s, r) { return s + parseCentavos(valorInputDe(r).value); }, 0);
+            var restante = total - entrada - somaFixas;
+            if (naoFixas.length) {
+                var base = Math.trunc(restante / naoFixas.length);
+                var resto = restante - base * naoFixas.length;
+                naoFixas.forEach(function (r, i) {
+                    // D3: a primeira NÃO-fixada absorve a sobra (espelha o gerador do servidor).
+                    valorInputDe(r).value = reaisInput(base + (i === 0 ? resto : 0));
+                });
+            }
+            atualizarFechamento();
+        }
+
+        function montarLinha(index, p) {
+            var html = (container.dataset.prototype || '').replace(/__name__/g, index);
+            var row = document.createElement('div');
+            row.className = 'parcela-linha border rounded p-2 mb-2';
+            row.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>';
+            var d = row.querySelector('input[name$="[descricao]"]'); if (d) { d.value = p.descricao; }
+            var v = valorInputDe(row); if (v) { v.value = reaisInput(p.valor); }
+            var w = row.querySelector('input[name$="[vencimento]"]'); if (w) { w.value = p.vencimento; }
+            container.appendChild(row);
+        }
+
+        function gerar() {
+            var total = parseCentavos(totalInput ? totalInput.value : '');
+            var entrada = parseCentavos(entradaInput ? entradaInput.value : '');
+            var qtd = parseInt(document.getElementById('acordoQtdParcelas').value || '0', 10);
+            var data1 = document.getElementById('acordoData1').value;
+            var periodicidade = document.getElementById('acordoPeriodicidade').value;
+            if (erroBox) { erroBox.textContent = ''; }
+            if (total <= 0 || !data1 || qtd < 1) {
+                if (erroBox) { erroBox.textContent = 'Informe o total negociado, o nº de parcelas e o 1º vencimento.'; }
+                return;
+            }
+            var qs = 'total=' + total + '&entrada=' + entrada + '&qtd=' + qtd
+                + '&data1=' + encodeURIComponent(data1) + '&periodicidade=' + encodeURIComponent(periodicidade);
+            fetch(previaUrl + '?' + qs, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (d) {
+                    if (!d || !d.ok) {
+                        if (erroBox) { erroBox.textContent = (d && d.erro) ? d.erro : 'Não foi possível gerar as parcelas.'; }
+                        return;
+                    }
+                    container.querySelectorAll('.parcela-linha').forEach(function (r) { r.remove(); });
+                    d.parcelas.forEach(function (p, i) { montarLinha(i, p); });
+                    container.dataset.index = d.parcelas.length.toString();
+                    atualizarFechamento();
+                })
+                .catch(function () { if (erroBox) { erroBox.textContent = 'Falha ao gerar as parcelas.'; } });
+        }
+
+        var gerarBtn = document.getElementById('acordoGerar');
+        if (gerarBtn) { gerarBtn.addEventListener('click', gerar); }
+
+        checkboxes.forEach(function (c) {
+            c.addEventListener('change', function () {
+                var s = somaSelecionadas();
+                if (totalSelDisplay) { totalSelDisplay.textContent = fmtReais(s); }
+                // Preenche o total automaticamente enquanto o usuário não o editou à mão.
+                if (totalInput && totalInput.dataset.touched !== '1') {
+                    totalInput.value = s > 0 ? reaisInput(s) : '';
+                }
+                atualizarFechamento();
+            });
+        });
+
+        if (totalInput) {
+            totalInput.addEventListener('input', function () { totalInput.dataset.touched = '1'; redistribuir(); });
+        }
+        if (entradaInput) { entradaInput.addEventListener('input', redistribuir); }
+
+        // Editar o valor de uma parcela a FIXA; as demais se redistribuem para fechar o total.
+        container.addEventListener('input', function (e) {
+            var input = e.target.closest('input[name$="[valor]"]');
+            if (!input) { return; }
+            var row = input.closest('.parcela-linha');
+            if (row) { row.dataset.fixada = '1'; }
+            redistribuir();
+        });
+
+        modal.addEventListener('shown.bs.modal', atualizarFechamento);
+    })();
+
     /* Prévia ao vivo da divisão dívida/honorários + FIFO (Ajuste 6): ao digitar o valor pago, consulta
        o endpoint (fonte única da regra de centavos) e mostra a divisão; se exceder o saldo, avisa e
        desabilita o submit (no modo automático). O checkbox "Alocar manualmente" revela as alocações. */
