@@ -1,7 +1,7 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: **2026-07-13 — RODADA DE AJUSTES no módulo (já em prod).** Item 1 fechado+commitado; Item 4 IMPLEMENTADO mas NÃO commitado (aguardando verificação). Módulo segue no ar; nada desta rodada foi deployado ainda.
+> Sessão encerrada em: **2026-07-14 — RODADA DE AJUSTES no módulo (já em prod).** Itens 1 e 4 FECHADOS+commitados. **Item 2 (objeto=caso unificado) EM ANDAMENTO: Fatias 1,2,3,4,6 commitadas; faltam Fatias 5 e 7.** Módulo segue no ar; nada desta rodada foi deployado ainda.
 
 ---
 
@@ -13,27 +13,32 @@
 `implementar → MOSTRAR o resultado (smoke visual quando dá) → o humano APROVA → SÓ ENTÃO rodar suíte + /review + corrigir + commit atômico → próximo item`.
 Ou seja: **não rode a suíte completa nem o /review antes do humano aprovar o resultado visual do item.**
 
-**Ordem de execução:** `1 → 4 → 3 → 5 → 6 → 7 → 8 → 2`.
+**Ordem de execução:** `1 → 4 → 3 → 5 → 6 → 7 → 8 → 2` — **mas o humano ANTECIPOU o item 2** e ele está sendo feito em fatias (ver abaixo).
 
 ### Estado do Git (reconferir sempre)
 - **`master` = `278ac2e`(+hotfixes até `61a1450`);** branch `gestao-cobrancas` local, não pushada. Deploy/push/merge são do humano.
-- **HEAD = `35d8d12`.** Commits desta rodada: `d0e4eb5` (backlog), `854cade` + `35d8d12` (item 1).
-- **Working tree SUJO com o item 4 inteiro (não commitado):** ~36 arquivos (deletados os do backend de Revisão; modificados alertas/dashboard/detalhe/templates/purga/testes; novos `migrations/Version20260713120000.php`, `tests/Cobranca/Functional/AcaoMutacaoControllerTest.php`, `docs/specs/cobranca-ajuste4-remover-revisao.md`). Rodar `git status` para a lista exata.
+- **HEAD = `74904f0`.** Commits desta rodada, em ordem: `d0e4eb5`(backlog) · `854cade`+`35d8d12`(item 1) · `ea4f86a`(item 4) · `65f89ac`(spec item 2) · `ba5592b`(plano item 2 + sub-decisão G) · `fe536eb`(item2 fatia 1) · `be936a6`(item2 fatia 2) · `4b8dfd8`(spec item2 revisada: criar objeto pede nome) · `8118137`(item2 fatia 3) · `3522495`(item2 fatia 4) · `74904f0`(item2 fatia 6).
+- **Working tree LIMPO.** tests/Cobranca 399/399, global 1714/1714.
 
 ### Item 1 — ✅ CONCLUÍDO E COMMITADO (`854cade`, `35d8d12`)
-Tooltips (popover `?` no hover em modo/forma de honorários) + campo de percentual (input-group `%`, aceita vírgula pt-BR gravando decimal, oculta/desabilita em "sem percentual"), nos modais de CRIAR e EDITAR carteira. `tests/Cobranca` 411/411. Review aprovado + smoke no navegador OK.
+Tooltips (popover `?` no hover em modo/forma de honorários) + campo de percentual (input-group `%`, aceita vírgula pt-BR gravando decimal, oculta/desabilita em "sem percentual"), nos modais de CRIAR e EDITAR carteira. Review aprovado + smoke OK.
 
-### Item 4 — 🔨 IMPLEMENTADO, FALTA VERIFICAR/COMMITAR
-Remoção completa da "Revisão de pessoa cobrada". Spec: [`docs/specs/cobranca-ajuste4-remover-revisao.md`](../specs/cobranca-ajuste4-remover-revisao.md).
-- **Já feito:** apagado backend (controller/2 UseCases/entity/repo/StatusRevisao/2 forms/3 DTOs/2 exceptions/factory); removida dos serviços/telas (`AlertasCobranca`, `TipoAlerta`, Dashboard UseCase+DTO, Detalhe UseCase+DTO, templates dashboard/caso-show/_acoes_modais, purga); ajustados 8 testes; renomeado `AcaoRevisao…`→`AcaoMutacaoControllerTest`.
-- **PRESERVADO de propósito:** `TipoEventoHistorico::RevisaoVinculo` (há eventos `revisao_vinculo` gravados; removê-lo quebra hidratação) — marcado como legado no enum. **NÃO reintroduzir a remoção dele.**
-- **Migration `Version20260713120000`** (`DROP TABLE IF EXISTS`; down recria) **JÁ APLICADA NO DEV** (a tabela tinha 1 revisão resolvida). Em prod ainda NÃO.
-- **Smoke no navegador FEITO (dev):** card "Revisões" sumiu do dashboard (`/cobrancas/painel`); botão/banner/modais de Revisão sumiram da página do caso; páginas abrem OK; `cache:clear` sem erro de DI.
-- **FALTA (aguardando aval do humano — já mostrei o resultado):** `php -d memory_limit=512M bin/phpunit tests/Cobranca` + suíte global → `/review` → corrigir → **commit atômico do item 4**.
-- **Deploy (futuro):** o `DROP TABLE` em prod só é seguro com `SELECT count(*) FROM cobranca_revisao_pessoa_cobrada` = 0 (ou só resolvidas) — confirmar com o humano antes.
+### Item 4 — ✅ CONCLUÍDO E COMMITADO (`ea4f86a`)
+Remoção completa da "Revisão de pessoa cobrada". Spec: [`docs/specs/cobranca-ajuste4-remover-revisao.md`](../specs/cobranca-ajuste4-remover-revisao.md). Migration `Version20260713120000` (`DROP TABLE IF EXISTS`; down recria) aplicada no dev E no test. `TipoEventoHistorico::RevisaoVinculo` PRESERVADO (legado — não reintroduzir a remoção). feature-review LIMPO. **Deploy futuro:** `DROP TABLE` em prod só com `SELECT count(*)` = 0 (ou só resolvidas) — confirmar antes.
 
-### Itens seguintes (ideias fechadas no backlog; ainda não iniciados)
-**3** tentativa→registro de contato (canal Tel/Whats/Email/SMS + data default agora + resultado) · **5** editar+excluir obrigação (guardas+auditoria) · **6** pagamento auto-alocação FIFO + manual opcional + split dívida/honorários ao vivo · **7** acordo inteligente (total negociável+entrada+periodicidade+recálculo ao vivo+abrir/editar; **SPEC própria**) · **8** parcelas na aba Obrigações (dropdown+link) · **2** objeto=caso na UI (esconder "caso", página do objeto, cards de objeto; **SPEC**; premissa a validar: Modo Único).
+### Item 2 — 🔨 EM ANDAMENTO (objeto e caso unificados na experiência)
+Spec: [`docs/specs/cobranca-ajuste2-objeto-caso-unificado.md`](../specs/cobranca-ajuste2-objeto-caso-unificado.md) · Plano: [`PLANO_AJUSTE2_OBJETO_UNIFICADO.md`](PLANO_AJUSTE2_OBJETO_UNIFICADO.md). Abordagem A: `CasoCobranca` vira âncora invisível (1/objeto), SEM migração de dados. Cada fatia: TDD → smoke real no navegador → feature-review LIMPO → commit.
+- **✅ Fatia 1 (`fe536eb`)** leitura: DTOs `ObjetoDetalheOutput`(embrulha `CasoDetalheOutput`)/`VinculoPessoaOutput` + `MontarDetalheObjetoUseCase` + `CasoCobrancaRepository::casoAncoraDoObjeto`(ativo mais recente, guarda >1, fallback encerrado) + `VinculoPessoaObjetoRepository::todosDoObjetoComPessoa`(fetch-join).
+- **✅ Fatia 2 (`be936a6`)** página `cobranca_objeto_show` (`/cobrancas/objetos/{id}`): template `objeto/show.html.twig` (corpo do caso movido pra cá + aba Pessoas); serviço `MontadorModaisCaso` (extraído dos 3 helpers do `CasoController`, DRY); links da carteira apontam pro objeto (`objetoId` no `CasoResumoOutput`). **`caso_show` AINDA RENDERIZA** (redirect é a Fatia 5).
+- **✅ Fatia 3 (`8118137`)** criar objeto pede só o NOME do cobrado → `CriarObjetoComCobrancaUseCase` (novo) orquestra Pessoa enxuta+Objeto+Caso+Vínculo; **`CriarObjetoUseCase` cru INTACTO pro import**; "Abrir caso" REMOVIDO (rota `cobranca_caso_abrir`/form/teste; `AbrirCasoUseCase` fica); "Novo objeto" no header de "Casos da carteira". SEM migration (pessoa cobrada segue obrigatória).
+- **✅ Fatia 4 (`3522495`)** "Nova pessoa" na aba Pessoas do objeto (cadastra+vincula via `CriarPessoaVinculadaAoObjetoUseCase`; rota `cobranca_objeto_pessoa_criar`).
+- **✅ Fatia 6 (`74904f0`)** card "Objetos" REMOVIDO da carteira; "Vincular existente" + "Encerrar vínculo"(x por linha) relocados pra aba Pessoas do objeto; `PessoaController::vincular/encerrar` redirecionam pro objeto; rota global `cobranca_pessoa_criar` + form `CriarPessoaType` órfão REMOVIDOS; `VinculoPessoaOutput.vinculoId` novo; `CarteiraController` enxugado; `CadastroPessoaVinculoControllerTest` reescrito.
+- **⏳ Fatia 5 (FALTA):** as mutações (`CasoController` encerrar/alterarPessoa/judicializar/tentativa + `Obrigacao`/`Pagamento`/`Acordo`/`Documento`/`Liquidacao`/`AcaoCobranca`/`Secao`) redirecionam pro objeto (hoje vão pro `cobranca_caso_show`); `caso_show` vira redirect de fato; **atualizar os testes de mutação que fazem `GET /cobrancas/casos/{id}` p/ token e `followRedirect`/assert em `/casos/{id}`** (AcaoMutacaoControllerTest, CasoEncerradoBloqueiaMutacaoControllerTest, movimentos/acordo/documentos, etc.) → passam a usar `/cobrancas/objetos/{id}`.
+- **⏳ Fatia 7 (FALTA):** tirar "Casos" do menu (`cobranca_caso_index`); remover `caso/show.html.twig` morto; sumir a palavra "caso" da UI (copy). Decisão G: navegação só Carteira→Objeto.
+- **Gotcha smoke Playwright dev:** modal `#modalAlertaPonto` intercepta cliques → remover via `browser_evaluate` antes de interagir. Login dev: `farlei.rocha@gmail.com`/`Prime123!`, `localhost:8080`. Objetos de teste criados no smoke: 296/297/carteira 3.
+
+### Itens seguintes do backlog (ideias fechadas; ainda não iniciados)
+**3** tentativa→registro de contato · **5** editar+excluir obrigação · **6** pagamento auto-alocação FIFO · **7** acordo inteligente (**SPEC própria**) · **8** parcelas na aba Obrigações.
 
 ### Follow-ups antigos (não bloqueiam)
 1. Teste CommandTester do `app:cobranca:importar`. 2. N+1 de autorização `user_tenant` (transversal, MÉDIO — `PLANO_OTIMIZACAO_QUERIES.md` §1.1).

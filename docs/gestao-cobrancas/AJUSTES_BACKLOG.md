@@ -13,7 +13,7 @@
 ## ⚠️ Cadência (acordada com o humano em 2026-07-13)
 Por item: **implementar → MOSTRAR o resultado (smoke visual quando dá) → o humano APROVA → SÓ ENTÃO suíte + `/review` + corrigir + commit atômico → próximo item.** Não rodar a suíte completa nem o `/review` antes do humano aprovar o resultado visual do item.
 
-**Andamento:** Item 1 = ✅ commitado (`854cade`,`35d8d12`). Item 4 = 🔨 implementado, **não commitado**, aguardando aval p/ verificar (migration já aplicada só no dev). Demais = ideias fechadas, não iniciados. Estado detalhado em `SESSION_HANDOFF.md`.
+**Andamento (2026-07-14):** Item 1 ✅ commitado (`854cade`,`35d8d12`). Item 4 ✅ commitado (`ea4f86a`). **Item 2 (objeto=caso) 🔨 EM ANDAMENTO — o humano ANTECIPOU:** Fatias 1,2,3,4,6 commitadas (`fe536eb`/`be936a6`/`8118137`/`3522495`/`74904f0`); faltam Fatias 5 (redirects das mutações + `caso_show`→redirect + testes) e 7 (menu "Casos" + limpeza). Itens 3/5/6/7/8 = ideias fechadas, não iniciados. Estado detalhado em `SESSION_HANDOFF.md` + `PLANO_AJUSTE2_OBJETO_UNIFICADO.md`.
 
 ---
 
@@ -32,7 +32,7 @@ Por item: **implementar → MOSTRAR o resultado (smoke visual quando dá) → o 
 4. Replicar 1–3 no modal de Editar configuração.
 - *Flag menor (fora do escopo, só anotar):* hoje o DTO permite percentual vazio mesmo quando a forma exige (`exigePercentual()==true`); poderia validar presença — decidir se entra.
 
-## 2. Objeto e Caso viram UMA COISA (na experiência) — `📐 planejado (spec)` — `docs/specs/cobranca-ajuste2-objeto-caso-unificado.md`
+## 2. Objeto e Caso viram UMA COISA (na experiência) — `🔨 EM ANDAMENTO (fatias 1,2,3,4,6 commitadas; faltam 5 e 7)` — spec `docs/specs/cobranca-ajuste2-objeto-caso-unificado.md` · plano `PLANO_AJUSTE2_OBJETO_UNIFICADO.md`
 **Pedido (esclarecido):** "quero que o objeto e o caso se tornem uma coisa só; abrir o objeto e ver a página igual à página de caso." O objeto tem pessoa e obrigações — a camada "caso" não deve aparecer. Na página da carteira: **cards de objeto** (nome do objeto, pessoa, estado, total da dívida); clicar → página do objeto.
 **Risco:** MÉDIO (navegação + camada de leitura + redirects das mutações). NÃO toca o modelo de dados.
 

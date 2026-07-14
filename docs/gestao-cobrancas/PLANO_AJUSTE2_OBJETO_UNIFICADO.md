@@ -6,6 +6,15 @@
 
 **Goal:** Abrir um objeto passa a mostrar a cobrança inteira (pessoas, obrigações, pagamentos, acordos, documentos, histórico) numa página só; o "caso" some da UI mas continua como âncora invisível (1 por objeto).
 
+## Estado (2026-07-14)
+- ✅ **Fatia 1** leitura — `fe536eb`
+- ✅ **Fatia 2** página do objeto + navegação — `be936a6` (`caso_show` ainda renderiza; redirect é a Fatia 5)
+- ✅ **Fatia 3** criar objeto pede o nome do cobrado (`CriarObjetoComCobrancaUseCase`; "Abrir caso" removido; "Novo objeto" no header de Casos) — `8118137`
+- ✅ **Fatia 4** "Nova pessoa" no objeto (cadastra+vincula) — `3522495`
+- ✅ **Fatia 6** card "Objetos" removido da carteira; Vincular/Encerrar relocados pro objeto; `PessoaController` redireciona pro objeto — `74904f0`
+- ⏳ **Fatia 5** redirects das mutações → objeto + `caso_show`→redirect + atualizar testes de mutação (que hoje batem em `/casos/{id}`)
+- ⏳ **Fatia 7** tirar "Casos" do menu + remover `caso/show.html.twig` morto + copy "caso"
+
 **Architecture:** Abordagem A — `CasoCobranca` intacto por baixo. Nova página `cobranca_objeto_show` resolve o caso único do objeto e reusa o corpo do caso via partial. Carteira vira grid de cards de objeto. Zero migração de dados.
 
 **Tech Stack:** PHP 8.2 / Symfony 7.4 / Doctrine ORM 3 / Twig / PHPUnit 11 (DAMA + Foundry v2), tudo dentro do container `jusprime_php_dev`.
