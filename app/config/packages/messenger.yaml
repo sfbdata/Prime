@@ -1,0 +1,27 @@
+framework:
+    messenger:
+        # Mensagens que falharem todas as tentativas vão para o transport `failed` (fila morta inspecionável).
+        failure_transport: failed
+
+        transports:
+            # Fase 2 do sync: transport doctrine (tabela messenger_messages no próprio banco — sem infra extra).
+            async:
+                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                retry_strategy:
+                    max_retries: 3
+                    delay: 2000        # 2s, dobrando a cada tentativa (erros transitórios da API do Drive)
+                    multiplier: 2
+                    max_delay: 60000
+            failed: 'doctrine://default?queue_name=failed'
+
+        routing:
+            # A sincronização de uma pasta no Drive roda em segundo plano (worker), não trava a request.
+            App\Sync\Message\SincronizarPastaNoDrive: async
+
+# Nos testes: transport em memória — nada toca o banco de fila nem o Drive; o dispatch é inspecionável.
+when@test:
+    framework:
+        messenger:
+            transports:
+                async: 'in-memory://'
+                failed: 'in-memory://'
