@@ -78,7 +78,9 @@ Por item: **implementar → MOSTRAR o resultado (smoke visual quando dá) → o 
 - **Purga:** tirar da `PurgarEscritorioUseCase::ORDEM_DELECAO`.
 - **Migration:** `DROP TABLE cobranca_revisao_pessoa_cobrada` (idempotente; down recria). Aplicar em prod no deploy.
 
-## 5. Editar + Excluir Obrigações (correção auditada, com guardas) — `✅ ideia fechada`
+## 5. Editar + Excluir Obrigações (correção auditada, com guardas) — `🔨 Fatia A commitada (d101244); falta Fatia B (Excluir)` — spec `docs/specs/cobranca-ajuste5-editar-excluir-obrigacao.md`
+> **Fatia A — Editar (commitada `d101244`):** ação Editar (corrige descrição/valor/vencimento/referência/encargos, motivo obrigatório) + evento `ObrigacaoEditada` (antes/depois); guards caso encerrado / travada por acordo VIGENTE (`participaDeAcordoVigente`) / valor abaixo do alocado. **"Reconhecer valor" APOSENTADO** (unificado no Editar; enum legado `ValorAtualizadoReconhecido` preservado). **Trava vigente-aware** (corrige bug: obrigação de acordo cancelado voltava bloqueada; parcela de acordo desfeito vira histórico editável — badge "Acordo desfeito" + cadeado explicativo). Sem migration. feature-review LIMPO (2 achados CORRIGIDOS: spec + teste do DTO). `tests/Cobranca` 413/413, global 1728/1728. Smoke real OK (objeto 117 editado; objeto 296 = acordo cancelado provado). **Falta Fatia B: Excluir** (hard delete + guards + UI).
+
 **Pedido:** editar as obrigações (TODOS os campos) + poder EXCLUIR obrigação cadastrada errada.
 **Risco:** MÉDIO (nova mutação de escrita mexendo em valor que alimenta saldo derivado; tensão com invariável 20).
 

@@ -1,7 +1,7 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: **2026-07-14 — RODADA DE AJUSTES no módulo (já em prod).** Itens 1 e 4 FECHADOS+commitados. **Item 2 (objeto=caso unificado) ✅ COMPLETO: Fatias 1–7 commitadas.** **Item 3 (tentativa→registro de contato) ✅ COMMITADO `6c95985`** (enums CanalContato/ResultadoContato; evento `ContatoRealizado` reusado; `ocorridoEm`=dataContato; sem migração; feature-review LIMPO). Próximos na ordem do backlog: itens **5** (editar/excluir obrigação), **6** (pagamento FIFO), **7** (acordo inteligente — SPEC própria), **8** (parcelas na aba). Módulo segue no ar; nada desta rodada foi deployado ainda.
+> Sessão encerrada em: **2026-07-14 — RODADA DE AJUSTES no módulo (já em prod).** Itens 1 e 4 FECHADOS+commitados. **Item 2 (objeto=caso unificado) ✅ COMPLETO: Fatias 1–7 commitadas.** **Item 3 (tentativa→registro de contato) ✅ COMMITADO `6c95985`** (enums CanalContato/ResultadoContato; evento `ContatoRealizado` reusado; `ocorridoEm`=dataContato; sem migração; feature-review LIMPO). **Item 5 (editar/excluir obrigação) — 🔨 Fatia A (Editar) COMMITADA `d101244`** (spec `docs/specs/cobranca-ajuste5-editar-excluir-obrigacao.md`; aposentou "Reconhecer valor"; trava vigente-aware; sem migração; feature-review LIMPO; `tests/Cobranca` 413/413, global 1728/1728). **Falta a Fatia B (Excluir obrigação: hard delete + guards + UI).** Depois: itens **6** (pagamento FIFO), **7** (acordo inteligente — SPEC própria), **8** (parcelas na aba). Módulo segue no ar; nada desta rodada foi deployado ainda.
 
 ---
 
