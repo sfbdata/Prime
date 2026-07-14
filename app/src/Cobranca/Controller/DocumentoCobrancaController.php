@@ -277,12 +277,12 @@ final class DocumentoCobrancaController extends AbstractController
         if ($documento === null) {
             throw $this->createNotFoundException('Documento não encontrado.');
         }
-        $casoId = $documento->getCaso()?->getId();
+        $objetoId = $this->objetoIdDoCaso($documento->getCaso());
 
         if (!$this->isCsrfTokenValid('delete_documento_cobranca_' . $docId, (string) $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
 
-            return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+            return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
         }
 
         try {
@@ -292,7 +292,7 @@ final class DocumentoCobrancaController extends AbstractController
             $this->addFlash('danger', 'Sem permissão.');
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
     }
 
     #[Route('/documentos/{docId}/download', name: 'cobranca_documento_download', methods: ['GET'], requirements: ['docId' => '\d+'])]

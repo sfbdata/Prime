@@ -34,7 +34,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         ])->_real();
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
@@ -46,7 +46,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -66,7 +66,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         ])->_real();
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
 
         // Σ alocações (50,00) ≠ parte-dívida do valor pago (100,00) → PagamentoInconsistenteException.
@@ -79,7 +79,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -136,7 +136,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -158,7 +158,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         ])->_real();
         $pagamentoId = (int) $pagamento->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $caso->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'corrigir_pagamento');
 
         $client->request('POST', '/cobrancas/pagamentos/' . $pagamentoId . '/corrigir', [
@@ -170,7 +170,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -239,7 +239,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

@@ -71,7 +71,7 @@ final class ObrigacaoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
     #[Route('/obrigacoes/{id}/reconhecer-valor', name: 'cobranca_obrigacao_reconhecer', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -86,7 +86,7 @@ final class ObrigacaoController extends AbstractController
         if ($obrigacao === null) {
             throw $this->createNotFoundException('Obrigação não encontrada.');
         }
-        $casoId = $obrigacao->getCaso()->getId();
+        $objetoId = $this->objetoIdDoCaso($obrigacao->getCaso());
 
         $input = new ReconhecerValorAtualizadoInput();
         $input->obrigacaoId = $id;
@@ -104,6 +104,6 @@ final class ObrigacaoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
     }
 }

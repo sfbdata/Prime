@@ -28,14 +28,14 @@ final class AlterarPessoaCobradaControllerTest extends CobrancaWebTestCase
         $nova = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'Nova Devedora'])->_real();
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'alterar_pessoa_cobrada');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
             'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $nova->getId(), 'motivo' => 'Mudança de titularidade', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -53,14 +53,14 @@ final class AlterarPessoaCobradaControllerTest extends CobrancaWebTestCase
         $pessoaAlheia = PessoaFactory::createOne(['tenant' => $this->tenantAvulso()])->_real();
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'alterar_pessoa_cobrada');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
             'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $pessoaAlheia->getId(), 'motivo' => 'x', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -112,7 +112,7 @@ final class AlterarPessoaCobradaControllerTest extends CobrancaWebTestCase
             'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $nova->getId(), 'motivo' => 'x', '_token' => 'token-falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

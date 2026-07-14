@@ -82,7 +82,7 @@ final class PagamentoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
     #[Route('/pagamentos/{id}/corrigir', name: 'cobranca_pagamento_corrigir', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -102,7 +102,7 @@ final class PagamentoController extends AbstractController
         if ($caso === null) {
             throw $this->createNotFoundException('Pagamento sem caso associado.');
         }
-        $casoId = $caso->getId();
+        $objetoId = $this->objetoIdDoCaso($caso);
 
         $input = new CorrigirPagamentoInput();
         $input->pagamentoId = $id;
@@ -121,6 +121,6 @@ final class PagamentoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
     }
 }

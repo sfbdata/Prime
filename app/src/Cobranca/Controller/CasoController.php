@@ -21,8 +21,6 @@ use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\PessoaRepository;
-use App\Cobranca\Service\MontadorModaisCaso;
-use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Cobranca\UseCase\AlterarPessoaCobradaUseCase;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
@@ -57,8 +55,6 @@ final class CasoController extends AbstractController
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly CarteiraRepository $carteiraRepository,
         private readonly ListarCasosUseCase $listarCasos,
-        private readonly MontarDetalheCasoUseCase $montarDetalheCaso,
-        private readonly MontadorModaisCaso $montadorModais,
         private readonly EncerrarCasoUseCase $encerrarCaso,
         private readonly RegistrarTentativaCobrancaUseCase $registrarTentativa,
         private readonly JudicializarCasoUseCase $judicializarCaso,
@@ -116,36 +112,15 @@ final class CasoController extends AbstractController
             return $this->semAcesso();
         }
 
+        // Deep-link legado: o Caso deixou de ter tela própria (ajuste 2, Fatia 5). Resolvemos o caso de
+        // forma tenant-safe — preservando o 404 cross-tenant — e redirecionamos para a página unificada
+        // do Objeto, que é a canônica. Links antigos, importação e histórico continuam funcionando.
         $caso = $this->casoRepository->findOneByIdDoTenant($id, $tenant);
         if ($caso === null) {
             throw $this->createNotFoundException('Caso de cobrança não encontrado.');
         }
 
-        // Só monta as views dos formulários para quem tem a capacidade — o mesmo gate que esconde os
-        // modais no Twig. Leitor puro não paga esse custo. Movimentação financeira é capacidade SEPARADA
-        // de gerenciar (SPEC §22). A construção dos modais/documentos é compartilhada com a página do
-        // objeto via `MontadorModaisCaso` (ajuste 2). O redirect deste deep-link para o objeto entra na
-        // Fatia 5 (junto com os redirects de mutação e a atualização dos testes).
-        $usuario = $this->usuarioLogado();
-        $podeGerenciar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.gerenciar');
-        $podeMovimentar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.movimentacao_financeira');
-        $podeAcessarPastas = $this->permissionChecker->canAccessModule($usuario, $tenant, self::MODULO_PASTAS);
-
-        $forms = $podeGerenciar ? $this->montadorModais->deMutacao($caso, $podeAcessarPastas) : [];
-        if ($podeMovimentar) {
-            $forms += $this->montadorModais->financeiros($caso);
-        }
-
-        $documentos = $this->montadorModais->documentosParaFm($caso);
-
-        return $this->render('cobranca/caso/show.html.twig', [
-            'caso' => $this->montarDetalheCaso->executar($caso),
-            'forms' => $forms,
-            'casoId' => $caso->getId(),
-            'podeGerenciarDocumentos' => $podeGerenciar,
-            'secoes' => $documentos['secoes'],
-            'arquivosFm' => $documentos['arquivos'],
-        ]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
     #[Route('/{id}/encerrar', name: 'cobranca_caso_encerrar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -177,7 +152,7 @@ final class CasoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
     #[Route('/{id}/pessoa-cobrada', name: 'cobranca_caso_alterar_pessoa', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -211,7 +186,7 @@ final class CasoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
     #[Route('/{id}/judicializar', name: 'cobranca_caso_judicializar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -248,7 +223,7 @@ final class CasoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
     #[Route('/{id}/tentativas', name: 'cobranca_tentativa_registrar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -280,7 +255,7 @@ final class CasoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
 }

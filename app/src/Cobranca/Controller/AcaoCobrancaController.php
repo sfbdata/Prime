@@ -72,7 +72,7 @@ final class AcaoCobrancaController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
     #[Route('/acoes/{id}/concluir', name: 'cobranca_acao_concluir', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -87,7 +87,7 @@ final class AcaoCobrancaController extends AbstractController
         if ($acao === null) {
             throw $this->createNotFoundException('Ação não encontrada.');
         }
-        $casoId = $acao->getCaso()->getId();
+        $objetoId = $this->objetoIdDoCaso($acao->getCaso());
 
         $input = new ConcluirAcaoInput();
         $input->acaoId = $id;
@@ -105,6 +105,6 @@ final class AcaoCobrancaController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
     }
 }

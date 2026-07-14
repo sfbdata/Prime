@@ -37,7 +37,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0])->_real();
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'acordo_criar');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/acordos', [
@@ -51,7 +51,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         $acordos = static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh);
@@ -106,7 +106,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         self::assertCount(0, static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh));
@@ -121,14 +121,14 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
         $acordoId = (int) $acordo->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $caso->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'romper_acordo');
 
         $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/romper', [
             'romper_acordo' => ['motivo' => 'Parcelas em atraso', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         self::assertSame(StatusAcordo::Rompido, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -142,14 +142,14 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Cancelado])->_real();
         $acordoId = (int) $acordo->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $caso->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'romper_acordo');
 
         $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/romper', [
             'romper_acordo' => ['motivo' => 'X', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         self::assertSame(StatusAcordo::Cancelado, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -178,14 +178,14 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
         $acordoId = (int) $acordo->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $caso->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'cancelar_acordo');
 
         $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cancelar', [
             'cancelar_acordo' => ['motivo' => 'Erro de lançamento', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         self::assertSame(StatusAcordo::Cancelado, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -237,7 +237,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             'cancelar_acordo' => ['motivo' => 'X', '_token' => 'falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -251,12 +251,12 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
         $acordoId = (int) $acordo->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $caso->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = (string) $crawler->filter('#modalCumprirAcordo-' . $acordoId . ' input[name="_token"]')->attr('value');
 
         $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cumprir', ['_token' => $token]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         self::assertSame(StatusAcordo::Cumprido, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -272,7 +272,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
 
         $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cumprir', ['_token' => 'falso']);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }

@@ -30,14 +30,14 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $pasta = PastaFactory::createOne(['tenant' => $tenant])->_real();
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
             'judicializar_caso' => ['pastaId' => (string) $pasta->getId(), '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -55,14 +55,14 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $pastaAlheia = PastaFactory::createOne(['tenant' => $this->tenantAvulso()])->_real();
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
             'judicializar_caso' => ['pastaId' => (string) $pastaAlheia->getId(), '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -82,14 +82,14 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
 
         // Token colhido de um caso ativo (o judicializado esconde o botão, mas o token é por form/sessão).
         [, $casoAtivo] = $this->semearGrafo($tenant);
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoAtivo->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $casoAtivo->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
             'judicializar_caso' => ['pastaId' => (string) $pastaNova->getId(), '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -161,7 +161,7 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
             'judicializar_caso' => ['pastaId' => (string) $pasta->getId(), '_token' => 'token-falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

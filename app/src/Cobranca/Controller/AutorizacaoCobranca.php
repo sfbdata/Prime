@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Symfony\Component\Form\FormInterface;
@@ -39,6 +40,23 @@ trait AutorizacaoCobranca
         $usuario = $this->getUser();
 
         return $usuario;
+    }
+
+    /**
+     * Resolve o id do Objeto ao qual o Caso pertence — destino canônico de todo redirect pós-mutação
+     * (ajuste 2, Fatia 5): o Caso deixou de ter tela própria, a página do Objeto é a única. A JoinColumn
+     * `objeto` é NOT NULL; os getters são nullable só pelo estado pré-persistência, então blindamos com
+     * LogicException (nunca deve ocorrer com um Caso persistido). Aceita `?CasoCobranca` para cobrir
+     * também `Documento::getCaso()`, cujo getter é nullable.
+     */
+    private function objetoIdDoCaso(?CasoCobranca $caso): int
+    {
+        $objeto = $caso?->getObjeto();
+        if ($objeto === null || $objeto->getId() === null) {
+            throw new \LogicException('Não foi possível resolver o objeto do caso de cobrança.');
+        }
+
+        return $objeto->getId();
     }
 
     /**

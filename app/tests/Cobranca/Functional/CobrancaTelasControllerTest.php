@@ -221,8 +221,8 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
         self::assertStringContainsString('Saldo consolidado', $html);
     }
 
-    #[TestDox('GET detalhe do caso retorna 200 com pessoa cobrada e saldo exigível')]
-    public function testCasoShow200(): void
+    #[TestDox('Deep-link do caso redireciona para o objeto, que mostra pessoa cobrada e saldo exigível')]
+    public function testCasoShowRedirecionaParaObjeto(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -230,6 +230,8 @@ final class CobrancaTelasControllerTest extends JusPrimeWebTestCase
 
         $client->request('GET', '/cobrancas/casos/' . $caso->getId());
 
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $client->followRedirect();
         self::assertResponseIsSuccessful();
         $html = (string) $client->getResponse()->getContent();
         self::assertHtmlContem((string) $caso->getPessoaCobradaAtual()->getNome(), $html);

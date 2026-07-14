@@ -33,14 +33,14 @@ final class CasoEncerradoBloqueiaMutacaoControllerTest extends CobrancaWebTestCa
         $encerradoId = (int) $casoEncerrado->getId();
 
         // Token colhido do form no caso ativo (mesmo nome de form → mesmo token de sessão).
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoAtivo->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $casoAtivo->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_tentativa_cobranca');
 
         $client->request('POST', '/cobrancas/casos/' . $encerradoId . '/tentativas', [
             'registrar_tentativa_cobranca' => ['observacao' => 'Boleto reenviado', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $encerradoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -66,14 +66,14 @@ final class CasoEncerradoBloqueiaMutacaoControllerTest extends CobrancaWebTestCa
         ]);
         $obrigacaoId = (int) $obrigacao->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoAtivo->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $casoAtivo->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'reconhecer_valor_atualizado');
 
         $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/reconhecer-valor', [
             'reconhecer_valor_atualizado' => ['encargosReconhecidos' => '15,00', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoEncerrado->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

@@ -58,8 +58,8 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertResponseStatusCodeSame(404);
     }
 
-    #[TestDox('Deep-link do caso ainda renderiza na Fatia 2 (redirect para o objeto é a Fatia 5)')]
-    public function testCasoShowAindaRenderiza(): void
+    #[TestDox('Deep-link do caso redireciona (302) para a página do objeto (Fatia 5)')]
+    public function testCasoShowRedirecionaParaObjeto(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -67,6 +67,6 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
 
         $client->request('GET', '/cobrancas/casos/' . $caso->getId());
 
-        self::assertResponseIsSuccessful();
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
     }
 }

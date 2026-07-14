@@ -27,14 +27,14 @@ final class CasoMutacaoControllerTest extends CobrancaWebTestCase
         [, $caso] = $this->semearGrafo($tenant); // sem obrigações → saldo exigível 0
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'encerrar_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/encerrar', [
             'encerrar_caso' => ['observacao' => 'Quitado', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -50,14 +50,14 @@ final class CasoMutacaoControllerTest extends CobrancaWebTestCase
         $casoId = (int) $caso->getId();
         ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 50000, 'encargosReconhecidos' => 0]);
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'encerrar_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/encerrar', [
             'encerrar_caso' => ['_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -110,7 +110,7 @@ final class CasoMutacaoControllerTest extends CobrancaWebTestCase
             'encerrar_caso' => ['_token' => 'token-falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

@@ -28,7 +28,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         [, $caso] = $this->semearGrafo($tenant);
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_obrigacao');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/obrigacoes', [
@@ -41,7 +41,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $client->followRedirect();
         self::assertStringContainsString('Boleto marcador ABC', (string) $client->getResponse()->getContent());
     }
@@ -55,7 +55,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         [, $casoAtivo] = $this->semearGrafo($tenant);
         [, $casoEncerrado] = $this->semearGrafo($tenant, ['status' => StatusCaso::Encerrado]);
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoAtivo->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $casoAtivo->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_obrigacao');
 
         $client->request('POST', '/cobrancas/casos/' . $casoEncerrado->getId() . '/obrigacoes', [
@@ -67,7 +67,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoEncerrado->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());
         $client->followRedirect();
         self::assertStringNotContainsString('NAO DEVE PERSISTIR XYZ', (string) $client->getResponse()->getContent());
     }
@@ -114,7 +114,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'registrar_obrigacao' => ['descricao' => 'MARCADOR CSRF RUIM', 'valorOriginal' => '10,00', 'vencimentoOriginal' => '2026-08-10', '_token' => 'token-falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $client->followRedirect();
         self::assertStringNotContainsString('MARCADOR CSRF RUIM', (string) $client->getResponse()->getContent());
     }
@@ -133,14 +133,14 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         ])->_real();
         $obrigacaoId = (int) $obrigacao->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $caso->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'reconhecer_valor_atualizado');
 
         $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/reconhecer-valor', [
             'reconhecer_valor_atualizado' => ['encargosReconhecidos' => '250,00', 'motivo' => 'Juros e multa', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

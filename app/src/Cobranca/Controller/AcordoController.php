@@ -85,7 +85,7 @@ final class AcordoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
     #[Route('/acordos/{id}/romper', name: 'cobranca_acordo_romper', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -118,12 +118,12 @@ final class AcordoController extends AbstractController
         if ($acordo === null) {
             throw $this->createNotFoundException('Acordo não encontrado.');
         }
-        $casoId = $acordo->getCaso()->getId();
+        $objetoId = $this->objetoIdDoCaso($acordo->getCaso());
 
         if (!$this->isCsrfTokenValid('marcar_cumprido_' . $id, (string) $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
 
-            return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+            return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
         }
 
         $input = new MarcarAcordoCumpridoInput();
@@ -135,7 +135,7 @@ final class AcordoController extends AbstractController
             $this->addFlash('danger', $e->getMessage());
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
     }
 
     /**
@@ -154,7 +154,7 @@ final class AcordoController extends AbstractController
         if ($acordo === null) {
             throw $this->createNotFoundException('Acordo não encontrado.');
         }
-        $casoId = $acordo->getCaso()->getId();
+        $objetoId = $this->objetoIdDoCaso($acordo->getCaso());
 
         $form = $this->createForm($tipoForm, $input);
         $form->handleRequest($request);
@@ -170,6 +170,6 @@ final class AcordoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
     }
 }

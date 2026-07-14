@@ -38,7 +38,7 @@ final class DocumentoCobrancaControllerTest extends CobrancaWebTestCase
         $casoId = (int) $caso->getId();
         $this->instalarCsrfStorage();
 
-        $crawler = $client->request('GET', "/cobrancas/casos/{$casoId}");
+        $crawler = $client->request('GET', "/cobrancas/objetos/{$caso->getObjeto()->getId()}");
         self::assertResponseIsSuccessful();
         self::assertCount(1, $crawler->filter('#fileManager'), 'gestor vê o file-manager de escrita');
 
@@ -210,7 +210,7 @@ final class DocumentoCobrancaControllerTest extends CobrancaWebTestCase
         self::assertSame(0, static::getContainer()->get(EntityManagerInterface::class)->getRepository(CobrancaDocumento::class)->count(['tenant' => $tenant]));
     }
 
-    #[TestDox('Excluir documento (form) redireciona para o caso e remove a linha')]
+    #[TestDox('Excluir documento (form) redireciona para o objeto e remove a linha')]
     public function testExcluirDocumentoRedireciona(): void
     {
         $client = static::createClient();
@@ -224,7 +224,7 @@ final class DocumentoCobrancaControllerTest extends CobrancaWebTestCase
 
         $client->request('POST', "/cobrancas/documentos/{$docId}/excluir", ['_token' => $this->csrf('delete_documento_cobranca_' . $docId)]);
 
-        self::assertResponseRedirects("/cobrancas/casos/{$casoId}");
+        self::assertResponseRedirects("/cobrancas/objetos/{$caso->getObjeto()->getId()}");
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertNull($em->getRepository(CobrancaDocumento::class)->find($docId));
     }
@@ -288,7 +288,7 @@ final class DocumentoCobrancaControllerTest extends CobrancaWebTestCase
         [, $caso] = $this->semearGrafo($tenant);
         CobrancaDocumentoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'nomeOriginal' => 'contrato.pdf']);
 
-        $crawler = $client->request('GET', "/cobrancas/casos/{$caso->getId()}");
+        $crawler = $client->request('GET', "/cobrancas/objetos/{$caso->getObjeto()->getId()}");
 
         self::assertResponseIsSuccessful();
         self::assertCount(0, $crawler->filter('#fileManager'), 'leitor NÃO vê o file-manager de escrita');

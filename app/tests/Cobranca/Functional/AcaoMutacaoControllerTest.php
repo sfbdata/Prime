@@ -37,14 +37,14 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
         [, $caso] = $this->semearGrafo($tenant);
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'definir_proxima_acao');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/proxima-acao', [
             'definir_proxima_acao' => ['descricao' => 'Ligar amanhã ZZZ', 'prazo' => '2026-08-20', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $client->followRedirect();
         self::assertStringContainsString('Ligar amanhã ZZZ', (string) $client->getResponse()->getContent());
     }
@@ -58,14 +58,14 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
         $casoId = (int) $caso->getId();
         ProximaAcaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Ação original']);
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'definir_proxima_acao');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/proxima-acao', [
             'definir_proxima_acao' => ['descricao' => 'SEGUNDA ACAO WWW', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $client->followRedirect();
         self::assertStringNotContainsString('SEGUNDA ACAO WWW', (string) $client->getResponse()->getContent());
     }
@@ -112,7 +112,7 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
             'definir_proxima_acao' => ['descricao' => 'CSRF RUIM VVV', '_token' => 'falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $client->followRedirect();
         self::assertStringNotContainsString('CSRF RUIM VVV', (string) $client->getResponse()->getContent());
     }
@@ -126,14 +126,14 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
         $acao = ProximaAcaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusProximaAcao::Pendente])->_real();
         $acaoId = (int) $acao->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $caso->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'concluir_acao');
 
         $client->request('POST', '/cobrancas/acoes/' . $acaoId . '/concluir', [
             'concluir_acao' => ['resultado' => 'Falou com o devedor', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $caso->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         self::assertSame(StatusProximaAcao::Concluida, $this->em()->find(ProximaAcao::class, $acaoId)->getStatus());
     }
@@ -161,14 +161,14 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
         [, $caso] = $this->semearGrafo($tenant);
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_tentativa_cobranca');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/tentativas', [
             'registrar_tentativa_cobranca' => ['valorSolicitado' => '300,00', 'observacao' => 'Prometeu pagar', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         $eventos = static::getContainer()->get(EventoHistoricoRepository::class)->doCaso($casoFresh);
