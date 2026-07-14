@@ -36,6 +36,9 @@
                     <div class="card-footer">
                         <div class="d-flex gap-2 justify-content-end">
                             {% if can_administer('admin.tenant.settings.manage') %}
+                                <a href="{{ path('app_sync_drive_conexao') }}" class="btn btn-outline-secondary">
+                                    <i class="bi bi-google me-1"></i>Conectar meu Drive
+                                </a>
                                 <a href="{{ path('app_tenant_role_index', {'tenantId': tenant.id}) }}" class="btn btn-outline-primary">
                                     <i class="bi bi-shield-lock me-1"></i>Perfis
                                 </a>

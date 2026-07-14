@@ -94,6 +94,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Auth/Entity'
                 prefix: 'App\Auth\Entity'
                 alias: AppAuth
+            AppSync:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Sync/Entity'
+                prefix: 'App\Sync\Entity'
+                alias: AppSync
         controller_resolver:
             auto_mapping: false
         dql:

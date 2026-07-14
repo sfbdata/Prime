@@ -28,6 +28,8 @@ class AuditLogSubscriber
     private const IGNORED_FIELDS = [
         'password',
         'invitationToken',
+        // Refresh token OAuth do Drive por tenant — já cifrado, nunca vai para o audit_log.
+        'refreshTokenCifrado',
     ];
 
     public function __construct(

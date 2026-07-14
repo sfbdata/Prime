@@ -36,11 +36,16 @@ parameters:
     #  - service account (Shared Drive): google_drive_credentials = caminho do JSON.
     #  - OAuth login de usuário (ex.: conta do rclone; ponte atual + futuro "Conectar meu Drive"):
     #    os três google_drive_oauth_*. Com refresh_token presente, o OAuth tem precedência.
+    # Credenciais do Drive vazias em dev/test. O processor `string:` garante STRING (nunca null) —
+    # binds `string $...` exigem string, e `trim(null)` é deprecation fatal na suíte (failOnDeprecation).
     google_drive_credentials: '%env(default::GOOGLE_DRIVE_CREDENTIALS)%'
-    google_drive_shared_drive_id: '%env(default::GOOGLE_DRIVE_SHARED_DRIVE_ID)%'
-    google_drive_oauth_client_id: '%env(default::GOOGLE_DRIVE_OAUTH_CLIENT_ID)%'
-    google_drive_oauth_client_secret: '%env(default::GOOGLE_DRIVE_OAUTH_CLIENT_SECRET)%'
-    google_drive_oauth_refresh_token: '%env(default::GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN)%'
+    google_drive_shared_drive_id: '%env(string:default::GOOGLE_DRIVE_SHARED_DRIVE_ID)%'
+    google_drive_oauth_client_id: '%env(string:default::GOOGLE_DRIVE_OAUTH_CLIENT_ID)%'
+    google_drive_oauth_client_secret: '%env(string:default::GOOGLE_DRIVE_OAUTH_CLIENT_SECRET)%'
+    google_drive_oauth_refresh_token: '%env(string:default::GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN)%'
+    # Chave (base64 de 32 bytes) p/ cifrar segredos do sync em repouso (refresh_token por tenant).
+    # Fora do banco; vazia em dev/test sem conexão. Gerar em prod: base64 de random_bytes(32).
+    sync_crypto_key: '%env(string:default::SYNC_CRYPTO_KEY)%'
 
 services:
     # default configuration for services in *this* file
@@ -66,6 +71,7 @@ services:
             string $googleDriveOauthClientId: '%google_drive_oauth_client_id%'
             string $googleDriveOauthClientSecret: '%google_drive_oauth_client_secret%'
             string $googleDriveOauthRefreshToken: '%google_drive_oauth_refresh_token%'
+            string $syncCryptoKey: '%sync_crypto_key%'
 
     # makes classes in src/ available to be used as services
     # this creates a service per class whose id is the fully-qualified class name

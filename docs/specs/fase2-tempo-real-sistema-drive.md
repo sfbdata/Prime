@@ -80,6 +80,96 @@ Hoje o `GoogleDriveClient` lê as credenciais de env (global). Para multi-tenant
 
 ---
 
+## 2bis. Decisões travadas da implementação (2026-07-14)
+
+Escopo confirmado com o P.O.: **multi-tenant completo** ("Conectar meu Drive" +
+Fase 2). Decisões abaixo fecham os pontos que a spec original deixou em aberto.
+Baseadas na investigação do código-base atual (master `1b10f3c`).
+
+**D-a. Entidade `TenantDriveConexao` (domínio `App\Sync\Entity`, tabela
+`sync_drive_conexao`).** Segue o padrão do projeto (Carteira/JornadaTenant):
+- `id` **int identity** (o projeto **não usa UUID** em lugar nenhum);
+- `tenant` **`OneToOne`** com `Tenant` (`JoinColumn` único, `nullable: false`) —
+  uma conexão por escritório; lado dono nesta entidade;
+- `refreshTokenCifrado` (`TEXT`, blob base64 do sodium — **nunca** texto puro);
+- `rootFolderId` (`VARCHAR`, a pasta-raiz do acervo no Drive daquele escritório);
+- `contaEmail` (`VARCHAR`, identificação da conta conectada, para exibir);
+- `escopo` (`VARCHAR`), `ativo` (`bool`), `conectadoEm`/`conectadoPor` (User),
+  `atualizadoEm`.
+- Registrar o mapping do domínio: **novo bloco `AppSync`** em
+  `config/packages/doctrine.yaml` (`dir: src/Sync/Entity`, `prefix:
+  'App\Sync\Entity'`, `alias: AppSync`) — hoje `App\Sync` só tem Service/Command.
+- Repository `TenantDriveConexaoRepository` com **`findAtivaDoTenant(Tenant)`** e
+  `findOneByTenant` no padrão `findOneByIdDoTenant` (filtro explícito de tenant;
+  o `TenantFilter` automático não cobre `find()` por PK — [[feedback_multitenant_isolamento]]).
+
+**D-b. Cifra = `sodium_crypto_secretbox` nativo (zero dependência).** Serviço
+`App\Sync\Service\CifradorDeSegredo` (`cifrar(string): string` /
+`decifrar(string): string`), nonce aleatório por operação (prefixado ao
+ciphertext), saída base64. Chave de 32 bytes numa **env nova
+`SYNC_CRYPTO_KEY`** (fora do banco, no `.env.prod`; bind em `services.yaml`).
+Testável isoladamente (unit). Nunca logar/serializar o token decifrado.
+
+**D-c. `rootFolderId` = colar o ID/URL da pasta.** Após o OAuth, o admin informa
+o link/ID da pasta-raiz do acervo do escritório no Drive (helper extrai o id de
+uma URL `…/folders/<id>`). Picker visual de pastas fica como follow-up.
+
+**D-d. Permissão = reusar `admin.tenant.settings.manage`** (a mesma da config do
+escritório — `TenantController`). **Sem** data-migration de permissão. Gate no
+padrão existente: `ROLE_SUPER_ADMIN` OU (`existeVinculoAtivo` +
+`canAdminister($user,$tenant,'admin.tenant.settings.manage')`).
+
+**D-e. Fluxo OAuth in-app** (não existe hoje; o `GoogleDriveClient` só consome
+refresh_token pronto). Adicionar ao client/factory:
+- `criarUrlDeAutorizacao(string $state): string` (`createAuthUrl`, escopo
+  `drive`, `access_type=offline`, `prompt=consent` p/ garantir refresh_token);
+- `trocarCodePorRefreshToken(string $code): array{refreshToken,email,escopo}`
+  (`fetchAccessTokenWithAuthCode`).
+- Rotas (domínio `App\Sync\Controller\DriveConexaoController`, sob a config do
+  escritório): **início** (`GET`, gera `state` na sessão + CSRF, redireciona ao
+  Google), **callback** (`GET`, valida `state`, troca o code, cifra e persiste a
+  `TenantDriveConexao`, pede/salva o `rootFolderId`), **desconectar**
+  (`POST` + CSRF, limpa/desativa a conexão). `redirect_uri` fixo do app
+  `bluejus-sync` (já publicado em Produção → refresh_token não expira).
+
+**D-f. Fábrica `GoogleDriveClientFactory::paraTenant(Tenant): GoogleDriveClientInterface`.**
+Lê a `TenantDriveConexao` ativa do tenant, decifra o refresh_token, e instancia o
+`GoogleDriveClient` (client_id/secret **globais** do app + refresh_token +
+`rootFolderId` **por tenant**). Sem conexão ativa → exceção `TenantSemDriveException`
+(o dispatch/handler tratam como no-op; o comando pula o tenant). O `client()` do
+`GoogleDriveClient` já resolve OAuth a partir do refresh_token — a fábrica só o
+alimenta. O env global `GOOGLE_DRIVE_OAUTH_*` do tenant 1 vira **fallback/semente**:
+migro o tenant 1 para uma `TenantDriveConexao` (comando one-time) e o env pode ser
+aposentado depois.
+
+**D-g. Camada de dispatch = CONTROLLER, não UseCase.** Motivo (investigação): (1)
+`CriarPastaUseCase` é chamado pelo próprio `ReconciliarCommand` → dispatch no
+UseCase dispararia sync durante a reconciliação (duplo-disparo); (2) os dois
+fluxos mais usados de "adicionar documento" (aba Documentos e financeiro)
+**persistem `PastaDocumento` inline no `PastaController`, sem UseCase**. Logo, um
+helper central no controller (`despacharSyncDaPasta(Pasta $pasta)`) cobre de forma
+uniforme e evita o duplo-disparo. Pontos de dispatch (pós-flush): criar pasta,
+`UploadPecaUseCase`, `SalvarPecaTextoUseCase`, `PastaController::uploadDocumento`,
+`PastaController::financeiroUpload`. Só dispara se o tenant tem conexão ativa.
+
+**D-h. Refator `ReconciliadorDePasta`** (pré-Messenger): extrair
+`processarArquivosDaPasta` + helpers do `ReconciliarCommand` para um serviço que
+**recebe `GoogleDriveClientInterface` por parâmetro** (não injeta o global) e
+**devolve contadores numa estrutura** (`ResultadoReconciliacaoPasta`), sem
+`SymfonyStyle` (o handler Messenger não tem `$io`). O comando vira loop fino sobre
+o serviço; o handler chama o mesmo serviço para uma pasta. Refatoração **sem mudar
+comportamento**, testes primeiro.
+
+**D-i. Messenger.** `symfony/messenger` + `symfony/doctrine-messenger` (não
+instalados). Transport `async` = doctrine (tabela `messenger_messages`; migration
+via `messenger:setup-transports` ou DDL na migration). Retry 3× backoff; `failed`
+transport. Testes usam transport `in-memory` (sem tocar o Drive). Worker em prod =
+serviço no `docker-compose.prod.yml` (`messenger:consume async --time-limit=3600`,
+`restart: unless-stopped`), lê credenciais do **banco** (via fábrica), não do
+`.sync-oauth.env`.
+
+---
+
 ## 3. Arquitetura da Fase 2 (o gatilho)
 
 ### 3.1 Por que fila e não chamada direta
