@@ -48,7 +48,9 @@ Por item: **implementar → MOSTRAR o resultado (smoke visual quando dá) → o 
 - Sub-questões p/ a spec: objeto sem cobrança ainda (iniciar cobrança / de onde vem a "pessoa cobrada"), destino dos redirects, palavra "caso" some dos textos/labels.
 - **Foundational:** os itens 5/6/7/8 vivem "dentro" dessa página — considerar a ordem de implementação.
 
-## 3. "Tentativa" = registro de contato (default frustrado) — `✅ ideia fechada`
+## 3. "Tentativa" = registro de contato (default frustrado) — `🔍 revisado (commitado 6c95985)`
+> Implementado: enums `CanalContato`(Telefone/WhatsApp/E-mail/SMS) + `ResultadoContato`(NaoAtendido/CaixaPostal/NumeroErrado/PrometeuPagar/Outro); DTO/Form com `dataContato`(DateTimeType, default agora via `MontadorModaisCaso`)+`canal`(EnumType)+`resultado`(EnumType, default NaoAtendido), sem `valorSolicitado`/`novoPrazo`; UseCase grava evento `ContatoRealizado` (tipo ocioso reusado → sem migração) com `ocorridoEm`=dataContato (novo param opcional aditivo em `RegistrarEventoHistorico::registrar`) e descrição "Contato por {canal} em {data} — {resultado}. {obs}"; copy "Tentativa"→"Registrar contato" (botão/modal) + flash "Contato registrado.". Testes: unit reescrito + functional reforçado (tipo/descrição/ocorridoEm + caso "sem canal"→não grava). `tests/Cobranca` 403/403, global 1716→1717. feature-review LIMPO (2 nits de cobertura CORRIGIDOS antes do commit). Smoke real OK. **SEM migration.**
+
 **Pedido:** a tentativa deve ser um registro de contato — informar dia/hora (pré-preenchido com agora), canal (telefone/WhatsApp/e-mail), tipicamente "não atendido". Remover "valor solicitado" e "novo prazo".
 **Risco:** BAIXO (form + DTO + UseCase + enum de evento + template; sem migração; supera SPEC §10 — decisão do humano).
 

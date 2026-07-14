@@ -1,7 +1,7 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: **2026-07-14 — RODADA DE AJUSTES no módulo (já em prod).** Itens 1 e 4 FECHADOS+commitados. **Item 2 (objeto=caso unificado) ✅ COMPLETO: Fatias 1–7 commitadas.** Próximos na ordem: itens 3, 8. Módulo segue no ar; nada desta rodada foi deployado ainda.
+> Sessão encerrada em: **2026-07-14 — RODADA DE AJUSTES no módulo (já em prod).** Itens 1 e 4 FECHADOS+commitados. **Item 2 (objeto=caso unificado) ✅ COMPLETO: Fatias 1–7 commitadas.** **Item 3 (tentativa→registro de contato) ✅ COMMITADO `6c95985`** (enums CanalContato/ResultadoContato; evento `ContatoRealizado` reusado; `ocorridoEm`=dataContato; sem migração; feature-review LIMPO). Próximos na ordem do backlog: itens **5** (editar/excluir obrigação), **6** (pagamento FIFO), **7** (acordo inteligente — SPEC própria), **8** (parcelas na aba). Módulo segue no ar; nada desta rodada foi deployado ainda.
 
 ---
 
@@ -18,7 +18,7 @@ Ou seja: **não rode a suíte completa nem o /review antes do humano aprovar o r
 ### Estado do Git (reconferir sempre)
 - **`master` = `278ac2e`(+hotfixes até `61a1450`);** branch `gestao-cobrancas` local, não pushada. Deploy/push/merge são do humano.
 - **HEAD = `2a4ea7c`** (+ commit de docs a seguir). Commits desta rodada, em ordem: `d0e4eb5`(backlog) · `854cade`+`35d8d12`(item 1) · `ea4f86a`(item 4) · `65f89ac`(spec item 2) · `ba5592b`(plano item 2 + sub-decisão G) · `fe536eb`(item2 fatia 1) · `be936a6`(item2 fatia 2) · `4b8dfd8`(spec item2 revisada: criar objeto pede nome) · `8118137`(item2 fatia 3) · `3522495`(item2 fatia 4) · `74904f0`(item2 fatia 6) · `d9a9d4f`(docs) · `b6b9029`(item2 fatia 5) · `79e5923`(docs) · `2a4ea7c`(item2 fatia 7).
-- **Working tree LIMPO.** tests/Cobranca 400/400, global 1715/1715.
+- **Working tree LIMPO.** tests/Cobranca 403/403, global 1717/1717. HEAD após item 3 = `6c95985` (+ commit de docs a seguir).
 
 ### Item 1 — ✅ CONCLUÍDO E COMMITADO (`854cade`, `35d8d12`)
 Tooltips (popover `?` no hover em modo/forma de honorários) + campo de percentual (input-group `%`, aceita vírgula pt-BR gravando decimal, oculta/desabilita em "sem percentual"), nos modais de CRIAR e EDITAR carteira. Review aprovado + smoke OK.
