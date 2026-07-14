@@ -36,8 +36,16 @@ final class CasoEncerradoBloqueiaMutacaoControllerTest extends CobrancaWebTestCa
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $casoAtivo->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_tentativa_cobranca');
 
+        // Payload VÁLIDO (canal/data preenchidos) — assim o que barra é o guard de caso encerrado no
+        // servidor, não uma falha de validação do form.
         $client->request('POST', '/cobrancas/casos/' . $encerradoId . '/tentativas', [
-            'registrar_tentativa_cobranca' => ['observacao' => 'Boleto reenviado', '_token' => $token],
+            'registrar_tentativa_cobranca' => [
+                'dataContato' => '2026-05-10T10:00',
+                'canal' => 'telefone',
+                'resultado' => 'nao_atendido',
+                'observacao' => 'Boleto reenviado',
+                '_token' => $token,
+            ],
         ]);
 
         self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());

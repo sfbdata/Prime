@@ -29,6 +29,11 @@ final class RegistrarEventoHistorico
 
     /**
      * @param array<string, mixed>|null $dados
+     *
+     * @param \DateTimeImmutable|null $ocorridoEm quando o fato ocorreu; por padrão o construtor da
+     *                                            entidade usa "agora". Passe uma data quando o evento
+     *                                            representa algo que aconteceu em outro momento
+     *                                            (ex.: um contato informado com data/hora própria).
      */
     public function registrar(
         CasoCobranca $caso,
@@ -37,6 +42,7 @@ final class RegistrarEventoHistorico
         string $descricao,
         ?array $dados = null,
         bool $flush = false,
+        ?\DateTimeImmutable $ocorridoEm = null,
     ): EventoHistorico {
         $tenant = $caso->getTenant();
 
@@ -51,6 +57,9 @@ final class RegistrarEventoHistorico
         $evento->setUsuario($usuario);
         $evento->setDescricao($descricao);
         $evento->setDados($dados);
+        if ($ocorridoEm !== null) {
+            $evento->setOcorridoEm($ocorridoEm);
+        }
 
         $this->eventoRepository->salvar($evento, $flush);
 

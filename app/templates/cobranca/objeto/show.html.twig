@@ -17,7 +17,7 @@
             {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
             <div class="ms-auto d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
-                    <i class="bi bi-telephone me-1"></i>Tentativa
+                    <i class="bi bi-telephone me-1"></i>Registrar contato
                 </button>
                 {% if can_access_module('pastas') and not caso.pastaJudicialId %}
                 <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">

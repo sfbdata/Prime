@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Service;
 
+use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Form\AcordoCriarType;
 use App\Cobranca\Form\AlterarPessoaCobradaType;
@@ -55,13 +56,17 @@ final class MontadorModaisCaso
     {
         $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
 
+        // O modal de contato abre com data/hora pré-preenchidas com "agora" (editável pelo gestor).
+        $contatoAgora = new RegistrarTentativaCobrancaInput();
+        $contatoAgora->dataContato = new \DateTimeImmutable();
+
         $views = [
             'registrarObrigacao' => $this->formFactory->create(RegistrarObrigacaoType::class)->createView(),
             'reconhecerValor' => $this->formFactory->create(ReconhecerValorAtualizadoType::class)->createView(),
             'encerrarCaso' => $this->formFactory->create(EncerrarCasoType::class)->createView(),
             'definirProximaAcao' => $this->formFactory->create(DefinirProximaAcaoType::class)->createView(),
             'concluirAcao' => $this->formFactory->create(ConcluirAcaoType::class)->createView(),
-            'registrarTentativa' => $this->formFactory->create(RegistrarTentativaCobrancaType::class)->createView(),
+            'registrarTentativa' => $this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora)->createView(),
             'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
             'romperAcordo' => $this->formFactory->create(RomperAcordoType::class)->createView(),
             'cancelarAcordo' => $this->formFactory->create(CancelarAcordoType::class)->createView(),

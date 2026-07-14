@@ -15,14 +15,14 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
 /**
- * Registra uma tentativa de cobrança (boleto/valor atualizado enviado, com eventual novo prazo)
- * SÓ no histórico do Caso (SPEC §10).
+ * Registra um CONTATO de cobrança (ajuste 2026-07, supera SPEC §10) SÓ no histórico do Caso.
  *
- * História: o gestor envia um boleto ou valor atualizado e combina, às vezes, um novo prazo. Isso é
- * apenas um MOVIMENTO operacional: preserva a dívida original e o prazo original (invariável 20) —
- * NÃO cria obrigação nem altera valores. O caso é resolvido por id + tenant (guarda multi-tenant);
- * inexistente ou de outro escritório interrompe a operação (CasoNaoEncontradoException). O único
- * efeito é um EventoHistorico, por isso o flush acontece aqui.
+ * História: o gestor liga/manda mensagem para o cobrado e anota quando, por qual canal e o desfecho
+ * (tipicamente "Não atendido"). Isso é apenas um MOVIMENTO operacional: preserva a dívida e o prazo
+ * originais (invariável 20) — NÃO cria obrigação nem altera valores. O caso é resolvido por id +
+ * tenant (guarda multi-tenant); inexistente ou de outro escritório interrompe a operação
+ * (CasoNaoEncontradoException). O único efeito é um EventoHistorico (tipo ContatoRealizado, com a
+ * data informada como `ocorridoEm`), por isso o flush acontece aqui.
  */
 final class RegistrarTentativaCobrancaUseCase
 {
@@ -47,24 +47,35 @@ final class RegistrarTentativaCobrancaUseCase
             throw new CasoEncerradoException((int) $caso->getId());
         }
 
-        // SPEC §10: só registra o movimento — não cria obrigação nem altera o valor original.
-        $descricao = $input->observacao !== null && trim($input->observacao) !== ''
-            ? trim($input->observacao)
-            : 'Tentativa de cobrança registrada (boleto/valor atualizado enviado).';
+        // Só registra o movimento — não cria obrigação nem altera o valor original (invariável 20).
+        // A descrição embute canal/data/resultado porque a timeline só exibe o texto (o payload `dados`
+        // não é renderizado). A observação, quando houver, entra como sufixo.
+        $descricao = sprintf(
+            'Contato por %s em %s — %s.',
+            $input->canal->label(),
+            $input->dataContato->format('d/m/Y H:i'),
+            $input->resultado->label(),
+        );
+        $observacao = trim((string) $input->observacao);
+        if ($observacao !== '') {
+            $descricao .= ' ' . $observacao;
+        }
 
         $dados = [
-            'valorSolicitado' => $input->valorSolicitado,
-            'novoPrazo' => $input->novoPrazo?->format('Y-m-d'),
+            'canal' => $input->canal->value,
+            'resultado' => $input->resultado->value,
         ];
 
-        // Evento é a ÚNICA escrita do UseCase: flush aqui commita tudo.
+        // Evento é a ÚNICA escrita do UseCase: flush aqui commita tudo. A data do contato vira a data
+        // do evento na timeline (`ocorridoEm`), não o "agora" da submissão.
         $evento = $this->registrarEvento->registrar(
             $caso,
-            TipoEventoHistorico::BoletoEnviado,
+            TipoEventoHistorico::ContatoRealizado,
             $usuario,
             $descricao,
             $dados,
             flush: true,
+            ocorridoEm: $input->dataContato,
         );
 
         return $evento;

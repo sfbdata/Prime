@@ -9,6 +9,7 @@ use App\Cobranca\Controller\CasoController;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ProximaAcao;
 use App\Cobranca\Enum\StatusProximaAcao;
+use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Tests\Factory\Cobranca\ProximaAcaoFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -165,14 +166,47 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
         $token = $this->tokenDoFormulario($crawler, 'registrar_tentativa_cobranca');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/tentativas', [
-            'registrar_tentativa_cobranca' => ['valorSolicitado' => '300,00', 'observacao' => 'Prometeu pagar', '_token' => $token],
+            'registrar_tentativa_cobranca' => [
+                'dataContato' => '2026-05-10T14:30',
+                'canal' => 'telefone',
+                'resultado' => 'prometeu_pagar',
+                'observacao' => 'Prometeu pagar',
+                '_token' => $token,
+            ],
         ]);
 
         self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         $eventos = static::getContainer()->get(EventoHistoricoRepository::class)->doCaso($casoFresh);
-        self::assertGreaterThanOrEqual(1, count($eventos), 'a tentativa deve gravar ao menos um evento de histórico');
+        $contato = array_values(array_filter($eventos, fn ($e) => $e->getTipo() === TipoEventoHistorico::ContatoRealizado));
+        self::assertCount(1, $contato, 'grava exatamente um evento de contato');
+        self::assertStringContainsString('Contato por Telefone em 10/05/2026 14:30 — Prometeu pagar. Prometeu pagar', $contato[0]->getDescricao());
+        self::assertSame('2026-05-10 14:30', $contato[0]->getOcorridoEm()->format('Y-m-d H:i'), 'a data do contato vira o ocorridoEm do evento');
+    }
+
+    #[TestDox('Registrar contato sem canal (obrigatório): form inválido, não grava contato')]
+    public function testTentativaSemCanalNaoRegistra(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_tentativa_cobranca');
+
+        // Sem `canal` (NotNull) → form inválido → PRG sem gravar nada.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/tentativas', [
+            'registrar_tentativa_cobranca' => ['dataContato' => '2026-05-10T14:30', 'resultado' => 'nao_atendido', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $this->em()->clear();
+        $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
+        $eventos = static::getContainer()->get(EventoHistoricoRepository::class)->doCaso($casoFresh);
+        $contato = array_filter($eventos, fn ($e) => $e->getTipo() === TipoEventoHistorico::ContatoRealizado);
+        self::assertCount(0, $contato, 'sem canal, nenhum contato é gravado');
     }
 
     #[TestDox('IDOR: registrar tentativa em caso de outro tenant → 404')]

@@ -7,6 +7,8 @@ namespace App\Tests\Cobranca\Unit;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Enum\CanalContato;
+use App\Cobranca\Enum\ResultadoContato;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CasoEncerradoException;
@@ -45,9 +47,10 @@ final class RegistrarTentativaCobrancaUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function registraTentativaSoNoHistoricoComValorEPrazo(): void
+    public function registraContatoNoHistoricoComCanalResultadoEData(): void
     {
         $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $quando = new \DateTimeImmutable('2026-05-10 14:30');
 
         // Guarda multi-tenant: o caso é resolvido por id + tenant do usuário.
         $this->casoRepository
@@ -64,20 +67,38 @@ final class RegistrarTentativaCobrancaUseCaseTest extends TestCase
 
         $input = new RegistrarTentativaCobrancaInput();
         $input->casoId = 12;
-        $input->valorSolicitado = 12000;
-        $input->novoPrazo = new \DateTimeImmutable('2026-05-10');
-        $input->observacao = '  Boleto reenviado com valor atualizado  ';
+        $input->dataContato = $quando;
+        $input->canal = CanalContato::WhatsApp;
+        $input->resultado = ResultadoContato::PrometeuPagar;
+        $input->observacao = '  Vai pagar sexta  ';
 
         $evento = $this->sut->executar($input, $this->tenant, $this->usuario);
 
         self::assertInstanceOf(EventoHistorico::class, $evento);
-        self::assertSame(TipoEventoHistorico::BoletoEnviado, $evento->getTipo());
+        self::assertSame(TipoEventoHistorico::ContatoRealizado, $evento->getTipo());
         self::assertSame($caso, $evento->getCaso());
-        self::assertSame('Boleto reenviado com valor atualizado', $evento->getDescricao());
-        self::assertSame(
-            ['valorSolicitado' => 12000, 'novoPrazo' => '2026-05-10'],
-            $evento->getDados(),
-        );
+        self::assertSame($quando, $evento->getOcorridoEm(), 'a data do contato vira a data do evento na timeline');
+        self::assertSame('Contato por WhatsApp em 10/05/2026 14:30 — Prometeu pagar. Vai pagar sexta', $evento->getDescricao());
+        self::assertSame(['canal' => 'whatsapp', 'resultado' => 'prometeu_pagar'], $evento->getDados());
+    }
+
+    #[Test]
+    public function usaResultadoPadraoNaoAtendidoESemObservacaoNaoAcrescentaTexto(): void
+    {
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->eventoRepository->expects($this->once())->method('salvar');
+
+        $input = new RegistrarTentativaCobrancaInput();
+        $input->casoId = 7;
+        $input->dataContato = new \DateTimeImmutable('2026-06-01 09:00');
+        $input->canal = CanalContato::Telefone;
+        // resultado não setado → default "Não atendido"; observacao vazia → sem sufixo.
+
+        $evento = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame('Contato por Telefone em 01/06/2026 09:00 — Não atendido.', $evento->getDescricao());
+        self::assertSame(['canal' => 'telefone', 'resultado' => 'nao_atendido'], $evento->getDados());
     }
 
     #[Test]
