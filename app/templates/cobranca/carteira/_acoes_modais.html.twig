@@ -38,6 +38,7 @@
             </div>
             <div class="modal-body">
                 {{ form_row(forms.criarObjeto.identificacao) }}
+                {{ form_row(forms.criarObjeto.nomeCobrado) }}
                 {{ form_row(forms.criarObjeto.descricao) }}
                 {{ form_row(forms.criarObjeto.referenciaExterna) }}
             </div>
@@ -132,26 +133,3 @@
 </div>
 {% endif %}
 
-{# ── Abrir caso (reutilizável; JS injeta a URL do objeto) ─────────── #}
-{% if forms.abrirCaso is defined %}
-<div class="modal fade" id="modalAbrirCaso" tabindex="-1" aria-labelledby="tituloAbrirCaso" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            {{ form_start(forms.abrirCaso, {attr: {id: 'formAbrirCaso'}}) }}
-            <div class="modal-header">
-                <h5 class="modal-title" id="tituloAbrirCaso"><i class="bi bi-briefcase me-1"></i>Abrir caso</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted small mb-3" data-objeto-caso-contexto>Objeto selecionado.</p>
-                {{ form_row(forms.abrirCaso.pessoaCobradaId) }}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Abrir caso</button>
-            </div>
-            {{ form_end(forms.abrirCaso) }}
-        </div>
-    </div>
-</div>
-{% endif %}

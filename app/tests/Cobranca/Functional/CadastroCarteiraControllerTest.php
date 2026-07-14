@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\CarteiraController;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Tests\Factory\Cliente\ClientePFFactory;
@@ -225,14 +226,21 @@ final class CadastroCarteiraControllerTest extends CobrancaWebTestCase
         $token = $this->tokenDoFormulario($crawler, 'criar_objeto');
 
         $client->request('POST', '/cobrancas/carteiras/' . $carteiraId . '/objetos', [
-            'criar_objeto' => ['identificacao' => 'Apto 101 Teste', '_token' => $token],
+            'criar_objeto' => ['identificacao' => 'Apto 101 Teste', 'nomeCobrado' => 'Devedor Teste', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/carteiras/' . $carteiraId);
+        // Ajuste 2: criar o objeto já inicia a cobrança e cai na página do objeto.
+        self::assertResponseRedirects();
+        self::assertMatchesRegularExpression('#/cobrancas/objetos/\d+#', (string) $client->getResponse()->headers->get('Location'));
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
-        self::assertCount(1, $em->getRepository(ObjetoCobranca::class)->findBy(['identificacao' => 'Apto 101 Teste']));
+        $objetos = $em->getRepository(ObjetoCobranca::class)->findBy(['identificacao' => 'Apto 101 Teste']);
+        self::assertCount(1, $objetos);
+        // A cobrança já nasce: caso âncora com a pessoa cobrada informada.
+        $caso = $em->getRepository(CasoCobranca::class)->findOneBy(['objeto' => $objetos[0]]);
+        self::assertNotNull($caso);
+        self::assertSame('Devedor Teste', $caso->getPessoaCobradaAtual()?->getNome());
     }
 
     #[TestDox('Criar objeto sem a capacidade: negado, nada é criado')]

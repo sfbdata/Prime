@@ -5,17 +5,12 @@ declare(strict_types=1);
 namespace App\Cobranca\Controller;
 
 use App\Cliente\Repository\ClienteRepository;
-use App\Cobranca\DTO\AbrirCasoInput;
 use App\Cobranca\DTO\CriarCarteiraInput;
 use App\Cobranca\DTO\CriarObjetoInput;
 use App\Cobranca\DTO\EditarConfiguracaoCarteiraInput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
-use App\Cobranca\Exception\CasoAtivoJaExisteException;
 use App\Cobranca\Exception\ClienteCredorNaoEncontradoException;
-use App\Cobranca\Exception\ObjetoNaoEncontradoException;
-use App\Cobranca\Exception\PessoaNaoEncontradaException;
-use App\Cobranca\Form\AbrirCasoType;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Form\CriarCarteiraType;
@@ -28,9 +23,8 @@ use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
-use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CriarCarteiraUseCase;
-use App\Cobranca\UseCase\CriarObjetoUseCase;
+use App\Cobranca\UseCase\CriarObjetoComCobrancaUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoCarteiraUseCase;
 use App\Cobranca\UseCase\ListarCarteirasUseCase;
 use App\Cobranca\UseCase\MontarVisaoCarteiraUseCase;
@@ -69,8 +63,7 @@ final class CarteiraController extends AbstractController
         private readonly MontarVisaoCarteiraUseCase $montarVisaoCarteira,
         private readonly CriarCarteiraUseCase $criarCarteira,
         private readonly EditarConfiguracaoCarteiraUseCase $editarConfiguracao,
-        private readonly CriarObjetoUseCase $criarObjeto,
-        private readonly AbrirCasoUseCase $abrirCaso,
+        private readonly CriarObjetoComCobrancaUseCase $criarObjeto,
     ) {
     }
 
@@ -218,8 +211,11 @@ final class CarteiraController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $this->criarObjeto->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Objeto criado.');
+                $objeto = $this->criarObjeto->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Objeto criado — cobrança iniciada.');
+
+                // Ajuste 2: criar o objeto já cria a cobrança; cai direto na página do objeto.
+                return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objeto->getId()]);
             } catch (CarteiraNaoEncontradaException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
@@ -230,40 +226,6 @@ final class CarteiraController extends AbstractController
         return $this->redirectToRoute('cobranca_carteira_show', ['id' => $id]);
     }
 
-    #[Route('/objetos/{id}/casos', name: 'cobranca_caso_abrir', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function abrir(int $id, Request $request): Response
-    {
-        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
-        if ($tenant === null) {
-            return $this->semAcesso();
-        }
-
-        $objeto = $this->objetoRepository->findOneByIdDoTenant($id, $tenant);
-        if ($objeto === null) {
-            throw $this->createNotFoundException('Objeto de cobrança não encontrado.');
-        }
-        $carteiraId = $objeto->getCarteira()?->getId();
-
-        $input = new AbrirCasoInput();
-        $input->objetoId = $id;
-        $form = $this->createForm(AbrirCasoType::class, $input, ['pessoas' => $this->pessoaRepository->opcoesDoTenant($tenant)]);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $caso = $this->abrirCaso->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Caso aberto.');
-
-                return $this->redirectToRoute('cobranca_caso_show', ['id' => $caso->getId()]);
-            } catch (ObjetoNaoEncontradoException | PessoaNaoEncontradaException | CasoAtivoJaExisteException $e) {
-                $this->addFlash('danger', $e->getMessage());
-            }
-        } else {
-            $this->flashErrosDoForm($form);
-        }
-
-        return $this->redirectToRoute('cobranca_carteira_show', ['id' => $carteiraId]);
-    }
 
     /**
      * Texto de ajuda (popover) dos campos de configuração da carteira, a partir dos enums (fonte única).
@@ -364,7 +326,6 @@ final class CarteiraController extends AbstractController
             $forms['criarPessoa'] = $this->createForm(CriarPessoaType::class)->createView();
             $forms['vincularPessoa'] = $this->createForm(VincularPessoaAObjetoType::class, null, ['pessoas' => $pessoas])->createView();
             $forms['encerrarVinculo'] = $this->createForm(EncerrarVinculoType::class)->createView();
-            $forms['abrirCaso'] = $this->createForm(AbrirCasoType::class, null, ['pessoas' => $pessoas])->createView();
         }
 
         return $forms;

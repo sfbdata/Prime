@@ -81,7 +81,14 @@
             {# ── Casos da carteira ─────────────────────────────── #}
             <div class="col-lg-8">
                 <div class="card cobranca-card h-100">
-                    <div class="card-header fw-semibold"><i class="bi bi-briefcase me-1"></i>Casos da carteira</div>
+                    <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
+                        <span><i class="bi bi-briefcase me-1"></i>Casos da carteira</span>
+                        {% if has_permission('resources.cobranca.gerenciar') %}
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarObjeto">
+                            <i class="bi bi-plus-lg me-1"></i>Novo objeto
+                        </button>
+                        {% endif %}
+                    </div>
                     <div class="table-responsive">
                         {% if casos|length > 0 %}
                         <table class="table mb-0">
@@ -125,16 +132,6 @@
         <div class="card cobranca-card mt-3">
             <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
                 <span><i class="bi bi-box-seam me-1"></i>Objetos{% if carteira.rotuloObjeto %} · {{ carteira.rotuloObjeto }}{% endif %}</span>
-                {% if has_permission('resources.cobranca.gerenciar') %}
-                <div class="d-flex gap-1 flex-wrap">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalCriarPessoa">
-                        <i class="bi bi-person-plus me-1"></i>Nova pessoa
-                    </button>
-                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarObjeto">
-                        <i class="bi bi-plus-lg me-1"></i>Novo objeto
-                    </button>
-                </div>
-                {% endif %}
             </div>
             <div class="card-body">
                 {% if objetos|length > 0 %}
@@ -162,22 +159,9 @@
                                 </div>
                                 {% endif %}
                             </div>
-                            {% if has_permission('resources.cobranca.gerenciar') %}
-                            <div class="d-flex gap-1 flex-wrap">
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                        data-bs-toggle="modal" data-bs-target="#modalVincularPessoa"
-                                        data-acao-url="{{ path('cobranca_vinculo_criar', {id: objeto.id}) }}"
-                                        data-objeto-rotulo="{{ objeto.identificacao }}">
-                                    <i class="bi bi-person-plus me-1"></i>Vincular
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-primary"
-                                        data-bs-toggle="modal" data-bs-target="#modalAbrirCaso"
-                                        data-acao-url="{{ path('cobranca_caso_abrir', {id: objeto.id}) }}"
-                                        data-objeto-rotulo="{{ objeto.identificacao }}">
-                                    <i class="bi bi-briefcase me-1"></i>Abrir caso
-                                </button>
-                            </div>
-                            {% endif %}
+                            <a href="{{ path('cobranca_objeto_show', {id: objeto.id}) }}" class="btn btn-sm btn-outline-primary">
+                                Abrir <i class="bi bi-arrow-right ms-1"></i>
+                            </a>
                         </div>
                     </div>
                     {% endfor %}
@@ -219,8 +203,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     /* Modais reutilizáveis: o botão da linha injeta a URL de ação (data-acao-url) e o contexto. */
     [
-        { modal: 'modalVincularPessoa', form: 'formVincularPessoa', ctx: '[data-objeto-contexto]', attr: 'data-objeto-rotulo', prefixo: 'Objeto: ' },
-        { modal: 'modalAbrirCaso', form: 'formAbrirCaso', ctx: '[data-objeto-caso-contexto]', attr: 'data-objeto-rotulo', prefixo: 'Objeto: ' },
         { modal: 'modalEncerrarVinculo', form: 'formEncerrarVinculo', ctx: '[data-vinculo-contexto]', attr: 'data-vinculo-rotulo', prefixo: 'Vínculo: ' }
     ].forEach(function (cfg) {
         var modal = document.getElementById(cfg.modal);
