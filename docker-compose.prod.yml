@@ -29,6 +29,35 @@ services:
     networks:
       - saas_net
 
+  # Worker da Fase 2 do sync: consome a fila `async` (Messenger/doctrine) e sincroniza no Drive,
+  # em segundos, a pasta de cada evento. Lê as credenciais do banco (TenantDriveConexao), não do
+  # .sync-oauth.env. Mesma imagem do php, mas com o entrypoint BYPASSADO (não re-roda migrations/
+  # asset-copy — quem faz isso é o serviço php) e cache já warmado no build da imagem.
+  worker:
+    build:
+      context: .
+      target: prod
+    container_name: jusprime_worker_prod
+    restart: unless-stopped
+    env_file:
+      - .env.prod
+    environment:
+      TZ: ${TZ:-America/Sao_Paulo}
+      APP_ENV: prod
+      APP_DEBUG: 0
+    working_dir: /var/www/app
+    entrypoint: []
+    # --time-limit + --memory-limit fazem o consumidor sair periodicamente; o restart o traz de volta
+    # com memória fresca (padrão recomendado para workers de longa duração).
+    command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    depends_on:
+      db:
+        condition: service_healthy
+      php:
+        condition: service_healthy
+    networks:
+      - saas_net
+
   nginx:
     image: nginx:alpine
     container_name: jusprime_nginx_prod
