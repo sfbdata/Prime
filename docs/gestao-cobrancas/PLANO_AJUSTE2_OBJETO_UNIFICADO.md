@@ -13,7 +13,9 @@
 - ✅ **Fatia 4** "Nova pessoa" no objeto (cadastra+vincula) — `3522495`
 - ✅ **Fatia 6** card "Objetos" removido da carteira; Vincular/Encerrar relocados pro objeto; `PessoaController` redireciona pro objeto — `74904f0`
 - ✅ **Fatia 5** redirects das mutações → objeto + `caso_show`→redirect 302 (tenant-safe, 404 cross-tenant preservado) + helper `objetoIdDoCaso` no trait + 13 testes ajustados — `b6b9029`
-- ⏳ **Fatia 7** tirar "Casos" do menu + remover `caso/show.html.twig` morto + copy "caso"
+- ✅ **Fatia 7** "Casos" fora do subnav (navegação só Carteira→Objeto); `caso/show.html.twig` morto deletado; copy "caso"→"cobrança/objeto" (carteira/dashboard/alertas); métrica "Casos" redundante removida; Central de Alertas linka direto ao objeto (`objetoId` novo em `CasoComAlertasOutput`) — `2a4ea7c`
+
+**✅ ITEM 2 COMPLETO** (Fatias 1–7). Follow-ups pós-prod anotados no handoff (rota `cobranca_caso_index`/lista `caso/index` seguem como deep-link; card "judicializadas" do dashboard ainda aponta pra lista).
 
 **Architecture:** Abordagem A — `CasoCobranca` intacto por baixo. Nova página `cobranca_objeto_show` resolve o caso único do objeto e reusa o corpo do caso via partial. Carteira vira grid de cards de objeto. Zero migração de dados.
 
