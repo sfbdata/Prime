@@ -3,6 +3,13 @@ framework:
         # Mensagens que falharem todas as tentativas vão para o transport `failed` (fila morta inspecionável).
         failure_transport: failed
 
+        buses:
+            messenger.bus.default:
+                middleware:
+                    # Reconecta o banco antes de tratar cada mensagem — o worker fica horas ocioso e a
+                    # conexão do Postgres pode cair; sem isto o consumer morreria (mitigado só por restart).
+                    - doctrine_ping_connection
+
         transports:
             # Fase 2 do sync: transport doctrine (tabela messenger_messages no próprio banco — sem infra extra).
             async:

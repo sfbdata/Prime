@@ -57,6 +57,33 @@ final class SincronizarPastaNoDriveHandlerTest extends KernelTestCase
         self::assertSame('RAIZ', $fake->pastas[$folderId]['parent']);
     }
 
+    #[TestDox('mensagem com pasta de OUTRO tenant é rejeitada — nada sincronizado (isolamento)')]
+    public function testHandlerRejeitaPastaDeOutroTenant(): void
+    {
+        self::bootKernel();
+        $tenantA = TenantFactory::createOne();
+        $tenantB = TenantFactory::createOne();
+        $user    = UserFactory::createOne();
+        // A pasta é do tenant A…
+        $pastaA  = PastaFactory::createOne(['tenant' => $tenantA, 'nup' => '910', 'nomeCliente' => 'A']);
+
+        $fake    = new FakeGoogleDriveClient();
+        $handler = new SincronizarPastaNoDriveHandler(
+            $this->em(),
+            new FakeGoogleDriveClientFactory($fake, 'RAIZ'),
+            self::getContainer()->get(ReconciliadorDePasta::class),
+            new NullLogger(),
+        );
+
+        // …mas a mensagem afirma o tenant B (adulterada). O guard tem de barrar.
+        $handler(new SincronizarPastaNoDrive($pastaA->getId(), (int) $tenantB->getId(), (int) $user->getId()));
+
+        $em = $this->em();
+        $em->clear();
+        self::assertNull($em->find(Pasta::class, $pastaA->getId())->getDriveFolderId(), 'pasta de A não pode ser sincronizada sob B');
+        self::assertSame([], $fake->pastas, 'nada foi criado no Drive');
+    }
+
     #[TestDox('tenant sem Drive conectado → handler é no-op (não cria nada, não lança)')]
     public function testHandlerNoOpSemConexao(): void
     {

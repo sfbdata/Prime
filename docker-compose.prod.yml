@@ -50,6 +50,11 @@ services:
     # --time-limit + --memory-limit fazem o consumidor sair periodicamente; o restart o traz de volta
     # com memória fresca (padrão recomendado para workers de longa duração).
     command: ["php", "-d", "memory_limit=256M", "bin/console", "messenger:consume", "async", "--time-limit=3600", "--memory-limit=192M", "-v"]
+    volumes:
+      # MESMO volume de uploads do php/nginx: o worker precisa LER o arquivo recém-anexado para
+      # enviá-lo ao Drive (Via A) e GRAVAR os que baixar (Via B) no armazenamento compartilhado.
+      # Sem isto, o caminho aponta para o filesystem efêmero da imagem → doc não sobe / arquivo quebrado.
+      - uploads_prod:/var/www/app/public/uploads
     depends_on:
       db:
         condition: service_healthy

@@ -38,6 +38,25 @@ final class SincronizarPastaNoDriveHandler
             return; // tenant removido — nada a fazer
         }
 
+        // Defesa em profundidade multi-tenant: a mensagem é a fronteira de confiança do worker.
+        // Nunca sincronizar uma pasta de OUTRO tenant contra o Drive do tenant da mensagem.
+        $pastaTenantId = $this->em->getConnection()->fetchOne(
+            'SELECT tenant_id FROM pasta WHERE id = :id',
+            ['id' => $mensagem->pastaId],
+        );
+        if ($pastaTenantId === false) {
+            return; // pasta removida — nada a fazer
+        }
+        if ((int) $pastaTenantId !== $mensagem->tenantId) {
+            $this->logger->warning('Sync ignorado: pasta {pasta} pertence ao tenant {real}, não ao {msg} da mensagem.', [
+                'pasta' => $mensagem->pastaId,
+                'real'  => (int) $pastaTenantId,
+                'msg'   => $mensagem->tenantId,
+            ]);
+
+            return;
+        }
+
         try {
             $drive = $this->clientFactory->paraTenant($tenant);
         } catch (TenantSemDriveException) {
