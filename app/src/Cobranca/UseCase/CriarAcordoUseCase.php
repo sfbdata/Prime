@@ -13,6 +13,7 @@ use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
 use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
+use App\Cobranca\Exception\ParcelamentoInvalidoException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
@@ -56,12 +57,25 @@ final class CriarAcordoUseCase
             throw new CasoEncerradoException((int) $caso->getId());
         }
 
+        // Ajuste 7 / INV-B: total negociado = entrada + Σ parcelas. Quando o gerador inteligente
+        // informa o total, o servidor revalida o fechamento (defesa além do Assert\Callback do form).
+        $valorEntrada = max(0, (int) $input->valorEntrada);
+        $somaParcelas = array_sum(array_map(static fn ($parcela): int => (int) $parcela->valor, $input->parcelas));
+        $totalNegociado = $valorEntrada + $somaParcelas;
+
+        if ($input->valorTotalNegociado !== null && $input->valorTotalNegociado !== $totalNegociado) {
+            throw ParcelamentoInvalidoException::totalNegociadoDivergente($totalNegociado, $input->valorTotalNegociado);
+        }
+
         // Status ativo é o default da entidade.
         $acordo = new Acordo();
         $acordo->setTenant($tenant);
         $acordo->setCaso($caso);
         $acordo->setDataAcordo($input->dataAcordo);
         $acordo->setCriadoPor($criadoPor);
+        // Snapshot da negociação (descritivo; saldo segue derivado): total sempre populado (deriva se null).
+        $acordo->setValorTotalNegociado($totalNegociado);
+        $acordo->setValorEntrada($valorEntrada);
 
         foreach ($input->obrigacoesSubstituidasIds as $obrigacaoId) {
             $obrigacao = $this->obrigacaoRepository->findOneByIdDoTenant((int) $obrigacaoId, $tenant);
@@ -89,6 +103,21 @@ final class CriarAcordoUseCase
             $this->obrigacaoRepository->salvar($obrigacao);
         }
 
+        // Entrada (Ajuste 7): quando há, vira a 1ª obrigação do acordo — parcela como as demais, para
+        // entrar no saldo derivado e ser quitável pelo fluxo de pagamento. Sem entrada, nada é criado.
+        if ($valorEntrada > 0) {
+            $obrigacaoEntrada = new Obrigacao();
+            $obrigacaoEntrada->setTenant($tenant);
+            $obrigacaoEntrada->setCaso($caso);
+            $obrigacaoEntrada->setDescricao('Entrada');
+            $obrigacaoEntrada->setValorOriginal($valorEntrada);
+            $obrigacaoEntrada->setVencimentoOriginal($input->dataEntrada ?? $input->dataAcordo);
+            $obrigacaoEntrada->setAcordoOrigem($acordo);
+            $obrigacaoEntrada->setCriadoPor($criadoPor);
+
+            $this->obrigacaoRepository->salvar($obrigacaoEntrada);
+        }
+
         foreach ($input->parcelas as $parcela) {
             $novaObrigacao = new Obrigacao();
             $novaObrigacao->setTenant($tenant);
@@ -108,19 +137,23 @@ final class CriarAcordoUseCase
 
         $substituidas = count($input->obrigacoesSubstituidasIds);
         $parcelas = count($input->parcelas);
+        $temEntrada = $valorEntrada > 0;
 
         $this->registrarEvento->registrar(
             $caso,
             TipoEventoHistorico::AcordoCriado,
             $criadoPor,
             sprintf(
-                'Acordo criado: %d obrigação(ões) substituída(s) por %d parcela(s)',
+                'Acordo criado: %d obrigação(ões) substituída(s) por %d parcela(s)%s',
                 $substituidas,
                 $parcelas,
+                $temEntrada ? ' + entrada' : '',
             ),
             [
                 'substituidas' => $substituidas,
                 'parcelas' => $parcelas,
+                'entrada' => $valorEntrada,
+                'total_negociado' => $totalNegociado,
             ],
             flush: true,
         );

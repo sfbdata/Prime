@@ -15,6 +15,7 @@ use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
 use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
+use App\Cobranca\Exception\ParcelamentoInvalidoException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
@@ -143,6 +144,87 @@ final class CriarAcordoUseCaseTest extends TestCase
         self::assertSame($this->tenant, $acordo->getTenant());
         self::assertSame($this->criadoPor, $acordo->getCriadoPor());
         self::assertTrue($acordo->estaAtivo());
+    }
+
+    #[Test]
+    public function gravaSnapshotComTotalNegociadoEEntradaComoPrimeiraObrigacao(): void
+    {
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $obrigSubstituida = (new Obrigacao())->setTenant($this->tenant)->setCaso($caso);
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigSubstituida);
+
+        $persistidas = [];
+        $this->obrigacaoRepository
+            ->method('salvar')
+            ->willReturnCallback(function (Obrigacao $obrigacao) use (&$persistidas): void {
+                $persistidas[] = $obrigacao;
+            });
+
+        // Total 1.000,00 = entrada 400,00 + 2 parcelas de 300,00.
+        $input = $this->novoInput(70, [100], [
+            $this->parcela('Parcela 1/2', 30000, '2026-05-10'),
+            $this->parcela('Parcela 2/2', 30000, '2026-06-10'),
+        ]);
+        $input->valorEntrada = 40000;
+        $input->valorTotalNegociado = 100000;
+        $input->dataEntrada = new \DateTimeImmutable('2026-04-20');
+
+        $acordo = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertSame(100000, $acordo->getValorTotalNegociado());
+        self::assertSame(40000, $acordo->getValorEntrada());
+
+        // A entrada foi criada como obrigação-parcela do acordo (descrição "Entrada").
+        $parcelas = array_values(array_filter($persistidas, static fn (Obrigacao $o): bool => $o->ehParcela()));
+        self::assertCount(3, $parcelas); // entrada + 2 parcelas
+        $entrada = array_values(array_filter($parcelas, static fn (Obrigacao $o): bool => $o->getDescricao() === 'Entrada'));
+        self::assertCount(1, $entrada);
+        self::assertSame(40000, $entrada[0]->getValorOriginal());
+        self::assertSame($acordo, $entrada[0]->getAcordoOrigem());
+        self::assertSame('2026-04-20', $entrada[0]->getVencimentoOriginal()->format('Y-m-d'));
+    }
+
+    #[Test]
+    public function derivaTotalNegociadoQuandoNaoInformado(): void
+    {
+        // Modal antigo (sem total nem entrada): o snapshot é derivado da soma das parcelas.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $obrig = (new Obrigacao())->setTenant($this->tenant)->setCaso($caso);
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrig);
+
+        $acordo = $this->sut->executar(
+            $this->novoInput(70, [100], [
+                $this->parcela('Parcela 1/2', 50000, '2026-05-10'),
+                $this->parcela('Parcela 2/2', 50000, '2026-06-10'),
+            ]),
+            $this->tenant,
+            $this->criadoPor,
+        );
+
+        self::assertSame(100000, $acordo->getValorTotalNegociado());
+        self::assertSame(0, $acordo->getValorEntrada());
+    }
+
+    #[Test]
+    public function rejeitaTotalNegociadoQueNaoFechaComEntradaMaisParcelas(): void
+    {
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $obrig = (new Obrigacao())->setTenant($this->tenant)->setCaso($caso);
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrig);
+        $this->acordoRepository->expects($this->never())->method('salvar');
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $input = $this->novoInput(70, [100], [$this->parcela('Parcela 1/1', 50000, '2026-05-10')]);
+        $input->valorEntrada = 10000;
+        $input->valorTotalNegociado = 100000; // ≠ 10000 + 50000
+
+        $this->expectException(ParcelamentoInvalidoException::class);
+
+        $this->sut->executar($input, $this->tenant, $this->criadoPor);
     }
 
     #[Test]

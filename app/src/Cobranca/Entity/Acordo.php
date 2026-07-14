@@ -55,6 +55,17 @@ class Acordo implements TenantAware, Auditavel
     private ?string $motivoCancelamento = null;
 
     /**
+     * Snapshot do total negociado (Ajuste 7), em CENTAVOS. DESCRITIVO e NÃO-autoritativo para saldo:
+     * o saldo exigível segue derivado das obrigações (invariável 20). Null em acordos antigos (pré-Ajuste 7).
+     */
+    #[ORM\Column(name: 'valor_total_negociado', type: 'integer', nullable: true)]
+    private ?int $valorTotalNegociado = null;
+
+    /** Snapshot da entrada do acordo (Ajuste 7), em CENTAVOS; 0 = sem entrada. Descritivo (ver acima). */
+    #[ORM\Column(name: 'valor_entrada', type: 'integer', options: ['default' => 0])]
+    private int $valorEntrada = 0;
+
+    /**
      * Obrigações originais que este acordo substituiu (inverso; nunca apagadas — invariável 14).
      *
      * @var Collection<int, Obrigacao>
@@ -216,6 +227,30 @@ class Acordo implements TenantAware, Auditavel
     public function getParcelas(): Collection
     {
         return $this->parcelas;
+    }
+
+    public function getValorTotalNegociado(): ?int
+    {
+        return $this->valorTotalNegociado;
+    }
+
+    public function setValorTotalNegociado(?int $valorTotalNegociado): self
+    {
+        $this->valorTotalNegociado = $valorTotalNegociado;
+
+        return $this;
+    }
+
+    public function getValorEntrada(): int
+    {
+        return $this->valorEntrada;
+    }
+
+    public function setValorEntrada(int $valorEntrada): self
+    {
+        $this->valorEntrada = $valorEntrada;
+
+        return $this;
     }
 
     public function getCriadoEm(): \DateTimeImmutable
