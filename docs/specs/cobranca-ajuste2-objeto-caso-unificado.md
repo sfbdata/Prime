@@ -11,7 +11,9 @@ Unificar, na experiência do usuário, as três coisas que hoje ficam em telas s
 ## Decisões fechadas (brainstorming 2026-07-13)
 
 1. **1 caso invisível por objeto** (Modo Único). A "pessoa cobrada atual" é um ponteiro que se troca (ação `cobranca_caso_alterar_pessoa`, já existente). **Modo Múltiplo da carteira aposentado** — remover a opção do form da carteira num passo posterior (ver §9, fora do escopo mínimo).
-2. **Objeto nasce vazio** — cria só identificação/descrição; o caso âncora é criado junto, na mesma transação, **sem `pessoaCobradaAtual`** e com honorários herdados da carteira. Pessoas e obrigações entram depois, dentro da página.
+2. **Objeto nasce com identificação + NOME do cobrado (decisão revista 2026-07-13).** A criação do objeto pede o objeto (identificação/descrição) **e o nome de quem será cobrado**. Na mesma transação cria-se uma `Pessoa` enxuta (só `nome` — os demais campos são opcionais no modelo), o **caso âncora** com essa pessoa como `pessoaCobradaAtual` e honorários herdados da carteira, e o **vínculo** pessoa↔objeto. **Sem migração** — a `pessoaCobradaAtual` continua obrigatória (`nullable: false`) e o caso sempre nasce válido. Reusa o `AbrirCasoUseCase` (que já cria o caso + snapshot de honorários + evento "CasoAberto"). Obrigações e o resto entram depois, dentro da página; os dados da pessoa (CPF/telefone/e-mail) podem ser completados na aba Pessoas.
+   - *Sub-decisão (resolver na Fatia 3):* nome digitado que já existe no tenant → **criar nova** (recomendado, criação sem fricção; dedup/reuso fica na aba Pessoas) ou autocomplete busca-ou-cria já na criação.
+   - *Descartado:* "objeto nasce 100% vazio + caso sem pessoa" exigiria tornar `pessoaCobradaAtual` nullable (migração + trocar o INNER JOIN de `baseFiltro` por LEFT) — evitado por esta decisão.
 3. **Layout:** pessoa cobrada atual em destaque no cabeçalho (com botão trocar) + **aba "Pessoas"** para os demais envolvidos. Se não há cobrada ainda: estado "Nenhuma pessoa cobrada · [definir]".
 4. **Vincular pessoa:** autocomplete busca por nome/CPF/CNPJ entre as `Pessoa` do tenant → vincula a existente (sem duplicar); se não achar, "criar nova" ali mesmo.
 
@@ -54,8 +56,8 @@ Carteira (do Cliente)
 - **Trocar cobrada:** reusa `cobranca_caso_alterar_pessoa`. **Encerrar vínculo:** `cobranca_vinculo_encerrar`.
 - Guarda: a lista de opções de "trocar cobrada" vem dos vínculos ativos do objeto (via `opcoesDoTenant`/vínculos), não de query global.
 
-### D. Criação do objeto cria o caso âncora
-- **`CriarObjetoUseCase`** passa a, na mesma transação, criar o `ObjetoCobranca` **e** seu `CasoCobranca` âncora (status `Ativo`, `pessoaCobradaAtual = null`, honorários herdados da carteira). Reusa/adapta `AbrirCasoUseCase` — que hoje exige pessoa cobrada — para **permitir caso sem pessoa** (storytelling do UseCase: "objeto recém-criado ainda não tem cobrado definido"). Redireciona para `cobranca_objeto_show`.
+### D. Criação do objeto cria o caso âncora (com o nome do cobrado)
+- A criação do objeto pede **identificação/descrição do objeto + nome do cobrado** (obrigatório). Na mesma transação: cria `Pessoa` (só `nome`), o `ObjetoCobranca`, o `CasoCobranca` âncora (status `Ativo`, `pessoaCobradaAtual` = essa pessoa, honorários herdados da carteira) e o `VinculoPessoaObjeto`. Reusa `CriarPessoaUseCase` + `AbrirCasoUseCase` + o vínculo. **Sem migração** (`pessoaCobradaAtual` continua `nullable: false`; o caso nasce válido). Redireciona para `cobranca_objeto_show`.
 - **Invariante 1-caso-por-objeto** garantida na criação. Objetos legados (importação/uso atual) podem ter 0, 1 ou vários casos: o resolvedor escolhe o caso **ativo mais recente** (fallback: mais recente) e **loga** se houver >1 — nunca explode. Objeto legado sem caso: cria o âncora on-demand no primeiro acesso *(ou via backfill — decidir na implementação; preferência: on-demand no `show`, dentro de transação)*.
 - A ação **"Abrir caso"** (`cobranca_caso_abrir`) some da UI. A rota pode ficar como no-op/deprecada ou ser removida — decidir na implementação (preferência: remover da UI, manter rota inofensiva até limpeza posterior).
 

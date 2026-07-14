@@ -89,25 +89,27 @@
 
 ---
 
-## Fatia 3 — Criar objeto cria o caso âncora (sem pessoa)
+## Fatia 3 — Criar objeto cria o caso âncora (com o nome do cobrado)
 
-**Objetivo:** `CriarObjetoUseCase` cria objeto **e** caso âncora na mesma transação; "Abrir caso" some da UI; criar objeto leva para a página do objeto.
+**Objetivo:** a criação do objeto pede **identificação + nome do cobrado** e, na mesma transação, cria `Pessoa` (só nome) + `ObjetoCobranca` + `CasoCobranca` âncora + `VinculoPessoaObjeto`. "Abrir caso" some da UI; criar objeto leva para a página do objeto. **Sem migração** (decisão 2026-07-13: caso sempre nasce com pessoa; `pessoaCobradaAtual` segue `nullable: false`).
 
 **Files:**
-- Modify: `app/src/Cobranca/UseCase/CriarObjetoUseCase.php`
-- Modify: `app/src/Cobranca/UseCase/AbrirCasoUseCase.php` (permitir caso sem `pessoaCobradaAtual`) — ou extrair a criação do caso âncora
+- Modify: `app/src/Cobranca/UseCase/CriarObjetoUseCase.php` (orquestra Pessoa+Objeto+Caso+Vínculo numa transação; reusa `CriarPessoaUseCase` + `AbrirCasoUseCase`)
+- Modify: DTO/Form de criação do objeto (`CriarObjetoInput` + `CriarObjetoType`) — novo campo `nomeCobrado` obrigatório
 - Modify: controller de `cobranca_objeto_criar` → redireciona p/ `cobranca_objeto_show`; remover botão/modais "Abrir caso" dos templates da carteira
-- Test: `app/tests/Cobranca/Unit/CriarObjetoUseCaseTest.php` (+ ajustar functional de criação)
+- Test: `app/tests/Cobranca/Functional/` (criação cria pessoa+caso+vínculo; nome obrigatório)
+
+**Sub-decisão a resolver aqui:** nome já existente → criar nova (recomendado) ou autocomplete busca-ou-cria.
 
 **Interfaces (Consumes):** Fatia 1/2.
-- [ ] **Step 1: teste unit falhando** — criar objeto numa carteira → existe 1 `CasoCobranca` ativo, `pessoaCobradaAtual === null`, honorários herdados da carteira (forma + percentual).
+- [ ] **Step 1: teste falhando** — criar objeto com `nomeCobrado='Fulano'` → existe 1 `CasoCobranca` ativo com `pessoaCobradaAtual.nome === 'Fulano'`, 1 `VinculoPessoaObjeto`, honorários herdados; nome vazio → erro de validação.
 - [ ] **Step 2: ver falhar.**
-- [ ] **Step 3:** adaptar `AbrirCasoUseCase`/entidade `CasoCobranca` para aceitar caso sem pessoa (storytelling: objeto recém-criado ainda sem cobrado). Conferir que nenhuma validação atual exige pessoa não-nula.
-- [ ] **Step 4:** `CriarObjetoUseCase` chama a criação do caso âncora na mesma transação/flush.
+- [ ] **Step 3:** `CriarObjetoInput`/`CriarObjetoType` ganham `nomeCobrado` (obrigatório).
+- [ ] **Step 4:** `CriarObjetoUseCase` cria Pessoa(nome)+Objeto+Caso+Vínculo na mesma transação/flush.
 - [ ] **Step 5:** controller redireciona p/ `objeto_show`; remover "Abrir caso" da UI da carteira (`carteira/show.html.twig` + `_acoes_modais` + JS de contexto).
 - [ ] **Step 6:** rodar e ver passar.
-- [ ] **Step 7: SMOKE VISUAL** — criar objeto novo, cair na página do objeto vazia, adicionar nada e ver estado "sem cobrada". **MOSTRAR.**
-- [ ] **Step 8 (após aval):** suíte + `/review` + commit `Cobrancas: criar objeto cria o caso ancora (sem pessoa)`.
+- [ ] **Step 7: SMOKE VISUAL** — criar objeto novo com um nome, cair na página do objeto já com a pessoa cobrada. **MOSTRAR.**
+- [ ] **Step 8 (após aval):** suíte + `/review` + commit `Cobrancas: criar objeto ja cria a cobranca (nome do cobrado)`.
 
 ---
 
