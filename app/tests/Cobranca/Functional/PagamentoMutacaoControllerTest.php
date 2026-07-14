@@ -6,8 +6,10 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\PagamentoController;
 use App\Cobranca\Entity\Pagamento;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\PagamentoRepository;
+use App\Tests\Factory\Cobranca\AlocacaoPagamentoFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use App\Tests\Factory\Cobranca\PagamentoFactory;
 use Doctrine\ORM\EntityManagerInterface;
@@ -41,6 +43,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             'registrar_pagamento' => [
                 'data' => '2026-05-10',
                 'valorPago' => '100,00',
+                'alocarManualmente' => '1',
                 'alocacoes' => [['obrigacaoId' => (string) $obrigacao->getId(), 'valor' => '100,00']],
                 '_token' => $token,
             ],
@@ -53,6 +56,189 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         $pagamentos = static::getContainer()->get(PagamentoRepository::class)->doCaso($caso);
         self::assertCount(1, $pagamentos);
         self::assertSame(10000, $pagamentos[0]->getValorDivida());
+    }
+
+    #[TestDox('Registrar AUTO (FIFO) em acrescido_divida: só o valor pago basta, sem alocar à mão')]
+    public function testRegistrarAutoFifoAcrescidoDivida(): void
+    {
+        // Prova o fim do "alvo invisível": o gestor digita SÓ o bruto (110,00); o sistema separa
+        // honorários (10,00) e aloca a dívida (100,00) por FIFO — sem nenhuma linha de alocação manual.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant, [
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '10.00',
+        ]);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 10000, 'encargosReconhecidos' => 0,
+        ]);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
+
+        // Sem 'alocarManualmente' e sem 'alocacoes': auto-alocação FIFO.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
+            'registrar_pagamento' => [
+                'data' => '2026-05-10',
+                'valorPago' => '110,00',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $pagamentos = static::getContainer()->get(PagamentoRepository::class)->doCaso($caso);
+        self::assertCount(1, $pagamentos);
+        self::assertSame(10000, $pagamentos[0]->getValorDivida(), 'FIFO alocou a parte-dívida (100,00)');
+        self::assertSame(1000, $pagamentos[0]->getValorHonorarios(), 'honorários derivados (10,00)');
+        self::assertCount(1, $pagamentos[0]->getAlocacoes());
+        self::assertSame(10000, $pagamentos[0]->getAlocacoes()->first()->getValor());
+    }
+
+    #[TestDox('Registrar AUTO acima do saldo: bloqueia (não persiste), volta ao objeto')]
+    public function testRegistrarAutoBloqueiaSobrepagamento(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 10000, 'encargosReconhecidos' => 0,
+        ]);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
+
+        // Auto: paga 150,00 num caso cujo saldo é 100,00 → PagamentoExcedeSaldoException.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
+            'registrar_pagamento' => [
+                'data' => '2026-05-10',
+                'valorPago' => '150,00',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $pagamentos = static::getContainer()->get(PagamentoRepository::class)->doCaso($caso);
+        self::assertCount(0, $pagamentos, 'sobrepagamento não pode persistir');
+    }
+
+    #[TestDox('Registrar AUTO ignora alocações submetidas (o FIFO vence; sem alocarManualmente)')]
+    public function testRegistrarAutoIgnoraAlocacoesSubmetidas(): void
+    {
+        // Segurança: mesmo submetendo alocações à mão, sem o toggle o FIFO assume; o montar revalida.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 10000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
+
+        // alocarManualmente ausente (auto), mas manda uma alocação BOBA de 30,00 — deve ser IGNORADA.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
+            'registrar_pagamento' => [
+                'data' => '2026-05-10',
+                'valorPago' => '100,00',
+                'alocacoes' => [['obrigacaoId' => (string) $obrigacao->getId(), 'valor' => '30,00']],
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $pagamentos = static::getContainer()->get(PagamentoRepository::class)->doCaso($caso);
+        self::assertCount(1, $pagamentos);
+        // FIFO alocou os 100,00 (não os 30,00 submetidos).
+        self::assertSame(10000, $pagamentos[0]->getValorDivida());
+        self::assertCount(1, $pagamentos[0]->getAlocacoes());
+        self::assertSame(10000, $pagamentos[0]->getAlocacoes()->first()->getValor());
+    }
+
+    #[TestDox('Registrar MANUAL sem nenhuma alocação: validação barra, não persiste')]
+    public function testRegistrarManualSemLinhasFalha(): void
+    {
+        // O #[Assert\Callback] condicional exige ≥1 alocação no modo manual → form inválido, PRG sem gravar.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 10000, 'encargosReconhecidos' => 0,
+        ]);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
+            'registrar_pagamento' => [
+                'data' => '2026-05-10',
+                'valorPago' => '100,00',
+                'alocarManualmente' => '1', // manual, mas sem nenhuma linha de alocação.
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $pagamentos = static::getContainer()->get(PagamentoRepository::class)->doCaso($caso);
+        self::assertCount(0, $pagamentos, 'modo manual sem alocação não pode persistir');
+    }
+
+    #[TestDox('Corrigir AUTO (banco real): exclui as alocações do próprio pagamento — prova a ordem crítica')]
+    public function testCorrigirAutoFifoExcluiProprioPagamentoBancoReal(): void
+    {
+        // Obrigação 200,00 já 100% coberta pelas alocações DESTE pagamento. Corrigir em AUTO precisa
+        // devolver essas alocações à sala (ordem: alocar ANTES de limpar); senão a sala seria 0 e
+        // bloquearia. Com banco real, prova a interação query-vs-flush que o unit com mock não cobre.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 20000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        $pagamento = PagamentoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 20000, 'valorHonorarios' => 0,
+        ])->_real();
+        AlocacaoPagamentoFactory::createOne([
+            'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $obrigacao, 'valor' => 20000,
+        ]);
+        $pagamentoId = (int) $pagamento->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'corrigir_pagamento');
+
+        // Correção AUTO (sem alocarManualmente, sem alocacoes): para 150,00.
+        $client->request('POST', '/cobrancas/pagamentos/' . $pagamentoId . '/corrigir', [
+            'corrigir_pagamento' => [
+                'valorPago' => '150,00',
+                'motivoCorrecao' => 'Reduzir para 150 (auto)',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->find(Pagamento::class, $pagamentoId);
+        self::assertSame(15000, $fresh->getValorDivida(), 'FIFO recompôs para 150,00 (ordem crítica OK)');
+        self::assertSame('Reduzir para 150 (auto)', $fresh->getMotivoCorrecao());
+        self::assertCount(1, $fresh->getAlocacoes());
+        self::assertSame(15000, $fresh->getAlocacoes()->first()->getValor());
     }
 
     #[TestDox('Registrar pagamento com alocação inconsistente: erro de domínio, não persiste')]
@@ -69,11 +255,12 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
 
-        // Σ alocações (50,00) ≠ parte-dívida do valor pago (100,00) → PagamentoInconsistenteException.
+        // Modo MANUAL: Σ alocações (50,00) ≠ parte-dívida do valor pago (100,00) → PagamentoInconsistenteException.
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
             'registrar_pagamento' => [
                 'data' => '2026-05-10',
                 'valorPago' => '100,00',
+                'alocarManualmente' => '1',
                 'alocacoes' => [['obrigacaoId' => (string) $obrigacao->getId(), 'valor' => '50,00']],
                 '_token' => $token,
             ],
@@ -130,7 +317,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
             'registrar_pagamento' => [
-                'data' => '2026-05-10', 'valorPago' => '100,00',
+                'data' => '2026-05-10', 'valorPago' => '100,00', 'alocarManualmente' => '1',
                 'alocacoes' => [['obrigacaoId' => (string) $obrigacao->getId(), 'valor' => '100,00']],
                 '_token' => 'token-falso',
             ],
@@ -164,6 +351,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         $client->request('POST', '/cobrancas/pagamentos/' . $pagamentoId . '/corrigir', [
             'corrigir_pagamento' => [
                 'valorPago' => '80,00',
+                'alocarManualmente' => '1',
                 'alocacoes' => [['obrigacaoId' => (string) $obrigacao->getId(), 'valor' => '80,00']],
                 'motivoCorrecao' => 'Valor lançado a maior',
                 '_token' => $token,
@@ -233,7 +421,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
 
         $client->request('POST', '/cobrancas/pagamentos/' . $pagamentoId . '/corrigir', [
             'corrigir_pagamento' => [
-                'valorPago' => '80,00',
+                'valorPago' => '80,00', 'alocarManualmente' => '1',
                 'alocacoes' => [['obrigacaoId' => (string) $obrigacao->getId(), 'valor' => '80,00']],
                 'motivoCorrecao' => 'MARCADOR CSRF', '_token' => 'token-falso',
             ],

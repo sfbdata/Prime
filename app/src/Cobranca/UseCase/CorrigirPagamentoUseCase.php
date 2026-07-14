@@ -11,6 +11,7 @@ use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\PagamentoNaoEncontradoException;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\AlocadorPagamento;
+use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -33,6 +34,7 @@ final class CorrigirPagamentoUseCase
     public function __construct(
         private readonly PagamentoRepository $pagamentoRepository,
         private readonly AlocadorPagamento $alocador,
+        private readonly AutoAlocadorFifo $autoAlocadorFifo,
         private readonly RegistrarEventoHistorico $registrarEvento,
     ) {
     }
@@ -57,11 +59,18 @@ final class CorrigirPagamentoUseCase
         $valorDividaAntes = $pagamento->getValorDivida();
         $valorHonorariosAntes = $pagamento->getValorHonorarios();
 
+        // Auto-alocação FIFO por padrão; manual só quando o usuário assume a distribuição (Ajuste 6).
+        // IMPORTANTE: alocar ANTES de limparAlocacoes/flush — assim a query de saldo do FIFO ainda vê
+        // as alocações do PRÓPRIO pagamento (que ele exclui da sala via o parâmetro $pagamento).
+        $alocacoesInput = $input->alocarManualmente
+            ? $input->alocacoes
+            : $this->autoAlocadorFifo->alocar($caso, (int) $input->valorPago, $tenant, $pagamento);
+
         // Novo rateio + montagem/validação das alocações (invariáveis 12 e 20).
         [$valorDivida, $valorHonorarios, $novasAlocacoes] = $this->alocador->montar(
             $caso,
             (int) $input->valorPago,
-            $input->alocacoes,
+            $alocacoesInput,
             $tenant,
         );
 

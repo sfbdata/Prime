@@ -10,6 +10,7 @@ use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
+use App\Cobranca\Exception\PagamentoExcedeSaldoException;
 use App\Cobranca\Exception\PagamentoInconsistenteException;
 use App\Cobranca\Exception\PagamentoNaoEncontradoException;
 use App\Cobranca\Form\AcordoCriarType;
@@ -32,8 +33,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Mutações financeiras de Pagamento do Caso (Onda 8B-D): registrar e corrigir. Controller FINO — gate
  * módulo + capacidade `resources.cobranca.movimentacao_financeira`, resolução tenant-safe (anti-IDOR →
  * 404), Form → UseCase, PRG sempre. As obrigações das alocações são escopadas ao caso (mesmo padrão do
- * acordo). Alocação MANUAL explícita; erros de domínio (caso encerrado, obrigação de outro caso,
- * pagamento inconsistente) viram flash.
+ * acordo). Distribuição AUTOMÁTICA por FIFO por padrão, manual sob demanda (Ajuste 6); erros de
+ * domínio (caso encerrado, obrigação de outro caso, pagamento inconsistente, excede o saldo) viram flash.
  */
 #[Route('/cobrancas')]
 #[IsGranted('ROLE_USER')]
@@ -75,7 +76,7 @@ final class PagamentoController extends AbstractController
             try {
                 $this->registrarPagamento->executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Pagamento registrado.');
-            } catch (CasoNaoEncontradoException | CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | PagamentoInconsistenteException $e) {
+            } catch (CasoNaoEncontradoException | CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | PagamentoInconsistenteException | PagamentoExcedeSaldoException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
@@ -114,7 +115,7 @@ final class PagamentoController extends AbstractController
             try {
                 $this->corrigirPagamento->executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Pagamento corrigido.');
-            } catch (PagamentoNaoEncontradoException | CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | PagamentoInconsistenteException $e) {
+            } catch (PagamentoNaoEncontradoException | CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | PagamentoInconsistenteException | PagamentoExcedeSaldoException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {

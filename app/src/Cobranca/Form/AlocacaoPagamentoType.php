@@ -29,7 +29,7 @@ final class AlocacaoPagamentoType extends AbstractType
                 'attr' => ['class' => 'form-select form-select-sm'],
             ])
             ->add('valor', CentavosType::class, [
-                'label' => 'Valor alocado (R$)',
+                'label' => 'Valor nesta obrigação (R$)',
                 'attr' => ['class' => 'form-control form-control-sm'],
             ]);
     }
