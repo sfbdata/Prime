@@ -1,7 +1,7 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: **2026-07-14 — RODADA DE AJUSTES no módulo (já em prod).** Itens 1 e 4 FECHADOS+commitados. **Item 2 (objeto=caso unificado) EM ANDAMENTO: Fatias 1,2,3,4,6 commitadas; faltam Fatias 5 e 7.** Módulo segue no ar; nada desta rodada foi deployado ainda.
+> Sessão encerrada em: **2026-07-14 — RODADA DE AJUSTES no módulo (já em prod).** Itens 1 e 4 FECHADOS+commitados. **Item 2 (objeto=caso unificado) EM ANDAMENTO: Fatias 1,2,3,4,5,6 commitadas; falta só a Fatia 7.** Módulo segue no ar; nada desta rodada foi deployado ainda.
 
 ---
 
@@ -17,7 +17,7 @@ Ou seja: **não rode a suíte completa nem o /review antes do humano aprovar o r
 
 ### Estado do Git (reconferir sempre)
 - **`master` = `278ac2e`(+hotfixes até `61a1450`);** branch `gestao-cobrancas` local, não pushada. Deploy/push/merge são do humano.
-- **HEAD = `74904f0`.** Commits desta rodada, em ordem: `d0e4eb5`(backlog) · `854cade`+`35d8d12`(item 1) · `ea4f86a`(item 4) · `65f89ac`(spec item 2) · `ba5592b`(plano item 2 + sub-decisão G) · `fe536eb`(item2 fatia 1) · `be936a6`(item2 fatia 2) · `4b8dfd8`(spec item2 revisada: criar objeto pede nome) · `8118137`(item2 fatia 3) · `3522495`(item2 fatia 4) · `74904f0`(item2 fatia 6).
+- **HEAD = `b6b9029`.** Commits desta rodada, em ordem: `d0e4eb5`(backlog) · `854cade`+`35d8d12`(item 1) · `ea4f86a`(item 4) · `65f89ac`(spec item 2) · `ba5592b`(plano item 2 + sub-decisão G) · `fe536eb`(item2 fatia 1) · `be936a6`(item2 fatia 2) · `4b8dfd8`(spec item2 revisada: criar objeto pede nome) · `8118137`(item2 fatia 3) · `3522495`(item2 fatia 4) · `74904f0`(item2 fatia 6) · `d9a9d4f`(docs) · `b6b9029`(item2 fatia 5).
 - **Working tree LIMPO.** tests/Cobranca 399/399, global 1714/1714.
 
 ### Item 1 — ✅ CONCLUÍDO E COMMITADO (`854cade`, `35d8d12`)
@@ -33,8 +33,8 @@ Spec: [`docs/specs/cobranca-ajuste2-objeto-caso-unificado.md`](../specs/cobranca
 - **✅ Fatia 3 (`8118137`)** criar objeto pede só o NOME do cobrado → `CriarObjetoComCobrancaUseCase` (novo) orquestra Pessoa enxuta+Objeto+Caso+Vínculo; **`CriarObjetoUseCase` cru INTACTO pro import**; "Abrir caso" REMOVIDO (rota `cobranca_caso_abrir`/form/teste; `AbrirCasoUseCase` fica); "Novo objeto" no header de "Casos da carteira". SEM migration (pessoa cobrada segue obrigatória).
 - **✅ Fatia 4 (`3522495`)** "Nova pessoa" na aba Pessoas do objeto (cadastra+vincula via `CriarPessoaVinculadaAoObjetoUseCase`; rota `cobranca_objeto_pessoa_criar`).
 - **✅ Fatia 6 (`74904f0`)** card "Objetos" REMOVIDO da carteira; "Vincular existente" + "Encerrar vínculo"(x por linha) relocados pra aba Pessoas do objeto; `PessoaController::vincular/encerrar` redirecionam pro objeto; rota global `cobranca_pessoa_criar` + form `CriarPessoaType` órfão REMOVIDOS; `VinculoPessoaOutput.vinculoId` novo; `CarteiraController` enxugado; `CadastroPessoaVinculoControllerTest` reescrito.
-- **⏳ Fatia 5 (FALTA):** as mutações (`CasoController` encerrar/alterarPessoa/judicializar/tentativa + `Obrigacao`/`Pagamento`/`Acordo`/`Documento`/`Liquidacao`/`AcaoCobranca`/`Secao`) redirecionam pro objeto (hoje vão pro `cobranca_caso_show`); `caso_show` vira redirect de fato; **atualizar os testes de mutação que fazem `GET /cobrancas/casos/{id}` p/ token e `followRedirect`/assert em `/casos/{id}`** (AcaoMutacaoControllerTest, CasoEncerradoBloqueiaMutacaoControllerTest, movimentos/acordo/documentos, etc.) → passam a usar `/cobrancas/objetos/{id}`.
-- **⏳ Fatia 7 (FALTA):** tirar "Casos" do menu (`cobranca_caso_index`); remover `caso/show.html.twig` morto; sumir a palavra "caso" da UI (copy). Decisão G: navegação só Carteira→Objeto.
+- **✅ Fatia 5 (`b6b9029`)** as mutações de TODOS os controllers (`CasoController` encerrar/alterarPessoa/judicializar/tentativa + `Obrigacao`/`Pagamento`/`Acordo`/`Documento`/`Liquidacao`/`AcaoCobranca`) redirecionam pro objeto via novo helper `objetoIdDoCaso(?CasoCobranca): int` no trait `AutorizacaoCobranca`; `caso_show` vira **redirect 302** pro objeto **mantendo `findOneByIdDoTenant`+404 cross-tenant**; deps ociosas (`MontarDetalheCasoUseCase`/`MontadorModaisCaso`) removidas do `CasoController`; rota-nome `cobranca_caso_show` e rotas POST permanecem. 13 testes ajustados (GET-token e assert de `/casos/{id}`→`/objetos/{objetoId}`). Sem `SecaoController` (mutações de seção vivem no `DocumentoCobrancaController`). feature-review LIMPO; smoke real OK (deep-link 296→297 + mutação volta ao objeto). Sem migration.
+- **⏳ Fatia 7 (FALTA — ÚNICA restante do item 2):** tirar "Casos" do menu (`cobranca_caso_index`); remover `caso/show.html.twig` morto; sumir a palavra "caso" da UI (copy). Decisão G: navegação só Carteira→Objeto.
 - **Gotcha smoke Playwright dev:** modal `#modalAlertaPonto` intercepta cliques → remover via `browser_evaluate` antes de interagir. Login dev: `farlei.rocha@gmail.com`/`Prime123!`, `localhost:8080`. Objetos de teste criados no smoke: 296/297/carteira 3.
 
 ### Itens seguintes do backlog (ideias fechadas; ainda não iniciados)

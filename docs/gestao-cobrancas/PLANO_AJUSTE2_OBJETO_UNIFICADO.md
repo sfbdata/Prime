@@ -12,7 +12,7 @@
 - ✅ **Fatia 3** criar objeto pede o nome do cobrado (`CriarObjetoComCobrancaUseCase`; "Abrir caso" removido; "Novo objeto" no header de Casos) — `8118137`
 - ✅ **Fatia 4** "Nova pessoa" no objeto (cadastra+vincula) — `3522495`
 - ✅ **Fatia 6** card "Objetos" removido da carteira; Vincular/Encerrar relocados pro objeto; `PessoaController` redireciona pro objeto — `74904f0`
-- ⏳ **Fatia 5** redirects das mutações → objeto + `caso_show`→redirect + atualizar testes de mutação (que hoje batem em `/casos/{id}`)
+- ✅ **Fatia 5** redirects das mutações → objeto + `caso_show`→redirect 302 (tenant-safe, 404 cross-tenant preservado) + helper `objetoIdDoCaso` no trait + 13 testes ajustados — `b6b9029`
 - ⏳ **Fatia 7** tirar "Casos" do menu + remover `caso/show.html.twig` morto + copy "caso"
 
 **Architecture:** Abordagem A — `CasoCobranca` intacto por baixo. Nova página `cobranca_objeto_show` resolve o caso único do objeto e reusa o corpo do caso via partial. Carteira vira grid de cards de objeto. Zero migração de dados.
