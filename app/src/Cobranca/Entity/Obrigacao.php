@@ -225,6 +225,18 @@ class Obrigacao implements TenantAware, Auditavel
         return $this->acordoOrigem !== null;
     }
 
+    /**
+     * A obrigação está TRAVADA por um acordo VIGENTE — parcela de acordo ativo/cumprido, ou original
+     * substituída por acordo ativo/cumprido. Um acordo rompido/cancelado NÃO trava: a original volta ao
+     * saldo e a parcela vira histórico (StatusAcordo, invariável 20). É a condição que impede editar/
+     * excluir a obrigação diretamente (gestão pelo acordo — item 7).
+     */
+    public function participaDeAcordoVigente(): bool
+    {
+        return ($this->acordoOrigem?->getStatus()->ehVigente() ?? false)
+            || ($this->acordoSubstituto?->getStatus()->ehVigente() ?? false);
+    }
+
     public function getCriadoEm(): \DateTimeImmutable
     {
         return $this->criadoEm;

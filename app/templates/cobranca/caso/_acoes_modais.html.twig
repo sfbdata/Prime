@@ -25,26 +25,29 @@
     </div>
 </div>
 
-{# ── Reconhecer valor atualizado (modal reutilizável; JS injeta action + contexto da linha) ── #}
-<div class="modal fade" id="modalReconhecerValor" tabindex="-1" aria-labelledby="tituloReconhecerValor" aria-hidden="true">
+{# ── Editar obrigação (modal reutilizável; JS injeta action + pré-preenche os campos da linha) ── #}
+<div class="modal fade" id="modalEditarObrigacao" tabindex="-1" aria-labelledby="tituloEditarObrigacao" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            {{ form_start(forms.reconhecerValor, {attr: {id: 'formReconhecerValor'}}) }}
+            {{ form_start(forms.editarObrigacao, {attr: {id: 'formEditarObrigacao'}}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloReconhecerValor"><i class="bi bi-arrow-repeat me-1"></i>Reconhecer valor atualizado</h5>
+                <h5 class="modal-title" id="tituloEditarObrigacao"><i class="bi bi-pencil-square me-1"></i>Editar obrigação</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3" data-obrigacao-contexto>Obrigação selecionada.</p>
-                {{ form_row(forms.reconhecerValor.encargosReconhecidos) }}
-                <div class="form-text mb-2">Total de encargos reconhecidos — substitui o valor anterior; o principal (valor original) é preservado.</div>
-                {{ form_row(forms.reconhecerValor.motivo) }}
+                <p class="text-muted small mb-3">Correção de cadastro — informe o motivo. O saldo se ajusta automaticamente.</p>
+                {{ form_row(forms.editarObrigacao.descricao) }}
+                {{ form_row(forms.editarObrigacao.valorOriginal) }}
+                {{ form_row(forms.editarObrigacao.vencimentoOriginal) }}
+                {{ form_row(forms.editarObrigacao.referenciaExterna) }}
+                {{ form_row(forms.editarObrigacao.encargosReconhecidos) }}
+                {{ form_row(forms.editarObrigacao.motivo) }}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Reconhecer</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Salvar correção</button>
             </div>
-            {{ form_end(forms.reconhecerValor) }}
+            {{ form_end(forms.editarObrigacao) }}
         </div>
     </div>
 </div>

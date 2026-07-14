@@ -56,15 +56,25 @@ liquidações. Total já pago numa obrigação = `AlocacaoPagamentoRepository::t
 | Condição | Editar | Excluir | Exceção (→ flash) |
 |---|---|---|---|
 | Caso encerrado (`caso.estaEncerrado()`) | ❌ bloqueia | ❌ bloqueia | `CasoEncerradoException` (reusa) |
-| É parcela de acordo (`ehParcela()`) | ❌ bloqueia | ❌ bloqueia | `ObrigacaoDeAcordoException` (nova) |
-| Foi substituída (`foiSubstituida()`) | ❌ bloqueia | ❌ bloqueia | `ObrigacaoDeAcordoException` (nova) |
+| Travada por acordo **VIGENTE** (`participaDeAcordoVigente()`) | ❌ bloqueia | ❌ bloqueia | `ObrigacaoDeAcordoException` (nova) |
 | Tem pagamento alocado (`totalAlocado > 0`) | ⚠️ permitido, mas… | ❌ bloqueia | Excluir: `ObrigacaoComPagamentoException` (nova) |
 | Novo `valorExigivel()` < total alocado | ❌ bloqueia | — | `ValorAbaixoDoAlocadoException` (nova) |
 | Obrigação de outro tenant | 404 (`findOneByIdDoTenant`) | 404 | `ObrigacaoNaoEncontradaException`/404 |
 
+> **Trava VIGENTE-AWARE (decisão + correção de bug 2026-07-14).** A trava vale só quando a obrigação
+> participa de um acordo **VIGENTE** (`StatusAcordo::ehVigente()` = Ativo/Cumprido): parcela de acordo
+> ativo/cumprido, ou original substituída por acordo ativo/cumprido — via `Obrigacao::participaDeAcordoVigente()`.
+> **Acordo rompido/cancelado NÃO trava:** a obrigação original volta ao saldo (fica editável de novo) e a
+> parcela vira histórico (`ObrigacaoOutput::parcelaDeAcordoDesfeito` — greyed + badge "Acordo desfeito",
+> editável/excluível). Isso é coerente com o design (`StatusAcordo`: "originais voltam, parcelas saem;
+> sem reversão imperativa") e com o `ObrigacaoOutput.substituidaPorAcordo`, que já era vigente-aware. A UI
+> mostra um **cadeado + tooltip** ("gerida pelo acordo") nas travadas por acordo vigente (explica por que
+> não há botão editar).
+>
 > **Nota (regressão consciente):** hoje "Reconhecer valor" permite reconhecer encargos numa parcela de
-> acordo (só barra caso encerrado). Ao unificar em Editar (que bloqueia parcela/substituída), encargos de
-> parcela deixam de ser editáveis por aqui — parcelas são geridas pelo acordo (item 7). Aceito.
+> acordo (só barra caso encerrado). Ao unificar em Editar (que bloqueia obrigação travada por acordo
+> vigente), encargos de parcela **de acordo vigente** deixam de ser editáveis por aqui — parcelas são
+> geridas pelo acordo (item 7). Aceito.
 
 ## Escopo — o que muda
 
@@ -77,9 +87,9 @@ liquidações. Total já pago numa obrigação = `AlocacaoPagamentoRepository::t
   required false, empty_data '0') + `motivo` (TextType, obrigatório). `data_class` = o Input.
 - **UseCase `EditarObrigacaoUseCase::executar(EditarObrigacaoInput, Tenant, User): Obrigacao`**:
   1. `obrigacaoRepository->findOneByIdDoTenant` → `ObrigacaoNaoEncontradaException`.
-  2. Guards: caso encerrado → `CasoEncerradoException`; `ehParcela()`||`foiSubstituida()` →
-     `ObrigacaoDeAcordoException`; novo `valorExigivel` (valorOriginal+encargos do input) < total alocado
-     → `ValorAbaixoDoAlocadoException`.
+  2. Guards: caso encerrado → `CasoEncerradoException`; `participaDeAcordoVigente()` (parcela ativa OU
+     substituída por acordo vigente) → `ObrigacaoDeAcordoException`; novo `valorExigivel`
+     (valorOriginal+encargos do input) < total alocado → `ValorAbaixoDoAlocadoException`.
   3. Captura o **antes** (snapshot dos 5 campos), aplica os setters, registra evento
      `ObrigacaoEditada` (descrição com o motivo; `dados` = `{antes:{...}, depois:{...}, motivo}`), `flush: true`.
   Injeta `ObrigacaoRepository`, `AlocacaoPagamentoRepository`, `RegistrarEventoHistorico`.
@@ -91,7 +101,7 @@ liquidações. Total já pago numa obrigação = `AlocacaoPagamentoRepository::t
 - **UseCase `ExcluirObrigacaoUseCase::executar(int $obrigacaoId, string $motivo, Tenant, User): void`**
   (sem DTO/Form dedicado — só id da rota + `motivo` do POST + CSRF manual, como o `excluirDocumento`):
   1. `findOneByIdDoTenant` → `ObrigacaoNaoEncontradaException`.
-  2. Guards: caso encerrado; `ehParcela()`||`foiSubstituida()` → `ObrigacaoDeAcordoException`;
+  2. Guards: caso encerrado; `participaDeAcordoVigente()` → `ObrigacaoDeAcordoException`;
      `totalAlocado > 0` → `ObrigacaoComPagamentoException`.
   3. Registra evento `ObrigacaoExcluida` (snapshot no `dados` + motivo, `flush: false`), depois
      `obrigacaoRepository->remover($obrigacao, flush: true)` — evento + delete no mesmo commit.

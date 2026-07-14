@@ -57,8 +57,8 @@ final class CasoEncerradoBloqueiaMutacaoControllerTest extends CobrancaWebTestCa
         self::assertCount(0, $eventos, 'caso encerrado não pode receber novo evento de tentativa');
     }
 
-    #[TestDox('Reconhecer valor de obrigação de caso ENCERRADO: bloqueado no servidor, encargos intactos')]
-    public function testReconhecerValorEmCasoEncerradoNaoMuta(): void
+    #[TestDox('Editar obrigação de caso ENCERRADO: bloqueado no servidor, campos intactos')]
+    public function testEditarObrigacaoEmCasoEncerradoNaoMuta(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -71,14 +71,20 @@ final class CasoEncerradoBloqueiaMutacaoControllerTest extends CobrancaWebTestCa
             'caso' => $casoEncerrado,
             'valorOriginal' => 10000,
             'encargosReconhecidos' => 0,
+            'descricao' => 'Intacta ZZ',
         ]);
         $obrigacaoId = (int) $obrigacao->getId();
 
+        // Token do form no caso ativo (mesmo nome → mesmo token de sessão); payload VÁLIDO, para o que
+        // barrar ser o guard de caso encerrado no servidor, não a validação do form.
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $casoAtivo->getObjeto()->getId());
-        $token = $this->tokenDoFormulario($crawler, 'reconhecer_valor_atualizado');
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
 
-        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/reconhecer-valor', [
-            'reconhecer_valor_atualizado' => ['encargosReconhecidos' => '15,00', '_token' => $token],
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'TENTOU MUDAR', 'valorOriginal' => '999,00', 'vencimentoOriginal' => '2026-09-01',
+                'encargosReconhecidos' => '15,00', 'motivo' => 'x', '_token' => $token,
+            ],
         ]);
 
         self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());
@@ -86,6 +92,7 @@ final class CasoEncerradoBloqueiaMutacaoControllerTest extends CobrancaWebTestCa
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         $recarregada = $em->find(Obrigacao::class, $obrigacaoId);
-        self::assertSame(0, $recarregada->getEncargosReconhecidos(), 'caso encerrado não pode reconhecer novos encargos');
+        self::assertSame(0, $recarregada->getEncargosReconhecidos(), 'caso encerrado não aceita edição');
+        self::assertSame('Intacta ZZ', $recarregada->getDescricao());
     }
 }

@@ -12,9 +12,9 @@ use App\Cobranca\Form\CancelarAcordoType;
 use App\Cobranca\Form\ConcluirAcaoType;
 use App\Cobranca\Form\CorrigirPagamentoType;
 use App\Cobranca\Form\DefinirProximaAcaoType;
+use App\Cobranca\Form\EditarObrigacaoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\JudicializarCasoType;
-use App\Cobranca\Form\ReconhecerValorAtualizadoType;
 use App\Cobranca\Form\RegistrarLiquidacaoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Form\RegistrarPagamentoType;
@@ -62,7 +62,7 @@ final class MontadorModaisCaso
 
         $views = [
             'registrarObrigacao' => $this->formFactory->create(RegistrarObrigacaoType::class)->createView(),
-            'reconhecerValor' => $this->formFactory->create(ReconhecerValorAtualizadoType::class)->createView(),
+            'editarObrigacao' => $this->formFactory->create(EditarObrigacaoType::class)->createView(),
             'encerrarCaso' => $this->formFactory->create(EncerrarCasoType::class)->createView(),
             'definirProximaAcao' => $this->formFactory->create(DefinirProximaAcaoType::class)->createView(),
             'concluirAcao' => $this->formFactory->create(ConcluirAcaoType::class)->createView(),

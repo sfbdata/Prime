@@ -119,25 +119,30 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertStringNotContainsString('MARCADOR CSRF RUIM', (string) $client->getResponse()->getContent());
     }
 
-    #[TestDox('Reconhecer valor: happy path atualiza os encargos, preserva o original')]
-    public function testReconhecerValorHappy(): void
+    #[TestDox('Editar obrigação: happy path corrige os campos e volta ao objeto')]
+    public function testEditarObrigacaoHappy(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
         $obrigacao = ObrigacaoFactory::createOne([
-            'tenant' => $tenant,
-            'caso' => $caso,
-            'valorOriginal' => 100000,
-            'encargosReconhecidos' => 0,
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0,
         ])->_real();
         $obrigacaoId = (int) $obrigacao->getId();
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
-        $token = $this->tokenDoFormulario($crawler, 'reconhecer_valor_atualizado');
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
 
-        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/reconhecer-valor', [
-            'reconhecer_valor_atualizado' => ['encargosReconhecidos' => '250,00', 'motivo' => 'Juros e multa', '_token' => $token],
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'Boleto corrigido ABC',
+                'valorOriginal' => '1.200,00',
+                'vencimentoOriginal' => '2026-09-01',
+                'referenciaExterna' => 'REF-9',
+                'encargosReconhecidos' => '250,00',
+                'motivo' => 'Valor digitado errado na importação',
+                '_token' => $token,
+            ],
         ]);
 
         self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
@@ -145,12 +150,30 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         $fresh = $em->find(Obrigacao::class, $obrigacaoId);
-        self::assertSame(25000, $fresh->getEncargosReconhecidos(), 'encargos reconhecidos atualizados para R$250,00');
-        self::assertSame(100000, $fresh->getValorOriginal(), 'valor original preservado (invariável 20)');
+        self::assertSame('Boleto corrigido ABC', $fresh->getDescricao());
+        self::assertSame(120000, $fresh->getValorOriginal(), 'valor original corrigido para R$1.200,00');
+        self::assertSame(25000, $fresh->getEncargosReconhecidos(), 'encargos corrigidos para R$250,00');
+        self::assertSame('2026-09-01', $fresh->getVencimentoOriginal()->format('Y-m-d'));
     }
 
-    #[TestDox('IDOR: reconhecer valor de obrigação de OUTRO tenant devolve 404')]
-    public function testReconhecerValorCrossTenant404(): void
+    #[TestDox('Editar obrigação sem a capacidade: negado (redirect, não caso)')]
+    public function testEditarSemCapacidade(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso])->_real();
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacao->getId() . '/editar', [
+            'editar_obrigacao' => ['descricao' => 'X', 'valorOriginal' => '10,00', 'vencimentoOriginal' => '2026-09-01', 'motivo' => 'x', '_token' => 'irrelevante'],
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertStringNotContainsString('/cobrancas/casos/', (string) $client->getResponse()->headers->get('Location'));
+    }
+
+    #[TestDox('IDOR: editar obrigação de OUTRO tenant devolve 404')]
+    public function testEditarCrossTenant404(): void
     {
         $client = static::createClient();
         $this->criarAdminLogado($client);
@@ -160,10 +183,30 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'caso' => $casoAlheio,
         ])->_real();
 
-        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoAlheia->getId() . '/reconhecer-valor', [
-            'reconhecer_valor_atualizado' => ['encargosReconhecidos' => '10,00', '_token' => 'irrelevante'],
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoAlheia->getId() . '/editar', [
+            'editar_obrigacao' => ['descricao' => 'X', 'valorOriginal' => '10,00', 'vencimentoOriginal' => '2026-09-01', 'motivo' => 'x', '_token' => 'irrelevante'],
         ]);
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('CSRF inválido: editar obrigação não altera')]
+    public function testEditarCsrfInvalido(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'descricao' => 'Original XYZ'])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => ['descricao' => 'NAO DEVE MUDAR', 'valorOriginal' => '1,00', 'vencimentoOriginal' => '2026-09-01', 'motivo' => 'x', '_token' => 'token-falso'],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame('Original XYZ', $em->find(Obrigacao::class, $obrigacaoId)->getDescricao(), 'CSRF inválido não altera a obrigação');
     }
 }

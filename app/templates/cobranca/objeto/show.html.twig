@@ -184,7 +184,7 @@
                     <thead><tr><th>Descrição</th><th>Vencimento</th><th class="text-end">Original</th><th class="text-end">Encargos</th><th class="text-end">Valor atual</th><th></th></tr></thead>
                     <tbody>
                     {% for o in caso.obrigacoes %}
-                    <tr class="{{ o.substituidaPorAcordo ? 'text-muted' : '' }}">
+                    <tr class="{{ (o.substituidaPorAcordo or o.parcelaDeAcordoDesfeito) ? 'text-muted' : '' }}">
                         <td>{{ o.descricao }}{% if o.referenciaExterna %} <span class="text-muted small">#{{ o.referenciaExterna }}</span>{% endif %}</td>
                         <td>{{ o.vencimentoOriginal|date('d/m/Y') }}</td>
                         <td class="text-end">{{ o.valorOriginal|centavos }}</td>
@@ -192,15 +192,24 @@
                         <td class="text-end fw-semibold">{{ o.valorAtual|centavos }}</td>
                         <td class="text-end">
                             {% if o.substituidaPorAcordo %}<span class="badge text-bg-secondary" data-bs-toggle="tooltip" title="Substituída por acordo vigente — fora do saldo (invariável 15)">Substituída</span>{% endif %}
-                            {% if o.ehParcelaAcordo %}<span class="badge text-bg-info" data-bs-toggle="tooltip" title="Parcela de acordo">Parcela</span>{% endif %}
-                            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                            {% if o.ehParcelaAcordo %}<span class="badge text-bg-info" data-bs-toggle="tooltip" title="Parcela de acordo vigente">Parcela</span>{% endif %}
+                            {% if o.parcelaDeAcordoDesfeito %}<span class="badge text-bg-secondary" data-bs-toggle="tooltip" title="Parcela de um acordo rompido ou cancelado — fora do saldo (histórico)">Acordo desfeito</span>{% endif %}
+                            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado and not o.substituidaPorAcordo and not o.ehParcelaAcordo %}
                             <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                    data-bs-toggle="modal" data-bs-target="#modalReconhecerValor"
-                                    data-acao-url="{{ path('cobranca_obrigacao_reconhecer', {id: o.id}) }}"
-                                    data-obrigacao-descricao="{{ o.descricao }}"
-                                    title="Reconhecer valor atualizado">
-                                <i class="bi bi-arrow-repeat"></i>
+                                    data-bs-toggle="modal" data-bs-target="#modalEditarObrigacao"
+                                    data-acao-url="{{ path('cobranca_obrigacao_editar', {id: o.id}) }}"
+                                    data-descricao="{{ o.descricao }}"
+                                    data-referencia="{{ o.referenciaExterna }}"
+                                    data-vencimento="{{ o.vencimentoOriginal|date('Y-m-d') }}"
+                                    data-valor-centavos="{{ o.valorOriginal }}"
+                                    data-encargos-centavos="{{ o.encargosReconhecidos }}"
+                                    title="Editar (corrigir) obrigação">
+                                <i class="bi bi-pencil"></i>
                             </button>
+                            {% elseif (o.substituidaPorAcordo or o.ehParcelaAcordo) and has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                            <span class="text-muted ms-1" data-bs-toggle="tooltip" title="Gerida pelo acordo — não editável aqui. Para alterar, gerencie o acordo (rompa/cancele para liberar a obrigação).">
+                                <i class="bi bi-lock"></i>
+                            </span>
                             {% endif %}
                         </td>
                     </tr>
@@ -447,16 +456,26 @@ document.addEventListener('DOMContentLoaded', function () {
         new bootstrap.Tooltip(el);
     });
 
-    /* Modal reutilizável de "reconhecer valor": o botão da linha injeta a URL de ação e o contexto. */
-    var modalReconhecer = document.getElementById('modalReconhecerValor');
-    if (modalReconhecer) {
-        modalReconhecer.addEventListener('show.bs.modal', function (event) {
+    /* Modal reutilizável de "editar obrigação": o botão da linha injeta a URL e pré-preenche os campos
+       (valores em centavos → reais com ponto, que o CentavosType aceita no reverse). */
+    var modalEditar = document.getElementById('modalEditarObrigacao');
+    if (modalEditar) {
+        modalEditar.addEventListener('show.bs.modal', function (event) {
             var botao = event.relatedTarget;
             if (!botao) { return; }
-            var form = document.getElementById('formReconhecerValor');
+            var form = document.getElementById('formEditarObrigacao');
             if (form) { form.setAttribute('action', botao.getAttribute('data-acao-url') || ''); }
-            var ctx = modalReconhecer.querySelector('[data-obrigacao-contexto]');
-            if (ctx) { ctx.textContent = 'Obrigação: ' + (botao.getAttribute('data-obrigacao-descricao') || ''); }
+            var setVal = function (campo, valor) {
+                var el = modalEditar.querySelector('[name="editar_obrigacao[' + campo + ']"]');
+                if (el) { el.value = valor; }
+            };
+            var reais = function (centavos) { return (parseInt(centavos || '0', 10) / 100).toFixed(2); };
+            setVal('descricao', botao.getAttribute('data-descricao') || '');
+            setVal('referenciaExterna', botao.getAttribute('data-referencia') || '');
+            setVal('vencimentoOriginal', botao.getAttribute('data-vencimento') || '');
+            setVal('valorOriginal', reais(botao.getAttribute('data-valor-centavos')));
+            setVal('encargosReconhecidos', reais(botao.getAttribute('data-encargos-centavos')));
+            setVal('motivo', '');
         });
     }
 

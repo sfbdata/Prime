@@ -4,14 +4,16 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
-use App\Cobranca\DTO\ReconhecerValorAtualizadoInput;
+use App\Cobranca\DTO\EditarObrigacaoInput;
 use App\Cobranca\DTO\RegistrarObrigacaoInput;
 use App\Cobranca\Exception\CasoEncerradoException;
-use App\Cobranca\Form\ReconhecerValorAtualizadoType;
+use App\Cobranca\Exception\ObrigacaoDeAcordoException;
+use App\Cobranca\Exception\ValorAbaixoDoAlocadoException;
+use App\Cobranca\Form\EditarObrigacaoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
-use App\Cobranca\UseCase\ReconhecerValorAtualizadoUseCase;
+use App\Cobranca\UseCase\EditarObrigacaoUseCase;
 use App\Cobranca\UseCase\RegistrarObrigacaoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -38,7 +40,7 @@ final class ObrigacaoController extends AbstractController
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly RegistrarObrigacaoUseCase $registrarObrigacao,
-        private readonly ReconhecerValorAtualizadoUseCase $reconhecerValor,
+        private readonly EditarObrigacaoUseCase $editarObrigacao,
     ) {
     }
 
@@ -74,8 +76,8 @@ final class ObrigacaoController extends AbstractController
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
-    #[Route('/obrigacoes/{id}/reconhecer-valor', name: 'cobranca_obrigacao_reconhecer', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function reconhecerValor(int $id, Request $request): Response
+    #[Route('/obrigacoes/{id}/editar', name: 'cobranca_obrigacao_editar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function editar(int $id, Request $request): Response
     {
         $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
         if ($tenant === null) {
@@ -88,16 +90,16 @@ final class ObrigacaoController extends AbstractController
         }
         $objetoId = $this->objetoIdDoCaso($obrigacao->getCaso());
 
-        $input = new ReconhecerValorAtualizadoInput();
+        $input = new EditarObrigacaoInput();
         $input->obrigacaoId = $id;
-        $form = $this->createForm(ReconhecerValorAtualizadoType::class, $input);
+        $form = $this->createForm(EditarObrigacaoType::class, $input);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $this->reconhecerValor->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Valor atualizado reconhecido.');
-            } catch (CasoEncerradoException $e) {
+                $this->editarObrigacao->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Obrigação corrigida.');
+            } catch (CasoEncerradoException | ObrigacaoDeAcordoException | ValorAbaixoDoAlocadoException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {

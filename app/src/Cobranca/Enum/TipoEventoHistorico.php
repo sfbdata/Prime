@@ -14,6 +14,8 @@ enum TipoEventoHistorico: string
 {
     case CasoAberto = 'caso_aberto';
     case ObrigacaoCriada = 'obrigacao_criada';
+    case ObrigacaoEditada = 'obrigacao_editada';
+    case ObrigacaoExcluida = 'obrigacao_excluida';
     case ValorAtualizadoReconhecido = 'valor_atualizado_reconhecido';
     case ContatoRealizado = 'contato_realizado';
     case BoletoEnviado = 'boleto_enviado';
@@ -39,6 +41,8 @@ enum TipoEventoHistorico: string
         return match ($this) {
             self::CasoAberto => 'Caso aberto',
             self::ObrigacaoCriada => 'Obrigação criada',
+            self::ObrigacaoEditada => 'Obrigação editada',
+            self::ObrigacaoExcluida => 'Obrigação excluída',
             self::ValorAtualizadoReconhecido => 'Valor atualizado reconhecido',
             self::ContatoRealizado => 'Contato realizado',
             self::BoletoEnviado => 'Boleto/valor atualizado enviado',
