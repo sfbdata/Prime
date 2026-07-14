@@ -129,6 +129,117 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertCount(0, $pagamentos, 'sobrepagamento não pode persistir');
     }
 
+    #[TestDox('Prévia (GET): retorna a divisão dívida/honorários + quebra FIFO em acrescido_divida')]
+    public function testPreviaRegistrarRetornaDivisao(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant, [
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '10.00',
+        ]);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 10000, 'encargosReconhecidos' => 0,
+        ]);
+        $casoId = (int) $caso->getId();
+
+        // Bruto 11000 centavos → dívida 10000 + honorários 1000.
+        $client->request('GET', '/cobrancas/casos/' . $casoId . '/pagamento-previa?valor=11000');
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertSame(10000, $json['divida']);
+        self::assertSame(1000, $json['honorarios']);
+        self::assertFalse($json['excede']);
+        self::assertCount(1, $json['alocacoes']);
+        self::assertSame(10000, $json['alocacoes'][0]['valor']);
+    }
+
+    #[TestDox('Prévia (GET): sinaliza excede quando o valor passa do saldo')]
+    public function testPreviaSinalizaExcede(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 10000, 'encargosReconhecidos' => 0,
+        ]);
+        $casoId = (int) $caso->getId();
+
+        $client->request('GET', '/cobrancas/casos/' . $casoId . '/pagamento-previa?valor=15000');
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($json['excede']);
+        self::assertSame(5000, $json['excedeEm']);
+        self::assertSame([], $json['alocacoes']);
+    }
+
+    #[TestDox('Prévia (GET) sem a capacidade financeira: 403')]
+    public function testPreviaSemCapacidade403(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $client->request('GET', '/cobrancas/casos/' . $caso->getId() . '/pagamento-previa?valor=10000');
+
+        self::assertResponseStatusCodeSame(403);
+    }
+
+    #[TestDox('Prévia (GET) de caso de OUTRO tenant: 404')]
+    public function testPreviaCrossTenant404(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        [, $casoAlheio] = $this->semearGrafo($this->tenantAvulso());
+
+        $client->request('GET', '/cobrancas/casos/' . $casoAlheio->getId() . '/pagamento-previa?valor=10000');
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Prévia da correção (GET) de pagamento de OUTRO tenant: 404')]
+    public function testPreviaCorrigirCrossTenant404(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        [, $casoAlheio] = $this->semearGrafo($this->tenantAvulso());
+        $pagamentoAlheio = PagamentoFactory::createOne([
+            'tenant' => $casoAlheio->getTenant(), 'caso' => $casoAlheio,
+        ])->_real();
+
+        $client->request('GET', '/cobrancas/pagamentos/' . $pagamentoAlheio->getId() . '/pagamento-previa?valor=10000');
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Prévia da correção (GET): exclui o próprio pagamento da sala')]
+    public function testPreviaCorrigirExcluiProprioPagamento(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 20000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        $pagamento = PagamentoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 20000, 'valorHonorarios' => 0,
+        ])->_real();
+        AlocacaoPagamentoFactory::createOne([
+            'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $obrigacao, 'valor' => 20000,
+        ]);
+
+        // A obrigação está 100% coberta pelo próprio pagamento; a prévia da correção o devolve à sala.
+        $client->request('GET', '/cobrancas/pagamentos/' . $pagamento->getId() . '/pagamento-previa?valor=15000');
+
+        self::assertResponseIsSuccessful();
+        $json = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($json['excede'], 'a correção não pode contar as próprias alocações contra a sala');
+        self::assertSame(20000, $json['saldoDisponivel']);
+        self::assertSame(15000, $json['divida']);
+    }
+
     #[TestDox('Registrar AUTO ignora alocações submetidas (o FIFO vence; sem alocarManualmente)')]
     public function testRegistrarAutoIgnoraAlocacoesSubmetidas(): void
     {

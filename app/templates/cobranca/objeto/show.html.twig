@@ -257,6 +257,7 @@
                             <button type="button" class="btn btn-sm btn-outline-secondary py-0"
                                     data-bs-toggle="modal" data-bs-target="#modalCorrigirPagamento"
                                     data-acao-url="{{ path('cobranca_pagamento_corrigir', {id: p.id}) }}"
+                                    data-previa-url="{{ path('cobranca_pagamento_previa_corrigir', {id: p.id}) }}"
                                     data-pagamento-data="{{ p.data|date('d/m/Y') }}"
                                     data-pagamento-total="{{ p.valorTotal|centavos }}"
                                     title="Corrigir pagamento (sem estorno)">
@@ -556,6 +557,116 @@ document.addEventListener('DOMContentLoaded', function () {
     initColecao('alocacoesPagamentoContainer', 'addAlocacaoPagamento', 'alocacao-linha border rounded p-2 mb-2', 'Remover');
     initColecao('alocacoesCorrigirContainer', 'addAlocacaoCorrigir', 'alocacao-linha border rounded p-2 mb-2', 'Remover');
 
+    /* Prévia ao vivo da divisão dívida/honorários + FIFO (Ajuste 6): ao digitar o valor pago, consulta
+       o endpoint (fonte única da regra de centavos) e mostra a divisão; se exceder o saldo, avisa e
+       desabilita o submit (no modo automático). O checkbox "Alocar manualmente" revela as alocações. */
+    function parseCentavos(str) {
+        if (!str) { return 0; }
+        var s = String(str).trim().replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+        var f = parseFloat(s);
+        return isNaN(f) ? 0 : Math.round(f * 100);
+    }
+    function fmtReais(cent) {
+        var v = (cent / 100).toFixed(2).replace('.', ',');
+        return 'R$ ' + v.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    function initPreviaPagamento(body) {
+        var box = body.querySelector('[data-previa-pagamento]');
+        var valorInput = body.querySelector('input[name$="[valorPago]"]');
+        var manualCheck = body.querySelector('input[name$="[alocarManualmente]"]');
+        var manualBox = body.querySelector('[data-alocacao-manual]');
+        var form = body.closest('form');
+        var submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+        if (!box || !valorInput) { return; }
+
+        function toggleManual() {
+            if (!manualBox) { return; }
+            manualBox.classList.toggle('d-none', !(manualCheck && manualCheck.checked));
+        }
+        function urlPrevia() {
+            return box.getAttribute('data-previa-url') || body.getAttribute('data-previa-url') || '';
+        }
+        /* Monta a prévia com nós de DOM e textContent — a descrição da obrigação é input livre do
+           usuário; NUNCA interpolar em innerHTML (XSS). Só rótulos/valores numéricos são fixos. */
+        function linhaValor(rotulo, valor) {
+            var div = document.createElement('div');
+            div.className = 'd-flex justify-content-between';
+            var s1 = document.createElement('span'); s1.textContent = rotulo;
+            var s2 = document.createElement('strong'); s2.textContent = valor;
+            div.appendChild(s1); div.appendChild(s2);
+            return div;
+        }
+        function render(d) {
+            var manual = !!(manualCheck && manualCheck.checked);
+            box.classList.remove('d-none', 'border-danger');
+            box.textContent = '';
+            box.appendChild(linhaValor('Dívida:', fmtReais(d.divida)));
+            box.appendChild(linhaValor('Honorários:', fmtReais(d.honorarios)));
+            if (d.excede && !manual) {
+                var aviso = document.createElement('div');
+                aviso.className = 'mt-1 text-danger';
+                var ic = document.createElement('i'); ic.className = 'bi bi-exclamation-triangle me-1';
+                aviso.appendChild(ic);
+                aviso.appendChild(document.createTextNode('Excede o saldo do caso em ' + fmtReais(d.excedeEm) + '.'));
+                box.appendChild(aviso);
+                box.classList.add('border-danger');
+                if (submitBtn) { submitBtn.disabled = true; }
+            } else {
+                if (submitBtn) { submitBtn.disabled = false; }
+                if (!manual && d.alocacoes && d.alocacoes.length) {
+                    var cap = document.createElement('div');
+                    cap.className = 'mt-1 text-muted';
+                    cap.textContent = 'Distribuição automática (FIFO):';
+                    box.appendChild(cap);
+                    var ul = document.createElement('ul');
+                    ul.className = 'mb-0 ps-3 text-muted';
+                    d.alocacoes.forEach(function (a) {
+                        var li = document.createElement('li');
+                        li.textContent = (a.descricao || 'Obrigação') + ' — ' + fmtReais(a.valor);
+                        ul.appendChild(li);
+                    });
+                    box.appendChild(ul);
+                }
+            }
+        }
+        function atualizar() {
+            var centavos = parseCentavos(valorInput.value);
+            var url = urlPrevia();
+            if (centavos <= 0 || !url) {
+                box.classList.add('d-none');
+                if (submitBtn) { submitBtn.disabled = false; }
+                return;
+            }
+            fetch(url + '?valor=' + centavos, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (d) { if (d) { render(d); } else { box.classList.add('d-none'); } })
+                .catch(function () { box.classList.add('d-none'); });
+        }
+        var timer = null;
+        valorInput.addEventListener('input', function () {
+            if (timer) { clearTimeout(timer); }
+            timer = setTimeout(atualizar, 300);
+        });
+        if (manualCheck) { manualCheck.addEventListener('change', function () { toggleManual(); atualizar(); }); }
+        body._previaAtualizar = atualizar;
+        body._previaReset = function () {
+            box.classList.add('d-none');
+            box.innerHTML = '';
+            if (submitBtn) { submitBtn.disabled = false; }
+            toggleManual();
+        };
+        toggleManual();
+    }
+    document.querySelectorAll('[data-pagamento-modal]').forEach(initPreviaPagamento);
+
+    var modalRegistrar = document.getElementById('modalRegistrarPagamento');
+    if (modalRegistrar) {
+        modalRegistrar.addEventListener('shown.bs.modal', function () {
+            var body = modalRegistrar.querySelector('[data-pagamento-modal]');
+            if (body && body._previaAtualizar) { body._previaAtualizar(); }
+        });
+    }
+
     /* Modal reutilizável de "corrigir pagamento": o botão da linha injeta a URL de ação e o contexto. */
     var modalCorrigir = document.getElementById('modalCorrigirPagamento');
     if (modalCorrigir) {
@@ -569,8 +680,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 ctx.textContent = 'Pagamento de ' + (botao.getAttribute('data-pagamento-data') || '')
                     + ' · total ' + (botao.getAttribute('data-pagamento-total') || '');
             }
+            /* A prévia da correção depende do pagamento: injeta a URL do botão na caixa e reseta. */
+            var pbox = modalCorrigir.querySelector('[data-previa-pagamento]');
+            if (pbox) { pbox.setAttribute('data-previa-url', botao.getAttribute('data-previa-url') || ''); }
+            var body = modalCorrigir.querySelector('[data-pagamento-modal]');
+            if (body && body._previaReset) { body._previaReset(); }
         });
     }
+
+    /* Guarda dos modais REUTILIZÁVEIS: a `action` desses forms é injetada pelo botão da linha ao abrir.
+       Se o modal for exibido SEM esse contexto (reabertura programática, restauração de bfcache/back),
+       a `action` fica vazia e o form postaria na própria página (rota só-GET → 405). Sem alvo definido,
+       bloqueia o submit — a ação só é válida com um item selecionado. */
+    ['formCorrigirPagamento', 'formEditarObrigacao', 'formExcluirObrigacao', 'formRomperAcordo', 'formCancelarAcordo', 'formEncerrarVinculo'].forEach(function (id) {
+        var f = document.getElementById(id);
+        if (!f) { return; }
+        f.addEventListener('submit', function (e) {
+            if (!f.getAttribute('action')) { e.preventDefault(); }
+        });
+    });
 });
 </script>
 
