@@ -206,6 +206,14 @@
                                     title="Editar (corrigir) obrigação">
                                 <i class="bi bi-pencil"></i>
                             </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger py-0"
+                                    data-bs-toggle="modal" data-bs-target="#modalExcluirObrigacao"
+                                    data-acao-url="{{ path('cobranca_obrigacao_excluir', {id: o.id}) }}"
+                                    data-token="{{ csrf_token('excluir_obrigacao_' ~ o.id) }}"
+                                    data-descricao="{{ o.descricao }}"
+                                    title="Excluir obrigação">
+                                <i class="bi bi-trash"></i>
+                            </button>
                             {% elseif (o.substituidaPorAcordo or o.ehParcelaAcordo) and has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
                             <span class="text-muted ms-1" data-bs-toggle="tooltip" title="Gerida pelo acordo — não editável aqui. Para alterar, gerencie o acordo (rompa/cancele para liberar a obrigação).">
                                 <i class="bi bi-lock"></i>
@@ -476,6 +484,25 @@ document.addEventListener('DOMContentLoaded', function () {
             setVal('valorOriginal', reais(botao.getAttribute('data-valor-centavos')));
             setVal('encargosReconhecidos', reais(botao.getAttribute('data-encargos-centavos')));
             setVal('motivo', '');
+        });
+    }
+
+    /* Modal reutilizável de "excluir obrigação": o botão da linha injeta a URL, o token CSRF e a descrição. */
+    var modalExcluir = document.getElementById('modalExcluirObrigacao');
+    if (modalExcluir) {
+        modalExcluir.addEventListener('show.bs.modal', function (event) {
+            var botao = event.relatedTarget;
+            if (!botao) { return; }
+            var form = document.getElementById('formExcluirObrigacao');
+            if (form) {
+                form.setAttribute('action', botao.getAttribute('data-acao-url') || '');
+                var tk = form.querySelector('[name="_token"]');
+                if (tk) { tk.value = botao.getAttribute('data-token') || ''; }
+            }
+            var ctx = modalExcluir.querySelector('[data-obrigacao-descricao]');
+            if (ctx) { ctx.textContent = botao.getAttribute('data-descricao') || ''; }
+            var motivo = document.getElementById('motivoExcluirObrigacao');
+            if (motivo) { motivo.value = ''; }
         });
     }
 

@@ -7,7 +7,9 @@ namespace App\Tests\Cobranca\Functional;
 use App\Cobranca\Controller\ObrigacaoController;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusCaso;
+use App\Tests\Factory\Cobranca\AlocacaoPagamentoFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
+use App\Tests\Factory\Cobranca\PagamentoFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -208,5 +210,135 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertSame('Original XYZ', $em->find(Obrigacao::class, $obrigacaoId)->getDescricao(), 'CSRF inválido não altera a obrigação');
+    }
+
+    #[TestDox('Excluir obrigação: happy path remove a linha e volta ao objeto')]
+    public function testExcluirObrigacaoHappy(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        // O token CSRF (manual, por obrigação) vem do botão excluir da linha.
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $crawler->filter('button[data-acao-url="/cobrancas/obrigacoes/' . $obrigacaoId . '/excluir"]')->attr('data-token');
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/excluir', [
+            'motivo' => 'Lançada em duplicidade',
+            '_token' => $token,
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->find(Obrigacao::class, $obrigacaoId), 'a obrigação foi removida');
+    }
+
+    #[TestDox('Excluir sem a capacidade: negado (redirect, não caso), obrigação intacta')]
+    public function testExcluirSemCapacidade(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/excluir', [
+            'motivo' => 'x', '_token' => 'irrelevante',
+        ]);
+
+        self::assertResponseRedirects();
+        self::assertStringNotContainsString('/cobrancas/casos/', (string) $client->getResponse()->headers->get('Location'));
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNotNull($em->find(Obrigacao::class, $obrigacaoId), 'sem capacidade não exclui');
+    }
+
+    #[TestDox('IDOR: excluir obrigação de OUTRO tenant devolve 404')]
+    public function testExcluirCrossTenant404(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        [, $casoAlheio] = $this->semearGrafo($this->tenantAvulso());
+        $obrigacaoAlheia = ObrigacaoFactory::createOne(['tenant' => $casoAlheio->getTenant(), 'caso' => $casoAlheio])->_real();
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoAlheia->getId() . '/excluir', [
+            'motivo' => 'x', '_token' => 'irrelevante',
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('CSRF inválido: excluir obrigação não remove')]
+    public function testExcluirCsrfInvalido(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/excluir', [
+            'motivo' => 'x', '_token' => 'token-falso',
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNotNull($em->find(Obrigacao::class, $obrigacaoId), 'CSRF inválido não remove a obrigação');
+    }
+
+    #[TestDox('Excluir obrigação com pagamento alocado: bloqueado no servidor, não remove')]
+    public function testExcluirComPagamentoAlocadoBloqueia(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 20000, 'encargosReconhecidos' => 0])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+        // Pagamento com alocação nesta obrigação → guard de exclusão barra.
+        $pagamento = PagamentoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 10000, 'valorHonorarios' => 0])->_real();
+        AlocacaoPagamentoFactory::createOne(['tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $obrigacao, 'valor' => 10000]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $crawler->filter('button[data-acao-url="/cobrancas/obrigacoes/' . $obrigacaoId . '/excluir"]')->attr('data-token');
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/excluir', [
+            'motivo' => 'tentando excluir', '_token' => $token,
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNotNull($em->find(Obrigacao::class, $obrigacaoId), 'obrigação com pagamento alocado não é excluída');
+    }
+
+    #[TestDox('Excluir obrigação sem motivo: rejeitado, não remove')]
+    public function testExcluirSemMotivo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $crawler->filter('button[data-acao-url="/cobrancas/obrigacoes/' . $obrigacaoId . '/excluir"]')->attr('data-token');
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/excluir', [
+            'motivo' => '   ', '_token' => $token,
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNotNull($em->find(Obrigacao::class, $obrigacaoId), 'sem motivo não exclui');
     }
 }

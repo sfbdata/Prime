@@ -106,8 +106,8 @@ liquidações. Total já pago numa obrigação = `AlocacaoPagamentoRepository::t
   3. Registra evento `ObrigacaoExcluida` (snapshot no `dados` + motivo, `flush: false`), depois
      `obrigacaoRepository->remover($obrigacao, flush: true)` — evento + delete no mesmo commit.
 - **Controller** `ObrigacaoController::excluir` — rota `POST /cobrancas/obrigacoes/{id}/excluir`
-  (`cobranca_obrigacao_excluir`). CSRF manual (`delete_obrigacao_{id}`) como no `excluirDocumento`; motivo
-  do corpo do POST (validar não-vazio → flash+redirect se vazio). Captura `objetoId` ANTES de remover.
+  (`cobranca_obrigacao_excluir`). CSRF manual (token `excluir_obrigacao_{id}`) como no `excluirDocumento`;
+  motivo do corpo do POST (validar não-vazio → flash+redirect se vazio). Captura `objetoId` ANTES de remover.
 
 ### C. Novas exceções (`app/src/Cobranca/Exception/`, todas `final`, `\DomainException`)
 - `ObrigacaoDeAcordoException(int $obrigacaoId)` — "Obrigação %d participa de um acordo (parcela ou

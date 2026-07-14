@@ -52,6 +52,30 @@
     </div>
 </div>
 
+{# ── Excluir obrigação (modal reutilizável; CSRF manual — JS injeta action + token + descrição) ── #}
+<div class="modal fade" id="modalExcluirObrigacao" tabindex="-1" aria-labelledby="tituloExcluirObrigacao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formExcluirObrigacao">
+                <input type="hidden" name="_token" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloExcluirObrigacao"><i class="bi bi-trash me-1"></i>Excluir obrigação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Excluir definitivamente <strong data-obrigacao-descricao></strong>? Esta ação não pode ser desfeita.</p>
+                    <label class="form-label" for="motivoExcluirObrigacao">Motivo da exclusão</label>
+                    <input type="text" name="motivo" id="motivoExcluirObrigacao" class="form-control" maxlength="255" required placeholder="Ex.: obrigação lançada em duplicidade">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Excluir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {# ── Encerrar caso ───────────────────────────────────────────────── #}
 <div class="modal fade" id="modalEncerrarCaso" tabindex="-1" aria-labelledby="tituloEncerrarCaso" aria-hidden="true">
     <div class="modal-dialog">
