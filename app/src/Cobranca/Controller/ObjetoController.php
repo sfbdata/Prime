@@ -4,13 +4,19 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\DTO\CriarPessoaVinculadaInput;
+use App\Cobranca\Exception\ObjetoNaoEncontradoException;
+use App\Cobranca\Exception\PessoaNaoEncontradaException;
+use App\Cobranca\Form\CriarPessoaVinculadaType;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Service\MontadorModaisCaso;
+use App\Cobranca\UseCase\CriarPessoaVinculadaAoObjetoUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -37,6 +43,7 @@ final class ObjetoController extends AbstractController
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly MontarDetalheObjetoUseCase $montarDetalheObjeto,
         private readonly MontadorModaisCaso $montadorModais,
+        private readonly CriarPessoaVinculadaAoObjetoUseCase $criarPessoaVinculada,
     ) {
     }
 
@@ -83,6 +90,40 @@ final class ObjetoController extends AbstractController
             'podeGerenciarDocumentos' => $podeGerenciar,
             'secoes' => $documentos['secoes'],
             'arquivosFm' => $documentos['arquivos'],
+            // "Nova pessoa" na aba Pessoas (cadastra + vincula ao objeto) — só para quem gerencia.
+            'formNovaPessoa' => $podeGerenciar ? $this->createForm(CriarPessoaVinculadaType::class)->createView() : null,
         ]);
+    }
+
+    #[Route('/{id}/pessoas', name: 'cobranca_objeto_pessoa_criar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function criarPessoa(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        // Anti-IDOR: o objeto tem de ser do próprio escritório.
+        $objeto = $this->objetoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($objeto === null) {
+            throw $this->createNotFoundException('Objeto de cobrança não encontrado.');
+        }
+
+        $input = new CriarPessoaVinculadaInput();
+        $form = $this->createForm(CriarPessoaVinculadaType::class, $input);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->criarPessoaVinculada->executar($input, $id, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Pessoa cadastrada e vinculada ao objeto.');
+            } catch (ObjetoNaoEncontradoException | PessoaNaoEncontradaException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        } else {
+            $this->flashErrosDoForm($form);
+        }
+
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $id]);
     }
 }

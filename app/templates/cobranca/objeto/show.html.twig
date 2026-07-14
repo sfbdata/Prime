@@ -127,8 +127,15 @@
             <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">Histórico <span class="badge text-bg-secondary">{{ caso.historico|length }}</span></button></li>
         </ul>
         <div class="tab-content border border-top-0 rounded-bottom p-3 bg-body">
-            {# Pessoas (envolvidos) — leitura na Fatia 2; vincular/trocar entram na Fatia 4 #}
+            {# Pessoas (envolvidos) do objeto #}
             <div class="tab-pane fade show active" id="tab-pessoas">
+                {% if formNovaPessoa %}
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
+                        <i class="bi bi-person-plus me-1"></i>Nova pessoa
+                    </button>
+                </div>
+                {% endif %}
                 {% if objeto.vinculos|length > 0 %}
                 <div class="table-responsive"><table class="table table-sm mb-0">
                     <thead><tr><th>Nome</th><th>Papel</th><th>Contato</th><th>Desde</th><th></th></tr></thead>
@@ -325,6 +332,34 @@
 {% endif %}
 {% if has_permission('resources.cobranca.movimentacao_financeira') and not caso.encerrado %}
 {{ include('cobranca/caso/_acoes_modais_financeiro.html.twig') }}
+{% endif %}
+
+{# Nova pessoa (cadastra + vincula ao objeto — aba Pessoas) #}
+{% if formNovaPessoa %}
+<div class="modal fade" id="modalNovaPessoa" tabindex="-1" aria-labelledby="tituloNovaPessoa" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(formNovaPessoa, {action: path('cobranca_objeto_pessoa_criar', {id: objeto.objetoId})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloNovaPessoa"><i class="bi bi-person-plus me-1"></i>Nova pessoa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                {{ form_row(formNovaPessoa.nome) }}
+                {{ form_row(formNovaPessoa.tipoVinculo) }}
+                {{ form_row(formNovaPessoa.cpf) }}
+                {{ form_row(formNovaPessoa.cnpj) }}
+                {{ form_row(formNovaPessoa.telefone) }}
+                {{ form_row(formNovaPessoa.email) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Cadastrar e vincular</button>
+            </div>
+            {{ form_end(formNovaPessoa) }}
+        </div>
+    </div>
+</div>
 {% endif %}
 </div>
 {% endblock %}
