@@ -1,59 +1,113 @@
-# NEW_CHAT_PROMPT — Gestão de Cobranças
+# NEW_CHAT_PROMPT — Gestão de Cobranças (RODADA DE AJUSTES)
 
-> Cole o bloco abaixo como primeira mensagem de um chat NOVO do Claude Code (sem contexto anterior) para retomar a feature com segurança.
+> Cole o bloco abaixo como primeira mensagem de um chat NOVO do Claude Code para continuar a **rodada de ajustes** do módulo (já em produção). NÃO confie em resumos — confirme tudo no repositório e no Git.
 
 ---
 
 ```
-Você vai continuar a feature "Gestão de Cobranças" do projeto JusPrime. NÃO confie em nenhum resumo; confirme tudo no repositório.
+Vou implementar o ITEM 7 da RODADA DE AJUSTES do módulo Gestão de Cobranças
+(App\Cobranca) do JusPrime — módulo JÁ EM PRODUÇÃO (bluejus.com.br). É risco
+MÉDIO/ALTO (regra financeira: parcelamento, aritmética de centavos, edição de
+acordo com pagamentos), então o fluxo é: INVESTIGAR → escrever SPEC própria →
+EU aprovo o plano → só então IMPLEMENTAR por fatias. NÃO vá direto ao código.
+NÃO confie neste resumo: confirme tudo no repositório e no Git.
 
-1) Leia integralmente, NESTA ordem (todos em docs/gestao-cobrancas/, exceto os CLAUDE.md):
-   1. FEATURE_GESTAO_COBRANCAS_SPEC_FINAL.md  (a SPEC — fonte de verdade das regras; §23 invariáveis)
-   2. PLAN.md                                  (10 etapas de implementação)
-   3. PARALLELIZATION_MAP.md                   (ondas, paralelização, lição da 8B: template compartilhado força single-writer)
-   4. EXECUTION_STATUS.md                       (panorama VIVO: onde parou, checklist 0–9, histórico, próxima ação exata)
-   5. SESSION_HANDOFF.md                        (memória da última sessão: git, testes, próxima ação, ordem de retomada, padrão estabelecido)
-   6. AUTONOMOUS_EXECUTION_PROTOCOL.md          (o modo de fan-out autônomo aprovado — papéis, integração, proibições)
-   7. docs/specs/cobranca-etapa8-telas-ux.md    (a spec da Etapa 8; a Onda 8C é o alvo)
-   8. Os CLAUDE.md aplicáveis: raiz /CLAUDE.md, app/src/CLAUDE.md, app/src/Controller|Entity|Repository|Shared/CLAUDE.md conforme a camada, app/templates/CLAUDE.md, app/tests/CLAUDE.md, docs/AUTORIZACAO.md.
+## 1. Leia primeiro (nesta ordem)
+Memória (fora do repo): MEMORY.md → project_gestao_cobrancas.md (bloco do topo).
+Docs vivos no repo (docs/gestao-cobrancas/):
+- SESSION_HANDOFF.md — estado atual (FONTE DE VERDADE)
+- AJUSTES_BACKLOG.md — item 7 tem a "Ideia final (decidida)" com o humano. LER.
+Spec base do módulo: docs/gestao-cobrancas/FEATURE_GESTAO_COBRANCAS_SPEC_FINAL.md
+(regras/invariáveis; acordo = Etapa 4). Specs dos ajustes já feitos:
+docs/specs/cobranca-ajuste2/4/5/6-*.md (padrões a reusar).
+Regras da camada: CLAUDE.md raiz + app/src/CLAUDE.md + Controller/UseCase/DTO/
+Form/Repository/Entity/templates/tests CLAUDE.md. Autorização: docs/AUTORIZACAO.md.
 
-2) Carregue a skill "workflow" antes de tocar em código.
+## 2. Carregue a skill `workflow` ANTES de tocar em código.
 
-3) Verifique o ESTADO REAL do repositório (não assuma):
-   - git branch --show-current   (esperado: gestao-cobrancas)
-   - git status --short          (limpo, salvo untracked .claude/worktrees/ e arquivos gitignorados/resíduos de smoke .png)
-   - git log --oneline -10       (topo esperado: docs 8B `69faab4` / cadeia 8B `936408a`→`642a9ef`, OU POSTERIOR)
-   - docker start jusprime_db_dev jusprime_php_dev jusprime_nginx_dev   (subir dev se preciso)
-   - docker exec jusprime_php_dev bash -c 'cd app && php -d memory_limit=512M bin/phpunit tests/Cobranca'   (esperado: 343/343)
-   - (opcional) suíte global: bin/phpunit → esperado 1624/1624
+## 3. Confirme o estado no Git
+- Branch `gestao-cobrancas` (local, NÃO pushada). HEAD deve ser `bef127e`
+  (ou posterior). Working tree LIMPO.
+- tests/Cobranca 449/449, global 1764/1764.
+  docker exec jusprime_php_dev bash -c 'cd app && php -d memory_limit=512M bin/phpunit tests/Cobranca'
+- Itens 1,2,3,4,5,6 já commitados nesta rodada. Se divergir do esperado, PARE e
+  reporte a divergência (corrija o entendimento pelo Git, não pelos docs).
 
-4) COMPARE a documentação com o repositório. Se divergirem (commits a mais/menos, testes falhando, working tree suja, branch diferente), PARE e reporte a divergência antes de agir — corrija o entendimento a partir do Git, não dos docs.
+## 4. O item 7 (o que fazer) — "Formulário de acordo inteligente + abrir/editar acordo"
+Ideia já fechada com o humano no AJUSTES_BACKLOG.md §7:
+- **Gerador de parcelamento:** seleciona obrigações → total automático; total
+  NEGOCIÁVEL (desconto/juros ajusta) + entrada opcional; escolhe qtd de parcelas +
+  data da 1ª + periodicidade (mensal/quinzenal/semanal) → gera parcelas (valor
+  dividido igualmente, sobra de centavos na 1ª ou última, "Parcela k/n",
+  vencimentos em sequência editáveis).
+- **Recálculo ao vivo (JS):** sobrescrever o valor de uma parcela a FIXA; as
+  não-fixadas redistribuem o restante pra fechar o total. Servidor REVALIDA
+  Σ parcelas == total no submit.
+- **Abrir acordo:** nova tela/painel de detalhe (parcelas, status, obrigações
+  substituídas, entrada, total, desconto/juros).
+- **Editar acordo (novo EditarAcordoUseCase):** edita parcelas AINDA NÃO PAGAS;
+  guardas: parcela com pagamento alocado não muda; acordo rompido/cancelado é
+  congelado. Auditado.
+- **Migration provável (aditiva):** hoje o Acordo NÃO tem colunas total/entrada/
+  desconto (total é derivado das parcelas). Avaliar na spec se persiste. Parcelas
+  continuam sendo Obrigacao com `acordoOrigem`.
+- Conecta o item 8 (parcelas na aba Obrigações), que vem depois e depende deste.
 
-5) A branch já está resolvida: trabalhe em gestao-cobrancas (master ficou só com DJEN; a feature vive só nesta branch). Não faça switch/rebase/move de commits por conta própria. Lineage: DJEN `b044c0c` na BASE é inofensivo (ver memória).
+## 5. O que fazer, na ordem (risco MÉDIO/ALTO)
+a) INVESTIGAR (subagente Explore read-only): entidade Acordo + StatusAcordo (ehVigente),
+   Obrigacao.acordoOrigem/acordoSubstituto, ObrigacaoRepository::doCasoExigiveis
+   (status-aware: romper/cancelar restaura originais por DERIVAÇÃO — invariável 20),
+   CriarAcordo/RomperAcordo/CancelarAcordo/MarcarAcordoCumprido UseCases + Inputs +
+   Forms + os modais de acordo (caso/objeto `_acoes_modais*`), CalculadoraHonorarios
+   (rateio §18), como a aba "Acordos" renderiza hoje, e os testes existentes.
+b) ESCREVER A SPEC em docs/specs/cobranca-ajuste7-acordo-inteligente.md, resolvendo
+   as sub-decisões (ver §6 abaixo) — inclusive SE precisa de migration e qual.
+c) ME APRESENTAR o plano/spec + as sub-decisões (usar AskUserQuestion se houver
+   escolha real de produto). EU APROVO antes de qualquer código.
+d) IMPLEMENTAR por fatias, cada uma: TDD (teste primeiro) → MOSTRAR smoke visual no
+   navegador → EU aprovo → suíte completa + /review (feature-review-agent) →
+   corrigir → commit atômico → próxima fatia.
 
-6) ESTADO: a Etapa 8 (Telas/UX) está em ondas. **Onda 8A (LEITURA) e Onda 8B (ESCRITA — TODAS as mutações/forms) estão CONCLUÍDAS, testadas e revisadas** (HEAD `69faab4`, `tests/Cobranca` 343/343, GLOBAL 1624/1624; 2 revisões adversariais + tenant-safety SEM bloqueantes). A 8B ligou: obrigação (registrar/reconhecer), encerrar caso, próxima ação (definir/concluir), tentativa, revisão (gerar/resolver), acordo (criar/romper/cancelar/cumprir), **pagamento (registrar/corrigir sem estorno)**, **liquidação**, **carteira (criar/configurar)**, **objeto (criar)**, **pessoa (criar)**, **vínculo (vincular/encerrar)**, **abrir caso**, **judicializar**, **alterar pessoa cobrada**. **Decisão de negócio já aplicada e mantida: caso encerrado NÃO aceita mutação — guard no SERVIDOR em reconhecer-valor/tentativa/gerar-revisão (não só na UI); nova inadimplência = NOVO caso.** NÃO refaça o que está pronto.
+## 6. Sub-decisões prováveis para a SPEC (resolver com o humano)
+- Persistir total negociado / entrada / desconto no Acordo (migration aditiva) vs
+  manter derivado? (o "abrir/editar acordo" provavelmente exige persistir).
+- Aritmética da sobra de centavos: 1ª ou última parcela absorve? (definir e testar,
+  como o rateio de honorários já faz).
+- "Fixar parcela" no recálculo ao vivo: contrato do JS + revalidação no servidor.
+- Editar acordo com pagamentos alocados: escopo do que pode/não pode mudar (guardas).
+- Interação com honorários acrescidos (§18) ao gerar parcelas de acordo.
 
-7) **PRÓXIMA AÇÃO EXATA = Onda 8C**:
-   (a) **Importação visual** da carteira: fluxo upload→prever(dry-run)→confirmar sobre o `ImportarRelatorioCarteiraUseCase` (Etapa 7, idempotente). **A decisão da Etapa 7 é INTOCÁVEL: linha só-encargos/honorários sem principal é REJEITADA (sem Obrigação principal-zero).** Provável rota/aba na Carteira. Preview antes do commit real.
-   (b) **File-manager de documentos do Caso**: religar `public/js/pasta-arquivos.js` (+ css) na aba "Documentos" do `app/templates/cobranca/caso/show.html.twig` (hoje é placeholder). Entidades `CobrancaDocumento`/`CobrancaSecao` e UseCases `EnviarDocumento`/`ExcluirDocumento`/`MoverDocumento`/`CriarSecao`/`RenomearSecao`/`ExcluirSecao` já existem (Etapa 6). Contrato `data-*` 1:1 com o gerenciador de arquivos das Pastas.
-   NÃO antecipe a Etapa 9 (Dashboard/central de alertas) — continua pendente.
-   Siga o AUTONOMOUS_EXECUTION_PROTOCOL.md; continue autonomamente sem pedir aprovação a cada passo — pare apenas para: (a) commit obrigatório antes de fan-out, (b) decisão de negócio bloqueante, (c) inconsistência grave SPEC/PLAN/código, (d) conclusão de onda/etapa, (e) ~90% de contexto (entrar em modo handoff).
+## 7. Gotchas (herdados dos itens 1–6)
+- Docker: tudo no container jusprime_php_dev; phpunit/cache exigem
+  `-d memory_limit=512M`. Ex.: docker exec jusprime_php_dev bash -c 'cd app &&
+  php -d memory_limit=512M bin/phpunit tests/Cobranca'.
+- Dinheiro = int centavos; CentavosType no form; saída via |centavos. Aritmética
+  inteira, arredondamento meio-para-cima (ver CalculadoraHonorarios).
+- **GOTCHA de saldo:** obrigação tem `encargosReconhecidos` → valorExigivel =
+  valorOriginal + encargos. NUNCA assumir saldo só pelo valor original.
+- Smoke Playwright dev (localhost:8080, farlei.rocha@gmail.com/Prime123!): o modal
+  #modalAlertaPonto intercepta cliques → remover via browser_evaluate antes de
+  interagir. Objetos com dados reais: carteira 3; objeto 296 (acordo CANCELADO,
+  caso 295, ótimo p/ testar acordo); objeto 104/107/137 (acrescido_divida 10%).
+- **Modais reutilizáveis:** a `action` é injetada por JS no botão da linha; já há um
+  guard (item 6) que bloqueia submit com action vazia (evita POST na página = 405).
+  Replicar o padrão em qualquer modal reutilizável novo do acordo.
+- CSRF stateless (submit): não usar referer externo em teste.
+- Multi-tenant inegociável: findOneByIdDoTenant→404 ANTES de efeito; selects via
+  Repository::opcoesDoTenant + ChoiceType (nunca EntityType).
+- Git: pode commitar local (revisando status+diff). push/merge/rebase/deploy/migration
+  em prod são do HUMANO (depois do DJEN). Nada da rodada foi pushado/deployado.
 
-8) CUIDADOS DUROS da 8C (uploads/importação/documentos/segurança):
-   - **UPLOAD**: validar mimetype+extensão+tamanho no DTO (`#[Assert\File]`) ou UseCase; NUNCA salvar no controller; usar `ArquivoStorageService`. **Isolamento físico por tenant** já é padrão: `cobrancas/<tenantId>/<hash>` (parâmetro `cobrancas_uploads_dir`; test→`var/uploads-test/cobrancas`). Em DEV, se upload falhar com Permission denied, alinhar dono: `docker exec -u 0 jusprime_php_dev chown -R 1000:1000 /var/www/app/public/uploads`.
-   - **IMPORTAÇÃO**: dentro de uma Carteira EXPLÍCITA (§21); NÃO é importador universal (§24); dedup CPF/CNPJ só intra-tenant (índices funcionais da E7); idempotência já garantida pelo UseCase (índice parcial único). Preview NÃO persiste.
-   - **TENANT/IDOR**: TODA rota resolve entidade por `findOneByIdDoTenant($id,$tenant)`→404 ANTES de qualquer efeito; NUNCA `find()`/`findOneBy(['id'=>...])` sem tenant. Documentos/seções idem. Selects escopados = `Repository::opcoesDoTenant($tenant)`+`ChoiceType` (nunca `EntityType`).
-   - **CSRF**: Symfony Form (automático) ou `isCsrfTokenValid('nome_'.$id, _token)` manual em ação sem campos. **CSRF é STATELESS** (`config/packages/csrf.yaml`, `stateless_token_ids:[submit]`): valida same-origin por Referer/Origin — em TESTE nunca usar `HTTP_REFERER` externo (o BrowserKit já põe o referer interno).
-   - **AUTORIZAÇÃO**: módulo `cobrancas` em TODA rota; mutação exige capacidade via `hasPermission` (`resources.cobranca.gerenciar` p/ documentos/importação; `resources.cobranca.movimentacao_financeira` só p/ dinheiro). Padrão no `AutorizacaoCobranca::tenantComCapacidade`.
-   - **ARQUIVOS/JS**: o `pasta-arquivos.js` é compartilhado — religar por `data-*` sem editar o JS (padrão da E6/gerenciador de pastas). Controller fino; UseCases flusham internamente.
-
-9) Regras duras de Git: sem push/deploy/produção; sem Git destrutivo (merge/rebase/reset/branch -D); cherry-pick só com um hash (hook `block-git-writes.py`). Commits locais permitidos. Ao aproximar ~90% de contexto, reescreva SESSION_HANDOFF.md e atualize EXECUTION_STATUS.md, deixe a working tree limpa e os commits locais criados, e encerre de forma controlada.
+## 8. Comece assim
+Confirme o Git, carregue a skill workflow, LEIA o AJUSTES_BACKLOG §7 + a spec do
+acordo (Etapa 4), dispare a investigação read-only, e então me traga a SPEC + as
+sub-decisões para eu aprovar ANTES de implementar.
 ```
 
 ---
 
 **Observações para quem cola o prompt:**
-- O prompt não faz `push` nem deploy — só trabalho local e commits locais.
-- **Estado atual (2026-07-10): Etapas 0–9 CONCLUÍDAS — a IMPLEMENTAÇÃO da feature está COMPLETA** (HEAD `3cd426a`; `tests/Cobranca` 398/398; global 1679/1679). A Etapa 9 (Dashboard `/cobrancas/painel` + Central de Alertas `/cobrancas/alertas`) foi entregue, testada e revisada (SEM bloqueante). O próximo chat **não retoma implementação**: resta só o **preparo de deploy/homologação** (data-migration de permissões `cobrancas` p/ prod + semear grafo no dev + smoke de navegador + deploy), tudo detalhado no `SESSION_HANDOFF.md` §"PRÓXIMA AÇÃO". Não iniciar domínio Financeiro (fora do MVP, §19/§24).
-- O passo 7 do prompt abaixo (retomar por 8C) está **desatualizado** — 8C e 9 já foram concluídas; siga o `SESSION_HANDOFF.md`, que é a fonte viva.
-- Mantenha este arquivo e os demais versionados; eles são a ponte entre chats.
+- Estado em 2026-07-14: itens 1–6 da rodada de ajustes COMMITADOS (HEAD `bef127e`, branch `gestao-cobrancas` local, não pushada). tests/Cobranca 449/449, global 1764/1764. Working tree limpo.
+- **Nada da rodada foi pushado nem deployado** — merge no master + deploy são decisão do humano, DEPOIS do DJEN.
+- Depois do item 7 vem o **item 8** (parcelas do acordo na aba Obrigações — BAIXO, reusa o detalhe do acordo do item 7).
+- Mantenha SESSION_HANDOFF.md e AJUSTES_BACKLOG.md como fonte viva entre chats.
