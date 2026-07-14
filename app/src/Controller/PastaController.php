@@ -44,6 +44,7 @@ use App\Pasta\DTO\CriarPastaDTO;
 use App\Pasta\DTO\EditarPastaDTO;
 use App\Pasta\UseCase\AdicionarChecklistItemUseCase;
 use App\Pasta\UseCase\CriarPastaUseCase;
+use App\Sync\Service\SincronizacaoPastaDispatcher;
 use App\Pasta\UseCase\DefinirProcessoPrincipalUseCase;
 use App\Pasta\UseCase\DesvincularProcessoUseCase;
 use App\Pasta\UseCase\EditarPastaUseCase;
@@ -145,6 +146,7 @@ class PastaController extends AbstractController
         private readonly VincularProcessoUseCase $vincularProcessoUseCase,
         private readonly DesvincularProcessoUseCase $desvincularProcessoUseCase,
         private readonly DefinirProcessoPrincipalUseCase $definirProcessoPrincipalUseCase,
+        private readonly SincronizacaoPastaDispatcher $syncDispatcher,
     ) {}
 
     #[Route('', name: 'pasta_index', methods: ['GET'])]
@@ -176,6 +178,10 @@ class PastaController extends AbstractController
             $this->addFlash('error', $e->getMessage());
 
             return $this->redirectToRoute('expediente_index');
+        }
+
+        if ($tenant !== null) {
+            $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
         }
 
         $this->addFlash('success', 'Pasta criada com sucesso.');
@@ -1197,6 +1203,10 @@ class PastaController extends AbstractController
 
         $this->em->flush();
 
+        if ($salvos > 0 && $tenant !== null) {
+            $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
+        }
+
         if ($erros) {
             foreach ($erros as $erro) {
                 $this->addFlash('error', $erro);
@@ -1467,6 +1477,10 @@ class PastaController extends AbstractController
 
         $this->em->persist($doc);
         $this->em->flush();
+
+        if ($tenant !== null) {
+            $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
+        }
 
         return $this->json([
             'id'           => $doc->getId(),

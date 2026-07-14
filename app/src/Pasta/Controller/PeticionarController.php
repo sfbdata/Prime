@@ -17,6 +17,7 @@ use App\Pasta\UseCase\UploadImagemEditorUseCase;
 use App\Pasta\UseCase\UploadPecaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Sync\Service\SincronizacaoPastaDispatcher;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -35,6 +36,7 @@ final class PeticionarController extends AbstractController
         private readonly ExportarPecaTextoUseCase $exportarPecaTextoUseCase,
         private readonly UploadImagemEditorUseCase $uploadImagemEditorUseCase,
         private readonly PastaSecaoRepository $pastaSecaoRepository,
+        private readonly SincronizacaoPastaDispatcher $syncDispatcher,
         private readonly string $uploadsDir,
     ) {}
 
@@ -137,6 +139,10 @@ final class PeticionarController extends AbstractController
         $doc        = $resultado->documento;
         $compressao = $resultado->compressao;
 
+        if ($tenant !== null) {
+            $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
+        }
+
         return new JsonResponse([
             'success'   => true,
             'documento' => [
@@ -208,6 +214,10 @@ final class PeticionarController extends AbstractController
             $doc = $this->salvarPecaTextoUseCase->executar($pasta, $secao, $conteudoHtml, $titulo, $categoria, $tenant);
         } catch (\InvalidArgumentException $e) {
             return new JsonResponse(['success' => false, 'error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($tenant !== null) {
+            $this->syncDispatcher->despachar($pasta, $currentUser, $tenant);
         }
 
         return new JsonResponse([
