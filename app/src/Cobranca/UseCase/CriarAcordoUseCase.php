@@ -12,6 +12,7 @@ use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
 use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
+use App\Cobranca\Exception\ObrigacaoNaoEhDividaOriginalException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
 use App\Cobranca\Exception\ParcelamentoInvalidoException;
 use App\Cobranca\Repository\AcordoRepository;
@@ -96,6 +97,16 @@ final class CriarAcordoUseCase
 
             if ($substitutoAtual !== null && $substitutoAtual->getStatus()->ehVigente()) {
                 throw new ObrigacaoJaSubstituidaException((int) $obrigacaoId);
+            }
+
+            // INV-I (ajuste 9): um acordo só substitui DÍVIDA ORIGINAL — parcela gerada por outro acordo
+            // nunca é substituível. Aceitá-la duplicaria a dívida no saldo assim que o acordo de origem
+            // fosse rompido/cancelado: a original que ele substituiu volta ao exigível E as parcelas do
+            // acordo novo continuam nele. Renegociar um acordo se faz rompendo-o primeiro (a original
+            // volta por derivação) e acordando sobre a original. Vale para acordo de origem em QUALQUER
+            // status: se rompido/cancelado, a parcela nem é exigível.
+            if ($obrigacao->getAcordoOrigem() !== null) {
+                throw new ObrigacaoNaoEhDividaOriginalException((int) $obrigacaoId);
             }
 
             // Marca (nunca apaga — invariável 14); já gerenciada, salvar sem flush por clareza.

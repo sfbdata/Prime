@@ -13,12 +13,14 @@ use App\Cobranca\DTO\ParcelaEdicaoInput;
 use App\Cobranca\DTO\RomperAcordoInput;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Enum\Periodicidade;
+use App\Cobranca\Exception\AcordoComParcelasRenegociadasException;
 use App\Cobranca\Exception\AcordoNaoAtivoException;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\ObrigacaoComPagamentoException;
 use App\Cobranca\Exception\ObrigacaoDeAcordoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
 use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
+use App\Cobranca\Exception\ObrigacaoNaoEhDividaOriginalException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
 use App\Cobranca\Exception\ParcelamentoInvalidoException;
 use App\Cobranca\Form\AcordoCriarType;
@@ -248,6 +250,13 @@ final class AcordoController extends AbstractController
 
         $input = new CriarAcordoInput();
         $input->casoId = $id;
+        // ASSIMETRIA PROPOSITAL (ajuste 9) — não "corrija" para `doCasoSubstituiveis`:
+        // o RENDER (`MontadorModaisCaso::deMutacao`) oferece só as substituíveis, mas o POST valida contra
+        // o conjunto MAIOR (exigíveis). Assim tudo que a tela ofereceu continua válido (substituíveis ⊂
+        // exigíveis), e uma parcela submetida por fora chega ao guard do UseCase, que a recusa com uma
+        // mensagem de domínio ("é parcela de um acordo... rompa o acordo atual primeiro") em vez do
+        // "valor inválido" cru do ChoiceType. É o que torna INV-L verificável: com as duas listas iguais o
+        // guard fica inalcançável e o catch abaixo vira código morto — não-testável e livre para apodrecer.
         $opcoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
         $form = $this->createForm(AcordoCriarType::class, $input, ['obrigacoes' => $opcoes]);
         $form->handleRequest($request);
@@ -256,7 +265,11 @@ final class AcordoController extends AbstractController
             try {
                 $this->criarAcordo->executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Acordo criado.');
-            } catch (CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | ObrigacaoJaSubstituidaException | ParcelamentoInvalidoException $e) {
+            } catch (CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | ObrigacaoJaSubstituidaException | ObrigacaoNaoEhDividaOriginalException | ParcelamentoInvalidoException $e) {
+                // `ObrigacaoNaoEhDividaOriginalException` = INV-I (acordo sobre acordo) e é ALCANÇÁVEL:
+                // as choices do POST são as exigíveis (ver comentário acima), então uma parcela submetida
+                // chega ao guard. Sem este catch, 500 — provado por mutação no
+                // AcordoSobreAcordoBloqueadoControllerTest, que exige a mensagem do guard no flash.
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
@@ -341,7 +354,9 @@ final class AcordoController extends AbstractController
             try {
                 $executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', $sucesso);
-            } catch (AcordoNaoAtivoException $e) {
+            } catch (AcordoNaoAtivoException | AcordoComParcelasRenegociadasException $e) {
+                // `AcordoComParcelasRenegociadasException` = ajuste 9: romper/cancelar acordo cujas parcelas
+                // outro acordo vigente renegociou duplicaria a dívida no saldo. Sem este catch, 500.
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {

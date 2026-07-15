@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Repository;
 
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
@@ -111,6 +112,58 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->setParameter('caso', $caso)
             ->setParameter('tenant', $caso->getTenant())
             ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
+            ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value])
+            ->orderBy('o.vencimentoOriginal', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Obrigações que um acordo NOVO pode substituir: só DÍVIDAS ORIGINAIS (ajuste 9, INV-I). É a lista que
+     * a tela de criar acordo oferece — NÃO é regra de saldo.
+     *
+     * Reusa `doCasoExigiveis` de propósito: os critérios de exigibilidade não podem divergir em dois
+     * lugares. Dentro do conjunto exigível, toda parcela é necessariamente de um acordo VIGENTE (garantia
+     * da cláusula `aorig.status IN (:vigentes)` acima), logo "excluir parcela de acordo vigente" equivale
+     * aqui a `acordoOrigem === null`.
+     *
+     * Por que existe: substituir a parcela de um acordo ainda vigente (acordo sobre acordo) duplica a
+     * dívida no saldo quando o acordo de origem é rompido/cancelado — a original volta ao exigível E as
+     * parcelas do acordo novo continuam nele. Renegociar um acordo se faz rompendo-o primeiro.
+     *
+     * @return list<Obrigacao>
+     */
+    public function doCasoSubstituiveis(CasoCobranca $caso): array
+    {
+        return array_values(array_filter(
+            $this->doCasoExigiveis($caso),
+            static fn (Obrigacao $obrigacao): bool => $obrigacao->getAcordoOrigem() === null,
+        ));
+    }
+
+    /**
+     * Parcelas DESTE acordo que um OUTRO acordo VIGENTE substituiu como dívida original — o estado
+     * "acordo sobre acordo" (ajuste 9 §2.1). Vazio = o acordo pode ser rompido/cancelado sem duplicar
+     * dívida no saldo.
+     *
+     * Existe porque romper/cancelar um acordo cujas parcelas outro acordo renegociou faz a dívida entrar
+     * DUAS vezes no exigível: as originais que este acordo substituiu voltam E as parcelas do acordo novo
+     * continuam. Com a criação bloqueada (INV-I) isto só ocorre em dado legado — é um alarme.
+     *
+     * Query única e tenant-scoped de propósito: iterar `Acordo::getParcelas()` custaria um lazy load da
+     * coleção + um do `acordoSubstituto` de cada parcela.
+     *
+     * @return list<Obrigacao>
+     */
+    public function parcelasRenegociadasPorAcordoVigente(Acordo $acordo): array
+    {
+        return $this->createQueryBuilder('o')
+            ->innerJoin('o.acordoSubstituto', 'asub')
+            ->andWhere('o.acordoOrigem = :acordo')
+            ->andWhere('o.tenant = :tenant')
+            ->andWhere('asub.status IN (:vigentes)')
+            ->setParameter('acordo', $acordo)
+            ->setParameter('tenant', $acordo->getTenant())
             ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value])
             ->orderBy('o.vencimentoOriginal', 'ASC')
             ->getQuery()

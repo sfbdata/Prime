@@ -7,9 +7,11 @@ namespace App\Cobranca\UseCase;
 use App\Cobranca\DTO\RomperAcordoInput;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Exception\AcordoComParcelasRenegociadasException;
 use App\Cobranca\Exception\AcordoNaoAtivoException;
 use App\Cobranca\Exception\AcordoNaoEncontradoException;
 use App\Cobranca\Repository\AcordoRepository;
+use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -26,6 +28,7 @@ final class RomperAcordoUseCase
 {
     public function __construct(
         private readonly AcordoRepository $acordoRepository,
+        private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly RegistrarEventoHistorico $registrarEvento,
     ) {
     }
@@ -42,6 +45,18 @@ final class RomperAcordoUseCase
         // Só um acordo ativo transiciona de estado (SPEC §12).
         if (!$acordo->estaAtivo()) {
             throw new AcordoNaoAtivoException((int) $acordo->getId(), $acordo->getStatus());
+        }
+
+        // Ajuste 9 §2.1: romper com parcelas que outro acordo vigente renegociou DUPLICARIA a dívida no
+        // saldo — as originais que este acordo substituiu voltam ao exigível E as parcelas do acordo novo
+        // continuam nele. A criação desse estado está bloqueada (INV-I), então isto só alcança dado legado.
+        $renegociadas = $this->obrigacaoRepository->parcelasRenegociadasPorAcordoVigente($acordo);
+
+        if ($renegociadas !== []) {
+            throw new AcordoComParcelasRenegociadasException(
+                (int) $acordo->getId(),
+                (int) $renegociadas[0]->getAcordoSubstituto()?->getId(),
+            );
         }
 
         $motivo = trim((string) $input->motivo);

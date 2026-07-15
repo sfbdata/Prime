@@ -238,9 +238,21 @@
                 {{ form_row(forms.acordoCriar.dataAcordo) }}
                 <div class="mb-3">
                     <label class="form-label">Obrigações substituídas</label>
-                    {{ form_widget(forms.acordoCriar.obrigacoesSubstituidasIds) }}
-                    {{ form_errors(forms.acordoCriar.obrigacoesSubstituidasIds) }}
-                    <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Total selecionado: <strong data-acordo-total-selecionado>R$ 0,00</strong>.</div>
+                    {# Ajuste 9 (INV-I): só DÍVIDA ORIGINAL é oferecida — parcela de acordo vigente não pode ser
+                       renegociada aqui. Lista vazia significa que tudo já está dentro de um acordo: sem este
+                       aviso o gestor veria um espaço em branco sem explicação. #}
+                    {% if forms.acordoCriar.obrigacoesSubstituidasIds.vars.choices is empty %}
+                        <div class="alert alert-warning py-2 mb-0 small" role="alert">
+                            <i class="bi bi-info-circle me-1"></i>Não há dívidas disponíveis para acordo neste caso.
+                            Se já existe um acordo vigente, rompa-o primeiro: as dívidas originais voltam ao saldo
+                            e poderão ser acordadas de novo.
+                        </div>
+                    {% else %}
+                        {{ form_widget(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+                        {{ form_errors(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+                        <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Total selecionado: <strong data-acordo-total-selecionado>R$ 0,00</strong>.</div>
+                        <div class="form-text">Só dívidas originais podem ser acordadas. Parcelas de um acordo vigente não aparecem aqui — para refazer um acordo, rompa o atual primeiro.</div>
+                    {% endif %}
                 </div>
                 <hr>
                 {# ── Gerador de parcelamento (Ajuste 7) ── #}

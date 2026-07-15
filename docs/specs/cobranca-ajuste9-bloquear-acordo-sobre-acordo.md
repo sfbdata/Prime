@@ -97,39 +97,72 @@ Filtro: `array_values(array_filter($this->doCasoExigiveis($caso), fn (Obrigacao 
 // INV-I: acordo só substitui DÍVIDA ORIGINAL. Parcela gerada por outro acordo nunca é substituível —
 // substituí-la duplicaria a dívida no saldo quando o acordo de origem fosse rompido/cancelado (§2.1).
 if ($obrigacao->getAcordoOrigem() !== null) {
-    throw new ObrigacaoDeAcordoException($obrigacaoId);
+    throw new ObrigacaoNaoEhDividaOriginalException($obrigacaoId);
 }
 ```
 
-Reusa `ObrigacaoDeAcordoException` (já existe; mesma semântica do guard da Fatia 4).
-
-> **⚠️ ARMADILHA CONHECIDA (regressão já cometida no item 7):** `AcordoController.php:259` é o `catch` da
-> **criação** e **hoje NÃO captura `ObrigacaoDeAcordoException`** — quem captura é o `:156`, que é outra
-> ação. Sem adicionar a exception ao catch do `:259`, o guard vira **500**. **Guard novo exige teste
-> FUNCTIONAL do caminho HTTP** — unit não vê o `catch`.
+> **CORREÇÃO PÓS-REVISÃO (achado MÉDIO).** A spec previa reusar `ObrigacaoDeAcordoException`. **Errado:**
+> aquela exception diz *"participa de um acordo **vigente**"* e é usada em 4 pontos com essa semântica,
+> mas este guard recusa parcela de acordo em **qualquer** status — para a de acordo rompido a mensagem
+> seria uma mentira ao gestor, contradizendo o próprio docblock da classe. Exception nova e específica:
+> `ObrigacaoNaoEhDividaOriginalException`, que ainda aponta o caminho ("rompa o acordo atual primeiro").
 
 Cobertura extra de graça: a condição `getAcordoOrigem() !== null` também fecha um furo pré-existente — hoje
 é possível passar o id de uma parcela de acordo **rompido** (não exigível) e o UseCase aceita.
+
+> **⚠️ ARMADILHA CONHECIDA (regressão já cometida no item 7):** o `catch` da criação em `AcordoController`
+> não captura a exception nova. Sem adicioná-la, o guard vira **500** — **reproduzido de verdade** durante
+> a implementação (`'statusCode' => 500`). **Guard novo exige teste FUNCTIONAL do caminho HTTP** — unit não
+> vê o `catch`.
+
+### 5.1.1 A assimetria das choices (render ⊂ POST) — CORREÇÃO PÓS-REVISÃO, não "consertar"
+
+A revisão achou um **BLOQUEANTE de prova**: com as choices do POST filtradas por `doCasoSubstituiveis`
+(como o §6 previa), o ChoiceType barra a parcela **antes** do UseCase, e:
+- o guard e o `catch` ficam **inalcançáveis pelo form** → INV-L deixa de ser verificável;
+- o teste functional passava **pelo motivo errado** (form inválido também dá 302 para a mesma URL, sem
+  criar acordo) — confirmado por mutação: removendo a exception do catch, o teste **seguia verde**;
+- pior, na prática: o `catch` foi escrito **sem o `use`** da exception nova, resolveria para o namespace do
+  Controller e **nunca capturaria** — e os 539 testes passaram assim mesmo, porque nada alcançava o catch.
+  Prova viva de que seguro inalcançável não é seguro: é código morto que apodrece sem ninguém ver.
+
+**Resolução:** o **render** (`MontadorModaisCaso::deMutacao`) oferece só as substituíveis (D3 — a parcela
+não aparece), mas o **POST** (`AcordoController::criar`) valida contra as **exigíveis** (conjunto maior).
+Como substituíveis ⊂ exigíveis, tudo que a tela ofereceu segue válido; uma parcela submetida por fora chega
+ao guard e recebe a **mensagem de domínio** em vez do "valor inválido" cru do ChoiceType.
+
+**As duas listas NÃO devem ser igualadas.** Igualá-las restaura o bloqueante acima.
 
 ### 5.2 Romper e cancelar (o alarme — D4)
 
 `RomperAcordoUseCase` e `CancelarAcordoUseCase`, após o guard `estaAtivo()`: recusar enquanto um acordo
 vigente guardar parcelas deste acordo como dívida original.
 
-Predicado compartilhado na entidade (evita duplicar a regra nos dois UseCases):
+> **DESVIO DO DESENHO ORIGINAL (decidido na implementação, 2026-07-15).** A spec previa um predicado na
+> entidade (`Acordo::parcelaRenegociadaPorAcordoVigente(): ?Acordo`) iterando `getParcelas()`. **Descartado
+> na implementação por três motivos verificados no código:** (1) `Obrigacao::setAcordoOrigem` NÃO sincroniza
+> o lado inverso e `Acordo` não tem `addParcela` — a coleção sai vazia em unit test, tornando o predicado
+> não-testável sem lazy loading; (2) em produção custaria um lazy load da coleção + um do `acordoSubstituto`
+> de CADA parcela (N+1); (3) a query explícita é tenant-scoped por construção.
+
+Método de repositório (query única, mockável no unit test):
 
 ```php
-// Acordo.php
+// ObrigacaoRepository
 /**
- * O acordo VIGENTE que renegociou alguma parcela deste acordo (estado do ajuste 9 §2.1), ou null.
- * Com a criação bloqueada (INV-I) isto só ocorre em dado legado — é um alarme, não um caminho normal.
+ * Parcelas DESTE acordo que um OUTRO acordo VIGENTE substituiu como dívida original (§2.1).
+ * Vazio = o acordo pode ser rompido/cancelado sem duplicar dívida no saldo.
+ *
+ * @return list<Obrigacao>
  */
-public function parcelaRenegociadaPorAcordoVigente(): ?Acordo
+public function parcelasRenegociadasPorAcordoVigente(Acordo $acordo): array
 ```
 
-Nova exception `AcordoComParcelasRenegociadasException` (mensagem aponta o caminho: cancele/rompa o
-acordo #B primeiro). Catches em `AcordoController.php:312` (romper) e `:344` (cancelar) — hoje capturam
-só `AcordoNaoAtivoException`. **Mesma armadilha do §5.1: sem o catch, 500.**
+Os dois UseCases ganham `ObrigacaoRepository` no construtor e recusam quando o retorno não é vazio.
+
+Nova exception `AcordoComParcelasRenegociadasException` (mensagem aponta o caminho: desfaça o acordo #B
+primeiro). Catch no helper `mutarAcordoComMotivo` do `AcordoController` — o ponto único por onde romper e
+cancelar passam; hoje captura só `AcordoNaoAtivoException`. **Mesma armadilha do §5.1: sem o catch, 500.**
 
 ## 6. Peça 3 — o que a tela oferece (cirúrgico) + UX
 
@@ -138,10 +171,10 @@ pagamento. O filtro vai na **lista passada ao form de acordo**, nunca no helper.
 
 | Ponto | Ação | Motivo |
 |---|---|---|
-| `MontadorModaisCaso.php:57` | → `doCasoSubstituiveis` | `$exigiveis` ali só alimenta `acordoCriar` (`:72`) |
-| `AcordoController.php:251` | → `doCasoSubstituiveis` | re-render do form de acordo em erro |
-| `MontadorModaisCaso.php:97` | **NÃO TOCAR** | pagamento — parcela deve continuar pagável (D5) |
-| `PagamentoController.php:75` e `:178` | **NÃO TOCAR** | idem |
+| `MontadorModaisCaso::deMutacao` | → `doCasoSubstituiveis` | é o RENDER: a parcela não aparece na tela (D3). `$substituiveis` ali só alimenta `acordoCriar` |
+| `AcordoController::criar` | **mantém `doCasoExigiveis`** | é o POST: conjunto MAIOR de propósito, para o guard ser alcançável — ver §5.1.1 |
+| `MontadorModaisCaso::financeiros` | **NÃO TOCAR** | pagamento — parcela deve continuar pagável (D5) |
+| `PagamentoController` (registrar e corrigir) | **NÃO TOCAR** | idem |
 
 UX (D3), em `templates/cobranca/caso/_acoes_modais.html.twig:238-244`: texto de ajuda explicando que
 parcelas de acordos vigentes não são renegociáveis ali e que o caminho é romper o acordo atual primeiro.
@@ -160,12 +193,21 @@ GROUP BY a.id, a.status;
 
 Zero linhas = o estado não existe. Dev: **0 linhas** (verificado 2026-07-15).
 
-## 8. Fora de escopo (follow-up registrado)
+## 8. Fora de escopo (follow-ups registrados)
 
-`MontarDetalheAcordoUseCase.php:45-59` — o detalhe do acordo A itera `getParcelas()` e conta **todas**,
-inclusive as que saíram do saldo por substituição; `ParcelaAcordoResumoOutput` não tem flag de substituída.
-O item 8 corrigiu esse inflacionamento na **aba do caso** (`MontarDetalheCasoUseCase::agruparPorAcordo`),
-mas a **tela do acordo** ficou. Depois deste ajuste só afeta dado legado. Não ampliar o escopo agora.
+1. `MontarDetalheAcordoUseCase.php:45-59` — o detalhe do acordo A itera `getParcelas()` e conta **todas**,
+   inclusive as que saíram do saldo por substituição; `ParcelaAcordoResumoOutput` não tem flag de
+   substituída. O item 8 corrigiu esse inflacionamento na **aba do caso**
+   (`MontarDetalheCasoUseCase::agruparPorAcordo`), mas a **tela do acordo** ficou. Depois deste ajuste só
+   afeta dado legado. Não ampliar o escopo agora.
+2. **Obrigação quitada segue sendo oferecida como substituível** — `doCasoExigiveis` não filtra por
+   pagamento, então uma dívida original 100% paga aparece na lista de acordo. **Pré-existente**, não
+   introduzido aqui (registrado para não virar folclore).
+3. **Dívidas aceitas conscientemente na revisão** (parecer do `feature-review-agent`, 2026-07-15):
+   `parcelasRenegociadasPorAcordoVigente` não filtra `asub.tenant` — o lado lido já é escopado por
+   `o.tenant` + `o.acordoOrigem = :acordo` (que veio de `findOneByIdDoTenant`), e o efeito de um `asub`
+   cross-tenant seria **fail-safe** (recusar romper), nunca vazamento; e o botão de submit continua ativo
+   com a lista vazia (`Count(min:1)` dá mensagem clara). Ambos cosméticos/teóricos.
 
 ## 9. Autorização, multi-tenancy, CSRF (inegociável)
 
@@ -183,16 +225,24 @@ nenhuma capacidade nova, nenhum form novo. `doCasoSubstituiveis` herda o filtro 
 | INV-L | Nenhum guard novo produz 500: todo `throw` tem `catch` no caminho HTTP correspondente, **provado por teste functional**. |
 | INV-M | Nenhuma mudança de schema; nenhuma migration. |
 
-## 11. Testes (contrato protegido)
+## 11. Testes (contrato protegido) — ENTREGUE
 
-- **Repo (DB-backed):** `doCasoSubstituiveis` devolve originais e **omite** parcela de acordo vigente;
-  consistência com `doCasoExigiveis` (substituíveis ⊆ exigíveis).
-- **Unit `CriarAcordoUseCase`:** parcela de acordo vigente → `ObrigacaoDeAcordoException`; dívida original
-  → segue o fluxo. Parcela de acordo **rompido** → também recusada (§5.1).
-- **Functional (INV-L):** POST de criar acordo com parcela → **erro amigável, não 500**.
-- **Unit + functional** dos guards de romper e cancelar.
-- **Não-regressão (INV-K):** o modal de pagamento **ainda** oferece parcela de acordo vigente.
-- **Não-regressão (INV-J):** os testes de saldo existentes seguem verdes sem alteração.
+`tests/Cobranca` **539/539** (eram 522); suíte global **1854/1854**.
+
+| Arquivo | O que prova |
+|---|---|
+| `Functional/ObrigacoesSubstituiveisRepositoryTest` (5) | DB real: `doCasoSubstituiveis` só devolve originais; **INV-J** (`doCasoExigiveis` segue devolvendo as parcelas); substituíveis ⊆ exigíveis; `parcelasRenegociadasPorAcordoVigente` detecta o estado e ignora renegociador não-vigente |
+| `Unit/CriarAcordoUseCaseTest` (+2) | **INV-I**: parcela de acordo vigente **e** de acordo rompido → `ObrigacaoNaoEhDividaOriginalException`, sem nenhum efeito |
+| `Unit/RomperAcordoUseCaseTest` (+2) e `Unit/CancelarAcordoUseCaseTest` (+2) | guard recusa e o acordo **não muda de status**; sem parcelas renegociadas, rompe/cancela normal |
+| `Functional/AcordoSobreAcordoBloqueadoControllerTest` (6) | **INV-L** pelo HTTP real (criar, romper e cancelar): erro amigável, não 500; parcela não é oferecida na tela; **INV-K** (pagar parcela de acordo vigente ainda funciona); **D3** (aviso no lugar da lista vazia) |
+
+**Provas por execução, não por leitura** (o resto é relato — e relato foi exatamente o que a revisão derrubou):
+- O 500 do §5.1 **foi reproduzido** (`'statusCode' => 500`) — a armadilha era real.
+- **Criar, provado por mutação DUPLA** (só passou a valer depois da correção do §5.1.1): removendo o
+  `catch` → 500 → teste falha; desligando o guard → acordo criado e flash some → teste falha. O teste exige
+  a **mensagem do guard** no flash; sem isso passaria pelo motivo errado, que foi o bloqueante da revisão.
+- **Romper, provado por mutação:** desligando o `if`, o acordo vira `Rompido` e o teste falha.
+- **Cancelar:** functional próprio — não presumir que "compartilha o catch do romper".
 
 ## 12. Fatiamento
 

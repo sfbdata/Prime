@@ -54,9 +54,13 @@ final class MontadorModaisCaso
      */
     public function deMutacao(CasoCobranca $caso, bool $incluirJudicializar = false): array
     {
-        $exigiveis = $this->obrigacaoRepository->doCasoExigiveis($caso);
-        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($exigiveis);
-        $valoresObrigacoes = AcordoCriarType::valoresObrigacoes($exigiveis);
+        // INV-I (ajuste 9): o form de acordo só oferece DÍVIDA ORIGINAL. Parcela de acordo vigente fica de
+        // fora — acordo sobre acordo duplicaria a dívida no saldo ao romper o acordo de origem. NÃO é a
+        // lista do saldo nem a do pagamento (essa, em `financeiros()`, segue usando `doCasoExigiveis`:
+        // pagar parcela de acordo vigente é o fluxo normal).
+        $substituiveis = $this->obrigacaoRepository->doCasoSubstituiveis($caso);
+        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($substituiveis);
+        $valoresObrigacoes = AcordoCriarType::valoresObrigacoes($substituiveis);
 
         // O modal de contato abre com data/hora pré-preenchidas com "agora" (editável pelo gestor).
         $contatoAgora = new RegistrarTentativaCobrancaInput();
