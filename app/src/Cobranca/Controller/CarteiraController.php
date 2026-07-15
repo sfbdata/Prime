@@ -5,30 +5,20 @@ declare(strict_types=1);
 namespace App\Cobranca\Controller;
 
 use App\Cliente\Repository\ClienteRepository;
-use App\Cobranca\DTO\AbrirCasoInput;
 use App\Cobranca\DTO\CriarCarteiraInput;
 use App\Cobranca\DTO\CriarObjetoInput;
 use App\Cobranca\DTO\EditarConfiguracaoCarteiraInput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
-use App\Cobranca\Exception\CasoAtivoJaExisteException;
 use App\Cobranca\Exception\ClienteCredorNaoEncontradoException;
-use App\Cobranca\Exception\ObjetoNaoEncontradoException;
-use App\Cobranca\Exception\PessoaNaoEncontradaException;
-use App\Cobranca\Form\AbrirCasoType;
+use App\Cobranca\Enum\FormaHonorarios;
+use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Form\CriarCarteiraType;
 use App\Cobranca\Form\CriarObjetoType;
-use App\Cobranca\Form\CriarPessoaType;
 use App\Cobranca\Form\EditarConfiguracaoCarteiraType;
-use App\Cobranca\Form\EncerrarVinculoType;
-use App\Cobranca\Form\VincularPessoaAObjetoType;
 use App\Cobranca\Repository\CarteiraRepository;
-use App\Cobranca\Repository\ObjetoCobrancaRepository;
-use App\Cobranca\Repository\PessoaRepository;
-use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
-use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CriarCarteiraUseCase;
-use App\Cobranca\UseCase\CriarObjetoUseCase;
+use App\Cobranca\UseCase\CriarObjetoComCobrancaUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoCarteiraUseCase;
 use App\Cobranca\UseCase\ListarCarteirasUseCase;
 use App\Cobranca\UseCase\MontarVisaoCarteiraUseCase;
@@ -59,16 +49,12 @@ final class CarteiraController extends AbstractController
         private readonly PermissionChecker $permissionChecker,
         private readonly TenantContext $tenantContext,
         private readonly CarteiraRepository $carteiraRepository,
-        private readonly ObjetoCobrancaRepository $objetoRepository,
-        private readonly VinculoPessoaObjetoRepository $vinculoRepository,
-        private readonly PessoaRepository $pessoaRepository,
         private readonly ClienteRepository $clienteRepository,
         private readonly ListarCarteirasUseCase $listarCarteiras,
         private readonly MontarVisaoCarteiraUseCase $montarVisaoCarteira,
         private readonly CriarCarteiraUseCase $criarCarteira,
         private readonly EditarConfiguracaoCarteiraUseCase $editarConfiguracao,
-        private readonly CriarObjetoUseCase $criarObjeto,
-        private readonly AbrirCasoUseCase $abrirCaso,
+        private readonly CriarObjetoComCobrancaUseCase $criarObjeto,
     ) {
     }
 
@@ -109,6 +95,7 @@ final class CarteiraController extends AbstractController
         $dados['formCriarCarteira'] = $podeGerenciarCarteira
             ? $this->createForm(CriarCarteiraType::class, null, ['clientes' => $this->clienteRepository->opcoesDoTenant($tenant)])->createView()
             : null;
+        $dados['ajudaCarteira'] = self::ajudaDosCampos();
 
         return $this->render('cobranca/carteira/index.html.twig', $dados);
     }
@@ -131,8 +118,8 @@ final class CarteiraController extends AbstractController
         return $this->render('cobranca/carteira/show.html.twig', [
             'carteira' => $visao['carteira'],
             'casos' => $visao['casos'],
-            'objetos' => $this->objetosDaCarteira($carteira, $tenant),
             'forms' => $this->formulariosDaCarteira($carteira, $tenant),
+            'ajudaCarteira' => self::ajudaDosCampos(),
         ]);
     }
 
@@ -214,8 +201,11 @@ final class CarteiraController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $this->criarObjeto->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Objeto criado.');
+                $objeto = $this->criarObjeto->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Objeto criado — cobrança iniciada.');
+
+                // Ajuste 2: criar o objeto já cria a cobrança; cai direto na página do objeto.
+                return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objeto->getId()]);
             } catch (CarteiraNaoEncontradaException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
@@ -226,89 +216,32 @@ final class CarteiraController extends AbstractController
         return $this->redirectToRoute('cobranca_carteira_show', ['id' => $id]);
     }
 
-    #[Route('/objetos/{id}/casos', name: 'cobranca_caso_abrir', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function abrir(int $id, Request $request): Response
-    {
-        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
-        if ($tenant === null) {
-            return $this->semAcesso();
-        }
-
-        $objeto = $this->objetoRepository->findOneByIdDoTenant($id, $tenant);
-        if ($objeto === null) {
-            throw $this->createNotFoundException('Objeto de cobrança não encontrado.');
-        }
-        $carteiraId = $objeto->getCarteira()?->getId();
-
-        $input = new AbrirCasoInput();
-        $input->objetoId = $id;
-        $form = $this->createForm(AbrirCasoType::class, $input, ['pessoas' => $this->pessoaRepository->opcoesDoTenant($tenant)]);
-        $form->handleRequest($request);
-
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $caso = $this->abrirCaso->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Caso aberto.');
-
-                return $this->redirectToRoute('cobranca_caso_show', ['id' => $caso->getId()]);
-            } catch (ObjetoNaoEncontradoException | PessoaNaoEncontradaException | CasoAtivoJaExisteException $e) {
-                $this->addFlash('danger', $e->getMessage());
-            }
-        } else {
-            $this->flashErrosDoForm($form);
-        }
-
-        return $this->redirectToRoute('cobranca_carteira_show', ['id' => $carteiraId]);
-    }
 
     /**
-     * Objetos da carteira (+ vínculos abertos) já mapeados em arrays simples para o Twig — sem expor
-     * entidades Doctrine. Leitura escopada ao tenant (defesa em profundidade). Vínculos abertos vêm em
-     * uma única query (IN nos objetos) para não gerar N+1.
+     * Texto de ajuda (popover) dos campos de configuração da carteira, a partir dos enums (fonte única).
+     * Consumido pelo partial `_campos_config.html.twig` nos modais de criar e editar.
      *
-     * @return list<array{id: int, identificacao: string, descricao: ?string, vinculos: list<array{id: int, pessoaNome: string, tipoLabel: string}>}>
+     * @return array{modo: list<array{label: string, descricao: string}>, honorarios: list<array{label: string, descricao: string}>}
      */
-    private function objetosDaCarteira(Carteira $carteira, Tenant $tenant): array
+    private static function ajudaDosCampos(): array
     {
-        $objetos = $this->objetoRepository->findBy(
-            ['carteira' => $carteira, 'tenant' => $tenant],
-            ['identificacao' => 'ASC'],
-        );
-
-        $vinculosPorObjeto = [];
-        if ($objetos !== []) {
-            $vinculosAbertos = $this->vinculoRepository->abertosDosObjetosComPessoa($objetos, $tenant);
-            foreach ($vinculosAbertos as $vinculo) {
-                $objetoId = $vinculo->getObjeto()?->getId();
-                if ($objetoId === null) {
-                    continue;
-                }
-                $vinculosPorObjeto[$objetoId][] = [
-                    'id' => (int) $vinculo->getId(),
-                    'pessoaNome' => $vinculo->getPessoa()?->getNome() ?? '—',
-                    'tipoLabel' => $vinculo->getTipoVinculo()->label(),
-                ];
-            }
+        $modo = [];
+        foreach (ModoCarteira::cases() as $caso) {
+            $modo[] = ['label' => $caso->label(), 'descricao' => $caso->descricao()];
         }
 
-        $lista = [];
-        foreach ($objetos as $objeto) {
-            $objetoId = (int) $objeto->getId();
-            $lista[] = [
-                'id' => $objetoId,
-                'identificacao' => $objeto->getIdentificacao(),
-                'descricao' => $objeto->getDescricao(),
-                'vinculos' => $vinculosPorObjeto[$objetoId] ?? [],
-            ];
+        $honorarios = [];
+        foreach (FormaHonorarios::cases() as $caso) {
+            $honorarios[] = ['label' => $caso->label(), 'descricao' => $caso->descricao()];
         }
 
-        return $lista;
+        return ['modo' => $modo, 'honorarios' => $honorarios];
     }
 
     /**
-     * Views dos formulários de mutação da carteira (modais no detalhe). Cada form só é montado se o
-     * usuário tiver a capacidade correspondente — o mesmo gate que esconde os modais no Twig. Config
-     * exige `resources.carteira.gerenciar`; objeto/vínculo/abrir-caso exigem `resources.cobranca.gerenciar`.
+     * Views dos formulários de mutação da carteira (modais). Config exige `resources.carteira.gerenciar`;
+     * "Novo objeto" exige `resources.cobranca.gerenciar`. Vínculos e pessoas passaram a ser geridos DENTRO
+     * do objeto (ajuste 2 — página unificada), não mais na carteira.
      *
      * @return array<string, \Symfony\Component\Form\FormView>
      */
@@ -334,12 +267,7 @@ final class CarteiraController extends AbstractController
         }
 
         if ($podeGerenciarCobranca) {
-            $pessoas = $this->pessoaRepository->opcoesDoTenant($tenant);
             $forms['criarObjeto'] = $this->createForm(CriarObjetoType::class)->createView();
-            $forms['criarPessoa'] = $this->createForm(CriarPessoaType::class)->createView();
-            $forms['vincularPessoa'] = $this->createForm(VincularPessoaAObjetoType::class, null, ['pessoas' => $pessoas])->createView();
-            $forms['encerrarVinculo'] = $this->createForm(EncerrarVinculoType::class)->createView();
-            $forms['abrirCaso'] = $this->createForm(AbrirCasoType::class, null, ['pessoas' => $pessoas])->createView();
         }
 
         return $forms;

@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Cobranca\Controller;
 
 use App\Cobranca\DTO\CorrigirPagamentoInput;
+use App\Cobranca\DTO\LinhaAlocacaoFifo;
+use App\Cobranca\DTO\PreviaAlocacaoFifo;
 use App\Cobranca\DTO\RegistrarPagamentoInput;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
+use App\Cobranca\Exception\PagamentoExcedeSaldoException;
 use App\Cobranca\Exception\PagamentoInconsistenteException;
 use App\Cobranca\Exception\PagamentoNaoEncontradoException;
 use App\Cobranca\Form\AcordoCriarType;
@@ -18,6 +21,7 @@ use App\Cobranca\Form\RegistrarPagamentoType;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
+use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\UseCase\CorrigirPagamentoUseCase;
 use App\Cobranca\UseCase\RegistrarPagamentoUseCase;
 use App\Service\PermissionChecker;
@@ -32,8 +36,8 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Mutações financeiras de Pagamento do Caso (Onda 8B-D): registrar e corrigir. Controller FINO — gate
  * módulo + capacidade `resources.cobranca.movimentacao_financeira`, resolução tenant-safe (anti-IDOR →
  * 404), Form → UseCase, PRG sempre. As obrigações das alocações são escopadas ao caso (mesmo padrão do
- * acordo). Alocação MANUAL explícita; erros de domínio (caso encerrado, obrigação de outro caso,
- * pagamento inconsistente) viram flash.
+ * acordo). Distribuição AUTOMÁTICA por FIFO por padrão, manual sob demanda (Ajuste 6); erros de
+ * domínio (caso encerrado, obrigação de outro caso, pagamento inconsistente, excede o saldo) viram flash.
  */
 #[Route('/cobrancas')]
 #[IsGranted('ROLE_USER')]
@@ -49,6 +53,7 @@ final class PagamentoController extends AbstractController
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly RegistrarPagamentoUseCase $registrarPagamento,
         private readonly CorrigirPagamentoUseCase $corrigirPagamento,
+        private readonly AutoAlocadorFifo $autoAlocadorFifo,
     ) {
     }
 
@@ -75,14 +80,78 @@ final class PagamentoController extends AbstractController
             try {
                 $this->registrarPagamento->executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Pagamento registrado.');
-            } catch (CasoNaoEncontradoException | CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | PagamentoInconsistenteException $e) {
+            } catch (CasoNaoEncontradoException | CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | PagamentoInconsistenteException | PagamentoExcedeSaldoException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
+    }
+
+    /**
+     * Prévia ao vivo da divisão dívida/honorários + quebra FIFO de um pagamento a REGISTRAR (Ajuste 6).
+     * GET read-only (sem CSRF); mesma regra de centavos do submit (fonte única). `valor` em centavos.
+     */
+    #[Route('/casos/{id}/pagamento-previa', name: 'cobranca_pagamento_previa', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function previaRegistrar(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.movimentacao_financeira');
+        if ($tenant === null) {
+            return $this->json(['erro' => 'Sem acesso.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $caso = $this->casoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($caso === null) {
+            throw $this->createNotFoundException('Caso de cobrança não encontrado.');
+        }
+
+        return $this->json($this->serializarPrevia(
+            $this->autoAlocadorFifo->derivar($caso, max(0, $request->query->getInt('valor')), $tenant),
+        ));
+    }
+
+    /**
+     * Prévia ao vivo para a CORREÇÃO de um pagamento (Ajuste 6): exclui as alocações do próprio
+     * pagamento da sala (igual ao submit). GET read-only; `valor` em centavos.
+     */
+    #[Route('/pagamentos/{id}/pagamento-previa', name: 'cobranca_pagamento_previa_corrigir', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function previaCorrigir(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.movimentacao_financeira');
+        if ($tenant === null) {
+            return $this->json(['erro' => 'Sem acesso.'], Response::HTTP_FORBIDDEN);
+        }
+
+        $pagamento = $this->pagamentoRepository->findOneByIdDoTenant($id, $tenant);
+        $caso = $pagamento?->getCaso();
+        if ($pagamento === null || $caso === null) {
+            throw $this->createNotFoundException('Pagamento não encontrado.');
+        }
+
+        return $this->json($this->serializarPrevia(
+            $this->autoAlocadorFifo->derivar($caso, max(0, $request->query->getInt('valor')), $tenant, $pagamento),
+        ));
+    }
+
+    /** @return array<string, mixed> */
+    private function serializarPrevia(PreviaAlocacaoFifo $previa): array
+    {
+        return [
+            'valorPago' => $previa->valorPago,
+            'divida' => $previa->valorDivida,
+            'honorarios' => $previa->valorHonorarios,
+            'saldoDisponivel' => $previa->saldoDisponivel,
+            'excede' => $previa->excede,
+            'excedeEm' => $previa->excedeEm,
+            'alocacoes' => array_map(static fn (LinhaAlocacaoFifo $l): array => [
+                'obrigacaoId' => $l->obrigacaoId,
+                'descricao' => $l->descricao,
+                'vencimento' => $l->vencimento->format('Y-m-d'),
+                'valor' => $l->valor,
+            ], $previa->linhas),
+        ];
     }
 
     #[Route('/pagamentos/{id}/corrigir', name: 'cobranca_pagamento_corrigir', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -102,7 +171,7 @@ final class PagamentoController extends AbstractController
         if ($caso === null) {
             throw $this->createNotFoundException('Pagamento sem caso associado.');
         }
-        $casoId = $caso->getId();
+        $objetoId = $this->objetoIdDoCaso($caso);
 
         $input = new CorrigirPagamentoInput();
         $input->pagamentoId = $id;
@@ -114,13 +183,13 @@ final class PagamentoController extends AbstractController
             try {
                 $this->corrigirPagamento->executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Pagamento corrigido.');
-            } catch (PagamentoNaoEncontradoException | CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | PagamentoInconsistenteException $e) {
+            } catch (PagamentoNaoEncontradoException | CasoEncerradoException | ObrigacaoNaoEncontradaException | ObrigacaoDeOutroCasoException | PagamentoInconsistenteException | PagamentoExcedeSaldoException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
     }
 }

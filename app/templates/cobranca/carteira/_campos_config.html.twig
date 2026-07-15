@@ -1,0 +1,48 @@
+{# Campos de configuração da carteira, compartilhados pelos modais de CRIAR (index) e EDITAR (_acoes_modais).
+   Espera no contexto: `form` (view do form) e `ajudaCarteira` (mapa {modo, honorarios} -> [{label, descricao}]).
+   Modo e Forma de honorários ganham ícone "?" com popover no hover (init em cobranca-carteira-form.js).
+   O percentual usa input-group com sufixo "%" e é ocultado por JS quando a forma é "sem percentual". #}
+
+{%- set modoConteudo = '' -%}
+{%- for op in ajudaCarteira.modo -%}{%- set modoConteudo = modoConteudo ~ '<strong>' ~ op.label ~ '</strong>: ' ~ op.descricao ~ (loop.last ? '' : '<br><br>') -%}{%- endfor -%}
+{%- set honorariosConteudo = '' -%}
+{%- for op in ajudaCarteira.honorarios -%}{%- set honorariosConteudo = honorariosConteudo ~ '<strong>' ~ op.label ~ '</strong>: ' ~ op.descricao ~ (loop.last ? '' : '<br><br>') -%}{%- endfor -%}
+
+{{ form_errors(form) }}
+
+<div class="mb-3">
+    <label class="form-label" for="{{ form.modo.vars.id }}">
+        {{ form.modo.vars.label }}
+        <a href="#" class="text-muted ms-1 cobranca-ajuda" role="button" tabindex="0" onclick="return false;"
+           data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-html="true"
+           data-bs-title="Modo de operação" data-bs-content="{{ modoConteudo|e('html_attr') }}"
+           aria-label="Ajuda sobre o modo de operação"><i class="bi bi-question-circle"></i></a>
+    </label>
+    {{ form_widget(form.modo) }}
+    {{ form_errors(form.modo) }}
+</div>
+
+<div class="mb-3">
+    <label class="form-label" for="{{ form.formaHonorarios.vars.id }}">
+        {{ form.formaHonorarios.vars.label }}
+        <a href="#" class="text-muted ms-1 cobranca-ajuda" role="button" tabindex="0" onclick="return false;"
+           data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-html="true"
+           data-bs-title="Forma de honorários" data-bs-content="{{ honorariosConteudo|e('html_attr') }}"
+           aria-label="Ajuda sobre a forma de honorários"><i class="bi bi-question-circle"></i></a>
+    </label>
+    {{ form_widget(form.formaHonorarios, {attr: {'data-forma-honorarios': '1'}}) }}
+    {{ form_errors(form.formaHonorarios) }}
+</div>
+
+<div class="mb-3" data-percentual-wrapper>
+    <label class="form-label" for="{{ form.percentualHonorarios.vars.id }}">{{ form.percentualHonorarios.vars.label }}</label>
+    <div class="input-group">
+        {{ form_widget(form.percentualHonorarios) }}
+        <span class="input-group-text">%</span>
+    </div>
+    {{ form_errors(form.percentualHonorarios) }}
+</div>
+
+{{ form_row(form.toleranciaAtrasoDias) }}
+{{ form_row(form.tipoVinculoPreferido) }}
+{{ form_row(form.rotuloObjeto) }}

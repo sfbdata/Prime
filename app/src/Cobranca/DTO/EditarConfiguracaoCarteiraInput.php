@@ -25,10 +25,10 @@ final class EditarConfiguracaoCarteiraInput
 
     public FormaHonorarios $formaHonorarios = FormaHonorarios::SemPercentual;
 
-    /** Percentual padrão (ex.: "10.00"); casa com o decimal(5,2) da entidade — até 3 inteiros e 2 casas. */
+    /** Percentual padrão (formato "ponto", ex.: "10.50"); casa com o decimal(5,2) — até 3 inteiros e 2 casas. */
     #[Assert\Regex(
         pattern: '/^\d{1,3}(\.\d{1,2})?$/',
-        message: 'O percentual de honorários deve ser um decimal válido (ex.: 10.00).',
+        message: 'O percentual de honorários deve ser um número válido (ex.: 10,00).',
     )]
     public ?string $percentualHonorarios = null;
 

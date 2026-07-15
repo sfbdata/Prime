@@ -12,6 +12,8 @@ use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 /**
  * @extends ServiceEntityRepository<CasoCobranca>
@@ -19,9 +21,12 @@ use Doctrine\Persistence\ManagerRegistry;
 // Não-final: permite substituição por mock nos testes de UseCase.
 class CasoCobrancaRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
+    private LoggerInterface $logger;
+
+    public function __construct(ManagerRegistry $registry, ?LoggerInterface $logger = null)
     {
         parent::__construct($registry, CasoCobranca::class);
+        $this->logger = $logger ?? new NullLogger();
     }
 
     public function salvar(CasoCobranca $entidade, bool $flush = false): void
@@ -68,6 +73,49 @@ class CasoCobrancaRepository extends ServiceEntityRepository
             ->setParameter('ativo', StatusCaso::Ativo->value)
             ->getQuery()
             ->getResult();
+    }
+
+    /**
+     * O caso ÂNCORA do objeto para a página unificada (ajuste 2): o ativo mais recente. Se houver >1 ativo
+     * (legado do modo B, que permitia vários casos por objeto), escolhe o mais recente e loga um aviso —
+     * nunca explode. Se não houver ativo, cai para o mais recente de qualquer status (deep-link de caso já
+     * encerrado). null só quando o objeto ainda não tem caso algum. Escopo por tenant do objeto.
+     */
+    public function casoAncoraDoObjeto(ObjetoCobranca $objeto): ?CasoCobranca
+    {
+        $ativos = $this->createQueryBuilder('c')
+            ->andWhere('c.objeto = :objeto')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere('c.status = :ativo')
+            ->setParameter('objeto', $objeto)
+            ->setParameter('tenant', $objeto->getTenant())
+            ->setParameter('ativo', StatusCaso::Ativo->value)
+            ->orderBy('c.criadoEm', 'DESC')
+            ->addOrderBy('c.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        if (count($ativos) > 1) {
+            $this->logger->warning('Objeto {objeto} tem {n} casos ativos; usando o mais recente como âncora (ajuste 2).', [
+                'objeto' => $objeto->getId(),
+                'n' => count($ativos),
+            ]);
+        }
+
+        if ($ativos !== []) {
+            return $ativos[0];
+        }
+
+        return $this->createQueryBuilder('c')
+            ->andWhere('c.objeto = :objeto')
+            ->andWhere('c.tenant = :tenant')
+            ->setParameter('objeto', $objeto)
+            ->setParameter('tenant', $objeto->getTenant())
+            ->orderBy('c.criadoEm', 'DESC')
+            ->addOrderBy('c.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /** Há caso ativo para o objeto? Usado pela guarda do modo A (uma cobrança ativa por objeto). */

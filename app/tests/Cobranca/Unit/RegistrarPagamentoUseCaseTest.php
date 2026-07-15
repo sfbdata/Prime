@@ -15,12 +15,16 @@ use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
+use App\Cobranca\Exception\PagamentoExcedeSaldoException;
 use App\Cobranca\Exception\PagamentoInconsistenteException;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\AlocadorPagamento;
+use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\UseCase\RegistrarPagamentoUseCase;
@@ -47,8 +51,15 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
         $this->pagamentoRepository = $this->createMock(PagamentoRepository::class);
         $this->casoRepository = $this->createMock(CasoCobrancaRepository::class);
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
-        // AlocadorPagamento e CalculadoraHonorarios são finais e puros: usa-se os REAIS.
-        $alocador = new AlocadorPagamento($this->obrigacaoRepository, new CalculadoraHonorarios());
+        // AlocadorPagamento, AutoAlocadorFifo e CalculadoraHonorarios são finais e puros: usa-se os REAIS.
+        $calculadora = new CalculadoraHonorarios();
+        $alocador = new AlocadorPagamento($this->obrigacaoRepository, $calculadora);
+        $autoAlocador = new AutoAlocadorFifo(
+            $this->obrigacaoRepository,
+            $this->createMock(AlocacaoPagamentoRepository::class),
+            $this->createMock(LiquidacaoRepository::class),
+            $calculadora,
+        );
         // RegistrarEventoHistorico é final: usa-se o REAL com o repositório de eventos mockado.
         $this->eventoRepository = $this->createMock(EventoHistoricoRepository::class);
         $registrarEvento = new RegistrarEventoHistorico($this->eventoRepository);
@@ -56,6 +67,7 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
             $this->pagamentoRepository,
             $this->casoRepository,
             $alocador,
+            $autoAlocador,
             $registrarEvento,
         );
         $this->tenant = new Tenant();
@@ -211,6 +223,66 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
         );
     }
 
+    #[Test]
+    public function autoAlocaPorFifoQuandoNaoManual(): void
+    {
+        // Sem alocações no input (modo auto = padrão): o FIFO gera a alocação sobre a obrigação exigível.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        (new \ReflectionProperty(CasoCobranca::class, 'id'))->setValue($caso, 50);
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)->setCaso($caso)
+            ->setDescricao('Parcela')->setValorOriginal(10000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('-1 day'));
+        (new \ReflectionProperty(Obrigacao::class, 'id'))->setValue($obrigacao, 7);
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([$obrigacao]);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+
+        $this->pagamentoRepository->expects($this->once())->method('salvar');
+        $this->eventoRepository->expects($this->once())->method('salvar')
+            ->with(self::isInstanceOf(EventoHistorico::class), true);
+
+        $input = new RegistrarPagamentoInput();
+        $input->casoId = 50;
+        $input->data = new \DateTimeImmutable('2026-04-15');
+        $input->valorPago = 5000; // < exigível → FIFO aloca 5000 na obrigação, sem exceder.
+
+        $pagamento = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertSame(5000, $pagamento->getValorDivida());
+        self::assertCount(1, $pagamento->getAlocacoes());
+        self::assertSame(5000, $pagamento->getAlocacoes()->first()->getValor());
+        self::assertSame($obrigacao, $pagamento->getAlocacoes()->first()->getObrigacao());
+    }
+
+    #[Test]
+    public function autoBloqueiaSobrepagamento(): void
+    {
+        // Auto: dívida (5000) excede o saldo exigível (3000) → PagamentoExcedeSaldoException, nada persiste.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        (new \ReflectionProperty(CasoCobranca::class, 'id'))->setValue($caso, 50);
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)->setCaso($caso)
+            ->setDescricao('Parcela')->setValorOriginal(3000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('-1 day'));
+        (new \ReflectionProperty(Obrigacao::class, 'id'))->setValue($obrigacao, 7);
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([$obrigacao]);
+        $this->pagamentoRepository->expects($this->never())->method('salvar');
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $input = new RegistrarPagamentoInput();
+        $input->casoId = 50;
+        $input->data = new \DateTimeImmutable('2026-04-15');
+        $input->valorPago = 5000;
+
+        $this->expectException(PagamentoExcedeSaldoException::class);
+
+        $this->sut->executar($input, $this->tenant, $this->criadoPor);
+    }
+
     /**
      * @param AlocacaoPagamentoInput[] $alocacoes
      */
@@ -220,6 +292,7 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
         $input->casoId = $casoId;
         $input->data = new \DateTimeImmutable('2026-04-15');
         $input->valorPago = $valorPago;
+        $input->alocarManualmente = true; // os testes deste helper exercitam o modo MANUAL.
         $input->alocacoes = $alocacoes;
 
         return $input;

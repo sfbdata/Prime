@@ -8,11 +8,14 @@ use App\Cobranca\DTO\RomperAcordoInput;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
+use App\Cobranca\Exception\AcordoComParcelasRenegociadasException;
 use App\Cobranca\Exception\AcordoNaoAtivoException;
 use App\Cobranca\Exception\AcordoNaoEncontradoException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\UseCase\RomperAcordoUseCase;
 use App\Entity\Auth\User;
@@ -26,6 +29,7 @@ use PHPUnit\Framework\TestCase;
 final class RomperAcordoUseCaseTest extends TestCase
 {
     private AcordoRepository&MockObject $acordoRepository;
+    private ObrigacaoRepository&MockObject $obrigacaoRepository;
     private EventoHistoricoRepository&MockObject $eventoRepository;
     private RomperAcordoUseCase $sut;
     private Tenant $tenant;
@@ -34,12 +38,64 @@ final class RomperAcordoUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->acordoRepository = $this->createMock(AcordoRepository::class);
+        $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         // O serviço é final: usa-se o REAL com o repositório de eventos mockado (flush único).
         $this->eventoRepository = $this->createMock(EventoHistoricoRepository::class);
         $registrarEvento = new RegistrarEventoHistorico($this->eventoRepository);
-        $this->sut = new RomperAcordoUseCase($this->acordoRepository, $registrarEvento);
+        $this->sut = new RomperAcordoUseCase($this->acordoRepository, $this->obrigacaoRepository, $registrarEvento);
         $this->tenant = new Tenant();
         $this->usuario = new User();
+    }
+
+    #[Test]
+    #[TestDox('Ajuste 9: romper acordo cujas parcelas outro acordo vigente renegociou é recusado')]
+    public function recusaRomperAcordoComParcelasRenegociadas(): void
+    {
+        // Estado LEGADO de acordo sobre acordo (a criação hoje o bloqueia — INV-I). Romper A aqui faria a
+        // dívida entrar DUAS vezes no saldo: as originais que A substituiu voltam ao exigível E as parcelas
+        // de B continuam nele (§2.1). Este guard é o alarme.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $acordoA = (new Acordo())->setTenant($this->tenant)->setCaso($caso);
+        $acordoB = (new Acordo())->setTenant($this->tenant)->setCaso($caso);
+        $parcelaRenegociada = (new Obrigacao())->setTenant($this->tenant)->setCaso($caso);
+        $parcelaRenegociada->setAcordoOrigem($acordoA)->setAcordoSubstituto($acordoB);
+
+        $this->acordoRepository->method('findOneByIdDoTenant')->willReturn($acordoA);
+        $this->obrigacaoRepository
+            ->method('parcelasRenegociadasPorAcordoVigente')
+            ->with($acordoA)
+            ->willReturn([$parcelaRenegociada]);
+        // Recusa ANTES de qualquer efeito: o acordo não muda de status e nada é persistido.
+        $this->acordoRepository->expects($this->never())->method('salvar');
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $input = new RomperAcordoInput();
+        $input->acordoId = 80;
+        $input->motivo = 'Devedor descumpriu';
+
+        try {
+            $this->sut->executar($input, $this->tenant, $this->usuario);
+            self::fail('Deveria ter recusado o rompimento.');
+        } catch (AcordoComParcelasRenegociadasException) {
+            self::assertSame(StatusAcordo::Ativo, $acordoA->getStatus(), 'O acordo não pode mudar de status.');
+        }
+    }
+
+    #[Test]
+    #[TestDox('Acordo sem parcelas renegociadas rompe normalmente (o caminho de todo dado novo)')]
+    public function rompeNormalmenteQuandoNenhumaParcelaFoiRenegociada(): void
+    {
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $acordo = (new Acordo())->setTenant($this->tenant)->setCaso($caso);
+
+        $this->acordoRepository->method('findOneByIdDoTenant')->willReturn($acordo);
+        $this->obrigacaoRepository->method('parcelasRenegociadasPorAcordoVigente')->willReturn([]);
+
+        $input = new RomperAcordoInput();
+        $input->acordoId = 80;
+        $input->motivo = 'Devedor descumpriu';
+
+        self::assertSame(StatusAcordo::Rompido, $this->sut->executar($input, $this->tenant, $this->usuario)->getStatus());
     }
 
     #[Test]

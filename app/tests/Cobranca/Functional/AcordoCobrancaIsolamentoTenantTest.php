@@ -95,7 +95,7 @@ final class AcordoCobrancaIsolamentoTenantTest extends KernelTestCase
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
         $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento);
         $this->criarAcordo = new CriarAcordoUseCase($acordoRepo, $obrigacaoRepo, $casoRepo, $registrarEvento);
-        $this->romperAcordo = new RomperAcordoUseCase($acordoRepo, $registrarEvento);
+        $this->romperAcordo = new RomperAcordoUseCase($acordoRepo, $obrigacaoRepo, $registrarEvento);
         $this->calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
     }
 

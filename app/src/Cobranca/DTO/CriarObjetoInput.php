@@ -21,6 +21,10 @@ final class CriarObjetoInput
     #[Assert\Length(max: 255, maxMessage: 'A identificação pode ter no máximo {{ limit }} caracteres.')]
     public ?string $identificacao = null;
 
+    #[Assert\NotBlank(message: 'Informe o nome de quem será cobrado.')]
+    #[Assert\Length(max: 255, maxMessage: 'O nome pode ter no máximo {{ limit }} caracteres.')]
+    public ?string $nomeCobrado = null;
+
     public ?string $descricao = null;
 
     #[Assert\Length(max: 255, maxMessage: 'A referência externa pode ter no máximo {{ limit }} caracteres.')]

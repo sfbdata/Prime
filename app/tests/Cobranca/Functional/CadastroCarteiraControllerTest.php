@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\CarteiraController;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Tests\Factory\Cliente\ClientePFFactory;
@@ -46,6 +47,58 @@ final class CadastroCarteiraControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertCount(1, $em->getRepository(Carteira::class)->findBy(['nome' => 'Carteira Nova Teste']));
+    }
+
+    #[TestDox('Form da carteira renderiza popover de ajuda, input-group de % e o JS do form')]
+    public function testFormCarteiraRenderizaAjudaEInputGroup(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+
+        $client->request('GET', '/cobrancas');
+
+        self::assertResponseIsSuccessful();
+        $html = (string) $client->getResponse()->getContent();
+        // Popover de ajuda (modo/forma de honorários) presente no modal de criar.
+        self::assertStringContainsString('data-bs-toggle="popover"', $html);
+        self::assertStringContainsString('Modo de operação', $html);
+        self::assertStringContainsString('Forma de honorários', $html);
+        // Campo de percentual com input-group + sufixo "%".
+        self::assertStringContainsString('input-group', $html);
+        self::assertStringContainsString('data-percentual-wrapper', $html);
+        // JS do form da carteira (popover init + toggle do percentual).
+        self::assertStringContainsString('cobranca-carteira-form.js', $html);
+    }
+
+    #[TestDox('Criar carteira: percentual em pt-BR (vírgula) é gravado no formato decimal')]
+    public function testCriarCarteiraPercentualComVirgula(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $cliente = ClientePFFactory::createOne(['tenant' => $tenant]);
+
+        $crawler = $client->request('GET', '/cobrancas');
+        $token = $this->tokenDoFormulario($crawler, 'criar_carteira');
+
+        $client->request('POST', '/cobrancas/carteiras/nova', [
+            'criar_carteira' => [
+                'nome' => 'Carteira Percentual Virgula',
+                'clienteId' => (string) $cliente->getId(),
+                'modo' => 'unico',
+                'formaHonorarios' => 'acrescido_divida',
+                'percentualHonorarios' => '10,50',
+                'toleranciaAtrasoDias' => '0',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $carteiras = $em->getRepository(Carteira::class)->findBy(['nome' => 'Carteira Percentual Virgula']);
+        self::assertCount(1, $carteiras);
+        self::assertSame('10.50', $carteiras[0]->getPercentualHonorarios());
     }
 
     #[TestDox('Criar carteira sem a capacidade: negado, nada é criado')]
@@ -118,6 +171,35 @@ final class CadastroCarteiraControllerTest extends CobrancaWebTestCase
         self::assertSame(5, $recarregada->getToleranciaAtrasoDias());
     }
 
+    #[TestDox('Editar configuração: percentual em pt-BR (vírgula) é gravado no formato decimal')]
+    public function testConfigurarPercentualComVirgula(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$carteira] = $this->semearGrafo($tenant);
+        $carteiraId = (int) $carteira->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/carteiras/' . $carteiraId);
+        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_carteira');
+
+        $client->request('POST', '/cobrancas/carteiras/' . $carteiraId . '/configuracao', [
+            'editar_configuracao_carteira' => [
+                'modo' => 'unico',
+                'formaHonorarios' => 'retido_recuperado',
+                'percentualHonorarios' => '12,75',
+                'toleranciaAtrasoDias' => '0',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/carteiras/' . $carteiraId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $recarregada = $em->find(Carteira::class, $carteiraId);
+        self::assertSame('12.75', $recarregada->getPercentualHonorarios());
+    }
+
     #[TestDox('IDOR: configurar carteira de OUTRO tenant devolve 404')]
     public function testConfigurarCrossTenant404(): void
     {
@@ -144,14 +226,21 @@ final class CadastroCarteiraControllerTest extends CobrancaWebTestCase
         $token = $this->tokenDoFormulario($crawler, 'criar_objeto');
 
         $client->request('POST', '/cobrancas/carteiras/' . $carteiraId . '/objetos', [
-            'criar_objeto' => ['identificacao' => 'Apto 101 Teste', '_token' => $token],
+            'criar_objeto' => ['identificacao' => 'Apto 101 Teste', 'nomeCobrado' => 'Devedor Teste', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/carteiras/' . $carteiraId);
+        // Ajuste 2: criar o objeto já inicia a cobrança e cai na página do objeto.
+        self::assertResponseRedirects();
+        self::assertMatchesRegularExpression('#/cobrancas/objetos/\d+#', (string) $client->getResponse()->headers->get('Location'));
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
-        self::assertCount(1, $em->getRepository(ObjetoCobranca::class)->findBy(['identificacao' => 'Apto 101 Teste']));
+        $objetos = $em->getRepository(ObjetoCobranca::class)->findBy(['identificacao' => 'Apto 101 Teste']);
+        self::assertCount(1, $objetos);
+        // A cobrança já nasce: caso âncora com a pessoa cobrada informada.
+        $caso = $em->getRepository(CasoCobranca::class)->findOneBy(['objeto' => $objetos[0]]);
+        self::assertNotNull($caso);
+        self::assertSame('Devedor Teste', $caso->getPessoaCobradaAtual()?->getNome());
     }
 
     #[TestDox('Criar objeto sem a capacidade: negado, nada é criado')]

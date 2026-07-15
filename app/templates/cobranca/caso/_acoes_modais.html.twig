@@ -25,26 +25,53 @@
     </div>
 </div>
 
-{# ── Reconhecer valor atualizado (modal reutilizável; JS injeta action + contexto da linha) ── #}
-<div class="modal fade" id="modalReconhecerValor" tabindex="-1" aria-labelledby="tituloReconhecerValor" aria-hidden="true">
+{# ── Editar obrigação (modal reutilizável; JS injeta action + pré-preenche os campos da linha) ── #}
+<div class="modal fade" id="modalEditarObrigacao" tabindex="-1" aria-labelledby="tituloEditarObrigacao" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            {{ form_start(forms.reconhecerValor, {attr: {id: 'formReconhecerValor'}}) }}
+            {{ form_start(forms.editarObrigacao, {attr: {id: 'formEditarObrigacao'}}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloReconhecerValor"><i class="bi bi-arrow-repeat me-1"></i>Reconhecer valor atualizado</h5>
+                <h5 class="modal-title" id="tituloEditarObrigacao"><i class="bi bi-pencil-square me-1"></i>Editar obrigação</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                <p class="text-muted small mb-3" data-obrigacao-contexto>Obrigação selecionada.</p>
-                {{ form_row(forms.reconhecerValor.encargosReconhecidos) }}
-                <div class="form-text mb-2">Total de encargos reconhecidos — substitui o valor anterior; o principal (valor original) é preservado.</div>
-                {{ form_row(forms.reconhecerValor.motivo) }}
+                <p class="text-muted small mb-3">Correção de cadastro — informe o motivo. O saldo se ajusta automaticamente.</p>
+                {{ form_row(forms.editarObrigacao.descricao) }}
+                {{ form_row(forms.editarObrigacao.valorOriginal) }}
+                {{ form_row(forms.editarObrigacao.vencimentoOriginal) }}
+                {{ form_row(forms.editarObrigacao.referenciaExterna) }}
+                {{ form_row(forms.editarObrigacao.encargosReconhecidos) }}
+                {{ form_row(forms.editarObrigacao.motivo) }}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Reconhecer</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Salvar correção</button>
             </div>
-            {{ form_end(forms.reconhecerValor) }}
+            {{ form_end(forms.editarObrigacao) }}
+        </div>
+    </div>
+</div>
+
+{# ── Excluir obrigação (modal reutilizável; CSRF manual — JS injeta action + token + descrição) ── #}
+<div class="modal fade" id="modalExcluirObrigacao" tabindex="-1" aria-labelledby="tituloExcluirObrigacao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formExcluirObrigacao">
+                <input type="hidden" name="_token" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloExcluirObrigacao"><i class="bi bi-trash me-1"></i>Excluir obrigação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Excluir definitivamente <strong data-obrigacao-descricao></strong>? Esta ação não pode ser desfeita.</p>
+                    <label class="form-label" for="motivoExcluirObrigacao">Motivo da exclusão</label>
+                    <input type="text" name="motivo" id="motivoExcluirObrigacao" class="form-control" maxlength="255" required placeholder="Ex.: obrigação lançada em duplicidade">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Excluir</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -174,18 +201,19 @@
 </div>
 {% endif %}
 
-{# ── Registrar tentativa de cobrança ─────────────────────────────── #}
+{# ── Registrar contato de cobrança ───────────────────────────────── #}
 <div class="modal fade" id="modalRegistrarTentativa" tabindex="-1" aria-labelledby="tituloRegistrarTentativa" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             {{ form_start(forms.registrarTentativa, {action: path('cobranca_tentativa_registrar', {id: caso.id})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloRegistrarTentativa"><i class="bi bi-telephone me-1"></i>Registrar tentativa de cobrança</h5>
+                <h5 class="modal-title" id="tituloRegistrarTentativa"><i class="bi bi-telephone me-1"></i>Registrar contato</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body">
-                {{ form_row(forms.registrarTentativa.valorSolicitado) }}
-                {{ form_row(forms.registrarTentativa.novoPrazo) }}
+                {{ form_row(forms.registrarTentativa.dataContato) }}
+                {{ form_row(forms.registrarTentativa.canal) }}
+                {{ form_row(forms.registrarTentativa.resultado) }}
                 {{ form_row(forms.registrarTentativa.observacao) }}
             </div>
             <div class="modal-footer">
@@ -193,49 +221,6 @@
                 <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Registrar</button>
             </div>
             {{ form_end(forms.registrarTentativa) }}
-        </div>
-    </div>
-</div>
-
-{# ── Gerar revisão de pessoa cobrada ─────────────────────────────── #}
-<div class="modal fade" id="modalGerarRevisao" tabindex="-1" aria-labelledby="tituloGerarRevisao" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            {{ form_start(forms.gerarRevisao, {action: path('cobranca_revisao_gerar', {id: caso.id})}) }}
-            <div class="modal-header">
-                <h5 class="modal-title" id="tituloGerarRevisao"><i class="bi bi-person-exclamation me-1"></i>Abrir revisão de pessoa cobrada</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                {{ form_row(forms.gerarRevisao.motivo) }}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-warning"><i class="bi bi-check-lg me-1"></i>Abrir revisão</button>
-            </div>
-            {{ form_end(forms.gerarRevisao) }}
-        </div>
-    </div>
-</div>
-
-{# ── Resolver revisão (modal reutilizável; JS injeta a URL da revisão) ── #}
-<div class="modal fade" id="modalResolverRevisao" tabindex="-1" aria-labelledby="tituloResolverRevisao" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            {{ form_start(forms.resolverRevisao, {attr: {id: 'formResolverRevisao'}}) }}
-            <div class="modal-header">
-                <h5 class="modal-title" id="tituloResolverRevisao"><i class="bi bi-person-check me-1"></i>Resolver revisão</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted small mb-3" data-revisao-contexto>Revisão selecionada.</p>
-                {{ form_row(forms.resolverRevisao.resolucao) }}
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Resolver</button>
-            </div>
-            {{ form_end(forms.resolverRevisao) }}
         </div>
     </div>
 </div>
@@ -249,14 +234,53 @@
                 <h5 class="modal-title" id="tituloCriarAcordo"><i class="bi bi-file-earmark-text me-1"></i>Criar acordo</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" id="corpoCriarAcordo">
                 {{ form_row(forms.acordoCriar.dataAcordo) }}
                 <div class="mb-3">
                     <label class="form-label">Obrigações substituídas</label>
-                    {{ form_widget(forms.acordoCriar.obrigacoesSubstituidasIds) }}
-                    {{ form_errors(forms.acordoCriar.obrigacoesSubstituidasIds) }}
-                    <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas.</div>
+                    {# Ajuste 9 (INV-I): só DÍVIDA ORIGINAL é oferecida — parcela de acordo vigente não pode ser
+                       renegociada aqui. Lista vazia significa que tudo já está dentro de um acordo: sem este
+                       aviso o gestor veria um espaço em branco sem explicação. #}
+                    {% if forms.acordoCriar.obrigacoesSubstituidasIds.vars.choices is empty %}
+                        <div class="alert alert-warning py-2 mb-0 small" role="alert">
+                            <i class="bi bi-info-circle me-1"></i>Não há dívidas disponíveis para acordo neste caso.
+                            Se já existe um acordo vigente, rompa-o primeiro: as dívidas originais voltam ao saldo
+                            e poderão ser acordadas de novo.
+                        </div>
+                    {% else %}
+                        {{ form_widget(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+                        {{ form_errors(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+                        <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Total selecionado: <strong data-acordo-total-selecionado>R$ 0,00</strong>.</div>
+                        <div class="form-text">Só dívidas originais podem ser acordadas. Parcelas de um acordo vigente não aparecem aqui — para refazer um acordo, rompa o atual primeiro.</div>
+                    {% endif %}
                 </div>
+                <hr>
+                {# ── Gerador de parcelamento (Ajuste 7) ── #}
+                <div class="row g-2 align-items-end mb-1" data-acordo-gerador>
+                    <div class="col-sm-6 col-md-4">{{ form_row(forms.acordoCriar.valorTotalNegociado) }}</div>
+                    <div class="col-sm-6 col-md-4">{{ form_row(forms.acordoCriar.valorEntrada) }}</div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label" for="acordoQtdParcelas">Nº de parcelas</label>
+                        <input type="number" min="1" step="1" value="1" class="form-control" id="acordoQtdParcelas">
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label" for="acordoData1">1º vencimento</label>
+                        <input type="date" class="form-control" id="acordoData1">
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <label class="form-label" for="acordoPeriodicidade">Periodicidade</label>
+                        <select class="form-select" id="acordoPeriodicidade">
+                            <option value="mensal">Mensal</option>
+                            <option value="quinzenal">Quinzenal</option>
+                            <option value="semanal">Semanal</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-md-4">
+                        <button type="button" class="btn btn-outline-primary w-100" id="acordoGerar"><i class="bi bi-magic me-1"></i>Gerar parcelas</button>
+                    </div>
+                </div>
+                <div class="form-text">Informe o total negociado (desconto/juros ajustam) e a entrada; gere as parcelas e edite o que precisar. Ao mudar o valor de uma parcela, as demais se redistribuem.</div>
+                <div class="small text-danger mt-1" data-acordo-erro-gerador></div>
                 <hr>
                 <label class="form-label">Parcelas do acordo</label>
                 <div id="parcelasContainer"
@@ -264,12 +288,13 @@
                      data-index="{{ forms.acordoCriar.parcelas|length }}">
                     {% for parcela in forms.acordoCriar.parcelas %}
                     <div class="parcela-linha border rounded p-2 mb-2">{{ form_widget(parcela) }}
-                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-parcela">Remover</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
                     </div>
                     {% endfor %}
                 </div>
                 {{ form_errors(forms.acordoCriar.parcelas) }}
                 <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcela"><i class="bi bi-plus-lg me-1"></i>Adicionar parcela</button>
+                <div class="mt-2 small" data-acordo-fechamento></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>

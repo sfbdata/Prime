@@ -73,11 +73,10 @@ final class PurgarEscritorioUseCase
         // do bloco de cadastro abaixo (que apaga objeto/pessoa).
         ['cobranca_evento_historico', 'tenant_id = :tenant'],
         ['cobranca_obrigacao', 'tenant_id = :tenant'],
-        // Estados/ações (Etapa 5): próxima ação e revisão de pessoa cobrada referenciam o caso
-        // (NO ACTION). Apagadas ANTES do caso. (A FK cobranca_caso.pasta_judicial_id é SET NULL e o
-        // caso é apagado antes de `pasta` na Fase 2 — não precisa de deleção extra aqui.)
+        // Estados/ações (Etapa 5): próxima ação referencia o caso (NO ACTION). Apagada ANTES do caso.
+        // (A FK cobranca_caso.pasta_judicial_id é SET NULL e o caso é apagado antes de `pasta` na
+        // Fase 2 — não precisa de deleção extra aqui.)
         ['cobranca_proxima_acao', 'tenant_id = :tenant'],
-        ['cobranca_revisao_pessoa_cobrada', 'tenant_id = :tenant'],
         // Acordo (Etapa 4): a obrigação referencia o acordo (SET NULL) e o acordo referencia o caso
         // (NO ACTION). Apagado APÓS a obrigação e ANTES do caso.
         ['cobranca_acordo', 'tenant_id = :tenant'],

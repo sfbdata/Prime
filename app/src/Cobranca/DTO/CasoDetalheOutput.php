@@ -12,12 +12,17 @@ namespace App\Cobranca\DTO;
  * centavos int (Twig formata com `|centavos`). `prontoParaEncerrar` é indicador derivado (SPEC §17),
  * não um estado do enum.
  *
- * @param list<AlertaCobranca>       $alertas
- * @param list<ObrigacaoOutput>      $obrigacoes
+ * A aba Obrigações (Ajuste 8) não usa `obrigacoes` cru: ela lê `gruposAcordo` (acordos vigentes com
+ * suas parcelas dentro) + `obrigacoesAvulsas` (o resto). `obrigacoes` continua sendo a lista COMPLETA
+ * do caso — é dela que sai a contagem da aba e quem mais precisar do conjunto todo.
+ *
+ * @param list<AlertaCobranca>              $alertas
+ * @param list<ObrigacaoOutput>             $obrigacoes
+ * @param list<GrupoAcordoObrigacoesOutput> $gruposAcordo
+ * @param list<ObrigacaoOutput>             $obrigacoesAvulsas
  * @param list<PagamentoOutput>      $pagamentos
  * @param list<LiquidacaoOutput>     $liquidacoes
  * @param list<AcordoOutput>         $acordos
- * @param list<RevisaoOutput>        $revisoesPendentes
  * @param list<EventoHistoricoOutput> $historico
  */
 final class CasoDetalheOutput
@@ -45,10 +50,11 @@ final class CasoDetalheOutput
         public readonly ?ProximaAcaoOutput $proximaAcao,
         public readonly array $alertas,
         public readonly array $obrigacoes,
+        public readonly array $gruposAcordo,
+        public readonly array $obrigacoesAvulsas,
         public readonly array $pagamentos,
         public readonly array $liquidacoes,
         public readonly array $acordos,
-        public readonly array $revisoesPendentes,
         public readonly array $historico,
     ) {
     }

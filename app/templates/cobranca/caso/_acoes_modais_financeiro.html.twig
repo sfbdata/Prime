@@ -11,23 +11,29 @@
                 <h5 class="modal-title" id="tituloRegistrarPagamento"><i class="bi bi-cash-coin me-1"></i>Registrar pagamento</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" data-pagamento-modal
+                 data-previa-url="{{ path('cobranca_pagamento_previa', {id: caso.id}) }}">
                 {{ form_row(forms.registrarPagamento.data) }}
                 {{ form_row(forms.registrarPagamento.valorPago) }}
-                <hr>
-                <label class="form-label">Alocações do pagamento</label>
-                <div id="alocacoesPagamentoContainer"
-                     data-prototype="{{ form_widget(forms.registrarPagamento.alocacoes.vars.prototype)|e('html_attr') }}"
-                     data-index="{{ forms.registrarPagamento.alocacoes|length }}">
-                    {% for alocacao in forms.registrarPagamento.alocacoes %}
-                    <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
-                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                {# Prévia ao vivo da divisão dívida/honorários + FIFO (Ajuste 6). Preenchida por JS. #}
+                <div class="previa-pagamento small bg-body-tertiary border rounded p-2 mb-2 d-none" data-previa-pagamento></div>
+                {{ form_row(forms.registrarPagamento.alocarManualmente) }}
+                <div class="alocacao-manual d-none" data-alocacao-manual>
+                    <hr>
+                    <label class="form-label">Alocações do pagamento</label>
+                    <div id="alocacoesPagamentoContainer"
+                         data-prototype="{{ form_widget(forms.registrarPagamento.alocacoes.vars.prototype)|e('html_attr') }}"
+                         data-index="{{ forms.registrarPagamento.alocacoes|length }}">
+                        {% for alocacao in forms.registrarPagamento.alocacoes %}
+                        <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
+                    {{ form_errors(forms.registrarPagamento.alocacoes) }}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoPagamento"><i class="bi bi-plus-lg me-1"></i>Adicionar alocação</button>
                 </div>
-                {{ form_errors(forms.registrarPagamento.alocacoes) }}
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoPagamento"><i class="bi bi-plus-lg me-1"></i>Adicionar alocação</button>
-                <div class="form-text">Distribua manualmente a parte da dívida do valor pago entre as obrigações exigíveis. Os honorários são derivados (não se digitam).</div>
+                <div class="form-text">O sistema distribui o pagamento automaticamente pela dívida mais antiga (FIFO); os honorários são calculados à parte. Marque <strong>Alocar manualmente</strong> para distribuir você mesmo.</div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -47,27 +53,33 @@
                 <h5 class="modal-title" id="tituloCorrigirPagamento"><i class="bi bi-pencil-square me-1"></i>Corrigir pagamento</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" data-pagamento-modal>
                 <div class="alert alert-warning small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-exclamation-triangle-fill"></i>
-                    <div>A correção <strong>reescreve</strong> a composição do pagamento (sem estorno) e fica registrada na auditoria. Reinforme o valor pago e as alocações.</div>
+                    <div>A correção <strong>reescreve</strong> a composição do pagamento (sem estorno) e fica registrada na auditoria.</div>
                 </div>
                 <p class="text-muted small mb-3" data-pagamento-contexto>Pagamento selecionado.</p>
                 {{ form_row(forms.corrigirPagamento.data) }}
                 {{ form_row(forms.corrigirPagamento.valorPago) }}
-                <hr>
-                <label class="form-label">Alocações do pagamento</label>
-                <div id="alocacoesCorrigirContainer"
-                     data-prototype="{{ form_widget(forms.corrigirPagamento.alocacoes.vars.prototype)|e('html_attr') }}"
-                     data-index="{{ forms.corrigirPagamento.alocacoes|length }}">
-                    {% for alocacao in forms.corrigirPagamento.alocacoes %}
-                    <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
-                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                {# Prévia ao vivo (Ajuste 6): a URL depende do pagamento, injetada por JS ao abrir. #}
+                <div class="previa-pagamento small bg-body-tertiary border rounded p-2 mb-2 d-none" data-previa-pagamento></div>
+                {{ form_row(forms.corrigirPagamento.alocarManualmente) }}
+                <div class="alocacao-manual d-none" data-alocacao-manual>
+                    <hr>
+                    <label class="form-label">Alocações do pagamento</label>
+                    <div id="alocacoesCorrigirContainer"
+                         data-prototype="{{ form_widget(forms.corrigirPagamento.alocacoes.vars.prototype)|e('html_attr') }}"
+                         data-index="{{ forms.corrigirPagamento.alocacoes|length }}">
+                        {% for alocacao in forms.corrigirPagamento.alocacoes %}
+                        <div class="alocacao-linha border rounded p-2 mb-2">{{ form_widget(alocacao) }}
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
+                    {{ form_errors(forms.corrigirPagamento.alocacoes) }}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoCorrigir"><i class="bi bi-plus-lg me-1"></i>Adicionar alocação</button>
                 </div>
-                {{ form_errors(forms.corrigirPagamento.alocacoes) }}
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="addAlocacaoCorrigir"><i class="bi bi-plus-lg me-1"></i>Adicionar alocação</button>
+                <div class="form-text">Por padrão a nova composição é distribuída automaticamente (FIFO). Marque <strong>Alocar manualmente</strong> para distribuir você mesmo.</div>
                 {{ form_row(forms.corrigirPagamento.motivoCorrecao) }}
             </div>
             <div class="modal-footer">

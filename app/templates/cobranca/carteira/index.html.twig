@@ -32,12 +32,7 @@
             <div class="modal-body">
                 {{ form_row(formCriarCarteira.nome) }}
                 {{ form_row(formCriarCarteira.clienteId) }}
-                {{ form_row(formCriarCarteira.modo) }}
-                {{ form_row(formCriarCarteira.formaHonorarios) }}
-                {{ form_row(formCriarCarteira.percentualHonorarios) }}
-                {{ form_row(formCriarCarteira.toleranciaAtrasoDias) }}
-                {{ form_row(formCriarCarteira.tipoVinculoPreferido) }}
-                {{ form_row(formCriarCarteira.rotuloObjeto) }}
+                {{ include('cobranca/carteira/_campos_config.html.twig', { form: formCriarCarteira }) }}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -81,6 +76,7 @@
 {% block javascripts %}
 {{ parent() }}
 <script src="{{ asset('js/filtro-tabela.js') }}"></script>
+<script src="{{ asset('js/cobranca-carteira-form.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     /* Linhas clicáveis — delegado no document, sobrevive à troca do fragmento */

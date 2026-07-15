@@ -14,10 +14,13 @@ use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\PagamentoNaoEncontradoException;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\AlocadorPagamento;
+use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\UseCase\CorrigirPagamentoUseCase;
@@ -33,6 +36,7 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
 {
     private PagamentoRepository&MockObject $pagamentoRepository;
     private ObrigacaoRepository&MockObject $obrigacaoRepository;
+    private AlocacaoPagamentoRepository&MockObject $alocacaoRepository;
     private EventoHistoricoRepository&MockObject $eventoRepository;
     private CorrigirPagamentoUseCase $sut;
     private Tenant $tenant;
@@ -42,13 +46,23 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
     {
         $this->pagamentoRepository = $this->createMock(PagamentoRepository::class);
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
-        $alocador = new AlocadorPagamento($this->obrigacaoRepository, new CalculadoraHonorarios());
+        $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
+        // AlocadorPagamento, AutoAlocadorFifo e CalculadoraHonorarios são finais e puros: usa-se os REAIS.
+        $calculadora = new CalculadoraHonorarios();
+        $alocador = new AlocadorPagamento($this->obrigacaoRepository, $calculadora);
+        $autoAlocador = new AutoAlocadorFifo(
+            $this->obrigacaoRepository,
+            $this->alocacaoRepository,
+            $this->createMock(LiquidacaoRepository::class),
+            $calculadora,
+        );
         // RegistrarEventoHistorico é final: usa-se o REAL com o repositório de eventos mockado.
         $this->eventoRepository = $this->createMock(EventoHistoricoRepository::class);
         $registrarEvento = new RegistrarEventoHistorico($this->eventoRepository);
         $this->sut = new CorrigirPagamentoUseCase(
             $this->pagamentoRepository,
             $alocador,
+            $autoAlocador,
             $registrarEvento,
         );
         $this->tenant = new Tenant();
@@ -141,6 +155,48 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
         );
     }
 
+    #[Test]
+    public function autoCorrigePorFifoExcluindoAsAlocacoesDoProprioPagamento(): void
+    {
+        // Obrigação exigível 50000, com 30000 já alocados — TODOS do próprio pagamento em correção.
+        // Sem excluí-los, a sala (20000) < dívida (50000) e bloquearia por engano; excluindo, aloca 50000.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        (new \ReflectionProperty(CasoCobranca::class, 'id'))->setValue($caso, 900);
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)->setCaso($caso)
+            ->setDescricao('Parcela')->setValorOriginal(50000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('-1 day'));
+        (new \ReflectionProperty(Obrigacao::class, 'id'))->setValue($obrigacao, 7);
+
+        $alocacaoAntiga = (new AlocacaoPagamento())->setTenant($this->tenant)->setObrigacao($obrigacao)->setValor(30000);
+        $pagamento = new Pagamento();
+        $pagamento->setTenant($this->tenant);
+        $pagamento->setCaso($caso);
+        $pagamento->setValorDivida(30000);
+        $pagamento->adicionarAlocacao($alocacaoAntiga);
+
+        $this->pagamentoRepository->method('findOneByIdDoTenant')->willReturn($pagamento);
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([$obrigacao]);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        // A query de saldo enxerga as 30000 do próprio pagamento; o UseCase as exclui da sala.
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->with([900], $this->tenant)->willReturn([7 => 30000]);
+
+        $this->pagamentoRepository->expects($this->once())->method('salvar');
+        $this->eventoRepository->expects($this->once())->method('salvar')
+            ->with(self::isInstanceOf(EventoHistorico::class), true);
+
+        $input = new CorrigirPagamentoInput();
+        $input->pagamentoId = 80;
+        $input->valorPago = 50000; // auto (alocarManualmente = false).
+        $input->motivoCorrecao = 'Redistribuir tudo na parcela';
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame(50000, $resultado->getValorDivida());
+        self::assertCount(1, $resultado->getAlocacoes());
+        self::assertSame(50000, $resultado->getAlocacoes()->first()->getValor());
+    }
+
     /**
      * @param AlocacaoPagamentoInput[] $alocacoes
      */
@@ -155,6 +211,7 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
         $input->pagamentoId = $pagamentoId;
         $input->data = $data;
         $input->valorPago = $valorPago;
+        $input->alocarManualmente = true; // os testes deste helper exercitam o modo MANUAL.
         $input->alocacoes = $alocacoes;
         $input->motivoCorrecao = $motivo;
 

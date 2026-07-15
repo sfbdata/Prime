@@ -25,6 +25,11 @@ final class CriarObjetoType extends AbstractType
                 'label' => 'Identificação',
                 'attr' => ['class' => 'form-control', 'placeholder' => 'Ex.: Apto 402, placa, matrícula', 'maxlength' => 255],
             ])
+            ->add('nomeCobrado', TextType::class, [
+                'label' => 'Nome de quem será cobrado',
+                'help' => 'Só o nome. Você completa CPF, telefone e e-mail depois, na aba Pessoas do objeto.',
+                'attr' => ['class' => 'form-control', 'placeholder' => 'Ex.: João da Silva', 'maxlength' => 255],
+            ])
             ->add('descricao', TextareaType::class, [
                 'label' => 'Descrição (opcional)',
                 'required' => false,

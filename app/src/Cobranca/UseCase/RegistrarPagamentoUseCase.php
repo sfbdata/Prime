@@ -12,6 +12,7 @@ use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\AlocadorPagamento;
+use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -19,8 +20,9 @@ use App\Entity\Tenant\Tenant;
 /**
  * Registra um Pagamento monetário num Caso de Cobrança (SPEC §11), confirmado MANUALMENTE.
  *
- * História: o gestor confirma quanto o devedor pagou (BRUTO, em CENTAVOS) e distribui esse valor
- * entre as obrigações do caso. O caso é resolvido por id + tenant (guarda multi-tenant); caso
+ * História: o gestor confirma quanto o devedor pagou (BRUTO, em CENTAVOS). Por padrão o sistema
+ * distribui automaticamente pela dívida mais antiga (auto-alocação FIFO, Ajuste 6); só em modo manual
+ * o gestor informa as alocações. O caso é resolvido por id + tenant (guarda multi-tenant); caso
  * encerrado NÃO recebe pagamentos. O rateio de honorários (forma `acrescido_divida`) e a validação
  * das alocações — mesmo caso, invariáveis 12 e 20 — ficam no AlocadorPagamento. A composição gravada
  * separa a dívida do credor (`valorDivida`) dos honorários do escritório (`valorHonorarios`);
@@ -33,6 +35,7 @@ final class RegistrarPagamentoUseCase
         private readonly PagamentoRepository $pagamentoRepository,
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly AlocadorPagamento $alocador,
+        private readonly AutoAlocadorFifo $autoAlocadorFifo,
         private readonly RegistrarEventoHistorico $registrarEvento,
     ) {
     }
@@ -51,11 +54,17 @@ final class RegistrarPagamentoUseCase
             throw new CasoEncerradoException((int) $caso->getId());
         }
 
+        // Auto-alocação FIFO por padrão; manual só quando o usuário assume a distribuição (Ajuste 6).
+        // O AlocadorPagamento revalida sempre (Σ == parte-dívida, mesmo caso — invariáveis 12 e 20).
+        $alocacoesInput = $input->alocarManualmente
+            ? $input->alocacoes
+            : $this->autoAlocadorFifo->alocar($caso, (int) $input->valorPago, $tenant);
+
         // Rateio de honorários + montagem/validação das alocações (invariáveis 12 e 20).
         [$valorDivida, $valorHonorarios, $alocacoes] = $this->alocador->montar(
             $caso,
             (int) $input->valorPago,
-            $input->alocacoes,
+            $alocacoesInput,
             $tenant,
         );
 

@@ -14,7 +14,6 @@ use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
-use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Entity\Tenant\Tenant;
@@ -59,7 +58,6 @@ final class MontarDashboardCobrancaUseCase
         private readonly PagamentoRepository $pagamentoRepository,
         private readonly LiquidacaoRepository $liquidacaoRepository,
         private readonly ProximaAcaoRepository $proximaAcaoRepository,
-        private readonly RevisaoPessoaCobradaRepository $revisaoRepository,
         private readonly CalculadoraSaldo $calculadoraSaldo,
         private readonly CalculadoraHonorarios $calculadoraHonorarios,
     ) {
@@ -89,7 +87,6 @@ final class MontarDashboardCobrancaUseCase
         $pagamentosPorCaso = $this->agruparPorCaso($this->pagamentoRepository->dosCasos($casoIds, $tenant));
         $liquidacoesPorCaso = $this->agruparPorCaso($this->liquidacaoRepository->dosCasos($casoIds, $tenant));
         $acoesPorCaso = $this->proximaAcaoRepository->ativasDosCasos($casoIds, $tenant);
-        $revisaoPendente = array_fill_keys($this->revisaoRepository->casoIdsComPendente($casoIds, $tenant), true);
 
         // Σ reconhecido de liquidações por caso (a partir do lote já carregado — sem query extra).
         $liquidadoPorCaso = [];
@@ -121,7 +118,6 @@ final class MontarDashboardCobrancaUseCase
         $pagamentosAVerificar = 0;
         $proximasAcoesAtrasadas = 0;
         $parcelasAcordoVencidas = 0;
-        $revisoesPendentes = 0;
         $casosJudicializados = 0;
 
         $casosAtivos = 0;
@@ -219,9 +215,6 @@ final class MontarDashboardCobrancaUseCase
             if ($acao !== null && $acao->estaAtrasada($hoje)) {
                 ++$proximasAcoesAtrasadas;
             }
-            if (isset($revisaoPendente[$casoId])) {
-                ++$revisoesPendentes;
-            }
         }
 
         $emAberto = $saldoEmAberto;
@@ -239,7 +232,6 @@ final class MontarDashboardCobrancaUseCase
             pagamentosAVerificar: $pagamentosAVerificar,
             proximasAcoesAtrasadas: $proximasAcoesAtrasadas,
             parcelasAcordoVencidas: $parcelasAcordoVencidas,
-            revisoesPendentes: $revisoesPendentes,
             casosJudicializados: $casosJudicializados,
             valorTotalRecuperado: $valorTotalRecuperado,
             valorEmAberto: $emAberto,

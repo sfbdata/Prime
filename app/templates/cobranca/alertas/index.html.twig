@@ -31,7 +31,7 @@
                 <div class="empty-ico"><i class="bi bi-check2-circle"></i></div>
                 <div class="empty-title">Nenhum alerta pendente</div>
                 <div class="text-muted">
-                    {% if carteiraId %}Esta carteira não tem alertas operacionais no momento.{% else %}Nenhum caso do escritório exige atenção agora.{% endif %}
+                    {% if carteiraId %}Esta carteira não tem alertas operacionais no momento.{% else %}Nenhuma cobrança do escritório exige atenção agora.{% endif %}
                 </div>
             </div>
         {% else %}
@@ -56,7 +56,7 @@
                 {% for caso in grupo.casos %}
                 <div class="dash-alerta-caso">
                     <div class="d-flex align-items-center gap-2 flex-wrap">
-                        <a href="{{ path('cobranca_caso_show', {id: caso.casoId}) }}" class="fw-semibold text-decoration-none">
+                        <a href="{{ path('cobranca_objeto_show', {id: caso.objetoId}) }}" class="fw-semibold text-decoration-none">
                             <i class="bi bi-briefcase me-1"></i>{{ caso.objetoIdentificacao }}
                         </a>
                         <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>

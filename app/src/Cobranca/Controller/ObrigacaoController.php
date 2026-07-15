@@ -4,14 +4,18 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
-use App\Cobranca\DTO\ReconhecerValorAtualizadoInput;
+use App\Cobranca\DTO\EditarObrigacaoInput;
 use App\Cobranca\DTO\RegistrarObrigacaoInput;
 use App\Cobranca\Exception\CasoEncerradoException;
-use App\Cobranca\Form\ReconhecerValorAtualizadoType;
+use App\Cobranca\Exception\ObrigacaoComPagamentoException;
+use App\Cobranca\Exception\ObrigacaoDeAcordoException;
+use App\Cobranca\Exception\ValorAbaixoDoAlocadoException;
+use App\Cobranca\Form\EditarObrigacaoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
-use App\Cobranca\UseCase\ReconhecerValorAtualizadoUseCase;
+use App\Cobranca\UseCase\EditarObrigacaoUseCase;
+use App\Cobranca\UseCase\ExcluirObrigacaoUseCase;
 use App\Cobranca\UseCase\RegistrarObrigacaoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -38,7 +42,8 @@ final class ObrigacaoController extends AbstractController
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly RegistrarObrigacaoUseCase $registrarObrigacao,
-        private readonly ReconhecerValorAtualizadoUseCase $reconhecerValor,
+        private readonly EditarObrigacaoUseCase $editarObrigacao,
+        private readonly ExcluirObrigacaoUseCase $excluirObrigacao,
     ) {
     }
 
@@ -71,11 +76,11 @@ final class ObrigacaoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $id]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
     }
 
-    #[Route('/obrigacoes/{id}/reconhecer-valor', name: 'cobranca_obrigacao_reconhecer', methods: ['POST'], requirements: ['id' => '\d+'])]
-    public function reconhecerValor(int $id, Request $request): Response
+    #[Route('/obrigacoes/{id}/editar', name: 'cobranca_obrigacao_editar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function editar(int $id, Request $request): Response
     {
         $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
         if ($tenant === null) {
@@ -86,24 +91,63 @@ final class ObrigacaoController extends AbstractController
         if ($obrigacao === null) {
             throw $this->createNotFoundException('Obrigação não encontrada.');
         }
-        $casoId = $obrigacao->getCaso()->getId();
+        $objetoId = $this->objetoIdDoCaso($obrigacao->getCaso());
 
-        $input = new ReconhecerValorAtualizadoInput();
+        $input = new EditarObrigacaoInput();
         $input->obrigacaoId = $id;
-        $form = $this->createForm(ReconhecerValorAtualizadoType::class, $input);
+        $form = $this->createForm(EditarObrigacaoType::class, $input);
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $this->reconhecerValor->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Valor atualizado reconhecido.');
-            } catch (CasoEncerradoException $e) {
+                $this->editarObrigacao->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Obrigação corrigida.');
+            } catch (CasoEncerradoException | ObrigacaoDeAcordoException | ValorAbaixoDoAlocadoException $e) {
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_caso_show', ['id' => $casoId]);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+    }
+
+    #[Route('/obrigacoes/{id}/excluir', name: 'cobranca_obrigacao_excluir', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function excluir(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $obrigacao = $this->obrigacaoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($obrigacao === null) {
+            throw $this->createNotFoundException('Obrigação não encontrada.');
+        }
+        // Resolve o destino ANTES de remover (depois a obrigação não existe mais).
+        $objetoId = $this->objetoIdDoCaso($obrigacao->getCaso());
+
+        // CSRF manual (a ação é um botão-modal reutilizável, sem Symfony Form) — token por obrigação.
+        if (!$this->isCsrfTokenValid('excluir_obrigacao_' . $id, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+        }
+
+        $motivo = trim((string) $request->request->get('motivo'));
+        if ($motivo === '') {
+            $this->addFlash('danger', 'Informe o motivo da exclusão.');
+
+            return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+        }
+
+        try {
+            $this->excluirObrigacao->executar($id, $motivo, $tenant, $this->usuarioLogado());
+            $this->addFlash('success', 'Obrigação excluída.');
+        } catch (CasoEncerradoException | ObrigacaoDeAcordoException | ObrigacaoComPagamentoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
     }
 }

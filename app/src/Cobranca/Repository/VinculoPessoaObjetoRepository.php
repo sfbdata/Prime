@@ -81,6 +81,30 @@ class VinculoPessoaObjetoRepository extends ServiceEntityRepository
     }
 
     /**
+     * TODOS os vínculos de um objeto (abertos E encerrados — histórico preservado, invariável 11), com a
+     * PESSOA fetch-joined (`addSelect`) para a aba "Pessoas" da página unificada do objeto (ajuste 2). Sem
+     * o fetch-join, ler `pessoa->getNome()` por vínculo dispararia hidratação lazy (N+1). `pessoa` é
+     * `nullable: false` → `innerJoin` seguro. Escopo por tenant do objeto (defesa em profundidade). Mais
+     * antigos primeiro (a linha do tempo do vínculo).
+     *
+     * @return VinculoPessoaObjeto[]
+     */
+    public function todosDoObjetoComPessoa(ObjetoCobranca $objeto): array
+    {
+        return $this->createQueryBuilder('v')
+            ->innerJoin('v.pessoa', 'p')
+            ->addSelect('p')
+            ->andWhere('v.objeto = :objeto')
+            ->andWhere('v.tenant = :tenant')
+            ->setParameter('objeto', $objeto)
+            ->setParameter('tenant', $objeto->getTenant())
+            ->orderBy('v.dataInicio', 'ASC')
+            ->addOrderBy('v.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Vínculos ABERTOS (dataFim NULL) dos objetos informados, com a PESSOA fetch-joined (`addSelect`) —
      * para a visão da carteira ler `pessoa->getNome()` por vínculo sem disparar hidratação lazy (N+1).
      * `pessoa` é `nullable: false` → `innerJoin` seguro (não descarta linhas). Escopo por tenant explícito.

@@ -19,8 +19,9 @@ use App\Entity\Tenant\Tenant;
  * contrato, matrícula...). Todo objeto pertence a uma Carteira, que precisa existir DENTRO do próprio
  * escritório: a carteira é resolvida por id + tenant (guarda multi-tenant), nunca aceitando carteira de
  * outro escritório. Carteira inexistente/de outro tenant é erro de entrada (CarteiraNaoEncontradaException),
- * tratado no controller. Um mesmo objeto pode acumular vários casos ao longo do tempo. Os textos são
- * normalizados (trim; null quando vazio) para não gravar strings em branco.
+ * tratado no controller. Cria SÓ o objeto — é a peça reusada tanto pela importação de relatórios quanto
+ * pelo `CriarObjetoComCobrancaUseCase` (criação manual unificada do ajuste 2). Os textos são normalizados
+ * (trim; null quando vazio) para não gravar strings em branco.
  */
 final class CriarObjetoUseCase
 {

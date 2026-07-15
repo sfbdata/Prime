@@ -11,7 +11,6 @@ use App\Cobranca\Entity\ProximaAcao;
 use App\Cobranca\Enum\TipoAlerta;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
-use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Entity\Tenant\Tenant;
 
 /**
@@ -25,15 +24,12 @@ use App\Entity\Tenant\Tenant;
  *   sem ação pendente que faça sentido cobrar.
  * - Obrigações vencidas são AGREGADAS num único alerta com a contagem na descrição (evita poluir a
  *   tela com um alerta por parcela); o mesmo vale para parcelas de acordo vencidas.
- * - Revisão pendente alimenta o alerta enquanto `existePendenteDoCaso` for verdadeiro; ao resolver a
- *   revisão o alerta CESSA (SPEC §8) — nada aqui reprocessa o evento original.
  */
 final class AlertasCobranca
 {
     public function __construct(
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly ProximaAcaoRepository $proximaAcaoRepository,
-        private readonly RevisaoPessoaCobradaRepository $revisaoRepository,
         private readonly CalculadoraSaldo $calculadoraSaldo,
     ) {
     }
@@ -58,7 +54,6 @@ final class AlertasCobranca
             $this->obrigacaoRepository->doCasoExigiveis($caso),
             $this->proximaAcaoRepository->findAtivaDoCaso($caso),
             $this->calculadoraSaldo->saldoExigivel($caso),
-            $this->revisaoRepository->existePendenteDoCaso($caso),
             $hoje,
         );
     }
@@ -87,7 +82,6 @@ final class AlertasCobranca
             $this->obrigacaoRepository->doCasoExigiveis($caso),
             $acaoAtiva,
             $saldoExigivel,
-            $this->revisaoRepository->existePendenteDoCaso($caso),
             $hoje,
         );
     }
@@ -129,7 +123,6 @@ final class AlertasCobranca
         }
 
         $acoesPorCaso = $this->proximaAcaoRepository->ativasDosCasos($casoIds, $tenant);
-        $revisaoPendente = array_fill_keys($this->revisaoRepository->casoIdsComPendente($casoIds, $tenant), true);
         $saldosPorCaso = $this->calculadoraSaldo->saldosDosCasos($casos, $tenant, $hoje);
 
         $resultado = [];
@@ -147,7 +140,6 @@ final class AlertasCobranca
                 $exigiveisPorCaso[$casoId] ?? [],
                 $acoesPorCaso[$casoId] ?? null,
                 $saldosPorCaso[$casoId]['exigivel'] ?? 0,
-                isset($revisaoPendente[$casoId]),
                 $hoje,
             );
         }
@@ -167,7 +159,6 @@ final class AlertasCobranca
         array $exigiveis,
         ?ProximaAcao $acaoAtiva,
         int $saldoExigivel,
-        bool $temRevisaoPendente,
         \DateTimeImmutable $hoje,
     ): array {
         $alertas = [];
@@ -213,14 +204,6 @@ final class AlertasCobranca
             $alertas[] = new AlertaCobranca(
                 TipoAlerta::ProntoParaEncerrar,
                 'Saldo exigível zerado: pronto para encerrar.',
-            );
-        }
-
-        // Revisão de pessoa cobrada pendente (§8): cessa assim que a revisão é resolvida.
-        if ($temRevisaoPendente) {
-            $alertas[] = new AlertaCobranca(
-                TipoAlerta::RevisaoPendente,
-                'Há revisão de vínculo pendente de decisão.',
             );
         }
 

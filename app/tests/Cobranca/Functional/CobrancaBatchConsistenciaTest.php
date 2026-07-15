@@ -10,7 +10,6 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Liquidacao;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\ProximaAcao;
-use App\Cobranca\Entity\RevisaoPessoaCobrada;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -18,7 +17,6 @@ use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
-use App\Cobranca\Repository\RevisaoPessoaCobradaRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Entity\Tenant\Tenant;
@@ -33,7 +31,6 @@ use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use App\Tests\Factory\Cobranca\PagamentoFactory;
 use App\Tests\Factory\Cobranca\PessoaFactory;
 use App\Tests\Factory\Cobranca\ProximaAcaoFactory;
-use App\Tests\Factory\Cobranca\RevisaoPessoaCobradaFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -79,11 +76,9 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
         /** @var ProximaAcaoRepository $acaoRepo */
         $acaoRepo = $this->em->getRepository(ProximaAcao::class);
         $this->acaoRepo = $acaoRepo;
-        /** @var RevisaoPessoaCobradaRepository $revisaoRepo */
-        $revisaoRepo = $this->em->getRepository(RevisaoPessoaCobrada::class);
 
         $this->calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
-        $this->alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $revisaoRepo, $this->calcSaldo);
+        $this->alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $this->calcSaldo);
 
         $this->hoje = new \DateTimeImmutable('2026-07-20');
     }
@@ -168,9 +163,8 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
             'valorReconhecido' => 10000, 'data' => new \DateTimeImmutable('2026-07-10'),
         ]);
 
-        $casoRevisao = $this->caso($tenant, $carteira);
-        $this->obrigacao($tenant, $casoRevisao, 50000, '2026-09-01'); // a vencer
-        RevisaoPessoaCobradaFactory::createOne(['tenant' => $tenant, 'caso' => $casoRevisao]);
+        $casoAVencer = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $casoAVencer, 50000, '2026-09-01'); // a vencer (ativo, saldo>0, sem alerta)
 
         $casoAcao = $this->caso($tenant, $carteira);
         $this->obrigacao($tenant, $casoAcao, 70000, '2026-06-15'); // vencida

@@ -27,7 +27,7 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
         [, $caso] = $this->semearGrafo($tenant);
         $casoId = (int) $caso->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_liquidacao');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/liquidacoes', [
@@ -41,7 +41,7 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -60,7 +60,7 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
         [, $casoEncerrado] = $this->semearGrafo($tenant, ['status' => StatusCaso::Encerrado]);
 
         // Token do caso ativo (o encerrado não renderiza o modal financeiro).
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoAtivo->getId());
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $casoAtivo->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_liquidacao');
 
         $client->request('POST', '/cobrancas/casos/' . $casoEncerrado->getId() . '/liquidacoes', [
@@ -69,7 +69,7 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoEncerrado->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -119,7 +119,7 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
             'registrar_liquidacao' => ['tipo' => 'bem_movel', 'descricaoBem' => 'MARCADOR CSRF', 'valorReconhecido' => '100,00', 'data' => '2026-05-10', '_token' => 'token-falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

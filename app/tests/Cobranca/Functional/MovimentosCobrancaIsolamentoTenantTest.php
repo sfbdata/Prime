@@ -31,6 +31,7 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Service\AlocadorPagamento;
+use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
@@ -100,12 +101,14 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $liquidacaoRepo = $this->em->getRepository(Liquidacao::class);
 
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
-        $alocador = new AlocadorPagamento($obrigacaoRepo, new CalculadoraHonorarios());
+        $calculadora = new CalculadoraHonorarios();
+        $alocador = new AlocadorPagamento($obrigacaoRepo, $calculadora);
+        $autoAlocador = new AutoAlocadorFifo($obrigacaoRepo, $alocacaoRepo, $liquidacaoRepo, $calculadora);
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
         $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento);
-        $this->registrarPagamento = new RegistrarPagamentoUseCase($pagamentoRepo, $casoRepo, $alocador, $registrarEvento);
-        $this->corrigirPagamento = new CorrigirPagamentoUseCase($pagamentoRepo, $alocador, $registrarEvento);
+        $this->registrarPagamento = new RegistrarPagamentoUseCase($pagamentoRepo, $casoRepo, $alocador, $autoAlocador, $registrarEvento);
+        $this->corrigirPagamento = new CorrigirPagamentoUseCase($pagamentoRepo, $alocador, $autoAlocador, $registrarEvento);
         $this->registrarLiquidacao = new RegistrarLiquidacaoUseCase($liquidacaoRepo, $casoRepo, $registrarEvento);
         $this->calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
     }
@@ -262,6 +265,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $input = new CorrigirPagamentoInput();
         $input->pagamentoId = (int) $pagamento->getId();
         $input->valorPago = 5000;
+        $input->alocarManualmente = true;
         $input->alocacoes = [$this->alocacao((int) $obrigA->getId(), 5000)];
         $input->motivoCorrecao = 'Valor lançado errado';
 
@@ -314,6 +318,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $input->casoId = $casoId;
         $input->valorPago = $valorPago;
         $input->data = new \DateTimeImmutable('-1 day');
+        $input->alocarManualmente = true; // estes testes exercitam a alocação MANUAL explícita.
         $input->alocacoes = array_map(fn (array $a): AlocacaoPagamentoInput => $this->alocacao($a[0], $a[1]), $alocacoes);
 
         return $input;

@@ -20,6 +20,7 @@ final class CasoComAlertasOutput
      */
     public function __construct(
         public readonly int $casoId,
+        public readonly int $objetoId,
         public readonly string $objetoIdentificacao,
         public readonly int $carteiraId,
         public readonly string $carteiraNome,
@@ -41,6 +42,7 @@ final class CasoComAlertasOutput
 
         return new self(
             casoId: $c->getId() ?? 0,
+            objetoId: $objeto?->getId() ?? 0,
             objetoIdentificacao: $objeto?->getIdentificacao() ?? '—',
             carteiraId: $carteira?->getId() ?? 0,
             carteiraNome: $carteira?->getNome() ?? '—',

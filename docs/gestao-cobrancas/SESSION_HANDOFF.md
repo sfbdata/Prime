@@ -1,22 +1,82 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
-> Sessão encerrada em: **2026-07-11 — ✅ MÓDULO 100% EM PRODUÇÃO E POPULADO.** Perf N+1 (P0–P4) + módulo Cobranças + migration de permissões mergeados no `master` e **deployados em prod** (bluejus.com.br); permissões concedidas aos papéis; smoke OK; **dados reais importados** (194 casos / 3270 obrigações). A feature está NO AR.
+> Sessão encerrada em: **2026-07-15 — 🎉 RODADA 1–9 COMPLETA, MERGEADA NO MASTER, DEPLOYADA E VALIDADA EM PRODUÇÃO.** Specs: `docs/specs/cobranca-ajuste9-bloquear-acordo-sobre-acordo.md` (INV-I a INV-M; D1–D6) · `cobranca-ajuste7-acordo-inteligente.md` (D1–D8; INV-A a INV-H) + as dos ajustes 2/4/5/6. Detalhe por item no AJUSTES_BACKLOG.
+>
+> **`master` == `origin/master` == `gestao-cobrancas` == `origin/gestao-cobrancas` == `ca65f5a`** (merge-commit de `origin/master` na branch — trouxe os 4 commits do Sync, zero conflito). Commits do ajuste 9: `4478a88`(spec) · `1a2a2df`(código) · `640d40e`(docs). Item 7: `361cb53`·`2c3ed78`·`a2be47f`·`bb10f90`. Item 8: `9201fc2`. `tests/Cobranca` **539/539**, global **1854/1854**.
+>
+> **✅ EM PRODUÇÃO (2026-07-15).** Deploy via `deploy-prod-tls.sh`; **as 2 migrations da rodada aplicadas e conferidas** por `doctrine:migrations:status`: `Version20260713120000` (DROP da Revisão, item 4) = Previous · `Version20260714130000` (aditiva, item 7) = **Current/Latest**. As **2 "New"** que sobram são as **fantasmas antigas do Ponto** (`Version20260401000000` cria `sede`/`escala_trabalho`/`feriado`, que já existem em prod) — **benignas, não mexer**. O ajuste 9 não tem migration. **Smoke em prod VALIDADO pelo humano.**
+>
+> **➡️ PRÓXIMO PASSO = DECISÃO DO HUMANO.** A rodada acabou e está no ar. Opções: (a) atacar um follow-up (lista abaixo); (b) **faxina de worktrees** (ver GOTCHA abaixo); (c) outra frente — ex.: **Sync Fase 2**, que tem 6 commits prontos e NÃO integrados em `.worktrees/fase2-sync`. **NÃO iniciar implementação nova sem o humano escolher.**
+>
+> **⚠️ GOTCHA DA INTEGRAÇÃO (custou uma tentativa falha — anotar):** `git switch master` recusou com *"'master' is already used by worktree at .worktrees/fix-nome-acao-manual"* (worktree ABANDONADA segurando o master). O veneno: os comandos seguintes **rodaram em silêncio no lugar errado** — o `merge` mergeou a branch nela mesma ("Already up to date") e o `push origin master` publicou o master antigo ("Everything up-to-date"), **parecendo sucesso**. **Sempre `git worktree list` antes de integrar.** Resolvido com `git worktree remove --force` + `git worktree prune`. **`.worktrees/fase2-sync` = PRESERVAR** (trabalho real não integrado). Entulho descartável (conteúdo já no master, verificado por diff): `integracao-sync-master`, `sincronizacao-drive` (tem 5 `plano*.md` untracked que somem junto) e ~15 `.claude/worktrees/agent-*`.
+>
+> **✅ AJUSTE 9 ENTREGUE (2026-07-15, commit `1a2a2df`) — fecha o follow-up "acordo sobre acordo".**
+> **Decisão de produto do humano:** renegociar a renegociação **NÃO é fluxo do negócio** → bloquear na CRIAÇÃO. Para refazer um acordo: **rompa o atual** (as originais voltam ao saldo por derivação) e acorde sobre elas.
+> **A investigação achou um vetor PIOR que o registrado na spec do item 7 §13:** romper/cancelar um acordo A cujas parcelas um acordo B vigente renegociou **DUPLICA a dívida no saldo** (as originais de A voltam ao exigível E as parcelas de B continuam). A spec do item 7 só analisou o vetor de EDIÇÃO. Detalhe: spec do ajuste 9 §2.1.
+> **Entregue:** `doCasoSubstituiveis` (só dívida original; reusa `doCasoExigiveis`, **INV-J: o saldo NÃO mudou**) · guard no `CriarAcordoUseCase` + `ObrigacaoNaoEhDividaOriginalException` · guard no romper **E** no cancelar + `AcordoComParcelasRenegociadasException` (só alcança dado legado — é alarme) · UI (só originais + texto do caminho + aviso na lista vazia). **Modal de PAGAMENTO intocado (INV-K).** Sem migration.
+> **⚠️ NÃO "CONSERTE" A ASSIMETRIA (spec §5.1.1):** o **render** (`MontadorModaisCaso::deMutacao`) filtra as substituíveis, mas o **POST** (`AcordoController::criar`) valida contra as **exigíveis**. É deliberado: igualar as listas faz o ChoiceType barrar antes, deixando guard e `catch` **inalcançáveis** — foi o BLOQUEANTE da revisão.
+>
+> **🔴 LIÇÕES DO AJUSTE 9 (as mais duras até aqui):** (1) o teste functional do `criar` **passava pelo motivo errado** — form inválido também dá 302 p/ a mesma URL sem criar acordo; provado por mutação: removendo o `catch`, seguia VERDE. Guard novo exige teste que assere a **MENSAGEM**, não só o redirect. (2) o `catch` chegou a ficar **sem o `use`** da exception (resolveria p/ o namespace do Controller, nunca capturaria → 500) e **539 testes passaram verdes**: *seguro inalcançável não é seguro, é código morto que apodrece*. (3) Reusar exception por preguiça mente pro gestor: `ObrigacaoDeAcordoException` diz "acordo **vigente**" e estava sendo lançada p/ parcela de acordo **rompido**. (4) Doc stale é pior que doc ausente — o docblock do teste sobreviveu à mudança de desenho e ensinava a reintroduzir o bloqueante (pego na re-revisão).
+>
+> **🔴 LIÇÕES DO ITEM 7 (não repetir):** (1) a revisão adversarial pegou um **bug financeiro real** na F4 — o editor apagava parcela de A que um acordo B vigente guardava como dívida original (hard delete → dívida sumia se B fosse rompido), alcançável **só pela UI**; (2) ao corrigir, entraram 2 regressões (exception fora do `catch` → 500; guard antes do `linhaMudouParcela` → acordo ineditável) porque os testes do guard eram **só unit** — **guard novo exige functional do caminho HTTP**; (3) na F3, sem `#[ORM\OrderBy]` as parcelas saíam na ordem da heap e um UPDATE as embaralharia; (4) `readOnly` ≠ `disabled` (disabled não é submetido); (5) o JS `parseCentavos` é **pt-BR** (ponto=milhar) — escrever valor com `.toFixed(2)` cru vira erro de 100×. Tudo provado por **mutação**, não por relato.
+>
+> **✅ FOLLOW-UP "acordo sobre acordo" na CRIAÇÃO — FECHADO pelo ajuste 9** (era: `doCasoExigiveis` oferece parcelas de acordo vigente e `CriarAcordoUseCase` nunca olha `acordoOrigem`). Ver o bloco do ajuste 9 acima.
+>
+> **✅ Item 8 (último) ENTREGUE:** aba Obrigações agrupada — acordo vigente vira linha-resumo + accordion das parcelas + "Abrir acordo"; substituídas saem da lista. Partição no `MontarDetalheCasoUseCase::agruparPorAcordo()`; **a ORDEM dos testes importa** (substituída ANTES de parcela — senão acordo-sobre-acordo infla o total do grupo contra o saldo). Fetch-join no `doCaso` matou um N+1 pré-existente. Detalhe no AJUSTES_BACKLOG §8.
+>
+> **⏳ FOLLOW-UPS ABERTOS (nenhum bloqueia; decisão do humano):** ~~(1) "acordo sobre acordo"~~ **FECHADO pelo ajuste 9**. (2) **N+1 residual** em `AcordoOutput::fromEntity` (2 COUNT por acordo nas coleções lazy) — pré-existente, bounded por #acordos. (3) **N+1 de autorização `user_tenant`** (transversal ao app, MÉDIO — `PLANO_OTIMIZACAO_QUERIES.md` §1.1). (4) Cosmético: linhas do editor de acordo empilhadas (Descrição/Valor/Vencimento) — mais altas que o ideal. (5) Teste CommandTester do `app:cobranca:importar`. (6) Follow-ups do item 2: aposentar a rota/lista `cobranca_caso_index` (órfã) + o card "judicializadas" do dashboard que aponta pra ela. (7) **Do ajuste 9 (§8):** detalhe do acordo A conta parcelas substituídas como se valessem (`MontarDetalheAcordoUseCase:45-59`; só dado legado); obrigação **quitada** segue oferecida como substituível (pré-existente); 2 dívidas aceitas na revisão (`asub.tenant` não filtrado — fail-safe; botão de submit ativo com lista vazia — cosmético).
+
+**Pegadas de smoke no DEV (inócuas, dev-only):** obrigação 5090 (objeto 117) editada R$50→R$55; eventos de histórico de contato/edição/exclusão em objetos 296/297. Item 7: smoke do gerador no objeto 107 **sem persistir**. **Ajuste 9: acordo `4` CRIADO de verdade no caso 101 / objeto 102** (ativo, R$ 510,00, 3 parcelas `7537-7539`, substituiu as originais `4251-4253` = competências 03–05/2025) — serve de dado pronto p/ clicar. Nada em prod.
+
+**Dados úteis do ajuste 9 no dev:** objeto **102** (caso 101) tem acordo vigente + 15 originais acordáveis → é onde se vê o bloqueio funcionando. Query de diagnóstico (spec §7) retorna **0 linhas** em dev; **prod é dado de TESTE** (humano, 2026-07-15), então não há plano de limpeza.
 
 ---
 
-## Estado atual (2026-07-11)
-- **`master` = `278ac2e`(+ hotfixes)`;** `gestao-cobrancas` mergeada ao master e deployada. Fluxo usado: caronas isoladas → ff-merge; `git merge origin/master` na branch (merge-commit LIMPO) → ff-merge; deploy.
-- **Suíte:** GLOBAL **1723/1723** medido no merge; depois +1 teste de regressão dos papéis (`TenantRoleFormRenderControllerTest`, em `tests/Tenant`). `tests/Cobranca` = 409. Reconferir com o Git.
-- **Deploy teve 3 correções pós-merge (todas em prod):** (1) `cache:warmup` OOM 128M → `-d memory_limit=512M` no Dockerfile+entrypoint (`c4d36d0`); (2) **500 na edição de papéis** — `_form.html.twig` hardcodava recursos; qualquer `resources.*` novo (Cobranças) quebrava o `form_rest` → bloco "Outros recursos" + teste `TenantRoleFormRenderControllerTest` (`0c2a780`); (3) sem terceiro — os dois acima.
-- **Import em prod:** comando CLI novo **`app:cobranca:importar`** (evita timeout HTTP do arquivo grande). TOP LIFE I/II importados (194 casos / 3270 obrig, = dev). Procedimento completo na memória `[[project_gestao_cobrancas]]` e no `DEPLOY_RUNBOOK.md`.
-- **Migrations em prod:** todas E2–E7 + permissões `Version20260711120000` aplicadas. As 2 "New" restantes = fantasmas antigas do Ponto (benignas).
-- **Working tree:** commits de docs/handoff podem ficar 1–2 à frente do master (docs, sem deploy). Untracked só `.claude/worktrees/` + `.xlsx` TOPLIFE gitignorados.
+## 🎯 RODADA DE AJUSTES 2026-07-13 — LEIA PRIMEIRO
 
-### Follow-ups abertos (não bloqueiam; próximo chat)
-1. **Teste CommandTester** do `app:cobranca:importar` (o comando é wrapper verificado só por dry-run real; falta teste automatizado — contexto acabou).
-2. **N+1 de autorização `user_tenant`** (`PermissionChecker`/`TenantContext` re-consultam por chamada; transversal, MÉDIO risco) — ver `PLANO_OTIMIZACAO_QUERIES.md` §1.1.
-3. `RELEASE_CHECKLIST.md` já tem banner de deploy; ajuste fino se quiser.
+**Fonte de verdade da rodada:** [`docs/gestao-cobrancas/AJUSTES_BACKLOG.md`](AJUSTES_BACKLOG.md) — os 8 ajustes com a **ideia final de cada um já fechada com o humano** (decisões, riscos, escopo). Ler ANTES de tocar em código.
+
+**CADÊNCIA acordada com o humano (IMPORTANTE — não pular):**
+`implementar → MOSTRAR o resultado (smoke visual quando dá) → o humano APROVA → SÓ ENTÃO rodar suíte + /review + corrigir + commit atômico → próximo item`.
+Ou seja: **não rode a suíte completa nem o /review antes do humano aprovar o resultado visual do item.**
+
+**Ordem de execução:** `1 → 4 → 3 → 5 → 6 → 7 → 8 → 2` — **mas o humano ANTECIPOU o item 2** e ele está sendo feito em fatias (ver abaixo).
+
+### Estado do Git (reconferir sempre)
+- **`master` = `278ac2e`(+hotfixes até `61a1450`);** branch `gestao-cobrancas` local, não pushada. Deploy/push/merge são do humano.
+- **HEAD = `2a4ea7c`** (+ commit de docs a seguir). Commits desta rodada, em ordem: `d0e4eb5`(backlog) · `854cade`+`35d8d12`(item 1) · `ea4f86a`(item 4) · `65f89ac`(spec item 2) · `ba5592b`(plano item 2 + sub-decisão G) · `fe536eb`(item2 fatia 1) · `be936a6`(item2 fatia 2) · `4b8dfd8`(spec item2 revisada: criar objeto pede nome) · `8118137`(item2 fatia 3) · `3522495`(item2 fatia 4) · `74904f0`(item2 fatia 6) · `d9a9d4f`(docs) · `b6b9029`(item2 fatia 5) · `79e5923`(docs) · `2a4ea7c`(item2 fatia 7).
+- **Working tree LIMPO.** tests/Cobranca 403/403, global 1717/1717. HEAD após item 3 = `6c95985` (+ commit de docs a seguir).
+
+### Item 1 — ✅ CONCLUÍDO E COMMITADO (`854cade`, `35d8d12`)
+Tooltips (popover `?` no hover em modo/forma de honorários) + campo de percentual (input-group `%`, aceita vírgula pt-BR gravando decimal, oculta/desabilita em "sem percentual"), nos modais de CRIAR e EDITAR carteira. Review aprovado + smoke OK.
+
+### Item 4 — ✅ CONCLUÍDO E COMMITADO (`ea4f86a`)
+Remoção completa da "Revisão de pessoa cobrada". Spec: [`docs/specs/cobranca-ajuste4-remover-revisao.md`](../specs/cobranca-ajuste4-remover-revisao.md). Migration `Version20260713120000` (`DROP TABLE IF EXISTS`; down recria) aplicada no dev E no test. `TipoEventoHistorico::RevisaoVinculo` PRESERVADO (legado — não reintroduzir a remoção). feature-review LIMPO. **Deploy futuro:** `DROP TABLE` em prod só com `SELECT count(*)` = 0 (ou só resolvidas) — confirmar antes.
+
+### Item 2 — 🔨 EM ANDAMENTO (objeto e caso unificados na experiência)
+Spec: [`docs/specs/cobranca-ajuste2-objeto-caso-unificado.md`](../specs/cobranca-ajuste2-objeto-caso-unificado.md) · Plano: [`PLANO_AJUSTE2_OBJETO_UNIFICADO.md`](PLANO_AJUSTE2_OBJETO_UNIFICADO.md). Abordagem A: `CasoCobranca` vira âncora invisível (1/objeto), SEM migração de dados. Cada fatia: TDD → smoke real no navegador → feature-review LIMPO → commit.
+- **✅ Fatia 1 (`fe536eb`)** leitura: DTOs `ObjetoDetalheOutput`(embrulha `CasoDetalheOutput`)/`VinculoPessoaOutput` + `MontarDetalheObjetoUseCase` + `CasoCobrancaRepository::casoAncoraDoObjeto`(ativo mais recente, guarda >1, fallback encerrado) + `VinculoPessoaObjetoRepository::todosDoObjetoComPessoa`(fetch-join).
+- **✅ Fatia 2 (`be936a6`)** página `cobranca_objeto_show` (`/cobrancas/objetos/{id}`): template `objeto/show.html.twig` (corpo do caso movido pra cá + aba Pessoas); serviço `MontadorModaisCaso` (extraído dos 3 helpers do `CasoController`, DRY); links da carteira apontam pro objeto (`objetoId` no `CasoResumoOutput`). **`caso_show` AINDA RENDERIZA** (redirect é a Fatia 5).
+- **✅ Fatia 3 (`8118137`)** criar objeto pede só o NOME do cobrado → `CriarObjetoComCobrancaUseCase` (novo) orquestra Pessoa enxuta+Objeto+Caso+Vínculo; **`CriarObjetoUseCase` cru INTACTO pro import**; "Abrir caso" REMOVIDO (rota `cobranca_caso_abrir`/form/teste; `AbrirCasoUseCase` fica); "Novo objeto" no header de "Casos da carteira". SEM migration (pessoa cobrada segue obrigatória).
+- **✅ Fatia 4 (`3522495`)** "Nova pessoa" na aba Pessoas do objeto (cadastra+vincula via `CriarPessoaVinculadaAoObjetoUseCase`; rota `cobranca_objeto_pessoa_criar`).
+- **✅ Fatia 6 (`74904f0`)** card "Objetos" REMOVIDO da carteira; "Vincular existente" + "Encerrar vínculo"(x por linha) relocados pra aba Pessoas do objeto; `PessoaController::vincular/encerrar` redirecionam pro objeto; rota global `cobranca_pessoa_criar` + form `CriarPessoaType` órfão REMOVIDOS; `VinculoPessoaOutput.vinculoId` novo; `CarteiraController` enxugado; `CadastroPessoaVinculoControllerTest` reescrito.
+- **✅ Fatia 5 (`b6b9029`)** as mutações de TODOS os controllers (`CasoController` encerrar/alterarPessoa/judicializar/tentativa + `Obrigacao`/`Pagamento`/`Acordo`/`Documento`/`Liquidacao`/`AcaoCobranca`) redirecionam pro objeto via novo helper `objetoIdDoCaso(?CasoCobranca): int` no trait `AutorizacaoCobranca`; `caso_show` vira **redirect 302** pro objeto **mantendo `findOneByIdDoTenant`+404 cross-tenant**; deps ociosas (`MontarDetalheCasoUseCase`/`MontadorModaisCaso`) removidas do `CasoController`; rota-nome `cobranca_caso_show` e rotas POST permanecem. 13 testes ajustados (GET-token e assert de `/casos/{id}`→`/objetos/{objetoId}`). Sem `SecaoController` (mutações de seção vivem no `DocumentoCobrancaController`). feature-review LIMPO; smoke real OK (deep-link 296→297 + mutação volta ao objeto). Sem migration.
+- **✅ Fatia 7 (`2a4ea7c`)** "Casos" fora do subnav (`_subnav.html.twig` → Painel·Carteiras·Alertas); `caso/show.html.twig` morto DELETADO (grep zero refs); copy "caso"→"cobrança/objeto" em `carteira/show`/`dashboard/index`/`alertas/index`; métrica "Casos" redundante removida da carteira (fica só "Objetos"); Central de Alertas passa a linkar DIRETO ao objeto (`objetoId` novo em `CasoComAlertasOutput`, sem hop 302). Teste `testNavegacaoSoCarteiraObjeto` + assert do href no `testAlertasRender`. feature-review LIMPO; smoke real OK (subnav sem Casos, alertas→/objetos/297). Sem migration.
+
+### ✅ ITEM 2 COMPLETO (Fatias 1–7). Follow-ups pós-prod (decisão do humano — NÃO feitos):
+1. **Aposentar de vez a rota `cobranca_caso_index` + `caso/index.html.twig`/`_resultado.html.twig`** (a lista "Casos", hoje órfã do menu mas ainda acessível por URL; `_resultado` ainda linka `caso_show` e ainda diz "caso(s)" — intocado de propósito p/ não quebrar `testCasoIndexXhrFragmento`). A spec já lista isso como follow-up pós-validação em prod.
+2. **Card "Cobranças judicializadas" do dashboard** (`dashboard/index.html.twig:92`) ainda aponta pra `cobranca_caso_index?status=judicializado` — único link vivo de navegação pra lista de casos. Permitido pela invariante (rota = deep-link), mas repontar/neutralizar quando a lista for aposentada (segue o follow-up 1).
+- **Gotcha smoke Playwright dev:** modal `#modalAlertaPonto` intercepta cliques → remover via `browser_evaluate` antes de interagir. Login dev: `farlei.rocha@gmail.com`/`Prime123!`, `localhost:8080`. Objetos de teste criados no smoke: 296/297/carteira 3.
+
+### Itens seguintes do backlog (ideias fechadas; ainda não iniciados)
+**3** tentativa→registro de contato · **5** editar+excluir obrigação · **6** pagamento auto-alocação FIFO · **7** acordo inteligente (**SPEC própria**) · **8** parcelas na aba Obrigações.
+
+### Follow-ups antigos (não bloqueiam)
+1. Teste CommandTester do `app:cobranca:importar`. 2. N+1 de autorização `user_tenant` (transversal, MÉDIO — `PLANO_OTIMIZACAO_QUERIES.md` §1.1).
+
+## Estado do módulo em prod (contexto — 2026-07-11)
+- Módulo 100% em produção e populado (194 casos / 3270 obrigações no tenant 1). `master` deployado; import via CLI `app:cobranca:importar`. Detalhes na memória `[[project_gestao_cobrancas]]` e no `DEPLOY_RUNBOOK.md`.
 
 _(Histórico da implementação Etapas 0–9 preservado abaixo.)_
 

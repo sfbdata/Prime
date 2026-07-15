@@ -14,12 +14,15 @@ enum TipoEventoHistorico: string
 {
     case CasoAberto = 'caso_aberto';
     case ObrigacaoCriada = 'obrigacao_criada';
+    case ObrigacaoEditada = 'obrigacao_editada';
+    case ObrigacaoExcluida = 'obrigacao_excluida';
     case ValorAtualizadoReconhecido = 'valor_atualizado_reconhecido';
     case ContatoRealizado = 'contato_realizado';
     case BoletoEnviado = 'boleto_enviado';
     case NovoPrazo = 'novo_prazo';
     case Negociacao = 'negociacao';
     case AcordoCriado = 'acordo_criado';
+    case AcordoEditado = 'acordo_editado';
     case AcordoRompido = 'acordo_rompido';
     case AcordoCancelado = 'acordo_cancelado';
     case AcordoCumprido = 'acordo_cumprido';
@@ -27,6 +30,8 @@ enum TipoEventoHistorico: string
     case PagamentoCorrigido = 'pagamento_corrigido';
     case LiquidacaoRegistrada = 'liquidacao_registrada';
     case PessoaCobradaAlterada = 'pessoa_cobrada_alterada';
+    /** Legado: a feature "Revisão de pessoa cobrada" foi removida; este caso permanece só para
+     *  hidratar eventos históricos já gravados (`revisao_vinculo`). Nenhum código novo o cria. */
     case RevisaoVinculo = 'revisao_vinculo';
     case Judicializacao = 'judicializacao';
     case VinculoPasta = 'vinculo_pasta';
@@ -37,12 +42,15 @@ enum TipoEventoHistorico: string
         return match ($this) {
             self::CasoAberto => 'Caso aberto',
             self::ObrigacaoCriada => 'Obrigação criada',
+            self::ObrigacaoEditada => 'Obrigação editada',
+            self::ObrigacaoExcluida => 'Obrigação excluída',
             self::ValorAtualizadoReconhecido => 'Valor atualizado reconhecido',
             self::ContatoRealizado => 'Contato realizado',
             self::BoletoEnviado => 'Boleto/valor atualizado enviado',
             self::NovoPrazo => 'Novo prazo informado',
             self::Negociacao => 'Negociação',
             self::AcordoCriado => 'Acordo criado',
+            self::AcordoEditado => 'Acordo editado',
             self::AcordoRompido => 'Acordo rompido',
             self::AcordoCancelado => 'Acordo cancelado',
             self::AcordoCumprido => 'Acordo cumprido',

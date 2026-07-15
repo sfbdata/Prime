@@ -29,7 +29,7 @@ final class CapacidadeSeparacaoControllerTest extends CobrancaWebTestCase
         $casoId = (int) $caso->getId();
 
         // Financeiro FUNCIONA: o modal financeiro renderiza (podeMovimentar) e o pagamento persiste.
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
             'registrar_pagamento' => [
@@ -38,7 +38,7 @@ final class CapacidadeSeparacaoControllerTest extends CobrancaWebTestCase
                 '_token' => $token,
             ],
         ]);
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -61,12 +61,12 @@ final class CapacidadeSeparacaoControllerTest extends CobrancaWebTestCase
         $casoId = (int) $caso->getId();
 
         // Gerenciar FUNCIONA: registra obrigação.
-        $crawler = $client->request('GET', '/cobrancas/casos/' . $casoId);
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'registrar_obrigacao');
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/obrigacoes', [
             'registrar_obrigacao' => ['descricao' => 'OBRIG MARCADOR ZZ', 'valorOriginal' => '15,00', 'vencimentoOriginal' => '2026-08-10', '_token' => $token],
         ]);
-        self::assertResponseRedirects('/cobrancas/casos/' . $casoId);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $client->followRedirect();
         self::assertStringContainsString('OBRIG MARCADOR ZZ', (string) $client->getResponse()->getContent(), 'gerenciar deve funcionar');
 
