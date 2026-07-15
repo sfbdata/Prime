@@ -12,6 +12,23 @@
             <a href="{{ path('cobranca_objeto_show', {id: acordo.objetoId}) }}" class="btn btn-sm btn-outline-secondary" title="Voltar à cobrança"><i class="bi bi-arrow-left"></i></a>
             <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-file-earmark-text"></i>Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}</h1>
             <span class="badge {{ acordo.statusBadgeClass }}">{{ acordo.statusLabel }}</span>
+            {% if podeAgir %}
+            {# Barra de ações (fatia 4): só acordo ativo, caso aberto e quem tem a capacidade. #}
+            <div class="ms-auto d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalEditarAcordo">
+                    <i class="bi bi-pencil me-1"></i>Editar acordo
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#modalCumprirAcordoDetalhe">
+                    <i class="bi bi-check2-all me-1"></i>Marcar cumprido
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalRomperAcordoDetalhe">
+                    <i class="bi bi-x-octagon me-1"></i>Romper
+                </button>
+                <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalCancelarAcordoDetalhe">
+                    <i class="bi bi-slash-circle me-1"></i>Cancelar
+                </button>
+            </div>
+            {% endif %}
         </div>
         {% if acordo.motivoRompimento or acordo.motivoCancelamento %}
         <p class="text-muted small mb-0">Motivo: {{ acordo.motivoRompimento ?: acordo.motivoCancelamento }}</p>
@@ -109,5 +126,229 @@
         </div>
     </div>
 </section>
+
+{% if podeAgir %}
+{# ── Editar acordo (fatia 4): reajusta as parcelas NÃO pagas; as pagas vêm travadas ── #}
+<div class="modal fade" id="modalEditarAcordo" tabindex="-1" aria-labelledby="tituloEditarAcordo" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            {{ form_start(forms.editarAcordo, {action: path('cobranca_acordo_editar', {id: acordo.id})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloEditarAcordo"><i class="bi bi-pencil me-1"></i>Editar acordo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body" id="corpoEditarAcordo">
+                <div class="row g-2">
+                    <div class="col-sm-6">{{ form_row(forms.editarAcordo.valorTotalNegociado) }}</div>
+                </div>
+                <div class="form-text mb-2">
+                    Parcelas já pagas não podem ser alteradas nem removidas. Ao mudar o valor de uma parcela, as demais se redistribuem para fechar o total.
+                </div>
+                <label class="form-label">Parcelas</label>
+                <div id="parcelasEdicaoContainer"
+                     data-prototype="{{ form_widget(forms.editarAcordo.parcelas.vars.prototype)|e('html_attr') }}"
+                     data-index="{{ forms.editarAcordo.parcelas|length }}">
+                    {% for linha in forms.editarAcordo.parcelas %}
+                        {% set idParcela = linha.vars.value.obrigacaoId %}
+                        {% set trava = parcelasTravadas[idParcela]|default(null) %}
+                        <div class="parcela-linha border rounded p-2 mb-2 {{ trava ? 'bg-body-secondary' : '' }}"
+                             {% if trava %}data-fixada="1" data-travada="1"{% endif %}>
+                            {{ form_widget(linha) }}
+                            {% if trava %}
+                            <div class="small text-muted mt-1">
+                                <i class="bi bi-lock me-1"></i>
+                                {%- if trava.tipo == 'pagamento' %}
+                                    Parcela com pagamento de {{ trava.alocado|centavos }} — não é editável aqui.
+                                {%- else %}
+                                    Esta parcela já foi substituída por outro acordo vigente — quem a gerencia é aquele acordo.
+                                {%- endif %}
+                            </div>
+                            {% else %}
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+                {{ form_errors(forms.editarAcordo.parcelas) }}
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcelaEdicao"><i class="bi bi-plus-lg me-1"></i>Adicionar parcela</button>
+                <div class="mt-2 small" data-acordo-fechamento></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Salvar alterações</button>
+            </div>
+            {{ form_end(forms.editarAcordo) }}
+        </div>
+    </div>
 </div>
+
+{# ── Romper ── #}
+<div class="modal fade" id="modalRomperAcordoDetalhe" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        {{ form_start(forms.romperAcordo, {action: path('cobranca_acordo_romper', {id: acordo.id})}) }}
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-x-octagon me-1"></i>Romper acordo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+        <div class="modal-body">
+            <p class="text-muted small mb-3">O rompimento restaura as obrigações originais no saldo e descarta as parcelas.</p>
+            {{ form_row(forms.romperAcordo.motivo) }}
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-danger"><i class="bi bi-x-octagon me-1"></i>Romper</button>
+        </div>
+        {{ form_end(forms.romperAcordo) }}
+    </div></div>
+</div>
+
+{# ── Cancelar ── #}
+<div class="modal fade" id="modalCancelarAcordoDetalhe" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        {{ form_start(forms.cancelarAcordo, {action: path('cobranca_acordo_cancelar', {id: acordo.id})}) }}
+        <div class="modal-header"><h5 class="modal-title"><i class="bi bi-slash-circle me-1"></i>Cancelar acordo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+        <div class="modal-body">
+            <p class="text-muted small mb-3">O cancelamento (erro de lançamento) restaura as obrigações originais.</p>
+            {{ form_row(forms.cancelarAcordo.motivo) }}
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+            <button type="submit" class="btn btn-warning"><i class="bi bi-slash-circle me-1"></i>Cancelar acordo</button>
+        </div>
+        {{ form_end(forms.cancelarAcordo) }}
+    </div></div>
+</div>
+
+{# ── Cumprir (CSRF manual, sem campos) ── #}
+<div class="modal fade" id="modalCumprirAcordoDetalhe" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog"><div class="modal-content">
+        <form method="POST" action="{{ path('cobranca_acordo_cumprir', {id: acordo.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('marcar_cumprido_' ~ acordo.id) }}">
+            <div class="modal-header"><h5 class="modal-title">Marcar acordo cumprido</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
+            <div class="modal-body">Confirmar que este acordo foi integralmente cumprido? As obrigações substituídas permanecem fora do saldo.</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success"><i class="bi bi-check2-all me-1"></i>Confirmar</button>
+            </div>
+        </form>
+    </div></div>
+</div>
+{% endif %}
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+{% if podeAgir %}
+<script>
+/* Editor de parcelas do acordo (ajuste 7, fatia 4). Mesma mecânica do gerador da criação: as linhas
+   NÃO-fixadas redistribuem o restante para fechar o total; as parcelas PAGAS nascem fixadas e nunca
+   são recalculadas (o servidor as congela — INV-C). Valores em pt-BR (vírgula), como o parseCentavos
+   e o CentavosType esperam. O servidor revalida INV-B: este JS é só afordância. */
+document.addEventListener('DOMContentLoaded', function () {
+    var container = document.getElementById('parcelasEdicaoContainer');
+    if (!container) { return; }
+    var form = container.closest('form');
+    var submitBtn = form ? form.querySelector('button[type="submit"]') : null;
+    var totalInput = document.querySelector('#modalEditarAcordo input[data-acordo-total]');
+    var fechamentoBox = document.querySelector('#modalEditarAcordo [data-acordo-fechamento]');
+
+    function parseCentavos(str) {
+        if (!str) { return 0; }
+        var s = String(str).trim().replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+        var f = parseFloat(s);
+        return isNaN(f) ? 0 : Math.round(f * 100);
+    }
+    function fmtReais(cent) {
+        return 'R$ ' + (cent / 100).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    function reaisInput(cent) { return (cent / 100).toFixed(2).replace('.', ','); }
+    function valorInputDe(row) { return row.querySelector('input[name$="[valor]"]'); }
+    function linhas() { return Array.prototype.slice.call(container.querySelectorAll('.parcela-linha')); }
+
+    function atualizarFechamento() {
+        var total = parseCentavos(totalInput ? totalInput.value : '');
+        var rows = linhas();
+        if (total <= 0) {
+            if (fechamentoBox) { fechamentoBox.textContent = ''; }
+            if (submitBtn) { submitBtn.disabled = false; }
+            return;
+        }
+        var soma = 0;
+        var todasPositivas = rows.length > 0;
+        rows.forEach(function (r) {
+            var v = parseCentavos(valorInputDe(r).value);
+            soma += v;
+            if (v <= 0) { todasPositivas = false; }
+        });
+        var fecha = soma === total && todasPositivas;
+        if (fechamentoBox) {
+            fechamentoBox.classList.toggle('text-danger', !fecha);
+            fechamentoBox.classList.toggle('text-success', fecha);
+            fechamentoBox.textContent = fecha
+                ? 'As parcelas fecham em ' + fmtReais(total) + '.'
+                : 'As parcelas somam ' + fmtReais(soma) + ' — devem fechar em ' + fmtReais(total) + '.';
+        }
+        if (submitBtn) { submitBtn.disabled = !fecha; }
+    }
+
+    function redistribuir() {
+        var total = parseCentavos(totalInput ? totalInput.value : '');
+        if (total <= 0) { atualizarFechamento(); return; }
+        var rows = linhas();
+        var naoFixas = rows.filter(function (r) { return r.dataset.fixada !== '1'; });
+        var somaFixas = rows.filter(function (r) { return r.dataset.fixada === '1'; })
+            .reduce(function (s, r) { return s + parseCentavos(valorInputDe(r).value); }, 0);
+        var restante = total - somaFixas;
+        if (naoFixas.length) {
+            var base = Math.trunc(restante / naoFixas.length);
+            var resto = restante - base * naoFixas.length;
+            naoFixas.forEach(function (r, i) {
+                valorInputDe(r).value = reaisInput(base + (i === 0 ? resto : 0));
+            });
+        }
+        atualizarFechamento();
+    }
+
+    // Adicionar linha nova (sem obrigacaoId → o servidor cria a parcela).
+    var addBtn = document.getElementById('addParcelaEdicao');
+    if (addBtn) {
+        addBtn.addEventListener('click', function () {
+            var index = parseInt(container.dataset.index || '0', 10);
+            var html = (container.dataset.prototype || '').replace(/__name__/g, index);
+            var row = document.createElement('div');
+            row.className = 'parcela-linha border rounded p-2 mb-2';
+            row.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>';
+            container.appendChild(row);
+            container.dataset.index = (index + 1).toString();
+            atualizarFechamento();
+        });
+    }
+    container.addEventListener('click', function (e) {
+        var btn = e.target.closest('.remover-linha');
+        if (!btn) { return; }
+        var row = btn.closest('.parcela-linha');
+        // Defesa: a travada não tem botão de remover, mas nunca deixe sumir por acidente.
+        if (row && row.dataset.travada !== '1') { row.remove(); redistribuir(); }
+    });
+    container.addEventListener('input', function (e) {
+        var input = e.target.closest('input[name$="[valor]"]');
+        if (!input) { return; }
+        var row = input.closest('.parcela-linha');
+        if (row) { row.dataset.fixada = '1'; }
+        redistribuir();
+    });
+    if (totalInput) { totalInput.addEventListener('input', redistribuir); }
+
+    /* Cadeado honesto: a linha travada é reenviada intacta (o servidor conta com isso), então os
+       campos ficam somente-leitura em vez de só exibirem o aviso. */
+    container.querySelectorAll('.parcela-linha[data-travada="1"] input').forEach(function (input) {
+        if (input.type !== 'hidden') { input.readOnly = true; }
+    });
+
+    var modal = document.getElementById('modalEditarAcordo');
+    if (modal) { modal.addEventListener('shown.bs.modal', atualizarFechamento); }
+});
+</script>
+{% endif %}
 {% endblock %}

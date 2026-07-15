@@ -84,6 +84,8 @@ final class MontarDetalheAcordoUseCase
             statusLabel: $acordo->getStatus()->label(),
             statusBadgeClass: $acordo->getStatus()->badgeClass(),
             vigente: $acordo->getStatus()->ehVigente(),
+            ativo: $acordo->estaAtivo(),
+            casoEncerrado: $caso?->estaEncerrado() ?? false,
             motivoRompimento: $acordo->getMotivoRompimento(),
             motivoCancelamento: $acordo->getMotivoCancelamento(),
             valorTotalNegociado: $total,

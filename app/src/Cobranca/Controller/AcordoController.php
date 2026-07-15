@@ -4,19 +4,26 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\DTO\AcordoDetalheOutput;
 use App\Cobranca\DTO\CancelarAcordoInput;
 use App\Cobranca\DTO\CriarAcordoInput;
+use App\Cobranca\DTO\EditarAcordoInput;
 use App\Cobranca\DTO\MarcarAcordoCumpridoInput;
+use App\Cobranca\DTO\ParcelaEdicaoInput;
 use App\Cobranca\DTO\RomperAcordoInput;
+use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Enum\Periodicidade;
 use App\Cobranca\Exception\AcordoNaoAtivoException;
 use App\Cobranca\Exception\CasoEncerradoException;
+use App\Cobranca\Exception\ObrigacaoComPagamentoException;
+use App\Cobranca\Exception\ObrigacaoDeAcordoException;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
-use App\Cobranca\Enum\Periodicidade;
 use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
 use App\Cobranca\Exception\ParcelamentoInvalidoException;
 use App\Cobranca\Form\AcordoCriarType;
 use App\Cobranca\Form\CancelarAcordoType;
+use App\Cobranca\Form\EditarAcordoType;
 use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
@@ -24,6 +31,7 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\GeradorParcelamento;
 use App\Cobranca\UseCase\CancelarAcordoUseCase;
 use App\Cobranca\UseCase\CriarAcordoUseCase;
+use App\Cobranca\UseCase\EditarAcordoUseCase;
 use App\Cobranca\UseCase\MarcarAcordoCumpridoUseCase;
 use App\Cobranca\UseCase\MontarDetalheAcordoUseCase;
 use App\Cobranca\UseCase\RomperAcordoUseCase;
@@ -58,6 +66,7 @@ final class AcordoController extends AbstractController
         private readonly MarcarAcordoCumpridoUseCase $marcarCumprido,
         private readonly GeradorParcelamento $geradorParcelamento,
         private readonly MontarDetalheAcordoUseCase $montarDetalheAcordo,
+        private readonly EditarAcordoUseCase $editarAcordo,
     ) {
     }
 
@@ -79,9 +88,105 @@ final class AcordoController extends AbstractController
             throw $this->createNotFoundException('Acordo não encontrado.');
         }
 
+        $detalhe = $this->montarDetalheAcordo->executar($acordo, $tenant);
+
+        // Barra de ações (Fatia 4) só para quem gerencia, em acordo ATIVO e caso aberto — mesmo gate
+        // que o Twig usa para escondê-la. Forms com `action` fixa (há UM acordo nesta página): não é o
+        // padrão de modal reutilizável, então não há `action` vazia para o guard de submit cobrir.
+        $podeAgir = $detalhe->ativo
+            && !$detalhe->casoEncerrado
+            && $this->permissionChecker->hasPermission($this->usuarioLogado(), $tenant, 'resources.cobranca.gerenciar');
+
+        $forms = [];
+        $parcelasTravadas = [];
+        if ($podeAgir) {
+            $forms = [
+                'editarAcordo' => $this->createForm(EditarAcordoType::class, $this->inputDeEdicao($acordo, $detalhe))->createView(),
+                'romperAcordo' => $this->createForm(RomperAcordoType::class)->createView(),
+                'cancelarAcordo' => $this->createForm(CancelarAcordoType::class)->createView(),
+            ];
+            // Mapa id → motivo da trava. O editor as mostra travadas; o UseCase é quem de fato recusa
+            // (INV-C pagamento; invariável 14 para a parcela já substituída por outro acordo vigente).
+            foreach ($acordo->getParcelas() as $parcela) {
+                if ($parcela->getAcordoSubstituto()?->getStatus()->ehVigente() ?? false) {
+                    $parcelasTravadas[(int) $parcela->getId()] = ['tipo' => 'acordo', 'alocado' => 0];
+                }
+            }
+            foreach ($detalhe->parcelas as $parcela) {
+                if ($parcela->alocado > 0 && !isset($parcelasTravadas[$parcela->id])) {
+                    $parcelasTravadas[$parcela->id] = ['tipo' => 'pagamento', 'alocado' => $parcela->alocado];
+                }
+            }
+        }
+
         return $this->render('cobranca/acordo/show.html.twig', [
-            'acordo' => $this->montarDetalheAcordo->executar($acordo, $tenant),
+            'acordo' => $detalhe,
+            'forms' => $forms,
+            'podeAgir' => $podeAgir,
+            'parcelasTravadas' => $parcelasTravadas,
         ]);
+    }
+
+    /**
+     * Edita o acordo (Ajuste 7, Fatia 4): reajusta as parcelas não pagas. Capacidade `gerenciar`,
+     * resolução tenant-safe → 404 ANTES do CSRF, Form → UseCase, PRG de volta ao detalhe.
+     */
+    #[Route('/acordos/{id}/editar', name: 'cobranca_acordo_editar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function editar(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $acordo = $this->acordoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($acordo === null) {
+            throw $this->createNotFoundException('Acordo não encontrado.');
+        }
+
+        $input = new EditarAcordoInput();
+        $input->acordoId = $id;
+        $form = $this->createForm(EditarAcordoType::class, $input);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->editarAcordo->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Acordo atualizado.');
+            } catch (AcordoNaoAtivoException | CasoEncerradoException | ObrigacaoComPagamentoException | ObrigacaoDeAcordoException | ObrigacaoNaoEncontradaException | ParcelamentoInvalidoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        } else {
+            $this->flashErrosDoForm($form);
+        }
+
+        return $this->redirectToRoute('cobranca_acordo_show', ['id' => $id]);
+    }
+
+    /**
+     * Pré-preenche o editor com o conjunto ATUAL de parcelas (a entrada é uma linha como as outras —
+     * D8). O editor trabalha no `valorOriginal` da parcela (encargos são outra história: obrigação de
+     * acordo vigente nem aceita "editar obrigação"), por isso o total pré-preenchido é a soma deles.
+     */
+    private function inputDeEdicao(Acordo $acordo, AcordoDetalheOutput $detalhe): EditarAcordoInput
+    {
+        $input = new EditarAcordoInput();
+        $input->acordoId = $detalhe->id;
+        $soma = 0;
+
+        foreach ($acordo->getParcelas() as $parcela) {
+            $linha = new ParcelaEdicaoInput();
+            $linha->obrigacaoId = $parcela->getId();
+            $linha->descricao = $parcela->getDescricao();
+            $linha->valor = $parcela->getValorOriginal();
+            $linha->vencimento = $parcela->getVencimentoOriginal();
+            $input->parcelas[] = $linha;
+            $soma += $parcela->getValorOriginal();
+        }
+
+        $input->valorTotalNegociado = $soma;
+
+        return $input;
     }
 
     /**

@@ -181,29 +181,59 @@ Novo **`EditarAcordoUseCase`** + `EditarAcordoInput` + `EditarAcordoType` +
 **`POST /cobrancas/acordos/{id}/editar`** (`cobranca_acordo_editar`), gate
 `resources.cobranca.gerenciar`, CSRF via Form, `findOneByIdDoTenant`→404.
 
-`EditarAcordoInput`: `acordoId`, `valorTotalNegociado`, `valorEntrada`, `dataEntrada?`,
-`parcelas[]` (cada uma: `obrigacaoId?` — null = nova —, `descricao`, `valor`, `vencimento`).
+`EditarAcordoInput`: `acordoId`, `valorTotalNegociado`, `parcelas[]` (cada uma: `obrigacaoId?` —
+null = nova —, `descricao`, `valor`, `vencimento`).
+
+**D8 — a entrada, na edição, é UMA LINHA como as outras** (decisão fechada ao implementar a Fatia 4).
+Motivo: na CRIAÇÃO o input traz `valorEntrada` **fora** de `parcelas[]` (o UseCase cria a obrigação da
+entrada), então INV-B lá é `entrada + Σ parcelas == total`. Já na EDIÇÃO o conjunto editável é
+`Acordo::getParcelas()`, que **já contém** a obrigação da entrada — somar `valorEntrada` outra vez a
+contaria em dobro. Portanto:
+- **INV-B na edição** = `Σ parcelas == valorTotalNegociado` (a entrada está dentro do Σ).
+- `EditarAcordoInput` **não** tem `valorEntrada`/`dataEntrada`: a entrada é editada como qualquer linha.
+- O snapshot `valorEntrada` é **recomputado** a cada edição = valor da linha cuja descrição é
+  "Entrada" (trim, case-insensitive; convenção de D4), senão 0 — mantendo o detalhe (§7) verdadeiro.
+- Limite conhecido e aceito: renomear a linha "Entrada" faz o snapshot virar 0 — auto-consistente
+  (deixou de ser entrada). Um flag `ehEntrada` na Obrigação resolveria de vez, mas exigiria migration
+  e não paga o custo agora (follow-up se a convenção incomodar).
 
 Fluxo e **guardas**:
 
 1. Resolve acordo tenant-safe → 404. **Só edita se `status === Ativo`** (Cumprido/Rompido/Cancelado
    → `AcordoNaoAtivoException`, congelado — INV-D). Caso encerrado → `CasoEncerradoException` (INV-H).
 2. Monta o diff sobre as parcelas atuais (`acordo.parcelas` + a entrada):
-   - **Parcela com pagamento alocado** (`totalAlocadoEmObrigacoes([id]) > 0`) é **CONGELADA**
-     (INV-C): não pode ter valor/vencimento/descrição alterados nem ser removida. Se o input tentar
-     mudá-la ou omiti-la → `ParcelaComPagamentoException`. (Na UI ela vem travada/read-only e é
+   - **Parcela com pagamento alocado** (alocado > 0, lido em LOTE antes de qualquer escrita) é
+     **CONGELADA** (INV-C): não pode ter valor/vencimento/descrição alterados nem ser removida. Se o
+     input tentar mudá-la ou omiti-la → `ObrigacaoComPagamentoException`. (Na UI ela vem travada e é
      reenviada intacta.)
+   - **Parcela já substituída por OUTRO acordo vigente** (`acordoSubstituto` vigente) é **CONGELADA**
+     (invariável 14) → `ObrigacaoDeAcordoException`. Ela é a "original" que voltaria ao saldo se
+     aquele acordo fosse rompido; quem a gere é o acordo substituto. **Atenção:** não usar
+     `Obrigacao::participaDeAcordoVigente()` aqui — ela também olha `acordoOrigem`, que é o próprio
+     acordo em edição (vigente), e travaria TODA parcela.
+   - **As duas travas valem só para a linha que MUDOU** (mesma posição, depois de comparar com a
+     parcela persistida). A UI reenvia TODAS as linhas, inclusive as travadas: travar a linha
+     inalterada deixaria o acordo inteiro ineditável. Toda exception de guarda tem de estar no `catch`
+     do controller (vira flash, nunca 500) — e o caminho HTTP de cada uma precisa de teste functional,
+     não só unit.
+   - **`obrigacaoId` repetido** no envio → `ParcelamentoInvalidoException` (inflaria a soma e o
+     snapshot sem alterar o conjunto real).
    - **Parcela sem pagamento presente no input** → atualiza valor/vencimento/descrição.
    - **Parcela sem pagamento ausente do input** → **removida** (hard delete da `Obrigacao`).
    - **Parcela nova** (`obrigacaoId` null) → cria `Obrigacao` com `acordoOrigem` = este acordo.
 3. **Conjunto de obrigações substituídas é CONGELADO** (INV-E): a edição não altera `acordoSubstituto`
    de ninguém (decisão de criação; mexer nisso reescreveria saldo/derivação — fora do escopo).
-4. Revalida `valorEntrada + Σ parcelas.valor == valorTotalNegociado` (INV-B). A entrada, se existir
-   e não estiver paga, pode ser reajustada; se paga, congelada como qualquer parcela.
-5. Atualiza o snapshot `valorTotalNegociado`/`valorEntrada` no `Acordo`.
+4. Revalida **`Σ parcelas == valorTotalNegociado`** (INV-B **na edição** — a entrada está DENTRO do
+   Σ; ver D8). A entrada, se não estiver paga, é reajustada como qualquer linha.
+5. Atualiza o snapshot `valorTotalNegociado`/`valorEntrada` no `Acordo` (entrada = linha "Entrada").
 6. Evento de histórico **`AcordoEditado`** (novo caso do enum `TipoEventoHistorico`, code-only — a
-   coluna guarda string, sem migração) com resumo antes/depois (qtd parcelas, total). 1 `flush`.
+   coluna guarda string, sem migração) com resumo **antes/depois** (qtd parcelas, total) **+ o retrato
+   das parcelas removidas** (id/descrição/valor/vencimento): a remoção é hard delete e, sem o retrato,
+   a auditoria não saberia o que sumiu (padrão herdado do `ExcluirObrigacaoUseCase`). 1 `flush`.
 7. Redirect → `cobranca_acordo_show`.
+
+**Ordem obrigatória: validar TUDO → só então escrever.** É dinheiro: nenhuma parcela é alterada,
+criada ou removida enquanto houver guarda por verificar (não depender de "ninguém dá flush no meio").
 
 Não há edição de status por aqui (romper/cancelar/cumprir seguem nas rotas próprias).
 
@@ -220,7 +250,9 @@ Não há edição de status por aqui (romper/cancelar/cumprir seguem nas rotas p
 
 - **INV-A** Saldo/honorários/alertas **100% derivados** das obrigações; colunas de acordo são
   snapshot descritivo, **nunca lidas para saldo** (invariável 20 intacta).
-- **INV-B** `valorEntrada + Σ parcelas.valor == valorTotalNegociado` — garantido na escrita e
+- **INV-B** o total negociado fecha com as parcelas — **na criação** `valorEntrada + Σ parcelas.valor
+  == valorTotalNegociado` (o input traz a entrada FORA da coleção); **na edição** `Σ parcelas ==
+  valorTotalNegociado` (a entrada é uma linha DENTRO da coleção — D8). Garantido na escrita e
   **revalidado no servidor** (criar e editar).
 - **INV-C** Parcela com pagamento alocado é **imutável e não-removível**.
 - **INV-D** Edita só acordo **Ativo**; Cumprido/Rompido/Cancelado congelados.
@@ -273,6 +305,14 @@ depende do detalhe entregue aqui e será tratado depois.
 ## 13. Riscos e deploy
 
 - **Migração aditiva** em prod = tarefa do humano no deploy (depois do DJEN); down remove colunas.
+- **FOLLOW-UP ABERTO (decisão do humano, FORA do item 7): "acordo sobre acordo" na CRIAÇÃO.** Hoje
+  `ObrigacaoRepository::doCasoExigiveis` inclui parcelas de acordo VIGENTE e o `CriarAcordoUseCase` só
+  barra `acordoSubstituto` vigente — nunca olha `acordoOrigem`. Ou seja: um acordo B **pode** substituir
+  parcelas de um acordo A ainda ativo (renegociar a renegociação), e a tela de criar acordo oferece
+  essas parcelas. A Fatia 4 fica correta em qualquer cenário (o guard da invariável 14 impede que
+  editar A estrague o que B guarda). Mas **se o produto disser que esse fluxo não existe**, o ajuste é
+  na CRIAÇÃO (código pré-existente, já em produção) — não aqui. Achado pela revisão adversarial da
+  Fatia 4; era um caminho de perda de dívida real (hard delete da "original" de B), hoje bloqueado.
 - Sem toque em `AlocadorPagamento`/`AutoAlocadorFifo`/`CalculadoraSaldo` (saldo segue derivado).
 - Aritmética de centavos coberta por unit tests data-driven (como o rateio de honorários).
 - `participaDeAcordoVigente()` continua travando edição **direta** de parcela; o `EditarAcordoUseCase`

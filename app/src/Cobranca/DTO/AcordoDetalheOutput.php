@@ -16,8 +16,8 @@ namespace App\Cobranca\DTO;
 final class AcordoDetalheOutput
 {
     /**
-     * `ativo`/`casoEncerrado` NÃO entram aqui: a Fatia 3 é read-only. A barra de ações do detalhe
-     * (Editar + Romper/Cancelar/Cumprir) chega na Fatia 4 e traz os campos que precisar.
+     * `ativo` + `casoEncerrado` alimentam a barra de ações do detalhe (Fatia 4): só acordo ATIVO em
+     * caso aberto aceita Editar/Romper/Cancelar/Cumprir — mesma condição que o UseCase revalida.
      *
      * @param list<ParcelaAcordoResumoOutput>          $parcelas
      * @param list<ObrigacaoSubstituidaResumoOutput>   $substituidas
@@ -29,6 +29,8 @@ final class AcordoDetalheOutput
         public readonly string $statusLabel,
         public readonly string $statusBadgeClass,
         public readonly bool $vigente,
+        public readonly bool $ativo,
+        public readonly bool $casoEncerrado,
         public readonly ?string $motivoRompimento,
         public readonly ?string $motivoCancelamento,
         public readonly int $valorTotalNegociado,

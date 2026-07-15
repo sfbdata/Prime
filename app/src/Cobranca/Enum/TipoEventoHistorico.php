@@ -22,6 +22,7 @@ enum TipoEventoHistorico: string
     case NovoPrazo = 'novo_prazo';
     case Negociacao = 'negociacao';
     case AcordoCriado = 'acordo_criado';
+    case AcordoEditado = 'acordo_editado';
     case AcordoRompido = 'acordo_rompido';
     case AcordoCancelado = 'acordo_cancelado';
     case AcordoCumprido = 'acordo_cumprido';
@@ -49,6 +50,7 @@ enum TipoEventoHistorico: string
             self::NovoPrazo => 'Novo prazo informado',
             self::Negociacao => 'Negociação',
             self::AcordoCriado => 'Acordo criado',
+            self::AcordoEditado => 'Acordo editado',
             self::AcordoRompido => 'Acordo rompido',
             self::AcordoCancelado => 'Acordo cancelado',
             self::AcordoCumprido => 'Acordo cumprido',
