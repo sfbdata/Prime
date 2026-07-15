@@ -288,43 +288,68 @@ o cron é a garantia de convergência.
 
 Implementado no worktree `.worktrees/fase2-sync` (commits `787feaf` Conectar meu Drive,
 `23c166c` ReconciliadorDePasta+multi-tenant, `39db266` Messenger, `527134f` gatilhos,
-e este de worker/deploy). Suíte 1771/1771. Ordem de ativação em prod:
+e este de worker/deploy). Suíte 1902/1902 (Cobranças + Fase 2 integradas). Ordem de ativação em prod:
 
-1. **Segredo de cifra.** Gerar e pôr no `/opt/jusprime/.env.prod`:
-   `SYNC_CRYPTO_KEY=$(openssl rand -base64 32)`. Garantir também
-   `MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=1` (o worker/handler criam a
-   tabela `messenger_messages` sozinhos no 1º uso). Sem `SYNC_CRYPTO_KEY`, o reconcile e o
-   worker falham ao decifrar o token do tenant.
+1. **`.env.prod` — 3 variáveis (ANTES do deploy).**
+   - `SYNC_CRYPTO_KEY=$(openssl rand -base64 32)` — sem ela o reconcile e o worker falham ao
+     decifrar o token do tenant.
+   - **`GOOGLE_DRIVE_OAUTH_CLIENT_ID` e `GOOGLE_DRIVE_OAUTH_CLIENT_SECRET` — MOVER do
+     `/opt/jusprime/.sync-oauth.env` para o `.env.prod`.** ⚠️ Crítico: o container `worker` recebe
+     env **só do `.env.prod`** (não enxerga o `.sync-oauth.env`, que hoje o wrapper do cron injeta
+     com `-e`). O refresh_token agora vem do banco, mas o client_id/secret continuam GLOBAIS e são
+     exigidos pela fábrica — sem eles o worker morre com "OAuth do Drive incompleto".
+   - `MESSENGER_TRANSPORT_DSN=doctrine://default?auto_setup=1` já vem por default do `.env`
+     (o worker/handler criam a tabela `messenger_messages` sozinhos no 1º uso); só sobrescrever
+     se quiser outro transport.
 
-2. **OAuth web (redirect_uri).** Registrar `https://bluejus.com.br/sync/drive/conexao/callback`
+   Depois de semear o tenant 1 (passo 4), o `.sync-oauth.env` e os `-e` do wrapper do cron ficam
+   dispensáveis (refresh_token e pasta-raiz passam a vir do banco).
+
+2. **OAuth web (redirect_uri) — NÃO bloqueia o deploy.** Só é necessário quando um SEGUNDO
+   escritório for conectar pela tela "Conectar meu Drive" (o tenant 1 é semeado por CLI, sem UI).
+   Registrar `https://bluejus.com.br/sync/drive/conexao/callback`
    como redirect autorizado no app `bluejus-sync` (Google Cloud → Credenciais). O cliente atual
    é **Desktop app**; o fluxo in-app precisa de um cliente **Web application** com esse
    redirect_uri. Usar o novo `client_id/secret` (Web) em `GOOGLE_DRIVE_OAUTH_CLIENT_ID/SECRET`
    no `.env.prod`.
 
-3. **Deploy.** `./scripts/deploy-prod-tls.sh` na VPS (rebuild+recreate). Sobe o serviço
+3. **PAUSAR o cron do sync (antes do deploy).** Entre o deploy e a semeadura do tenant 1 existe
+   uma janela em que o `reconciliar` erraria ("tenant sem Drive conectado"). Comentar a linha:
+   ```
+   crontab -l > ~/crontab.bak && crontab -l | sed '/sync-reconciliar\.sh/ s/^/#/' | crontab -
+   ```
+
+4. **Deploy.** `./scripts/deploy-prod-tls.sh` na VPS (rebuild+recreate). Sobe o serviço
    **`jusprime_worker_prod`** e aplica a migration `Version20260715120000` (cria `sync_drive_conexao`).
    *(Renumerada de `20260714130000`, que colidiu com a migration do ajuste 7 de Cobranças já aplicada
    em prod — com o número antigo o Doctrine a pularia e a tabela nunca seria criada.)*
 
-4. **Semear o tenant 1 (OBRIGATÓRIO antes da próxima rodada do cron).** O reconcile agora lê a
-   conexão do BANCO (não mais do env), então o cron `--tenant-id=1` só funciona depois que a
-   `TenantDriveConexao` do tenant 1 existir. Semear a partir das creds que já rodam o cron
-   (`/opt/jusprime/.sync-oauth.env`):
+5. **Semear o tenant 1.** O reconcile agora lê a conexão do BANCO (não mais do env), então ele só
+   volta a funcionar depois que a `TenantDriveConexao` do tenant 1 existir. Semear a partir do
+   refresh_token/pasta-raiz que já rodavam o cron:
    ```
    set -a; . /opt/jusprime/.sync-oauth.env; set +a
    docker exec -e GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN -e GOOGLE_DRIVE_SHARED_DRIVE_ID \
-     -e SYNC_CRYPTO_KEY -w /var/www/app jusprime_php_prod \
+     -w /var/www/app jusprime_php_prod \
      php bin/console app:sync:conectar-tenant --tenant-id=1 --usuario-id=1
    ```
-   (Alternativamente, um admin do escritório conecta pela UI em "Conectar meu Drive".)
+   (`SYNC_CRYPTO_KEY` vem do `.env.prod` via `env_file`.) Conferir:
+   `SELECT tenant_id, ativo, root_folder_id, conta_email FROM sync_drive_conexao;` → 1 linha, `ativo=t`.
 
-5. **Baixar a frequência do cron.** Com o worker no ar (caminho rápido sistema→Drive), o
-   `sync-reconciliar.sh` vira rede de segurança + sentido Drive→sistema: mudar o cron de
+6. **Provar o reconcile à mão, com o cron ainda pausado:**
+   ```
+   docker exec -w /var/www/app jusprime_php_prod \
+     php bin/console app:sync:reconciliar --tenant-id=1 --usuario-id=1 --dry-run
+   ```
+   Tem de imprimir "Reconciliando tenant 1 contra a raiz `1WBY-…`" e um resumo sem erro. Se disser
+   "não tem Drive conectado", a semeadura falhou — NÃO religue o cron.
+
+7. **Religar o cron, com frequência menor.** Com o worker no ar (caminho rápido sistema→Drive), o
+   `sync-reconciliar.sh` vira rede de segurança + sentido Drive→sistema: descomentar e mudar de
    `*/15` para `0 * * * *` (de hora em hora). Opcional: tirar o `--tenant-id=1` do wrapper para
    cobrir todos os tenants conectados (`reconciliar --usuario-id=1`, itera as conexões ativas).
 
-6. **Prova.** Criar pasta / subir documento no sistema → conferir `docker logs jusprime_worker_prod`
+8. **Prova final.** Criar pasta / subir documento no sistema → conferir `docker logs jusprime_worker_prod`
    e o Drive: a pasta/arquivo aparece em segundos, sem esperar o cron.
 
 **Notas de operação do worker:** sai a cada `--time-limit=3600` (1h) e é reerguido pelo
