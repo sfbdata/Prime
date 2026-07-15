@@ -303,7 +303,9 @@ e este de worker/deploy). Suíte 1771/1771. Ordem de ativação em prod:
    no `.env.prod`.
 
 3. **Deploy.** `./scripts/deploy-prod-tls.sh` na VPS (rebuild+recreate). Sobe o serviço
-   **`jusprime_worker_prod`** e aplica a migration `Version20260714130000` (cria `sync_drive_conexao`).
+   **`jusprime_worker_prod`** e aplica a migration `Version20260715120000` (cria `sync_drive_conexao`).
+   *(Renumerada de `20260714130000`, que colidiu com a migration do ajuste 7 de Cobranças já aplicada
+   em prod — com o número antigo o Doctrine a pularia e a tabela nunca seria criada.)*
 
 4. **Semear o tenant 1 (OBRIGATÓRIO antes da próxima rodada do cron).** O reconcile agora lê a
    conexão do BANCO (não mais do env), então o cron `--tenant-id=1` só funciona depois que a

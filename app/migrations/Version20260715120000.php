@@ -14,8 +14,12 @@ use Doctrine\Migrations\AbstractMigration;
  *
  * DDL literal, gerado a partir do metadata Doctrine (schema:update --dump-sql). Sem data-migration:
  * a permissão reusa `admin.tenant.settings.manage` (já no catálogo), então nada a inserir em `permission`.
+ *
+ * Renumerada de 20260714130000 → 20260715120000: o número original COLIDIU com a migration do ajuste 7
+ * de Cobranças, que entrou no master e já foi aplicada em produção. Mantido o número antigo, o Doctrine
+ * consideraria esta como já executada e a tabela NUNCA seria criada em prod (falha silenciosa).
  */
-final class Version20260714130000 extends AbstractMigration
+final class Version20260715120000 extends AbstractMigration
 {
     public function getDescription(): string
     {
