@@ -1,3 +1,11 @@
+# Default do transport, resolvido SEM depender de env. Motivo: o build de produção faz `rm .env`
+# (e recria vazio), então nenhum default do `app/.env` existe em prod — foi assim que o worker entrou
+# em restart-loop com "Environment variable not found: MESSENGER_TRANSPORT_DSN" no 1º deploy da Fase 2.
+# Com o parâmetro abaixo, a ausência da env deixa de ser fatal: o `.env.prod` (ou qualquer ambiente)
+# só precisa definir MESSENGER_TRANSPORT_DSN se quiser OUTRO transport.
+parameters:
+    messenger_transport_dsn_padrao: 'doctrine://default?auto_setup=1'
+
 framework:
     messenger:
         # Mensagens que falharem todas as tentativas vão para o transport `failed` (fila morta inspecionável).
@@ -13,7 +21,7 @@ framework:
         transports:
             # Fase 2 do sync: transport doctrine (tabela messenger_messages no próprio banco — sem infra extra).
             async:
-                dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                dsn: '%env(default:messenger_transport_dsn_padrao:MESSENGER_TRANSPORT_DSN)%'
                 retry_strategy:
                     max_retries: 3
                     delay: 2000        # 2s, dobrando a cada tentativa (erros transitórios da API do Drive)
