@@ -26,6 +26,8 @@ final class ObrigacaoOutput
         public readonly bool $substituidaPorAcordo,
         public readonly bool $ehParcelaAcordo,
         public readonly bool $parcelaDeAcordoDesfeito,
+        /** Acordo que gerou esta obrigação (null = não é parcela) — agrupa a aba Obrigações (Ajuste 8). */
+        public readonly ?int $acordoOrigemId = null,
     ) {
     }
 
@@ -47,6 +49,7 @@ final class ObrigacaoOutput
             substituidaPorAcordo: $substituto !== null && $substituto->getStatus()->ehVigente(),
             ehParcelaAcordo: $origem !== null && $origem->getStatus()->ehVigente(),
             parcelaDeAcordoDesfeito: $origem !== null && !$origem->getStatus()->ehVigente(),
+            acordoOrigemId: $origem?->getId(),
         );
     }
 }

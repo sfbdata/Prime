@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\UseCase;
 
 use App\Cobranca\DTO\AcordoOutput;
+use App\Cobranca\DTO\GrupoAcordoObrigacoesOutput;
 use App\Cobranca\DTO\CasoDetalheOutput;
 use App\Cobranca\DTO\EventoHistoricoOutput;
 use App\Cobranca\DTO\LiquidacaoOutput;
@@ -55,6 +56,11 @@ final class MontarDetalheCasoUseCase
 
         $acaoAtiva = $this->proximaAcaoRepository->findAtivaDoCaso($caso);
 
+        // Aba Obrigações (Ajuste 8): as parcelas de acordo VIGENTE saem da lista solta e viram grupo.
+        $obrigacoes = array_map(ObrigacaoOutput::fromEntity(...), $this->obrigacaoRepository->doCaso($caso));
+        $acordos = array_map(AcordoOutput::fromEntity(...), $this->acordoRepository->doCaso($caso));
+        [$gruposAcordo, $obrigacoesAvulsas] = $this->agruparPorAcordo($obrigacoes, $acordos);
+
         return new CasoDetalheOutput(
             id: $caso->getId() ?? 0,
             objetoIdentificacao: $objeto?->getIdentificacao() ?? '—',
@@ -79,11 +85,93 @@ final class MontarDetalheCasoUseCase
             // Dedupe: reusa o saldoExigivel e a ação ativa já computados acima (evita o recálculo interno
             // do saldo e a re-busca da ação que `alertasDoCaso` faria).
             alertas: $this->alertasCobranca->alertasComContexto($caso, $saldoExigivel, $acaoAtiva, $hoje),
-            obrigacoes: array_map(ObrigacaoOutput::fromEntity(...), $this->obrigacaoRepository->doCaso($caso)),
+            obrigacoes: $obrigacoes,
+            gruposAcordo: $gruposAcordo,
+            obrigacoesAvulsas: $obrigacoesAvulsas,
             pagamentos: array_map(PagamentoOutput::fromEntity(...), $this->pagamentoRepository->doCaso($caso)),
             liquidacoes: array_map(LiquidacaoOutput::fromEntity(...), $this->liquidacaoRepository->doCaso($caso)),
-            acordos: array_map(AcordoOutput::fromEntity(...), $this->acordoRepository->doCaso($caso)),
+            acordos: $acordos,
             historico: array_map(EventoHistoricoOutput::fromEntity(...), $this->eventoRepository->doCaso($caso)),
         );
+    }
+
+    /**
+     * Reorganiza a aba Obrigações (Ajuste 8) SEM nova query — só reparticiona o que já foi carregado.
+     * A aba mostra o que está VIVO (o que compõe o saldo); o registro completo fica no detalhe do
+     * acordo. A ordem dos testes importa:
+     *
+     * 1. **substituída por acordo VIGENTE** → sai da aba (vive no detalhe do acordo que a substituiu).
+     *    Vem PRIMEIRO de propósito: uma parcela de A que já foi substituída por B (acordo-sobre-acordo
+     *    — ver spec do ajuste 7 §13) está FORA do exigível (`doCasoExigiveis` a exclui), então não pode
+     *    entrar no grupo de A nem somar no total dele — inflaria o grupo contra o saldo derivado
+     *    (invariável 20) e a contaria de novo no "substituiu N" de B. Ela continua existindo
+     *    (invariável 14) e aparece no detalhe de A, travada.
+     * 2. **parcela de acordo VIGENTE** (e não substituída) → entra no grupo daquele acordo.
+     * 3. **todo o resto** (inclusive parcela de acordo ROMPIDO/CANCELADO, que é histórico e voltou a
+     *    ser editável, e original restaurada por rompimento) segue na lista solta.
+     *
+     * Só acordo vigente vira grupo, e só se tiver ao menos uma parcela viva. (Acordo vigente SEM
+     * nenhuma parcela não existe hoje — `CriarAcordoInput`/`EditarAcordoInput` exigem `Count(min:1)`;
+     * se passasse a existir, suas substituídas sumiriam da aba sem grupo que as represente.)
+     *
+     * @param list<ObrigacaoOutput> $obrigacoes
+     * @param list<AcordoOutput>    $acordos
+     *
+     * @return array{0: list<GrupoAcordoObrigacoesOutput>, 1: list<ObrigacaoOutput>}
+     */
+    private function agruparPorAcordo(array $obrigacoes, array $acordos): array
+    {
+        $vigentes = [];
+        foreach ($acordos as $acordo) {
+            if ($acordo->vigente) {
+                $vigentes[$acordo->id] = $acordo;
+            }
+        }
+
+        $parcelasPorAcordo = [];
+        $avulsas = [];
+
+        foreach ($obrigacoes as $obrigacao) {
+            // (1) Substituída por acordo vigente sai da aba — mesmo sendo parcela de outro acordo.
+            if ($obrigacao->substituidaPorAcordo) {
+                continue;
+            }
+
+            // (2) Parcela viva de acordo vigente → grupo daquele acordo.
+            if ($obrigacao->acordoOrigemId !== null && isset($vigentes[$obrigacao->acordoOrigemId])) {
+                $parcelasPorAcordo[$obrigacao->acordoOrigemId][] = $obrigacao;
+
+                continue;
+            }
+
+            // (3) O resto segue na lista solta.
+            $avulsas[] = $obrigacao;
+        }
+
+        $grupos = [];
+        foreach ($vigentes as $acordoId => $acordo) {
+            $parcelas = $parcelasPorAcordo[$acordoId] ?? [];
+            if ($parcelas === []) {
+                continue;
+            }
+
+            $valorTotal = 0;
+            foreach ($parcelas as $parcela) {
+                $valorTotal += $parcela->valorAtual;
+            }
+
+            $grupos[] = new GrupoAcordoObrigacoesOutput(
+                acordoId: $acordoId,
+                dataAcordo: $acordo->dataAcordo,
+                statusLabel: $acordo->statusLabel,
+                statusBadgeClass: $acordo->statusBadgeClass,
+                qtdParcelas: count($parcelas),
+                qtdSubstituidas: $acordo->qtdObrigacoesSubstituidas,
+                valorTotal: $valorTotal,
+                parcelas: $parcelas,
+            );
+        }
+
+        return [$grupos, $avulsas];
     }
 }

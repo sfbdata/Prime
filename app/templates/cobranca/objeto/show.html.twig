@@ -179,11 +179,53 @@
                     </button>
                 </div>
                 {% endif %}
-                {% if caso.obrigacoes|length > 0 %}
+
+                {# ── Acordos vigentes: linha-resumo que expande as parcelas (ajuste 8) ── #}
+                {% for g in caso.gruposAcordo %}
+                <div class="card mb-2">
+                    <div class="card-header d-flex align-items-center gap-2 py-2 flex-wrap">
+                        <button class="btn btn-sm btn-outline-secondary py-0" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#grupoAcordo{{ g.acordoId }}" aria-expanded="false"
+                                aria-controls="grupoAcordo{{ g.acordoId }}" title="Ver parcelas">
+                            <i class="bi bi-chevron-down"></i>
+                        </button>
+                        <strong><i class="bi bi-file-earmark-text me-1"></i>Acordo {{ g.dataAcordo|date('d/m/Y') }}</strong>
+                        <span class="badge {{ g.statusBadgeClass }}">{{ g.statusLabel }}</span>
+                        <span class="text-muted small">{{ g.qtdParcelas }} parcela(s) · substituiu {{ g.qtdSubstituidas }} obrigação(ões)</span>
+                        <span class="ms-auto fw-semibold">{{ g.valorTotal|centavos }}</span>
+                        <a href="{{ path('cobranca_acordo_show', {id: g.acordoId}) }}" class="btn btn-sm btn-outline-primary py-0">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Abrir acordo
+                        </a>
+                    </div>
+                    <div class="collapse" id="grupoAcordo{{ g.acordoId }}">
+                        <div class="table-responsive"><table class="table table-sm mb-0">
+                            <thead><tr><th>Parcela</th><th>Vencimento</th><th class="text-end">Valor</th></tr></thead>
+                            <tbody>
+                            {% for p in g.parcelas %}
+                            <tr>
+                                <td>{{ p.descricao }}</td>
+                                <td>{{ p.vencimentoOriginal|date('d/m/Y') }}</td>
+                                <td class="text-end fw-semibold">{{ p.valorAtual|centavos }}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table></div>
+                        <div class="card-footer small text-muted py-2">
+                            As parcelas e as obrigações substituídas são geridas pelo acordo — abra o acordo para editar.
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+
+                {# Lista solta: o que NÃO está num acordo vigente. A partição (ajuste 8) já tira daqui as
+                   substituídas e as parcelas de acordo vigente, então os ramos de "Substituída"/"Parcela"/
+                   cadeado abaixo não ocorrem nesta lista — ficam como defesa, e o badge vivo aqui é o
+                   "Acordo desfeito" (parcela de acordo rompido/cancelado, editável — ajuste 5). #}
+                {% if caso.obrigacoesAvulsas|length > 0 %}
                 <div class="table-responsive"><table class="table table-sm mb-0">
                     <thead><tr><th>Descrição</th><th>Vencimento</th><th class="text-end">Original</th><th class="text-end">Encargos</th><th class="text-end">Valor atual</th><th></th></tr></thead>
                     <tbody>
-                    {% for o in caso.obrigacoes %}
+                    {% for o in caso.obrigacoesAvulsas %}
                     <tr class="{{ (o.substituidaPorAcordo or o.parcelaDeAcordoDesfeito) ? 'text-muted' : '' }}">
                         <td>{{ o.descricao }}{% if o.referenciaExterna %} <span class="text-muted small">#{{ o.referenciaExterna }}</span>{% endif %}</td>
                         <td>{{ o.vencimentoOriginal|date('d/m/Y') }}</td>
@@ -224,7 +266,11 @@
                     {% endfor %}
                     </tbody>
                 </table></div>
-                {% else %}<p class="text-muted mb-0 text-center py-3">Nenhuma obrigação registrada.</p>{% endif %}
+                {% elseif caso.gruposAcordo|length == 0 %}
+                <p class="text-muted mb-0 text-center py-3">Nenhuma obrigação registrada.</p>
+                {% else %}
+                <p class="text-muted mb-0 text-center py-3">Todas as obrigações desta cobrança estão nos acordos acima.</p>
+                {% endif %}
             </div>
 
             {# Pagamentos & Liquidações #}

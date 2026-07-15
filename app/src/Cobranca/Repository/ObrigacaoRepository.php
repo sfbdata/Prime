@@ -77,6 +77,11 @@ class ObrigacaoRepository extends ServiceEntityRepository
     public function doCaso(CasoCobranca $caso): array
     {
         return $this->createQueryBuilder('o')
+            // Fetch-join dos acordos: o ObrigacaoOutput lê o STATUS dos dois (substituída/parcela/acordo
+            // desfeito) e o agrupamento da aba lê o id da origem — sem isto, cada obrigação ligada a um
+            // acordo dispara um lazy-load (N+1). leftJoin+addSelect não filtra linha nenhuma.
+            ->leftJoin('o.acordoOrigem', 'aorig')->addSelect('aorig')
+            ->leftJoin('o.acordoSubstituto', 'asub')->addSelect('asub')
             ->andWhere('o.caso = :caso')
             ->andWhere('o.tenant = :tenant')
             ->setParameter('caso', $caso)
