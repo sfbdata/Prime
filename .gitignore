@@ -81,3 +81,6 @@ relatorio-commits-10-11-jun-2026.md
 
 # Relatórios reais da fonte de importação de Cobranças (PII) — nunca versionar
 docs/gestao-cobrancas/*.xlsx
+
+# Credenciais OAuth do cron de sincronização Drive (segredos) — só o .example é versionado
+/.sync-oauth.env
