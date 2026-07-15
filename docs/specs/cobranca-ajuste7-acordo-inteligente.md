@@ -167,10 +167,13 @@ A **entrada** (se `valorEntrada > 0`) é criada à parte pelo UseCase como 1ª o
   tabela de **parcelas** (descrição, valor, vencimento, alocado, quitada?), tabela de **obrigações
   substituídas** (descrição, valorExigível). Saldo/quitação por parcela = derivado
   (`totalAlocadoEmObrigacoes`), nunca coluna.
-- Template `cobranca/acordo/show.html.twig`. Se `has_permission('resources.cobranca.gerenciar')`
-  **e** acordo `Ativo` **e** caso não encerrado → mostra o botão/painel **Editar** (§8) + as ações
-  já existentes (Romper/Cancelar/Cumprir apontando pras rotas atuais). Link "abrir acordo" na aba
-  Acordos do objeto passa a apontar aqui.
+- Template `cobranca/acordo/show.html.twig`. Link "abrir acordo" na aba Acordos do objeto aponta aqui.
+- **A Fatia 3 é READ-ONLY** (decisão fechada na revisão da fatia): a **barra de ações** do detalhe —
+  **Editar** (§8) + Romper/Cancelar/Cumprir — chega junto na **Fatia 4**, que já reabre este template
+  e monta os forms/modais necessários. Condição da barra, quando entrar:
+  `has_permission('resources.cobranca.gerenciar')` **e** acordo `Ativo` **e** caso não encerrado.
+  Enquanto isso, as ações seguem disponíveis na aba Acordos do objeto (rotas atuais, inalteradas), e
+  o `AcordoDetalheOutput` **não** carrega `ativo`/`casoEncerrado` (a Fatia 4 os adiciona ao precisar).
 
 ## 8. Editar acordo (D2 — editor completo)
 

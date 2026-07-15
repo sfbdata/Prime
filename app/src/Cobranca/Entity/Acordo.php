@@ -71,14 +71,21 @@ class Acordo implements TenantAware, Auditavel
      * @var Collection<int, Obrigacao>
      */
     #[ORM\OneToMany(mappedBy: 'acordoSubstituto', targetEntity: Obrigacao::class)]
+    #[ORM\OrderBy(['vencimentoOriginal' => 'ASC', 'id' => 'ASC'])]
     private Collection $obrigacoesSubstituidas;
 
     /**
      * Parcelas geradas por este acordo (inverso).
      *
+     * Ordem EXPLÍCITA (como nas queries do ObrigacaoRepository): sem `OrderBy` o SELECT da coleção sai
+     * sem `ORDER BY` e o Postgres devolve na ordem física da heap — e um UPDATE (reconhecer encargos,
+     * editar a parcela) reescreve a tupla no fim, jogando "Parcela 3/6" na frente da "1/6" na tela.
+     * `id` desempata parcelas de mesmo vencimento, mantendo a listagem estável.
+     *
      * @var Collection<int, Obrigacao>
      */
     #[ORM\OneToMany(mappedBy: 'acordoOrigem', targetEntity: Obrigacao::class)]
+    #[ORM\OrderBy(['vencimentoOriginal' => 'ASC', 'id' => 'ASC'])]
     private Collection $parcelas;
 
     #[ORM\Column(type: 'datetime_immutable')]

@@ -1,0 +1,113 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cobranças · Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}{% endblock %}
+
+{% block body %}
+{# Detalhe do acordo (ajuste 7, fatia 3): leitura. Total/entrada vêm do snapshot da negociação;
+   desconto/juros e o "pago" de cada parcela são DERIVADOS (invariável 20). #}
+<div class="cobrancas-page">
+<section class="content-header">
+    <div class="container-fluid">
+        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <a href="{{ path('cobranca_objeto_show', {id: acordo.objetoId}) }}" class="btn btn-sm btn-outline-secondary" title="Voltar à cobrança"><i class="bi bi-arrow-left"></i></a>
+            <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-file-earmark-text"></i>Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}</h1>
+            <span class="badge {{ acordo.statusBadgeClass }}">{{ acordo.statusLabel }}</span>
+        </div>
+        {% if acordo.motivoRompimento or acordo.motivoCancelamento %}
+        <p class="text-muted small mb-0">Motivo: {{ acordo.motivoRompimento ?: acordo.motivoCancelamento }}</p>
+        {% endif %}
+        {% if not acordo.vigente %}
+        <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>Acordo desfeito: as obrigações originais voltaram ao saldo e as parcelas saíram dele.</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="content">
+    <div class="container-fluid">
+        {# ── Resumo da negociação ── #}
+        <div class="row g-2 mb-3">
+            <div class="col-6 col-lg-3">
+                <div class="card h-100"><div class="card-body py-2">
+                    <div class="text-muted small">Total negociado</div>
+                    <div class="fs-5 fw-semibold">{{ acordo.valorTotalNegociado|centavos }}</div>
+                </div></div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="card h-100"><div class="card-body py-2">
+                    <div class="text-muted small">Entrada</div>
+                    <div class="fs-5 fw-semibold">{{ acordo.valorEntrada > 0 ? acordo.valorEntrada|centavos : '—' }}</div>
+                </div></div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="card h-100"><div class="card-body py-2">
+                    <div class="text-muted small">Dívida substituída</div>
+                    <div class="fs-5 fw-semibold">{{ acordo.valorSubstituidas|centavos }}</div>
+                </div></div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="card h-100"><div class="card-body py-2">
+                    <div class="text-muted small">{{ acordo.temJuros ? 'Juros acrescidos' : 'Desconto concedido' }}</div>
+                    <div class="fs-5 fw-semibold {{ acordo.temJuros ? 'text-danger' : 'text-success' }}">
+                        {{ (acordo.temJuros ? -acordo.valorDesconto : acordo.valorDesconto)|centavos }}
+                    </div>
+                </div></div>
+            </div>
+        </div>
+
+        {# ── Parcelas ── #}
+        <div class="card mb-3">
+            <div class="card-header d-flex align-items-center">
+                <strong><i class="bi bi-list-ol me-1"></i>Parcelas</strong>
+                <span class="ms-auto text-muted small">Pago até agora: {{ acordo.totalAlocado|centavos }}</span>
+            </div>
+            <div class="card-body p-0">
+                {% if acordo.parcelas|length > 0 %}
+                <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+                    <thead><tr><th>Descrição</th><th>Vencimento</th><th class="text-end">Valor</th><th class="text-end">Pago</th><th class="text-center">Situação</th></tr></thead>
+                    <tbody>
+                    {% for p in acordo.parcelas %}
+                    <tr>
+                        <td>{{ p.descricao }}</td>
+                        <td>{{ p.vencimento|date('d/m/Y') }}</td>
+                        <td class="text-end">{{ p.valor|centavos }}</td>
+                        <td class="text-end">{{ p.alocado > 0 ? p.alocado|centavos : '—' }}</td>
+                        <td class="text-center">
+                            {% if p.quitada %}<span class="badge text-bg-success">Quitada</span>
+                            {% elseif p.alocado > 0 %}<span class="badge text-bg-warning">Parcial</span>
+                            {% else %}<span class="badge text-bg-secondary">Em aberto</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table></div>
+                {% else %}<p class="text-muted mb-0 text-center py-3">Nenhuma parcela.</p>{% endif %}
+            </div>
+        </div>
+
+        {# ── Obrigações substituídas ── #}
+        <div class="card">
+            <div class="card-header"><strong><i class="bi bi-arrow-left-right me-1"></i>Obrigações substituídas</strong></div>
+            <div class="card-body p-0">
+                {% if acordo.substituidas|length > 0 %}
+                <div class="table-responsive"><table class="table table-sm mb-0">
+                    <thead><tr><th>Descrição</th><th>Vencimento</th><th class="text-end">Valor</th></tr></thead>
+                    <tbody>
+                    {% for o in acordo.substituidas %}
+                    <tr>
+                        <td>{{ o.descricao }}</td>
+                        <td>{{ o.vencimento|date('d/m/Y') }}</td>
+                        <td class="text-end">{{ o.valor|centavos }}</td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table></div>
+                <div class="card-footer small text-muted py-2">
+                    Estas obrigações nunca são apagadas: enquanto o acordo vigora, elas ficam fora do saldo e as parcelas acima entram no lugar.
+                </div>
+                {% else %}<p class="text-muted mb-0 text-center py-3">Nenhuma obrigação substituída.</p>{% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+</div>
+{% endblock %}

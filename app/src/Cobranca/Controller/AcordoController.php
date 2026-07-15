@@ -25,6 +25,7 @@ use App\Cobranca\Service\GeradorParcelamento;
 use App\Cobranca\UseCase\CancelarAcordoUseCase;
 use App\Cobranca\UseCase\CriarAcordoUseCase;
 use App\Cobranca\UseCase\MarcarAcordoCumpridoUseCase;
+use App\Cobranca\UseCase\MontarDetalheAcordoUseCase;
 use App\Cobranca\UseCase\RomperAcordoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -56,7 +57,31 @@ final class AcordoController extends AbstractController
         private readonly CancelarAcordoUseCase $cancelarAcordo,
         private readonly MarcarAcordoCumpridoUseCase $marcarCumprido,
         private readonly GeradorParcelamento $geradorParcelamento,
+        private readonly MontarDetalheAcordoUseCase $montarDetalheAcordo,
     ) {
+    }
+
+    /**
+     * Detalhe do Acordo (Ajuste 7, Fatia 3): parcelas (com o quanto já foi pago), obrigações
+     * substituídas, entrada, total negociado e desconto/juros derivado. LEITURA — gate só de MÓDULO
+     * (como o Painel/Detalhe), resolução tenant-safe → 404 anti-IDOR, sem CSRF.
+     */
+    #[Route('/acordos/{id}', name: 'cobranca_acordo_show', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function show(int $id): Response
+    {
+        $tenant = $this->tenantComModulo();
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $acordo = $this->acordoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($acordo === null) {
+            throw $this->createNotFoundException('Acordo não encontrado.');
+        }
+
+        return $this->render('cobranca/acordo/show.html.twig', [
+            'acordo' => $this->montarDetalheAcordo->executar($acordo, $tenant),
+        ]);
     }
 
     /**

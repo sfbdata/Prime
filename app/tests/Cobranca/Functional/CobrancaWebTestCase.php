@@ -128,6 +128,47 @@ abstract class CobrancaWebTestCase extends JusPrimeWebTestCase
     }
 
     /**
+     * Usuário de um tenant com papel NÃO-system e SEM nenhuma permissão — nem o módulo `cobrancas`.
+     * Prova o gate de MÓDULO das telas de leitura (`tenantComModulo` → `semAcesso`), que é anterior a
+     * qualquer checagem de capacidade.
+     *
+     * @return array{0: User, 1: Tenant}
+     */
+    protected function criarUsuarioSemModulo(KernelBrowser $client): array
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $hasher = static::getContainer()->get(UserPasswordHasherInterface::class);
+
+        $tenant = new Tenant();
+        $tenant->setName('Tenant SemModulo ' . uniqid());
+        $em->persist($tenant);
+
+        // Papel vazio: nenhuma TenantRolePermission → o módulo `cobrancas` fica negado.
+        $role = new TenantRole();
+        $role->setTenant($tenant);
+        $role->setName('Sem Modulo ' . uniqid());
+        $role->setIsSystem(false);
+        $em->persist($role);
+
+        $user = new User();
+        $user->setEmail('cobranca_sem_modulo_' . uniqid() . '@test.com');
+        $user->setFullName('Usuario Sem Modulo');
+        $user->setRoles(['ROLE_USER']);
+        $user->setIsActive(true);
+        $user->setPassword($hasher->hashPassword($user, 'senha123'));
+        $em->persist($user);
+
+        $userTenant = new UserTenant($user, $tenant);
+        $userTenant->setTenantRole($role);
+        $em->persist($userTenant);
+        $em->flush();
+
+        $this->logarComTenant($client, $user, $tenant);
+
+        return [$user, $tenant];
+    }
+
+    /**
      * Operador com papel NÃO-system que possui o módulo `cobrancas` (leitura) MAIS um conjunto
      * específico de capacidades — para provar que as capacidades são INDEPENDENTES entre si (ex.:
      * `movimentacao_financeira` sem `gerenciar`, ou o inverso). Só as capacidades passadas são
