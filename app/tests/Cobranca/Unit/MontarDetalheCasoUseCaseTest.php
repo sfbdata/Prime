@@ -25,9 +25,10 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * Ajuste 10: o mapa `obrigacaoId => alocado` do caso inteiro tem que sair de UMA query, nunca de
- * um loop por obrigação — mesmo padrão do `MontarDetalheAcordoUseCase` (ajuste 7). Este teste trava
- * exatamente esse ponto (contagem de chamadas ao repositório), sem exercitar as demais regras do
- * UseCase (já cobertas indiretamente pelos testes Functional existentes).
+ * um loop por obrigação — mesmo padrão do `MontarDetalheAcordoUseCase` (ajuste 7). Dois testes:
+ * - Primeiro trava a contagem (UMA chamada, não uma por obrigação) com lista vazia.
+ * - Segundo exercita o encaixe (chave certa → obrigação certa) com mapa DIFERENTE por id + asserção
+ *   de `alocado` e `restante()` por posição.
  */
 #[CoversClass(MontarDetalheCasoUseCase::class)]
 final class MontarDetalheCasoUseCaseTest extends TestCase
@@ -127,6 +128,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         // Valores DIFERENTES por chave: se o array_map usar a chave errada (ou um id como string),
         // o valor cai na obrigação vizinha e o teste tem que acusar (ficar vermelho).
         $this->alocacaoRepository
+            ->expects(self::once())
             ->method('somasPorObrigacaoDosCasos')
             ->willReturn([101 => 40000, 102 => 10000]);
 
