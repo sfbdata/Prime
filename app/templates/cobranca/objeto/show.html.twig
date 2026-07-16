@@ -535,6 +535,34 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         modal.addEventListener('shown.bs.modal', atualizarFechamento);
+
+        /* Reset SEMPRE ao fechar (espelha o `#modalRegistrarPagamento`): "Acordar" na linha e "Fazer
+           acordo com estas" na barra TROCAM a seleção a cada abertura — sem limpar, o total/parcelas
+           de uma negociação abandonada (Esc) sobrevivem e, se o gestor digitou o total à mão
+           (`touched`), o guard de fechamento pode achar que o valor e as parcelas da seleção ANTERIOR
+           fecham para a seleção NOVA (dinheiro errado). O POST é PRG (`AcordoController::criar`
+           sempre redireciona), então não há estado de submit a preservar. */
+        modal.addEventListener('hidden.bs.modal', function () {
+            container.querySelectorAll('.parcela-linha').forEach(function (r) { r.remove(); });
+            container.dataset.index = '0';
+            if (totalInput) {
+                totalInput.value = '';
+                delete totalInput.dataset.touched;
+            }
+            if (entradaInput) { entradaInput.value = ''; }
+            var qtdInput = document.getElementById('acordoQtdParcelas');
+            if (qtdInput) { qtdInput.value = '1'; }
+            var data1Input = document.getElementById('acordoData1');
+            if (data1Input) { data1Input.value = ''; }
+            var periodicidadeSelect = document.getElementById('acordoPeriodicidade');
+            if (periodicidadeSelect) { periodicidadeSelect.selectedIndex = 0; }
+            if (erroBox) { erroBox.textContent = ''; }
+            if (fechamentoBox) {
+                fechamentoBox.textContent = '';
+                fechamentoBox.classList.remove('text-danger', 'text-success');
+            }
+            if (totalSelDisplay) { totalSelDisplay.textContent = 'R$ 0,00'; }
+        });
     })();
 
     /* Prévia ao vivo da divisão dívida/honorários + FIFO (Ajuste 6): ao digitar o valor pago, consulta
