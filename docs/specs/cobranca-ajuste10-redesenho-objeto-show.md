@@ -35,24 +35,42 @@ Reorganizar a página para responder, nessa ordem: **quanto deve** → **o que e
 
 ### 2.1 Bug confirmado — a aba Documentos gruda para sempre
 
-`pasta-arquivos.js:478-484` persiste a aba em `sessionStorage['fmTab_'+pastaId]` (no `shown.bs.tab` do
-`#documentos-tab`) e a reabre no load (`:493-495`). O listener que **limparia** a flag ao trocar de aba busca
-`#pastaTabs` (`:481`) — mas o container aqui é `#objetoTabs`, e **`id="pastaTabs"` não existe em nenhum
-template do repo** (grep confirma). **O defeito de código é real: o ramo que limpa a flag é inalcançável.**
+**BUG REAL, REPRODUZIDO** (smoke, 2026-07-16): setando `fmTab_295` e recarregando o objeto 296, a página abre
+em **Documentos**. `pasta-arquivos.js` persiste a flag no `shown.bs.tab` do `#documentos-tab` (`:480`), a lê no
+load e força a aba (`:493-495`). O listener que **limparia** a flag ao trocar de aba busca `#pastaTabs`
+(`:481`) — que **não é o container desta página** (aqui é `#objetoTabs`). Resultado: a flag entra e **nunca
+sai** → depois de abrir Documentos uma vez, todo reload força Documentos, até fechar o navegador.
 
-> ⚠️ **Correção do registro (smoke real, 2026-07-16):** a versão anterior desta spec afirmava que *"todo
-> reload força Documentos, permanentemente"*. **Isso NÃO se reproduziu.** Com `fmTab_296 = '1'` no
-> sessionStorage e `id="documentos-tab"` presente, o reload do objeto 296 abriu a aba **Cobrança**
-> normalmente. Ou seja: o seletor morto está lá, mas o efeito visível que eu descrevi não foi observado —
-> **alguma outra coisa impede a restauração de disparar**.
+> ### ⚠️ Duas correções ao meu próprio registro (a T7 depende disto)
 >
-> **Consequência para o B2 (T7): investigar ANTES de consertar.** O mecanismo existe por um motivo legítimo —
-> *"restaura aba/pasta após reloads de excluir/editar/upload"* (`pasta-arquivos.js:487`): depois de subir um
-> arquivo, a página recarrega e o usuário deve voltar para Documentos. **Consertar o `clear` sem entender por
-> que o `restore` não dispara pode "consertar" o clear e RESSUSCITAR a grudação** — ou pode revelar que o
-> restore está quebrado e o usuário perde a aba após todo upload (o oposto do bug registrado). Reproduza os
-> dois lados antes de mexer. Note também que a chave `fmTab_<id>` é **compartilhada com o módulo Pastas**
-> (mesmo script): Pasta 296 e Objeto 296 colidem no mesmo namespace — suspeito, não confirmado.
+> Errei dois fatos nesta seção e ambos foram pegos na revisão da T4. Ficam registrados porque **cada um levaria
+> a T7 a fazer besteira**:
+>
+> **1. `id="pastaTabs"` EXISTE.** Versões anteriores desta spec afirmavam que *"não existe em nenhum template
+> do repo"*, creditando a um grep. **Falso:** `app/templates/pasta/show.html.twig:320`.
+> `pasta-arquivos.js` é **compartilhado** entre Pastas e Cobranças: em `pasta/show` o `#pastaTabs` existe e **o
+> clear FUNCIONA**; na página do objeto o container é `#objetoTabs` e o clear erra o alvo — **ali, e só ali**.
+> **Não é seletor morto: é o seletor certo da outra página.**
+> ➡️ **A T7 NÃO pode removê-lo como código morto** — isso importaria a grudação para o módulo Pastas, que hoje
+> funciona. O conserto tem de servir às **duas** páginas (ex.: subir do próprio botão via `.closest('.nav-tabs')`
+> em vez de id fixo).
+>
+> **2. Meu "não reproduziu" era um FALSO NEGATIVO — usei a chave errada.** Uma versão anterior desta spec
+> dizia, com a autoridade de um "smoke real", que o bug **não** se reproduzia. A chave é
+> `fmTab_<pastaId>`, e `pastaId` vem de `data-pasta-id="{{ casoId }}"`
+> (`cobranca/caso/_documentos.html.twig:6`) — **é o id do CASO, não do objeto**. Objeto 296 → caso **295**;
+> objeto 297 → caso **296**. Eu testei `fmTab_296` no objeto 296, que é a chave do objeto **297**: a chave
+> nunca era lida. Com `fmTab_295`, **o bug reproduz na hora**.
+> ➡️ Lição: *simulação que mente é pior que simulação nenhuma.* Ao reproduzir, confirme a chave em
+> `fm.dataset.pastaId` (`pasta-arquivos.js:13`), não presuma.
+>
+> **3. Colisão de namespace (confirmada, mapeamento corrigido):** a suspeita procede, mas quem colide com o
+> **Objeto 296** é a **Pasta 295** — as chaves são `fmTab_<pastaId>` (Pastas) × `fmTab_<casoId>` (Cobranças),
+> no mesmo namespace de `sessionStorage`.
+>
+> **O mecanismo existe por um motivo legítimo** — *"restaura aba/pasta após reloads de excluir/editar/upload"*
+> (`:487`): após subir um arquivo a página recarrega e o usuário deve voltar para Documentos. **O conserto
+> preserva isso e mata só a grudação** (não voltar quando o usuário escolheu outra aba).
 
 ### 2.2 O que o DTO já entrega (e o que não entrega)
 

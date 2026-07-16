@@ -1224,33 +1224,39 @@ public function modalDePagamentoAbreComADataDeHoje(): void
 }
 ```
 
-- [ ] **Step 2: B2 — a aba grudada — INVESTIGAR ANTES DE CONSERTAR**
+- [ ] **Step 2: B2 — a aba grudada (BUG REAL, REPRODUZIDO)**
 
-> ⚠️ **Meu smoke real (2026-07-16) contradisse a spec original.** Ela dizia "todo reload força Documentos,
-> permanentemente". **Não reproduziu:** com `fmTab_296 = '1'` no sessionStorage e `id="documentos-tab"`
-> presente no template novo, o reload do objeto 296 abriu **Cobrança** normalmente. A spec §2.1 foi corrigida.
+**Leia a spec §2.1 antes** — ela registra dois erros meus que já foram corrigidos e que, se você seguir a
+versão antiga, te fazem quebrar o módulo Pastas.
 
-**O que é fato:** `pasta-arquivos.js:481` procura `#pastaTabs` para **limpar** a flag ao trocar de aba, e
-`id="pastaTabs"` **não existe em template nenhum** — esse ramo é código morto.
+**Como reproduzir (feito em 2026-07-16, funciona):**
+```
+sessionStorage.setItem('fmTab_295', '1')   // 295 = id do CASO do objeto 296
+```
+recarregue `/cobrancas/objetos/296` → abre em **Documentos**. Confirmado.
 
-**O que NÃO é fato:** que isso hoje gruda a aba. Não observei.
+⚠️ **A chave é `fmTab_<casoId>`, NÃO `<objetoId>`** — `data-pasta-id="{{ casoId }}"`
+(`cobranca/caso/_documentos.html.twig:6`) e `pastaId = fm.dataset.pastaId` (`pasta-arquivos.js:13`).
+Objeto 296 → caso 295; objeto 297 → caso 296. **Usar a chave errada dá falso negativo** — foi o que aconteceu
+comigo.
 
-**Portanto, a tarefa é primeiro reproduzir, não consertar.** Responda antes de tocar no código:
-1. O `restore` (`:493-495`) **dispara** em alguma situação? Reproduza subindo um arquivo (é para isso que ele
-   existe — `:487`: *"restaura aba/pasta após reloads de excluir/editar/upload"*). Se **não** dispara, o
-   problema real é o **oposto** do registrado: o usuário **perde** a aba depois de todo upload.
-2. Se você consertar só o `clear`, o `restore` volta a funcionar e **aí sim** pode grudar? Ou seja: o conserto
-   ingênuo pode **criar** o bug que a spec dizia existir.
-3. A chave `fmTab_<id>` é **compartilhada com o módulo Pastas** (mesmo script). Pasta 296 e Objeto 296 usam o
-   mesmo namespace. Isso é colisão real? (suspeito, não confirmado)
+**A causa:** o `clear` (`:481`) procura `#pastaTabs`. Esse id **EXISTE** — em
+`app/templates/pasta/show.html.twig:320`. O script é **compartilhado**: em Pastas o clear funciona; na página
+do objeto o container é `#objetoTabs`, então ali o clear erra o alvo e a flag nunca sai.
 
-**Só depois de responder 1–3, proponha o conserto** — e ele tem de preservar a **função legítima** (voltar
-para Documentos após upload) e matar a **grudação** (não voltar quando o usuário escolheu outra aba).
+🚫 **NÃO remova o seletor como "código morto"** — ele é o seletor **certo da página de Pastas**. Removê-lo
+importa a grudação para um módulo que hoje funciona.
 
-**Se a investigação mostrar que não há bug de usuário observável**, o certo é **remover o seletor morto e
-documentar**, não inventar um conserto. Reporte ao orquestrador.
+**O conserto tem de:**
+1. servir às **duas** páginas (sugestão: subir do próprio botão com `.closest('.nav-tabs')` em vez de id fixo);
+2. **preservar** a função legítima (`:487` — *"restaura aba/pasta após reloads de excluir/editar/upload"*):
+   depois de subir arquivo, a página recarrega e o usuário **deve** voltar para Documentos;
+3. matar só a **grudação**: não voltar quando o usuário escolheu outra aba.
 
-> ⚠️ **O script é compartilhado com a página de Pasta.** Confirme lá no smoke — não conserte um quebrando o outro.
+**Prove os dois lados:**
+- **grudação morreu:** abra Documentos → clique em Cobrança → reload → abre **Cobrança**;
+- **restauração viva:** abra Documentos → suba um arquivo (a página recarrega) → volta em **Documentos**;
+- **Pastas não regrediu:** o mesmo par de provas em `pasta/show`.
 
 - [ ] **Step 3: B3 — conferir a subnav**
 
