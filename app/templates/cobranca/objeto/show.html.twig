@@ -562,6 +562,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 fechamentoBox.classList.remove('text-danger', 'text-success');
             }
             if (totalSelDisplay) { totalSelDisplay.textContent = 'R$ 0,00'; }
+            /* A seleção DENTRO do modal também é estado velho: "Novo acordo" (botão da seção) abre o
+               modal direto pelo `data-bs-toggle`, sem passar por `abrirAcordoCom` — sem limpar aqui, a
+               obrigação marcada por um "Acordar" abandonado reaparece pré-selecionada e "Novo acordo"
+               deixaria de significar NOVO. Seguro: o `hidden` é o FECHAMENTO; o "Acordar" da linha marca
+               os checkboxes no clique seguinte, DEPOIS deste reset, então a pré-seleção continua valendo.
+               Só os checkboxes do MODAL — os `.jp-check` da seção são a seleção deliberada do usuário na
+               página (a barra), e apagá-la ao espiar o modal destruiria trabalho dele. */
+            checkboxes.forEach(function (c) { c.checked = false; });
         });
     })();
 
