@@ -69,6 +69,8 @@ mudança de DTO; **não é só Twig.**
 | D3 | "Acordar" usa **seleção múltipla** (checkbox + barra de ação) com atalho por linha; **não** é um acordo por obrigação. Motivo: acordo junta várias dívidas; um botão literal por linha induziria N acordos de 1 obrigação. |
 | D4 | Escopo inclui o **lote de backend**: 4 correções pequenas + erros inline + formulários sob demanda. |
 | D5 | Rótulos de domínio viram linguagem de usuário na UI: *Saldo exigível* → **"Total em aberto"**; *Saldo vencido* → **"Já vencido"**. O termo técnico fica no `title`/tooltip. |
+| D6 | **A direção do tempo é declarada em cada lista** (§4.7). Feedback do humano na revisão do mockup: *"não consegui entender se começa por cima ou por baixo (a lógica do tempo)"*. |
+| D7 | **Acordo sobre obrigação parcialmente paga**: **não bloquear** — sugerir o remanescente e avisar (§5.3). Renegociar o resto é fluxo legítimo; a causa real é o sistema sugerir o valor cheio e esconder o pago. |
 
 ## 4. Estrutura nova
 
@@ -172,6 +174,29 @@ Três pontos, **+1 query** no total da página:
 >
 > **Não mapear** o inverso `Obrigacao.alocacoes`: a unidirecionalidade é a defesa contra N+1 (§2.3).
 
+### 4.7 A lógica do tempo — declarada, não adivinhada
+
+Levantado pelo humano ao revisar o mockup (D6). Duas listas da mesma tela correm em **direções opostas**, e
+nada dizia isso:
+
+| Lista | Direção | Por quê |
+|---|---|---|
+| **Dívida em aberto** | mais **antiga** → mais nova | é uma **fila**: o FIFO abate sempre a mais velha primeiro (`AutoAlocadorFifo`) |
+| **O que já entrou** | mais **recente** → mais antiga | é um **extrato**: o que importa é o que houve por último |
+| **Histórico** (aba) | mais recente → mais antiga | já é assim hoje (`caso.historico|reverse`, `show.html.twig:394-406`) |
+
+A divergência é **correta e permanece** — o erro era não comunicá-la. Três correções:
+
+1. **A data vira coluna própria**, primeira depois do checkbox, `tabular-nums`, com o tempo relativo embaixo
+   ("há 128 dias" / "em 25 dias"). Hoje a data está enterrada numa linha de metadados: **sem coluna não há
+   eixo, e sem eixo não há como ver a ordem.**
+2. **Cabeçalho de colunas** em cada lista ("Venceu em · O que é · Valor"), que ancora onde começar a ler.
+3. **Rótulo de ordenação no cabeçalho da seção** ("Da mais antiga para a mais nova"), com tooltip que
+   aproveita para **ensinar o FIFO de graça**: *"é nesta ordem que o pagamento abate a dívida"*.
+
+**Ordenação é fixa e declarada — não há controle de sort.** Um toggle por coluna serviria ao usuário
+avançado e confundiria o iniciante, que é o alvo declarado deste ajuste.
+
 ## 5. Comportamento das ações novas
 
 ### 5.1 "Receber" na linha — e o gross-up dos honorários (o ponto crítico)
@@ -228,6 +253,64 @@ humano**, não ser "ajustado" com um `+1`.
 > (`ObrigacaoRepository::doCasoSubstituiveis`, `:136`) e o POST valida contra **exigíveis**. Parece
 > divergência e **é deliberada — NÃO igualar.**
 
+### 5.3 Acordo sobre obrigação parcialmente paga — bug CONFIRMADO em prod
+
+> **Achado desta investigação (2026-07-16).** Não é regressão do redesenho: é **pré-existente e alcançável
+> hoje**. Veredito de revisão adversarial: **CONFIRMADO**, com prova em SQL no dev (caso 295) — com o acordo
+> `cancelado`, `pago = 245.455`; simulando o **mesmo** acordo como `ativo`, **`pago` cai para 0**.
+
+**Mecanismo.** `CalculadoraSaldo::saldoExigivel` (`:47-61`) coleta os IDs **só das exigíveis** e subtrai
+`totalAlocadoEmObrigacoes($ids)` (`AlocacaoPagamentoRepository.php:49-62`, filtra `a.obrigacao IN (:ids)`).
+Quando `CriarAcordoUseCase.php:113` marca `setAcordoSubstituto`, a original sai de `doCasoExigiveis`
+(`ObrigacaoRepository.php:103-118`) — **e leva a alocação junto**. O comentário em `CalculadoraSaldo.php:57`
+admite o design: *"as substituídas e suas alocações saem juntas"*.
+
+**Cenário mínimo (fluxo canônico de cobrança — pagou parte, renegocia o resto):**
+
+| Momento | Estado | Saldo |
+|---|---|---|
+| Abril `valorOriginal=120000`, alocado `40000` | exigível | **80.000** |
+| Acordo substitui Abril por 3 × `40000` (= o que o form sugere) | Abril fora do exigível; alocação some da subtração; parcelas entram por 120000 | **120.000** |
+
+**Os R$ 400 evaporam.** E o gestor não tem como saber: `MontadorModaisCaso.php:61-64` passa ao modal só
+label + valor cheio; `alocado` só aparece em `acordo/show.html.twig:90-93`, para parcelas de acordo **já
+criado** — nunca na lista de substituíveis.
+
+**A causa raiz é dupla:**
+1. `AcordoCriarType::opcoesObrigacoes` (`:86-96`) e `valoresObrigacoes` (`:105+`, que alimenta o
+   `data-valor-centavos` do gerador JS) usam `valorOriginal + encargosReconhecidos` — **valor cheio, sem
+   descontar alocação**.
+2. `CriarAcordoUseCase` **nem injeta** `AlocacaoPagamentoRepository` (`:39-45`). Assimetria gritante contra
+   `EditarAcordoUseCase.php:132-135,151-154` (INV-C, `ObrigacaoComPagamentoException`),
+   `ExcluirObrigacaoUseCase.php:57-59` e `EditarObrigacaoUseCase.php:65`.
+
+**Cobertura hoje: ZERO.** `CriarAcordoUseCaseTest` tem 11 testes (`:65-405`), nenhum toca alocação/pagamento.
+Nenhuma invariável cobre o caso: `cobranca-ajuste7:205-206,257` define INV-C **só para editar parcela**.
+
+**Decisão (D7): NÃO bloquear.** Renegociar o saldo remanescente é fluxo legítimo, e as partes podem acordar
+qualquer valor — o saldo virar o total negociado é o design correto do domínio. O defeito é o sistema
+**sugerir** um número que ignora pagamentos e **esconder** que eles existem. Bloquear (simétrico ao INV-C)
+mataria um fluxo real sem oferecer alternativa.
+
+**O que fazer:**
+1. `AcordoCriarType::valoresObrigacoes` e `opcoesObrigacoes` passam a usar **`valorExigivel − alocado`**
+   (remanescente) — a mesma fonte de §4.6, sem query nova, injetando o mapa já carregado.
+2. O label da opção mostra o remanescente e, quando `alocado > 0`, sinaliza *"R$ X já recebidos"*.
+3. O modal exibe **aviso** quando alguma obrigação marcada tem `alocado > 0`, explicitando que o valor
+   sugerido é o **remanescente**, não o original.
+4. A seção Dívida do redesenho já mostra `restante` por linha (§4.6) — **metade da mitigação sai de graça**.
+
+**Testes obrigatórios:**
+- **Integration** — o teste que hoje passaria verde documentando o furo: obrigação 120000 com alocação 40000
+  → assertar `saldoExigivel == 80000`; criar acordo substituindo-a por parcelas somando 120000 → assertar o
+  saldo. **Este teste documenta o comportamento do domínio; ele NÃO muda com D7** (não bloqueamos).
+- **Unit** — `valoresObrigacoes` devolve o **remanescente**, não o valor cheio (é este que prova o conserto).
+- **Functional** — o modal traz o aviso quando há obrigação com alocação; não traz quando não há.
+
+> ⚠️ **Não "consertar" isto mexendo em `CalculadoraSaldo`.** A regra de saldo está correta e é a mesma dos
+> dois lados (`derivarSaldos` alimenta o batch do Dashboard); mexer ali quebraria o módulo inteiro. **O
+> conserto é de sugestão e informação, não de cálculo.**
+
 ## 6. Lote de backend
 
 | # | Item | Onde |
@@ -261,6 +344,8 @@ Deve ser fatia própria, com os functional tests existentes verdes antes e depoi
 | INV-U5 | Template recebe **Output DTOs**, nunca entidade Doctrine (`templates/CLAUDE.md`). |
 | INV-U6 | Dados para JS via `data-*` + `json_encode|e('html_attr')`, nunca `|raw` em `<script>`. |
 | INV-U7 | Valores monetários com `font-variant-numeric: tabular-nums`. |
+| INV-U8 | Toda lista com eixo temporal **declara sua direção** no cabeçalho da seção e tem a data como **coluna própria** (§4.7). |
+| INV-U9 | O valor de obrigação oferecido ao **gerador de acordo** é o **remanescente** (`valorExigivel − alocado`), nunca o cheio (§5.3). |
 
 ## 9. Testes
 
@@ -312,6 +397,7 @@ concorrente no mesmo arquivo é exatamente o que o workflow proíbe.
 | F2 | **`brutoParaRecuperar`** + round-trip test (§5.1) | é o núcleo de dinheiro; se o round-trip não fechar, o redesenho para aqui |
 | F3 | **Redesenho do template** — 3 abas, card da pessoa, Dívida unificada, Movimentos, alertas acionáveis + CSS | consome F1/F2 |
 | F4 | **Receber / Acordar** — prefill, seleção múltipla, barra sticky (§5.1, §5.2) | precisa do template de F3 |
+| F4b | **Acordo sobre obrigação parcialmente paga** (§5.3) — remanescente no `AcordoCriarType` + aviso no modal + os 3 testes | usa o `alocado` da F1; é **dinheiro**, não cosmético — não adiar para o fim |
 | F5 | **B1–B4** (correções pequenas) | independentes entre si, baratas; B4 só faz sentido com F3 pronta |
 | F6 | **B5** erros inline (~10 controllers) | maior risco; isolada por último para não contaminar o diff do redesenho |
 | F7 | **B6** formulários sob demanda | higiene; depende da estrutura final de abas |
