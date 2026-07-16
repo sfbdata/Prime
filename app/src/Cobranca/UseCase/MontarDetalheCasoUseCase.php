@@ -15,6 +15,7 @@ use App\Cobranca\DTO\ProximaAcaoOutput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\AcordoRepository;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
@@ -41,6 +42,7 @@ final class MontarDetalheCasoUseCase
         private readonly ProximaAcaoRepository $proximaAcaoRepository,
         private readonly CalculadoraSaldo $calculadoraSaldo,
         private readonly AlertasCobranca $alertasCobranca,
+        private readonly AlocacaoPagamentoRepository $alocacaoRepository,
     ) {
     }
 
@@ -57,7 +59,17 @@ final class MontarDetalheCasoUseCase
         $acaoAtiva = $this->proximaAcaoRepository->findAtivaDoCaso($caso);
 
         // Aba Obrigações (Ajuste 8): as parcelas de acordo VIGENTE saem da lista solta e viram grupo.
-        $obrigacoes = array_map(ObrigacaoOutput::fromEntity(...), $this->obrigacaoRepository->doCaso($caso));
+        // Ajuste 10: UMA query para o mapa `obrigacaoId => alocado` do caso inteiro — mesmo padrão de
+        // `MontarDetalheAcordoUseCase:39`. Nunca por obrigação (N+1).
+        $alocadoPorObrigacao = $this->alocacaoRepository->somasPorObrigacaoDosCasos(
+            [$caso->getId()],
+            $caso->getTenant(),
+        );
+
+        $obrigacoes = array_map(
+            static fn ($o) => ObrigacaoOutput::fromEntity($o, $alocadoPorObrigacao[$o->getId()] ?? 0),
+            $this->obrigacaoRepository->doCaso($caso),
+        );
         $acordos = array_map(AcordoOutput::fromEntity(...), $this->acordoRepository->doCaso($caso));
         [$gruposAcordo, $obrigacoesAvulsas] = $this->agruparPorAcordo($obrigacoes, $acordos);
 

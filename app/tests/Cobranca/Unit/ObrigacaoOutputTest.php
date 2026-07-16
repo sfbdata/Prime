@@ -24,6 +24,11 @@ final class ObrigacaoOutputTest extends TestCase
         return (new Obrigacao())->setDescricao('X')->setValorOriginal(10000)->setEncargosReconhecidos(500);
     }
 
+    private function obrigacaoCom(int $valorOriginal, int $encargos = 0): Obrigacao
+    {
+        return (new Obrigacao())->setDescricao('X')->setValorOriginal($valorOriginal)->setEncargosReconhecidos($encargos);
+    }
+
     #[Test]
     public function obrigacaoComumNaoTemNenhumFlagDeAcordo(): void
     {
@@ -82,5 +87,52 @@ final class ObrigacaoOutputTest extends TestCase
         self::assertFalse($out->substituidaPorAcordo);
         self::assertFalse($out->ehParcelaAcordo);
         self::assertFalse($out->parcelaDeAcordoDesfeito);
+    }
+
+    #[Test]
+    public function restante_desconta_o_alocado_do_valor_atual(): void
+    {
+        $obrigacao = $this->obrigacaoCom(valorOriginal: 120000, encargos: 0);
+
+        $output = ObrigacaoOutput::fromEntity($obrigacao, alocado: 40000);
+
+        self::assertSame(40000, $output->alocado);
+        self::assertSame(80000, $output->restante());
+        self::assertFalse($output->quitada());
+    }
+
+    #[Test]
+    public function restante_tem_piso_zero_quando_super_alocada(): void
+    {
+        // Alocação manual não tem teto por obrigação (beco conhecido, spec §10):
+        // o DTO não pode devolver negativo para a tela.
+        $obrigacao = $this->obrigacaoCom(valorOriginal: 100000, encargos: 0);
+
+        $output = ObrigacaoOutput::fromEntity($obrigacao, alocado: 130000);
+
+        self::assertSame(0, $output->restante());
+        self::assertTrue($output->quitada());
+    }
+
+    #[Test]
+    public function quitada_quando_alocado_cobre_exatamente_o_valor(): void
+    {
+        $obrigacao = $this->obrigacaoCom(valorOriginal: 100000, encargos: 20000);
+
+        $output = ObrigacaoOutput::fromEntity($obrigacao, alocado: 120000);
+
+        self::assertSame(0, $output->restante());
+        self::assertTrue($output->quitada());
+    }
+
+    #[Test]
+    public function alocado_default_zero_preserva_o_comportamento_antigo(): void
+    {
+        $obrigacao = $this->obrigacaoCom(valorOriginal: 100000, encargos: 0);
+
+        $output = ObrigacaoOutput::fromEntity($obrigacao);
+
+        self::assertSame(0, $output->alocado);
+        self::assertSame(100000, $output->restante());
     }
 }

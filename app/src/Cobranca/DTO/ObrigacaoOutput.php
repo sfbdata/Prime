@@ -28,10 +28,30 @@ final class ObrigacaoOutput
         public readonly bool $parcelaDeAcordoDesfeito,
         /** Acordo que gerou esta obrigação (null = não é parcela) — agrupa a aba Obrigações (Ajuste 8). */
         public readonly ?int $acordoOrigemId = null,
+        /**
+         * Σ das alocações de pagamento nesta obrigação (centavos) — DERIVADO (invariável 20), nunca coluna.
+         * Carregado em LOTE pelo UseCase (`somasPorObrigacaoDosCasos`); default 0 mantém os chamadores antigos.
+         */
+        public readonly int $alocado = 0,
     ) {
     }
 
-    public static function fromEntity(Obrigacao $o): self
+    /**
+     * Quanto ainda falta receber nesta obrigação (centavos), com PISO 0: alocação manual não tem teto por
+     * obrigação, então uma super-alocada devolveria negativo e poluiria a tela (spec §10, ajuste 10).
+     */
+    public function restante(): int
+    {
+        return max(0, $this->valorAtual - $this->alocado);
+    }
+
+    /** Alocado cobre o exigível — espelha `ParcelaAcordoResumoOutput::quitada`. */
+    public function quitada(): bool
+    {
+        return $this->alocado >= $this->valorAtual;
+    }
+
+    public static function fromEntity(Obrigacao $o, int $alocado = 0): self
     {
         $substituto = $o->getAcordoSubstituto();
         $origem = $o->getAcordoOrigem();
@@ -50,6 +70,7 @@ final class ObrigacaoOutput
             ehParcelaAcordo: $origem !== null && $origem->getStatus()->ehVigente(),
             parcelaDeAcordoDesfeito: $origem !== null && !$origem->getStatus()->ehVigente(),
             acordoOrigemId: $origem?->getId(),
+            alocado: $alocado,
         );
     }
 }
