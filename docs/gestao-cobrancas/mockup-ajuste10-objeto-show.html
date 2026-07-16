@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="pt-BR" data-bs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup · cobranca_objeto_show (redesenho)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ═══ Tokens reais do projeto (app/public/css/cobrancas.css) ═══ */
+body { font-family: 'Open Sans', sans-serif; }
+.cobrancas-page { --jp-accent: #1f7a4d; --jp-accent-rgb: 31, 122, 77; }
+html[data-bs-theme="dark"] .cobrancas-page { --jp-accent: #4cc38a; --jp-accent-rgb: 76, 195, 138; }
+
+.cobrancas-page .content-header h1 { font-weight: 700; letter-spacing: -.01em; font-size: 1.6rem; }
+.cobrancas-page .content-header h1 > .bi { color: var(--jp-accent); }
+
+.cobranca-subnav { display: flex; gap: .25rem; }
+.cobranca-subnav-item {
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .4rem .85rem; border-radius: .5rem;
+    color: var(--bs-secondary-color); text-decoration: none; font-weight: 500;
+    border: 1px solid transparent;
+}
+.cobranca-subnav-item:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+.cobranca-subnav-item.active {
+    background: rgba(var(--jp-accent-rgb), .12);
+    color: var(--jp-accent); border-color: rgba(var(--jp-accent-rgb), .25);
+}
+
+.caso-header { border: 1px solid var(--bs-border-color); border-radius: .75rem; overflow: hidden; }
+.caso-metric-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); }
+.caso-metric-valor { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
+.caso-metric-valor.saldo-vencido { color: var(--bs-danger); }
+.caso-metric-valor.saldo-zerado { color: var(--bs-success); }
+.caso-proxima-acao {
+    border: 1px solid rgba(var(--jp-accent-rgb), .3);
+    background: rgba(var(--jp-accent-rgb), .07);
+    border-radius: .6rem; padding: .75rem 1rem;
+}
+.caso-proxima-acao.atrasada { border-color: rgba(var(--bs-warning-rgb), .5); background: rgba(var(--bs-warning-rgb), .1); }
+.caso-proxima-acao-titulo { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); }
+.cobranca-row-vencido { background: rgba(var(--bs-danger-rgb), .05); }
+
+/* ═══ NOVO — componentes do redesenho ═══ */
+
+/* Dinheiro sempre alinha em coluna */
+.jp-money { font-variant-numeric: tabular-nums; font-weight: 600; }
+.caso-metric-valor { font-variant-numeric: tabular-nums; }
+
+/* ── Faixa de resumo (o "cockpit") ── */
+.jp-resumo {
+    display: grid; gap: 1rem; padding: 1rem 1.25rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    align-items: center;
+}
+.jp-resumo-item { min-width: 0; }
+
+/* ── Card da pessoa cobrada ── */
+.jp-pessoa-card {
+    border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    background: var(--bs-body-bg); padding: 1rem 1.15rem;
+}
+.jp-pessoa-topo { display: flex; align-items: flex-start; gap: .9rem; }
+.jp-pessoa-avatar {
+    flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 700; font-size: 1.05rem;
+    background: rgba(var(--jp-accent-rgb), .12); color: var(--jp-accent);
+    border: 1px solid rgba(var(--jp-accent-rgb), .25);
+}
+.jp-pessoa-nome { font-weight: 700; font-size: 1.05rem; margin: 0; line-height: 1.3; }
+.jp-pessoa-contatos { display: flex; flex-wrap: wrap; gap: .25rem .9rem; font-size: .875rem; color: var(--bs-secondary-color); margin-top: .2rem; }
+.jp-pessoa-contatos a { color: inherit; text-decoration: none; }
+.jp-pessoa-contatos a:hover { color: var(--jp-accent); text-decoration: underline; }
+.jp-vinculos-toggle {
+    background: none; border: 0; padding: 0; font-size: .8rem; font-weight: 600;
+    color: var(--bs-secondary-color); display: inline-flex; align-items: center; gap: .3rem;
+}
+.jp-vinculos-toggle:hover { color: var(--jp-accent); }
+.jp-vinculos-toggle .bi { transition: transform .15s; }
+.jp-vinculos-toggle[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
+.jp-vinculo-linha {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    padding: .5rem .1rem; border-top: 1px solid var(--bs-border-color); font-size: .875rem;
+}
+.jp-vinculo-linha.encerrado { color: var(--bs-secondary-color); }
+
+/* ── Seções da aba Cobrança ── */
+.jp-secao { margin-bottom: 1.5rem; }
+.jp-secao-head {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    margin-bottom: .65rem;
+}
+.jp-secao-titulo {
+    font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color); margin: 0;
+    display: inline-flex; align-items: center; gap: .45rem;
+}
+.jp-secao-acoes { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* ── Lista de obrigações ── */
+.jp-lista { border: 1px solid var(--bs-border-color); border-radius: .75rem; overflow: hidden; background: var(--bs-body-bg); }
+
+/* Grade única: checkbox · VENCIMENTO · o que é · valor · ações */
+.jp-obr, .jp-lista-head {
+    display: grid; align-items: center; gap: .1rem 1rem;
+    grid-template-columns: 1.6rem 8.5rem 1fr 9rem auto;
+    padding: .7rem 1rem; border-top: 1px solid var(--bs-border-color);
+}
+/* Cabeçalho de colunas: diz onde começa a ler */
+.jp-lista-head {
+    padding-top: .5rem; padding-bottom: .5rem; border-top: 0;
+    background: var(--bs-tertiary-bg);
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color); font-weight: 700;
+}
+.jp-lista-head .col-valor { text-align: right; }
+.jp-obr:hover { background: var(--bs-tertiary-bg); }
+.jp-obr.is-vencida { background: rgba(var(--bs-danger-rgb), .05); box-shadow: inset 3px 0 0 var(--bs-danger); }
+.jp-obr.is-vencida:hover { background: rgba(var(--bs-danger-rgb), .09); }
+.jp-obr.is-quitada { color: var(--bs-secondary-color); }
+.jp-obr.is-selecionada { background: rgba(var(--jp-accent-rgb), .07); box-shadow: inset 3px 0 0 var(--jp-accent); }
+
+/* A coluna de data É o eixo do tempo — alinhada e tabular, para escanear de cima a baixo */
+.jp-obr-data { font-variant-numeric: tabular-nums; line-height: 1.25; }
+.jp-obr-data-dia { font-weight: 600; font-size: .9rem; }
+.jp-obr-data-rel { font-size: .72rem; color: var(--bs-secondary-color); white-space: nowrap; }
+.jp-obr-data-rel.is-atrasado { color: var(--bs-danger); font-weight: 600; }
+
+.jp-obr-desc { font-weight: 600; min-width: 0; }
+.jp-obr-sub { font-size: .78rem; color: var(--bs-secondary-color); font-weight: 400; }
+.jp-obr-valor { text-align: right; white-space: nowrap; }
+.jp-obr-restante { display: block; font-size: .75rem; font-weight: 400; color: var(--bs-danger); }
+.jp-obr-acoes { display: flex; gap: .35rem; justify-content: flex-end; }
+
+/* Rótulo de ordenação no cabeçalho da seção */
+.jp-ordem {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .72rem; font-weight: 600; text-transform: none; letter-spacing: 0;
+    color: var(--bs-secondary-color);
+    border: 1px dashed var(--bs-border-color); border-radius: 2rem; padding: .1rem .6rem;
+}
+
+/* Grupo de acordo */
+.jp-acordo {
+    border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    overflow: hidden; background: var(--bs-body-bg); margin-top: .8rem;
+}
+.jp-acordo-head {
+    display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    padding: .75rem 1rem; background: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.jp-acordo-titulo { font-weight: 700; display: inline-flex; align-items: center; gap: .45rem; }
+.jp-acordo-prog { display: flex; align-items: center; gap: .6rem; font-size: .82rem; color: var(--bs-secondary-color); }
+.jp-acordo-bar { width: 90px; height: 6px; border-radius: 3px; background: var(--bs-secondary-bg); overflow: hidden; }
+.jp-acordo-fill { height: 100%; background: var(--jp-accent); border-radius: 3px; }
+.jp-acordo .jp-obr { padding-left: 1.5rem; }
+
+/* Substituídas (fora do saldo) */
+.jp-substituidas-toggle {
+    width: 100%; background: none; border: 0; text-align: left;
+    padding: .6rem 1rem; font-size: .82rem; color: var(--bs-secondary-color);
+    border-top: 1px dashed var(--bs-border-color);
+}
+.jp-substituidas-toggle:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+.jp-obr.is-substituida { opacity: .62; }
+.jp-obr.is-substituida .jp-obr-desc { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* ── Barra de seleção flutuante ── */
+.jp-selbar {
+    position: sticky; bottom: 1rem; z-index: 5; margin-top: .8rem;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    padding: .7rem 1rem; border-radius: .75rem;
+    border: 1px solid rgba(var(--jp-accent-rgb), .35);
+    background: var(--bs-body-bg);
+    box-shadow: 0 .5rem 1.5rem rgba(0,0,0,.18);
+}
+.jp-selbar[hidden] { display: none; }
+.jp-selbar-info { font-size: .9rem; }
+.jp-selbar-total { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--jp-accent); }
+.jp-selbar-acoes { margin-left: auto; display: flex; gap: .5rem; }
+
+/* ── Alertas acionáveis ── */
+.jp-alerta {
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+    padding: .6rem .85rem; border-radius: .6rem;
+    border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
+}
+.jp-alerta + .jp-alerta { margin-top: .4rem; }
+.jp-alerta.sev-danger { border-color: rgba(var(--bs-danger-rgb), .35); background: rgba(var(--bs-danger-rgb), .05); }
+.jp-alerta.sev-warning { border-color: rgba(var(--bs-warning-rgb), .4); background: rgba(var(--bs-warning-rgb), .08); }
+.jp-alerta.sev-success { border-color: rgba(var(--bs-success-rgb), .35); background: rgba(var(--bs-success-rgb), .06); }
+.jp-alerta-acoes { margin-left: auto; display: flex; gap: .4rem; }
+
+/* ── Movimentos ── */
+.jp-mov {
+    display: grid; align-items: center; gap: .1rem 1rem;
+    grid-template-columns: 1.6rem 8.5rem 1fr 9rem auto;
+    padding: .7rem 1rem; border-top: 1px solid var(--bs-border-color);
+}
+.jp-mov:hover { background: var(--bs-tertiary-bg); }
+.jp-mov-ico {
+    width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(var(--jp-accent-rgb), .12); color: var(--jp-accent);
+}
+.jp-mov-ico.is-liq { background: rgba(var(--bs-info-rgb), .15); color: var(--bs-info-text-emphasis); }
+.jp-mov-split { font-size: .8rem; color: var(--bs-secondary-color); grid-column: 2; }
+
+/* ── Estado vazio que ensina ── */
+.jp-vazio { text-align: center; padding: 2.5rem 1.25rem; }
+.jp-vazio .bi { font-size: 2rem; color: var(--bs-secondary-color); opacity: .45; }
+.jp-vazio-titulo { font-weight: 600; margin: .6rem 0 .2rem; }
+.jp-vazio-dica { font-size: .875rem; color: var(--bs-secondary-color); max-width: 42ch; margin: 0 auto .9rem; }
+
+/* Chips de estado */
+.jp-chip {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .72rem; font-weight: 600; padding: .1rem .5rem; border-radius: 2rem;
+    border: 1px solid var(--bs-border-color); color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+.jp-chip.is-vencida { border-color: rgba(var(--bs-danger-rgb), .4); color: var(--bs-danger); background: rgba(var(--bs-danger-rgb), .07); }
+.jp-chip.is-paga { border-color: rgba(var(--bs-success-rgb), .4); color: var(--bs-success); background: rgba(var(--bs-success-rgb), .07); }
+
+.jp-demo-bar { border-bottom: 1px solid var(--bs-border-color); background: var(--bs-tertiary-bg); }
+</style>
+</head>
+<body>
+
+<div class="jp-demo-bar py-2 px-3 d-flex align-items-center gap-3 flex-wrap">
+    <strong class="small">MOCKUP · cobranca_objeto_show</strong>
+    <span class="small text-secondary">Bootstrap 5.3.3 + tokens reais do módulo</span>
+    <button class="btn btn-sm btn-outline-secondary ms-auto" id="toggleTema"><i class="bi bi-moon-stars"></i> Tema</button>
+</div>
+
+<div class="cobrancas-page">
+
+<section class="content-header pt-3">
+  <div class="container-fluid">
+
+    <!-- Subnav do módulo: DEVOLVIDA (hoje esta página é a única que a perde) -->
+    <nav class="cobranca-subnav mb-3">
+        <a href="#" class="cobranca-subnav-item"><i class="bi bi-speedometer2"></i>Painel</a>
+        <a href="#" class="cobranca-subnav-item active"><i class="bi bi-folder2-open"></i>Carteiras</a>
+        <a href="#" class="cobranca-subnav-item"><i class="bi bi-exclamation-triangle"></i>Alertas</a>
+    </nav>
+
+    <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+        <a href="#" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+        <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>Apto 402 · Bloco B</h1>
+        <span class="badge text-bg-primary">Ativo</span>
+
+        <div class="ms-auto d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-telephone me-1"></i>Registrar contato</button>
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Mais ações">
+                    <i class="bi bi-three-dots"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="#"><i class="bi bi-bank me-2"></i>Judicializar</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <span class="dropdown-item disabled" data-bs-toggle="tooltip"
+                              title="Só é possível encerrar com o total em aberto zerado. Faltam R$ 12.450,00.">
+                            <i class="bi bi-flag me-2"></i>Encerrar cobrança
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="text-secondary small">
+        Cobrança condominial · Carteira: <a href="#">TOPLIFE — Residencial Aurora</a>
+    </div>
+  </div>
+</section>
+
+<section class="content mt-3">
+  <div class="container-fluid">
+
+    <!-- ══ COCKPIT: quanto deve / o que fazer ══ -->
+    <div class="caso-header mb-3">
+      <div class="jp-resumo">
+        <div class="jp-resumo-item">
+            <div class="caso-metric-label" data-bs-toggle="tooltip"
+                 title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações.">
+                Total em aberto <i class="bi bi-question-circle" style="opacity:.5"></i>
+            </div>
+            <div class="caso-metric-valor">R$ 12.450,00</div>
+        </div>
+        <div class="jp-resumo-item">
+            <div class="caso-metric-label" data-bs-toggle="tooltip" title="Saldo vencido: a parte do total que já passou do vencimento.">
+                Já vencido <i class="bi bi-question-circle" style="opacity:.5"></i>
+            </div>
+            <div class="caso-metric-valor saldo-vencido">R$ 8.200,00</div>
+        </div>
+        <div class="jp-resumo-item">
+            <div class="caso-metric-label" data-bs-toggle="tooltip" title="Como o escritório cobra os honorários neste caso (fixado na abertura).">
+                Honorários
+            </div>
+            <div class="fw-semibold">Acrescido à dívida <span class="text-secondary">(10%)</span></div>
+        </div>
+        <div class="jp-resumo-item" style="grid-column: span 2">
+            <div class="caso-proxima-acao atrasada">
+                <div class="caso-proxima-acao-titulo d-flex align-items-center gap-2">
+                    <span><i class="bi bi-flag-fill me-1"></i>Próxima ação · <span class="text-warning-emphasis">atrasada</span></span>
+                    <button class="btn btn-sm btn-outline-primary py-0 ms-auto">Concluir</button>
+                </div>
+                <div class="fw-semibold">Ligar para negociar parcelamento</div>
+                <div class="small text-secondary">Prazo: 12/07/2026 · Samuel Rocha</div>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ ALERTAS ACIONÁVEIS (hoje são texto morto) ══ -->
+    <div class="mb-3">
+        <div class="jp-alerta sev-danger">
+            <i class="bi bi-exclamation-triangle-fill text-danger"></i>
+            <span><strong>3 obrigações vencidas</strong> somando R$ 8.200,00</span>
+            <div class="jp-alerta-acoes">
+                <button class="btn btn-sm btn-outline-danger" onclick="irParaDivida()">Ver na dívida</button>
+            </div>
+        </div>
+        <div class="jp-alerta sev-warning">
+            <i class="bi bi-calendar-x-fill text-warning"></i>
+            <span><strong>1 parcela de acordo vencida</strong> — o acordo #12 pode estar em descumprimento</span>
+            <div class="jp-alerta-acoes">
+                <button class="btn btn-sm btn-outline-warning">Abrir acordo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ CARD DA PESSOA (era uma aba) ══ -->
+    <div class="jp-pessoa-card mb-3">
+        <div class="jp-pessoa-topo">
+            <div class="jp-pessoa-avatar">JS</div>
+            <div class="flex-grow-1 min-w-0">
+                <div class="caso-metric-label">Estamos cobrando</div>
+                <p class="jp-pessoa-nome">João da Silva Pereira</p>
+                <div class="jp-pessoa-contatos">
+                    <span><i class="bi bi-person-vcard me-1"></i>123.456.789-00</span>
+                    <a href="#"><i class="bi bi-telephone me-1"></i>(11) 98765-4321</a>
+                    <a href="#"><i class="bi bi-envelope me-1"></i>joao.pereira@email.com</a>
+                    <span class="jp-chip">Proprietário desde 03/2019</span>
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-shrink-0">
+                <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left-right me-1"></i>Trocar</button>
+                <button class="btn btn-sm btn-outline-secondary jp-vinculos-toggle border px-2 py-1 rounded"
+                        data-bs-toggle="collapse" data-bs-target="#vinculos" aria-expanded="false">
+                    Envolvidos <span class="badge text-bg-secondary">3</span> <i class="bi bi-chevron-down"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="collapse mt-2" id="vinculos">
+            <div class="jp-vinculo-linha">
+                <i class="bi bi-person-fill text-secondary"></i>
+                <strong>João da Silva Pereira</strong>
+                <span class="jp-chip">Proprietário</span>
+                <span class="text-secondary small">desde 03/2019</span>
+                <span class="badge text-bg-success ms-auto">Cobrada atual</span>
+            </div>
+            <div class="jp-vinculo-linha">
+                <i class="bi bi-person-fill text-secondary"></i>
+                <span>Maria Souza Lima</span>
+                <span class="jp-chip">Inquilina</span>
+                <span class="text-secondary small">desde 01/2024</span>
+                <button class="btn btn-sm btn-outline-secondary ms-auto py-0">Cobrar esta</button>
+            </div>
+            <div class="jp-vinculo-linha encerrado">
+                <i class="bi bi-person-dash"></i>
+                <span>Carlos Antunes</span>
+                <span class="jp-chip">Ex-inquilino</span>
+                <span class="small">03/2019 — 12/2023 · saída do imóvel</span>
+            </div>
+            <div class="pt-2 d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary"><i class="bi bi-link-45deg me-1"></i>Vincular pessoa</button>
+                <button class="btn btn-sm btn-outline-primary"><i class="bi bi-person-plus me-1"></i>Nova pessoa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ ABAS (6 → 3) ══ -->
+    <ul class="nav nav-tabs" id="objetoTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-cobranca" type="button">
+            <i class="bi bi-cash-coin me-1"></i>Cobrança</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-documentos" type="button">
+            <i class="bi bi-folder me-1"></i>Documentos <span class="badge text-bg-secondary">4</span></button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">
+            <i class="bi bi-clock-history me-1"></i>Histórico <span class="badge text-bg-secondary">23</span></button></li>
+    </ul>
+
+    <div class="tab-content border border-top-0 rounded-bottom p-3 bg-body">
+
+      <!-- ─── ABA COBRANÇA ─── -->
+      <div class="tab-pane fade show active" id="tab-cobranca">
+
+        <!-- DÍVIDA -->
+        <div class="jp-secao" id="secao-divida">
+            <div class="jp-secao-head">
+                <h2 class="jp-secao-titulo"><i class="bi bi-receipt"></i>Dívida em aberto</h2>
+                <span class="jp-ordem" data-bs-toggle="tooltip"
+                      title="É nesta ordem que o pagamento abate a dívida: sempre a mais antiga primeiro.">
+                    <i class="bi bi-sort-down-alt"></i>Da mais antiga para a mais nova
+                </span>
+                <div class="jp-secao-acoes">
+                    <button class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg me-1"></i>Nova obrigação</button>
+                </div>
+            </div>
+
+            <div class="jp-lista">
+                <div class="jp-lista-head">
+                    <span></span>
+                    <span>Venceu em</span>
+                    <span>O que é</span>
+                    <span class="col-valor">Valor</span>
+                    <span></span>
+                </div>
+
+                <div class="jp-obr is-vencida" data-valor="120000">
+                    <input class="form-check-input mt-0 jp-check" type="checkbox" aria-label="Selecionar Março/2026">
+                    <div class="jp-obr-data">
+                        <div class="jp-obr-data-dia">10/03/2026</div>
+                        <div class="jp-obr-data-rel is-atrasado">há 128 dias</div>
+                    </div>
+                    <div class="jp-obr-desc">Cota condominial · Março/2026</div>
+                    <div class="jp-obr-valor jp-money">R$ 1.200,00</div>
+                    <div class="jp-obr-acoes">
+                        <button class="btn btn-sm btn-outline-success"><i class="bi bi-cash me-1"></i>Receber</button>
+                        <button class="btn btn-sm btn-outline-primary"><i class="bi bi-handshake me-1"></i>Acordar</button>
+                        <button class="btn btn-sm btn-outline-secondary" aria-label="Mais ações" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-pencil me-2"></i>Editar</a></li>
+                            <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Excluir</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="jp-obr is-vencida" data-valor="80000">
+                    <input class="form-check-input mt-0 jp-check" type="checkbox" aria-label="Selecionar Abril/2026">
+                    <div class="jp-obr-data">
+                        <div class="jp-obr-data-dia">10/04/2026</div>
+                        <div class="jp-obr-data-rel is-atrasado">há 97 dias</div>
+                    </div>
+                    <div class="jp-obr-desc">
+                        Cota condominial · Abril/2026
+                        <span class="jp-obr-sub">R$ 400,00 já recebidos</span>
+                    </div>
+                    <div class="jp-obr-valor jp-money">
+                        R$ 1.200,00
+                        <span class="jp-obr-restante">falta R$ 800,00</span>
+                    </div>
+                    <div class="jp-obr-acoes">
+                        <button class="btn btn-sm btn-outline-success"><i class="bi bi-cash me-1"></i>Receber</button>
+                        <button class="btn btn-sm btn-outline-primary"><i class="bi bi-handshake me-1"></i>Acordar</button>
+                        <button class="btn btn-sm btn-outline-secondary" aria-label="Mais ações" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-pencil me-2"></i>Editar</a></li>
+                            <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Excluir</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="jp-obr" data-valor="120000">
+                    <input class="form-check-input mt-0 jp-check" type="checkbox" aria-label="Selecionar Maio/2026">
+                    <div class="jp-obr-data">
+                        <div class="jp-obr-data-dia">10/08/2026</div>
+                        <div class="jp-obr-data-rel">em 25 dias</div>
+                    </div>
+                    <div class="jp-obr-desc">Cota condominial · Maio/2026</div>
+                    <div class="jp-obr-valor jp-money">R$ 1.200,00</div>
+                    <div class="jp-obr-acoes">
+                        <button class="btn btn-sm btn-outline-success"><i class="bi bi-cash me-1"></i>Receber</button>
+                        <button class="btn btn-sm btn-outline-primary"><i class="bi bi-handshake me-1"></i>Acordar</button>
+                        <button class="btn btn-sm btn-outline-secondary" aria-label="Mais ações" data-bs-toggle="dropdown"><i class="bi bi-three-dots-vertical"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-pencil me-2"></i>Editar</a></li>
+                            <li><a class="dropdown-item text-danger" href="#"><i class="bi bi-trash me-2"></i>Excluir</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <button class="jp-substituidas-toggle" data-bs-toggle="collapse" data-bs-target="#substituidas" aria-expanded="false">
+                    <i class="bi bi-chevron-right me-1"></i>Mostrar 2 obrigações trocadas pelo acordo #12
+                    <span class="text-secondary">— fora do total em aberto</span>
+                </button>
+                <div class="collapse" id="substituidas">
+                    <div class="jp-obr is-substituida">
+                        <span></span>
+                        <div class="jp-obr-data"><div class="jp-obr-data-dia">10/01/2026</div></div>
+                        <div class="jp-obr-desc">
+                            Cota condominial · Janeiro/2026
+                            <span class="jp-obr-sub">trocada pelo acordo #12 · volta ao total se o acordo for rompido</span>
+                        </div>
+                        <div class="jp-obr-valor jp-money">R$ 1.200,00</div>
+                        <span></span>
+                    </div>
+                    <div class="jp-obr is-substituida">
+                        <span></span>
+                        <div class="jp-obr-data"><div class="jp-obr-data-dia">10/02/2026</div></div>
+                        <div class="jp-obr-desc">
+                            Cota condominial · Fevereiro/2026
+                            <span class="jp-obr-sub">trocada pelo acordo #12 · volta ao total se o acordo for rompido</span>
+                        </div>
+                        <div class="jp-obr-valor jp-money">R$ 1.200,00</div>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acordo vigente: as parcelas SÃO a dívida agora -->
+            <div class="jp-acordo">
+                <div class="jp-acordo-head">
+                    <span class="jp-acordo-titulo"><i class="bi bi-handshake"></i>Acordo #12</span>
+                    <span class="badge text-bg-primary">Ativo</span>
+                    <span class="text-secondary small">firmado em 02/06/2026 · trocou 2 obrigações</span>
+                    <div class="jp-acordo-prog ms-auto">
+                        <span>1 de 3 parcelas pagas</span>
+                        <div class="jp-acordo-bar"><div class="jp-acordo-fill" style="width:33%"></div></div>
+                        <a href="#" class="btn btn-sm btn-outline-secondary">Abrir acordo</a>
+                    </div>
+                </div>
+
+                <div class="jp-obr is-quitada">
+                    <span></span>
+                    <div class="jp-obr-data">
+                        <div class="jp-obr-data-dia">10/06/2026</div>
+                        <div class="jp-obr-data-rel">quitada em 09/06</div>
+                    </div>
+                    <div class="jp-obr-desc">Parcela 1 de 3</div>
+                    <div class="jp-obr-valor jp-money">R$ 800,00</div>
+                    <div class="jp-obr-acoes"><span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span></div>
+                </div>
+                <div class="jp-obr is-vencida">
+                    <span></span>
+                    <div class="jp-obr-data">
+                        <div class="jp-obr-data-dia">10/07/2026</div>
+                        <div class="jp-obr-data-rel is-atrasado">há 6 dias</div>
+                    </div>
+                    <div class="jp-obr-desc">Parcela 2 de 3</div>
+                    <div class="jp-obr-valor jp-money">R$ 800,00</div>
+                    <div class="jp-obr-acoes">
+                        <button class="btn btn-sm btn-outline-success"><i class="bi bi-cash me-1"></i>Receber</button>
+                    </div>
+                </div>
+                <div class="jp-obr">
+                    <span></span>
+                    <div class="jp-obr-data">
+                        <div class="jp-obr-data-dia">10/08/2026</div>
+                        <div class="jp-obr-data-rel">em 25 dias</div>
+                    </div>
+                    <div class="jp-obr-desc">Parcela 3 de 3</div>
+                    <div class="jp-obr-valor jp-money">R$ 800,00</div>
+                    <div class="jp-obr-acoes">
+                        <button class="btn btn-sm btn-outline-success"><i class="bi bi-cash me-1"></i>Receber</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Barra de seleção -->
+            <div class="jp-selbar" id="selbar" hidden>
+                <i class="bi bi-check2-square" style="color:var(--jp-accent)"></i>
+                <div class="jp-selbar-info">
+                    <span id="selCount">2 obrigações selecionadas</span> ·
+                    <span class="jp-selbar-total" id="selTotal">R$ 2.400,00</span>
+                </div>
+                <div class="jp-selbar-acoes">
+                    <button class="btn btn-sm btn-outline-secondary" id="selLimpar">Limpar</button>
+                    <button class="btn btn-sm btn-primary"><i class="bi bi-handshake me-1"></i>Fazer acordo com estas</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MOVIMENTOS -->
+        <div class="jp-secao">
+            <div class="jp-secao-head">
+                <h2 class="jp-secao-titulo"><i class="bi bi-arrow-down-left-circle"></i>O que já entrou</h2>
+                <span class="jp-ordem" data-bs-toggle="tooltip"
+                      title="Extrato: o que aconteceu por último aparece no topo — ordem inversa à da dívida acima.">
+                    <i class="bi bi-sort-down"></i>Do mais recente para o mais antigo
+                </span>
+                <span class="text-secondary small">R$ 3.200,00 recebidos</span>
+                <div class="jp-secao-acoes">
+                    <button class="btn btn-sm btn-outline-secondary"><i class="bi bi-box-seam me-1"></i>Registrar liquidação</button>
+                    <button class="btn btn-sm btn-primary"><i class="bi bi-cash-coin me-1"></i>Registrar pagamento</button>
+                </div>
+            </div>
+
+            <div class="jp-lista">
+                <div class="jp-lista-head">
+                    <span></span>
+                    <span>Entrou em</span>
+                    <span>O que foi</span>
+                    <span class="col-valor">Valor</span>
+                    <span></span>
+                </div>
+                <div class="jp-mov">
+                    <div class="jp-mov-ico"><i class="bi bi-cash"></i></div>
+                    <div class="jp-obr-data"><div class="jp-obr-data-dia">10/07/2026</div></div>
+                    <div class="jp-obr-desc">
+                        Pagamento recebido
+                        <span class="jp-obr-sub">abateu <strong>Janeiro/2026</strong> e <strong>Fevereiro/2026</strong> · dívida R$ 1.818,18 <span class="opacity-50">|</span> honorários R$ 181,82</span>
+                    </div>
+                    <div class="jp-obr-valor jp-money">R$ 2.000,00</div>
+                    <div class="jp-obr-acoes">
+                        <button class="btn btn-sm btn-outline-secondary">Corrigir</button>
+                    </div>
+                </div>
+                <div class="jp-mov">
+                    <div class="jp-mov-ico"><i class="bi bi-cash"></i></div>
+                    <div class="jp-obr-data"><div class="jp-obr-data-dia">09/06/2026</div></div>
+                    <div class="jp-obr-desc">
+                        Pagamento recebido
+                        <span class="jp-obr-sub">abateu <strong>Parcela 1 de 3</strong> do acordo #12 · dívida R$ 727,27 <span class="opacity-50">|</span> honorários R$ 72,73</span>
+                    </div>
+                    <div class="jp-obr-valor jp-money">R$ 800,00</div>
+                    <div class="jp-obr-acoes">
+                        <button class="btn btn-sm btn-outline-secondary">Corrigir</button>
+                    </div>
+                </div>
+                <div class="jp-mov">
+                    <div class="jp-mov-ico is-liq"><i class="bi bi-box-seam"></i></div>
+                    <div class="jp-obr-data"><div class="jp-obr-data-dia">02/05/2026</div></div>
+                    <div class="jp-obr-desc">
+                        Liquidação · bem móvel
+                        <span class="jp-obr-sub">Motocicleta Honda CG 160 · valor reconhecido pelo credor</span>
+                    </div>
+                    <div class="jp-obr-valor jp-money">R$ 400,00</div>
+                    <div class="jp-obr-acoes"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ACORDOS ENCERRADOS -->
+        <div class="jp-secao">
+            <div class="jp-secao-head">
+                <h2 class="jp-secao-titulo"><i class="bi bi-archive"></i>Acordos encerrados</h2>
+                <span class="text-secondary small">não afetam o total em aberto</span>
+            </div>
+            <div class="jp-lista">
+                <div class="jp-mov">
+                    <div class="jp-mov-ico" style="background:rgba(var(--bs-danger-rgb),.12);color:var(--bs-danger)"><i class="bi bi-x-lg"></i></div>
+                    <div class="jp-obr-data"><div class="jp-obr-data-dia">28/05/2026</div></div>
+                    <div class="jp-obr-desc">
+                        Acordo #7 <span class="badge text-bg-danger ms-1">Rompido</span>
+                        <span class="jp-obr-sub">"devedor parou de pagar na 2ª parcela" — as obrigações trocadas voltaram ao total em aberto</span>
+                    </div>
+                    <div class="jp-obr-valor jp-money">R$ 3.600,00</div>
+                    <div class="jp-obr-acoes"><a href="#" class="btn btn-sm btn-outline-secondary">Abrir</a></div>
+                </div>
+            </div>
+        </div>
+
+      </div>
+
+      <!-- ─── ABA DOCUMENTOS (intocada) ─── -->
+      <div class="tab-pane fade" id="tab-documentos">
+        <div class="jp-vazio">
+            <i class="bi bi-folder2-open"></i>
+            <div class="jp-vazio-titulo">Gerenciador de arquivos (sem alteração)</div>
+            <p class="jp-vazio-dica">Esta aba continua exatamente como está hoje — o file manager com seções, upload e arrastar-soltar não é tocado pelo redesenho.</p>
+        </div>
+      </div>
+
+      <!-- ─── ABA HISTÓRICO ─── -->
+      <div class="tab-pane fade" id="tab-historico">
+        <div class="jp-vazio">
+            <i class="bi bi-clock-history"></i>
+            <div class="jp-vazio-titulo">Linha do tempo (sem alteração estrutural)</div>
+            <p class="jp-vazio-dica">A timeline do caso segue como está, só herda a inversão de ordem já existente (mais recente primeiro).</p>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+
+document.getElementById('toggleTema').addEventListener('click', () => {
+    const html = document.documentElement;
+    html.setAttribute('data-bs-theme', html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
+});
+
+function irParaDivida() {
+    document.getElementById('secao-divida').scrollIntoView({behavior: 'smooth', block: 'start'});
+}
+
+// Barra de seleção
+const checks = document.querySelectorAll('.jp-check');
+const selbar = document.getElementById('selbar');
+function fmt(c) { return 'R$ ' + (c/100).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function atualizarSel() {
+    let n = 0, total = 0;
+    checks.forEach(c => {
+        const linha = c.closest('.jp-obr');
+        linha.classList.toggle('is-selecionada', c.checked);
+        if (c.checked) { n++; total += parseInt(linha.dataset.valor, 10); }
+    });
+    selbar.hidden = n === 0;
+    document.getElementById('selCount').textContent = n === 1 ? '1 obrigação selecionada' : n + ' obrigações selecionadas';
+    document.getElementById('selTotal').textContent = fmt(total);
+}
+checks.forEach(c => c.addEventListener('change', atualizarSel));
+document.getElementById('selLimpar').addEventListener('click', () => { checks.forEach(c => c.checked = false); atualizarSel(); });
+
+// Estado de demonstração: duas vencidas marcadas
+checks[0].checked = true; checks[1].checked = true; atualizarSel();
+</script>
+</body>
+</html>
