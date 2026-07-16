@@ -179,3 +179,191 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .dash-alerta-caso { padding: .7rem 1rem; border-top: 1px solid var(--bs-border-color); }
 .dash-alerta-caso:first-of-type { border-top: none; }
 .dash-alerta-caso-badges { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .4rem; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Redesenho da página do objeto (Ajuste 10) — componentes `jp-*`.
+   A página passou a ser organizada pelo TRABALHO (quanto deve → o que exige
+   atenção → de quem → o que fazer), não pelas tabelas do banco.
+   Fonte: docs/gestao-cobrancas/mockup-ajuste10-objeto-show.html (aprovado).
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* Dinheiro sempre alinha em coluna */
+.jp-money { font-variant-numeric: tabular-nums; font-weight: 600; }
+.caso-metric-valor { font-variant-numeric: tabular-nums; }
+
+/* ── Faixa de resumo (o "cockpit") ── */
+.jp-resumo {
+    display: grid; gap: 1rem; padding: 1rem 1.25rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    align-items: center;
+}
+.jp-resumo-item { min-width: 0; }
+.jp-resumo-acao { grid-column: span 2; }
+
+/* ── Card da pessoa cobrada ── */
+.jp-pessoa-card {
+    border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    background: var(--bs-body-bg); padding: 1rem 1.15rem;
+}
+.jp-pessoa-topo { display: flex; align-items: flex-start; gap: .9rem; }
+.jp-pessoa-avatar {
+    flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 700; font-size: 1.05rem;
+    background: rgba(var(--jp-accent-rgb), .12); color: var(--jp-accent);
+    border: 1px solid rgba(var(--jp-accent-rgb), .25);
+}
+.jp-pessoa-nome { font-weight: 700; font-size: 1.05rem; margin: 0; line-height: 1.3; }
+.jp-pessoa-contatos { display: flex; flex-wrap: wrap; gap: .25rem .9rem; font-size: .875rem; color: var(--bs-secondary-color); margin-top: .2rem; }
+.jp-pessoa-contatos a { color: inherit; text-decoration: none; }
+.jp-pessoa-contatos a:hover { color: var(--jp-accent); text-decoration: underline; }
+.jp-vinculos-toggle {
+    background: none; border: 0; padding: 0; font-size: .8rem; font-weight: 600;
+    color: var(--bs-secondary-color); display: inline-flex; align-items: center; gap: .3rem;
+}
+.jp-vinculos-toggle:hover { color: var(--jp-accent); }
+.jp-vinculos-toggle .bi { transition: transform .15s; }
+.jp-vinculos-toggle[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
+.jp-vinculo-linha {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    padding: .5rem .1rem; border-top: 1px solid var(--bs-border-color); font-size: .875rem;
+}
+.jp-vinculo-linha.encerrado { color: var(--bs-secondary-color); }
+
+/* ── Seções da aba Cobrança ── */
+.jp-secao { margin-bottom: 1.5rem; }
+.jp-secao-head {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    margin-bottom: .65rem;
+}
+.jp-secao-titulo {
+    font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color); margin: 0;
+    display: inline-flex; align-items: center; gap: .45rem;
+}
+.jp-secao-acoes { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
+
+/* ── Lista de obrigações ── */
+.jp-lista { border: 1px solid var(--bs-border-color); border-radius: .75rem; overflow: hidden; background: var(--bs-body-bg); }
+
+/* Grade única: checkbox · VENCIMENTO · o que é · valor · ações */
+.jp-obr, .jp-lista-head {
+    display: grid; align-items: center; gap: .1rem 1rem;
+    grid-template-columns: 1.6rem 8.5rem 1fr 9rem auto;
+    padding: .7rem 1rem; border-top: 1px solid var(--bs-border-color);
+}
+/* Cabeçalho de colunas: diz onde começa a ler */
+.jp-lista-head {
+    padding-top: .5rem; padding-bottom: .5rem; border-top: 0;
+    background: var(--bs-tertiary-bg);
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color); font-weight: 700;
+}
+.jp-lista-head .col-valor { text-align: right; }
+.jp-obr:hover { background: var(--bs-tertiary-bg); }
+.jp-obr.is-vencida { background: rgba(var(--bs-danger-rgb), .05); box-shadow: inset 3px 0 0 var(--bs-danger); }
+.jp-obr.is-vencida:hover { background: rgba(var(--bs-danger-rgb), .09); }
+.jp-obr.is-quitada { color: var(--bs-secondary-color); }
+.jp-obr.is-selecionada { background: rgba(var(--jp-accent-rgb), .07); box-shadow: inset 3px 0 0 var(--jp-accent); }
+
+/* A coluna de data É o eixo do tempo — alinhada e tabular, para escanear de cima a baixo */
+.jp-obr-data { font-variant-numeric: tabular-nums; line-height: 1.25; }
+.jp-obr-data-dia { font-weight: 600; font-size: .9rem; }
+.jp-obr-data-rel { font-size: .72rem; color: var(--bs-secondary-color); white-space: nowrap; }
+.jp-obr-data-rel.is-atrasado { color: var(--bs-danger); font-weight: 600; }
+
+.jp-obr-desc { font-weight: 600; min-width: 0; }
+.jp-obr-sub { font-size: .78rem; color: var(--bs-secondary-color); font-weight: 400; }
+.jp-obr-valor { text-align: right; white-space: nowrap; }
+.jp-obr-restante { display: block; font-size: .75rem; font-weight: 400; color: var(--bs-danger); }
+.jp-obr-acoes { display: flex; gap: .35rem; justify-content: flex-end; }
+
+/* Rótulo de ordenação no cabeçalho da seção */
+.jp-ordem {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .72rem; font-weight: 600; text-transform: none; letter-spacing: 0;
+    color: var(--bs-secondary-color);
+    border: 1px dashed var(--bs-border-color); border-radius: 2rem; padding: .1rem .6rem;
+}
+
+/* Grupo de acordo */
+.jp-acordo {
+    border: 1px solid var(--bs-border-color); border-radius: .75rem;
+    overflow: hidden; background: var(--bs-body-bg); margin-top: .8rem;
+}
+.jp-acordo-head {
+    display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    padding: .75rem 1rem; background: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+}
+.jp-acordo-titulo { font-weight: 700; display: inline-flex; align-items: center; gap: .45rem; }
+.jp-acordo-prog { display: flex; align-items: center; gap: .6rem; font-size: .82rem; color: var(--bs-secondary-color); }
+.jp-acordo-bar { width: 90px; height: 6px; border-radius: 3px; background: var(--bs-secondary-bg); overflow: hidden; }
+.jp-acordo-fill { height: 100%; background: var(--jp-accent); border-radius: 3px; }
+.jp-acordo .jp-obr { padding-left: 1.5rem; }
+
+/* Substituídas (fora do saldo) */
+.jp-substituidas-toggle {
+    width: 100%; background: none; border: 0; text-align: left;
+    padding: .6rem 1rem; font-size: .82rem; color: var(--bs-secondary-color);
+    border-top: 1px dashed var(--bs-border-color);
+}
+.jp-substituidas-toggle:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+.jp-obr.is-substituida { opacity: .62; }
+.jp-obr.is-substituida .jp-obr-desc { text-decoration: line-through; text-decoration-thickness: 1px; }
+
+/* ── Barra de seleção flutuante ── */
+.jp-selbar {
+    position: sticky; bottom: 1rem; z-index: 5; margin-top: .8rem;
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    padding: .7rem 1rem; border-radius: .75rem;
+    border: 1px solid rgba(var(--jp-accent-rgb), .35);
+    background: var(--bs-body-bg);
+    box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .18);
+}
+.jp-selbar[hidden] { display: none; }
+.jp-selbar-info { font-size: .9rem; }
+.jp-selbar-total { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--jp-accent); }
+.jp-selbar-acoes { margin-left: auto; display: flex; gap: .5rem; }
+
+/* ── Alertas acionáveis ── */
+.jp-alerta {
+    display: flex; align-items: center; gap: .7rem; flex-wrap: wrap;
+    padding: .6rem .85rem; border-radius: .6rem;
+    border: 1px solid var(--bs-border-color); background: var(--bs-body-bg);
+}
+.jp-alerta + .jp-alerta { margin-top: .4rem; }
+.jp-alerta.sev-danger { border-color: rgba(var(--bs-danger-rgb), .35); background: rgba(var(--bs-danger-rgb), .05); }
+.jp-alerta.sev-warning { border-color: rgba(var(--bs-warning-rgb), .4); background: rgba(var(--bs-warning-rgb), .08); }
+.jp-alerta.sev-success { border-color: rgba(var(--bs-success-rgb), .35); background: rgba(var(--bs-success-rgb), .06); }
+.jp-alerta-acoes { margin-left: auto; display: flex; gap: .4rem; }
+
+/* ── Movimentos ── */
+.jp-mov {
+    display: grid; align-items: center; gap: .1rem 1rem;
+    grid-template-columns: 1.6rem 8.5rem 1fr 9rem auto;
+    padding: .7rem 1rem; border-top: 1px solid var(--bs-border-color);
+}
+.jp-mov:hover { background: var(--bs-tertiary-bg); }
+.jp-mov-ico {
+    width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(var(--jp-accent-rgb), .12); color: var(--jp-accent);
+}
+.jp-mov-ico.is-liq { background: rgba(var(--bs-info-rgb), .15); color: var(--bs-info-text-emphasis); }
+.jp-mov-ico.is-desfeito { background: rgba(var(--bs-danger-rgb), .12); color: var(--bs-danger); }
+.jp-mov-split { font-size: .8rem; color: var(--bs-secondary-color); grid-column: 2; }
+
+/* ── Estado vazio que ensina ── */
+.jp-vazio { text-align: center; padding: 2.5rem 1.25rem; }
+.jp-vazio .bi { font-size: 2rem; color: var(--bs-secondary-color); opacity: .45; }
+.jp-vazio-titulo { font-weight: 600; margin: .6rem 0 .2rem; }
+.jp-vazio-dica { font-size: .875rem; color: var(--bs-secondary-color); max-width: 42ch; margin: 0 auto .9rem; }
+
+/* Chips de estado */
+.jp-chip {
+    display: inline-flex; align-items: center; gap: .3rem;
+    font-size: .72rem; font-weight: 600; padding: .1rem .5rem; border-radius: 2rem;
+    border: 1px solid var(--bs-border-color); color: var(--bs-secondary-color);
+    white-space: nowrap;
+}
+.jp-chip.is-vencida { border-color: rgba(var(--bs-danger-rgb), .4); color: var(--bs-danger); background: rgba(var(--bs-danger-rgb), .07); }
+.jp-chip.is-paga { border-color: rgba(var(--bs-success-rgb), .4); color: var(--bs-success); background: rgba(var(--bs-success-rgb), .07); }

@@ -4,33 +4,64 @@
 
 {% block body %}
 {# Página unificada do objeto (ajuste 2): o caso é a âncora invisível. Reusa a marcação do corpo
-   operacional lendo `caso` = objeto.caso (CasoDetalheOutput). #}
+   operacional lendo `caso` = objeto.caso (CasoDetalheOutput).
+
+   Ajuste 10 (redesenho): a página passou a ser organizada pelo TRABALHO, não pelas tabelas do banco.
+   A ordem responde: quanto deve (cockpit) → o que exige atenção (alertas) → de quem (card da pessoa) →
+   o que fazer agora (aba Cobrança: dívida + extrato). As 6 abas que espelhavam entidades Doctrine
+   viraram 3 — Cobrança · Documentos · Histórico —, e a de Pessoas, que abria por padrão, virou card. #}
 {% set caso = objeto.caso %}
+{% set podeGerenciar = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid">
-        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-            <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+        {# B3: esta era a única página do módulo que perdia a subnav — o usuário caía num beco sem saída. #}
+        {{ include('cobranca/_partials/_subnav.html.twig', {ativo: 'carteiras'}) }}
+
+        <div class="d-flex align-items-center gap-2 mb-1 mt-3 flex-wrap">
+            <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}" class="btn btn-sm btn-outline-secondary" aria-label="Voltar para a carteira"><i class="bi bi-arrow-left"></i></a>
             <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>{{ objeto.identificacao }}</h1>
             <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
             {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
-            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+            {% if podeGerenciar %}
             <div class="ms-auto d-flex gap-2 flex-wrap">
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
                     <i class="bi bi-telephone me-1"></i>Registrar contato
                 </button>
-                {% if can_access_module('pastas') and not caso.pastaJudicialId %}
-                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
-                    <i class="bi bi-bank me-1"></i>Judicializar
-                </button>
-                {% endif %}
-                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
-                    <i class="bi bi-flag me-1"></i>Encerrar cobrança
-                </button>
+                {# As ações raras saem do caminho: o que se faz todo dia é receber e acordar, não judicializar. #}
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Mais ações">
+                        <i class="bi bi-three-dots"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        {% if can_access_module('pastas') and not caso.pastaJudicialId %}
+                        <li>
+                            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
+                                <i class="bi bi-bank me-2"></i>Judicializar
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        {% endif %}
+                        <li>
+                            {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível
+                               zerado). Desabilitado, o item ENSINA a condição em vez de falhar depois do clique. #}
+                            {% if caso.prontoParaEncerrar %}
+                            <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
+                                <i class="bi bi-flag me-2"></i>Encerrar cobrança
+                            </button>
+                            {% else %}
+                            <span class="dropdown-item disabled" data-bs-toggle="tooltip"
+                                  title="Só é possível encerrar com o total em aberto zerado. Faltam {{ caso.saldoExigivel|centavos }}.">
+                                <i class="bi bi-flag me-2"></i>Encerrar cobrança
+                            </span>
+                            {% endif %}
+                        </li>
+                    </ul>
+                </div>
             </div>
             {% endif %}
         </div>
-        <div class="text-muted small">
+        <div class="text-secondary small">
             {% if objeto.descricao %}{{ objeto.descricao }} · {% endif %}
             Carteira: <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}">{{ objeto.carteiraNome }}</a>
             {% if caso.pastaJudicialId %} · <a href="{{ path('pasta_show', {id: caso.pastaJudicialId}) }}"><i class="bi bi-folder-symlink me-1"></i>Pasta judicial</a>{% endif %}
@@ -38,65 +69,44 @@
     </div>
 </section>
 
-<section class="content">
+<section class="content mt-3">
     <div class="container-fluid">
-        {# ── Cabeçalho operacional ─────────────────────────────── #}
+        {# ── Cockpit: quanto deve e o que fazer ────────────────── #}
         <div class="caso-header mb-3">
-            <div class="caso-header-top">
-                <div>
-                    <div class="caso-metric-label d-flex align-items-center gap-2">
-                        Pessoa cobrada atual
-                        {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa" title="Alterar pessoa cobrada">
-                            <i class="bi bi-arrow-left-right"></i>
-                        </button>
-                        {% endif %}
+            <div class="jp-resumo">
+                <div class="jp-resumo-item">
+                    <div class="caso-metric-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">
+                        Total em aberto <i class="bi bi-question-circle" style="opacity:.5"></i>
                     </div>
-                    {% if objeto.temCobradaAtual %}
-                    <p class="caso-header-titulo mb-0">{{ caso.pessoaCobradaNome }}</p>
-                    <div class="caso-header-sub">
-                        {% if caso.pessoaCobradaCpf %}<span data-bs-toggle="tooltip" title="CPF">{{ caso.pessoaCobradaCpf }}</span>{% endif %}
-                        {% if caso.pessoaCobradaCnpj %}<span data-bs-toggle="tooltip" title="CNPJ">{{ caso.pessoaCobradaCnpj }}</span>{% endif %}
-                        {% if caso.pessoaCobradaTelefone %} · <i class="bi bi-telephone"></i> {{ caso.pessoaCobradaTelefone }}{% endif %}
-                        {% if caso.pessoaCobradaEmail %} · <i class="bi bi-envelope"></i> {{ caso.pessoaCobradaEmail }}{% endif %}
-                    </div>
-                    {% else %}
-                    <p class="caso-header-titulo mb-0 text-muted"><i class="bi bi-person-dash me-1"></i>Nenhuma pessoa cobrada</p>
-                    <div class="caso-header-sub text-muted">Vincule uma pessoa na aba <strong>Pessoas</strong> e defina quem é a cobrada.</div>
-                    {% endif %}
-                </div>
-                <div class="text-end">
-                    <div class="caso-metric-label">Honorários</div>
-                    <div>{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} <span class="text-muted">({{ caso.percentualHonorarios }}%)</span>{% endif %}</div>
-                </div>
-            </div>
-
-            <div class="caso-metrics">
-                <div class="caso-metric">
-                    <div class="caso-metric-label" data-bs-toggle="tooltip" title="Derivado das obrigações exigíveis menos pagamentos e liquidações (SPEC §10)">Saldo exigível</div>
                     <div class="caso-metric-valor {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</div>
                 </div>
-                <div class="caso-metric">
-                    <div class="caso-metric-label" data-bs-toggle="tooltip" title="Parte do saldo já vencida">Saldo vencido</div>
+                <div class="jp-resumo-item">
+                    <div class="caso-metric-label" data-bs-toggle="tooltip" title="Saldo vencido: a parte do total que já passou do vencimento.">
+                        Já vencido <i class="bi bi-question-circle" style="opacity:.5"></i>
+                    </div>
                     <div class="caso-metric-valor {{ caso.saldoVencido > 0 ? 'saldo-vencido' : '' }}">{{ caso.saldoVencido|centavos }}</div>
                 </div>
-                <div class="caso-metric flex-grow-1">
+                <div class="jp-resumo-item">
+                    <div class="caso-metric-label" data-bs-toggle="tooltip" title="Como o escritório cobra os honorários neste caso (fixado na abertura).">Honorários</div>
+                    <div class="fw-semibold">{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} <span class="text-secondary">({{ caso.percentualHonorarios }}%)</span>{% endif %}</div>
+                </div>
+                <div class="jp-resumo-item jp-resumo-acao">
                     {% if caso.proximaAcao %}
                         <div class="caso-proxima-acao {{ caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
                             <div class="caso-proxima-acao-titulo d-flex align-items-center gap-2">
                                 <span><i class="bi bi-flag-fill me-1"></i>Próxima ação{% if caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis">atrasada</span>{% endif %}</span>
-                                {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                                {% if podeGerenciar %}
                                 <button type="button" class="btn btn-sm btn-outline-primary py-0 ms-auto" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
                                 {% endif %}
                             </div>
                             <div class="fw-semibold">{{ caso.proximaAcao.descricao }}</div>
-                            {% if caso.proximaAcao.prazo %}<div class="small text-muted">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</div>{% endif %}
+                            {% if caso.proximaAcao.prazo %}<div class="small text-secondary">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</div>{% endif %}
                         </div>
                     {% else %}
                         <div class="caso-metric-label">Próxima ação</div>
                         <div class="d-flex align-items-center gap-2">
-                            <span class="text-muted"><i class="bi bi-dash-circle me-1"></i>Nenhuma ação definida</span>
-                            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+                            <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Nenhuma ação definida</span>
+                            {% if podeGerenciar %}
                             <button type="button" class="btn btn-sm btn-outline-primary py-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
                             {% endif %}
                         </div>
@@ -105,284 +115,52 @@
             </div>
         </div>
 
-        {# ── Alertas (derivados, read-only — SPEC §14) ─────────── #}
+        {# ── Alertas (derivados, read-only — SPEC §14) ──────────────
+           O alerta continua só CONTANDO o que há (invariável 28: o sistema alerta, o humano decide), mas
+           agora leva ao lugar onde se resolve, em vez de ser texto morto no topo da página. #}
         {% if caso.alertas|length > 0 %}
-        <div class="caso-alertas mb-3">
+        <div class="mb-3">
             {% for alerta in caso.alertas %}
-            <div class="caso-alerta">
-                <span class="badge {{ alerta.tipo.badgeClass }}"><i class="bi {{ alerta.tipo.icone }}"></i></span>
+            <div class="jp-alerta {{ alerta.tipo.badgeClass|replace({'text-bg-': 'sev-'}) }}">
+                <i class="bi {{ alerta.tipo.icone }}"></i>
                 <span>{{ alerta.descricao }}</span>
+                {% if alerta.tipo.value in ['obrigacao_vencida', 'parcela_acordo_vencida'] %}
+                <div class="jp-alerta-acoes">
+                    <a href="#secao-divida" class="btn btn-sm btn-outline-secondary">Ver na dívida</a>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
         </div>
         {% endif %}
 
-        {# ── Abas ──────────────────────────────────────────────── #}
+        {# ── De quem é a dívida (era a aba "Pessoas", que abria por padrão) ── #}
+        {{ include('cobranca/objeto/_partials/_pessoa_card.html.twig') }}
+
+        {# ── Abas: 6 → 3 ───────────────────────────────────────── #}
         <ul class="nav nav-tabs" id="objetoTabs" role="tablist">
-            <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-pessoas" type="button">Pessoas <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span></button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-obrigacoes" type="button">Obrigações <span class="badge text-bg-secondary">{{ caso.obrigacoes|length }}</span></button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-movimentos" type="button">Pagamentos & Liquidações <span class="badge text-bg-secondary">{{ caso.pagamentos|length + caso.liquidacoes|length }}</span></button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-acordos" type="button">Acordos <span class="badge text-bg-secondary">{{ caso.acordos|length }}</span></button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#tab-documentos" type="button">Documentos</button></li>
-            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">Histórico <span class="badge text-bg-secondary">{{ caso.historico|length }}</span></button></li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-cobranca" type="button">
+                    <i class="bi bi-cash-coin me-1"></i>Cobrança
+                </button>
+            </li>
+            {# `id="documentos-tab"`: o pasta-arquivos.js usa este id para restaurar a aba após o upload. #}
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="documentos-tab" data-bs-toggle="tab" data-bs-target="#tab-documentos" type="button">
+                    <i class="bi bi-folder me-1"></i>Documentos <span class="badge text-bg-secondary">{{ arquivosFm|length }}</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">
+                    <i class="bi bi-clock-history me-1"></i>Histórico <span class="badge text-bg-secondary">{{ caso.historico|length }}</span>
+                </button>
+            </li>
         </ul>
         <div class="tab-content border border-top-0 rounded-bottom p-3 bg-body">
-            {# Pessoas (envolvidos) do objeto #}
-            <div class="tab-pane fade show active" id="tab-pessoas">
-                {% if formNovaPessoa or formVincular %}
-                <div class="d-flex justify-content-end gap-2 mb-2">
-                    {% if formVincular %}
-                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
-                        <i class="bi bi-link-45deg me-1"></i>Vincular existente
-                    </button>
-                    {% endif %}
-                    {% if formNovaPessoa %}
-                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
-                        <i class="bi bi-person-plus me-1"></i>Nova pessoa
-                    </button>
-                    {% endif %}
-                </div>
-                {% endif %}
-                {% if objeto.vinculos|length > 0 %}
-                <div class="table-responsive"><table class="table table-sm mb-0">
-                    <thead><tr><th>Nome</th><th>Papel</th><th>Contato</th><th>Desde</th><th></th></tr></thead>
-                    <tbody>
-                    {% for v in objeto.vinculos %}
-                    <tr class="{{ v.ativo ? '' : 'text-muted' }}">
-                        <td class="fw-semibold">{{ v.nome }}{% if v.ehCobradaAtual %} <span class="badge text-bg-primary ms-1" data-bs-toggle="tooltip" title="Pessoa cobrada atualmente">Cobrado</span>{% endif %}</td>
-                        <td>{{ v.papelLabel }}</td>
-                        <td class="small text-muted">{% if v.cpf %}{{ v.cpf }}{% elseif v.cnpj %}{{ v.cnpj }}{% endif %}{% if v.telefone %} · {{ v.telefone }}{% endif %}{% if v.email %} · {{ v.email }}{% endif %}</td>
-                        <td>{{ v.dataInicio|date('d/m/Y') }}{% if v.dataFim %} – {{ v.dataFim|date('d/m/Y') }}{% endif %}</td>
-                        <td class="text-end">
-                            {% if not v.ativo %}<span class="badge text-bg-secondary">Encerrado</span>
-                            {% elseif formEncerrarVinculo %}
-                            <button type="button" class="btn btn-sm btn-link p-0 text-danger align-baseline"
-                                    data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
-                                    data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: v.vinculoId}) }}"
-                                    data-vinculo-rotulo="{{ v.nome }} ({{ v.papelLabel }})"
-                                    title="Encerrar vínculo"><i class="bi bi-x-circle"></i></button>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    </tbody>
-                </table></div>
-                {% else %}<p class="text-muted mb-0 text-center py-3">Nenhuma pessoa vinculada a este objeto.</p>{% endif %}
-            </div>
-
-            {# Obrigações #}
-            <div class="tab-pane fade" id="tab-obrigacoes">
-                {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
-                <div class="d-flex justify-content-end mb-2">
-                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
-                        <i class="bi bi-plus-lg me-1"></i>Registrar obrigação
-                    </button>
-                </div>
-                {% endif %}
-
-                {# ── Acordos vigentes: linha-resumo que expande as parcelas (ajuste 8) ── #}
-                {% for g in caso.gruposAcordo %}
-                <div class="card mb-2">
-                    <div class="card-header d-flex align-items-center gap-2 py-2 flex-wrap">
-                        <button class="btn btn-sm btn-outline-secondary py-0" type="button" data-bs-toggle="collapse"
-                                data-bs-target="#grupoAcordo{{ g.acordoId }}" aria-expanded="false"
-                                aria-controls="grupoAcordo{{ g.acordoId }}" title="Ver parcelas">
-                            <i class="bi bi-chevron-down"></i>
-                        </button>
-                        <strong><i class="bi bi-file-earmark-text me-1"></i>Acordo {{ g.dataAcordo|date('d/m/Y') }}</strong>
-                        <span class="badge {{ g.statusBadgeClass }}">{{ g.statusLabel }}</span>
-                        <span class="text-muted small">{{ g.qtdParcelas }} parcela(s) · substituiu {{ g.qtdSubstituidas }} obrigação(ões)</span>
-                        <span class="ms-auto fw-semibold">{{ g.valorTotal|centavos }}</span>
-                        <a href="{{ path('cobranca_acordo_show', {id: g.acordoId}) }}" class="btn btn-sm btn-outline-primary py-0">
-                            <i class="bi bi-box-arrow-up-right me-1"></i>Abrir acordo
-                        </a>
-                    </div>
-                    <div class="collapse" id="grupoAcordo{{ g.acordoId }}">
-                        <div class="table-responsive"><table class="table table-sm mb-0">
-                            <thead><tr><th>Parcela</th><th>Vencimento</th><th class="text-end">Valor</th></tr></thead>
-                            <tbody>
-                            {% for p in g.parcelas %}
-                            <tr>
-                                <td>{{ p.descricao }}</td>
-                                <td>{{ p.vencimentoOriginal|date('d/m/Y') }}</td>
-                                <td class="text-end fw-semibold">{{ p.valorAtual|centavos }}</td>
-                            </tr>
-                            {% endfor %}
-                            </tbody>
-                        </table></div>
-                        <div class="card-footer small text-muted py-2">
-                            As parcelas e as obrigações substituídas são geridas pelo acordo — abra o acordo para editar.
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-
-                {# Lista solta: o que NÃO está num acordo vigente. A partição (ajuste 8) já tira daqui as
-                   substituídas e as parcelas de acordo vigente, então os ramos de "Substituída"/"Parcela"/
-                   cadeado abaixo não ocorrem nesta lista — ficam como defesa, e o badge vivo aqui é o
-                   "Acordo desfeito" (parcela de acordo rompido/cancelado, editável — ajuste 5). #}
-                {% if caso.obrigacoesAvulsas|length > 0 %}
-                <div class="table-responsive"><table class="table table-sm mb-0">
-                    <thead><tr><th>Descrição</th><th>Vencimento</th><th class="text-end">Original</th><th class="text-end">Encargos</th><th class="text-end">Valor atual</th><th></th></tr></thead>
-                    <tbody>
-                    {% for o in caso.obrigacoesAvulsas %}
-                    <tr class="{{ (o.substituidaPorAcordo or o.parcelaDeAcordoDesfeito) ? 'text-muted' : '' }}">
-                        <td>{{ o.descricao }}{% if o.referenciaExterna %} <span class="text-muted small">#{{ o.referenciaExterna }}</span>{% endif %}</td>
-                        <td>{{ o.vencimentoOriginal|date('d/m/Y') }}</td>
-                        <td class="text-end">{{ o.valorOriginal|centavos }}</td>
-                        <td class="text-end">{{ o.encargosReconhecidos|centavos }}</td>
-                        <td class="text-end fw-semibold">{{ o.valorAtual|centavos }}</td>
-                        <td class="text-end">
-                            {% if o.substituidaPorAcordo %}<span class="badge text-bg-secondary" data-bs-toggle="tooltip" title="Substituída por acordo vigente — fora do saldo (invariável 15)">Substituída</span>{% endif %}
-                            {% if o.ehParcelaAcordo %}<span class="badge text-bg-info" data-bs-toggle="tooltip" title="Parcela de acordo vigente">Parcela</span>{% endif %}
-                            {% if o.parcelaDeAcordoDesfeito %}<span class="badge text-bg-secondary" data-bs-toggle="tooltip" title="Parcela de um acordo rompido ou cancelado — fora do saldo (histórico)">Acordo desfeito</span>{% endif %}
-                            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado and not o.substituidaPorAcordo and not o.ehParcelaAcordo %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                    data-bs-toggle="modal" data-bs-target="#modalEditarObrigacao"
-                                    data-acao-url="{{ path('cobranca_obrigacao_editar', {id: o.id}) }}"
-                                    data-descricao="{{ o.descricao }}"
-                                    data-referencia="{{ o.referenciaExterna }}"
-                                    data-vencimento="{{ o.vencimentoOriginal|date('Y-m-d') }}"
-                                    data-valor-centavos="{{ o.valorOriginal }}"
-                                    data-encargos-centavos="{{ o.encargosReconhecidos }}"
-                                    title="Editar (corrigir) obrigação">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-danger py-0"
-                                    data-bs-toggle="modal" data-bs-target="#modalExcluirObrigacao"
-                                    data-acao-url="{{ path('cobranca_obrigacao_excluir', {id: o.id}) }}"
-                                    data-token="{{ csrf_token('excluir_obrigacao_' ~ o.id) }}"
-                                    data-descricao="{{ o.descricao }}"
-                                    title="Excluir obrigação">
-                                <i class="bi bi-trash"></i>
-                            </button>
-                            {% elseif (o.substituidaPorAcordo or o.ehParcelaAcordo) and has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
-                            <span class="text-muted ms-1" data-bs-toggle="tooltip" title="Gerida pelo acordo — não editável aqui. Para alterar, gerencie o acordo (rompa/cancele para liberar a obrigação).">
-                                <i class="bi bi-lock"></i>
-                            </span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    </tbody>
-                </table></div>
-                {% elseif caso.gruposAcordo|length == 0 %}
-                <p class="text-muted mb-0 text-center py-3">Nenhuma obrigação registrada.</p>
-                {% else %}
-                <p class="text-muted mb-0 text-center py-3">Todas as obrigações desta cobrança estão nos acordos acima.</p>
-                {% endif %}
-            </div>
-
-            {# Pagamentos & Liquidações #}
-            <div class="tab-pane fade" id="tab-movimentos">
-                {% if has_permission('resources.cobranca.movimentacao_financeira') and not caso.encerrado %}
-                <div class="d-flex justify-content-end gap-2 mb-2">
-                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento">
-                        <i class="bi bi-cash-coin me-1"></i>Registrar pagamento
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarLiquidacao">
-                        <i class="bi bi-box-seam me-1"></i>Registrar liquidação
-                    </button>
-                </div>
-                {% endif %}
-                <h6 class="text-muted"><i class="bi bi-cash-stack me-1"></i>Pagamentos</h6>
-                {% if caso.pagamentos|length > 0 %}
-                <div class="table-responsive mb-3"><table class="table table-sm mb-0">
-                    <thead><tr><th>Data</th><th class="text-end">Dívida</th><th class="text-end">Encargos</th><th class="text-end">Honorários</th><th class="text-end">Total</th><th></th></tr></thead>
-                    <tbody>
-                    {% for p in caso.pagamentos %}
-                    <tr>
-                        <td>{{ p.data|date('d/m/Y') }}</td>
-                        <td class="text-end">{{ p.valorDivida|centavos }}</td>
-                        <td class="text-end">{{ p.valorEncargos|centavos }}</td>
-                        <td class="text-end">{{ p.valorHonorarios|centavos }}</td>
-                        <td class="text-end fw-semibold">{{ p.valorTotal|centavos }}</td>
-                        <td class="text-end">
-                            {% if p.foiCorrigido %}<span class="badge text-bg-warning" data-bs-toggle="tooltip" title="Correção sem estorno: {{ p.motivoCorrecao }}">Corrigido</span>{% endif %}
-                            {% if has_permission('resources.cobranca.movimentacao_financeira') and not caso.encerrado %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                    data-bs-toggle="modal" data-bs-target="#modalCorrigirPagamento"
-                                    data-acao-url="{{ path('cobranca_pagamento_corrigir', {id: p.id}) }}"
-                                    data-previa-url="{{ path('cobranca_pagamento_previa_corrigir', {id: p.id}) }}"
-                                    data-pagamento-data="{{ p.data|date('d/m/Y') }}"
-                                    data-pagamento-total="{{ p.valorTotal|centavos }}"
-                                    title="Corrigir pagamento (sem estorno)">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    </tbody>
-                </table></div>
-                {% else %}<p class="text-muted">Nenhum pagamento registrado.</p>{% endif %}
-
-                <h6 class="text-muted"><i class="bi bi-box-seam me-1"></i>Liquidações não monetárias</h6>
-                {% if caso.liquidacoes|length > 0 %}
-                <div class="table-responsive"><table class="table table-sm mb-0">
-                    <thead><tr><th>Data</th><th>Tipo</th><th>Bem</th><th class="text-end">Reconhecido</th></tr></thead>
-                    <tbody>
-                    {% for l in caso.liquidacoes %}
-                    <tr><td>{{ l.data|date('d/m/Y') }}</td><td>{{ l.tipoLabel }}</td><td>{{ l.descricaoBem }}</td><td class="text-end fw-semibold">{{ l.valorReconhecido|centavos }}</td></tr>
-                    {% endfor %}
-                    </tbody>
-                </table></div>
-                {% else %}<p class="text-muted mb-0">Nenhuma liquidação registrada.</p>{% endif %}
-            </div>
-
-            {# Acordos #}
-            <div class="tab-pane fade" id="tab-acordos">
-                {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
-                <div class="d-flex justify-content-end mb-2">
-                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalCriarAcordo">
-                        <i class="bi bi-plus-lg me-1"></i>Novo acordo
-                    </button>
-                </div>
-                {% endif %}
-                {% if caso.acordos|length > 0 %}
-                <div class="table-responsive"><table class="table table-sm mb-0">
-                    <thead><tr><th>Data</th><th>Estado</th><th class="text-center">Obrig. substituídas</th><th class="text-center">Parcelas</th><th>Observação</th><th></th></tr></thead>
-                    <tbody>
-                    {% for a in caso.acordos %}
-                    <tr>
-                        <td>{{ a.dataAcordo|date('d/m/Y') }}</td>
-                        <td><span class="badge {{ a.statusBadgeClass }}">{{ a.statusLabel }}</span></td>
-                        <td class="text-center">{{ a.qtdObrigacoesSubstituidas }}</td>
-                        <td class="text-center">{{ a.qtdParcelas }}</td>
-                        <td class="small text-muted">{{ a.motivoRompimento ?: a.motivoCancelamento ?: '—' }}</td>
-                        <td class="text-end">
-                            <a href="{{ path('cobranca_acordo_show', {id: a.id}) }}" class="btn btn-sm btn-outline-primary py-0" title="Abrir acordo"><i class="bi bi-box-arrow-up-right"></i></a>
-                            {% if has_permission('resources.cobranca.gerenciar') and not caso.encerrado and a.ativo %}
-                            <button type="button" class="btn btn-sm btn-outline-success py-0" title="Marcar cumprido"
-                                    data-bs-toggle="modal" data-bs-target="#modalCumprirAcordo-{{ a.id }}"><i class="bi bi-check2-all"></i></button>
-                            <button type="button" class="btn btn-sm btn-outline-danger py-0" title="Romper"
-                                    data-bs-toggle="modal" data-bs-target="#modalRomperAcordo"
-                                    data-acao-url="{{ path('cobranca_acordo_romper', {id: a.id}) }}"><i class="bi bi-x-octagon"></i></button>
-                            <button type="button" class="btn btn-sm btn-outline-warning py-0" title="Cancelar"
-                                    data-bs-toggle="modal" data-bs-target="#modalCancelarAcordo"
-                                    data-acao-url="{{ path('cobranca_acordo_cancelar', {id: a.id}) }}"><i class="bi bi-slash-circle"></i></button>
-                            {# Cumprir: form inline (sem campos) com CSRF manual #}
-                            <div class="modal fade" id="modalCumprirAcordo-{{ a.id }}" tabindex="-1" aria-hidden="true">
-                                <div class="modal-dialog"><div class="modal-content">
-                                    <form method="POST" action="{{ path('cobranca_acordo_cumprir', {id: a.id}) }}">
-                                        <input type="hidden" name="_token" value="{{ csrf_token('marcar_cumprido_' ~ a.id) }}">
-                                        <div class="modal-header"><h5 class="modal-title">Marcar acordo cumprido</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button></div>
-                                        <div class="modal-body">Confirmar que este acordo foi integralmente cumprido? As obrigações substituídas permanecem fora do saldo.</div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                            <button type="submit" class="btn btn-success"><i class="bi bi-check2-all me-1"></i>Confirmar</button>
-                                        </div>
-                                    </form>
-                                </div></div>
-                            </div>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    </tbody>
-                </table></div>
-                {% else %}<p class="text-muted mb-0 text-center py-3">Nenhum acordo registrado.</p>{% endif %}
+            {# Cobrança: a dívida e o que já entrou — o trabalho do dia numa aba só. #}
+            <div class="tab-pane fade show active" id="tab-cobranca">
+                {{ include('cobranca/objeto/_partials/_divida.html.twig') }}
+                {{ include('cobranca/objeto/_partials/_movimentos.html.twig') }}
             </div>
 
             {# Documentos (file manager religado na Onda 8C — reusa pasta-arquivos.js sem editá-lo) #}
@@ -415,7 +193,7 @@
 {{ include('cobranca/caso/_acoes_modais_financeiro.html.twig') }}
 {% endif %}
 
-{# Nova pessoa (cadastra + vincula ao objeto — aba Pessoas) #}
+{# Nova pessoa (cadastra + vincula ao objeto — gatilho no card da pessoa) #}
 {% if formNovaPessoa %}
 <div class="modal fade" id="modalNovaPessoa" tabindex="-1" aria-labelledby="tituloNovaPessoa" aria-hidden="true">
     <div class="modal-dialog">
@@ -566,7 +344,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* Encerrar vínculo: o botão da linha (aba Pessoas) injeta a URL de ação e o contexto. */
+    /* Encerrar vínculo: o botão da linha (envolvidos, no card da pessoa) injeta a URL de ação e o contexto. */
     var modalEncerrarVinculo = document.getElementById('modalEncerrarVinculo');
     if (modalEncerrarVinculo) {
         modalEncerrarVinculo.addEventListener('show.bs.modal', function (event) {

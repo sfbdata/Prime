@@ -379,7 +379,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
 
-    #[TestDox('Cumprir acordo: happy path (CSRF manual do modal inline)')]
+    #[TestDox('Cumprir acordo: happy path (CSRF manual do modal do detalhe do acordo)')]
     public function testCumprirHappy(): void
     {
         $client = static::createClient();
@@ -388,8 +388,10 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
         $acordoId = (int) $acordo->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
-        $token = (string) $crawler->filter('#modalCumprirAcordo-' . $acordoId . ' input[name="_token"]')->attr('value');
+        // Ajuste 10: gerir o acordo (cumprir/romper/cancelar) é do detalhe do acordo — a página do objeto
+        // mostra o acordo e leva até ele, em vez de repetir as ações num modal inline por linha.
+        $crawler = $client->request('GET', '/cobrancas/acordos/' . $acordoId);
+        $token = (string) $crawler->filter('#modalCumprirAcordoDetalhe input[name="_token"]')->attr('value');
 
         $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cumprir', ['_token' => $token]);
 

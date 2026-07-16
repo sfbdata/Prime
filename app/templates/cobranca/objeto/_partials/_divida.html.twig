@@ -1,0 +1,198 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Dívida em aberto (Ajuste 10) — a resposta a "quanto deve e o que exige atenção agora".
+
+   Era a aba "Obrigações", organizada pela tabela do banco (Original | Encargos | Valor atual). Agora é
+   UMA fila só, na ordem em que o dinheiro abate a dívida (a mais antiga primeiro — spec §4.7), com o
+   vencimento em COLUNA PRÓPRIA: é por ele que se lê a lista de cima a baixo.
+
+   Contexto herdado do show: `caso` (CasoDetalheOutput). A partição vem pronta do UseCase (Ajuste 8):
+   `caso.obrigacoesAvulsas` = o que não está em acordo vigente; `caso.gruposAcordo` = os acordos vigentes,
+   cujas parcelas SÃO a dívida agora, com as obrigações que cada um trocou (`g.substituidas`, T2).
+   Nada aqui recalcula regra — o template só exibe.
+
+   Ordenação: já vem `vencimentoOriginal ASC` do `ObrigacaoRepository::doCaso` — não reordenar aqui.
+─────────────────────────────────────────────────────────────────────────── #}
+{% set podeGerenciar = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+{% set hoje = date('today') %}
+
+<div class="jp-secao" id="secao-divida">
+    <div class="jp-secao-head">
+        <h2 class="jp-secao-titulo"><i class="bi bi-receipt"></i>Dívida em aberto</h2>
+        <span class="jp-ordem" data-bs-toggle="tooltip"
+              title="É nesta ordem que o pagamento abate a dívida: sempre a mais antiga primeiro.">
+            <i class="bi bi-sort-down-alt"></i>Da mais antiga para a mais nova
+        </span>
+        {% if podeGerenciar %}
+        <div class="jp-secao-acoes">
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
+                <i class="bi bi-plus-lg me-1"></i>Nova obrigação
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCriarAcordo">
+                <i class="bi bi-file-earmark-text me-1"></i>Novo acordo
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if caso.obrigacoesAvulsas|length == 0 and caso.gruposAcordo|length == 0 %}
+        <div class="jp-lista">
+            <div class="jp-vazio">
+                <i class="bi bi-receipt"></i>
+                <div class="jp-vazio-titulo">Nenhuma obrigação registrada.</div>
+                <p class="jp-vazio-dica">Registre o que está sendo cobrado — cada obrigação entra na fila acima pelo vencimento.</p>
+            </div>
+        </div>
+    {% else %}
+        <div class="jp-lista">
+            <div class="jp-lista-head">
+                <span></span>
+                <span>Venceu em</span>
+                <span>O que é</span>
+                <span class="col-valor">Valor</span>
+                <span></span>
+            </div>
+
+            {% for o in caso.obrigacoesAvulsas %}
+                {# INV-U1 (ajuste 9): parcela de acordo NUNCA é selecionável nem acordável — acordo sobre
+                   acordo duplica dívida no saldo (`CriarAcordoUseCase` barra em qualquer status). #}
+                {% set podeAcordar = podeGerenciar and o.acordoOrigemId is null and not o.substituidaPorAcordo %}
+                {% set vencida = o.restante > 0 and o.vencimentoOriginal <= hoje %}
+                <div class="jp-obr {{ vencida ? 'is-vencida' }} {{ o.quitada ? 'is-quitada' }}"
+                     data-valor-centavos="{{ o.restante }}">
+                    {% if podeAcordar %}
+                        <input class="form-check-input mt-0 jp-check" type="checkbox"
+                               value="{{ o.id }}" data-valor-centavos="{{ o.restante }}"
+                               aria-label="Selecionar {{ o.descricao|e('html_attr') }}">
+                    {% else %}<span></span>{% endif %}
+
+                    <div class="jp-obr-data">
+                        <div class="jp-obr-data-dia">{{ o.vencimentoOriginal|date('d/m/Y') }}</div>
+                        <div class="jp-obr-data-rel {{ o.vencimentoOriginal <= hoje ? 'is-atrasado' }}">{{ o.vencimentoOriginal|tempo_relativo }}</div>
+                    </div>
+
+                    <div class="jp-obr-desc">
+                        {{ o.descricao }}{% if o.referenciaExterna %} <span class="jp-obr-sub">#{{ o.referenciaExterna }}</span>{% endif %}
+                        {% if o.parcelaDeAcordoDesfeito %}
+                            <span class="jp-obr-sub" data-bs-toggle="tooltip"
+                                  title="Parcela de um acordo rompido ou cancelado — histórico, fora do total em aberto.">
+                                parcela de acordo desfeito
+                            </span>
+                        {% endif %}
+                        {% if o.alocado > 0 and not o.quitada %}
+                            <span class="jp-obr-sub">{{ o.alocado|centavos }} já recebidos</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="jp-obr-valor jp-money">
+                        {{ o.valorAtual|centavos }}
+                        {% if o.alocado > 0 and not o.quitada %}
+                            <span class="jp-obr-restante">falta {{ o.restante|centavos }}</span>
+                        {% endif %}
+                    </div>
+
+                    {# Slot de ações: "Receber"/"Acordar" chegam na T5. Aqui ficam as ações que já existiam. #}
+                    <div class="jp-obr-acoes">
+                        {% if o.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span>{% endif %}
+                        {% if podeGerenciar and not o.substituidaPorAcordo and not o.ehParcelaAcordo %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                                data-bs-toggle="modal" data-bs-target="#modalEditarObrigacao"
+                                data-acao-url="{{ path('cobranca_obrigacao_editar', {id: o.id}) }}"
+                                data-descricao="{{ o.descricao|e('html_attr') }}"
+                                data-referencia="{{ o.referenciaExterna|e('html_attr') }}"
+                                data-vencimento="{{ o.vencimentoOriginal|date('Y-m-d') }}"
+                                data-valor-centavos="{{ o.valorOriginal }}"
+                                data-encargos-centavos="{{ o.encargosReconhecidos }}"
+                                title="Editar (corrigir) obrigação">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-danger py-0"
+                                data-bs-toggle="modal" data-bs-target="#modalExcluirObrigacao"
+                                data-acao-url="{{ path('cobranca_obrigacao_excluir', {id: o.id}) }}"
+                                data-token="{{ csrf_token('excluir_obrigacao_' ~ o.id) }}"
+                                data-descricao="{{ o.descricao|e('html_attr') }}"
+                                title="Excluir obrigação">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            {% else %}
+                <div class="jp-vazio">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <div class="jp-vazio-titulo">Todas as obrigações desta cobrança estão nos acordos abaixo.</div>
+                    <p class="jp-vazio-dica">As parcelas do acordo são a dívida agora — as obrigações que ele trocou saíram do total em aberto.</p>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {# ── Acordos vigentes: as parcelas SÃO a dívida agora (Ajuste 8 + 10) ── #}
+    {% for g in caso.gruposAcordo %}
+        {% set pagas = g.parcelas|filter(p => p.quitada)|length %}
+        <div class="jp-acordo" id="grupoAcordo{{ g.acordoId }}">
+            <div class="jp-acordo-head">
+                <span class="jp-acordo-titulo"><i class="bi bi-file-earmark-text"></i>Acordo #{{ g.acordoId }}</span>
+                <span class="badge {{ g.statusBadgeClass }}">{{ g.statusLabel }}</span>
+                <span class="text-secondary small">
+                    firmado em {{ g.dataAcordo|date('d/m/Y') }} · {{ g.qtdParcelas }} parcela(s) · substituiu {{ g.qtdSubstituidas }} obrigação(ões) · {{ g.valorTotal|centavos }}
+                </span>
+                <div class="jp-acordo-prog ms-auto">
+                    <span>{{ pagas }} de {{ g.qtdParcelas }} parcelas pagas</span>
+                    <div class="jp-acordo-bar" role="presentation">
+                        <div class="jp-acordo-fill" style="width:{{ g.qtdParcelas > 0 ? (pagas / g.qtdParcelas * 100)|round : 0 }}%"></div>
+                    </div>
+                    <a href="{{ path('cobranca_acordo_show', {id: g.acordoId}) }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Abrir acordo
+                    </a>
+                </div>
+            </div>
+
+            {% for p in g.parcelas %}
+            {% set parcelaVencida = p.restante > 0 and p.vencimentoOriginal <= hoje %}
+            <div class="jp-obr {{ parcelaVencida ? 'is-vencida' }} {{ p.quitada ? 'is-quitada' }}" data-valor-centavos="{{ p.restante }}">
+                <span></span>
+                <div class="jp-obr-data">
+                    <div class="jp-obr-data-dia">{{ p.vencimentoOriginal|date('d/m/Y') }}</div>
+                    <div class="jp-obr-data-rel {{ parcelaVencida ? 'is-atrasado' }}">{{ p.vencimentoOriginal|tempo_relativo }}</div>
+                </div>
+                <div class="jp-obr-desc">
+                    {{ p.descricao }}
+                    {% if p.alocado > 0 and not p.quitada %}<span class="jp-obr-sub">{{ p.alocado|centavos }} já recebidos</span>{% endif %}
+                </div>
+                <div class="jp-obr-valor jp-money">
+                    {{ p.valorAtual|centavos }}
+                    {% if p.alocado > 0 and not p.quitada %}<span class="jp-obr-restante">falta {{ p.restante|centavos }}</span>{% endif %}
+                </div>
+                {# Parcela é gerida pelo acordo: para editar, abra o acordo. "Receber" chega na T5. #}
+                <div class="jp-obr-acoes">
+                    {% if p.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span>{% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            {# As trocadas ficam RECOLHIDAS no acordo que as tirou do saldo: antes sumiam sem explicação. #}
+            {% if g.substituidas|length > 0 %}
+            <button class="jp-substituidas-toggle" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#substituidasAcordo{{ g.acordoId }}" aria-expanded="false"
+                    aria-controls="substituidasAcordo{{ g.acordoId }}">
+                <i class="bi bi-chevron-right me-1"></i>Mostrar {{ g.substituidas|length }} obrigação(ões) trocada(s) pelo acordo #{{ g.acordoId }}
+                <span class="text-secondary">— fora do total em aberto</span>
+            </button>
+            <div class="collapse" id="substituidasAcordo{{ g.acordoId }}">
+                {% for s in g.substituidas %}
+                <div class="jp-obr is-substituida">
+                    <span></span>
+                    <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ s.vencimentoOriginal|date('d/m/Y') }}</div></div>
+                    <div class="jp-obr-desc">
+                        {{ s.descricao }}
+                        <span class="jp-obr-sub">trocada pelo acordo #{{ g.acordoId }} · volta ao total se o acordo for rompido</span>
+                    </div>
+                    <div class="jp-obr-valor jp-money">{{ s.valorAtual|centavos }}</div>
+                    <span></span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>

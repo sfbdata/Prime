@@ -1,0 +1,146 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   O que já entrou + acordos encerrados (Ajuste 10). Eram as abas "Pagamentos & Liquidações" e "Acordos",
+   separadas por tabela do banco. Do ponto de vista do usuário é UM extrato: o que entrou nesta cobrança,
+   em dinheiro ou em bem.
+
+   Ordem INVERSA à da dívida, de propósito (spec §4.7): a dívida é uma FILA (a mais antiga primeiro, que é
+   como o FIFO abate); o extrato é um EXTRATO (o último acontecimento no topo). Cada seção declara a sua
+   direção no cabeçalho para que a inversão não pareça inconsistência.
+
+   Contexto herdado do show: `caso` (CasoDetalheOutput).
+─────────────────────────────────────────────────────────────────────────── #}
+{% set podeMovimentar = has_permission('resources.cobranca.movimentacao_financeira') and not caso.encerrado %}
+
+{# Fusão dos dois extratos para uma linha do tempo só. Pagamentos e liquidações já vêm `data DESC` dos
+   repositórios; o sort (estável no PHP 8) só intercala. Apresentação: nenhum valor é recalculado. #}
+{% set movimentos = [] %}
+{% for p in caso.pagamentos %}
+    {% set movimentos = movimentos|merge([{tipo: 'pagamento', data: p.data, item: p}]) %}
+{% endfor %}
+{% for l in caso.liquidacoes %}
+    {% set movimentos = movimentos|merge([{tipo: 'liquidacao', data: l.data, item: l}]) %}
+{% endfor %}
+{% set movimentos = movimentos|sort((a, b) => b.data <=> a.data) %}
+
+<div class="jp-secao" id="secao-movimentos">
+    <div class="jp-secao-head">
+        <h2 class="jp-secao-titulo"><i class="bi bi-arrow-down-left-circle"></i>O que já entrou</h2>
+        <span class="jp-ordem" data-bs-toggle="tooltip"
+              title="Extrato: o que aconteceu por último aparece no topo — ordem inversa à da dívida acima.">
+            <i class="bi bi-sort-down"></i>Do mais recente para o mais antigo
+        </span>
+        {% if podeMovimentar %}
+        <div class="jp-secao-acoes">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarLiquidacao">
+                <i class="bi bi-box-seam me-1"></i>Registrar liquidação
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento">
+                <i class="bi bi-cash-coin me-1"></i>Registrar pagamento
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="jp-lista">
+        <div class="jp-lista-head">
+            <span></span>
+            <span>Entrou em</span>
+            <span>O que foi</span>
+            <span class="col-valor">Valor</span>
+            <span></span>
+        </div>
+
+        {% for m in movimentos %}
+            {% if m.tipo == 'pagamento' %}
+            {% set p = m.item %}
+            <div class="jp-mov">
+                <div class="jp-mov-ico"><i class="bi bi-cash"></i></div>
+                <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ p.data|date('d/m/Y') }}</div></div>
+                <div class="jp-obr-desc">
+                    Pagamento recebido
+                    <span class="jp-obr-sub">
+                        dívida {{ p.valorDivida|centavos }}
+                        {% if p.valorEncargos > 0 %}<span class="opacity-50">|</span> encargos {{ p.valorEncargos|centavos }}{% endif %}
+                        <span class="opacity-50">|</span> honorários {{ p.valorHonorarios|centavos }}
+                    </span>
+                </div>
+                <div class="jp-obr-valor jp-money">{{ p.valorTotal|centavos }}</div>
+                <div class="jp-obr-acoes">
+                    {% if p.foiCorrigido %}
+                    <span class="badge text-bg-warning" data-bs-toggle="tooltip" title="Correção sem estorno: {{ p.motivoCorrecao|e('html_attr') }}">Corrigido</span>
+                    {% endif %}
+                    {% if podeMovimentar %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                            data-bs-toggle="modal" data-bs-target="#modalCorrigirPagamento"
+                            data-acao-url="{{ path('cobranca_pagamento_corrigir', {id: p.id}) }}"
+                            data-previa-url="{{ path('cobranca_pagamento_previa_corrigir', {id: p.id}) }}"
+                            data-pagamento-data="{{ p.data|date('d/m/Y') }}"
+                            data-pagamento-total="{{ p.valorTotal|centavos }}"
+                            title="Corrigir pagamento (sem estorno)">Corrigir</button>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            {% set l = m.item %}
+            <div class="jp-mov">
+                <div class="jp-mov-ico is-liq"><i class="bi bi-box-seam"></i></div>
+                <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ l.data|date('d/m/Y') }}</div></div>
+                <div class="jp-obr-desc">
+                    Liquidação · {{ l.tipoLabel }}
+                    <span class="jp-obr-sub">
+                        {{ l.descricaoBem }} · valor reconhecido pelo credor{% if l.valorAtribuidoBem %} (bem avaliado em {{ l.valorAtribuidoBem|centavos }}){% endif %}
+                    </span>
+                </div>
+                <div class="jp-obr-valor jp-money">{{ l.valorReconhecido|centavos }}</div>
+                <div class="jp-obr-acoes"></div>
+            </div>
+            {% endif %}
+        {% else %}
+            <div class="jp-vazio">
+                <i class="bi bi-arrow-down-left-circle"></i>
+                <div class="jp-vazio-titulo">Nada entrou ainda</div>
+                <p class="jp-vazio-dica">Pagamentos e liquidações não monetárias aparecem aqui, do mais recente para o mais antigo.</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+{# ── Acordos que não movimentam mais a dívida ────────────────────────────────
+   Tudo o que não virou grupo na seção Dívida: rompidos e cancelados (as originais voltaram ao total por
+   derivação) e, por segurança, qualquer acordo vigente sem parcela viva — assim nenhum acordo some da
+   tela, como acontecia na aba "Acordos". O detalhe (e as ações de romper/cancelar/cumprir) fica em
+   `cobranca_acordo_show`. #}
+{% set idsAgrupados = caso.gruposAcordo|map(g => g.acordoId) %}
+{% set acordosEncerrados = caso.acordos|filter(a => a.id not in idsAgrupados) %}
+
+{% if acordosEncerrados|length > 0 %}
+<div class="jp-secao" id="secao-acordos-encerrados">
+    <div class="jp-secao-head">
+        <h2 class="jp-secao-titulo"><i class="bi bi-archive"></i>Acordos encerrados</h2>
+        <span class="text-secondary small">não afetam o total em aberto</span>
+    </div>
+    <div class="jp-lista">
+        {% for a in acordosEncerrados %}
+        <div class="jp-mov">
+            <div class="jp-mov-ico {{ a.vigente ? '' : 'is-desfeito' }}">
+                <i class="bi {{ a.vigente ? 'bi-file-earmark-text' : 'bi-x-lg' }}"></i>
+            </div>
+            <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ a.dataAcordo|date('d/m/Y') }}</div></div>
+            <div class="jp-obr-desc">
+                Acordo #{{ a.id }} <span class="badge {{ a.statusBadgeClass }} ms-1">{{ a.statusLabel }}</span>
+                <span class="jp-obr-sub">
+                    {% set motivo = a.motivoRompimento ?: a.motivoCancelamento %}
+                    {% if motivo %}"{{ motivo }}" — {% endif %}
+                    {{ a.qtdParcelas }} parcela(s) · substituiu {{ a.qtdObrigacoesSubstituidas }} obrigação(ões)
+                    {%- if not a.vigente %} · as obrigações trocadas voltaram ao total em aberto{% endif %}
+                </span>
+            </div>
+            <div class="jp-obr-valor"></div>
+            <div class="jp-obr-acoes">
+                <a href="{{ path('cobranca_acordo_show', {id: a.id}) }}" class="btn btn-sm btn-outline-secondary">Abrir</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}

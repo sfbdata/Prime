@@ -1,0 +1,139 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Card da pessoa cobrada (Ajuste 10). Era a aba "Pessoas", que abria por padrão: o cadastro — a coisa
+   menos acionável da tela — era a primeira coisa que o usuário via. Agora a identidade de QUEM se cobra
+   fica sempre visível acima das abas, e a lista de envolvidos (o cadastro propriamente dito) fica
+   recolhida atrás de "Envolvidos".
+
+   Contexto herdado do show: `objeto` (ObjetoDetalheOutput), `caso` (CasoDetalheOutput) e os forms dos
+   modais (`formNovaPessoa`, `formVincular`, `formEncerrarVinculo` — null para quem não gerencia).
+   Os modais são os MESMOS de hoje: #modalAlterarPessoa, #modalVincularPessoaObjeto, #modalNovaPessoa.
+
+   Gates idênticos aos de hoje, e são DOIS, de propósito: trocar a pessoa cobrada exige caso aberto
+   (`podeTrocarPessoa`), mas MANTER O CADASTRO de envolvidos (vincular, cadastrar, encerrar vínculo) não —
+   os UseCases de vínculo não olham o encerramento, e corrigir quem era quem continua válido depois que a
+   cobrança acaba. Quem não gerencia recebe os forms como null e não vê gatilho nenhum.
+─────────────────────────────────────────────────────────────────────────── #}
+{% set podeTrocarPessoa = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+{% set vinculoCobrado = objeto.vinculos|filter(v => v.ehCobradaAtual)|first|default(null) %}
+
+<div class="jp-pessoa-card mb-3">
+    {% if objeto.temCobradaAtual %}
+        {# Iniciais: mesmo fallback de `_partials/_avatar_usuario.html.twig`. #}
+        {% set partes = caso.pessoaCobradaNome|split(' ')|filter(p => p is not empty) %}
+        {% set iniciais = (partes|length > 1
+            ? (partes|first|slice(0, 1) ~ partes|last|slice(0, 1))
+            : caso.pessoaCobradaNome|slice(0, 2))|upper %}
+
+        <div class="jp-pessoa-topo">
+            <div class="jp-pessoa-avatar" aria-hidden="true">{{ iniciais }}</div>
+            <div class="flex-grow-1 min-w-0">
+                <div class="caso-metric-label">Estamos cobrando</div>
+                <p class="jp-pessoa-nome">{{ caso.pessoaCobradaNome }}</p>
+                <div class="jp-pessoa-contatos">
+                    {% if caso.pessoaCobradaCpf %}
+                        <span data-bs-toggle="tooltip" title="CPF"><i class="bi bi-person-vcard me-1"></i>{{ caso.pessoaCobradaCpf }}</span>
+                    {% endif %}
+                    {% if caso.pessoaCobradaCnpj %}
+                        <span data-bs-toggle="tooltip" title="CNPJ"><i class="bi bi-building me-1"></i>{{ caso.pessoaCobradaCnpj }}</span>
+                    {% endif %}
+                    {% if caso.pessoaCobradaTelefone %}
+                        <a href="tel:{{ caso.pessoaCobradaTelefone|e('url') }}"><i class="bi bi-telephone me-1"></i>{{ caso.pessoaCobradaTelefone }}</a>
+                    {% endif %}
+                    {% if caso.pessoaCobradaEmail %}
+                        <a href="mailto:{{ caso.pessoaCobradaEmail|e('url') }}"><i class="bi bi-envelope me-1"></i>{{ caso.pessoaCobradaEmail }}</a>
+                    {% endif %}
+                    {% if vinculoCobrado %}
+                        <span class="jp-chip">{{ vinculoCobrado.papelLabel }} desde {{ vinculoCobrado.dataInicio|date('m/Y') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-shrink-0">
+                {% if podeTrocarPessoa %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"
+                        title="Alterar a pessoa cobrada">
+                    <i class="bi bi-arrow-left-right me-1"></i>Trocar
+                </button>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-outline-secondary jp-vinculos-toggle border px-2 py-1 rounded"
+                        data-bs-toggle="collapse" data-bs-target="#vinculosObjeto" aria-expanded="false" aria-controls="vinculosObjeto">
+                    Envolvidos <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span> <i class="bi bi-chevron-down"></i>
+                </button>
+            </div>
+        </div>
+    {% else %}
+        {# Vazio que ENSINA: o caminho de vincular está aqui mesmo — a aba "Pessoas" não existe mais.
+           DEFENSIVO, hoje inalcançável: `pessoa_cobrada_atual_id` é NOT NULL e a invariável 7 exige
+           exatamente uma pessoa por caso, então `temCobradaAtual` é sempre true. Mantido em paridade com o
+           template anterior (que tinha o mesmo ramo) e para o dia em que a coluna admitir null. #}
+        <div class="jp-vazio py-3">
+            <i class="bi bi-person-dash"></i>
+            <div class="jp-vazio-titulo">Nenhuma pessoa cobrada</div>
+            <p class="jp-vazio-dica">Vincule quem responde por esta cobrança e defina quem é a pessoa cobrada.</p>
+            <div class="d-flex gap-2 justify-content-center flex-wrap">
+                {% if formVincular %}
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
+                    <i class="bi bi-link-45deg me-1"></i>Vincular pessoa
+                </button>
+                {% endif %}
+                {% if formNovaPessoa %}
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
+                    <i class="bi bi-person-plus me-1"></i>Nova pessoa
+                </button>
+                {% endif %}
+                {% if objeto.vinculos|length > 0 %}
+                <button type="button" class="btn btn-sm btn-outline-secondary jp-vinculos-toggle border px-2 py-1 rounded"
+                        data-bs-toggle="collapse" data-bs-target="#vinculosObjeto" aria-expanded="false" aria-controls="vinculosObjeto">
+                    Envolvidos <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span> <i class="bi bi-chevron-down"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+
+    {# Os envolvidos (o antigo cadastro): recolhido, porque é consulta — não é o trabalho do dia. #}
+    <div class="collapse mt-2" id="vinculosObjeto">
+        {% for v in objeto.vinculos %}
+        <div class="jp-vinculo-linha {{ v.ativo ? '' : 'encerrado' }}">
+            <i class="bi {{ v.ativo ? 'bi-person-fill' : 'bi-person-dash' }} text-secondary"></i>
+            {% if v.ehCobradaAtual %}<strong>{{ v.nome }}</strong>{% else %}<span>{{ v.nome }}</span>{% endif %}
+            <span class="jp-chip">{{ v.papelLabel }}</span>
+            <span class="small">
+                {{ v.dataInicio|date('m/Y') }}{% if v.dataFim %} — {{ v.dataFim|date('m/Y') }}{% endif %}
+            </span>
+            {% set contato = v.cpf ?: v.cnpj %}
+            {% if contato %}<span class="small text-secondary">{{ contato }}</span>{% endif %}
+            {% if v.telefone %}<span class="small text-secondary"><i class="bi bi-telephone me-1"></i>{{ v.telefone }}</span>{% endif %}
+
+            <span class="ms-auto d-flex align-items-center gap-2">
+                {% if v.ehCobradaAtual %}<span class="badge text-bg-success">Cobrada atual</span>{% endif %}
+                {% if not v.ativo %}
+                    <span class="badge text-bg-secondary">Encerrado</span>
+                {% elseif formEncerrarVinculo %}
+                    <button type="button" class="btn btn-sm btn-link p-0 text-danger align-baseline"
+                            data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
+                            data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: v.vinculoId}) }}"
+                            data-vinculo-rotulo="{{ (v.nome ~ ' (' ~ v.papelLabel ~ ')')|e('html_attr') }}"
+                            title="Encerrar vínculo"><i class="bi bi-x-circle"></i></button>
+                {% endif %}
+            </span>
+        </div>
+        {% else %}
+        <div class="jp-vinculo-linha text-secondary">Nenhuma pessoa vinculada a este objeto.</div>
+        {% endfor %}
+
+        {% if objeto.temCobradaAtual and (formVincular or formNovaPessoa) %}
+        <div class="pt-2 d-flex gap-2">
+            {% if formVincular %}
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
+                <i class="bi bi-link-45deg me-1"></i>Vincular pessoa
+            </button>
+            {% endif %}
+            {% if formNovaPessoa %}
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
+                <i class="bi bi-person-plus me-1"></i>Nova pessoa
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>

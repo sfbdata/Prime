@@ -8,7 +8,7 @@ use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 
 /**
- * Apresentação de dinheiro da Gestão de Cobranças. O domínio guarda dinheiro em CENTAVOS
+ * Apresentação da Gestão de Cobranças: dinheiro e tempo. O domínio guarda dinheiro em CENTAVOS
  * inteiros (invariável de precisão financeira das Etapas 2–3); esta é a ÚNICA camada que
  * converte para exibição — os Output DTOs carregam o int cru e o Twig formata com `|centavos`.
  * Nunca fazer aritmética de dinheiro no template; só formatar.
@@ -19,6 +19,7 @@ final class CobrancaExtension extends AbstractExtension
     {
         return [
             new TwigFilter('centavos', $this->centavos(...)),
+            new TwigFilter('tempo_relativo', $this->tempoRelativo(...)),
         ];
     }
 
@@ -26,5 +27,31 @@ final class CobrancaExtension extends AbstractExtension
     public function centavos(?int $centavos): string
     {
         return 'R$ ' . number_format(($centavos ?? 0) / 100, 2, ',', '.');
+    }
+
+    /**
+     * Distância em dias até hoje, em português ("há 128 dias" / "em 25 dias" / "hoje") — o eixo temporal
+     * das listas do objeto (Ajuste 10, spec §4.7).
+     *
+     * Compara DATAS, não instantes: o default é `today` (meia-noite). Com "agora", uma obrigação que vence
+     * hoje viraria "há 1 dia" à tarde — a resposta mudaria conforme a hora de abrir a página.
+     * `$hoje` é injetável só para teste.
+     */
+    public function tempoRelativo(\DateTimeInterface $data, ?\DateTimeInterface $hoje = null): string
+    {
+        $hoje ??= new \DateTimeImmutable('today');
+        $dias = (int) $hoje->diff($data)->format('%r%a');
+
+        if ($dias === 0) {
+            return 'hoje';
+        }
+
+        if ($dias < 0) {
+            $passados = abs($dias);
+
+            return sprintf('há %d %s', $passados, $passados === 1 ? 'dia' : 'dias');
+        }
+
+        return sprintf('em %d %s', $dias, $dias === 1 ? 'dia' : 'dias');
     }
 }
