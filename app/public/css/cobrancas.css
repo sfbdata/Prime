@@ -265,6 +265,18 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-obr.is-quitada { color: var(--bs-secondary-color); }
 .jp-obr.is-selecionada { background: rgba(var(--jp-accent-rgb), .07); box-shadow: inset 3px 0 0 var(--jp-accent); }
 
+/* Barra de seleção (T5): gruda no rodapé da janela enquanto há linhas marcadas, para que a ação
+   fique ao alcance mesmo com a lista longa. `[hidden]` some do fluxo quando não há seleção. */
+.jp-selecao {
+    position: sticky; bottom: .75rem; z-index: 3;
+    display: flex; align-items: center; gap: .75rem; flex-wrap: wrap;
+    margin-top: .75rem; padding: .6rem .9rem;
+    border: 1px solid rgba(var(--jp-accent-rgb), .35); border-radius: .75rem;
+    background: var(--bs-body-bg); box-shadow: var(--bs-box-shadow);
+}
+.jp-selecao[hidden] { display: none; }
+.jp-selecao-info { margin-right: auto; font-size: .85rem; color: var(--bs-body-color); }
+
 /* A coluna de data É o eixo do tempo — alinhada e tabular, para escanear de cima a baixo */
 .jp-obr-data { font-variant-numeric: tabular-nums; line-height: 1.25; }
 .jp-obr-data-dia { font-weight: 600; font-size: .9rem; }

@@ -550,6 +550,10 @@ document.addEventListener('DOMContentLoaded', function () {
         var v = (cent / 100).toFixed(2).replace('.', ',');
         return 'R$ ' + v.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
+    /* Centavos → valor de CAMPO em pt-BR (vírgula decimal), consistente com parseCentavos e o
+       CentavosType. `parseCentavos` trata PONTO como separador de MILHAR: escrever "1320.00" num input
+       viraria R$ 132.000,00 — bug real, já pago caro no ajuste 7. */
+    function reaisInput(cent) { return (cent / 100).toFixed(2).replace('.', ','); }
     function initPreviaPagamento(body) {
         var box = body.querySelector('[data-previa-pagamento]');
         var valorInput = body.querySelector('input[name$="[valorPago]"]');
@@ -646,6 +650,146 @@ document.addEventListener('DOMContentLoaded', function () {
             if (body && body._previaAtualizar) { body._previaAtualizar(); }
         });
     }
+
+    /* ── Ações na própria obrigação (Ajuste 10, T5) ──────────────────────────────────────────────
+       A obrigação e o pagamento dela são a mesma conversa: antes, receber UMA obrigação custava trocar
+       de aba, abrir "Registrar pagamento", marcar "Alocar manualmente", adicionar alocação e caçar a
+       obrigação numa lista — 6 a 7 cliques. Agora é um botão na linha. Nenhuma regra de negócio muda:
+       o modal, o form e o POST são exatamente os mesmos; só chegam preenchidos. */
+    (function initAcoesNaLinha() {
+        var containerAloc = document.getElementById('alocacoesPagamentoContainer');
+
+        function limparAlocacoes() {
+            if (!containerAloc) { return; }
+            containerAloc.querySelectorAll('.alocacao-linha').forEach(function (r) { r.remove(); });
+            containerAloc.dataset.index = '0';
+        }
+
+        function adicionarAlocacao(obrigacaoId, valorCentavos) {
+            if (!containerAloc) { return; }
+            var index = parseInt(containerAloc.dataset.index || '0', 10);
+            var html = (containerAloc.dataset.prototype || '').replace(/__name__/g, index);
+            var linha = document.createElement('div');
+            linha.className = 'alocacao-linha border rounded p-2 mb-2';
+            linha.innerHTML = html + '<button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>';
+            var select = linha.querySelector('[name$="[obrigacaoId]"]');
+            if (select) { select.value = obrigacaoId; }
+            var valor = linha.querySelector('[name$="[valor]"]');
+            if (valor) { valor.value = reaisInput(valorCentavos); }
+            containerAloc.appendChild(linha);
+            containerAloc.dataset.index = (index + 1).toString();
+        }
+
+        /* "Receber" na linha = alocação MANUAL naquela obrigação, não FIFO: se o gestor clicou em Maio
+           com Março em aberto, foi Maio que ele pediu (spec §5.1). O FIFO segue sendo o default do botão
+           genérico "Registrar pagamento" da seção. */
+        if (modalRegistrar && containerAloc) {
+            modalRegistrar.addEventListener('show.bs.modal', function (event) {
+                var botao = event.relatedTarget;
+                var linha = botao ? botao.closest('.jp-obr') : null;
+                var ehReceber = !!(botao && botao.getAttribute('data-acao') === 'receber' && linha);
+                var valorPago = modalRegistrar.querySelector('[name$="[valorPago]"]');
+                var manual = modalRegistrar.querySelector('[name$="[alocarManualmente]"]');
+
+                /* Reset SEMPRE: o mesmo modal serve o botão genérico (FIFO) e o "Receber" da linha. Sem
+                   limpar, o alvo de um clique anterior vazaria para o pagamento seguinte — e o POST é
+                   PRG (redireciona), então o modal nunca precisa preservar estado de submit. */
+                limparAlocacoes();
+                if (valorPago) { valorPago.value = ''; }
+                if (manual) { manual.checked = false; }
+
+                if (ehReceber) {
+                    var restante = parseInt(linha.getAttribute('data-valor-centavos') || '0', 10);
+                    /* O BRUTO vem PRONTO do servidor (`ObrigacaoOutput::brutoSugerido`, via
+                       `CalculadoraHonorarios::brutoParaRecuperar`). Na forma `acrescido_divida`,
+                       `ratearPagamento` divide o valor DIGITADO: pré-preencher o restante (R$1.200)
+                       devolveria dívida R$1.090,91 e a obrigação NÃO quitaria. O número certo é
+                       R$1.320,00. NUNCA recalcular isso aqui — dinheiro tem uma fonte só, e ela é o PHP. */
+                    var bruto = parseInt(linha.getAttribute('data-bruto-centavos') || '0', 10);
+                    if (valorPago) { valorPago.value = reaisInput(bruto); }
+                    if (manual) { manual.checked = true; }
+                    adicionarAlocacao(botao.getAttribute('data-obrigacao-id'), restante);
+                }
+
+                /* Revela/esconde o bloco manual e recalcula a prévia ao vivo — que continua mandando:
+                   o prefill é SUGESTÃO, editável, e os guards do domínio seguem intactos no POST. */
+                if (manual) { manual.dispatchEvent(new Event('change')); }
+            });
+        }
+
+        /* ── "Acordar": linha e seleção múltipla ──
+           Ambos abrem o MESMO `#modalCriarAcordo` com os checkboxes pré-marcados — o form e o
+           `AcordoCriarType` não mudam de contrato; o gerador de parcelas recalcula sozinho ao receber
+           o `change`. INV-U1: parcela de acordo nunca chega aqui — nem tem checkbox nem botão (o
+           template não os renderiza), porque acordo sobre acordo duplica dívida no saldo ao romper. */
+        var modalAcordo = document.getElementById('modalCriarAcordo');
+
+        function checksDaDivida() {
+            return Array.prototype.slice.call(document.querySelectorAll('#secao-divida .jp-check'));
+        }
+
+        function abrirAcordoCom(ids) {
+            if (!modalAcordo || typeof bootstrap === 'undefined') { return; }
+            var opcoes = Array.prototype.slice.call(modalAcordo.querySelectorAll('[name*="obrigacoesSubstituidasIds"]'));
+            opcoes.forEach(function (c) { c.checked = ids.indexOf(c.value) !== -1; });
+            // Um `change` basta: o gerador resoma a seleção INTEIRA a cada evento.
+            if (opcoes.length) { opcoes[0].dispatchEvent(new Event('change')); }
+            bootstrap.Modal.getOrCreateInstance(modalAcordo).show();
+        }
+
+        var barra = document.getElementById('barraSelecaoDivida');
+
+        function atualizarBarra() {
+            if (!barra) { return; }
+            var marcados = checksDaDivida().filter(function (c) { return c.checked; });
+            var soma = marcados.reduce(function (s, c) {
+                return s + parseInt(c.getAttribute('data-valor-centavos') || '0', 10);
+            }, 0);
+            barra.hidden = marcados.length === 0;
+            var qtd = barra.querySelector('[data-selecao-qtd]');
+            var total = barra.querySelector('[data-selecao-total]');
+            if (qtd) { qtd.textContent = marcados.length.toString(); }
+            // A barra soma o RESTANTE de cada linha (`data-valor-centavos`), não o valor cheio.
+            if (total) { total.textContent = fmtReais(soma); }
+        }
+
+        checksDaDivida().forEach(function (c) {
+            c.addEventListener('change', function () {
+                var linha = c.closest('.jp-obr');
+                if (linha) { linha.classList.toggle('is-selecionada', c.checked); }
+                atualizarBarra();
+            });
+        });
+
+        document.addEventListener('click', function (e) {
+            var naLinha = e.target.closest('#secao-divida [data-acao="acordar"]');
+            if (naLinha) {
+                // Atalho: marca só aquela e abre o mesmo modal.
+                var id = naLinha.getAttribute('data-obrigacao-id');
+                checksDaDivida().forEach(function (c) {
+                    c.checked = c.value === id;
+                    c.dispatchEvent(new Event('change'));
+                });
+                abrirAcordoCom([id]);
+
+                return;
+            }
+
+            if (e.target.closest('[data-acao="acordar-selecionadas"]')) {
+                abrirAcordoCom(checksDaDivida().filter(function (c) { return c.checked; })
+                    .map(function (c) { return c.value; }));
+
+                return;
+            }
+
+            if (e.target.closest('[data-acao="limpar-selecao"]')) {
+                checksDaDivida().forEach(function (c) {
+                    c.checked = false;
+                    c.dispatchEvent(new Event('change'));
+                });
+            }
+        });
+    })();
 
     /* Modal reutilizável de "corrigir pagamento": o botão da linha injeta a URL de ação e o contexto. */
     var modalCorrigir = document.getElementById('modalCorrigirPagamento');

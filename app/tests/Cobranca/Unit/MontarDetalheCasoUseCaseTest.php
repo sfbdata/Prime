@@ -8,6 +8,7 @@ use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -17,6 +18,7 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
+use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Entity\Tenant\Tenant;
@@ -44,6 +46,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     private CalculadoraSaldo&MockObject $calculadoraSaldo;
     private AlertasCobranca $alertasCobranca;
     private AlocacaoPagamentoRepository&MockObject $alocacaoRepository;
+    private CalculadoraHonorarios $calculadoraHonorarios;
     private MontarDetalheCasoUseCase $useCase;
     private Tenant $tenant;
 
@@ -81,6 +84,10 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $this->calculadoraSaldo,
         );
 
+        // CalculadoraHonorarios também é `final` — e é uma calculadora PURA (sem dependências, sem I/O):
+        // a instância real é a fonte única do gross-up, e mocká-la só esconderia a regra sob teste.
+        $this->calculadoraHonorarios = new CalculadoraHonorarios();
+
         $this->useCase = new MontarDetalheCasoUseCase(
             $this->obrigacaoRepository,
             $this->pagamentoRepository,
@@ -91,6 +98,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $this->calculadoraSaldo,
             $this->alertasCobranca,
             $this->alocacaoRepository,
+            $this->calculadoraHonorarios,
         );
 
         $this->tenant = new Tenant();
@@ -147,6 +155,57 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         self::assertSame(10000, $porId[101]->restante(), 'restante = valorAtual (50000) − alocado (40000)');
         self::assertSame(10000, $porId[102]->alocado, 'alocado da obrigação B vem da SUA chave (102), não da de A');
         self::assertSame(0, $porId[103]->alocado, 'obrigação fora do mapa cai no default 0 (?? 0)');
+    }
+
+    /**
+     * Ajuste 10 (T5, spec §5.1): o prefill do "Receber" é o BRUTO, não o restante. `ratearPagamento`
+     * divide o valor DIGITADO — pré-preencher o restante (120000) devolveria dívida 109091 e a obrigação
+     * não quitaria. O alvo do gross-up é o RESTANTE (já descontado o alocado), nunca o valor cheio.
+     */
+    #[Test]
+    public function oBrutoSugeridoFazGrossUpSobreORestanteDaObrigacao(): void
+    {
+        $caso = $this->casoPersistido()
+            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
+            ->setPercentualHonorarios('10.00');
+
+        $semPagamento = $this->novaObrigacao($caso, 101, 120000);
+        $parcialmentePaga = $this->novaObrigacao($caso, 102, 120000);
+        $quitada = $this->novaObrigacao($caso, 103, 120000);
+
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$semPagamento, $parcialmentePaga, $quitada]);
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([102 => 40000, 103 => 120000]);
+
+        $porId = [];
+        foreach ($this->useCase->executar($caso)->obrigacoes as $o) {
+            $porId[$o->id] = $o;
+        }
+
+        // D = 120000 → T = 132000 (hon 12000 + dívida 120000): é o número que quita a obrigação.
+        self::assertSame(132000, $porId[101]->brutoSugerido);
+        // D = restante = 80000 → T = 88000. Mirar o valor cheio cobraria de novo os 40000 já recebidos.
+        self::assertSame(88000, $porId[102]->brutoSugerido);
+        // Quitada: restante 0 → nada a sugerir (o botão "Receber" nem aparece).
+        self::assertSame(0, $porId[103]->brutoSugerido);
+
+        // O round-trip é a garantia (provada em CalculadoraHonorariosTest): o bruto sugerido rateia de
+        // volta EXATAMENTE no restante. Sem isto, o prefill mente.
+        $calculadora = new CalculadoraHonorarios();
+        self::assertSame(
+            $porId[102]->restante(),
+            $calculadora->ratearPagamento($caso, $porId[102]->brutoSugerido)[0],
+        );
+    }
+
+    /** Sem percentual o devedor paga só a dívida: o prefill é o próprio restante (espelha `ratearPagamento`). */
+    #[Test]
+    public function semHonorarioPercentualOBrutoSugeridoEhOProprioRestante(): void
+    {
+        $caso = $this->casoPersistido();   // nasce `SemPercentual`
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$this->novaObrigacao($caso, 101, 120000)]);
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([]);
+
+        self::assertSame(120000, $this->useCase->executar($caso)->obrigacoes[0]->brutoSugerido);
     }
 
     #[Test]

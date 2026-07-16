@@ -6,8 +6,13 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\CasoController;
 use App\Cobranca\Controller\ObjetoController;
+use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Enum\FormaHonorarios;
+use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoVinculo;
+use App\Entity\Tenant\Tenant;
+use App\Tests\Factory\Cobranca\AcordoFactory;
 use App\Tests\Factory\Cobranca\AlocacaoPagamentoFactory;
 use App\Tests\Factory\Cobranca\LiquidacaoFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
@@ -302,6 +307,193 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         // Vencida no passado, mas quitada: não é "atrasada" — quem já pagou não fica em vermelho.
         self::assertCount(0, $crawler->filter('.jp-obr-data-rel.is-atrasado'));
         self::assertGreaterThan(0, $crawler->filter('.jp-chip.is-paga')->count());
+    }
+
+    #[TestDox('Ajuste 10 T5: "Receber" pré-preenche o BRUTO (dívida + honorários), não o restante da obrigação')]
+    public function testReceberPrePreencheOBrutoComHonorariosAcrescidos(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $caso = $this->casoComHonorarios($tenant, FormaHonorarios::AcrescidoDivida, '10.00');
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Março/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // R$ 1.320,00: o BRUTO que `ratearPagamento` devolve como R$ 1.200,00 de dívida + R$ 120,00 de
+        // honorários. Pré-preencher o restante (120000) rateia para 109091 e a obrigação NÃO quita —
+        // sobram R$ 109,09 e o gestor não entende por quê (spec §5.1).
+        self::assertSame('132000', $crawler->filter('.jp-obr[data-bruto-centavos]')->attr('data-bruto-centavos'));
+    }
+
+    #[TestDox('Ajuste 10 T5: o prefill mira o RESTANTE — o que já foi recebido não é cobrado de novo')]
+    public function testOBrutoSugeridoDescontaOQueJaFoiRecebido(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $caso = $this->casoComHonorarios($tenant, FormaHonorarios::AcrescidoDivida, '10.00');
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Março/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        $pagamento = PagamentoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 40000, 'valorEncargos' => 0, 'valorHonorarios' => 4000,
+        ])->_real();
+        AlocacaoPagamentoFactory::createOne([
+            'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $obrigacao, 'valor' => 40000,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // Alvo D = restante = 120000 − 40000 = 80000 → bruto = 88000 (R$ 880,00). Se o gross-up mirasse o
+        // valor cheio da obrigação, viria 132000 e o gestor cobraria de novo o que já entrou.
+        self::assertSame('88000', $crawler->filter('.jp-obr[data-bruto-centavos]')->attr('data-bruto-centavos'));
+    }
+
+    #[TestDox('Ajuste 10 T5: sem honorário percentual o prefill é o próprio restante (sem gross-up)')]
+    public function testFormaSemPercentualPrePreencheORestanteSemGrossUp(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        // `semearGrafo` já nasce `SemPercentual` — a forma em que o devedor paga só a dívida.
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Março/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // `brutoParaRecuperar` espelha `ratearPagamento`: sem percentual, bruto == dívida.
+        self::assertSame('120000', $crawler->filter('.jp-obr[data-bruto-centavos]')->attr('data-bruto-centavos'));
+    }
+
+    #[TestDox('Ajuste 10 T5 (INV-U1): parcela de acordo vigente não oferece checkbox nem "Acordar"')]
+    public function testParcelaDeAcordoVigenteNaoOfereceAcordar(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $acordo = AcordoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo,
+        ])->_real();
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela 1/1',
+            'valorOriginal' => 50000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $acordo,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertGreaterThan(0, $crawler->filter('.jp-acordo .jp-obr')->count(), 'a parcela tem de estar na tela');
+        // INV-U1 / INV-I: acordo sobre acordo duplica dívida no saldo ao romper o de baixo (ajuste 9).
+        self::assertCount(0, $crawler->filter('.jp-acordo .jp-check'), 'parcela não pode ter checkbox');
+        self::assertCount(0, $crawler->filter('.jp-acordo [data-acao="acordar"]'), 'parcela não pode ter Acordar');
+        // Mas RECEBER continua: pagar parcela de acordo vigente é o fluxo normal (ela é exigível).
+        self::assertGreaterThan(0, $crawler->filter('.jp-acordo [data-acao="receber"]')->count());
+    }
+
+    #[TestDox('Ajuste 10 T5: parcela de acordo rompido é histórico — não oferece "Receber" nem "Acordar"')]
+    public function testParcelaDeAcordoRompidoNaoOfereceReceber(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $acordo = AcordoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Rompido,
+        ])->_real();
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela de acordo rompido',
+            'valorOriginal' => 50000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $acordo,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // A parcela do acordo desfeito segue na lista solta (histórico), mas saiu do exigível
+        // (`doCasoExigiveis`) — logo não está no select do modal de pagamento. Oferecer "Receber" abriria
+        // o modal apontando para um alvo que o form não conhece.
+        self::assertGreaterThan(0, $crawler->filter('.jp-obr')->count(), 'a parcela desfeita continua na tela');
+        self::assertCount(0, $crawler->filter('[data-acao="receber"]'));
+        // E acordar sobre ela também não: `doCasoSubstituiveis` (INV-I) só oferece dívida original exigível.
+        self::assertCount(0, $crawler->filter('[data-acao="acordar"]'));
+    }
+
+    #[TestDox('Ajuste 10 T5: sem movimentação financeira o "Receber" some, mas "Acordar" continua')]
+    public function testSemPermissaoFinanceiraOReceberSome(): void
+    {
+        $client = static::createClient();
+        // Capacidades SEPARADAS (SPEC §22): só `gerenciar`, sem a financeira.
+        [, $tenant] = $this->criarOperadorComCapacidades($client, ['resources.cobranca.gerenciar']);
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Março/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(0, $crawler->filter('[data-acao="receber"]'));
+        self::assertGreaterThan(0, $crawler->filter('[data-acao="acordar"]')->count());
+    }
+
+    #[TestDox('Ajuste 10 T5: sem dívida acordável, "Novo acordo" nasce desabilitado em vez de abrir vazio')]
+    public function testSemDividaAcordavelOBotaoNovoAcordoNasceDesabilitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        // Só parcela de acordo vigente: nada é acordável (INV-I barra acordo sobre acordo).
+        $acordo = AcordoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo,
+        ])->_real();
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela 1/1',
+            'valorOriginal' => 50000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $acordo,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $botao = $crawler->filter('#secao-divida [data-acao="novo-acordo"]');
+        self::assertCount(1, $botao);
+        self::assertNotNull($botao->attr('disabled'), 'sem acordável, o botão não pode revelar o vazio depois do clique');
+    }
+
+    #[TestDox('Ajuste 10 T5: havendo dívida original, "Novo acordo" fica habilitado')]
+    public function testComDividaAcordavelOBotaoNovoAcordoFicaHabilitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Março/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $botao = $crawler->filter('#secao-divida [data-acao="novo-acordo"]');
+        self::assertCount(1, $botao);
+        self::assertNull($botao->attr('disabled'));
+    }
+
+    /** Caso do tenant com o snapshot de honorários fixado (a forma decide se há gross-up no prefill). */
+    private function casoComHonorarios(Tenant $tenant, FormaHonorarios $forma, ?string $percentual): CasoCobranca
+    {
+        [, $caso] = $this->semearGrafo($tenant, [
+            'formaHonorarios' => $forma,
+            'percentualHonorarios' => $percentual,
+        ]);
+
+        return $caso;
     }
 
     #[TestDox('Deep-link do caso redireciona (302) para a página do objeto (Fatia 5)')]

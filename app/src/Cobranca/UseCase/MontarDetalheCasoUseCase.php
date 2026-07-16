@@ -13,6 +13,7 @@ use App\Cobranca\DTO\ObrigacaoOutput;
 use App\Cobranca\DTO\PagamentoOutput;
 use App\Cobranca\DTO\ProximaAcaoOutput;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -22,6 +23,7 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
+use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
 
 /**
@@ -30,6 +32,10 @@ use App\Cobranca\Service\CalculadoraSaldo;
  * coleções das abas (obrigações, pagamentos, liquidações, acordos, histórico) a partir dos repos
  * tenant-scoped e dos serviços de derivação. O caso já vem resolvido por tenant no controller;
  * nada aqui recalcula regra de negócio — só lê e formata via Output DTOs. Documentos entram na 8C.
+ *
+ * Ajuste 10 (T5): é aqui que o prefill do "Receber" é derivado (`ObrigacaoOutput::brutoSugerido`),
+ * delegando a `CalculadoraHonorarios` — este UseCase é quem tem, ao mesmo tempo, o snapshot de
+ * honorários do caso e o alocado por obrigação. A regra continua a morar na calculadora.
  */
 final class MontarDetalheCasoUseCase
 {
@@ -43,6 +49,7 @@ final class MontarDetalheCasoUseCase
         private readonly CalculadoraSaldo $calculadoraSaldo,
         private readonly AlertasCobranca $alertasCobranca,
         private readonly AlocacaoPagamentoRepository $alocacaoRepository,
+        private readonly CalculadoraHonorarios $calculadoraHonorarios,
     ) {
     }
 
@@ -66,8 +73,21 @@ final class MontarDetalheCasoUseCase
             $caso->getTenant(),
         );
 
+        // O `restante` é recalculado aqui (e não lido de `ObrigacaoOutput::restante()`) porque o DTO ainda
+        // não existe neste ponto. A fórmula é a MESMA do DTO e `valorExigivel()` é a fonte única
+        // (`Obrigacao::valorExigivel`) — a regra não é duplicada em lugar nenhum.
         $obrigacoes = array_map(
-            static fn ($o) => ObrigacaoOutput::fromEntity($o, $alocadoPorObrigacao[$o->getId()] ?? 0),
+            function (Obrigacao $o) use ($caso, $alocadoPorObrigacao): ObrigacaoOutput {
+                $alocado = $alocadoPorObrigacao[$o->getId()] ?? 0;
+                $restante = max(0, $o->valorExigivel() - $alocado);
+
+                return ObrigacaoOutput::fromEntity(
+                    $o,
+                    $alocado,
+                    // O prefill do "Receber": o bruto cuja parte-dívida é exatamente o restante (spec §5.1).
+                    $this->calculadoraHonorarios->brutoParaRecuperar($caso, $restante),
+                );
+            },
             $this->obrigacaoRepository->doCaso($caso),
         );
         $acordos = array_map(AcordoOutput::fromEntity(...), $this->acordoRepository->doCaso($caso));

@@ -13,7 +13,14 @@
    Ordenação: já vem `vencimentoOriginal ASC` do `ObrigacaoRepository::doCaso` — não reordenar aqui.
 ─────────────────────────────────────────────────────────────────────────── #}
 {% set podeGerenciar = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+{# `movimentacao_financeira` é capacidade SEPARADA de `gerenciar` (SPEC §22): quem acorda não
+   necessariamente recebe. Espelha o gate do `_movimentos.html.twig` e o do controller. #}
+{% set podeMovimentar = has_permission('resources.cobranca.movimentacao_financeira') and not caso.encerrado %}
 {% set hoje = date('today') %}
+
+{# Espelha `ObrigacaoRepository::doCasoSubstituiveis` (INV-I): só DÍVIDA ORIGINAL exigível é acordável.
+   Se não há nenhuma, o botão nasce desabilitado — em vez de revelar o vazio depois de 2 cliques (§5.2). #}
+{% set acordaveis = caso.obrigacoesAvulsas|filter(o => o.acordoOrigemId is null and not o.substituidaPorAcordo) %}
 
 <div class="jp-secao" id="secao-divida">
     <div class="jp-secao-head">
@@ -27,9 +34,16 @@
             <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
                 <i class="bi bi-plus-lg me-1"></i>Nova obrigação
             </button>
-            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalCriarAcordo">
-                <i class="bi bi-file-earmark-text me-1"></i>Novo acordo
-            </button>
+            {# O tooltip vai no wrapper: um <button disabled> não dispara eventos, logo não mostraria a
+               explicação — mesmo padrão do "Encerrar cobrança" no show. #}
+            <span {% if acordaveis|length == 0 %}data-bs-toggle="tooltip"
+                  title="Não há dívida original em aberto para acordar. Se já existe acordo vigente, rompa-o primeiro: as originais voltam ao total."{% endif %}>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-acao="novo-acordo"
+                        data-bs-toggle="modal" data-bs-target="#modalCriarAcordo"
+                        {{ acordaveis|length == 0 ? 'disabled' : '' }}>
+                    <i class="bi bi-file-earmark-text me-1"></i>Novo acordo
+                </button>
+            </span>
         </div>
         {% endif %}
     </div>
@@ -56,9 +70,13 @@
                 {# INV-U1 (ajuste 9): parcela de acordo NUNCA é selecionável nem acordável — acordo sobre
                    acordo duplica dívida no saldo (`CriarAcordoUseCase` barra em qualquer status). #}
                 {% set podeAcordar = podeGerenciar and o.acordoOrigemId is null and not o.substituidaPorAcordo %}
+                {# Exigível espelha `ObrigacaoRepository::doCasoExigiveis` — que é exatamente a lista que o
+                   modal de pagamento oferece para alocar. Parcela de acordo desfeito é histórico: ficou
+                   fora do exigível, logo "Receber" apontaria para um alvo que o form não conhece. #}
+                {% set exigivel = not o.substituidaPorAcordo and not o.parcelaDeAcordoDesfeito %}
                 {% set vencida = o.restante > 0 and o.vencimentoOriginal <= hoje %}
                 <div class="jp-obr {{ vencida ? 'is-vencida' }} {{ o.quitada ? 'is-quitada' }}"
-                     data-valor-centavos="{{ o.restante }}">
+                     data-valor-centavos="{{ o.restante }}" data-bruto-centavos="{{ o.brutoSugerido }}">
                     {% if podeAcordar %}
                         <input class="form-check-input mt-0 jp-check" type="checkbox"
                                value="{{ o.id }}" data-valor-centavos="{{ o.restante }}"
@@ -90,9 +108,24 @@
                         {% endif %}
                     </div>
 
-                    {# Slot de ações: "Receber"/"Acordar" chegam na T5. Aqui ficam as ações que já existiam. #}
+                    {# A obrigação e o pagamento dela são a mesma conversa: as ações vêm para a linha (T5).
+                       Antes, pagar UMA obrigação custava 6-7 cliques por outra aba. #}
                     <div class="jp-obr-acoes">
                         {% if o.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span>{% endif %}
+                        {% if podeMovimentar and exigivel and not o.quitada %}
+                        <button type="button" class="btn btn-sm btn-outline-success" data-acao="receber"
+                                data-obrigacao-id="{{ o.id }}"
+                                data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento"
+                                title="Registrar um pagamento nesta obrigação">
+                            <i class="bi bi-cash me-1"></i>Receber
+                        </button>
+                        {% endif %}
+                        {% if podeAcordar %}
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-acao="acordar"
+                                data-obrigacao-id="{{ o.id }}" title="Criar acordo substituindo esta dívida">
+                            <i class="bi bi-file-earmark-text me-1"></i>Acordar
+                        </button>
+                        {% endif %}
                         {% if podeGerenciar and not o.substituidaPorAcordo and not o.ehParcelaAcordo %}
                         <button type="button" class="btn btn-sm btn-outline-secondary py-0"
                                 data-bs-toggle="modal" data-bs-target="#modalEditarObrigacao"
@@ -149,7 +182,9 @@
 
             {% for p in g.parcelas %}
             {% set parcelaVencida = p.restante > 0 and p.vencimentoOriginal <= hoje %}
-            <div class="jp-obr {{ parcelaVencida ? 'is-vencida' }} {{ p.quitada ? 'is-quitada' }}" data-valor-centavos="{{ p.restante }}">
+            <div class="jp-obr {{ parcelaVencida ? 'is-vencida' }} {{ p.quitada ? 'is-quitada' }}"
+                 data-valor-centavos="{{ p.restante }}" data-bruto-centavos="{{ p.brutoSugerido }}">
+                {# INV-U1: parcela NUNCA ganha checkbox — a coluna fica vazia de propósito (ver abaixo). #}
                 <span></span>
                 <div class="jp-obr-data">
                     <div class="jp-obr-data-dia">{{ p.vencimentoOriginal|date('d/m/Y') }}</div>
@@ -163,9 +198,21 @@
                     {{ p.valorAtual|centavos }}
                     {% if p.alocado > 0 and not p.quitada %}<span class="jp-obr-restante">falta {{ p.restante|centavos }}</span>{% endif %}
                 </div>
-                {# Parcela é gerida pelo acordo: para editar, abra o acordo. "Receber" chega na T5. #}
+                {# Parcela é gerida pelo acordo: para editar, abra o acordo. Receber, porém, é o fluxo
+                   NORMAL — a parcela é exigível e está no select do modal de pagamento.
+                   INV-U1 (ajuste 9): "Acordar" nunca aparece aqui. Acordo sobre acordo duplica dívida no
+                   saldo quando o acordo de baixo é rompido depois — `CriarAcordoUseCase` barra no servidor
+                   e a UI não pode oferecer o que o servidor recusa. #}
                 <div class="jp-obr-acoes">
                     {% if p.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span>{% endif %}
+                    {% if podeMovimentar and not p.quitada %}
+                    <button type="button" class="btn btn-sm btn-outline-success" data-acao="receber"
+                            data-obrigacao-id="{{ p.id }}"
+                            data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento"
+                            title="Registrar um pagamento nesta parcela">
+                        <i class="bi bi-cash me-1"></i>Receber
+                    </button>
+                    {% endif %}
                 </div>
             </div>
             {% endfor %}
@@ -195,4 +242,18 @@
             {% endif %}
         </div>
     {% endfor %}
+
+    {# Barra de seleção (§5.2): aparece só com alguma linha marcada. Some do fluxo quando não há seleção —
+       por isso nasce `hidden` e o JS a revela. Sem acordável, nem existe. #}
+    {% if podeGerenciar and acordaveis|length > 0 %}
+    <div class="jp-selecao" id="barraSelecaoDivida" hidden>
+        <span class="jp-selecao-info">
+            <strong data-selecao-qtd>0</strong> selecionada(s) · total <strong data-selecao-total>R$ 0,00</strong>
+        </span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="limpar-selecao">Limpar</button>
+        <button type="button" class="btn btn-sm btn-primary" data-acao="acordar-selecionadas">
+            <i class="bi bi-file-earmark-text me-1"></i>Fazer acordo com estas
+        </button>
+    </div>
+    {% endif %}
 </div>

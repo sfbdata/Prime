@@ -38,6 +38,13 @@ final class ObrigacaoOutput
          * Carregado em LOTE pelo UseCase (`somasPorObrigacaoDosCasos`); default 0 mantém os chamadores antigos.
          */
         public readonly int $alocado = 0,
+        /**
+         * Valor BRUTO a cobrar para quitar o `restante` desta obrigação (centavos) — já com os honorários
+         * acrescidos quando a forma é `acrescido_divida` (Ajuste 10, spec §5.1). É o prefill do "Receber":
+         * o alvo é invisível ao gestor (quitar R$1.200 exige digitar R$1.320). Calculado no SERVIDOR, pelo
+         * UseCase, que é quem conhece o snapshot de honorários do caso — o DTO continua burro.
+         */
+        public readonly int $brutoSugerido = 0,
     ) {
     }
 
@@ -56,7 +63,7 @@ final class ObrigacaoOutput
         return $this->alocado >= $this->valorAtual;
     }
 
-    public static function fromEntity(Obrigacao $o, int $alocado = 0): self
+    public static function fromEntity(Obrigacao $o, int $alocado = 0, int $brutoSugerido = 0): self
     {
         $substituto = $o->getAcordoSubstituto();
         $origem = $o->getAcordoOrigem();
@@ -77,6 +84,7 @@ final class ObrigacaoOutput
             acordoOrigemId: $origem?->getId(),
             acordoSubstitutoId: $substituto?->getId(),
             alocado: $alocado,
+            brutoSugerido: $brutoSugerido,
         );
     }
 }
