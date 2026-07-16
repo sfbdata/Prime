@@ -84,12 +84,13 @@ final class AcordoCriarType extends AbstractType
     }
 
     /**
-     * Mapa `label → id` das obrigações substituíveis, para o ChoiceType. Chamado pelo controller no
-     * render e no POST (as choices precisam casar para a validação). Rótulo com descrição, vencimento
-     * e o REMANESCENTE (centavos → reais).
+     * Mapa `label → id` das obrigações substituíveis, para o ChoiceType. Montado no render pelo
+     * `MontadorModaisCaso` e no POST pelo `AcordoController` (as choices precisam casar para a
+     * validação). Rótulo com descrição, vencimento e o REMANESCENTE (centavos → reais).
      *
-     * `$alocadoPorObrigacao` vazio (default) mantém o rótulo no valor exigível cheio — é o caso do
-     * modal de PAGAMENTO (`MontadorModaisCaso::financeiros`), que oferece a obrigação inteira.
+     * `$alocadoPorObrigacao` vazio (default) mantém o rótulo no valor exigível cheio. É o caso do POST
+     * do acordo (PRG: o rótulo nunca renderiza, o ChoiceType valida o id) e o do modal de PAGAMENTO
+     * (`MontadorModaisCaso::financeiros`), que oferece a obrigação inteira.
      *
      * @param list<Obrigacao> $obrigacoes
      * @param array<int, int> $alocadoPorObrigacao Mapa `obrigacaoId => Σ alocado` (centavos).

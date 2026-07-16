@@ -351,7 +351,19 @@ mataria um fluxo real sem oferecer alternativa.
   → assertar `saldoExigivel == 80000`; criar acordo substituindo-a por parcelas somando 120000 → assertar o
   saldo. **Este teste documenta o comportamento do domínio; ele NÃO muda com D7** (não bloqueamos).
 - **Unit** — `valoresObrigacoes` devolve o **remanescente**, não o valor cheio (é este que prova o conserto).
-- **Functional** — o modal traz o aviso quando há obrigação com alocação; não traz quando não há.
+- **Functional** — o **gatilho** do aviso chega ao HTML: o checkbox da obrigação com alocação carrega
+  `data-alocado-centavos` > 0, e o da sem alocação carrega `0`.
+
+> **Correção da spec (revisão da T6, 2026-07-16).** A versão anterior pedia um functional de que *"o modal
+> **traz** o aviso quando há obrigação com alocação; não traz quando não há"*. **Esse teste não existe e não
+> pode existir:** o aviso é estático no DOM (`d-none`) e alternado por **JS** conforme a seleção — e o
+> DomCrawler dos functional tests **não roda JS**. Um teste que afirmasse "traz/não traz" estaria asserindo a
+> presença do nó, não a visibilidade, e passaria verde com o toggle quebrado.
+> ➡️ O functional cobre o que o **servidor** decide (o `data-alocado-centavos` que dirige o aviso); o **toggle**
+> é provado por **smoke real**. Feito em 2026-07-16 no objeto 296 (dado de prod), nos 4 ramos: alocado > 0
+> marcado → aviso aparece; nada marcado → some; `alocado = 0` marcado → some; remarcado → volta.
+> Alternativa considerada e recusada: um E2E em `e2e/` só para o toggle — a suíte E2E não faz parte deste
+> ajuste, e o smoke já cobre o ramo com dado real.
 
 > ⚠️ **Não "consertar" isto mexendo em `CalculadoraSaldo`.** A regra de saldo está correta e é a mesma dos
 > dois lados (`derivarSaldos` alimenta o batch do Dashboard); mexer ali quebraria o módulo inteiro. **O
