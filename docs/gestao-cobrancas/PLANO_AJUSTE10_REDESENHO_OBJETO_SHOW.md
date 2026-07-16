@@ -1324,17 +1324,39 @@ public function obrigacaoInvalidaReabreOModalComOErroEPreservaODigitado(): void
 > também dá 302 para a mesma URL sem criar nada."* **Asserte a MENSAGEM e o valor preservado, nunca só o
 > redirect.** E prove por **mutação**: quebre a implementação de propósito e confirme que o teste fica vermelho.
 
-- [ ] **Step 2: Escolher a estratégia e alinhar com o humano**
+- [ ] **Step 2: A estratégia — DECIDIDA pelo humano (2026-07-16): SESSÃO + PRG**
 
-Duas saídas honestas, e a escolha muda o diff inteiro:
-- **(a) Re-render na própria action** — o POST inválido renderiza `show.html.twig` com o form errado e uma
-  flag para reabrir o modal. Preserva tudo, mas cada controller precisa montar o contexto inteiro da página.
-- **(b) Sessão + PRG** — guarda os erros e o payload na sessão, redireciona, e a página reidrata o modal.
-  Mantém o PRG (sem re-POST no F5), mais barato por controller, mas acrescenta estado de sessão.
+> **Não reabra esta decisão.** As duas opções eram: (a) re-render na própria action; (b) sessão + PRG.
+> **Escolhida: (b).**
+>
+> **Por que (b), e por que (a) agora seria destrutivo:** durante a T5 foi verificado **duas vezes** (por
+> implementador e por revisor, lendo o código) que **todos** os controllers de mutação de Cobrança
+> **SEMPRE redirecionam** — inclusive em form inválido e em exceção de domínio
+> (`AcordoController::criar:238-280` termina no `redirectToRoute` da linha 279, fora de qualquer `if`;
+> `PagamentoController::registrar:90` idem). **Foi exatamente esse fato que autorizou o reset dos modais no
+> `hidden.bs.modal`** (commits `351dcf8` e `906af4c`).
+>
+> Adotar (a) quebraria isso: um re-render deixaria o modal aberto com dados, e o reset-ao-fechar passaria a
+> **apagar o trabalho do usuário**. (a) e o reset dos modais são **mutuamente incompatíveis**.
 
-**Pare e alinhe com o humano antes de implementar** — não escolha sozinho.
+**Desenho:**
+1. No `catch`/ramo inválido, em vez de só `flashErrosDoForm`: guardar na sessão (a) os **erros por campo** e
+   (b) o **payload submetido**, sob uma chave que identifique **qual modal** reabrir.
+2. Redirecionar como hoje (PRG preservado, F5 não re-posta).
+3. No `ObjetoController::show`, ler-e-consumir (`getFlashBag()`-like, **one-shot**) e passar ao Twig.
+4. O template reidrata: reabre aquele modal, repõe os valores digitados e põe os erros nos campos.
 
-- [ ] **Step 3–N:** implementar controller a controller, **um commit por grupo**, suíte verde entre eles.
+**Cuidados que já custaram caro neste módulo:**
+- **One-shot obrigatório:** se o estado não for consumido na leitura, o modal reabre com erro em toda
+  visita seguinte. Teste isso.
+- **A sessão não pode vazar entre abas/objetos:** inclua o id do caso/objeto na chave.
+- **Nada de entidade na sessão** — só escalares/arrays.
+- **Não quebre o reset dos modais** (`show.html.twig`, `hidden.bs.modal`): a reidratação acontece no
+  **load**, o reset no **fechar**. Se colidirem, o usuário perde o que digitou. **Prove no navegador.**
+
+- [ ] **Step 3–N:** implementar **controller a controller**, **um commit por grupo**, suíte verde entre eles.
+      Comece por **um** (sugestão: `ObrigacaoController::registrar`, o mais simples), **prove o padrão
+      inteiro nele** (incluindo o one-shot e o smoke real), e só então replique. Não faça os 10 de uma vez.
 
 - [ ] **Step final: Commit**
 
