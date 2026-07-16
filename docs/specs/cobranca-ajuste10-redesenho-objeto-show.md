@@ -35,11 +35,24 @@ Reorganizar a página para responder, nessa ordem: **quanto deve** → **o que e
 
 ### 2.1 Bug confirmado — a aba Documentos gruda para sempre
 
-`pasta-arquivos.js:478-484` persiste a aba em `sessionStorage['fmTab_'+pastaId]` e a reabre no load
-(`:493-495`). O listener que **limparia** a flag ao trocar de aba busca `#pastaTabs` (`:481`) — mas o
-container aqui é `#objetoTabs` (`show.html.twig:121`), e **`id="pastaTabs"` não existe em nenhum template do
-repo**. Efeito: depois de abrir Documentos uma vez, **todo reload força Documentos**, por caso, até fechar o
-navegador.
+`pasta-arquivos.js:478-484` persiste a aba em `sessionStorage['fmTab_'+pastaId]` (no `shown.bs.tab` do
+`#documentos-tab`) e a reabre no load (`:493-495`). O listener que **limparia** a flag ao trocar de aba busca
+`#pastaTabs` (`:481`) — mas o container aqui é `#objetoTabs`, e **`id="pastaTabs"` não existe em nenhum
+template do repo** (grep confirma). **O defeito de código é real: o ramo que limpa a flag é inalcançável.**
+
+> ⚠️ **Correção do registro (smoke real, 2026-07-16):** a versão anterior desta spec afirmava que *"todo
+> reload força Documentos, permanentemente"*. **Isso NÃO se reproduziu.** Com `fmTab_296 = '1'` no
+> sessionStorage e `id="documentos-tab"` presente, o reload do objeto 296 abriu a aba **Cobrança**
+> normalmente. Ou seja: o seletor morto está lá, mas o efeito visível que eu descrevi não foi observado —
+> **alguma outra coisa impede a restauração de disparar**.
+>
+> **Consequência para o B2 (T7): investigar ANTES de consertar.** O mecanismo existe por um motivo legítimo —
+> *"restaura aba/pasta após reloads de excluir/editar/upload"* (`pasta-arquivos.js:487`): depois de subir um
+> arquivo, a página recarrega e o usuário deve voltar para Documentos. **Consertar o `clear` sem entender por
+> que o `restore` não dispara pode "consertar" o clear e RESSUSCITAR a grudação** — ou pode revelar que o
+> restore está quebrado e o usuário perde a aba após todo upload (o oposto do bug registrado). Reproduza os
+> dois lados antes de mexer. Note também que a chave `fmTab_<id>` é **compartilhada com o módulo Pastas**
+> (mesmo script): Pasta 296 e Objeto 296 colidem no mesmo namespace — suspeito, não confirmado.
 
 ### 2.2 O que o DTO já entrega (e o que não entrega)
 
@@ -98,10 +111,25 @@ Hoje `caso.alertas` renderiza badge + texto, read-only (`show.html.twig:109-118`
 
 | `TipoAlerta` | Ação |
 |---|---|
-| `obrigacao_vencida` | "Ver na dívida" → âncora na seção Dívida |
-| `parcela_acordo_vencida` | "Abrir acordo" → `cobranca_acordo_show` |
+| `obrigacao_vencida` | "Ver na dívida" → âncora `#secao-divida` |
+| `parcela_acordo_vencida` | "Ver na dívida" → âncora `#secao-divida` — **corrigido, ver abaixo** |
 | `acao_atrasada` | "Concluir" → `#modalConcluirAcao` |
 | `pronto_para_encerrar` | "Encerrar cobrança" → `#modalEncerrarCaso` |
+
+> **Correção da spec (revisão da T4, 2026-07-16).** A versão anterior mandava `parcela_acordo_vencida` levar a
+> "Abrir acordo" → `cobranca_acordo_show`. **Não dá, e não deve:** o alerta é **agregado** (`AlertasCobranca`
+> junta as parcelas vencidas numa linha com contagem), então **não existe um `acordoId` único** para linkar —
+> e mandar para um acordo arbitrário quando há dois vencidos seria mentira. Além disso, o próprio redesenho
+> tornou o link desnecessário: **a seção Dívida agora CONTÉM os grupos de acordo**, com a parcela vencida
+> destacada. `#secao-divida` leva o usuário exatamente ao lugar certo. O acordo continua a um clique dali
+> ("Abrir acordo" no cabeçalho do grupo).
+>
+> **As outras 3 linhas da tabela são obrigatórias e não têm desculpa:** os alertas já são gerados
+> (`AlertasCobranca.php:197,205`) e os modais já estão renderizados na página
+> (`_acoes_modais.html.twig:80,128`) — é só `data-bs-target`.
+>
+> **O mockup desenha só 2 alertas porque o dado de demonstração só tinha 2 tipos. O mockup é um cenário; esta
+> tabela é a regra. Em divergência, esta tabela governa.**
 
 **Os alertas continuam derivados e read-only** (invariável 28: *o sistema alerta, o humano decide*). Ganham
 só um atalho de navegação — nenhum alerta executa mutação sozinho.

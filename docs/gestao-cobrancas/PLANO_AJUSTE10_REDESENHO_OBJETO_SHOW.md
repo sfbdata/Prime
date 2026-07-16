@@ -1224,16 +1224,33 @@ public function modalDePagamentoAbreComADataDeHoje(): void
 }
 ```
 
-- [ ] **Step 2: B2 — o bug da aba grudada**
+- [ ] **Step 2: B2 — a aba grudada — INVESTIGAR ANTES DE CONSERTAR**
 
-`pasta-arquivos.js:481` procura `#pastaTabs`, que **não existe em template nenhum** (grep para confirmar).
-O container real aqui é `#objetoTabs`; na página de Pasta, confira qual é. Corrija o seletor para casar com
-o container real **de cada página** (ex.: subir para o `.closest('.nav-tabs')` do próprio botão, em vez de um
-id fixo).
+> ⚠️ **Meu smoke real (2026-07-16) contradisse a spec original.** Ela dizia "todo reload força Documentos,
+> permanentemente". **Não reproduziu:** com `fmTab_296 = '1'` no sessionStorage e `id="documentos-tab"`
+> presente no template novo, o reload do objeto 296 abriu **Cobrança** normalmente. A spec §2.1 foi corrigida.
+
+**O que é fato:** `pasta-arquivos.js:481` procura `#pastaTabs` para **limpar** a flag ao trocar de aba, e
+`id="pastaTabs"` **não existe em template nenhum** — esse ramo é código morto.
+
+**O que NÃO é fato:** que isso hoje gruda a aba. Não observei.
+
+**Portanto, a tarefa é primeiro reproduzir, não consertar.** Responda antes de tocar no código:
+1. O `restore` (`:493-495`) **dispara** em alguma situação? Reproduza subindo um arquivo (é para isso que ele
+   existe — `:487`: *"restaura aba/pasta após reloads de excluir/editar/upload"*). Se **não** dispara, o
+   problema real é o **oposto** do registrado: o usuário **perde** a aba depois de todo upload.
+2. Se você consertar só o `clear`, o `restore` volta a funcionar e **aí sim** pode grudar? Ou seja: o conserto
+   ingênuo pode **criar** o bug que a spec dizia existir.
+3. A chave `fmTab_<id>` é **compartilhada com o módulo Pastas** (mesmo script). Pasta 296 e Objeto 296 usam o
+   mesmo namespace. Isso é colisão real? (suspeito, não confirmado)
+
+**Só depois de responder 1–3, proponha o conserto** — e ele tem de preservar a **função legítima** (voltar
+para Documentos após upload) e matar a **grudação** (não voltar quando o usuário escolheu outra aba).
+
+**Se a investigação mostrar que não há bug de usuário observável**, o certo é **remover o seletor morto e
+documentar**, não inventar um conserto. Reporte ao orquestrador.
 
 > ⚠️ **O script é compartilhado com a página de Pasta.** Confirme lá no smoke — não conserte um quebrando o outro.
-
-Prove por reprodução: abra a aba Documentos, dê reload, **a aba Cobrança deve abrir**.
 
 - [ ] **Step 3: B3 — conferir a subnav**
 
