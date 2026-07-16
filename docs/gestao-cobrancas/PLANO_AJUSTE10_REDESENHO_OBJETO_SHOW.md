@@ -34,6 +34,10 @@ intocados.
 - **Cores:** só `var(--bs-*)` e o accent `--jp-accent`/`--jp-accent-rgb`. Status como fundo usa
   `rgba(var(--...-rgb), α)` — **nunca hex claro** (quebra o tema escuro).
 - **Multi-tenant:** toda query filtra tenant; o objeto já vem resolvido por tenant no controller (404 se não).
+- **Nomes de método de teste em `camelCase`** (`restanteDescontaOAlocado`), como manda o CLAUDE.md raiz e como
+  faz o resto da suíte (476 camelCase × 0 snake_case). *A primeira versão deste plano trazia os exemplos em
+  `snake_case` por engano e contaminou T1–T3; foi corrigido. Se algum exemplo ainda aparecer em snake_case,
+  **a convenção do projeto governa, não o exemplo**.*
 - Commits: imperativo em português, máx. 72 chars, sem ponto final. **Nunca** push/merge/rebase.
 - **Cadência do módulo:** ao fim de cada tarefa → rodar a suíte → **MOSTRAR o smoke ao humano** → ele aprova →
   só então commitar. Não pule o smoke.
@@ -86,7 +90,7 @@ Em `app/tests/Cobranca/Unit/ObrigacaoOutputTest.php`, **adicione** (não mexa no
 
 ```php
 #[Test]
-public function restante_desconta_o_alocado_do_valor_atual(): void
+public function restanteDescontaOAlocadoDoValorAtual(): void
 {
     $obrigacao = $this->obrigacaoCom(valorOriginal: 120000, encargos: 0);
 
@@ -98,7 +102,7 @@ public function restante_desconta_o_alocado_do_valor_atual(): void
 }
 
 #[Test]
-public function restante_tem_piso_zero_quando_super_alocada(): void
+public function restanteTemPisoZeroQuandoSuperAlocada(): void
 {
     // Alocação manual não tem teto por obrigação (beco conhecido, spec §10):
     // o DTO não pode devolver negativo para a tela.
@@ -111,7 +115,7 @@ public function restante_tem_piso_zero_quando_super_alocada(): void
 }
 
 #[Test]
-public function quitada_quando_alocado_cobre_exatamente_o_valor(): void
+public function quitadaQuandoAlocadoCobreExatamenteOValor(): void
 {
     $obrigacao = $this->obrigacaoCom(valorOriginal: 100000, encargos: 20000);
 
@@ -122,7 +126,7 @@ public function quitada_quando_alocado_cobre_exatamente_o_valor(): void
 }
 
 #[Test]
-public function alocado_default_zero_preserva_o_comportamento_antigo(): void
+public function alocadoDefaultZeroPreservaOComportamentoAntigo(): void
 {
     $obrigacao = $this->obrigacaoCom(valorOriginal: 100000, encargos: 0);
 
@@ -200,7 +204,7 @@ Em `app/tests/Cobranca/Unit/MontarDetalheCasoUseCaseTest.php`:
 
 ```php
 #[Test]
-public function carrega_as_alocacoes_em_uma_unica_query(): void
+public function carregaAsAlocacoesEmUmaUnicaQuery(): void
 {
     $caso = $this->casoPersistido();   // reuse o helper do arquivo; se não houver, monte o caso como os outros testes
 
@@ -292,7 +296,7 @@ mostra recolhidas, com a legenda de que **voltam ao total se o acordo for rompid
 
 ```php
 #[Test]
-public function grupo_do_acordo_carrega_as_obrigacoes_que_ele_substituiu(): void
+public function grupoDoAcordoCarregaAsObrigacoesQueEleSubstituiu(): void
 {
     // Acordo vigente que substituiu Janeiro e Fevereiro e gerou 3 parcelas.
     $caso = $this->casoComAcordoVigente(
@@ -320,7 +324,7 @@ public function grupo_do_acordo_carrega_as_obrigacoes_que_ele_substituiu(): void
 }
 
 #[Test]
-public function valor_total_do_grupo_continua_somando_so_as_parcelas_vivas(): void
+public function valorTotalDoGrupoContinuaSomandoSoAsParcelasVivas(): void
 {
     // Blindagem: `valorTotal` é o que bate com o saldo derivado. Expor as substituídas NÃO pode
     // inflá-lo — elas estão FORA do saldo (spec §4.6, armadilha de aritmética).
@@ -463,7 +467,7 @@ não entende por quê. O prefill tem que ser o **bruto** cuja parte-dívida é e
 
 ```php
 #[Test]
-public function bruto_para_recuperar_fecha_o_round_trip_do_rateio(): void
+public function brutoParaRecuperarFechaORoundTripDoRateio(): void
 {
     // A propriedade que importa: o bruto sugerido rateia de volta para EXATAMENTE o alvo.
     // Dupla-arredondamento não se valida por inspeção — só por varredura.
@@ -479,7 +483,7 @@ public function bruto_para_recuperar_fecha_o_round_trip_do_rateio(): void
 }
 
 #[Test]
-public function bruto_para_recuperar_acrescenta_os_honorarios_ao_alvo(): void
+public function brutoParaRecuperarAcrescentaOsHonorariosAoAlvo(): void
 {
     $caso = $this->casoCom(FormaHonorarios::AcrescidoDivida, '10.00');
 
@@ -488,7 +492,7 @@ public function bruto_para_recuperar_acrescenta_os_honorarios_ao_alvo(): void
 }
 
 #[Test]
-public function bruto_para_recuperar_devolve_o_alvo_quando_a_forma_nao_acresce(): void
+public function brutoParaRecuperarDevolveOAlvoQuandoAFormaNaoAcresce(): void
 {
     // Nas outras formas o devedor paga só a dívida — espelha `ratearPagamento`.
     foreach ([FormaHonorarios::RetidoRecuperado, FormaHonorarios::CobradoSeparado, FormaHonorarios::SemPercentual] as $forma) {
@@ -499,7 +503,7 @@ public function bruto_para_recuperar_devolve_o_alvo_quando_a_forma_nao_acresce()
 }
 
 #[Test]
-public function bruto_para_recuperar_devolve_o_alvo_quando_nao_ha_percentual(): void
+public function brutoParaRecuperarDevolveOAlvoQuandoNaoHaPercentual(): void
 {
     $caso = $this->casoCom(FormaHonorarios::AcrescidoDivida, null);
 
@@ -507,7 +511,7 @@ public function bruto_para_recuperar_devolve_o_alvo_quando_nao_ha_percentual(): 
 }
 
 #[Test]
-public function bruto_para_recuperar_devolve_o_alvo_quando_ele_nao_e_positivo(): void
+public function brutoParaRecuperarDevolveOAlvoQuandoEleNaoEPositivo(): void
 {
     $caso = $this->casoCom(FormaHonorarios::AcrescidoDivida, '10.00');
     $calc = new CalculadoraHonorarios();
@@ -613,7 +617,7 @@ Traduza-o para Twig — não reinvente o layout.
 
 ```php
 #[Test]
-public function pagina_do_objeto_tem_as_tres_abas_e_o_card_da_pessoa(): void
+public function paginaDoObjetoTemAsTresAbasEOCardDaPessoa(): void
 {
     $this->clienteLogadoCom('resources.cobranca.gerenciar');
     $objeto = $this->objetoComCobranca();
@@ -633,7 +637,7 @@ public function pagina_do_objeto_tem_as_tres_abas_e_o_card_da_pessoa(): void
 }
 
 #[Test]
-public function a_divida_mostra_o_quanto_falta_quando_ha_pagamento_parcial(): void
+public function aDividaMostraOQuantoFaltaQuandoHaPagamentoParcial(): void
 {
     $this->clienteLogadoCom('resources.cobranca.gerenciar', 'resources.cobranca.movimentacao_financeira');
     $objeto = $this->objetoComObrigacaoParcialmentePaga(valor: 120000, pago: 40000);
@@ -663,7 +667,7 @@ módulo não tem teste hoje; siga o padrão de attributes PHPUnit de `app/tests/
 ```php
 #[Test]
 #[DataProvider('casosDeTempoRelativo')]
-public function tempo_relativo_descreve_a_distancia_ate_hoje(string $data, string $esperado): void
+public function tempoRelativoDescreveADistanciaAteHoje(string $data, string $esperado): void
 {
     $hoje = new \DateTimeImmutable('2026-07-16');
 
@@ -840,7 +844,7 @@ git commit -m "Redesenhar pagina do objeto: 3 abas, card da pessoa, divida unica
 
 ```php
 #[Test]
-public function receber_pre_preenche_o_bruto_com_honorarios_acrescidos(): void
+public function receberPrePreencheOBrutoComHonorariosAcrescidos(): void
 {
     $this->clienteLogadoCom('resources.cobranca.gerenciar', 'resources.cobranca.movimentacao_financeira');
     // Honorários acrescidos 10%; obrigação de R$1.200 sem pagamento.
@@ -853,7 +857,7 @@ public function receber_pre_preenche_o_bruto_com_honorarios_acrescidos(): void
 }
 
 #[Test]
-public function parcela_de_acordo_vigente_nao_oferece_acordar(): void
+public function parcelaDeAcordoVigenteNaoOfereceAcordar(): void
 {
     // INV-U1 / INV-I: acordo sobre acordo duplica dívida no saldo ao romper.
     $this->clienteLogadoCom('resources.cobranca.gerenciar');
@@ -866,7 +870,7 @@ public function parcela_de_acordo_vigente_nao_oferece_acordar(): void
 }
 
 #[Test]
-public function sem_permissao_financeira_o_receber_some(): void
+public function semPermissaoFinanceiraOReceberSome(): void
 {
     $this->clienteLogadoCom('resources.cobranca.gerenciar');   // só gerenciar
     $objeto = $this->objetoComCobranca();
@@ -1017,7 +1021,7 @@ sai do exigível levando a alocação junto — e o form **sugere o valor cheio*
 
 ```php
 #[Test]
-public function acordo_sobre_obrigacao_paga_troca_o_saldo_pelo_total_negociado(): void
+public function acordoSobreObrigacaoPagaTrocaOSaldoPeloTotalNegociado(): void
 {
     // Documenta o comportamento REAL do domínio (spec §5.3): a substituída sai do exigível levando a
     // alocação junto, e o saldo passa a ser o total negociado. NÃO bloqueamos (D7) — renegociar o
@@ -1038,7 +1042,7 @@ public function acordo_sobre_obrigacao_paga_troca_o_saldo_pelo_total_negociado()
 
 ```php
 #[Test]
-public function valores_obrigacoes_sugere_o_remanescente_e_nao_o_valor_cheio(): void
+public function valoresObrigacoesSugereORemanescenteENaoOValorCheio(): void
 {
     // O bug: sugeria 120000 numa obrigação com 40000 já pagos, fazendo o gestor renegociar
     // R$400 que o devedor JÁ PAGOU (spec §5.3).
@@ -1050,7 +1054,7 @@ public function valores_obrigacoes_sugere_o_remanescente_e_nao_o_valor_cheio(): 
 }
 
 #[Test]
-public function valores_obrigacoes_sem_alocacao_segue_no_valor_exigivel(): void
+public function valoresObrigacoesSemAlocacaoSegueNoValorExigivel(): void
 {
     $obrigacao = $this->obrigacaoCom(id: 7, valorOriginal: 120000, encargos: 20000);
 
@@ -1058,7 +1062,7 @@ public function valores_obrigacoes_sem_alocacao_segue_no_valor_exigivel(): void
 }
 
 #[Test]
-public function opcoes_obrigacoes_sinaliza_o_que_ja_foi_recebido(): void
+public function opcoesObrigacoesSinalizaOQueJaFoiRecebido(): void
 {
     $obrigacao = $this->obrigacaoCom(id: 7, valorOriginal: 120000, encargos: 0, descricao: 'Abril/2026');
 
@@ -1206,7 +1210,7 @@ e passe ao `create(RegistrarPagamentoType::class, $pagamentoHoje)`.
 Teste:
 ```php
 #[Test]
-public function modal_de_pagamento_abre_com_a_data_de_hoje(): void
+public function modalDePagamentoAbreComADataDeHoje(): void
 {
     $this->clienteLogadoCom('resources.cobranca.gerenciar', 'resources.cobranca.movimentacao_financeira');
     $objeto = $this->objetoComCobranca();
@@ -1276,7 +1280,7 @@ git commit -m "Corrigir data do pagamento, aba grudada, subnav e redirect"
 
 ```php
 #[Test]
-public function obrigacao_invalida_reabre_o_modal_com_o_erro_e_preserva_o_digitado(): void
+public function obrigacaoInvalidaReabreOModalComOErroEPreservaODigitado(): void
 {
     $this->clienteLogadoCom('resources.cobranca.gerenciar');
     $objeto = $this->objetoComCobranca();
