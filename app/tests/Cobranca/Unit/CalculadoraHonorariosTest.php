@@ -170,23 +170,42 @@ final class CalculadoraHonorariosTest extends TestCase
 
     // ---- brutoParaRecuperar -----------------------------------------------
 
+    /**
+     * @param non-empty-string $percentual
+     */
     #[Test]
-    public function bruto_para_recuperar_fecha_o_round_trip_do_rateio(): void
+    #[DataProvider('percentuaisDeRoundTrip')]
+    public function brutoParaRecuperarFechaORoundTripDoRateio(string $percentual): void
     {
         // A propriedade que importa: o bruto sugerido rateia de volta para EXATAMENTE o alvo.
-        // Dupla-arredondamento não se valida por inspeção — só por varredura.
-        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
+        // Dupla-arredondamento não se valida por inspeção — só por varredura. O risco (arredonda ao
+        // gerar o bruto T, arredonda de novo ao ratear) varia com o percentual — por isso a varredura
+        // espelha `rateioSempreFechaComOTotal` e inclui percentuais quebrados.
+        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, $percentual);
 
         foreach ([1, 2, 99, 100, 101, 105, 333, 80000, 120000, 199999] as $alvo) {
             $bruto = $this->sut->brutoParaRecuperar($caso, $alvo);
             [$divida, ] = $this->sut->ratearPagamento($caso, $bruto);
 
-            self::assertSame($alvo, $divida, "round-trip falhou para alvo={$alvo}");
+            self::assertSame($alvo, $divida, "round-trip falhou para percentual={$percentual}, alvo={$alvo}");
         }
     }
 
+    /**
+     * @return iterable<string, array{0:string}>
+     */
+    public static function percentuaisDeRoundTrip(): iterable
+    {
+        yield '10%' => ['10.00'];
+        yield '15%' => ['15.00'];
+        yield '33.33%' => ['33.33'];
+        yield '7.77%' => ['7.77'];
+        yield '3.33%' => ['3.33'];
+        yield '12.34%' => ['12.34'];
+    }
+
     #[Test]
-    public function bruto_para_recuperar_acrescenta_os_honorarios_ao_alvo(): void
+    public function brutoParaRecuperarAcrescentaOsHonorariosAoAlvo(): void
     {
         $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
 
@@ -195,7 +214,7 @@ final class CalculadoraHonorariosTest extends TestCase
     }
 
     #[Test]
-    public function bruto_para_recuperar_devolve_o_alvo_quando_a_forma_nao_acresce(): void
+    public function brutoParaRecuperarDevolveOAlvoQuandoAFormaNaoAcresce(): void
     {
         // Nas outras formas o devedor paga só a dívida — espelha `ratearPagamento`.
         foreach ([FormaHonorarios::RetidoRecuperado, FormaHonorarios::CobradoSeparado, FormaHonorarios::SemPercentual] as $forma) {
@@ -206,7 +225,7 @@ final class CalculadoraHonorariosTest extends TestCase
     }
 
     #[Test]
-    public function bruto_para_recuperar_devolve_o_alvo_quando_nao_ha_percentual(): void
+    public function brutoParaRecuperarDevolveOAlvoQuandoNaoHaPercentual(): void
     {
         $caso = $this->caso(FormaHonorarios::AcrescidoDivida, null);
 
@@ -214,7 +233,7 @@ final class CalculadoraHonorariosTest extends TestCase
     }
 
     #[Test]
-    public function bruto_para_recuperar_devolve_o_alvo_quando_ele_nao_e_positivo(): void
+    public function brutoParaRecuperarDevolveOAlvoQuandoEleNaoEPositivo(): void
     {
         $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
 

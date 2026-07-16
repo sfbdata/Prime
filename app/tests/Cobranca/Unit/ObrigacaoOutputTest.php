@@ -90,7 +90,7 @@ final class ObrigacaoOutputTest extends TestCase
     }
 
     #[Test]
-    public function restante_desconta_o_alocado_do_valor_atual(): void
+    public function restanteDescontaOAlocadoDoValorAtual(): void
     {
         $obrigacao = $this->obrigacaoCom(valorOriginal: 120000, encargos: 0);
 
@@ -102,7 +102,7 @@ final class ObrigacaoOutputTest extends TestCase
     }
 
     #[Test]
-    public function restante_tem_piso_zero_quando_super_alocada(): void
+    public function restanteTemPisoZeroQuandoSuperAlocada(): void
     {
         // Alocação manual não tem teto por obrigação (beco conhecido, spec §10):
         // o DTO não pode devolver negativo para a tela.
@@ -115,7 +115,7 @@ final class ObrigacaoOutputTest extends TestCase
     }
 
     #[Test]
-    public function quitada_quando_alocado_cobre_exatamente_o_valor(): void
+    public function quitadaQuandoAlocadoCobreExatamenteOValor(): void
     {
         $obrigacao = $this->obrigacaoCom(valorOriginal: 100000, encargos: 20000);
 
@@ -126,7 +126,7 @@ final class ObrigacaoOutputTest extends TestCase
     }
 
     #[Test]
-    public function alocado_default_zero_preserva_o_comportamento_antigo(): void
+    public function alocadoDefaultZeroPreservaOComportamentoAntigo(): void
     {
         $obrigacao = $this->obrigacaoCom(valorOriginal: 100000, encargos: 0);
 

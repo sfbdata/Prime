@@ -97,7 +97,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function carrega_as_alocacoes_em_uma_unica_query(): void
+    public function carregaAsAlocacoesEmUmaUnicaQuery(): void
     {
         $caso = $this->casoPersistido();
 
@@ -117,7 +117,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
      * (mapa com valores DIFERENTES por chave + asserção por posição/id).
      */
     #[Test]
-    public function aloca_o_valor_da_chave_certa_em_cada_obrigacao(): void
+    public function alocaOValorDaChaveCertaEmCadaObrigacao(): void
     {
         $caso = $this->casoPersistido();
 
@@ -150,7 +150,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function grupo_do_acordo_carrega_as_obrigacoes_que_ele_substituiu(): void
+    public function grupoDoAcordoCarregaAsObrigacoesQueEleSubstituiu(): void
     {
         // Acordo vigente que substituiu Janeiro e Fevereiro e gerou 3 parcelas.
         $caso = $this->casoComAcordoVigente(
@@ -178,7 +178,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function valor_total_do_grupo_continua_somando_so_as_parcelas_vivas(): void
+    public function valorTotalDoGrupoContinuaSomandoSoAsParcelasVivas(): void
     {
         // Blindagem: `valorTotal` é o que bate com o saldo derivado. Expor as substituídas NÃO pode
         // inflá-lo — elas estão FORA do saldo (spec §4.6, armadilha de aritmética).
