@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
@@ -55,7 +56,11 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
 
         // Defaults neutros: só o comportamento sob teste (as alocações) importa aqui.
-        $this->obrigacaoRepository->method('doCaso')->willReturn([]);
+        // `doCaso` NÃO tem default aqui de propósito: a geração automática do PHPUnit já devolve
+        // `[]` para um método não-stubado com retorno `array` — e um `willReturn` registrado no
+        // setUp travaria como PRIMEIRO matcher, ignorando qualquer stub posterior no corpo do teste
+        // (confirmado: o retorno é sempre do primeiro matcher que casa, nunca do último). Cada teste
+        // que precisa de obrigações concretas stuba `doCaso` no próprio corpo.
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
         $this->pagamentoRepository->method('doCaso')->willReturn([]);
         $this->liquidacaoRepository->method('doCaso')->willReturn([]);
@@ -100,6 +105,57 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             ->willReturn([]);
 
         $this->useCase->executar($caso);
+    }
+
+    /**
+     * O teste acima trava o N+1 (uma chamada só), mas nunca prova que a chave certa cai na obrigação
+     * certa — um mapa vazio nunca exercita `$alocadoPorObrigacao[$o->getId()] ?? 0`. Espelha o
+     * precedente de `MontarDetalheAcordoUseCaseTest::montaDetalheComSnapshotParcelasEDescontoDerivado`
+     * (mapa com valores DIFERENTES por chave + asserção por posição/id).
+     */
+    #[Test]
+    public function aloca_o_valor_da_chave_certa_em_cada_obrigacao(): void
+    {
+        $caso = $this->casoPersistido();
+
+        $obrigacaoA = $this->novaObrigacao($caso, 101, 50000);
+        $obrigacaoB = $this->novaObrigacao($caso, 102, 30000);
+        $obrigacaoC = $this->novaObrigacao($caso, 103, 20000); // fora do mapa → alocado default 0
+
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$obrigacaoA, $obrigacaoB, $obrigacaoC]);
+
+        // Valores DIFERENTES por chave: se o array_map usar a chave errada (ou um id como string),
+        // o valor cai na obrigação vizinha e o teste tem que acusar (ficar vermelho).
+        $this->alocacaoRepository
+            ->method('somasPorObrigacaoDosCasos')
+            ->willReturn([101 => 40000, 102 => 10000]);
+
+        $detalhe = $this->useCase->executar($caso);
+
+        self::assertCount(3, $detalhe->obrigacoes);
+
+        $porId = [];
+        foreach ($detalhe->obrigacoes as $o) {
+            $porId[$o->id] = $o;
+        }
+
+        self::assertSame(40000, $porId[101]->alocado, 'alocado da obrigação A vem da SUA chave (101)');
+        self::assertSame(10000, $porId[101]->restante(), 'restante = valorAtual (50000) − alocado (40000)');
+        self::assertSame(10000, $porId[102]->alocado, 'alocado da obrigação B vem da SUA chave (102), não da de A');
+        self::assertSame(0, $porId[103]->alocado, 'obrigação fora do mapa cai no default 0 (?? 0)');
+    }
+
+    private function novaObrigacao(CasoCobranca $caso, int $id, int $valorOriginal): Obrigacao
+    {
+        $o = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setDescricao('Obrigação '.$id)
+            ->setValorOriginal($valorOriginal)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2026-09-01'));
+        (new \ReflectionProperty(Obrigacao::class, 'id'))->setValue($o, $id);
+
+        return $o;
     }
 
     private function casoPersistido(): CasoCobranca
