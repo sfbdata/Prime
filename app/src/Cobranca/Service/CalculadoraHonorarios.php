@@ -66,6 +66,32 @@ final class CalculadoraHonorarios
     }
 
     /**
+     * INVERSO de `ratearPagamento` (Ajuste 10, spec §5.1): dado o quanto se quer recuperar de DÍVIDA
+     * (centavos), devolve o valor BRUTO a cobrar do devedor — dívida + honorários — na forma
+     * `acrescido_divida`: `T = D · (10000+pb)/10000`. Nas demais formas (e sem percentual) o devedor paga
+     * só a dívida, então devolve o próprio alvo — espelhando `ratearPagamento`.
+     *
+     * Existe porque o alvo é INVISÍVEL para o gestor: ele quer quitar uma obrigação de R$1.200 e precisa
+     * digitar R$1.320. Pré-preencher R$1.200 rateia para R$1.090,91 e a obrigação NÃO quita.
+     *
+     * Garantia (coberta por teste): `ratearPagamento($caso, brutoParaRecuperar($caso, $d))[0] === $d`.
+     */
+    public function brutoParaRecuperar(CasoCobranca $caso, int $dividaAlvoCentavos): int
+    {
+        if ($dividaAlvoCentavos <= 0 || $caso->getFormaHonorarios() !== FormaHonorarios::AcrescidoDivida) {
+            return $dividaAlvoCentavos;
+        }
+
+        $pb = $this->basisPoints($caso);
+
+        if ($pb === 0) {
+            return $dividaAlvoCentavos;
+        }
+
+        return $this->arredondarFracao($dividaAlvoCentavos * (10000 + $pb), 10000);
+    }
+
+    /**
      * Honorários REALIZADOS a partir da dívida efetivamente recuperada (centavos): `recuperado · p`
      * para formas com percentual; `0` para `sem_percentual`. É a base do "honorário realizado" do
      * relatório (§18.7) — no `cobrado_separado` é o honorário GERADO (recebimento efetivo é do

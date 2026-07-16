@@ -168,6 +168,60 @@ final class CalculadoraHonorariosTest extends TestCase
         yield 'recuperado zero' => [FormaHonorarios::AcrescidoDivida, '10.00', 0, 0];
     }
 
+    // ---- brutoParaRecuperar -----------------------------------------------
+
+    #[Test]
+    public function bruto_para_recuperar_fecha_o_round_trip_do_rateio(): void
+    {
+        // A propriedade que importa: o bruto sugerido rateia de volta para EXATAMENTE o alvo.
+        // Dupla-arredondamento não se valida por inspeção — só por varredura.
+        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
+
+        foreach ([1, 2, 99, 100, 101, 105, 333, 80000, 120000, 199999] as $alvo) {
+            $bruto = $this->sut->brutoParaRecuperar($caso, $alvo);
+            [$divida, ] = $this->sut->ratearPagamento($caso, $bruto);
+
+            self::assertSame($alvo, $divida, "round-trip falhou para alvo={$alvo}");
+        }
+    }
+
+    #[Test]
+    public function bruto_para_recuperar_acrescenta_os_honorarios_ao_alvo(): void
+    {
+        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
+
+        // R$1.200,00 de dívida + 10% => R$1.320,00 de boleto.
+        self::assertSame(132000, $this->sut->brutoParaRecuperar($caso, 120000));
+    }
+
+    #[Test]
+    public function bruto_para_recuperar_devolve_o_alvo_quando_a_forma_nao_acresce(): void
+    {
+        // Nas outras formas o devedor paga só a dívida — espelha `ratearPagamento`.
+        foreach ([FormaHonorarios::RetidoRecuperado, FormaHonorarios::CobradoSeparado, FormaHonorarios::SemPercentual] as $forma) {
+            $caso = $this->caso($forma, '10.00');
+
+            self::assertSame(120000, $this->sut->brutoParaRecuperar($caso, 120000));
+        }
+    }
+
+    #[Test]
+    public function bruto_para_recuperar_devolve_o_alvo_quando_nao_ha_percentual(): void
+    {
+        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, null);
+
+        self::assertSame(120000, $this->sut->brutoParaRecuperar($caso, 120000));
+    }
+
+    #[Test]
+    public function bruto_para_recuperar_devolve_o_alvo_quando_ele_nao_e_positivo(): void
+    {
+        $caso = $this->caso(FormaHonorarios::AcrescidoDivida, '10.00');
+
+        self::assertSame(0, $this->sut->brutoParaRecuperar($caso, 0));
+        self::assertSame(-5, $this->sut->brutoParaRecuperar($caso, -5));
+    }
+
     private function caso(FormaHonorarios $forma, ?string $percentual): CasoCobranca
     {
         $caso = new CasoCobranca();
