@@ -67,7 +67,7 @@
 
                     <div class="jp-obr-data">
                         <div class="jp-obr-data-dia">{{ o.vencimentoOriginal|date('d/m/Y') }}</div>
-                        <div class="jp-obr-data-rel {{ o.vencimentoOriginal <= hoje ? 'is-atrasado' }}">{{ o.vencimentoOriginal|tempo_relativo }}</div>
+                        <div class="jp-obr-data-rel {{ vencida ? 'is-atrasado' }}">{{ o.vencimentoOriginal|tempo_relativo }}</div>
                     </div>
 
                     <div class="jp-obr-desc">

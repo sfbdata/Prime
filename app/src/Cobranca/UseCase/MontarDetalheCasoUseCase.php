@@ -108,8 +108,9 @@ final class MontarDetalheCasoUseCase
     }
 
     /**
-     * Reorganiza a aba Obrigações (Ajuste 8) SEM nova query — só reparticiona o que já foi carregado.
-     * A aba mostra o que está VIVO (o que compõe o saldo); o registro completo fica no detalhe do
+     * Reorganiza a seção "Dívida em aberto" (Ajuste 8; a partir do Ajuste 10 essa seção fundiu as
+     * antigas abas Obrigações e Acordos) SEM nova query — só reparticiona o que já foi carregado. A
+     * seção mostra o que está VIVO (o que compõe o saldo); o registro completo fica no detalhe do
      * acordo. A ordem dos testes importa:
      *
      * 1. **substituída por acordo VIGENTE** → sai da lista solta e vira anexo (recolhido) do acordo que

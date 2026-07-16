@@ -99,6 +99,9 @@
             <span class="jp-chip">{{ v.papelLabel }}</span>
             <span class="small">
                 {{ v.dataInicio|date('m/Y') }}{% if v.dataFim %} — {{ v.dataFim|date('m/Y') }}{% endif %}
+                {% if not v.ativo and v.motivoEncerramento %}
+                    <span class="text-secondary" data-bs-toggle="tooltip" title="Motivo do encerramento">· {{ v.motivoEncerramento }}</span>
+                {% endif %}
             </span>
             {% set contato = v.cpf ?: v.cnpj %}
             {% if contato %}<span class="small text-secondary">{{ contato }}</span>{% endif %}

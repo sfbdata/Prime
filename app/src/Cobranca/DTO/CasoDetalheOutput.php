@@ -12,9 +12,10 @@ namespace App\Cobranca\DTO;
  * centavos int (Twig formata com `|centavos`). `prontoParaEncerrar` é indicador derivado (SPEC §17),
  * não um estado do enum.
  *
- * A aba Obrigações (Ajuste 8) não usa `obrigacoes` cru: ela lê `gruposAcordo` (acordos vigentes com
- * suas parcelas dentro) + `obrigacoesAvulsas` (o resto). `obrigacoes` continua sendo a lista COMPLETA
- * do caso — é dela que sai a contagem da aba e quem mais precisar do conjunto todo.
+ * A seção "Dívida em aberto" (Ajuste 8; fundida com a antiga aba Acordos no Ajuste 10) não usa
+ * `obrigacoes` cru: ela lê `gruposAcordo` (acordos vigentes com suas parcelas dentro) +
+ * `obrigacoesAvulsas` (o resto). `obrigacoes` continua sendo a lista COMPLETA do caso — é dela que sai
+ * a contagem e quem mais precisar do conjunto todo.
  *
  * @param list<AlertaCobranca>              $alertas
  * @param list<ObrigacaoOutput>             $obrigacoes

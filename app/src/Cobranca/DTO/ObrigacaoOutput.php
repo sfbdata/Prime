@@ -7,8 +7,10 @@ namespace App\Cobranca\DTO;
 use App\Cobranca\Entity\Obrigacao;
 
 /**
- * Leitura de uma Obrigação para a aba Obrigações do Caso (Etapa 8). Dinheiro em centavos int
- * (formatado no Twig com `|centavos`); `valorAtual` = original + encargos reconhecidos (SPEC §10).
+ * Leitura de uma Obrigação para a seção "Dívida em aberto" da página do objeto (Etapa 8; a partir do
+ * ajuste 10, essa seção fundiu as antigas abas Obrigações e Acordos numa fila única). Dinheiro em
+ * centavos int (formatado no Twig com `|centavos`); `valorAtual` = original + encargos reconhecidos
+ * (SPEC §10).
  * Sinaliza (vigente-aware) se a obrigação foi substituída por acordo vigente (sai do saldo, invariável
  * 15), se é parcela de acordo vigente, ou se é parcela de acordo rompido/cancelado (`parcelaDeAcordoDesfeito`
  * — histórico, fora do saldo) — para o Twig marcar visualmente e liberar/travar a edição sem reimplementar a regra.
@@ -26,7 +28,8 @@ final class ObrigacaoOutput
         public readonly bool $substituidaPorAcordo,
         public readonly bool $ehParcelaAcordo,
         public readonly bool $parcelaDeAcordoDesfeito,
-        /** Acordo que gerou esta obrigação (null = não é parcela) — agrupa a aba Obrigações (Ajuste 8). */
+        /** Acordo que gerou esta obrigação (null = não é parcela) — agrupa os grupos de acordo dentro da
+         * seção "Dívida em aberto" (Ajuste 8; grupos consolidados no Ajuste 10). */
         public readonly ?int $acordoOrigemId = null,
         /** Acordo que substituiu esta obrigação (null = não substituída) — agrupa as trocadas (Ajuste 10). */
         public readonly ?int $acordoSubstitutoId = null,

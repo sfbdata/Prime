@@ -94,8 +94,9 @@ final class ObjetoController extends AbstractController
             'podeGerenciarDocumentos' => $podeGerenciar,
             'secoes' => $documentos['secoes'],
             'arquivosFm' => $documentos['arquivos'],
-            // Ações da aba Pessoas — só para quem gerencia. "Nova pessoa" cadastra+vincula; "Vincular"
-            // liga uma pessoa já existente do escritório; "Encerrar vínculo" fecha um vínculo aberto.
+            // Ações do card da pessoa (Ajuste 10 — era a aba Pessoas) — só para quem gerencia. "Nova
+            // pessoa" cadastra+vincula; "Vincular" liga uma pessoa já existente do escritório;
+            // "Encerrar vínculo" fecha um vínculo aberto.
             'formNovaPessoa' => $podeGerenciar ? $this->createForm(CriarPessoaVinculadaType::class)->createView() : null,
             'formVincular' => $podeGerenciar
                 ? $this->createForm(VincularPessoaAObjetoType::class, null, ['pessoas' => $this->pessoaRepository->opcoesDoTenant($tenant)])->createView()

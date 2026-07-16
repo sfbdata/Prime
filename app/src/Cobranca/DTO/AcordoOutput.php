@@ -8,8 +8,11 @@ use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Enum\StatusAcordo;
 
 /**
- * Leitura de um Acordo para a aba Acordos do Caso (Etapa 8). Estado com badge (`badgeClass()` do
- * enum); contagens de obrigações substituídas × parcelas para o Twig resumir sem iterar coleções.
+ * Leitura de um Acordo do Caso (Etapa 8). Estado com badge (`badgeClass()` do enum); contagens de
+ * obrigações substituídas × parcelas para o Twig resumir sem iterar coleções. A partir do Ajuste 10,
+ * o acordo VIGENTE não usa este DTO isolado na tela — vira `GrupoAcordoObrigacoesOutput` dentro da
+ * seção "Dívida em aberto"; este `AcordoOutput` continua alimentando a lista completa (`caso.acordos`)
+ * e aparece direto na seção "Acordos encerrados" (rompidos/cancelados, ou vigente sem parcela viva).
  */
 final class AcordoOutput
 {

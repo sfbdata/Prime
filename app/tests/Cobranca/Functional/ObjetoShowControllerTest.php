@@ -9,8 +9,10 @@ use App\Cobranca\Controller\ObjetoController;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Tests\Factory\Cobranca\AlocacaoPagamentoFactory;
+use App\Tests\Factory\Cobranca\LiquidacaoFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use App\Tests\Factory\Cobranca\PagamentoFactory;
+use App\Tests\Factory\Cobranca\ProximaAcaoFactory;
 use App\Tests\Factory\Cobranca\VinculoPessoaObjetoFactory;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -184,6 +186,122 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $client->request('GET', '/cobrancas/objetos/' . $casoAlheio->getObjeto()->getId());
 
         self::assertResponseStatusCodeSame(404);
+    }
+
+    #[TestDox('Ajuste 10 fix F5: o vínculo encerrado mostra o motivo do encerramento, escapado')]
+    public function testVinculoEncerradoMostraOMotivoDoEncerramento(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $objeto = $caso->getObjeto();
+
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant,
+            'objeto' => $objeto,
+            'pessoa' => $caso->getPessoaCobradaAtual(),
+            'tipoVinculo' => TipoVinculo::Representante,
+            'dataFim' => new \DateTimeImmutable('-1 day'),
+            'motivoEncerramento' => 'Fiança <quitada> & liberada',
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objeto->getId());
+
+        self::assertResponseIsSuccessful();
+        $linha = $crawler->filter('.jp-vinculo-linha.encerrado')->text();
+        self::assertStringContainsString('Fiança <quitada> & liberada', $linha);
+        // Confere que o motivo foi escapado no HTML bruto (nunca `|raw`).
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString('Fiança &lt;quitada&gt; &amp; liberada', $html);
+    }
+
+    #[TestDox('Ajuste 10 fix F2: o extrato funde pagamentos e liquidações do mais recente para o mais antigo')]
+    public function testExtratoDeMovimentosOrdenaDoMaisRecenteParaOMaisAntigo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // Datas distintas e conhecidas: mais antigo → mais novo é 10/01, 05/02, 20/03.
+        PagamentoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'data' => new \DateTimeImmutable('2026-01-10'),
+            'valorDivida' => 10000, 'valorEncargos' => 0, 'valorHonorarios' => 0,
+        ]);
+        LiquidacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'data' => new \DateTimeImmutable('2026-02-05'),
+            'descricaoBem' => 'Veículo dado em pagamento',
+            'valorAtribuidoBem' => 20000, 'valorReconhecido' => 20000,
+        ]);
+        PagamentoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'data' => new \DateTimeImmutable('2026-03-20'),
+            'valorDivida' => 30000, 'valorEncargos' => 0, 'valorHonorarios' => 0,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString(
+            'Do mais recente para o mais antigo',
+            $crawler->filter('#secao-movimentos .jp-ordem')->text(),
+        );
+
+        $valores = $crawler->filter('#secao-movimentos .jp-mov .jp-obr-valor')
+            ->each(static fn ($node) => trim($node->text()));
+
+        self::assertCount(3, $valores);
+        // Ordem esperada: 20/03 (300,00) → 05/02 (200,00) → 10/01 (100,00).
+        self::assertStringContainsString('300,00', $valores[0]);
+        self::assertStringContainsString('200,00', $valores[1]);
+        self::assertStringContainsString('100,00', $valores[2]);
+    }
+
+    #[TestDox('Ajuste 10 fix F1: alerta de ação atrasada oferece "Concluir" apontando para o modal')]
+    public function testAlertaDeAcaoAtrasadaOfereceBotaoConcluir(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        ProximaAcaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Ligar para o devedor',
+            'prazo' => new \DateTimeImmutable('-3 days'),
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $botao = $crawler->filter('.jp-alerta [data-bs-target="#modalConcluirAcao"]');
+        self::assertGreaterThan(0, $botao->count(), 'o alerta de ação atrasada deve trazer o botão Concluir');
+        self::assertStringContainsString('Concluir', $botao->text());
+    }
+
+    #[TestDox('Ajuste 10 fix F4: obrigação avulsa quitada com vencimento passado não é marcada como atrasada')]
+    public function testObrigacaoQuitadaComVencimentoPassadoNaoFicaAtrasada(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Cota condominial quitada', 'valorOriginal' => 50000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('-10 days'),
+        ])->_real();
+        $pagamento = PagamentoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 50000, 'valorEncargos' => 0, 'valorHonorarios' => 0,
+        ])->_real();
+        AlocacaoPagamentoFactory::createOne([
+            'tenant' => $tenant, 'pagamento' => $pagamento, 'obrigacao' => $obrigacao, 'valor' => 50000,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // Vencida no passado, mas quitada: não é "atrasada" — quem já pagou não fica em vermelho.
+        self::assertCount(0, $crawler->filter('.jp-obr-data-rel.is-atrasado'));
+        self::assertGreaterThan(0, $crawler->filter('.jp-chip.is-paga')->count());
     }
 
     #[TestDox('Deep-link do caso redireciona (302) para a página do objeto (Fatia 5)')]

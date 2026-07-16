@@ -7,7 +7,8 @@ namespace App\Cobranca\DTO;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
 
 /**
- * Leitura de um vínculo Pessoa↔Objeto para a aba "Pessoas" da página unificada do objeto (ajuste 2).
+ * Leitura de um vínculo Pessoa↔Objeto para o card da pessoa da página unificada do objeto (ajuste 2;
+ * a partir do ajuste 10, o card substitui a antiga aba "Pessoas" — que era a única a abrir por padrão).
  * `ehCobradaAtual` marca o vínculo cuja pessoa é a `pessoaCobradaAtual` do caso âncora — assim a UI
  * destaca quem está sendo cobrado sem precisar recomputar nada. Vínculos encerrados (histórico,
  * invariável 11) entram na lista com `ativo = false`.
@@ -27,6 +28,7 @@ final class VinculoPessoaOutput
         public readonly ?\DateTimeImmutable $dataFim,
         public readonly bool $ativo,
         public readonly bool $ehCobradaAtual,
+        public readonly ?string $motivoEncerramento = null,
     ) {
     }
 
@@ -48,6 +50,7 @@ final class VinculoPessoaOutput
             dataFim: $vinculo->getDataFim(),
             ativo: $vinculo->estaAberto(),
             ehCobradaAtual: $pessoaCobradaAtualId !== null && $pessoaId === $pessoaCobradaAtualId,
+            motivoEncerramento: $vinculo->getMotivoEncerramento(),
         );
     }
 }

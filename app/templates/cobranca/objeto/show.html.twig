@@ -128,6 +128,14 @@
                 <div class="jp-alerta-acoes">
                     <a href="#secao-divida" class="btn btn-sm btn-outline-secondary">Ver na dívida</a>
                 </div>
+                {% elseif alerta.tipo.value == 'acao_atrasada' and podeGerenciar %}
+                <div class="jp-alerta-acoes">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
+                </div>
+                {% elseif alerta.tipo.value == 'pronto_para_encerrar' and podeGerenciar %}
+                <div class="jp-alerta-acoes">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">Encerrar cobrança</button>
+                </div>
                 {% endif %}
             </div>
             {% endfor %}
