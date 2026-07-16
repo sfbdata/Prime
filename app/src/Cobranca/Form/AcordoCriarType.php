@@ -23,6 +23,7 @@ final class AcordoCriarType extends AbstractType
     public function buildForm(FormBuilderInterface $builder, array $options): void
     {
         $valores = $options['valores'];
+        $alocados = $options['alocados'];
 
         $builder
             ->add('dataAcordo', DateType::class, [
@@ -37,8 +38,12 @@ final class AcordoCriarType extends AbstractType
                 'multiple' => true,
                 'expanded' => true,
                 'choice_translation_domain' => false,
-                // Cada checkbox carrega o valor exigível (centavos) para o gerador somar a seleção no JS.
-                'choice_attr' => static fn (mixed $id): array => ['data-valor-centavos' => (string) ($valores[$id] ?? 0)],
+                // Cada checkbox carrega o REMANESCENTE (centavos) para o gerador somar a seleção no JS, e
+                // o quanto já foi recebido — que dispara o aviso do modal (ajuste 10, spec §5.3).
+                'choice_attr' => static fn (mixed $id): array => [
+                    'data-valor-centavos' => (string) ($valores[$id] ?? 0),
+                    'data-alocado-centavos' => (string) ($alocados[$id] ?? 0),
+                ],
             ])
             // Total negociado (snapshot) e entrada — o gerador inteligente preenche/valida (Ajuste 7).
             ->add('valorTotalNegociado', CentavosType::class, [
@@ -69,26 +74,48 @@ final class AcordoCriarType extends AbstractType
             'data_class' => CriarAcordoInput::class,
             'obrigacoes' => [],
             'valores' => [],
+            // Mapa `obrigacaoId => Σ alocado` (centavos): só informa o aviso do modal; o valor sugerido
+            // já vem descontado em `valores`. Vazio = nenhuma selecionada tem pagamento.
+            'alocados' => [],
         ]);
         $resolver->setAllowedTypes('obrigacoes', 'array');
         $resolver->setAllowedTypes('valores', 'array');
+        $resolver->setAllowedTypes('alocados', 'array');
     }
 
     /**
      * Mapa `label → id` das obrigações substituíveis, para o ChoiceType. Chamado pelo controller no
      * render e no POST (as choices precisam casar para a validação). Rótulo com descrição, vencimento
-     * e valor atual (centavos → reais).
+     * e o REMANESCENTE (centavos → reais).
+     *
+     * `$alocadoPorObrigacao` vazio (default) mantém o rótulo no valor exigível cheio — é o caso do
+     * modal de PAGAMENTO (`MontadorModaisCaso::financeiros`), que oferece a obrigação inteira.
      *
      * @param list<Obrigacao> $obrigacoes
+     * @param array<int, int> $alocadoPorObrigacao Mapa `obrigacaoId => Σ alocado` (centavos).
      *
      * @return array<string, int>
      */
-    public static function opcoesObrigacoes(array $obrigacoes): array
+    public static function opcoesObrigacoes(array $obrigacoes, array $alocadoPorObrigacao = []): array
     {
         $opcoes = [];
         foreach ($obrigacoes as $o) {
-            $valor = number_format(($o->getValorOriginal() + $o->getEncargosReconhecidos()) / 100, 2, ',', '.');
-            $label = sprintf('%s — venc %s — R$ %s', $o->getDescricao(), $o->getVencimentoOriginal()->format('d/m/Y'), $valor);
+            $alocado = $alocadoPorObrigacao[(int) $o->getId()] ?? 0;
+            $remanescente = max(0, $o->valorExigivel() - $alocado);
+            $valor = number_format($remanescente / 100, 2, ',', '.');
+
+            $label = sprintf(
+                '%s — venc %s — R$ %s',
+                $o->getDescricao(),
+                $o->getVencimentoOriginal()->format('d/m/Y'),
+                $valor,
+            );
+
+            // Ajuste 10 (spec §5.3): o gestor não pode renegociar às cegas um valor que já foi pago.
+            if ($alocado > 0) {
+                $label .= sprintf(' (R$ %s já recebidos)', number_format($alocado / 100, 2, ',', '.'));
+            }
+
             $opcoes[$label] = $o->getId();
         }
 
@@ -96,18 +123,24 @@ final class AcordoCriarType extends AbstractType
     }
 
     /**
-     * Mapa `id → valor exigível (centavos)` das obrigações substituíveis, para o gerador somar a
-     * seleção no JS (via `data-valor-centavos` em cada checkbox). Mesma lista de `opcoesObrigacoes`.
+     * Mapa `id → REMANESCENTE (centavos)` das substituíveis, para o gerador somar a seleção no JS (via
+     * `data-valor-centavos`). Ajuste 10 (spec §5.3 / INV-U9): era o valor exigível CHEIO, que fazia o
+     * gestor renegociar o que o devedor já pagou — o pagamento então evaporava do saldo, porque a
+     * substituída sai do exigível levando a alocação junto (`CalculadoraSaldo:57`). É o mesmo número que
+     * `ObrigacaoOutput::restante()` mostra na linha da dívida: os dois lados TÊM de bater.
      *
      * @param list<Obrigacao> $obrigacoes
+     * @param array<int, int> $alocadoPorObrigacao Mapa `obrigacaoId => Σ alocado` (centavos).
      *
      * @return array<int, int>
      */
-    public static function valoresObrigacoes(array $obrigacoes): array
+    public static function valoresObrigacoes(array $obrigacoes, array $alocadoPorObrigacao = []): array
     {
         $valores = [];
         foreach ($obrigacoes as $o) {
-            $valores[(int) $o->getId()] = $o->valorExigivel();
+            $id = (int) $o->getId();
+            // Piso 0: alocação manual não tem teto por obrigação (spec §10).
+            $valores[$id] = max(0, $o->valorExigivel() - ($alocadoPorObrigacao[$id] ?? 0));
         }
 
         return $valores;

@@ -407,6 +407,7 @@ document.addEventListener('DOMContentLoaded', function () {
         var erroBox = modal.querySelector('[data-acordo-erro-gerador]');
         var fechamentoBox = modal.querySelector('[data-acordo-fechamento]');
         var checkboxes = Array.prototype.slice.call(modal.querySelectorAll('input[name*="obrigacoesSubstituidasIds"]'));
+        var avisoPagamento = document.getElementById('avisoAcordoComPagamento');
 
         function valorInputDe(row) { return row.querySelector('input[name$="[valor]"]'); }
         function linhas() { return Array.prototype.slice.call(container.querySelectorAll('.parcela-linha')); }
@@ -416,6 +417,16 @@ document.addEventListener('DOMContentLoaded', function () {
             return checkboxes.reduce(function (s, c) {
                 return c.checked ? s + parseInt(c.getAttribute('data-valor-centavos') || '0', 10) : s;
             }, 0);
+        }
+
+        /* Ajuste 10 (spec §5.3): avisa que o valor sugerido é o REMANESCENTE quando alguma marcada já
+           recebeu pagamento. Sem seleção, nada a avisar — o aviso fica escondido. */
+        function atualizarAvisoPagamento() {
+            if (!avisoPagamento) { return; }
+            var temPagamento = checkboxes.some(function (c) {
+                return c.checked && parseInt(c.getAttribute('data-alocado-centavos') || '0', 10) > 0;
+            });
+            avisoPagamento.classList.toggle('d-none', !temPagamento);
         }
 
         function atualizarFechamento() {
@@ -516,6 +527,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (totalInput && totalInput.dataset.touched !== '1') {
                     totalInput.value = s > 0 ? reaisInput(s) : '';
                 }
+                atualizarAvisoPagamento();
                 atualizarFechamento();
             });
         });
@@ -570,6 +582,8 @@ document.addEventListener('DOMContentLoaded', function () {
                Só os checkboxes do MODAL — os `.jp-check` da seção são a seleção deliberada do usuário na
                página (a barra), e apagá-la ao espiar o modal destruiria trabalho dele. */
             checkboxes.forEach(function (c) { c.checked = false; });
+            // A seleção foi zerada acima: o aviso do §5.3 pertence à seleção, some junto com ela.
+            atualizarAvisoPagamento();
         });
     })();
 

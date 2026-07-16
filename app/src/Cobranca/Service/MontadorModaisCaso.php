@@ -20,6 +20,7 @@ use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Form\RegistrarPagamentoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Form\RomperAcordoType;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CobrancaDocumentoRepository;
 use App\Cobranca\Repository\CobrancaSecaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
@@ -39,6 +40,7 @@ final class MontadorModaisCaso
     public function __construct(
         private readonly FormFactoryInterface $formFactory,
         private readonly ObrigacaoRepository $obrigacaoRepository,
+        private readonly AlocacaoPagamentoRepository $alocacaoRepository,
         private readonly PessoaRepository $pessoaRepository,
         private readonly PastaRepository $pastaRepository,
         private readonly CobrancaSecaoRepository $secaoRepository,
@@ -59,8 +61,16 @@ final class MontadorModaisCaso
         // lista do saldo nem a do pagamento (essa, em `financeiros()`, segue usando `doCasoExigiveis`:
         // pagar parcela de acordo vigente é o fluxo normal).
         $substituiveis = $this->obrigacaoRepository->doCasoSubstituiveis($caso);
-        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($substituiveis);
-        $valoresObrigacoes = AcordoCriarType::valoresObrigacoes($substituiveis);
+
+        // Ajuste 10 (spec §5.3): o gerador precisa do REMANESCENTE, não do valor cheio — senão sugere
+        // renegociar o que já foi pago. Uma query em lote, mesmo mapa do detalhe do caso.
+        $alocadoPorObrigacao = $this->alocacaoRepository->somasPorObrigacaoDosCasos(
+            [$caso->getId()],
+            $caso->getTenant(),
+        );
+
+        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($substituiveis, $alocadoPorObrigacao);
+        $valoresObrigacoes = AcordoCriarType::valoresObrigacoes($substituiveis, $alocadoPorObrigacao);
 
         // O modal de contato abre com data/hora pré-preenchidas com "agora" (editável pelo gestor).
         $contatoAgora = new RegistrarTentativaCobrancaInput();
@@ -73,7 +83,11 @@ final class MontadorModaisCaso
             'definirProximaAcao' => $this->formFactory->create(DefinirProximaAcaoType::class)->createView(),
             'concluirAcao' => $this->formFactory->create(ConcluirAcaoType::class)->createView(),
             'registrarTentativa' => $this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora)->createView(),
-            'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, null, ['obrigacoes' => $opcoesObrigacoes, 'valores' => $valoresObrigacoes])->createView(),
+            'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, null, [
+                'obrigacoes' => $opcoesObrigacoes,
+                'valores' => $valoresObrigacoes,
+                'alocados' => $alocadoPorObrigacao,
+            ])->createView(),
             'romperAcordo' => $this->formFactory->create(RomperAcordoType::class)->createView(),
             'cancelarAcordo' => $this->formFactory->create(CancelarAcordoType::class)->createView(),
             'alterarPessoa' => $this->formFactory->create(AlterarPessoaCobradaType::class, null, [

@@ -250,6 +250,15 @@
                     {% else %}
                         {{ form_widget(forms.acordoCriar.obrigacoesSubstituidasIds) }}
                         {{ form_errors(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+                        {# Ajuste 10 (spec §5.3): renegociar dívida já parcialmente paga é legítimo (D7), mas o
+                           gestor precisa SABER que há pagamento — a substituída sai do exigível levando a
+                           alocação junto, então o valor sugerido é o REMANESCENTE. O JS revela quando alguma
+                           marcada tem `data-alocado-centavos > 0`. #}
+                        <div class="alert alert-warning d-none py-2 small" id="avisoAcordoComPagamento">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Uma das dívidas escolhidas <strong>já recebeu pagamento</strong>. O valor sugerido é o que
+                            <strong>ainda falta</strong> — não o valor original.
+                        </div>
                         <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Total selecionado: <strong data-acordo-total-selecionado>R$ 0,00</strong>.</div>
                         <div class="form-text">Só dívidas originais podem ser acordadas. Parcelas de um acordo vigente não aparecem aqui — para refazer um acordo, rompa o atual primeiro.</div>
                     {% endif %}
