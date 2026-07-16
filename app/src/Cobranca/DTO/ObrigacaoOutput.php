@@ -28,6 +28,8 @@ final class ObrigacaoOutput
         public readonly bool $parcelaDeAcordoDesfeito,
         /** Acordo que gerou esta obrigação (null = não é parcela) — agrupa a aba Obrigações (Ajuste 8). */
         public readonly ?int $acordoOrigemId = null,
+        /** Acordo que substituiu esta obrigação (null = não substituída) — agrupa as trocadas (Ajuste 10). */
+        public readonly ?int $acordoSubstitutoId = null,
         /**
          * Σ das alocações de pagamento nesta obrigação (centavos) — DERIVADO (invariável 20), nunca coluna.
          * Carregado em LOTE pelo UseCase (`somasPorObrigacaoDosCasos`); default 0 mantém os chamadores antigos.
@@ -70,6 +72,7 @@ final class ObrigacaoOutput
             ehParcelaAcordo: $origem !== null && $origem->getStatus()->ehVigente(),
             parcelaDeAcordoDesfeito: $origem !== null && !$origem->getStatus()->ehVigente(),
             acordoOrigemId: $origem?->getId(),
+            acordoSubstitutoId: $substituto?->getId(),
             alocado: $alocado,
         );
     }

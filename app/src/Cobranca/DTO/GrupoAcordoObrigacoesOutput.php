@@ -21,6 +21,7 @@ final class GrupoAcordoObrigacoesOutput
 {
     /**
      * @param list<ObrigacaoOutput> $parcelas
+     * @param list<ObrigacaoOutput> $substituidas
      */
     public function __construct(
         public readonly int $acordoId,
@@ -31,6 +32,12 @@ final class GrupoAcordoObrigacoesOutput
         public readonly int $qtdSubstituidas,
         public readonly int $valorTotal,
         public readonly array $parcelas,
+        /**
+         * As obrigações que ESTE acordo tirou do saldo (Ajuste 10). Ficam recolhidas na tela: voltam ao
+         * exigível por derivação se o acordo for rompido/cancelado. NÃO entram em `valorTotal` — estão
+         * fora do saldo, e somá-las divergiria do saldo derivado.
+         */
+        public readonly array $substituidas = [],
     ) {
     }
 }

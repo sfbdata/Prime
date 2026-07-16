@@ -112,12 +112,13 @@ final class MontarDetalheCasoUseCase
      * A aba mostra o que está VIVO (o que compõe o saldo); o registro completo fica no detalhe do
      * acordo. A ordem dos testes importa:
      *
-     * 1. **substituída por acordo VIGENTE** → sai da aba (vive no detalhe do acordo que a substituiu).
-     *    Vem PRIMEIRO de propósito: uma parcela de A que já foi substituída por B (acordo-sobre-acordo
-     *    — ver spec do ajuste 7 §13) está FORA do exigível (`doCasoExigiveis` a exclui), então não pode
-     *    entrar no grupo de A nem somar no total dele — inflaria o grupo contra o saldo derivado
-     *    (invariável 20) e a contaria de novo no "substituiu N" de B. Ela continua existindo
-     *    (invariável 14) e aparece no detalhe de A, travada.
+     * 1. **substituída por acordo VIGENTE** → sai da lista solta e vira anexo (recolhido) do acordo que
+     *    a substituiu (Ajuste 10) — antes era descartada e a dívida "sumia" sem explicação. Uma parcela
+     *    de A que já foi substituída por B (acordo-sobre-acordo — ver spec do ajuste 7 §13) está FORA do
+     *    exigível (`doCasoExigiveis` a exclui), então não pode entrar no grupo de A nem somar no total
+     *    dele — inflaria o grupo contra o saldo derivado (invariável 20) e a contaria de novo no
+     *    "substituiu N" de B. Ela continua existindo (invariável 14) e aparece no detalhe de A, travada,
+     *    e agora também recolhida no grupo do acordo que a substituiu (se este ainda estiver vigente).
      * 2. **parcela de acordo VIGENTE** (e não substituída) → entra no grupo daquele acordo.
      * 3. **todo o resto** (inclusive parcela de acordo ROMPIDO/CANCELADO, que é histórico e voltou a
      *    ser editável, e original restaurada por rompimento) segue na lista solta.
@@ -141,11 +142,17 @@ final class MontarDetalheCasoUseCase
         }
 
         $parcelasPorAcordo = [];
+        $substituidasPorAcordo = [];
         $avulsas = [];
 
         foreach ($obrigacoes as $obrigacao) {
-            // (1) Substituída por acordo vigente sai da aba — mesmo sendo parcela de outro acordo.
+            // (1) Substituída por acordo vigente sai da lista solta e vira anexo do acordo que a
+            //     substituiu (Ajuste 10) — antes era descartada e a dívida "sumia" sem explicação.
             if ($obrigacao->substituidaPorAcordo) {
+                if ($obrigacao->acordoSubstitutoId !== null) {
+                    $substituidasPorAcordo[$obrigacao->acordoSubstitutoId][] = $obrigacao;
+                }
+
                 continue;
             }
 
@@ -181,6 +188,7 @@ final class MontarDetalheCasoUseCase
                 qtdSubstituidas: $acordo->qtdObrigacoesSubstituidas,
                 valorTotal: $valorTotal,
                 parcelas: $parcelas,
+                substituidas: $substituidasPorAcordo[$acordoId] ?? [],
             );
         }
 
