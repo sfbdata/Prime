@@ -1,6 +1,19 @@
 # SESSION_HANDOFF — Gestão de Cobranças
 
 > Memória para o PRÓXIMO chat. **Reescrito ao fim de cada sessão.** Vale mais que qualquer resumo de conversa. Sempre reconferir contra o Git antes de agir.
+>
+> ---
+> ## 🟢 SESSÃO 2026-07-17 (mais recente) — AJUSTE 10: T1–T8 PRONTAS E REVISADAS
+> Branch `redesenho-objeto-cobranca` (local, **NADA PUBLICADO**), HEAD `52138d0`. `tests/Cobranca` **609/609**, global **1973/1973**.
+> **➡️ PRÓXIMO PASSO NATURAL = T9 (formulários sob demanda). Prompt pronto: `NEW_CHAT_PROMPT.md`. Estado/gotchas: `HANDOFF_AJUSTE10.md`. Ledger: `.superpowers/sdd/progress.md`.**
+> - **T6** (bug de dinheiro §5.3, acordo sobre obrigação já paga) **CONSERTADO** e provado (objeto 296); conserto = sugerir remanescente + avisar, NÃO mexeu em `CalculadoraSaldo`.
+> - **T7** (B1–B4: data do pagamento hoje; aba grudada no `pasta-arquivos.js` compartilhado; subnav; redirect com fragmento) — completo, review sem bloqueante, smoke real.
+> - **T8** (erros inline nos modais, B5) — **13 de 14 forms**, review adversarial SEM BLOQUEANTE, achado A1 (comentário) corrigido. Desenho no ledger. **Falta só `acordoCriar`** (follow-up: colide com o reset-on-close da T5).
+> - Extras na branch: **conserto de cache no nginx** (`941c8ce`; CSS/JS local `no-cache` em vez de `immutable` 30d) e **spec fase2 recuperada** (`7096c45`).
+> - **T9 (higiene) + T10 (opcional) restam.** Alternativa que o humano pode preferir: `/review` final + integrar/deployar o Ajuste 10 inteiro. **Não iniciar sem o humano escolher.**
+> - **⚠️ INCIDENTE: 2 chats no mesmo repo → `git reset --hard HEAD~1` de outra sessão APAGOU a T8 (refeita do zero). LIÇÃO: um piloto de git por vez; commitar cedo.**
+> ---
+>
 > Sessão encerrada em: **2026-07-15 — 🎉 RODADA 1–9 COMPLETA, MERGEADA NO MASTER, DEPLOYADA E VALIDADA EM PRODUÇÃO.** Specs: `docs/specs/cobranca-ajuste9-bloquear-acordo-sobre-acordo.md` (INV-I a INV-M; D1–D6) · `cobranca-ajuste7-acordo-inteligente.md` (D1–D8; INV-A a INV-H) + as dos ajustes 2/4/5/6. Detalhe por item no AJUSTES_BACKLOG.
 >
 > **`master` == `origin/master` == `gestao-cobrancas` == `origin/gestao-cobrancas` == `ca65f5a`** (merge-commit de `origin/master` na branch — trouxe os 4 commits do Sync, zero conflito). Commits do ajuste 9: `4478a88`(spec) · `1a2a2df`(código) · `640d40e`(docs). Item 7: `361cb53`·`2c3ed78`·`a2be47f`·`bb10f90`. Item 8: `9201fc2`. `tests/Cobranca` **539/539**, global **1854/1854**.

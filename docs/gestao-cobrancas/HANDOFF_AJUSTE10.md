@@ -1,12 +1,15 @@
 # Ajuste 10 — Handoff para o próximo chat
 
-> **Estado em 2026-07-17.** Branch `redesenho-objeto-cobranca`, **nada publicado**.
-> `tests/Cobranca` **597/597** · global **1961/1961**.
-> **T1–T7 COMPLETAS e revisadas** (T6 = bug de dinheiro §5.3 consertado; T7 = B1–B4, review sem
-> bloqueante, smoke real feito). **Faltam T9, T8, T10.**
+> **Estado em 2026-07-17 (fim do dia).** Branch `redesenho-objeto-cobranca`, **nada publicado**.
+> `tests/Cobranca` **609/609** · global **1973/1973**.
+> **T1–T8 COMPLETAS e revisadas.** T6 = bug de dinheiro §5.3 consertado; T7 = B1–B4; T8 = erros inline
+> (B5) em **13 de 14 forms**, review adversarial sem bloqueante, achado A1 (comentário) corrigido, smoke
+> real feito. **Falta só T9 (higiene) e T10 (opcional) — e o passe do `acordoCriar` (o 14º form da T8).**
 >
 > ⚠️ Ao reabrir: **confira o Git, não este cabeçalho** — versões anteriores deste arquivo já ficaram
 > para trás do estado real. Fonte viva do detalhe de cada tarefa: `.superpowers/sdd/progress.md`.
+>
+> **PRÓXIMO PASSO NATURAL = T9 (formulários sob demanda).** Prompt pronto em `NEW_CHAT_PROMPT.md`.
 
 ## Leia nesta ordem
 
@@ -58,9 +61,10 @@ ou de template = opus.
 |---|---|---|
 | ~~T6~~ | ~~Acordo sobre obrigação paga (spec §5.3)~~ | ✅ **COMPLETA.** Bug de dinheiro consertado e provado (objeto 296). |
 | ~~T7~~ | ~~B1–B4 (data do pagamento, aba grudada, subnav, redirect)~~ | ✅ **COMPLETA.** Review sem bloqueante, smoke real nos 2 lados. |
-| **T9** | Formulários sob demanda | Higiene. Meça **antes** e depois. |
-| **T8** | Erros inline | **Decisão tomada: SESSÃO + PRG.** Ver Step 2 da T8 no plano. |
+| ~~T8~~ | ~~Erros inline (B5)~~ | ✅ **COMPLETA (13/14 forms).** SESSÃO+PRG+one-shot+fronteira CSRF+URL da ação (reutilizáveis). Review sem bloqueante. **Falta só `acordoCriar`** (passe próprio — colide com o reset-on-close da T5). |
+| **T9** | Formulários sob demanda | **➡️ PRÓXIMO.** Higiene, não UX (a página não está lenta). Meça **antes** e depois. Segunda a cair se o tempo apertar. |
 | **T10** | (opcional) "o que este pagamento abateu" | **Primeira a cair.** Foi ideia minha, não pedido do humano. |
+| ⏳ `acordoCriar` | O 14º form da T8, adiado | Parcelas são CollectionType (reidratável), MAS o auto-open dispara o reset-on-close (T5, `351dcf8`/`906af4c`) e apaga o reidratado. Precisa de flag "não resetar ao reabrir por erro". Passe cuidadoso — mexe no fluxo de acordo já em prod. |
 
 ### T6 tem uma dívida herdada da T5 — não esqueça
 
