@@ -546,4 +546,30 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(20000, $fresh->getValorDivida(), 'CSRF inválido não reescreve a composição');
         self::assertNull($fresh->getMotivoCorrecao());
     }
+
+    #[TestDox('B5: pagamento com valor não-positivo reabre o modal com o digitado e o erro')]
+    public function testRegistrarPagamentoInvalidoReabreModalComErroEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'registrar_pagamento');
+
+        // Valor 0,00 passa no HTML5 (campo preenchido) mas falha Positive no servidor.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pagamentos', [
+            'registrar_pagamento' => ['data' => '2026-05-10', 'valorPago' => '0,00', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '#secao-movimentos');
+        $crawler = $client->followRedirect();
+
+        self::assertSame('modalRegistrarPagamento', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
+        $modalHtml = $crawler->filter('#modalRegistrarPagamento')->html();
+        self::assertStringContainsString('O valor pago deve ser positivo.', $modalHtml);
+        self::assertStringContainsString('2026-05-10', $modalHtml, 'a data digitada tem de sobreviver ao redirect');
+    }
 }

@@ -132,9 +132,12 @@ final class MontadorModaisCaso
      * Views dos formulários financeiros (8B-D) da aba Pagamentos & Liquidações. Gated pela capacidade
      * `resources.cobranca.movimentacao_financeira` no chamador.
      *
+     * @param array{form: string, modalId: string, payload: array<string, mixed>}|null $erroModal B5:
+     *        reidrata o form financeiro cuja validação falhou (registrar pagamento/liquidação).
+     *
      * @return array<string, \Symfony\Component\Form\FormView>
      */
-    public function financeiros(CasoCobranca $caso): array
+    public function financeiros(CasoCobranca $caso, ?array $erroModal = null): array
     {
         $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
 
@@ -146,9 +149,9 @@ final class MontadorModaisCaso
         $pagamentoHoje->data = new \DateTimeImmutable('today');
 
         return [
-            'registrarPagamento' => $this->formFactory->create(RegistrarPagamentoType::class, $pagamentoHoje, ['obrigacoes' => $opcoesObrigacoes])->createView(),
+            'registrarPagamento' => $this->reidratarSeErro($this->formFactory->create(RegistrarPagamentoType::class, $pagamentoHoje, ['obrigacoes' => $opcoesObrigacoes]), 'registrarPagamento', $erroModal),
             'corrigirPagamento' => $this->formFactory->create(CorrigirPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
-            'registrarLiquidacao' => $this->formFactory->create(RegistrarLiquidacaoType::class)->createView(),
+            'registrarLiquidacao' => $this->reidratarSeErro($this->formFactory->create(RegistrarLiquidacaoType::class), 'registrarLiquidacao', $erroModal),
         ];
     }
 

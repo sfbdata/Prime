@@ -84,7 +84,8 @@ final class PagamentoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'registrarPagamento', 'modalRegistrarPagamento', 'registrar_pagamento');
         }
 
         // Ajuste 10 (B4): o pagamento muda "O que já entrou" — é lá que o gestor confere o que registrou.

@@ -64,7 +64,8 @@ final class LiquidacaoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'registrarLiquidacao', 'modalRegistrarLiquidacao', 'registrar_liquidacao');
         }
 
         // Ajuste 10 (B4): volta olhando "O que já entrou" — a liquidação é movimento, não dívida. O

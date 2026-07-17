@@ -126,4 +126,37 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
         $liquidacoes = static::getContainer()->get(LiquidacaoRepository::class)->doCaso($caso);
         self::assertCount(0, $liquidacoes, 'CSRF inválido não persiste liquidação');
     }
+
+    #[TestDox('B5: liquidação sem valor reconhecido reabre o modal com o bem digitado e o erro')]
+    public function testRegistrarLiquidacaoInvalidaReabreModalComErroEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'registrar_liquidacao');
+
+        // Descreve o bem mas esquece o valor reconhecido — validação de campo falha.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/liquidacoes', [
+            'registrar_liquidacao' => [
+                'tipo' => 'bem_movel',
+                'descricaoBem' => 'Veiculo Fiat Uno preservado',
+                'valorAtribuidoBem' => '150,00',
+                'valorReconhecido' => '',
+                'data' => '2026-05-10',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '#secao-movimentos');
+        $crawler = $client->followRedirect();
+
+        self::assertSame('modalRegistrarLiquidacao', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
+        $modalHtml = $crawler->filter('#modalRegistrarLiquidacao')->html();
+        self::assertStringContainsString('Informe o valor reconhecido da liquidação.', $modalHtml);
+        self::assertStringContainsString('Veiculo Fiat Uno preservado', $modalHtml, 'a descrição do bem tem de sobreviver ao redirect');
+    }
 }

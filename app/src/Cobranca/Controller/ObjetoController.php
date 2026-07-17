@@ -81,12 +81,13 @@ final class ObjetoController extends AbstractController
         $podeAcessarPastas = $this->permissionChecker->canAccessModule($usuario, $tenant, self::MODULO_PASTAS);
 
         // B5: se a última mutação falhou na validação, reabrimos aquele modal com o digitado e o erro.
-        // One-shot (some na leitura) e por objeto — não vaza entre objetos/abas.
-        $erroModal = $podeGerenciar ? $this->consumirErroDeModal($request, $id) : null;
+        // One-shot (some na leitura) e por objeto. Consumido sob QUALQUER das duas capacidades porque o
+        // erro pode vir tanto de um modal de gerenciar quanto de um financeiro (capacidades separadas).
+        $erroModal = ($podeGerenciar || $podeMovimentar) ? $this->consumirErroDeModal($request, $id) : null;
 
         $forms = $podeGerenciar ? $this->montadorModais->deMutacao($caso, $podeAcessarPastas, $erroModal) : [];
         if ($podeMovimentar) {
-            $forms += $this->montadorModais->financeiros($caso);
+            $forms += $this->montadorModais->financeiros($caso, $erroModal);
         }
 
         $documentos = $this->montadorModais->documentosParaFm($caso);
