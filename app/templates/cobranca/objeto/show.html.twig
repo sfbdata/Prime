@@ -428,6 +428,24 @@ document.addEventListener('DOMContentLoaded', function () {
         var fechamentoBox = modal.querySelector('[data-acordo-fechamento]');
         var checkboxes = Array.prototype.slice.call(modal.querySelectorAll('input[name*="obrigacoesSubstituidasIds"]'));
         var avisoPagamento = document.getElementById('avisoAcordoComPagamento');
+        var dataAcordoInput = form ? form.querySelector('input[name$="[dataAcordo]"]') : null;
+        var data1Input = document.getElementById('acordoData1');
+
+        function pad2(n) { return (n < 10 ? '0' : '') + n; }
+        function hojeYmd() { var t = new Date(); return t.getFullYear() + '-' + pad2(t.getMonth() + 1) + '-' + pad2(t.getDate()); }
+        // "1º vencimento" sugerido = 1 mês após a data do acordo, com clamp de fim de mês (31/jan -> 28/fev).
+        function umMesApos(ymd) {
+            if (!ymd) { return ''; }
+            var p = ymd.split('-');
+            var y = parseInt(p[0], 10), m = parseInt(p[1], 10), d = parseInt(p[2], 10);
+            var alvoM = m + 1, alvoY = y;
+            if (alvoM > 12) { alvoM = 1; alvoY += 1; }
+            var ultimoDia = new Date(alvoY, alvoM, 0).getDate();
+            return alvoY + '-' + pad2(alvoM) + '-' + pad2(Math.min(d, ultimoDia));
+        }
+        function vencimentoSugerido() {
+            return umMesApos((dataAcordoInput && dataAcordoInput.value) ? dataAcordoInput.value : hojeYmd());
+        }
 
         function valorInputDe(row) { return row.querySelector('input[name$="[valor]"]'); }
         function linhas() { return Array.prototype.slice.call(container.querySelectorAll('.parcela-linha')); }
@@ -557,6 +575,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (entradaInput) { entradaInput.addEventListener('input', redistribuir); }
 
+        // O "1º vencimento" nasce em 1 mês após a data do acordo e acompanha mudanças dessa data, desde
+        // que o gestor não o tenha ajustado à mão (`touched`, espelha o total).
+        if (data1Input && !data1Input.value) { data1Input.value = vencimentoSugerido(); }
+        if (data1Input) {
+            data1Input.addEventListener('input', function () { data1Input.dataset.touched = '1'; });
+        }
+        if (dataAcordoInput) {
+            dataAcordoInput.addEventListener('change', function () {
+                if (data1Input && data1Input.dataset.touched !== '1') { data1Input.value = vencimentoSugerido(); }
+            });
+        }
+
         // Editar o valor de uma parcela a FIXA; as demais se redistribuem para fechar o total.
         container.addEventListener('input', function (e) {
             var input = e.target.closest('input[name$="[valor]"]');
@@ -584,8 +614,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (entradaInput) { entradaInput.value = ''; }
             var qtdInput = document.getElementById('acordoQtdParcelas');
             if (qtdInput) { qtdInput.value = '1'; }
-            var data1Input = document.getElementById('acordoData1');
-            if (data1Input) { data1Input.value = ''; }
+            // Volta ao sugerido (data do acordo + 1 mês), não a vazio — o modal reabre já preenchido.
+            if (data1Input) { data1Input.value = vencimentoSugerido(); delete data1Input.dataset.touched; }
             var periodicidadeSelect = document.getElementById('acordoPeriodicidade');
             if (periodicidadeSelect) { periodicidadeSelect.selectedIndex = 0; }
             if (erroBox) { erroBox.textContent = ''; }

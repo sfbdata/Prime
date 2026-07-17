@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Service;
 
+use App\Cobranca\DTO\CriarAcordoInput;
 use App\Cobranca\DTO\RegistrarPagamentoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\CasoCobranca;
@@ -83,6 +84,12 @@ final class MontadorModaisCaso
         $contatoAgora = new RegistrarTentativaCobrancaInput();
         $contatoAgora->dataContato = new \DateTimeImmutable();
 
+        // Melhoria UX: o acordo se lavra "hoje" no caso comum — o modal abre com a data do acordo já em
+        // hoje (editável). Espelha o contato/pagamento. O "1º vencimento" do gerador (input só-JS) nasce
+        // em hoje+1mês no cliente, derivado desta data.
+        $acordoHoje = new CriarAcordoInput();
+        $acordoHoje->dataAcordo = new \DateTimeImmutable('today');
+
         $views = [
             'registrarObrigacao' => $this->reidratarSeErro($this->formFactory->create(RegistrarObrigacaoType::class), 'registrarObrigacao', $erroModal),
             'editarObrigacao' => $this->reidratarSeErro($this->formFactory->create(EditarObrigacaoType::class), 'editarObrigacao', $erroModal),
@@ -90,7 +97,7 @@ final class MontadorModaisCaso
             'definirProximaAcao' => $this->reidratarSeErro($this->formFactory->create(DefinirProximaAcaoType::class), 'definirProximaAcao', $erroModal),
             'concluirAcao' => $this->reidratarSeErro($this->formFactory->create(ConcluirAcaoType::class), 'concluirAcao', $erroModal),
             'registrarTentativa' => $this->reidratarSeErro($this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora), 'registrarTentativa', $erroModal),
-            'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, null, [
+            'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, $acordoHoje, [
                 'obrigacoes' => $opcoesObrigacoes,
                 'valores' => $valoresObrigacoes,
                 'alocados' => $alocadoPorObrigacao,

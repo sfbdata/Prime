@@ -240,6 +240,25 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         );
     }
 
+    #[TestDox('Melhoria UX: o modal de criar acordo abre com a data do acordo em hoje')]
+    public function testModalDeAcordoAbreComADataDeHoje(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // O acordo se lavra "hoje" no caso comum; obrigar a digitar a data toda vez é atrito. Espelha o
+        // modal de contato/pagamento (`MontadorModaisCaso::deMutacao`). O "1º vencimento" (input só-JS do
+        // gerador) nasce em hoje+1mês no cliente — não testável aqui, coberto por smoke.
+        self::assertSame(
+            (new \DateTimeImmutable('today'))->format('Y-m-d'),
+            $crawler->filter('#modalCriarAcordo input[name$="[dataAcordo]"]')->attr('value'),
+        );
+    }
+
     #[TestDox('Objeto show cross-tenant: 404')]
     public function testShowCrossTenant404(): void
     {
