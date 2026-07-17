@@ -52,7 +52,7 @@ final class ObjetoController extends AbstractController
     }
 
     #[Route('/{id}', name: 'cobranca_objeto_show', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function show(int $id): Response
+    public function show(int $id, Request $request): Response
     {
         $tenant = $this->tenantComModulo();
         if ($tenant === null) {
@@ -80,7 +80,11 @@ final class ObjetoController extends AbstractController
         $podeMovimentar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.movimentacao_financeira');
         $podeAcessarPastas = $this->permissionChecker->canAccessModule($usuario, $tenant, self::MODULO_PASTAS);
 
-        $forms = $podeGerenciar ? $this->montadorModais->deMutacao($caso, $podeAcessarPastas) : [];
+        // B5: se a última mutação falhou na validação, reabrimos aquele modal com o digitado e o erro.
+        // One-shot (some na leitura) e por objeto — não vaza entre objetos/abas.
+        $erroModal = $podeGerenciar ? $this->consumirErroDeModal($request, $id) : null;
+
+        $forms = $podeGerenciar ? $this->montadorModais->deMutacao($caso, $podeAcessarPastas, $erroModal) : [];
         if ($podeMovimentar) {
             $forms += $this->montadorModais->financeiros($caso);
         }
@@ -90,6 +94,7 @@ final class ObjetoController extends AbstractController
         return $this->render('cobranca/objeto/show.html.twig', [
             'objeto' => $this->montarDetalheObjeto->executar($objeto, $caso),
             'forms' => $forms,
+            'modalErroId' => $erroModal['modalId'] ?? null,
             'casoId' => $caso->getId(),
             'podeGerenciarDocumentos' => $podeGerenciar,
             'secoes' => $documentos['secoes'],

@@ -28,6 +28,8 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Pasta\Repository\PastaRepository;
 use Symfony\Component\Form\FormFactoryInterface;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormView;
 
 /**
  * Monta as views dos modais de mutação e o mapa de documentos para o file-manager de um Caso — o
@@ -53,9 +55,13 @@ final class MontadorModaisCaso
      * Views (vazias) dos formulários de mutação renderizados como modais no detalhe. Gated pela
      * capacidade `resources.cobranca.gerenciar` no chamador. Judicializar só entra com o módulo `pastas`.
      *
+     * @param array{form: string, modalId: string, payload: array<string, mixed>}|null $erroModal B5:
+     *        estado one-shot da última mutação que falhou na validação; reidrata aquele form (valores +
+     *        erros) em vez de abri-lo vazio. Null = fluxo normal (todos os modais vazios).
+     *
      * @return array<string, \Symfony\Component\Form\FormView>
      */
-    public function deMutacao(CasoCobranca $caso, bool $incluirJudicializar = false): array
+    public function deMutacao(CasoCobranca $caso, bool $incluirJudicializar = false, ?array $erroModal = null): array
     {
         // INV-I (ajuste 9): o form de acordo só oferece DÍVIDA ORIGINAL. Parcela de acordo vigente fica de
         // fora — acordo sobre acordo duplicaria a dívida no saldo ao romper o acordo de origem. NÃO é a
@@ -78,7 +84,7 @@ final class MontadorModaisCaso
         $contatoAgora->dataContato = new \DateTimeImmutable();
 
         $views = [
-            'registrarObrigacao' => $this->formFactory->create(RegistrarObrigacaoType::class)->createView(),
+            'registrarObrigacao' => $this->reidratarSeErro($this->formFactory->create(RegistrarObrigacaoType::class), 'registrarObrigacao', $erroModal),
             'editarObrigacao' => $this->formFactory->create(EditarObrigacaoType::class)->createView(),
             'encerrarCaso' => $this->formFactory->create(EncerrarCasoType::class)->createView(),
             'definirProximaAcao' => $this->formFactory->create(DefinirProximaAcaoType::class)->createView(),
@@ -103,6 +109,23 @@ final class MontadorModaisCaso
         }
 
         return $views;
+    }
+
+    /**
+     * B5: se o estado de erro (one-shot) aponta para ESTE form, re-submete o payload cru — o FormView
+     * resultante já carrega os valores digitados e os erros de validação, e o `form_row` os renquadra no
+     * campo. Sem correspondência, devolve a view vazia normal. O Form entra já configurado (com as opções
+     * dele), então o re-submit respeita choices/valores próprios de cada modal.
+     *
+     * @param array{form: string, modalId: string, payload: array<string, mixed>}|null $erroModal
+     */
+    private function reidratarSeErro(FormInterface $form, string $formKey, ?array $erroModal): FormView
+    {
+        if ($erroModal !== null && $erroModal['form'] === $formKey) {
+            $form->submit($erroModal['payload']);
+        }
+
+        return $form->createView();
     }
 
     /**

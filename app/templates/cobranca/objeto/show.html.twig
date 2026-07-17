@@ -201,6 +201,9 @@
 {{ include('cobranca/caso/_acoes_modais_financeiro.html.twig') }}
 {% endif %}
 
+{# B5: marcador (one-shot no servidor) que reabre o modal cujo submit falhou na validação. #}
+{% if modalErroId %}<span data-modal-erro="{{ modalErroId }}" hidden></span>{% endif %}
+
 {# Nova pessoa (cadastra + vincula ao objeto — gatilho no card da pessoa) #}
 {% if formNovaPessoa %}
 <div class="modal fade" id="modalNovaPessoa" tabindex="-1" aria-labelledby="tituloNovaPessoa" aria-hidden="true">
@@ -297,6 +300,14 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.cobrancas-page [data-bs-toggle="tooltip"]').forEach(function (el) {
         new bootstrap.Tooltip(el);
     });
+
+    /* B5: a última mutação falhou na validação → reabre o modal com o digitado e o erro inline (o
+       conteúdo já vem do form_row reidratado; aqui só damos o show). O marcador é consumido no servidor. */
+    var marcadorErro = document.querySelector('[data-modal-erro]');
+    if (marcadorErro) {
+        var modalComErro = document.getElementById(marcadorErro.getAttribute('data-modal-erro'));
+        if (modalComErro) { bootstrap.Modal.getOrCreateInstance(modalComErro).show(); }
+    }
 
     /* Modal reutilizável de "editar obrigação": o botão da linha injeta a URL e pré-preenche os campos
        (valores em centavos → reais com ponto, que o CentavosType aceita no reverse). */

@@ -117,8 +117,11 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         ]);
 
         self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
-        $client->followRedirect();
+        $crawler = $client->followRedirect();
         self::assertStringNotContainsString('MARCADOR CSRF RUIM', (string) $client->getResponse()->getContent());
+        // B5 é para erro de VALIDAÇÃO; falha de CSRF (erro de raiz) é rejeição limpa — o modal NÃO reabre
+        // ecoando o payload. Trava a fronteira entre "corrigir campo" e evento de segurança.
+        self::assertCount(0, $crawler->filter('[data-modal-erro]'), 'CSRF inválido não reabre o modal com o digitado');
     }
 
     #[TestDox('Editar obrigação: happy path corrige os campos e volta ao objeto')]
@@ -340,5 +343,61 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertNotNull($em->find(Obrigacao::class, $obrigacaoId), 'sem motivo não exclui');
+    }
+
+    #[TestDox('B5: obrigação inválida reabre o modal com o erro e preserva o que o usuário digitou')]
+    public function testRegistrarObrigacaoInvalidaReabreModalComErroEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'registrar_obrigacao');
+
+        // O gestor digita a descrição mas esquece o valor — a validação falha.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/obrigacoes', [
+            'registrar_obrigacao' => [
+                'descricao' => 'Cota condominial de teste',
+                'valorOriginal' => '',
+                'vencimentoOriginal' => '2026-09-10',
+                'referenciaExterna' => '',
+                '_token' => $token,
+            ],
+        ]);
+
+        // PRG preservado: erro não vira 200 na própria action (F5 não re-posta).
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '#secao-divida');
+        $crawler = $client->followRedirect();
+
+        // 1) A página sinaliza QUAL modal reabrir (o load dá o show via Bootstrap).
+        self::assertSame(
+            'modalRegistrarObrigacao',
+            $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'),
+            'após o erro a página deve reabrir o modal certo',
+        );
+        // 2) O erro aparece DENTRO do modal, não como flash solto que apaga o contexto.
+        self::assertStringContainsString(
+            'Informe o valor da obrigação.',
+            $crawler->filter('#modalRegistrarObrigacao')->html(),
+            'o gestor precisa ver o erro no campo',
+        );
+        // 3) O que ele digitou sobrevive ao redirect.
+        self::assertSame(
+            'Cota condominial de teste',
+            $crawler->filter('#modalRegistrarObrigacao input[name="registrar_obrigacao[descricao]"]')->attr('value'),
+            'o digitado não pode ser apagado',
+        );
+
+        // 4) One-shot: a visita seguinte volta limpa, sem reabrir nem repetir o valor.
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        self::assertCount(0, $crawler->filter('[data-modal-erro]'), 'o estado de erro é consumido na leitura (one-shot)');
+        self::assertSame(
+            '',
+            (string) $crawler->filter('#modalRegistrarObrigacao input[name="registrar_obrigacao[descricao]"]')->attr('value'),
+            'na visita seguinte o modal volta vazio',
+        );
     }
 }

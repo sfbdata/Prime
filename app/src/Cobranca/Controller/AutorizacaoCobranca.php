@@ -8,6 +8,7 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use Symfony\Component\Form\FormInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -112,5 +113,65 @@ trait AutorizacaoCobranca
         if (!$form->isSubmitted()) {
             $this->addFlash('danger', 'Não foi possível processar o formulário.');
         }
+    }
+
+    /**
+     * B5 (ajuste 10): trata um Form inválido de mutação decidindo entre reabrir o modal com o digitado
+     * (erro de VALIDAÇÃO de campo, que o gestor corrige e reenvia) e a rejeição limpa de antes (erro de
+     * RAIZ — CSRF/token expirado ou forjado —, um evento de segurança, não um "digitou errado"). O
+     * sinal: erros de campo ficam nos filhos (`getErrors()` da raiz conta 0, não borbulham); o erro de
+     * CSRF fica na raiz. Só o primeiro reabre o modal ecoando o payload.
+     *
+     * @param string $formKey     chave do FormView no array `forms` do template (ex.: 'registrarObrigacao')
+     * @param string $modalId     id do modal no DOM a reabrir (ex.: 'modalRegistrarObrigacao')
+     * @param string $blockPrefix prefixo do Form no request (ex.: 'registrar_obrigacao')
+     */
+    private function tratarFormInvalido(Request $request, FormInterface $form, int $objetoId, string $formKey, string $modalId, string $blockPrefix): void
+    {
+        if (\count($form->getErrors()) > 0) {
+            // Erro de raiz (CSRF): rejeição limpa, sem ecoar o payload de volta na página.
+            $this->flashErrosDoForm($form);
+
+            return;
+        }
+
+        $this->guardarErroDeModal($request, $objetoId, $formKey, $modalId, $blockPrefix);
+    }
+
+    /**
+     * Mantém a PRG, mas em vez de o erro de validação virar um flash solto que apaga o que o gestor
+     * digitou, guarda na sessão — ONE-SHOT, por objeto — o payload submetido e qual modal reabrir. O
+     * `ObjetoController::show` consome esse estado, re-submete o Form (reidratando valores e erros via
+     * `form_row`) e reabre o modal. Nada de entidade na sessão: só o array cru do request.
+     */
+    private function guardarErroDeModal(Request $request, int $objetoId, string $formKey, string $modalId, string $blockPrefix): void
+    {
+        $request->getSession()->set(self::chaveErroModal($objetoId), [
+            'form' => $formKey,
+            'modalId' => $modalId,
+            'payload' => $request->request->all($blockPrefix),
+        ]);
+    }
+
+    /**
+     * Lê-e-consome (one-shot) o estado de erro de modal guardado por `guardarErroDeModal`. Removê-lo na
+     * leitura é o que impede o modal de reabrir em toda visita seguinte à mesma página.
+     *
+     * @return array{form: string, modalId: string, payload: array<string, mixed>}|null
+     */
+    private function consumirErroDeModal(Request $request, int $objetoId): ?array
+    {
+        $session = $request->getSession();
+        $chave = self::chaveErroModal($objetoId);
+        $estado = $session->get($chave);
+        $session->remove($chave);
+
+        return \is_array($estado) ? $estado : null;
+    }
+
+    private static function chaveErroModal(int $objetoId): string
+    {
+        // O id do objeto na chave impede o estado de vazar entre objetos/abas (spec §B5).
+        return 'cobranca_modal_erro_' . $objetoId;
     }
 }

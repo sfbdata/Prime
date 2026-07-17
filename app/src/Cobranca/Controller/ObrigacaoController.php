@@ -60,6 +60,8 @@ final class ObrigacaoController extends AbstractController
             throw $this->createNotFoundException('Caso de cobrança não encontrado.');
         }
 
+        $objetoId = $this->objetoIdDoCaso($caso);
+
         $input = new RegistrarObrigacaoInput();
         $input->casoId = $id;
         $form = $this->createForm(RegistrarObrigacaoType::class, $input);
@@ -73,12 +75,13 @@ final class ObrigacaoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $objetoId, 'registrarObrigacao', 'modalRegistrarObrigacao', 'registrar_obrigacao');
         }
 
         // Ajuste 10 (B4): a obrigação é dívida — o gestor volta olhando "Dívida em aberto", que foi o que
         // ele acabou de mudar. `redirectToRoute` não aceita fragmento: gera a URL e concatena o `#`.
-        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]) . '#secao-divida');
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
     }
 
     #[Route('/obrigacoes/{id}/editar', name: 'cobranca_obrigacao_editar', methods: ['POST'], requirements: ['id' => '\d+'])]
