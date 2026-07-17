@@ -253,4 +253,57 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('Informe o canal do contato.', $modalHtml);
         self::assertStringContainsString('Cliente prometeu ligar amanha', $modalHtml, 'a observação digitada tem de sobreviver ao redirect');
     }
+
+    #[TestDox('B5: definir ação sem descrição reabre o modal com o prazo digitado e o erro')]
+    public function testDefinirProximaAcaoInvalidaReabreModalComErroEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'definir_proxima_acao');
+
+        // Preenche o prazo mas esquece a descrição — validação de campo falha.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/proxima-acao', [
+            'definir_proxima_acao' => ['descricao' => '', 'prazo' => '2026-08-20', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        $crawler = $client->followRedirect();
+
+        self::assertSame('modalDefinirAcao', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
+        $modalHtml = $crawler->filter('#modalDefinirAcao')->html();
+        self::assertStringContainsString('Informe a descrição da próxima ação.', $modalHtml);
+        self::assertStringContainsString('2026-08-20', $modalHtml, 'o prazo digitado tem de sobreviver ao redirect');
+    }
+
+    #[TestDox('B5: concluir ação sem resultado reabre o modal com o que foi digitado e o erro')]
+    public function testConcluirAcaoInvalidaReabreModalComErroEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $acao = ProximaAcaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusProximaAcao::Pendente])->_real();
+        $acaoId = (int) $acao->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'concluir_acao');
+
+        // Preenche a nova ação mas esquece o resultado — validação de campo falha.
+        $client->request('POST', '/cobrancas/acoes/' . $acaoId . '/concluir', [
+            'concluir_acao' => ['resultado' => '', 'proximaDescricao' => 'Reagendar contato', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        $crawler = $client->followRedirect();
+
+        self::assertSame('modalConcluirAcao', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
+        $modalHtml = $crawler->filter('#modalConcluirAcao')->html();
+        self::assertStringContainsString('Informe o resultado da ação.', $modalHtml);
+        self::assertStringContainsString('Reagendar contato', $modalHtml, 'a próxima ação digitada tem de sobreviver ao redirect');
+    }
 }

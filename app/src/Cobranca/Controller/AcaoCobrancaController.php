@@ -69,7 +69,8 @@ final class AcaoCobrancaController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'definirProximaAcao', 'modalDefinirAcao', 'definir_proxima_acao');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
@@ -102,7 +103,8 @@ final class AcaoCobrancaController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $objetoId, 'concluirAcao', 'modalConcluirAcao', 'concluir_acao');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
