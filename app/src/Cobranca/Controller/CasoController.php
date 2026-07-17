@@ -149,8 +149,10 @@ final class CasoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            // Encerrar não tem campo preenchível que falhe (só casoId, setado aqui) — sem estado B5 a
-            // reidratar; um form inválido aqui só vem de CSRF, então o flash de rejeição basta.
+            // B5 fica de fora aqui por baixo valor, não por ser inalcançável: o único campo editável
+            // (`observacao`) é opcional e limitado a `Length(max: 255)`, com `maxlength=255` no cliente.
+            // O usuário honesto é barrado no navegador; a única falha de validação de campo possível vem
+            // de um POST forjado com >255 chars — que só perderia o próprio excesso. Não compensa reidratar.
             $this->flashErrosDoForm($form);
         }
 

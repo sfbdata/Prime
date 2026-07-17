@@ -362,10 +362,13 @@ final class AcordoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } elseif ($formKey !== null) {
-            // B5: modal REUTILIZÁVEL — guarda o payload e a URL da ação (por acordo). Só o romper tem
-            // campo obrigatório (motivo); o cancelar passa sem B5 (motivo opcional → só CSRF cai aqui).
+            // B5: modal REUTILIZÁVEL — guarda o payload e a URL da ação (por acordo). Só o ROMPER passa por
+            // aqui: seu `motivo` é obrigatório (NotBlank), então o gestor pode errar por digitação.
             $this->tratarFormInvalido($request, $form, $objetoId, $formKey, $modalId, $blockPrefix, $this->generateUrl($acaoRota, ['id' => $id]));
         } else {
+            // Cancelar acordo cai aqui (sem B5) por baixo valor, não por ser inalcançável: seu `motivo` é
+            // OPCIONAL e só tem `Length(max: 255)`, com `maxlength=255` no cliente. A única falha de
+            // validação de campo viria de um POST forjado com >255 chars, que só perderia o próprio excesso.
             $this->flashErrosDoForm($form);
         }
 
