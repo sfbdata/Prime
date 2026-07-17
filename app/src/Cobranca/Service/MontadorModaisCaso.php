@@ -85,7 +85,7 @@ final class MontadorModaisCaso
 
         $views = [
             'registrarObrigacao' => $this->reidratarSeErro($this->formFactory->create(RegistrarObrigacaoType::class), 'registrarObrigacao', $erroModal),
-            'editarObrigacao' => $this->formFactory->create(EditarObrigacaoType::class)->createView(),
+            'editarObrigacao' => $this->reidratarSeErro($this->formFactory->create(EditarObrigacaoType::class), 'editarObrigacao', $erroModal),
             'encerrarCaso' => $this->formFactory->create(EncerrarCasoType::class)->createView(),
             'definirProximaAcao' => $this->reidratarSeErro($this->formFactory->create(DefinirProximaAcaoType::class), 'definirProximaAcao', $erroModal),
             'concluirAcao' => $this->reidratarSeErro($this->formFactory->create(ConcluirAcaoType::class), 'concluirAcao', $erroModal),

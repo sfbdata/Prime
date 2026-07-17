@@ -400,4 +400,41 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'na visita seguinte o modal volta vazio',
         );
     }
+
+    #[TestDox('B5: editar obrigação inválida reabre o modal reutilizável com a URL da ação e o digitado')]
+    public function testEditarObrigacaoInvalidaReabreModalComAcaoEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
+
+        // Corrige a descrição mas esquece o motivo (NotBlank) — validação de campo falha.
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'Descrição corrigida XYZ',
+                'valorOriginal' => '1.200,00',
+                'vencimentoOriginal' => '2026-09-01',
+                'encargosReconhecidos' => '0,00',
+                'motivo' => '',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '#secao-divida');
+        $crawler = $client->followRedirect();
+
+        $marcador = $crawler->filter('[data-modal-erro]');
+        self::assertSame('modalEditarObrigacao', $marcador->attr('data-modal-erro'));
+        // O NOVO nos reutilizáveis: a URL da ação daquela obrigação é reposta (o JS a aplica ao form).
+        self::assertSame('/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', $marcador->attr('data-modal-erro-acao'));
+        $modalHtml = $crawler->filter('#modalEditarObrigacao')->html();
+        self::assertStringContainsString('Informe o motivo da correção.', $modalHtml);
+        self::assertStringContainsString('Descrição corrigida XYZ', $modalHtml, 'o digitado tem de sobreviver ao redirect');
+    }
 }

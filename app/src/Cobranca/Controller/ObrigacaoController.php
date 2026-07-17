@@ -111,7 +111,8 @@ final class ObrigacaoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: modal REUTILIZÁVEL — guarda também a URL da ação (por obrigação) para o auto-open repor.
+            $this->tratarFormInvalido($request, $form, $objetoId, 'editarObrigacao', 'modalEditarObrigacao', 'editar_obrigacao', $this->generateUrl('cobranca_obrigacao_editar', ['id' => $id]));
         }
 
         return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');

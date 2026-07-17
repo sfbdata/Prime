@@ -201,8 +201,9 @@
 {{ include('cobranca/caso/_acoes_modais_financeiro.html.twig') }}
 {% endif %}
 
-{# B5: marcador (one-shot no servidor) que reabre o modal cujo submit falhou na validação. #}
-{% if modalErroId %}<span data-modal-erro="{{ modalErroId }}" hidden></span>{% endif %}
+{# B5: marcador (one-shot no servidor) que reabre o modal cujo submit falhou na validação. A ação só vem
+   nos modais REUTILIZÁVEIS (URL da linha), para o auto-open repor o `action` que o clique teria injetado. #}
+{% if modalErroId %}<span data-modal-erro="{{ modalErroId }}"{% if modalErroAcao %} data-modal-erro-acao="{{ modalErroAcao }}"{% endif %} hidden></span>{% endif %}
 
 {# Nova pessoa (cadastra + vincula ao objeto — gatilho no card da pessoa) #}
 {% if formNovaPessoa %}
@@ -306,7 +307,15 @@ document.addEventListener('DOMContentLoaded', function () {
     var marcadorErro = document.querySelector('[data-modal-erro]');
     if (marcadorErro) {
         var modalComErro = document.getElementById(marcadorErro.getAttribute('data-modal-erro'));
-        if (modalComErro) { bootstrap.Modal.getOrCreateInstance(modalComErro).show(); }
+        if (modalComErro) {
+            // Reutilizáveis: repõe o `action` da linha (o auto-open não tem clique que o injete).
+            var acaoErro = marcadorErro.getAttribute('data-modal-erro-acao');
+            if (acaoErro) {
+                var formErro = modalComErro.querySelector('form');
+                if (formErro) { formErro.setAttribute('action', acaoErro); }
+            }
+            bootstrap.Modal.getOrCreateInstance(modalComErro).show();
+        }
     }
 
     /* Modal reutilizável de "editar obrigação": o botão da linha injeta a URL e pré-preenche os campos

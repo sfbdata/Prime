@@ -126,7 +126,7 @@ trait AutorizacaoCobranca
      * @param string $modalId     id do modal no DOM a reabrir (ex.: 'modalRegistrarObrigacao')
      * @param string $blockPrefix prefixo do Form no request (ex.: 'registrar_obrigacao')
      */
-    private function tratarFormInvalido(Request $request, FormInterface $form, int $objetoId, string $formKey, string $modalId, string $blockPrefix): void
+    private function tratarFormInvalido(Request $request, FormInterface $form, int $objetoId, string $formKey, string $modalId, string $blockPrefix, ?string $acaoUrl = null): void
     {
         if (\count($form->getErrors()) > 0) {
             // Erro de raiz (CSRF): rejeição limpa, sem ecoar o payload de volta na página.
@@ -135,7 +135,7 @@ trait AutorizacaoCobranca
             return;
         }
 
-        $this->guardarErroDeModal($request, $objetoId, $formKey, $modalId, $blockPrefix);
+        $this->guardarErroDeModal($request, $objetoId, $formKey, $modalId, $blockPrefix, $acaoUrl);
     }
 
     /**
@@ -144,12 +144,16 @@ trait AutorizacaoCobranca
      * `ObjetoController::show` consome esse estado, re-submete o Form (reidratando valores e erros via
      * `form_row`) e reabre o modal. Nada de entidade na sessão: só o array cru do request.
      */
-    private function guardarErroDeModal(Request $request, int $objetoId, string $formKey, string $modalId, string $blockPrefix): void
+    private function guardarErroDeModal(Request $request, int $objetoId, string $formKey, string $modalId, string $blockPrefix, ?string $acaoUrl = null): void
     {
         $request->getSession()->set(self::chaveErroModal($objetoId), [
             'form' => $formKey,
             'modalId' => $modalId,
             'payload' => $request->request->all($blockPrefix),
+            // Modais dedicados têm `action` fixo no Twig (null aqui). Os reutilizáveis recebem a URL da
+            // ação por JS a cada linha; ao reabrir por auto-open não há linha clicada, então guardamos a
+            // URL do submit e o template a reaplica no form antes de mostrar — senão re-submeteria à toa.
+            'acao' => $acaoUrl,
         ]);
     }
 
@@ -157,7 +161,7 @@ trait AutorizacaoCobranca
      * Lê-e-consome (one-shot) o estado de erro de modal guardado por `guardarErroDeModal`. Removê-lo na
      * leitura é o que impede o modal de reabrir em toda visita seguinte à mesma página.
      *
-     * @return array{form: string, modalId: string, payload: array<string, mixed>}|null
+     * @return array{form: string, modalId: string, payload: array<string, mixed>, acao: ?string}|null
      */
     private function consumirErroDeModal(Request $request, int $objetoId): ?array
     {

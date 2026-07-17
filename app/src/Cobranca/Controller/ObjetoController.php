@@ -96,6 +96,7 @@ final class ObjetoController extends AbstractController
             'objeto' => $this->montarDetalheObjeto->executar($objeto, $caso),
             'forms' => $forms,
             'modalErroId' => $erroModal['modalId'] ?? null,
+            'modalErroAcao' => $erroModal['acao'] ?? null,
             'casoId' => $caso->getId(),
             'podeGerenciarDocumentos' => $podeGerenciar,
             'secoes' => $documentos['secoes'],
