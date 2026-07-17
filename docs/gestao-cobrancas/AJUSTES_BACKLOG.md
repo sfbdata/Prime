@@ -182,3 +182,28 @@ _Racional:_ 2 é foundational mas em grande parte **relocaliza** o corpo da pág
 - **7 e 8** são a mesma frente (Acordo): parcelamento + visualização. Discutir juntos, implementar em sequência.
 - **3 e 4** mexem em ações do Caso (tentativa/revisão) — mesma área de UI (modais de ação do caso).
 - **2** é reorganização da tela `show` da carteira; pode conviver com 5/6/8 que mexem nas abas do Caso.
+
+---
+
+## ❓ Questões em aberto (para discutir depois)
+
+### Q1. Forma de honorários da carteira NÃO recalcula casos já existentes — `❓ a discutir` (levantado 2026-07-17)
+**Observação do humano (testando o "Receber"):** ao clicar "Receber" numa obrigação, os valores (dívida,
+honorário, valor pago) continuam iguais mesmo trocando a forma de honorários da carteira
+(acrescido à dívida ↔ retido do valor recuperado).
+
+**Diagnóstico (é o COMPORTAMENTO ESPERADO, não bug):** a forma + o % de honorários são um **snapshot gravado no
+CASO na abertura** (`AbrirCasoUseCase:70-71`, copiando a carteira daquele instante). `CalculadoraHonorarios`
+calcula SEMPRE pelo snapshot do caso, **nunca pela carteira atual** (docblock §18.2/§18.3: *"para não recalcular
+casos antigos"*). `EditarConfiguracaoCarteiraUseCase` muda só a carteira → **casos já existentes ficam intactos**;
+só casos NOVOS pegam a config nova. A prévia do "Receber" (`PagamentoController::previaRegistrar` →
+`AutoAlocadorFifo::derivar`) usa esse snapshot, então não muda ao mexer na carteira.
+
+**Diferença real entre as formas** (numa obrigação de R$100 / 10%): *acrescido à dívida* → devedor paga **R$110**
+(dívida 100 + honorário 10); *retido* → devedor paga **R$100**, honorário 0 na divisão do pagamento (apurado à
+parte sobre o recuperado, aparece nos relatórios). Para VER a diferença: abrir um caso NOVO sob cada forma.
+
+**A discutir:** se algum dia for preciso corrigir a forma de honorários de casos **já existentes** (ex.: import
+feito com a forma errada), hoje **não há UI** — é o freio deliberado do snapshot. Seria um follow-up de
+produto/contábil (um "reconfigurar honorários do caso" com aviso claro de que RECALCULA), decisão do humano.
+Nada a implementar por ora — só registrado.
