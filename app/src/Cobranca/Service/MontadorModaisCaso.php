@@ -55,7 +55,7 @@ final class MontadorModaisCaso
      * Views (vazias) dos formulários de mutação renderizados como modais no detalhe. Gated pela
      * capacidade `resources.cobranca.gerenciar` no chamador. Judicializar só entra com o módulo `pastas`.
      *
-     * @param array{form: string, modalId: string, payload: array<string, mixed>}|null $erroModal B5:
+     * @param array{form: string, modalId: string, payload: array<string, mixed>, acao: ?string}|null $erroModal B5:
      *        estado one-shot da última mutação que falhou na validação; reidrata aquele form (valores +
      *        erros) em vez de abri-lo vazio. Null = fluxo normal (todos os modais vazios).
      *
@@ -117,7 +117,7 @@ final class MontadorModaisCaso
      * campo. Sem correspondência, devolve a view vazia normal. O Form entra já configurado (com as opções
      * dele), então o re-submit respeita choices/valores próprios de cada modal.
      *
-     * @param array{form: string, modalId: string, payload: array<string, mixed>}|null $erroModal
+     * @param array{form: string, modalId: string, payload: array<string, mixed>, acao: ?string}|null $erroModal
      */
     private function reidratarSeErro(FormInterface $form, string $formKey, ?array $erroModal): FormView
     {
@@ -132,7 +132,7 @@ final class MontadorModaisCaso
      * Views dos formulários financeiros (8B-D) da aba Pagamentos & Liquidações. Gated pela capacidade
      * `resources.cobranca.movimentacao_financeira` no chamador.
      *
-     * @param array{form: string, modalId: string, payload: array<string, mixed>}|null $erroModal B5:
+     * @param array{form: string, modalId: string, payload: array<string, mixed>, acao: ?string}|null $erroModal B5:
      *        reidrata o form financeiro cuja validação falhou (registrar pagamento/liquidação).
      *
      * @return array<string, \Symfony\Component\Form\FormView>
