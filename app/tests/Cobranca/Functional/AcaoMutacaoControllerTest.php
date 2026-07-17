@@ -222,4 +222,35 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
 
         self::assertResponseStatusCodeSame(404);
     }
+
+    #[TestDox('B5: contato sem canal reabre o modal com a observação digitada e o erro')]
+    public function testRegistrarTentativaInvalidaReabreModalComErroEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'registrar_tentativa_cobranca');
+
+        // Escreve a observação mas não escolhe o canal — validação de campo falha.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/tentativas', [
+            'registrar_tentativa_cobranca' => [
+                'dataContato' => '2026-05-10T14:30',
+                'resultado' => 'nao_atendido',
+                'observacao' => 'Cliente prometeu ligar amanha',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        $crawler = $client->followRedirect();
+
+        self::assertSame('modalRegistrarTentativa', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
+        $modalHtml = $crawler->filter('#modalRegistrarTentativa')->html();
+        self::assertStringContainsString('Informe o canal do contato.', $modalHtml);
+        self::assertStringContainsString('Cliente prometeu ligar amanha', $modalHtml, 'a observação digitada tem de sobreviver ao redirect');
+    }
 }

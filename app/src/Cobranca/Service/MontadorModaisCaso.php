@@ -89,7 +89,7 @@ final class MontadorModaisCaso
             'encerrarCaso' => $this->formFactory->create(EncerrarCasoType::class)->createView(),
             'definirProximaAcao' => $this->formFactory->create(DefinirProximaAcaoType::class)->createView(),
             'concluirAcao' => $this->formFactory->create(ConcluirAcaoType::class)->createView(),
-            'registrarTentativa' => $this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora)->createView(),
+            'registrarTentativa' => $this->reidratarSeErro($this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora), 'registrarTentativa', $erroModal),
             'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, null, [
                 'obrigacoes' => $opcoesObrigacoes,
                 'valores' => $valoresObrigacoes,
@@ -97,15 +97,15 @@ final class MontadorModaisCaso
             ])->createView(),
             'romperAcordo' => $this->formFactory->create(RomperAcordoType::class)->createView(),
             'cancelarAcordo' => $this->formFactory->create(CancelarAcordoType::class)->createView(),
-            'alterarPessoa' => $this->formFactory->create(AlterarPessoaCobradaType::class, null, [
+            'alterarPessoa' => $this->reidratarSeErro($this->formFactory->create(AlterarPessoaCobradaType::class, null, [
                 'pessoas' => $this->pessoaRepository->opcoesDoTenant($caso->getTenant()),
-            ])->createView(),
+            ]), 'alterarPessoa', $erroModal),
         ];
 
         if ($incluirJudicializar) {
-            $views['judicializar'] = $this->formFactory->create(JudicializarCasoType::class, null, [
+            $views['judicializar'] = $this->reidratarSeErro($this->formFactory->create(JudicializarCasoType::class, null, [
                 'pastas' => $this->pastaRepository->opcoesDoTenant($caso->getTenant()),
-            ])->createView();
+            ]), 'judicializar', $erroModal);
         }
 
         return $views;

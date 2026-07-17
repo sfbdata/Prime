@@ -167,4 +167,27 @@ final class JudicializarMutacaoControllerTest extends CobrancaWebTestCase
         $em->clear();
         self::assertSame(StatusCaso::Ativo, $em->find(CasoCobranca::class, $casoId)->getStatus());
     }
+
+    #[TestDox('B5: judicializar sem escolher a pasta reabre o modal com o erro')]
+    public function testJudicializarInvalidaReabreModalComErro(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'judicializar_caso');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/judicializar', [
+            'judicializar_caso' => ['pastaId' => '', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        $crawler = $client->followRedirect();
+
+        self::assertSame('modalJudicializar', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
+        self::assertStringContainsString('Informe a pasta judicial.', $crawler->filter('#modalJudicializar')->html());
+    }
 }

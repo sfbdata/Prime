@@ -118,4 +118,30 @@ final class AlterarPessoaCobradaControllerTest extends CobrancaWebTestCase
         $em->clear();
         self::assertSame($pessoaAtualId, (int) $em->find(CasoCobranca::class, $casoId)->getPessoaCobradaAtual()->getId());
     }
+
+    #[TestDox('B5: alterar pessoa sem escolher a nova reabre o modal com o motivo digitado e o erro')]
+    public function testAlterarPessoaInvalidaReabreModalComErroEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'alterar_pessoa_cobrada');
+
+        // Digita o motivo mas não escolhe a nova pessoa — validação de campo falha.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => '', 'motivo' => 'Titularidade mudou', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        $crawler = $client->followRedirect();
+
+        self::assertSame('modalAlterarPessoa', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
+        $modalHtml = $crawler->filter('#modalAlterarPessoa')->html();
+        self::assertStringContainsString('Informe a nova pessoa cobrada.', $modalHtml);
+        self::assertStringContainsString('Titularidade mudou', $modalHtml, 'o motivo digitado tem de sobreviver ao redirect');
+    }
 }

@@ -149,6 +149,8 @@ final class CasoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
+            // Encerrar não tem campo preenchível que falhe (só casoId, setado aqui) — sem estado B5 a
+            // reidratar; um form inválido aqui só vem de CSRF, então o flash de rejeição basta.
             $this->flashErrosDoForm($form);
         }
 
@@ -183,7 +185,8 @@ final class CasoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'alterarPessoa', 'modalAlterarPessoa', 'alterar_pessoa_cobrada');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
@@ -220,7 +223,8 @@ final class CasoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'judicializar', 'modalJudicializar', 'judicializar_caso');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
@@ -252,7 +256,8 @@ final class CasoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'registrarTentativa', 'modalRegistrarTentativa', 'registrar_tentativa_cobranca');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
