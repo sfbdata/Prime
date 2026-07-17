@@ -276,7 +276,9 @@ final class AcordoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
+        // Ajuste 10 (B4): o acordo REESCREVE a dívida (substitui as originais por parcelas) — é na
+        // "Dívida em aberto" que o gestor confere o resultado. `redirectToRoute` não aceita fragmento.
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]) . '#secao-divida');
     }
 
     #[Route('/acordos/{id}/romper', name: 'cobranca_acordo_romper', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -314,7 +316,7 @@ final class AcordoController extends AbstractController
         if (!$this->isCsrfTokenValid('marcar_cumprido_' . $id, (string) $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
 
-            return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+            return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
         }
 
         $input = new MarcarAcordoCumpridoInput();
@@ -326,7 +328,7 @@ final class AcordoController extends AbstractController
             $this->addFlash('danger', $e->getMessage());
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
     }
 
     /**
@@ -363,6 +365,6 @@ final class AcordoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
     }
 }

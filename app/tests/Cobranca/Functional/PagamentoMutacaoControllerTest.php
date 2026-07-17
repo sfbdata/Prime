@@ -49,7 +49,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -86,7 +86,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -121,7 +121,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -265,7 +265,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -301,7 +301,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -341,7 +341,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -377,7 +377,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -434,7 +434,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -469,7 +469,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -538,7 +538,7 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

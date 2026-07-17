@@ -51,7 +51,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         $acordos = static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh);
@@ -106,7 +106,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         self::assertCount(0, static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh));
@@ -139,7 +139,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         $acordos = static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh);
@@ -179,7 +179,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
         self::assertCount(0, static::getContainer()->get(AcordoRepository::class)->doCaso($casoFresh), 'INV-B deve barrar o acordo');
@@ -265,7 +265,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             'romper_acordo' => ['motivo' => 'Parcelas em atraso', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         self::assertSame(StatusAcordo::Rompido, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -286,7 +286,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             'romper_acordo' => ['motivo' => 'X', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         self::assertSame(StatusAcordo::Cancelado, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -322,7 +322,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             'cancelar_acordo' => ['motivo' => 'Erro de lançamento', '_token' => $token],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         self::assertSame(StatusAcordo::Cancelado, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -374,7 +374,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
             'cancelar_acordo' => ['motivo' => 'X', '_token' => 'falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -395,7 +395,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
 
         $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cumprir', ['_token' => $token]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         self::assertSame(StatusAcordo::Cumprido, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
@@ -411,7 +411,7 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
 
         $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/cumprir', ['_token' => 'falso']);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $this->em()->clear();
         self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }

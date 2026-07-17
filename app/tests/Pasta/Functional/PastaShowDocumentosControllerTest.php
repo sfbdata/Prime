@@ -125,4 +125,27 @@ final class PastaShowDocumentosControllerTest extends JusPrimeWebTestCase
         self::assertSame('geral', $linhaGeral->attr('data-secao'));
         self::assertSame($secaoId, $linhaSecao->attr('data-secao'));
     }
+
+    #[TestDox('Cobrança ajuste 10 B2: o botão Documentos vive dentro de um .nav-tabs com irmãos — contrato do clear da flag')]
+    public function testBotaoDocumentosViveDentroDeNavTabsComIrmaos(): void
+    {
+        $client          = static::createClient();
+        [$user, $tenant] = $this->criarUsuarioAdmin();
+        $pasta           = $this->criarPasta($tenant);
+
+        $this->logarComTenant($client, $user, $tenant);
+        $crawler = $client->request('GET', "/pasta/{$pasta->getId()}");
+
+        self::assertResponseIsSuccessful();
+        // O `pasta-arquivos.js` é COMPARTILHADO entre esta página e a do objeto de Cobrança. O clear da
+        // flag `fmTab_<id>` deixou de procurar `#pastaTabs` fixo e passou a subir do próprio botão
+        // (`closest('.nav-tabs')`), porque lá o container é `#objetoTabs`. Este teste trava o contrato do
+        // lado de Pastas: aqui o clear JÁ funcionava e não pode regredir (spec §2.1).
+        self::assertCount(1, $crawler->filter('ul.nav-tabs #documentos-tab'), 'o botão tem de estar dentro do .nav-tabs');
+        self::assertGreaterThan(
+            1,
+            $crawler->filter('#pastaTabs [data-bs-toggle="tab"]')->count(),
+            'o container precisa ter outras abas — são elas que limpam a flag',
+        );
+    }
 }

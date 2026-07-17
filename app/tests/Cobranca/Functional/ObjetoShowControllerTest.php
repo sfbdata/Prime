@@ -78,6 +78,11 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertSelectorExists('.jp-pessoa-card');
         // A subnav do módulo voltou (B3): esta página era a única que a perdia.
         self::assertSelectorExists('.cobranca-subnav');
+        // E marca CARTEIRAS: o objeto se chega por Carteira→Objeto (ajuste 2, decisão G). Sem travar o
+        // item ativo, a subnav podia voltar apontando para lugar nenhum e o teste acima não notaria.
+        $ativo = $crawler->filter('.cobranca-subnav .cobranca-subnav-item.active');
+        self::assertCount(1, $ativo, 'exatamente um item da subnav fica ativo');
+        self::assertStringContainsString('Carteiras', $ativo->text());
     }
 
     #[TestDox('Ajuste 10: a aba Cobrança abre por padrão — o cadastro deixou de ser a primeira coisa')]
@@ -179,6 +184,60 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertCount(0, $crawler->filter('[data-bs-target="#modalRegistrarPagamento"]'));
         self::assertCount(0, $crawler->filter('[data-bs-target="#modalRegistrarLiquidacao"]'));
         self::assertGreaterThan(0, $crawler->filter('[data-bs-target="#modalRegistrarObrigacao"]')->count());
+    }
+
+    #[TestDox('Ajuste 10 B2: o botão Documentos vive dentro de um .nav-tabs com irmãos — contrato do clear da flag')]
+    public function testBotaoDocumentosViveDentroDeNavTabsComIrmaos(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // O `pasta-arquivos.js` é COMPARTILHADO com `pasta/show` e resolve o container das abas subindo do
+        // próprio botão (`docTabBtn.closest('.nav-tabs')`) — o id do `<ul>` difere entre as duas páginas
+        // (`#objetoTabs` aqui, `#pastaTabs` lá). Se o botão sair do `.nav-tabs`, o `closest` devolve null,
+        // nenhum listener de limpeza é registrado e a aba Documentos volta a grudar (spec §2.1).
+        self::assertCount(1, $crawler->filter('ul.nav-tabs #documentos-tab'), 'o botão tem de estar dentro do .nav-tabs');
+        // Os IRMÃOS são quem limpa a flag ao serem escolhidos: sem eles no mesmo container, nada limpa.
+        self::assertGreaterThan(
+            1,
+            $crawler->filter('#objetoTabs [data-bs-toggle="tab"]')->count(),
+            'o container precisa ter outras abas — são elas que limpam a flag',
+        );
+    }
+
+    #[TestDox('Ajuste 10 B1: o modal de pagamento abre com a data de hoje, como o de contato já fazia')]
+    public function testModalDePagamentoAbreComADataDeHoje(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // Pagamento se registra no dia em que entrou: o caso comum é "hoje" e o gestor só corrige a
+        // exceção. O modal de contato já nascia preenchido (`MontadorModaisCaso::deMutacao`); o de
+        // pagamento obrigava a digitar a data toda vez.
+        self::assertSame(
+            (new \DateTimeImmutable('today'))->format('Y-m-d'),
+            $crawler->filter('#modalRegistrarPagamento input[type=date]')->attr('value'),
+        );
+
+        // Só o REGISTRO nasce preenchido: corrigir mexe num pagamento que já tem data própria e liquidar
+        // não é pagamento — sugerir "hoje" ali convidaria a sobrescrever a data real. A rede negativa
+        // protege a assimetria contra uma regressão futura no MontadorModaisCaso.
+        self::assertNull(
+            $crawler->filter('#modalCorrigirPagamento input[type=date]')->attr('value'),
+            'Corrigir pagamento não pode sugerir "hoje": o pagamento já tem data própria.',
+        );
+        self::assertNull(
+            $crawler->filter('#modalRegistrarLiquidacao input[type=date]')->attr('value'),
+            'Registrar liquidação não é pagamento e não deve nascer com data.',
+        );
     }
 
     #[TestDox('Objeto show cross-tenant: 404')]

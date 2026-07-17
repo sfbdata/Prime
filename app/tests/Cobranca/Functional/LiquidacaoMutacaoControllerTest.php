@@ -41,7 +41,7 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -69,7 +69,7 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -119,7 +119,7 @@ final class LiquidacaoMutacaoControllerTest extends CobrancaWebTestCase
             'registrar_liquidacao' => ['tipo' => 'bem_movel', 'descricaoBem' => 'MARCADOR CSRF', 'valorReconhecido' => '100,00', 'data' => '2026-05-10', '_token' => 'token-falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

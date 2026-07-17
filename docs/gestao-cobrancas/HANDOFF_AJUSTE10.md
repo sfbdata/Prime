@@ -1,8 +1,12 @@
 # Ajuste 10 — Handoff para o próximo chat
 
-> **Estado em 2026-07-16.** Branch `redesenho-objeto-cobranca`, 14 commits, **nada publicado**.
-> `tests/Cobranca` **584/584** · global **1947/1947** · working tree limpo.
-> **T1–T5 COMPLETAS e revisadas. Faltam T6, T7, T9, T8, T10.**
+> **Estado em 2026-07-17.** Branch `redesenho-objeto-cobranca`, **nada publicado**.
+> `tests/Cobranca` **597/597** · global **1961/1961**.
+> **T1–T7 COMPLETAS e revisadas** (T6 = bug de dinheiro §5.3 consertado; T7 = B1–B4, review sem
+> bloqueante, smoke real feito). **Faltam T9, T8, T10.**
+>
+> ⚠️ Ao reabrir: **confira o Git, não este cabeçalho** — versões anteriores deste arquivo já ficaram
+> para trás do estado real. Fonte viva do detalhe de cada tarefa: `.superpowers/sdd/progress.md`.
 
 ## Leia nesta ordem
 
@@ -52,8 +56,8 @@ ou de template = opus.
 
 | Tarefa | O que é | Nota |
 |---|---|---|
-| **T6** | Acordo sobre obrigação paga (spec §5.3) | **A mais importante.** Bug de dinheiro confirmado em prod. **Fecha também o "Importante 1" da T5** (abaixo). |
-| **T7** | B1–B4 (data do pagamento, aba grudada, subnav, redirect) | ⚠️ Ler §2.1 da spec **inteira** antes do B2. |
+| ~~T6~~ | ~~Acordo sobre obrigação paga (spec §5.3)~~ | ✅ **COMPLETA.** Bug de dinheiro consertado e provado (objeto 296). |
+| ~~T7~~ | ~~B1–B4 (data do pagamento, aba grudada, subnav, redirect)~~ | ✅ **COMPLETA.** Review sem bloqueante, smoke real nos 2 lados. |
 | **T9** | Formulários sob demanda | Higiene. Meça **antes** e depois. |
 | **T8** | Erros inline | **Decisão tomada: SESSÃO + PRG.** Ver Step 2 da T8 no plano. |
 | **T10** | (opcional) "o que este pagamento abateu" | **Primeira a cair.** Foi ideia minha, não pedido do humano. |

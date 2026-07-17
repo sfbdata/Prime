@@ -43,7 +43,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $client->followRedirect();
         self::assertStringContainsString('Boleto marcador ABC', (string) $client->getResponse()->getContent());
     }
@@ -69,7 +69,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId() . '#secao-divida');
         $client->followRedirect();
         self::assertStringNotContainsString('NAO DEVE PERSISTIR XYZ', (string) $client->getResponse()->getContent());
     }
@@ -116,7 +116,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'registrar_obrigacao' => ['descricao' => 'MARCADOR CSRF RUIM', 'valorOriginal' => '10,00', 'vencimentoOriginal' => '2026-08-10', '_token' => 'token-falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $client->followRedirect();
         self::assertStringNotContainsString('MARCADOR CSRF RUIM', (string) $client->getResponse()->getContent());
     }
@@ -147,7 +147,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -205,7 +205,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'editar_obrigacao' => ['descricao' => 'NAO DEVE MUDAR', 'valorOriginal' => '1,00', 'vencimentoOriginal' => '2026-09-01', 'motivo' => 'x', '_token' => 'token-falso'],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -230,7 +230,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             '_token' => $token,
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -286,7 +286,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'motivo' => 'x', '_token' => 'token-falso',
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -312,7 +312,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'motivo' => 'tentando excluir', '_token' => $token,
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -335,7 +335,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'motivo' => '   ', '_token' => $token,
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

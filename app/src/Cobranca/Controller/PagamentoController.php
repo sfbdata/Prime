@@ -87,7 +87,8 @@ final class PagamentoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
+        // Ajuste 10 (B4): o pagamento muda "O que já entrou" — é lá que o gestor confere o que registrou.
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]) . '#secao-movimentos');
     }
 
     /**
@@ -190,6 +191,7 @@ final class PagamentoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+        // Ajuste 10 (B4): corrigir pagamento também mexe no extrato de movimentos.
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-movimentos');
     }
 }

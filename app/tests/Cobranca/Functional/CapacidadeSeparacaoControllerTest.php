@@ -38,7 +38,7 @@ final class CapacidadeSeparacaoControllerTest extends CobrancaWebTestCase
                 '_token' => $token,
             ],
         ]);
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -66,7 +66,7 @@ final class CapacidadeSeparacaoControllerTest extends CobrancaWebTestCase
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/obrigacoes', [
             'registrar_obrigacao' => ['descricao' => 'OBRIG MARCADOR ZZ', 'valorOriginal' => '15,00', 'vencimentoOriginal' => '2026-08-10', '_token' => $token],
         ]);
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
         $client->followRedirect();
         self::assertStringContainsString('OBRIG MARCADOR ZZ', (string) $client->getResponse()->getContent(), 'gerenciar deve funcionar');
 

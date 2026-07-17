@@ -79,7 +79,7 @@ final class AcordoSobreAcordoBloqueadoControllerTest extends CobrancaWebTestCase
 
         // INV-L: recusa é erro tratado, não estouro.
         self::assertResponseRedirects(
-            '/cobrancas/objetos/' . $caso->getObjeto()->getId(),
+            '/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida',
             null,
             'A recusa de acordo sobre acordo deve redirecionar com flash, nunca dar 500.',
         );
@@ -137,7 +137,7 @@ final class AcordoSobreAcordoBloqueadoControllerTest extends CobrancaWebTestCase
         ]);
 
         self::assertResponseRedirects(
-            '/cobrancas/objetos/' . $caso->getObjeto()->getId(),
+            '/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida',
             null,
             'A recusa do rompimento deve redirecionar com flash, nunca dar 500.',
         );
@@ -185,7 +185,7 @@ final class AcordoSobreAcordoBloqueadoControllerTest extends CobrancaWebTestCase
         ]);
 
         self::assertResponseRedirects(
-            '/cobrancas/objetos/' . $caso->getObjeto()->getId(),
+            '/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida',
             null,
             'A recusa do cancelamento deve redirecionar com flash, nunca dar 500.',
         );
@@ -238,7 +238,7 @@ final class AcordoSobreAcordoBloqueadoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-movimentos');
 
         $this->em()->clear();
         $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);

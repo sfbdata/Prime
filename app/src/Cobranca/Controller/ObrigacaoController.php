@@ -76,7 +76,9 @@ final class ObrigacaoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
+        // Ajuste 10 (B4): a obrigação é dívida — o gestor volta olhando "Dívida em aberto", que foi o que
+        // ele acabou de mudar. `redirectToRoute` não aceita fragmento: gera a URL e concatena o `#`.
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]) . '#secao-divida');
     }
 
     #[Route('/obrigacoes/{id}/editar', name: 'cobranca_obrigacao_editar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -109,7 +111,7 @@ final class ObrigacaoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
     }
 
     #[Route('/obrigacoes/{id}/excluir', name: 'cobranca_obrigacao_excluir', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -131,14 +133,14 @@ final class ObrigacaoController extends AbstractController
         if (!$this->isCsrfTokenValid('excluir_obrigacao_' . $id, (string) $request->request->get('_token'))) {
             $this->addFlash('danger', 'Token de segurança inválido.');
 
-            return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+            return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
         }
 
         $motivo = trim((string) $request->request->get('motivo'));
         if ($motivo === '') {
             $this->addFlash('danger', 'Informe o motivo da exclusão.');
 
-            return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+            return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
         }
 
         try {
@@ -148,6 +150,6 @@ final class ObrigacaoController extends AbstractController
             $this->addFlash('danger', $e->getMessage());
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId]);
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
     }
 }

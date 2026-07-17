@@ -87,7 +87,7 @@ final class CasoEncerradoBloqueiaMutacaoControllerTest extends CobrancaWebTestCa
             ],
         ]);
 
-        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $casoEncerrado->getObjeto()->getId() . '#secao-divida');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();

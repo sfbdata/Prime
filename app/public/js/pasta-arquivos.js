@@ -478,9 +478,18 @@
     const docTabBtn = document.getElementById('documentos-tab');
     if (docTabBtn) {
         docTabBtn.addEventListener('shown.bs.tab', function () { sessionStorage.setItem('fmTab_' + pastaId, '1'); });
-        document.querySelectorAll('#pastaTabs [data-bs-toggle="tab"]').forEach(function (b) {
-            if (b !== docTabBtn) b.addEventListener('shown.bs.tab', function () { sessionStorage.removeItem('fmTab_' + pastaId); });
-        });
+        /* O container das abas é resolvido a partir do PRÓPRIO botão, não por id fixo: este script é
+           COMPARTILHADO e o `<ul>` tem id diferente em cada página (`#pastaTabs` em pasta/show,
+           `#objetoTabs` no objeto de cobrança). Com `#pastaTabs` fixo o clear só achava o alvo em Pastas;
+           na Cobrança a flag entrava e NUNCA saía, e a aba Documentos grudava a cada reload até fechar o
+           navegador (spec §2.1). O `closest` pode não achar o container — sem ele, não há irmão para
+           escutar e o mecanismo simplesmente não registra nada. */
+        const abas = docTabBtn.closest('.nav-tabs');
+        if (abas) {
+            abas.querySelectorAll('[data-bs-toggle="tab"]').forEach(function (b) {
+                if (b !== docTabBtn) b.addEventListener('shown.bs.tab', function () { sessionStorage.removeItem('fmTab_' + pastaId); });
+            });
+        }
     }
 
     // Estado inicial (restaura aba/pasta após reloads de excluir/editar/upload)

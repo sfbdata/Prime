@@ -67,6 +67,8 @@ final class LiquidacaoController extends AbstractController
             $this->flashErrosDoForm($form);
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
+        // Ajuste 10 (B4): volta olhando "O que já entrou" — a liquidação é movimento, não dívida. O
+        // `redirectToRoute` não monta fragmento; a URL é gerada e o `#` concatenado.
+        return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]) . '#secao-movimentos');
     }
 }

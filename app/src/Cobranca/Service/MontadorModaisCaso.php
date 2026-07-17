@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Service;
 
+use App\Cobranca\DTO\RegistrarPagamentoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Form\AcordoCriarType;
@@ -114,8 +115,15 @@ final class MontadorModaisCaso
     {
         $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
 
+        // Ajuste 10 (B1): o pagamento abre com a data de HOJE — o caso comum é registrar o que entrou no
+        // dia, e o gestor só corrige a exceção. Espelha o modal de contato (`deMutacao`, acima). Só o
+        // REGISTRO nasce preenchido: `corrigirPagamento` mexe num pagamento que já tem data própria, e
+        // sugerir "hoje" ali convidaria a sobrescrever a data real do dinheiro.
+        $pagamentoHoje = new RegistrarPagamentoInput();
+        $pagamentoHoje->data = new \DateTimeImmutable('today');
+
         return [
-            'registrarPagamento' => $this->formFactory->create(RegistrarPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
+            'registrarPagamento' => $this->formFactory->create(RegistrarPagamentoType::class, $pagamentoHoje, ['obrigacoes' => $opcoesObrigacoes])->createView(),
             'corrigirPagamento' => $this->formFactory->create(CorrigirPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
             'registrarLiquidacao' => $this->formFactory->create(RegistrarLiquidacaoType::class)->createView(),
         ];
