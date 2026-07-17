@@ -1,15 +1,17 @@
 # Ajuste 10 — Handoff para o próximo chat
 
-> **Estado em 2026-07-17 (fim do dia).** Branch `redesenho-objeto-cobranca`, **nada publicado**.
-> `tests/Cobranca` **609/609** · global **1973/1973**.
-> **T1–T8 COMPLETAS e revisadas.** T6 = bug de dinheiro §5.3 consertado; T7 = B1–B4; T8 = erros inline
-> (B5) em **13 de 14 forms**, review adversarial sem bloqueante, achado A1 (comentário) corrigido, smoke
-> real feito. **Falta só T9 (higiene) e T10 (opcional) — e o passe do `acordoCriar` (o 14º form da T8).**
+> **Estado em 2026-07-17 (fim do dia).** Branch `redesenho-objeto-cobranca`, **nada publicado**. HEAD `2bd8293`.
+> `tests/Cobranca` **609/609** · `tests/Pasta` **328/328** · global **1973/1973**.
+> **T1–T8 COMPLETAS e revisadas. REVISÃO FINAL do Ajuste 10 feita (2 revisores adversariais em paralelo):
+> 0 bloqueantes.** Achado A1 (PHPDoc do `erroModal` sem a chave `acao`) corrigido no commit `2bd8293`; A2
+> (POST forjado não-submetido → ramo de reidratação com payload vazio) = borda benigna, não consertada por
+> decisão. **T9 FECHADA SEM CÓDIGO (não-aplicável pós-T4** — ver a tabela abaixo). **O Ajuste 10 está pronto
+> para integração/deploy (decisão do humano).**
+>
+> **Ainda em aberto (fora da rodada):** T10 (opcional, não iniciada) e o `acordoCriar` (o 14º form da T8).
 >
 > ⚠️ Ao reabrir: **confira o Git, não este cabeçalho** — versões anteriores deste arquivo já ficaram
 > para trás do estado real. Fonte viva do detalhe de cada tarefa: `.superpowers/sdd/progress.md`.
->
-> **PRÓXIMO PASSO NATURAL = T9 (formulários sob demanda).** Prompt pronto em `NEW_CHAT_PROMPT.md`.
 
 ## Leia nesta ordem
 
@@ -62,8 +64,8 @@ ou de template = opus.
 | ~~T6~~ | ~~Acordo sobre obrigação paga (spec §5.3)~~ | ✅ **COMPLETA.** Bug de dinheiro consertado e provado (objeto 296). |
 | ~~T7~~ | ~~B1–B4 (data do pagamento, aba grudada, subnav, redirect)~~ | ✅ **COMPLETA.** Review sem bloqueante, smoke real nos 2 lados. |
 | ~~T8~~ | ~~Erros inline (B5)~~ | ✅ **COMPLETA (13/14 forms).** SESSÃO+PRG+one-shot+fronteira CSRF+URL da ação (reutilizáveis). Review sem bloqueante. **Falta só `acordoCriar`** (passe próprio — colide com o reset-on-close da T5). |
-| **T9** | Formulários sob demanda | **➡️ PRÓXIMO.** Higiene, não UX (a página não está lenta). Meça **antes** e depois. Segunda a cair se o tempo apertar. |
-| **T10** | (opcional) "o que este pagamento abateu" | **Primeira a cair.** Foi ideia minha, não pedido do humano. |
+| ~~T9~~ | ~~Formulários sob demanda~~ | ❌ **NÃO-APLICÁVEL (fechada sem código, 2026-07-17).** Premissa caiu pós-T4: 3 abas, todos os modais no DOM gated por capacidade, sem "aba fechada" a adiar. AJAX quebraria o B5. Custo ~5% numa página não-lenta. **Revisão final de T1–T8 = 0 bloqueantes.** |
+| **T10** | (opcional) "o que este pagamento abateu" | **Primeira a cair.** Foi ideia minha, não pedido do humano. **Não iniciada.** |
 | ⏳ `acordoCriar` | O 14º form da T8, adiado | Parcelas são CollectionType (reidratável), MAS o auto-open dispara o reset-on-close (T5, `351dcf8`/`906af4c`) e apaga o reidratado. Precisa de flag "não resetar ao reabrir por erro". Passe cuidadoso — mexe no fluxo de acordo já em prod. |
 
 ### T6 tem uma dívida herdada da T5 — não esqueça

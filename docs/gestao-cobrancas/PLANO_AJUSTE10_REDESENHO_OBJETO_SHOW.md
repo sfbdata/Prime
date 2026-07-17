@@ -1366,7 +1366,21 @@ git commit -m "Reabrir modal com erros inline e preservar o digitado"
 
 ---
 
-## Task 9: formulários sob demanda (B6)
+## Task 9: formulários sob demanda (B6) — ❌ NÃO-APLICÁVEL (fechada sem código, 2026-07-17)
+
+> **A premissa CAIU pós-T4.** Esta tarefa foi escrita para 6 abas ("adiar os forms das *abas fechadas*").
+> A T4 reduziu a página para **3 abas** (Cobrança/Documentos/Histórico) e TODOS os modais de mutação
+> passaram a ser incluídos **incondicionalmente no DOM** (`objeto/show.html.twig:197-202`), disparados por
+> botões espalhados pela página e gated só por **capacidade** (`gerenciar`/`movimentacao_financeira`), não
+> por aba. **Não existe "aba fechada" cujos forms adiar.**
+>
+> Adiar de verdade agora exigiria carregar o conteúdo do modal via **AJAX ao clicar** — o que (a) **não é
+> "higiene, risco BAIXO"** e (b) **quebraria a reidratação B5 da T8** (`reidratarSeErro` depende do form
+> estar no render inicial para repor valor+erro). Custo real (medido estático): ~4-5 queries dedicadas sobre
+> uma página que já roda ~90 (~5%), mais o CPU de ~14 FormViews vazios — a página **não está lenta**. O
+> próprio plano já a marcava como "segunda a cair". **Forçá-la introduziria risco sem ganho medível.** FECHA.
+
+Registro original abaixo (mantido só como histórico da premissa obsoleta):
 
 Todo GET constrói **13–16 FormViews**, mesmo os das abas que o usuário não abre
 (`MontadorModaisCaso:69-88,103-107`).
