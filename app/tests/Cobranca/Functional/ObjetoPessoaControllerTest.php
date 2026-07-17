@@ -100,4 +100,29 @@ final class ObjetoPessoaControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         self::assertCount(0, $em->getRepository(VinculoPessoaObjeto::class)->findBy(['objeto' => $objetoId]));
     }
+
+    #[TestDox('B5: nova pessoa com e-mail inválido reabre o modal com o nome digitado e o erro')]
+    public function testNovaPessoaInvalidaReabreModalComErroEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'criar_pessoa_vinculada');
+
+        // Nome ok, e-mail malformado — validação de campo falha.
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/pessoas', [
+            'criar_pessoa_vinculada' => ['nome' => 'Fulano de Tal Preservado', 'email' => 'nao-e-email', 'tipoVinculo' => TipoVinculo::Outro->value, '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        $crawler = $client->followRedirect();
+
+        self::assertSame('modalNovaPessoa', $crawler->filter('[data-modal-erro]')->attr('data-modal-erro'));
+        $modalHtml = $crawler->filter('#modalNovaPessoa')->html();
+        self::assertStringContainsString('E-mail inválido.', $modalHtml);
+        self::assertStringContainsString('Fulano de Tal Preservado', $modalHtml, 'o nome digitado tem de sobreviver ao redirect');
+    }
 }

@@ -19,6 +19,7 @@ use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -104,7 +105,7 @@ final class ObjetoController extends AbstractController
             // Ações do card da pessoa (Ajuste 10 — era a aba Pessoas) — só para quem gerencia. "Nova
             // pessoa" cadastra+vincula; "Vincular" liga uma pessoa já existente do escritório;
             // "Encerrar vínculo" fecha um vínculo aberto.
-            'formNovaPessoa' => $podeGerenciar ? $this->createForm(CriarPessoaVinculadaType::class)->createView() : null,
+            'formNovaPessoa' => $podeGerenciar ? $this->novaPessoaView($erroModal) : null,
             'formVincular' => $podeGerenciar
                 ? $this->createForm(VincularPessoaAObjetoType::class, null, ['pessoas' => $this->pessoaRepository->opcoesDoTenant($tenant)])->createView()
                 : null,
@@ -138,9 +139,26 @@ final class ObjetoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: modal de ação estática (action fixo no Twig) — sem URL a repor. Reidratado inline no show.
+            $this->tratarFormInvalido($request, $form, $id, 'novaPessoa', 'modalNovaPessoa', 'criar_pessoa_vinculada');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $id]);
+    }
+
+    /**
+     * B5: o modal "Nova pessoa" é criado inline (não passa pelo MontadorModaisCaso). Reidrata-o quando a
+     * última criação falhou na validação — mesma lógica do `reidratarSeErro` do montador.
+     *
+     * @param array{form: string, modalId: string, payload: array<string, mixed>, acao: ?string}|null $erroModal
+     */
+    private function novaPessoaView(?array $erroModal): FormView
+    {
+        $form = $this->createForm(CriarPessoaVinculadaType::class);
+        if ($erroModal !== null && $erroModal['form'] === 'novaPessoa') {
+            $form->submit($erroModal['payload']);
+        }
+
+        return $form->createView();
     }
 }
