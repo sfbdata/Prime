@@ -287,7 +287,7 @@ final class AcordoController extends AbstractController
         $input = new RomperAcordoInput();
         $input->acordoId = $id;
 
-        return $this->mutarAcordoComMotivo($id, $request, $input, RomperAcordoType::class, fn ($i, $t, $u) => $this->romperAcordo->executar($i, $t, $u), 'Acordo rompido.');
+        return $this->mutarAcordoComMotivo($id, $request, $input, RomperAcordoType::class, fn ($i, $t, $u) => $this->romperAcordo->executar($i, $t, $u), 'Acordo rompido.', 'romperAcordo', 'modalRomperAcordo', 'romper_acordo', 'cobranca_acordo_romper');
     }
 
     #[Route('/acordos/{id}/cancelar', name: 'cobranca_acordo_cancelar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -336,7 +336,7 @@ final class AcordoController extends AbstractController
      * PRG. `$input` (com acordoId setado) alimenta o Form; `$executar($input, $tenant, $user)` chama
      * o UseCase específico.
      */
-    private function mutarAcordoComMotivo(int $id, Request $request, object $input, string $tipoForm, callable $executar, string $sucesso): Response
+    private function mutarAcordoComMotivo(int $id, Request $request, object $input, string $tipoForm, callable $executar, string $sucesso, ?string $formKey = null, ?string $modalId = null, ?string $blockPrefix = null, ?string $acaoRota = null): Response
     {
         $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
         if ($tenant === null) {
@@ -361,6 +361,10 @@ final class AcordoController extends AbstractController
                 // outro acordo vigente renegociou duplicaria a dívida no saldo. Sem este catch, 500.
                 $this->addFlash('danger', $e->getMessage());
             }
+        } elseif ($formKey !== null) {
+            // B5: modal REUTILIZÁVEL — guarda o payload e a URL da ação (por acordo). Só o romper tem
+            // campo obrigatório (motivo); o cancelar passa sem B5 (motivo opcional → só CSRF cai aqui).
+            $this->tratarFormInvalido($request, $form, $objetoId, $formKey, $modalId, $blockPrefix, $this->generateUrl($acaoRota, ['id' => $id]));
         } else {
             $this->flashErrosDoForm($form);
         }

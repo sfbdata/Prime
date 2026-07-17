@@ -415,4 +415,33 @@ final class AcordoMutacaoControllerTest extends CobrancaWebTestCase
         $this->em()->clear();
         self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus());
     }
+
+    #[TestDox('B5: romper acordo sem motivo reabre o modal reutilizavel com a URL da acao e o erro')]
+    public function testRomperAcordoInvalidoReabreModalComAcaoEErro(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo])->_real();
+        $acordoId = (int) $acordo->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'romper_acordo');
+
+        // Motivo vazio — NotBlank falha.
+        $client->request('POST', '/cobrancas/acordos/' . $acordoId . '/romper', [
+            'romper_acordo' => ['motivo' => '', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '#secao-divida');
+        $crawler = $client->followRedirect();
+
+        $marcador = $crawler->filter('[data-modal-erro]');
+        self::assertSame('modalRomperAcordo', $marcador->attr('data-modal-erro'));
+        self::assertSame('/cobrancas/acordos/' . $acordoId . '/romper', $marcador->attr('data-modal-erro-acao'));
+        self::assertStringContainsString('Informe o motivo do rompimento.', $crawler->filter('#modalRomperAcordo')->html());
+        $this->em()->clear();
+        self::assertSame(StatusAcordo::Ativo, $this->em()->find(Acordo::class, $acordoId)->getStatus(), 'a recusa não rompe o acordo');
+    }
 }

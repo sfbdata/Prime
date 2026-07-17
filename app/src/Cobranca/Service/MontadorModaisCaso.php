@@ -95,7 +95,7 @@ final class MontadorModaisCaso
                 'valores' => $valoresObrigacoes,
                 'alocados' => $alocadoPorObrigacao,
             ])->createView(),
-            'romperAcordo' => $this->formFactory->create(RomperAcordoType::class)->createView(),
+            'romperAcordo' => $this->reidratarSeErro($this->formFactory->create(RomperAcordoType::class), 'romperAcordo', $erroModal),
             'cancelarAcordo' => $this->formFactory->create(CancelarAcordoType::class)->createView(),
             'alterarPessoa' => $this->reidratarSeErro($this->formFactory->create(AlterarPessoaCobradaType::class, null, [
                 'pessoas' => $this->pessoaRepository->opcoesDoTenant($caso->getTenant()),
@@ -150,7 +150,7 @@ final class MontadorModaisCaso
 
         return [
             'registrarPagamento' => $this->reidratarSeErro($this->formFactory->create(RegistrarPagamentoType::class, $pagamentoHoje, ['obrigacoes' => $opcoesObrigacoes]), 'registrarPagamento', $erroModal),
-            'corrigirPagamento' => $this->formFactory->create(CorrigirPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes])->createView(),
+            'corrigirPagamento' => $this->reidratarSeErro($this->formFactory->create(CorrigirPagamentoType::class, null, ['obrigacoes' => $opcoesObrigacoes]), 'corrigirPagamento', $erroModal),
             'registrarLiquidacao' => $this->reidratarSeErro($this->formFactory->create(RegistrarLiquidacaoType::class), 'registrarLiquidacao', $erroModal),
         ];
     }

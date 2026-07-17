@@ -189,7 +189,8 @@ final class PagamentoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            $this->flashErrosDoForm($form);
+            // B5: modal REUTILIZÁVEL — guarda também a URL da ação (por pagamento) para o auto-open repor.
+            $this->tratarFormInvalido($request, $form, $objetoId, 'corrigirPagamento', 'modalCorrigirPagamento', 'corrigir_pagamento', $this->generateUrl('cobranca_pagamento_corrigir', ['id' => $id]));
         }
 
         // Ajuste 10 (B4): corrigir pagamento também mexe no extrato de movimentos.

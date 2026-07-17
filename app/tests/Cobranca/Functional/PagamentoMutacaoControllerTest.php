@@ -572,4 +572,34 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('O valor pago deve ser positivo.', $modalHtml);
         self::assertStringContainsString('2026-05-10', $modalHtml, 'a data digitada tem de sobreviver ao redirect');
     }
+
+    #[TestDox('B5: corrigir pagamento invalido reabre o modal reutilizavel com a URL da acao e o digitado')]
+    public function testCorrigirPagamentoInvalidoReabreModalComAcaoEPreservaODigitado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 20000, 'encargosReconhecidos' => 0])->_real();
+        $pagamento = PagamentoFactory::createOne(['tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 20000, 'valorHonorarios' => 0])->_real();
+        $pagamentoId = (int) $pagamento->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'corrigir_pagamento');
+
+        // Valor 0,00 falha Positive no servidor; o motivo fica preenchido para provar a preservação.
+        $client->request('POST', '/cobrancas/pagamentos/' . $pagamentoId . '/corrigir', [
+            'corrigir_pagamento' => ['valorPago' => '0,00', 'motivoCorrecao' => 'Ajuste de smoke ZZZ', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '#secao-movimentos');
+        $crawler = $client->followRedirect();
+
+        $marcador = $crawler->filter('[data-modal-erro]');
+        self::assertSame('modalCorrigirPagamento', $marcador->attr('data-modal-erro'));
+        self::assertSame('/cobrancas/pagamentos/' . $pagamentoId . '/corrigir', $marcador->attr('data-modal-erro-acao'));
+        $modalHtml = $crawler->filter('#modalCorrigirPagamento')->html();
+        self::assertStringContainsString('O valor pago deve ser positivo.', $modalHtml);
+        self::assertStringContainsString('Ajuste de smoke ZZZ', $modalHtml, 'o motivo digitado tem de sobreviver ao redirect');
+    }
 }
