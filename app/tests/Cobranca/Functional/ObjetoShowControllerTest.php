@@ -331,7 +331,7 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
             $crawler->filter('#secao-movimentos .jp-ordem')->text(),
         );
 
-        $valores = $crawler->filter('#secao-movimentos .jp-mov .jp-obr-valor')
+        $valores = $crawler->filter('#secao-movimentos .jp-mov .jp-mov-valor')
             ->each(static fn ($node) => trim($node->text()));
 
         self::assertCount(3, $valores);
