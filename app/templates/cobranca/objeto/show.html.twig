@@ -71,25 +71,29 @@
 
 <section class="content mt-3">
     <div class="container-fluid">
-        {# ── Cockpit: quanto deve e o que fazer ────────────────── #}
+        <div class="cob-grid">
+        <div class="cob-main">
+        {# ── Hero do dinheiro (Ajuste 11): substitui o cockpit em faixa. Só os campos que o
+           `CasoDetalheOutput` de fato tem — sem barra de progresso (não há valorRecuperado/totalDoCaso;
+           não inventar cálculo). ──────────────────────────────────────────────────────────────── #}
+        <div class="cob-hero">
+            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                <div>
+                    <div class="cob-hero-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">Total em aberto</div>
+                    <div class="cob-hero-total {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</div>
+                    {% if caso.saldoVencido > 0 %}<div class="mt-1"><span class="cob-hero-venc">{{ caso.saldoVencido|centavos }}</span> <span style="color:#c7e6d5">já vencido</span></div>{% endif %}
+                </div>
+                <div class="text-end" style="color:#c7e6d5">
+                    <div class="cob-hero-label">Honorários</div>
+                    <div class="fw-semibold text-white">{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} ({{ caso.percentualHonorarios }}%){% endif %}</div>
+                </div>
+            </div>
+        </div>
+
+        {# ── Próxima ação: mantida como estava (Ajuste 10), só reposicionada logo abaixo do hero.
+           Migra para o trilho (`.cob-rail`) na Task 3 — aqui só troca de lugar, não de forma. ── #}
         <div class="caso-header mb-3">
             <div class="jp-resumo">
-                <div class="jp-resumo-item">
-                    <div class="caso-metric-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">
-                        Total em aberto <i class="bi bi-question-circle" style="opacity:.5"></i>
-                    </div>
-                    <div class="caso-metric-valor {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</div>
-                </div>
-                <div class="jp-resumo-item">
-                    <div class="caso-metric-label" data-bs-toggle="tooltip" title="Saldo vencido: a parte do total que já passou do vencimento.">
-                        Já vencido <i class="bi bi-question-circle" style="opacity:.5"></i>
-                    </div>
-                    <div class="caso-metric-valor {{ caso.saldoVencido > 0 ? 'saldo-vencido' : '' }}">{{ caso.saldoVencido|centavos }}</div>
-                </div>
-                <div class="jp-resumo-item">
-                    <div class="caso-metric-label" data-bs-toggle="tooltip" title="Como o escritório cobra os honorários neste caso (fixado na abertura).">Honorários</div>
-                    <div class="fw-semibold">{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} <span class="text-secondary">({{ caso.percentualHonorarios }}%)</span>{% endif %}</div>
-                </div>
                 <div class="jp-resumo-item jp-resumo-acao">
                     {% if caso.proximaAcao %}
                         <div class="caso-proxima-acao {{ caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
@@ -142,9 +146,6 @@
         </div>
         {% endif %}
 
-        {# ── De quem é a dívida (era a aba "Pessoas", que abria por padrão) ── #}
-        {{ include('cobranca/objeto/_partials/_pessoa_card.html.twig') }}
-
         {# ── Abas: 6 → 3 ───────────────────────────────────────── #}
         <ul class="nav nav-tabs" id="objetoTabs" role="tablist">
             <li class="nav-item" role="presentation">
@@ -190,6 +191,14 @@
                 </ul>
                 {% else %}<p class="text-muted mb-0 text-center py-3">Sem eventos no histórico.</p>{% endif %}
             </div>
+        </div>
+        </div>
+
+        <div class="cob-rail">
+            {# ── De quem é a dívida (era a aba "Pessoas", que abria por padrão) — sai de cima das abas
+               e vai para o trilho direito. Próxima ação/Ações do caso entram aqui na Task 3. ── #}
+            {{ include('cobranca/objeto/_partials/_pessoa_card.html.twig') }}
+        </div>
         </div>
     </div>
 </section>

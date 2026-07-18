@@ -379,3 +379,27 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 }
 .jp-chip.is-vencida { border-color: rgba(var(--bs-danger-rgb), .4); color: var(--bs-danger); background: rgba(var(--bs-danger-rgb), .07); }
 .jp-chip.is-paga { border-color: rgba(var(--bs-success-rgb), .4); color: var(--bs-success); background: rgba(var(--bs-success-rgb), .07); }
+
+/* ── Ajuste 11: cockpit em 2 colunas ─────────────────────────────── */
+.cobrancas-page { --cob-radius: 1rem; }
+
+.cob-grid { display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
+@media (max-width: 991.98px) { .cob-grid { grid-template-columns: 1fr; } }
+.cob-main, .cob-rail { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+
+.cob-card {
+    background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
+    border-radius: var(--cob-radius); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.03);
+}
+html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+
+/* Hero do dinheiro — painel verde-escuro (identidade do módulo, não índigo). Ajuste 11 §T2: o output
+   (`CasoDetalheOutput`) não tem `valorRecuperado`/`totalDoCaso` — sem barra de progresso (não inventar cálculo). */
+.cob-hero {
+    color: #fff; border-radius: var(--cob-radius); padding: 1.35rem 1.5rem;
+    background: linear-gradient(135deg, #0f3d2e 0%, #14533b 100%);
+    display: flex; flex-direction: column; gap: 1.1rem;
+}
+.cob-hero-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #a7e0c3; font-weight: 600; }
+.cob-hero-total { font-size: 2.55rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.cob-hero-venc { color: #ff8f9e; font-weight: 700; font-variant-numeric: tabular-nums; }
