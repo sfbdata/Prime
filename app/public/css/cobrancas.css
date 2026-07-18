@@ -221,26 +221,34 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 }
 .jp-secao-acoes { margin-left: auto; display: flex; gap: .5rem; flex-wrap: wrap; }
 
-/* ── Lista de obrigações ── */
-.jp-lista { border: 1px solid var(--bs-border-color); border-radius: .75rem; overflow: hidden; background: var(--bs-body-bg); }
+/* ── Lista de obrigações ──
+   Sem `overflow: hidden` no container (Ajuste 11/T4): o menu `⋯` de cada linha (`.cob-row-menu`) é um
+   dropdown Bootstrap que pode abrir além da borda inferior da lista quando a linha é a última — um
+   ancestral com overflow oculto o recortaria. O arredondamento externo, em vez de "clipar" o conteúdo,
+   é aplicado só no topo (cabeçalho) e no fundo (última linha/estado vazio) abaixo. */
+.jp-lista { border: 1px solid var(--bs-border-color); border-radius: .75rem; background: var(--bs-body-bg); }
+.jp-lista > .jp-obr:last-child, .jp-lista > .jp-vazio:last-child { border-radius: 0 0 .75rem .75rem; }
 
 /* Grade única: checkbox · VENCIMENTO · o que é · valor · ações */
 .jp-obr, .jp-lista-head {
-    display: grid; align-items: center; gap: .1rem 1rem;
-    grid-template-columns: 1.6rem 8.5rem 1fr 9rem auto;
-    padding: .7rem 1rem; border-top: 1px solid var(--bs-border-color);
+    display: grid; align-items: center; gap: .9rem;
+    grid-template-columns: 18px 96px minmax(0,1fr) 120px auto;
+    padding: .75rem .65rem; border-radius: .625rem; border-top: 1px solid var(--bs-border-color);
 }
 /* Cabeçalho de colunas: diz onde começa a ler */
 .jp-lista-head {
     padding-top: .5rem; padding-bottom: .5rem; border-top: 0;
+    border-radius: .75rem .75rem 0 0;
     background: var(--bs-tertiary-bg);
     font-size: .7rem; text-transform: uppercase; letter-spacing: .04em;
     color: var(--bs-secondary-color); font-weight: 700;
 }
 .jp-lista-head .col-valor { text-align: right; }
 .jp-obr:hover { background: var(--bs-tertiary-bg); }
-.jp-obr.is-vencida { background: rgba(var(--bs-danger-rgb), .05); box-shadow: inset 3px 0 0 var(--bs-danger); }
-.jp-obr.is-vencida:hover { background: rgba(var(--bs-danger-rgb), .09); }
+/* Linha vencida: tint danger translúcido + "espinha" de 3px à esquerda — mesmo padrão do
+   `.jp-obr.is-selecionada` logo abaixo (box-shadow inset, não uma coluna de grid dedicada). */
+.jp-obr.is-vencida { background: rgba(var(--bs-danger-rgb), .06); box-shadow: inset 3px 0 0 var(--bs-danger); }
+.jp-obr.is-vencida:hover { background: rgba(var(--bs-danger-rgb), .1); }
 .jp-obr.is-quitada { color: var(--bs-secondary-color); }
 .jp-obr.is-selecionada { background: rgba(var(--jp-accent-rgb), .07); box-shadow: inset 3px 0 0 var(--jp-accent); }
 
@@ -258,15 +266,27 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 
 /* A coluna de data É o eixo do tempo — alinhada e tabular, para escanear de cima a baixo */
 .jp-obr-data { font-variant-numeric: tabular-nums; line-height: 1.25; }
-.jp-obr-data-dia { font-weight: 600; font-size: .9rem; }
+.jp-obr-data-dia { font-weight: 700; font-size: .9rem; font-variant-numeric: tabular-nums; }
 .jp-obr-data-rel { font-size: .72rem; color: var(--bs-secondary-color); white-space: nowrap; }
 .jp-obr-data-rel.is-atrasado { color: var(--bs-danger); font-weight: 600; }
 
 .jp-obr-desc { font-weight: 600; min-width: 0; }
 .jp-obr-sub { font-size: .78rem; color: var(--bs-secondary-color); font-weight: 400; }
-.jp-obr-valor { text-align: right; white-space: nowrap; }
-.jp-obr-restante { display: block; font-size: .75rem; font-weight: 400; color: var(--bs-danger); }
-.jp-obr-acoes { display: flex; gap: .35rem; justify-content: flex-end; }
+.jp-obr-valor { text-align: right; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
+.jp-obr-restante { display: block; font-size: .72rem; color: var(--bs-secondary-color); font-weight: 500; }
+.jp-obr-acoes { display: flex; gap: .35rem; justify-content: flex-end; align-items: center; }
+
+/* Botões de ação do módulo (Ajuste 11): verde sólido para dinheiro, outline neutro para o resto —
+   nunca `btn-primary`/`btn-outline-primary` (índigo do Bootstrap). Usa os tokens do próprio módulo. */
+.jp-btn-accent { background: var(--jp-accent); border-color: var(--jp-accent); color: #fff; }
+.jp-btn-accent:hover, .jp-btn-accent:focus { background: var(--jp-accent); border-color: var(--jp-accent); color: #fff; filter: brightness(.92); }
+.jp-btn-accent:disabled, .jp-btn-accent.disabled { filter: none; }
+.jp-btn-outline { background: transparent; border-color: var(--bs-border-color); color: var(--bs-body-color); }
+.jp-btn-outline:hover, .jp-btn-outline:focus { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
+
+/* Menu "⋯" da linha (editar/excluir juntos) */
+.cob-row-menu { position: relative; }
+.cob-row-menu > .btn { border: 1px solid var(--bs-border-color); }
 
 /* Rótulo de ordenação no cabeçalho da seção */
 .jp-ordem {

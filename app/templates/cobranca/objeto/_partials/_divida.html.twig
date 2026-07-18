@@ -31,14 +31,14 @@
         </span>
         {% if podeGerenciar %}
         <div class="jp-secao-acoes">
-            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
+            <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalRegistrarObrigacao">
                 <i class="bi bi-plus-lg me-1"></i>Nova obrigação
             </button>
             {# O tooltip vai no wrapper: um <button disabled> não dispara eventos, logo não mostraria a
                explicação — mesmo padrão do "Encerrar cobrança" no show. #}
             <span {% if acordaveis|length == 0 %}data-bs-toggle="tooltip"
                   title="Não há dívida original em aberto para acordar. Se já existe acordo vigente, rompa-o primeiro: as originais voltam ao total."{% endif %}>
-                <button type="button" class="btn btn-sm btn-outline-primary" data-acao="novo-acordo"
+                <button type="button" class="btn btn-sm jp-btn-outline" data-acao="novo-acordo"
                         data-bs-toggle="modal" data-bs-target="#modalCriarAcordo"
                         {{ acordaveis|length == 0 ? 'disabled' : '' }}>
                     <i class="bi bi-file-earmark-text me-1"></i>Novo acordo
@@ -113,7 +113,7 @@
                     <div class="jp-obr-acoes">
                         {% if o.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span>{% endif %}
                         {% if podeMovimentar and exigivel and not o.quitada %}
-                        <button type="button" class="btn btn-sm btn-outline-success" data-acao="receber"
+                        <button type="button" class="btn btn-sm jp-btn-accent" data-acao="receber"
                                 data-obrigacao-id="{{ o.id }}"
                                 data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento"
                                 title="Registrar um pagamento nesta obrigação">
@@ -121,31 +121,45 @@
                         </button>
                         {% endif %}
                         {% if podeAcordar %}
-                        <button type="button" class="btn btn-sm btn-outline-primary" data-acao="acordar"
+                        <button type="button" class="btn btn-sm jp-btn-outline" data-acao="acordar"
                                 data-obrigacao-id="{{ o.id }}" title="Criar acordo substituindo esta dívida">
                             <i class="bi bi-file-earmark-text me-1"></i>Acordar
                         </button>
                         {% endif %}
                         {% if podeGerenciar and not o.substituidaPorAcordo and not o.ehParcelaAcordo %}
-                        <button type="button" class="btn btn-sm btn-outline-secondary py-0"
-                                data-bs-toggle="modal" data-bs-target="#modalEditarObrigacao"
-                                data-acao-url="{{ path('cobranca_obrigacao_editar', {id: o.id}) }}"
-                                data-descricao="{{ o.descricao|e('html_attr') }}"
-                                data-referencia="{{ o.referenciaExterna|e('html_attr') }}"
-                                data-vencimento="{{ o.vencimentoOriginal|date('Y-m-d') }}"
-                                data-valor-centavos="{{ o.valorOriginal }}"
-                                data-encargos-centavos="{{ o.encargosReconhecidos }}"
-                                title="Editar (corrigir) obrigação">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                        <button type="button" class="btn btn-sm btn-outline-danger py-0"
-                                data-bs-toggle="modal" data-bs-target="#modalExcluirObrigacao"
-                                data-acao-url="{{ path('cobranca_obrigacao_excluir', {id: o.id}) }}"
-                                data-token="{{ csrf_token('excluir_obrigacao_' ~ o.id) }}"
-                                data-descricao="{{ o.descricao|e('html_attr') }}"
-                                title="Excluir obrigação">
-                            <i class="bi bi-trash"></i>
-                        </button>
+                        {# Editar + excluir juntos num único menu (Ajuste 11/T4): cada `dropdown-item` carrega
+                           EXATAMENTE os mesmos `data-*` que os dois botões soltos de antes — o JS de show.html.twig
+                           lê `event.relatedTarget` no `show.bs.modal`, e o `relatedTarget` passa a ser o
+                           `dropdown-item` clicado, que continua tendo esses atributos. #}
+                        <div class="dropdown cob-row-menu">
+                            <button type="button" class="btn btn-sm jp-btn-outline py-0" data-bs-toggle="dropdown"
+                                    aria-expanded="false" aria-label="Mais ações desta obrigação" title="Mais ações">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <button type="button" class="dropdown-item"
+                                            data-bs-toggle="modal" data-bs-target="#modalEditarObrigacao"
+                                            data-acao-url="{{ path('cobranca_obrigacao_editar', {id: o.id}) }}"
+                                            data-descricao="{{ o.descricao|e('html_attr') }}"
+                                            data-referencia="{{ o.referenciaExterna|e('html_attr') }}"
+                                            data-vencimento="{{ o.vencimentoOriginal|date('Y-m-d') }}"
+                                            data-valor-centavos="{{ o.valorOriginal }}"
+                                            data-encargos-centavos="{{ o.encargosReconhecidos }}">
+                                        <i class="bi bi-pencil me-2"></i>Editar (corrigir)
+                                    </button>
+                                </li>
+                                <li>
+                                    <button type="button" class="dropdown-item text-danger"
+                                            data-bs-toggle="modal" data-bs-target="#modalExcluirObrigacao"
+                                            data-acao-url="{{ path('cobranca_obrigacao_excluir', {id: o.id}) }}"
+                                            data-token="{{ csrf_token('excluir_obrigacao_' ~ o.id) }}"
+                                            data-descricao="{{ o.descricao|e('html_attr') }}">
+                                        <i class="bi bi-trash me-2"></i>Excluir
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
                         {% endif %}
                     </div>
                 </div>
@@ -174,7 +188,7 @@
                     <div class="jp-acordo-bar" role="presentation">
                         <div class="jp-acordo-fill" style="width:{{ g.qtdParcelas > 0 ? (pagas / g.qtdParcelas * 100)|round : 0 }}%"></div>
                     </div>
-                    <a href="{{ path('cobranca_acordo_show', {id: g.acordoId}) }}" class="btn btn-sm btn-outline-secondary">
+                    <a href="{{ path('cobranca_acordo_show', {id: g.acordoId}) }}" class="btn btn-sm jp-btn-outline">
                         <i class="bi bi-box-arrow-up-right me-1"></i>Abrir acordo
                     </a>
                 </div>
@@ -206,7 +220,7 @@
                 <div class="jp-obr-acoes">
                     {% if p.quitada %}<span class="jp-chip is-paga"><i class="bi bi-check-lg"></i>Paga</span>{% endif %}
                     {% if podeMovimentar and not p.quitada %}
-                    <button type="button" class="btn btn-sm btn-outline-success" data-acao="receber"
+                    <button type="button" class="btn btn-sm jp-btn-accent" data-acao="receber"
                             data-obrigacao-id="{{ p.id }}"
                             data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento"
                             title="Registrar um pagamento nesta parcela">
@@ -250,8 +264,8 @@
         <span class="jp-selecao-info">
             <strong data-selecao-qtd>0</strong> selecionada(s) · total <strong data-selecao-total>R$ 0,00</strong>
         </span>
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="limpar-selecao">Limpar</button>
-        <button type="button" class="btn btn-sm btn-primary" data-acao="acordar-selecionadas">
+        <button type="button" class="btn btn-sm jp-btn-outline" data-acao="limpar-selecao">Limpar</button>
+        <button type="button" class="btn btn-sm jp-btn-accent" data-acao="acordar-selecionadas">
             <i class="bi bi-file-earmark-text me-1"></i>Fazer acordo com estas
         </button>
     </div>
