@@ -81,9 +81,9 @@
                 <div>
                     <div class="cob-hero-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">Total em aberto</div>
                     <div class="cob-hero-total {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</div>
-                    {% if caso.saldoVencido > 0 %}<div class="mt-1"><span class="cob-hero-venc">{{ caso.saldoVencido|centavos }}</span> <span style="color:#c7e6d5">já vencido</span></div>{% endif %}
+                    {% if caso.saldoVencido > 0 %}<div class="mt-1"><span class="cob-hero-venc">{{ caso.saldoVencido|centavos }}</span> <span class="cob-hero-sub">já vencido</span></div>{% endif %}
                 </div>
-                <div class="text-end" style="color:#c7e6d5">
+                <div class="text-end cob-hero-sub">
                     <div class="cob-hero-label">Honorários</div>
                     <div class="fw-semibold text-white">{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} ({{ caso.percentualHonorarios }}%){% endif %}</div>
                 </div>

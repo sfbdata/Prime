@@ -394,12 +394,20 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 
 /* Hero do dinheiro — painel verde-escuro (identidade do módulo, não índigo). Ajuste 11 §T2: o output
-   (`CasoDetalheOutput`) não tem `valorRecuperado`/`totalDoCaso` — sem barra de progresso (não inventar cálculo). */
+   (`CasoDetalheOutput`) não tem `valorRecuperado`/`totalDoCaso` — sem barra de progresso (não inventar cálculo).
+   Painel FIXO-escuro nos 2 temas (mesma exceção do gradiente, spec §3): os textos claros abaixo são
+   FIXOS, não tokens de tema — por isso vivem em custom properties próprias (`--cob-hero-*`), não em
+   `--bs-*`/`--jp-*`. Zero hex solto fora daqui; zero `style` inline no template. */
 .cob-hero {
-    color: #fff; border-radius: var(--cob-radius); padding: 1.35rem 1.5rem;
+    --cob-hero-fg: #fff;        /* dinheiro/título */
+    --cob-hero-muted: #a7e0c3;  /* rótulos/subtítulos verde-claro */
+    --cob-hero-sub: #c7e6d5;    /* texto secundário (ex.: "já vencido", bloco Honorários) */
+    --cob-hero-venc: #ff8f9e;   /* "já vencido" — perigo lido sobre verde escuro */
+    color: var(--cob-hero-fg); border-radius: var(--cob-radius); padding: 1.35rem 1.5rem;
     background: linear-gradient(135deg, #0f3d2e 0%, #14533b 100%);
     display: flex; flex-direction: column; gap: 1.1rem;
 }
-.cob-hero-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: #a7e0c3; font-weight: 600; }
+.cob-hero-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--cob-hero-muted); font-weight: 600; }
 .cob-hero-total { font-size: 2.55rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.cob-hero-venc { color: #ff8f9e; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cob-hero-venc { color: var(--cob-hero-venc); font-weight: 700; font-variant-numeric: tabular-nums; }
+.cob-hero-sub { color: var(--cob-hero-sub); }
