@@ -146,7 +146,7 @@
                     <div class="cob-proxima-label d-flex align-items-center gap-2">
                         <span><i class="bi bi-flag-fill me-1"></i>Próxima ação{% if caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis">atrasada</span>{% endif %}</span>
                         {% if podeGerenciar %}
-                        <button type="button" class="btn btn-sm btn-outline-primary py-0 ms-auto" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
+                        <button type="button" class="btn btn-sm jp-btn-accent py-0 ms-auto" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
                         {% endif %}
                     </div>
                     <div class="fw-semibold mt-2">{{ caso.proximaAcao.descricao }}</div>
@@ -156,7 +156,7 @@
                     <div class="d-flex align-items-center gap-2 mt-2">
                         <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Nenhuma ação definida</span>
                         {% if podeGerenciar %}
-                        <button type="button" class="btn btn-sm btn-outline-primary py-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
+                        <button type="button" class="btn btn-sm jp-btn-outline py-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
                         {% endif %}
                     </div>
                 {% endif %}
@@ -228,7 +228,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Cadastrar e vincular</button>
+                <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Cadastrar e vincular</button>
             </div>
             {{ form_end(formNovaPessoa) }}
         </div>
@@ -254,7 +254,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Vincular</button>
+                <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Vincular</button>
             </div>
             {{ form_end(formVincular) }}
         </div>

@@ -71,12 +71,12 @@
             <p class="jp-vazio-dica">Vincule quem responde por esta cobrança e defina quem é a pessoa cobrada.</p>
             <div class="d-flex gap-2 justify-content-center flex-wrap">
                 {% if formVincular %}
-                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
+                <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
                     <i class="bi bi-link-45deg me-1"></i>Vincular pessoa
                 </button>
                 {% endif %}
                 {% if formNovaPessoa %}
-                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
+                <button type="button" class="btn btn-sm jp-btn-accent" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
                     <i class="bi bi-person-plus me-1"></i>Nova pessoa
                 </button>
                 {% endif %}
@@ -127,12 +127,12 @@
         {% if objeto.temCobradaAtual and (formVincular or formNovaPessoa) %}
         <div class="pt-2 d-flex gap-2">
             {% if formVincular %}
-            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
+            <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
                 <i class="bi bi-link-45deg me-1"></i>Vincular pessoa
             </button>
             {% endif %}
             {% if formNovaPessoa %}
-            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
+            <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
                 <i class="bi bi-person-plus me-1"></i>Nova pessoa
             </button>
             {% endif %}
