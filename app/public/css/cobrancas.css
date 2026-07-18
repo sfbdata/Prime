@@ -6,10 +6,12 @@
 .cobrancas-page {
     --jp-accent: #1f7a4d;
     --jp-accent-rgb: 31, 122, 77;
+    --jp-accent-contrast: #fff;
 }
 html[data-bs-theme="dark"] .cobrancas-page {
     --jp-accent: #4cc38a;
     --jp-accent-rgb: 76, 195, 138;
+    --jp-accent-contrast: #08281a;
 }
 
 .cobrancas-page .content-header h1 { font-weight: 700; letter-spacing: -.01em; }
@@ -278,8 +280,8 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 
 /* Botões de ação do módulo (Ajuste 11): verde sólido para dinheiro, outline neutro para o resto —
    nunca `btn-primary`/`btn-outline-primary` (índigo do Bootstrap). Usa os tokens do próprio módulo. */
-.jp-btn-accent { background: var(--jp-accent); border-color: var(--jp-accent); color: #fff; }
-.jp-btn-accent:hover, .jp-btn-accent:focus { background: var(--jp-accent); border-color: var(--jp-accent); color: #fff; filter: brightness(.92); }
+.jp-btn-accent { background: var(--jp-accent); border-color: var(--jp-accent); color: var(--jp-accent-contrast); }
+.jp-btn-accent:hover, .jp-btn-accent:focus { background: var(--jp-accent); border-color: var(--jp-accent); color: var(--jp-accent-contrast); filter: brightness(.92); }
 .jp-btn-accent:disabled, .jp-btn-accent.disabled { filter: none; }
 .jp-btn-outline { background: transparent; border-color: var(--bs-border-color); color: var(--bs-body-color); }
 .jp-btn-outline:hover, .jp-btn-outline:focus { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); color: var(--bs-body-color); }
