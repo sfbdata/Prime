@@ -82,6 +82,13 @@ Mapa papel → token (não hex fixo, salvo o hero):
 | Entrou / pago | `--jp-accent` (o verde É a cor de dinheiro-que-entra do módulo) |
 | Hero (painel premium) | gradiente **verde-escuro** próprio (ex.: `#0F3D2E → #14533B`), texto branco, dinheiro branco, "recuperado" no mint `--jp-accent`, "vencido" em `--bs-danger` |
 
+**Exceção do hero (documentada):** o painel do hero é **fixo-escuro nos dois temas** (é a mesma
+justificativa da exceção do gradiente). Por isso os **textos sobre ele são claros fixos** — branco para o
+dinheiro/título, verde-claro para os rótulos, vermelho-claro para o "já vencido" (semântica de perigo,
+lida sobre verde escuro). Não são tokens de tema (um `var(--bs-body-color)` viraria escuro no tema claro e
+sumiria no painel). Centralizar esses valores em custom properties `--cob-hero-*` no seletor `.cob-hero`
+(nada de hex espalhado nem `style="color:…"` inline). Fora do hero, vale a regra geral (tokens de tema).
+
 **Botões, para não colidir tudo em verde:** "Registrar pagamento", "Concluir ação", "Fazer acordo com
 estas" e "Receber" = accent **sólido** (ação primária de dinheiro); "Acordar", "Novo acordo", "Nova
 obrigação", "Trocar", "Reagendar", "Abrir acordo" = **outline neutro** (`--bs-border-color` + texto
