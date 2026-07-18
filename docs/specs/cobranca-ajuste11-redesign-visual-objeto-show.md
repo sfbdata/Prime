@@ -58,33 +58,43 @@ existindo com os mesmos nomes** (ver `show.html.twig` blocos `javascripts`):
 
 ## 3. Sistema visual (tokens)
 
-Implementar como **CSS custom properties** em `public/css/cobrancas.css`, com override no tema escuro
-seguindo o padrão já existente do app (o tema escuro usa vars; status como fundo de painel usa rgba
-translúcido, não hex claro — ver memória `project_tema_escuro`). Prefixo `--cob-`.
+> **Decisão do humano (2026-07-18): manter a identidade visual do sistema.** O mockup do OpenPencil usou
+> azul/índigo, mas é **referência de LAYOUT** — a cor é **recolorida para o verde do módulo**. Nada de
+> paleta índigo nova.
 
-**Tipografia:** UI no stack do app; **números/dinheiro/datas em fonte monoespaçada** (no mockup foi Ubuntu
-Mono; no app, casar com a mono disponível — é o toque que dá cara de extrato e alinha as colunas de valor).
-Escala: rótulos 11–12px (maiúsculas, `letter-spacing` leve), corpo 13–14px, títulos de seção 16px, nome do
-título 22–23px, **herói do dinheiro 40–44px bold**.
+**Convenção (a mesma do `cobrancas.css` de hoje):** temar por **`--bs-*`** + o accent local do módulo
+**`--jp-accent`** (verde: `#1f7a4d`, escuro `#4cc38a`; `--jp-accent-rgb` para rgba translúcido). Tema
+escuro via `html[data-bs-theme="dark"]`; fundo de painel usa rgba translúcido, não hex claro (ver memória
+`project_tema_escuro`). Só se cria token local novo (`--jp-*`) quando não houver `--bs-*` equivalente —
+**não** introduzir um sistema `--cob-*` paralelo com hex fixos claro/escuro.
 
-**Cores (claro → escuro):**
+Mapa papel → token (não hex fixo, salvo o hero):
 
-| Papel | Claro | Escuro |
-|---|---|---|
-| Fundo da página | `#EDF0F4` | `#0B1220` |
-| Superfície (card) | `#FFFFFF` | `#141B2D` |
-| Traço/hairline | `#E6E8EC` | `#26304A` |
-| Texto forte | `#0F172A` | `#F1F5F9` |
-| Texto médio | `#475569` | `#CBD5E1` |
-| Texto fraco | `#94A3B8` | `#64748B` |
-| Ação (azul) | `#1D4ED8` / soft `#E8EEFC` | `#2563EB` / soft `#1D2A44` |
-| Vencido/dívida | `#E11D48` / tint `#FFF1F2` | `#F87171` / tint `#241318` |
-| Alerta (âmbar) | `#B45309` / tint `#FEF7EC` | `#FBBF24` / tint `#241E12` |
-| Entrou/pago (verde) | `#047857` / tint `#E7F6EF` | `#34D399` / tint `#12251E` |
-| Hero (gradiente índigo) | `#211C52 → #3E3487` | `#241E63 → #4A3D9E` |
+| Papel | Token |
+|---|---|
+| Fundo da página | `--bs-body-bg` |
+| Superfície (card) | `--bs-body-bg` elevado / `--bs-tertiary-bg` |
+| Traço/hairline | `--bs-border-color` |
+| Texto forte / médio / fraco | `--bs-body-color` / `--bs-secondary-color` / `--bs-tertiary-color` |
+| **Ação / accent (verde)** | `--jp-accent` + `rgba(var(--jp-accent-rgb), α)` para tints |
+| Vencido / dívida | `--bs-danger` (+ `--bs-danger-bg-subtle`/rgba p/ tint da linha) |
+| Alerta | `--bs-warning` (+ subtle) |
+| Entrou / pago | `--jp-accent` (o verde É a cor de dinheiro-que-entra do módulo) |
+| Hero (painel premium) | gradiente **verde-escuro** próprio (ex.: `#0F3D2E → #14533B`), texto branco, dinheiro branco, "recuperado" no mint `--jp-accent`, "vencido" em `--bs-danger` |
 
-**Raios:** cartões 16px, botões/linhas 8–10px, pills 999px. **Sombra:** elevação suave nos cartões
-(substitui o contorno cinza). **Faixa vencida:** tint + "espinha" rosa de 3px à esquerda da linha.
+**Botões, para não colidir tudo em verde:** "Registrar pagamento", "Concluir ação", "Fazer acordo com
+estas" e "Receber" = accent **sólido** (ação primária de dinheiro); "Acordar", "Novo acordo", "Nova
+obrigação", "Trocar", "Reagendar", "Abrir acordo" = **outline neutro** (`--bs-border-color` + texto
+`--bs-body-color`). Semânticas (vermelho vencido, âmbar alerta) permanecem.
+
+**Tipografia:** UI em Source Sans 3 (stack do app); **números/dinheiro/datas em fonte monoespaçada**
+(`font-variant-numeric: tabular-nums` já é usado no módulo — o mono nos valores dá cara de extrato e alinha
+as colunas). Escala: rótulos 11–12px (maiúsculas, `letter-spacing` leve), corpo 13–14px, títulos de seção
+~16px, nome do título ~22px, **herói do dinheiro ~40px bold**.
+
+**Raios:** cartões ~1rem, botões/linhas .5rem, pills 999px. **Sombra:** elevação suave nos cartões
+(substitui o contorno cinza; respeitar o tema). **Faixa vencida:** tint danger translúcido + "espinha" de
+3px `--bs-danger` à esquerda da linha (o módulo já usa `box-shadow: inset 3px 0` — reusar o padrão).
 
 ## 4. Layout
 
