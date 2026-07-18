@@ -39,26 +39,32 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
             'descricao' => 'Ligar para o devedor',
         ]);
 
-        $html = (string) $client->request('GET', '/cobrancas/objetos/' . $objetoId)
-            ->html();
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
         self::assertResponseIsSuccessful();
 
+        // Todos os ganchos são checados via SELETOR CSS contra o DOM parseado (assertSelectorExists),
+        // nunca por substring do HTML bruto: o `<script>` incondicional de show.html.twig referencia
+        // os MESMOS literais (ex.: `querySelector('[data-selecao-qtd]')`) — uma checagem por substring
+        // continuaria verde mesmo se o restyle apagasse o gancho só do MARKUP, deixando o script morto
+        // sem detectar nada (falso-positivo).
+
         // Abas + âncora (pasta-arquivos.js e os redirects #secao-divida dependem destes ids)
-        foreach (['id="objetoTabs"', 'id="tab-cobranca"', 'id="tab-documentos"', 'id="tab-historico"',
-                  'id="documentos-tab"', 'id="secao-divida"'] as $gancho) {
-            self::assertStringContainsString($gancho, $html, "Sumiu o gancho: {$gancho}");
+        foreach (['#objetoTabs', '#tab-cobranca', '#tab-documentos', '#tab-historico',
+                  '#documentos-tab', '#secao-divida'] as $gancho) {
+            self::assertSelectorExists($gancho, "Sumiu o gancho: {$gancho}");
         }
 
         // Seleção da dívida
-        foreach (['id="barraSelecaoDivida"', 'jp-check', 'data-selecao-qtd', 'data-selecao-total',
-                  'data-acao="acordar-selecionadas"', 'data-acao="limpar-selecao"'] as $gancho) {
-            self::assertStringContainsString($gancho, $html, "Sumiu o gancho: {$gancho}");
+        foreach (['#barraSelecaoDivida', '#secao-divida .jp-check', '[data-selecao-qtd]',
+                  '[data-selecao-total]', '[data-acao="acordar-selecionadas"]',
+                  '[data-acao="limpar-selecao"]'] as $gancho) {
+            self::assertSelectorExists($gancho, "Sumiu o gancho: {$gancho}");
         }
 
         // Modais que o JS abre/rehidrata (ids fixos)
-        foreach (['id="modalRegistrarPagamento"', 'id="modalCriarAcordo"', 'id="modalEditarObrigacao"',
-                  'id="modalExcluirObrigacao"', 'id="modalConcluirAcao"'] as $gancho) {
-            self::assertStringContainsString($gancho, $html, "Sumiu o gancho: {$gancho}");
+        foreach (['#modalRegistrarPagamento', '#modalCriarAcordo', '#modalEditarObrigacao',
+                  '#modalExcluirObrigacao', '#modalConcluirAcao'] as $gancho) {
+            self::assertSelectorExists($gancho, "Sumiu o gancho: {$gancho}");
         }
     }
 }
