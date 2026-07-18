@@ -28,36 +28,8 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
                     <i class="bi bi-telephone me-1"></i>Registrar contato
                 </button>
-                {# As ações raras saem do caminho: o que se faz todo dia é receber e acordar, não judicializar. #}
-                <div class="dropdown">
-                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Mais ações">
-                        <i class="bi bi-three-dots"></i>
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        {% if can_access_module('pastas') and not caso.pastaJudicialId %}
-                        <li>
-                            <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
-                                <i class="bi bi-bank me-2"></i>Judicializar
-                            </button>
-                        </li>
-                        <li><hr class="dropdown-divider"></li>
-                        {% endif %}
-                        <li>
-                            {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível
-                               zerado). Desabilitado, o item ENSINA a condição em vez de falhar depois do clique. #}
-                            {% if caso.prontoParaEncerrar %}
-                            <button type="button" class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
-                                <i class="bi bi-flag me-2"></i>Encerrar cobrança
-                            </button>
-                            {% else %}
-                            <span class="dropdown-item disabled" data-bs-toggle="tooltip"
-                                  title="Só é possível encerrar com o total em aberto zerado. Faltam {{ caso.saldoExigivel|centavos }}.">
-                                <i class="bi bi-flag me-2"></i>Encerrar cobrança
-                            </span>
-                            {% endif %}
-                        </li>
-                    </ul>
-                </div>
+                {# Judicializar/Encerrar (ações raras) saíram do dropdown `⋯` — vivem agora no cartão
+                   "Ações do caso" do trilho (Ajuste 11, T3). #}
             </div>
             {% endif %}
         </div>
@@ -86,35 +58,6 @@
                 <div class="text-end cob-hero-sub">
                     <div class="cob-hero-label">Honorários</div>
                     <div class="fw-semibold text-white">{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} ({{ caso.percentualHonorarios }}%){% endif %}</div>
-                </div>
-            </div>
-        </div>
-
-        {# ── Próxima ação: mantida como estava (Ajuste 10), só reposicionada logo abaixo do hero.
-           Migra para o trilho (`.cob-rail`) na Task 3 — aqui só troca de lugar, não de forma. ── #}
-        <div class="caso-header mb-3">
-            <div class="jp-resumo">
-                <div class="jp-resumo-item jp-resumo-acao">
-                    {% if caso.proximaAcao %}
-                        <div class="caso-proxima-acao {{ caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
-                            <div class="caso-proxima-acao-titulo d-flex align-items-center gap-2">
-                                <span><i class="bi bi-flag-fill me-1"></i>Próxima ação{% if caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis">atrasada</span>{% endif %}</span>
-                                {% if podeGerenciar %}
-                                <button type="button" class="btn btn-sm btn-outline-primary py-0 ms-auto" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
-                                {% endif %}
-                            </div>
-                            <div class="fw-semibold">{{ caso.proximaAcao.descricao }}</div>
-                            {% if caso.proximaAcao.prazo %}<div class="small text-secondary">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</div>{% endif %}
-                        </div>
-                    {% else %}
-                        <div class="caso-metric-label">Próxima ação</div>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Nenhuma ação definida</span>
-                            {% if podeGerenciar %}
-                            <button type="button" class="btn btn-sm btn-outline-primary py-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
-                            {% endif %}
-                        </div>
-                    {% endif %}
                 </div>
             </div>
         </div>
@@ -195,9 +138,60 @@
         </div>
 
         <div class="cob-rail">
+            {# ── Próxima ação: promovida a cartão de destaque no topo do trilho (Ajuste 11, T3) — o
+               mesmo conteúdo/lógica do Ajuste 10 (`if caso.proximaAcao ... else`), só reenvelopado.
+               Os gatilhos `#modalConcluirAcao`/`#modalDefinirAcao` continuam intactos. ── #}
+            <div class="cob-proxima {{ caso.proximaAcao and caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
+                {% if caso.proximaAcao %}
+                    <div class="cob-proxima-label d-flex align-items-center gap-2">
+                        <span><i class="bi bi-flag-fill me-1"></i>Próxima ação{% if caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis">atrasada</span>{% endif %}</span>
+                        {% if podeGerenciar %}
+                        <button type="button" class="btn btn-sm btn-outline-primary py-0 ms-auto" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
+                        {% endif %}
+                    </div>
+                    <div class="fw-semibold mt-2">{{ caso.proximaAcao.descricao }}</div>
+                    {% if caso.proximaAcao.prazo %}<div class="small text-secondary">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</div>{% endif %}
+                {% else %}
+                    <div class="cob-proxima-label">Próxima ação</div>
+                    <div class="d-flex align-items-center gap-2 mt-2">
+                        <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Nenhuma ação definida</span>
+                        {% if podeGerenciar %}
+                        <button type="button" class="btn btn-sm btn-outline-primary py-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+
             {# ── De quem é a dívida (era a aba "Pessoas", que abria por padrão) — sai de cima das abas
-               e vai para o trilho direito. Próxima ação/Ações do caso entram aqui na Task 3. ── #}
+               e vai para o trilho direito. ── #}
             {{ include('cobranca/objeto/_partials/_pessoa_card.html.twig') }}
+
+            {# ── Ações do caso: Judicializar/Encerrar saíram do dropdown `⋯` do header (Ajuste 11, T3)
+               — são raras, não o trabalho do dia a dia. Mesmos gates/gatilhos de antes. ── #}
+            {% if podeGerenciar %}
+            <div class="cob-card p-3">
+                <h6 class="mb-2">Ações do caso</h6>
+                <div class="d-flex flex-column gap-2">
+                    {% if can_access_module('pastas') and not caso.pastaJudicialId %}
+                    <a href="#" role="button" class="cob-acao-link" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
+                        <i class="bi bi-bank"></i><span>Judicializar</span>
+                    </a>
+                    {% endif %}
+                    {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível
+                       zerado). Desabilitado, o item ENSINA a condição em vez de falhar depois do clique. #}
+                    {% if caso.prontoParaEncerrar %}
+                    <a href="#" role="button" class="cob-acao-link text-danger" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
+                        <i class="bi bi-flag"></i><span>Encerrar cobrança</span>
+                    </a>
+                    {% else %}
+                    <span class="cob-acao-link is-disabled" data-bs-toggle="tooltip"
+                          title="Só é possível encerrar com o total em aberto zerado. Faltam {{ caso.saldoExigivel|centavos }}.">
+                        <i class="bi bi-flag"></i><span>Encerrar cobrança</span>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </div>
         </div>
     </div>

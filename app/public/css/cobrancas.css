@@ -87,18 +87,6 @@ html[data-bs-theme="dark"] .cobrancas-page {
 .caso-metric-valor.saldo-vencido { color: var(--bs-danger); }
 .caso-metric-valor.saldo-zerado { color: var(--bs-success); }
 
-/* Bloco "próxima ação" em destaque */
-.caso-proxima-acao {
-    border: 1px solid rgba(var(--jp-accent-rgb), .3);
-    background: rgba(var(--jp-accent-rgb), .07);
-    border-radius: .6rem; padding: .75rem 1rem;
-}
-.caso-proxima-acao.atrasada {
-    border-color: rgba(var(--bs-warning-rgb), .5);
-    background: rgba(var(--bs-warning-rgb), .1);
-}
-.caso-proxima-acao-titulo { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); }
-
 /* Alertas (derivados, read-only) */
 .caso-alertas { display: flex; flex-direction: column; gap: .4rem; }
 .caso-alerta {
@@ -190,15 +178,6 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 /* Dinheiro sempre alinha em coluna */
 .jp-money { font-variant-numeric: tabular-nums; font-weight: 600; }
 .caso-metric-valor { font-variant-numeric: tabular-nums; }
-
-/* ── Faixa de resumo (o "cockpit") ── */
-.jp-resumo {
-    display: grid; gap: 1rem; padding: 1rem 1.25rem;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    align-items: center;
-}
-.jp-resumo-item { min-width: 0; }
-.jp-resumo-acao { grid-column: span 2; }
 
 /* ── Card da pessoa cobrada ── */
 .jp-pessoa-card {
@@ -411,3 +390,13 @@ html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 .cob-hero-total { font-size: 2.55rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .cob-hero-venc { color: var(--cob-hero-venc); font-weight: 700; font-variant-numeric: tabular-nums; }
 .cob-hero-sub { color: var(--cob-hero-sub); }
+
+/* Cartões do trilho (Ajuste 11 §T3): "Próxima ação" em destaque + "Ações do caso" (Judicializar/Encerrar,
+   que saíram do dropdown `⋯` do header). Cor = accent verde do módulo, nunca índigo. */
+.cob-proxima { border: 1px solid rgba(var(--jp-accent-rgb), .30); background: rgba(var(--jp-accent-rgb), .07); border-radius: var(--cob-radius); padding: 1.1rem; }
+.cob-proxima-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--jp-accent); font-weight: 600; }
+/* Ação atrasada: mesmo alerta visual que o resto do módulo usa para atraso (âmbar, não o accent verde). */
+.cob-proxima.atrasada { border-color: rgba(var(--bs-warning-rgb), .5); background: rgba(var(--bs-warning-rgb), .1); }
+.cob-acao-link { display: flex; align-items: center; gap: .7rem; padding: .7rem .8rem; border: 1px solid var(--bs-border-color); border-radius: .625rem; text-decoration: none; color: var(--bs-body-color); }
+.cob-acao-link:hover { background: var(--bs-tertiary-bg); }
+.cob-acao-link.is-disabled { opacity: .55; }
