@@ -31,10 +31,10 @@
         </span>
         {% if podeMovimentar %}
         <div class="jp-secao-acoes">
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarLiquidacao">
+            <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalRegistrarLiquidacao">
                 <i class="bi bi-box-seam me-1"></i>Registrar liquidação
             </button>
-            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento">
+            <button type="button" class="btn btn-sm jp-btn-accent" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento">
                 <i class="bi bi-cash-coin me-1"></i>Registrar pagamento
             </button>
         </div>
@@ -64,13 +64,13 @@
                         <span class="opacity-50">|</span> honorários {{ p.valorHonorarios|centavos }}
                     </span>
                 </div>
-                <div class="jp-obr-valor jp-money">{{ p.valorTotal|centavos }}</div>
+                <div class="jp-mov-valor">{{ p.valorTotal|centavos }}</div>
                 <div class="jp-obr-acoes">
                     {% if p.foiCorrigido %}
                     <span class="badge text-bg-warning" data-bs-toggle="tooltip" title="Correção sem estorno: {{ p.motivoCorrecao|e('html_attr') }}">Corrigido</span>
                     {% endif %}
                     {% if podeMovimentar %}
-                    <button type="button" class="btn btn-sm btn-outline-secondary py-0"
+                    <button type="button" class="btn btn-sm jp-btn-outline py-0"
                             data-bs-toggle="modal" data-bs-target="#modalCorrigirPagamento"
                             data-acao-url="{{ path('cobranca_pagamento_corrigir', {id: p.id}) }}"
                             data-previa-url="{{ path('cobranca_pagamento_previa_corrigir', {id: p.id}) }}"
@@ -91,7 +91,7 @@
                         {{ l.descricaoBem }} · valor reconhecido pelo credor{% if l.valorAtribuidoBem %} (bem avaliado em {{ l.valorAtribuidoBem|centavos }}){% endif %}
                     </span>
                 </div>
-                <div class="jp-obr-valor jp-money">{{ l.valorReconhecido|centavos }}</div>
+                <div class="jp-mov-valor">{{ l.valorReconhecido|centavos }}</div>
                 <div class="jp-obr-acoes"></div>
             </div>
             {% endif %}
@@ -137,7 +137,7 @@
             </div>
             <div class="jp-obr-valor"></div>
             <div class="jp-obr-acoes">
-                <a href="{{ path('cobranca_acordo_show', {id: a.id}) }}" class="btn btn-sm btn-outline-secondary">Abrir</a>
+                <a href="{{ path('cobranca_acordo_show', {id: a.id}) }}" class="btn btn-sm jp-btn-outline">Abrir</a>
             </div>
         </div>
         {% endfor %}

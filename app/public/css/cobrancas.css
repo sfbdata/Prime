@@ -350,19 +350,20 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-alerta.sev-success { border-color: rgba(var(--bs-success-rgb), .35); background: rgba(var(--bs-success-rgb), .06); }
 .jp-alerta-acoes { margin-left: auto; display: flex; gap: .4rem; }
 
-/* ── Movimentos ── */
+/* ── Movimentos (Ajuste 11): ícone circular, valor mono em accent — nunca info/índigo. */
 .jp-mov {
-    display: grid; align-items: center; gap: .1rem 1rem;
-    grid-template-columns: 1.6rem 8.5rem 1fr 9rem auto;
-    padding: .7rem 1rem; border-top: 1px solid var(--bs-border-color);
+    display: grid; grid-template-columns: 34px 96px minmax(0,1fr) 140px auto;
+    align-items: center; gap: .9rem;
+    padding: .7rem .65rem; border-top: 1px solid var(--bs-border-color);
 }
 .jp-mov:hover { background: var(--bs-tertiary-bg); }
 .jp-mov-ico {
-    width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+    width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center;
     background: rgba(var(--jp-accent-rgb), .12); color: var(--jp-accent);
 }
-.jp-mov-ico.is-liq { background: rgba(var(--bs-info-rgb), .15); color: var(--bs-info-text-emphasis); }
+.jp-mov-ico.is-liq { background: rgba(var(--bs-secondary-rgb), .12); color: var(--bs-secondary-color); }
 .jp-mov-ico.is-desfeito { background: rgba(var(--bs-danger-rgb), .12); color: var(--bs-danger); }
+.jp-mov-valor { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--jp-accent); }
 .jp-mov-split { font-size: .8rem; color: var(--bs-secondary-color); grid-column: 2; }
 
 /* ── Estado vazio que ensina ── */
