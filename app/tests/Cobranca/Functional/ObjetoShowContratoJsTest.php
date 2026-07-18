@@ -66,5 +66,16 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
                   '#modalExcluirObrigacao', '#modalConcluirAcao'] as $gancho) {
             self::assertSelectorExists($gancho, "Sumiu o gancho: {$gancho}");
         }
+
+        // Ajuste 11 (T3): a "Próxima ação" migrou da coluna principal para o cartão de destaque
+        // do trilho (`.cob-proxima`) — o gancho visual, não só o modal que ela abre.
+        self::assertSelectorExists('.cob-proxima', 'Sumiu o cartão Próxima ação do trilho');
+
+        // Ajuste 11 (T3): o cartão "Ações do caso" no trilho. Neste cenário há Obrigação com
+        // restante > 0 → saldoExigivel > 0 → `caso.prontoParaEncerrar` é false → "Encerrar cobrança"
+        // renderiza DESABILITADO (`.cob-acao-link.is-disabled`), ensinando a condição em vez de
+        // deixar o item sumir. Cobre o ramo desabilitado; o ramo habilitado (saldo zerado) e
+        // Judicializar (módulo pastas) exigem cenário/tenant extra — ver FOLLOW-UP no relatório.
+        self::assertSelectorExists('.cob-acao-link.is-disabled', 'Sumiu a linha desabilitada de Encerrar cobrança');
     }
 }
