@@ -219,15 +219,21 @@ class ObrigacaoRepository extends ServiceEntityRepository
      * Tenant SEMPRE explícito: o `TenantFilter` do Doctrine fica DESLIGADO fora de um request, então
      * no CLI este `andWhere` é a única defesa contra vazamento entre escritórios.
      *
-     * EXIGIBILIDADE: o predicado de acordo é o MESMO de `exigiveisDosCasos()` — deliberadamente, e
-     * não `foiSubstituida()`/`participaDeAcordoVigente()`. Aqueles helpers respondem outra pergunta
-     * ("está travada para edição?") e divergem em dois pontos que custam dinheiro:
+     * ACORDO — o predicado é o de `doCasoSubstituiveis()`: exigível E que NÃO seja parcela de acordo.
+     * Deliberadamente NÃO se usa `foiSubstituida()`/`participaDeAcordoVigente()`, que respondem outra
+     * pergunta ("está travada para edição?") e divergem em dois pontos que custam dinheiro — ambos
+     * observados em dado real de dev:
      *   1. `foiSubstituida()` ignora o STATUS do substituto, então uma original cujo acordo foi
      *      CANCELADO — que voltou ao saldo (invariável 20) — nunca mais cresceria;
      *   2. nada excluía a PARCELA de acordo cancelado/rompido, que virou histórico e não é dívida:
      *      o cron materializava encargos nela.
-     * Ambos foram observados em dado real de dev antes desta correção. Se cresce encargo, tem de ser
-     * exatamente o que o saldo considera exigível — um único critério, uma única verdade.
+     *
+     * `aorig.id IS NULL` (e não `aorig.status IN (:vigentes)`, como em `exigiveisDosCasos`): parcela
+     * de acordo tem valor PACTUADO e não recebe mora automática. Isto é mais restritivo que a
+     * exigibilidade de propósito — as duas perguntas são diferentes. "Quanto se deve hoje" inclui a
+     * parcela do acordo vigente; "sobre o que o robô faz juros correrem" não, porque aquele número
+     * saiu de uma negociação com o devedor. Se o acordo furar, o caminho é rompê-lo: aí as originais
+     * voltam ao saldo (invariável 20) e crescem com o atraso inteiro, por este mesmo filtro.
      *
      * @return list<int>
      */
@@ -243,11 +249,10 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->andWhere('o.tenant = :tenant')
             // Parênteses explícitos: `andWhere` junta com AND sem parentetizar o OR.
             ->andWhere('(asub.id IS NULL OR asub.status IN (:naoVigentes))')
-            ->andWhere('(aorig.id IS NULL OR aorig.status IN (:vigentes))')
+            ->andWhere('aorig.id IS NULL')
             ->setParameter('encerrado', StatusCaso::Encerrado->value)
             ->setParameter('tenant', $tenant)
             ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
-            ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value])
             // Ordem estável: o lote N do `array_chunk` tem de ser sempre o mesmo conjunto.
             ->orderBy('o.id', 'ASC');
 

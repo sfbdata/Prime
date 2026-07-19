@@ -214,9 +214,22 @@ estado anterior ao recálculo (janela de conferência) e para não disputar CPU 
 > só: `--tenant=1 --limit=50`.
 >
 > **O que ele toca:** apenas obrigações **não congeladas** (`encargos_congelados_em IS NULL`) de
-> casos **não encerrados**. Obrigação editada à mão, importada da contabilidade ou ligada a um
-> acordo vigente é **pulada** — o cron nunca desfaz decisão de gente nem infla dívida já
-> renegociada.
+> casos **não encerrados**, e que sejam **dívida original** — nunca parcela de acordo. Obrigação
+> editada à mão ou importada da contabilidade está congelada e é **pulada**; o cron nunca desfaz
+> decisão de gente. Parcela de acordo tem valor **pactuado** e não recebe mora automática (se o
+> acordo furar, rompa-o: as originais voltam ao saldo e crescem com o atraso inteiro). Original
+> cujo acordo foi **rompido/cancelado** volta a crescer, porque voltou a ser dívida.
+>
+> **Ele nunca REDUZ encargo já reconhecido.** Se o recálculo der um total menor que o gravado, a
+> obrigação é deixada intacta e entra em "Reduções bloqueadas" no relatório. Encolher é sinal de
+> **configuração** mudada (taxa zerada por engano), não de tempo passado — e `definirEncargos`
+> sobrescreve, então deixar passar apagaria dinheiro em lote. Se a redução for mesmo intencional,
+> repita com `--permitir-reducao`. Pela mesma razão, `--hoje` no passado é recusado sem
+> `--forcar-retroativo`.
+>
+> **Se aparecerem "Reduções bloqueadas", NÃO rode com `--permitir-reducao` para "resolver".** Vá
+> conferir a configuração de taxas da carteira primeiro: o normal é que alguém tenha zerado uma
+> taxa sem querer.
 >
 > **Exit code 1 significa que alguma obrigação FALHOU** no recálculo (o comando segue a rodada e
 > alarma no fim). Leia `/var/log/jusprime-encargos.log`: a seção "Obrigações que falharam" traz o

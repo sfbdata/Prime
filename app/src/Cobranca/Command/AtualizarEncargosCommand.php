@@ -6,6 +6,7 @@ namespace App\Cobranca\Command;
 
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Exception\EncargosInexequiveisException;
+use App\Cobranca\Exception\ReducaoDeEncargosBloqueadaException;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
@@ -34,8 +35,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *  - **nunca congela** nada (`congelarEncargos` é da edição manual/importação, §8);
  *  - **nunca toca** obrigação congelada (INV-E4) — quem editou à mão ou importou da contabilidade
  *    mandou parar de crescer, e um cron não desfaz decisão de gente;
- *  - **nunca toca** obrigação de acordo vigente nem substituída: aquela dívida foi renegociada e já
- *    virou parcela; inflar os juros dela cobraria duas vezes;
+ *  - **nunca toca** obrigação substituída por acordo VIGENTE (a dívida virou parcela) nem PARCELA de
+ *    acordo, seja ele qual for: parcela tem valor PACTUADO e não recebe mora automática. Se o acordo
+ *    furar, o caminho é rompê-lo — aí as originais voltam ao saldo (invariável 20) e crescem com o
+ *    atraso inteiro. Já a original cujo acordo foi rompido/cancelado VOLTA a crescer, porque voltou
+ *    a ser dívida;
+ *  - **nunca REDUZ** encargo já reconhecido sem `--permitir-reducao`: encolher é sinal de config
+ *    mudada, não de tempo passado (ver `ReducaoDeEncargosBloqueadaException`);
  *  - **nunca toca** caso encerrado (SPEC §17, filtrado já na query).
  *
  * Multi-tenant no CLI: o `TenantFilter` fica DESLIGADO fora de um request. Por isso o comando itera os
@@ -68,6 +74,9 @@ final class AtualizarEncargosCommand extends Command
     /** @var resource|null */
     private $lockHandle = null;
 
+    /** Ver `ReducaoDeEncargosBloqueadaException`: por padrão o cron só faz encargo crescer. */
+    private bool $permitirReducao = false;
+
     public function __construct(
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly CalculadoraEncargos $calculadora,
@@ -84,13 +93,16 @@ final class AtualizarEncargosCommand extends Command
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Calcula e relata, mas NÃO persiste nada.')
             ->addOption('tenant', null, InputOption::VALUE_REQUIRED, 'Restringe a um escritório específico (id).')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Processa só as N primeiras obrigações de cada escritório (amostra).')
-            ->addOption('hoje', null, InputOption::VALUE_REQUIRED, 'Data de referência do cálculo (Y-m-d). Default: hoje.');
+            ->addOption('hoje', null, InputOption::VALUE_REQUIRED, 'Data de referência do cálculo (Y-m-d). Default: hoje.')
+            ->addOption('permitir-reducao', null, InputOption::VALUE_NONE, 'Autoriza gravar encargo MENOR que o já reconhecido (por padrão é bloqueado).')
+            ->addOption('forcar-retroativo', null, InputOption::VALUE_NONE, 'Autoriza --hoje no passado (por padrão é recusado).');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
         $dryRun = (bool) $input->getOption('dry-run');
+        $this->permitirReducao = (bool) $input->getOption('permitir-reducao');
 
         $hoje = $this->resolverDataReferencia($input, $io);
         if ($hoje === null) {
@@ -102,7 +114,15 @@ final class AtualizarEncargosCommand extends Command
             return Command::INVALID;
         }
 
-        if ($this->adquirirLock() === false) {
+        $lock = $this->adquirirLock();
+
+        if ($lock === 'indisponivel') {
+            $io->error('Não foi possível abrir o lockfile da atualização de encargos (disco cheio ou permissão?).');
+
+            return Command::FAILURE;
+        }
+
+        if ($lock === 'ocupado') {
             // SUCCESS e não FAILURE: sobreposição não é erro — a próxima rodada pega o que faltou.
             $io->warning('Outra atualização de encargos já está em andamento. Abortando.');
 
@@ -134,6 +154,7 @@ final class AtualizarEncargosCommand extends Command
             $atualizadas = 0;
             $inalteradas = 0;
             $puladas = 0;
+            $reducoesBloqueadas = 0;
             $deltaExigivelCentavos = 0;
             /** @var list<array{0:int, 1:string}> $falhas */
             $falhas = [];
@@ -166,6 +187,13 @@ final class AtualizarEncargosCommand extends Command
 
                         try {
                             $delta = $this->atualizar($obrigacao, $hoje);
+                        } catch (ReducaoDeEncargosBloqueadaException $e) {
+                            // Freio de dinheiro: encargo não encolhe sozinho. Reporta e SEGUE, sem
+                            // tocar a obrigação — ela fica exatamente como estava.
+                            ++$reducoesBloqueadas;
+                            $falhas[] = [(int) $obrigacao->getId(), $e->getMessage()];
+
+                            continue;
                         } catch (EncargosInexequiveisException $e) {
                             // Contrato explícito da exceção: em lote, captura POR OBRIGAÇÃO, registra
                             // e SEGUE — um caso patológico não pode matar a rodada inteira.
@@ -206,7 +234,8 @@ final class AtualizarEncargosCommand extends Command
                     ['Obrigações examinadas', (string) $examinadas],
                     ['Atualizadas', (string) $atualizadas],
                     ['Inalteradas', (string) $inalteradas],
-                    ['Puladas (congeladas/acordo)', (string) $puladas],
+                    ['Puladas (congeladas)', (string) $puladas],
+                    ['Reduções bloqueadas', (string) $reducoesBloqueadas],
                     ['Falhas', (string) \count($falhas)],
                     ['Delta do exigível (centavos)', (string) $deltaExigivelCentavos],
                     ['Delta do exigível', self::formatarReais($deltaExigivelCentavos)],
@@ -300,6 +329,27 @@ final class AtualizarEncargosCommand extends Command
             return null;
         }
 
+        // FREIO: o cron faz encargo CRESCER, nunca encolher por conta própria.
+        //
+        // Recalcular é uma operação destrutiva — `definirEncargos` sobrescreve. Se a config resolvida
+        // vier menor do que a que gerou o valor atual (carteira com taxa zerada por engano, override
+        // apagado, `--hoje` retroativo), o recálculo APAGA dinheiro já reconhecido, em silêncio e em
+        // lote. Foi exatamente esse o cenário que a migração de congelamento da F2 teve de desarmar:
+        // 3.271 obrigações com R$ 155.209,73 estavam a uma rodada de serem zeradas.
+        //
+        // Reduzir pode ser legítimo (corrigir uma taxa que estava errada para cima), mas é decisão de
+        // gente: exige `--permitir-reducao`. Sem a flag, a obrigação é deixada como está e reportada.
+        $reduziria = ($novos['juros'] + $novos['multa'] + $novos['correcao'] + $novos['honorarios'])
+            < ($jurosAntes + $multaAntes + $correcaoAntes + $honorariosAntes);
+
+        if ($reduziria === true && $this->permitirReducao === false) {
+            throw new ReducaoDeEncargosBloqueadaException(
+                (int) $obrigacao->getId(),
+                $jurosAntes + $multaAntes + $correcaoAntes + $honorariosAntes,
+                $novos['juros'] + $novos['multa'] + $novos['correcao'] + $novos['honorarios'],
+            );
+        }
+
         $obrigacao->definirEncargos(
             $novos['juros'],
             $novos['multa'],
@@ -332,6 +382,20 @@ final class AtualizarEncargosCommand extends Command
 
         if ($data === false || $data->format('Y-m-d') !== $texto) {
             $io->error(sprintf('Data inválida em --hoje: "%s". Use o formato Y-m-d (ex.: 2026-07-19).', $texto));
+
+            return null;
+        }
+
+        // Data no passado recalcula com MENOS dias de atraso, ou seja, para baixo. Um dígito errado
+        // ('2026-07-18' em vez de '2026-07-19') vira escrita de dinheiro para baixo em lote. O freio
+        // de redução já barraria obrigação por obrigação, mas errar cedo é melhor do que errar 3.000
+        // vezes e ler o relatório depois.
+        if ($data < new \DateTimeImmutable('today') && (bool) $input->getOption('forcar-retroativo') === false) {
+            $io->error(sprintf(
+                'A data --hoje=%s está no passado: o recálculo reduziria os encargos. '
+                . 'Se for intencional, repita com --forcar-retroativo.',
+                $texto,
+            ));
 
             return null;
         }
@@ -413,24 +477,32 @@ final class AtualizarEncargosCommand extends Command
     /**
      * Lock exclusivo por lockfile (flock) para impedir execuções sobrepostas — coerente com a stack
      * do projeto (sem symfony/lock), mesmo idioma do `SincronizarDjenCommand`.
+     *
+     * Distingue os dois "não consegui": SOBREPOSIÇÃO ('ocupado') é rotina e não é erro — a próxima
+     * rodada pega o que faltou. Já não conseguir sequer ABRIR o arquivo ('indisponivel') é falha de
+     * infraestrutura (disco cheio, /tmp read-only, permissão) e precisa alarmar: colapsar os dois em
+     * SUCCESS faria o cron parar de atualizar dinheiro indefinidamente com exit 0, invisível ao
+     * monitoramento.
+     *
+     * @return 'adquirido'|'ocupado'|'indisponivel'
      */
-    private function adquirirLock(): bool
+    private function adquirirLock(): string
     {
         $handle = fopen(sys_get_temp_dir() . '/jusprime-cobranca-encargos.lock', 'c');
 
         if ($handle === false) {
-            return false;
+            return 'indisponivel';
         }
 
         if (flock($handle, \LOCK_EX | \LOCK_NB) === false) {
             fclose($handle);
 
-            return false;
+            return 'ocupado';
         }
 
         $this->lockHandle = $handle;
 
-        return true;
+        return 'adquirido';
     }
 
     private function liberarLock(): void

@@ -466,6 +466,86 @@ final class AtualizarEncargosCommandTest extends KernelTestCase
         self::assertSame(self::PRINCIPAL, $recarregada->valorExigivel());
     }
 
+    /**
+     * Parcela de acordo VIGENTE não recebe mora automática: aquele número saiu de uma negociação.
+     *
+     * Note a assimetria deliberada com a exigibilidade do saldo, que INCLUI a parcela de acordo
+     * vigente. São perguntas diferentes: "quanto se deve hoje" ≠ "sobre o que o robô faz juros
+     * correrem". Se o acordo furar, o caminho é rompê-lo — aí a original volta e cresce inteira.
+     */
+    #[Test]
+    #[TestDox('Parcela de acordo VIGENTE não recebe mora automática (valor pactuado)')]
+    public function parcelaDeAcordoVigenteNaoRecebeMora(): void
+    {
+        $tenant = $this->tenant();
+        $caso = $this->casoTopLife($tenant);
+        $parcela = $this->obrigacao($tenant, $caso);
+        $parcela->setAcordoOrigem($this->acordo($tenant, $caso, StatusAcordo::Ativo));
+        $this->em->flush();
+        $id = $this->idDe($parcela);
+
+        $tester = $this->rodar(['--hoje' => self::HOJE]);
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $this->em->clear();
+        $recarregada = $this->recarregar($id);
+        self::assertSame(0, $recarregada->getJuros(), 'valor pactuado em acordo vigente não cresce sozinho');
+        self::assertSame(0, $recarregada->getMulta());
+        self::assertSame(self::PRINCIPAL, $recarregada->valorExigivel());
+    }
+
+    /**
+     * O freio central: o cron faz encargo crescer, nunca encolher por conta própria.
+     *
+     * É a proteção que faltava quando 3.271 obrigações com R$ 155.209,73 estavam a uma rodada de
+     * serem zeradas por carteiras com taxa 0 (ver `Version20260719140000`). Aqui a obrigação já tem
+     * encargos altos e a carteira é neutra: sem o freio, o recálculo daria 0 e apagaria tudo.
+     */
+    #[Test]
+    #[TestDox('Redução de encargos é BLOQUEADA por padrão e a obrigação fica intacta')]
+    public function reducaoDeEncargosEhBloqueadaPorPadrao(): void
+    {
+        $tenant = $this->tenant();
+        // Carteira NEUTRA: taxa 0 em tudo — o recálculo daria 0,0,0,0.
+        $caso = $this->caso($tenant, $this->carteira($tenant, [
+            'taxaJurosMensalBp' => 0,
+            'taxaMultaBp' => 0,
+            'percentualHonorarios' => null,
+            'formaHonorarios' => FormaHonorarios::SemPercentual,
+        ]));
+
+        $obrigacao = $this->obrigacao($tenant, $caso);
+        $obrigacao->definirEncargos(5000, 1000, 0, 2000, new \DateTimeImmutable('2026-02-01'));
+        $this->em->flush();
+        $id = $this->idDe($obrigacao);
+
+        $tester = $this->rodar(['--hoje' => self::HOJE]);
+
+        $this->em->clear();
+        $recarregada = $this->recarregar($id);
+        self::assertSame(5000, $recarregada->getJuros(), 'o cron NÃO pode apagar encargo já reconhecido');
+        self::assertSame(1000, $recarregada->getMulta());
+        self::assertSame(2000, $recarregada->getHonorarios());
+        self::assertSame(1, $this->metrica($tester->getDisplay(), 'Reduções bloqueadas'));
+    }
+
+    #[Test]
+    #[TestDox('--hoje no passado é recusado sem --forcar-retroativo')]
+    public function hojeRetroativoEhRecusado(): void
+    {
+        $tenant = $this->tenant();
+        $caso = $this->casoTopLife($tenant);
+        $id = $this->idDe($this->obrigacao($tenant, $caso));
+
+        $tester = $this->rodar(['--hoje' => '2020-01-01']);
+
+        self::assertSame(Command::INVALID, $tester->getStatusCode());
+        self::assertStringContainsString('--forcar-retroativo', $tester->getDisplay());
+
+        $this->em->clear();
+        self::assertSame(0, $this->recarregar($id)->getJuros(), 'nada pode ter sido tocado');
+    }
+
     private function acordo(Tenant $tenant, CasoCobranca $caso, StatusAcordo $status): Acordo
     {
         return AcordoFactory::createOne([

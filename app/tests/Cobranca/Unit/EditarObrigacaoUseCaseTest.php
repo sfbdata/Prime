@@ -225,4 +225,42 @@ final class EditarObrigacaoUseCaseTest extends TestCase
             'o snapshot "depois" tem de trazer o congelamento gravado',
         );
     }
+
+    /**
+     * Editar SEM mexer nos encargos não pode congelar nem achatar o split.
+     *
+     * Este form manda descrição, valor, vencimento, referência e encargos juntos, e reenvia tudo
+     * sempre. Se os encargos fossem gravados incondicionalmente, corrigir um typo na descrição teria
+     * dois efeitos que ninguém pediu: a ponte `setEncargosReconhecidos()` jogaria o agregado inteiro
+     * em `juros` (zerando multa e correção — justamente o split que a feature existe para preservar)
+     * e o congelamento tiraria a obrigação do cron PARA SEMPRE, já que não há UI de descongelar.
+     * A spec §8 condiciona o congelamento a editar VALORES à mão, não a qualquer edição.
+     */
+    #[Test]
+    public function editarSemMexerNosEncargosNaoCongelaNemAchataOSplit(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $obrigacao->definirEncargos(100, 200, 50, 900, new \DateTimeImmutable('2026-02-01'));
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+        $this->eventoRepository->method('salvar');
+
+        // Só a descrição muda; o agregado reenviado é o mesmo que já está lá (100+200+50 = 350).
+        $input = $this->inputValido();
+        $input->descricao = 'Descrição corrigida';
+        $input->encargosReconhecidos = 350;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame('Descrição corrigida', $resultado->getDescricao());
+        self::assertFalse($resultado->encargosCongelados(), 'edição que não toca dinheiro não congela');
+        self::assertNull($resultado->getEncargosCongeladosEm());
+
+        // O split sobrevive intacto — nada foi achatado em `juros`.
+        self::assertSame(100, $resultado->getJuros());
+        self::assertSame(200, $resultado->getMulta(), 'a multa não pode ser zerada por uma edição de texto');
+        self::assertSame(50, $resultado->getCorrecao());
+        self::assertSame(900, $resultado->getHonorarios());
+    }
 }

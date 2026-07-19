@@ -82,14 +82,27 @@ final class EditarObrigacaoUseCase
         $obrigacao->setDescricao($descricao);
         $obrigacao->setValorOriginal((int) $input->valorOriginal);
         $obrigacao->setVencimentoOriginal($input->vencimentoOriginal);
-        $obrigacao->setEncargosReconhecidos($input->encargosReconhecidos);
         $obrigacao->setReferenciaExterna($referencia);
 
-        // CONGELA a obrigação editada (spec §5/§8, INV-E4). Sem isto o cron da F3
-        // (`app:cobranca:atualizar-encargos`) sobrescreveria a correção manual na madrugada
-        // seguinte: o gestor ajusta um valor à mão e o robô o desfaz. Editar à mão é uma decisão
-        // de gente sobre dinheiro — a partir daqui esta obrigação para de crescer sozinha.
-        $obrigacao->congelarEncargos(new \DateTimeImmutable());
+        // Encargos só são tocados quando REALMENTE mudaram, e é a mudança que congela.
+        //
+        // Este form edita descrição, valor, vencimento, referência e encargos de uma vez, e reenvia
+        // todos os campos sempre. Mexer nos encargos incondicionalmente teria dois efeitos que
+        // ninguém pediu ao corrigir um typo na descrição: (1) a ponte `setEncargosReconhecidos()`
+        // joga o agregado inteiro em `juros` e ZERA multa/correção, destruindo o split que esta
+        // feature existe para preservar; (2) o congelamento tiraria a obrigação do cron PARA SEMPRE
+        // — não há UI de descongelar (`descongelarEncargos()` não tem chamador em app/src).
+        //
+        // A spec §8 condiciona o congelamento a editar VALORES/CONFIG à mão, não a qualquer edição.
+        // Comparar contra o agregado atual é exato: por INV-E1 ele é `juros + multa + correcao`.
+        if ($input->encargosReconhecidos !== $obrigacao->getEncargosReconhecidos()) {
+            $obrigacao->setEncargosReconhecidos($input->encargosReconhecidos);
+
+            // Editar encargos à mão é decisão de gente sobre dinheiro: a partir daqui o cron da F3
+            // (`app:cobranca:atualizar-encargos`) não recalcula mais esta obrigação (INV-E4). Sem
+            // isto o robô desfaria a correção manual na madrugada seguinte.
+            $obrigacao->congelarEncargos(new \DateTimeImmutable());
+        }
 
         $motivo = trim((string) $input->motivo);
 
