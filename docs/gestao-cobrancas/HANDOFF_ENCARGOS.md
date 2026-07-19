@@ -6,17 +6,29 @@
 
 ## ⏱️ Estado atual (2026-07-19)
 
-**F1 ENTREGUE E PROVADA** na branch local **`cobranca-encargos-cascata`** (de `master` `d19f652`);
-commits `93ce9e7` + `ee51f92`. **Nada publicado** — push/merge/deploy seguem sendo do humano.
+**F1 e F2 ENTREGUES E PROVADAS** na branch local **`cobranca-encargos-cascata`** (de `master` `d19f652`).
+**Nada publicado** — push/merge/deploy seguem sendo do humano.
 
-- `tests/Cobranca` **676/676** (baseline 611 + 65 novos, zero regressões) · **global 2040/2040**.
-- Migração `Version20260719120000` aplicada em **dev**: backfill com **diferença 0 ao centavo em 3.294
-  obrigações reais**. `schema:validate` sem divergência de coluna.
-- Smoke visual OK (objeto 117): total exibido idêntico ao de antes, ao centavo.
-- **Comportamento em runtime é idêntico ao de hoje**: as configs nascem neutras/nulas e nada materializa
-  encargos automaticamente ainda (isso começa na F2/F3). Nenhuma regressão possível para o usuário.
+| Commit | O quê |
+|---|---|
+| `93ce9e7` | F1 — motor `CalculadoraEncargos` + colunas + `ResolvedorConfigEncargos` + migração |
+| `ee51f92` | F1 — fecha achados da revisão |
+| `2112e3e` | F2 — config de encargos na carteira + snapshot no caso |
+| `40d82e7` | F2 — importador lê Correção, separa juros/multa e congela |
+| `2e7097f` | F2 — fecha achados da revisão (inclui a migração que desarma a bomba do cron) |
 
-**Fases restantes: F2 → F6** (ver spec §14 e o ledger).
+- `tests/Cobranca` **726/726** (baseline era 611) · **global 2090/2090**. Zero regressões.
+- Migrações `Version20260719120000` e `Version20260719140000` aplicadas em **dev**.
+- Backfill da F1: **diferença 0 ao centavo em 3.294 obrigações reais**.
+- Smoke visual real nas duas fases (tela do objeto e form da carteira), conferido contra o banco.
+
+### ⚠️ Bomba do cron encontrada e DESARMADA na F2
+Havia **3.271 obrigações não congeladas com R$ 155.209,73 em encargos**, e as 3 carteiras estavam com
+taxa **0**. Quando a F3 ligasse o cron (que recalcula as **não congeladas**), ele teria recalculado tudo
+com taxa zero e **apagado esses R$ 155 mil**. A migração `Version20260719140000` congela o legado com
+encargos > 0. Verificado depois de aplicar: **0 em risco, 3.271 congeladas, soma idêntica**.
+
+**Fases restantes: F3 → F6** (ver spec §14 e o ledger).
 
 ## Em uma frase
 Separar `encargosReconhecidos` (número único) em **juros / multa / correção** (+ honorários), com **%↔R$
@@ -86,8 +98,21 @@ A premissa do brainstorm estava **parcialmente errada**; os dados reais mostram:
 2. **N+1 na F3:** `ResolvedorConfigEncargos` navega `caso → objeto → carteira` (lazy-load, ~3 queries por
    obrigação). O cron precisa de **join fetch** para não fazer ~10k queries em 3.294 obrigações.
 3. **Overflow do regime Composto** já tratado com `EncargosInexequiveisException` — **a F3 deve capturá-la
-   POR OBRIGAÇÃO**, para um caso patológico não derrubar a rodada inteira.
-4. **Dívida pré-existente (não é da feature):** 3 índices **parciais/funcionais** vivem só nas migrations
+   POR OBRIGAÇÃO**, para um caso patológico não derrubar a rodada inteira. O teto de 100000 bp do DTO é
+   sanidade de entrada, **não** garantia contra overflow (os dias de atraso não têm teto).
+4. **Editar obrigação importada DESTRÓI o split** (F4/F5): `EditarObrigacaoUseCase` ainda usa a ponte
+   deprecada `setEncargosReconhecidos()`, que joga tudo em `juros` e zera multa/correção. O total
+   sobrevive (nenhum centavo se move), mas a informação que a feature existe para preservar some no
+   primeiro "corrigir obrigação".
+5. **Nível 3 não implementado** (F4): `RegistrarObrigacaoUseCase` não snapshota config na obrigação —
+   fica `null` (= herda o Caso, que está congelado, então é determinístico). Spec §4.1 previa o snapshot.
+6. **INV-E1 vale condicionalmente:** `novo = antigo + Σ(correção)`. Hoje Σ(K) = 0, medido em
+   **4.412/4.412** linhas reais. Se a contabilidade ligar a coluna K, uma reimportação **aumenta o
+   `valorExigivel` de obrigações existentes** sem reconciliação nem alerta.
+7. **Borda pré-existente (não é regressão):** POST forjado omitindo um `EnumType` mapeia `null` em
+   propriedade tipada não-nullable → 500. Vale para os campos novos **e** para `modo`/`formaHonorarios`,
+   que já eram assim. O conserto (DTO nullable + `Assert\NotNull`) é transversal — tarefa própria.
+8. **Dívida pré-existente (não é da feature):** 3 índices **parciais/funcionais** vivem só nas migrations
    e o `doctrine:schema:create` não os cria → recriar o banco de teste quebra
    `ImportarRelatorioCarteiraTest::testIndiceUnicoBloqueiaObrigacaoDuplicada` até rodar o `CREATE UNIQUE
    INDEX` à mão. Aconteceu nesta sessão. Vale um hook no bootstrap de teste, em tarefa separada.
