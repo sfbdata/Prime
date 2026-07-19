@@ -62,13 +62,12 @@ final class EditarObrigacaoUseCase
 
         // O novo valor exigível não pode cair abaixo do que já foi pago/alocado nesta obrigação.
         //
-        // Encargos separados (F1): o input ainda carrega só o AGREGADO `encargosReconhecidos` — a
-        // UI com juros/multa/correção separados é a F4. Pela invariante INV-E1 o agregado é
-        // exatamente `juros + multa + correcao`, então esta soma continua sendo o `valorExigivel()`
-        // do estado NOVO, ao centavo. Chamar `$obrigacao->valorExigivel()` aqui não serve: o guard
-        // roda ANTES de mutar a entidade — mutar e só depois lançar deixaria a obrigação suja em
-        // memória, à mercê de um flush alheio na mesma request.
-        $novoExigivel = (int) $input->valorOriginal + $input->encargosReconhecidos;
+        // Encargos separados (F4): o input traz os TRÊS componentes; a soma deles com o valor original
+        // é exatamente o `valorExigivel()` do estado NOVO (INV-E1), ao centavo. Honorários ficam de
+        // fora de propósito (INV-E2) — não são dívida do credor. Chamar `$obrigacao->valorExigivel()`
+        // aqui não serve: o guard roda ANTES de mutar a entidade — mutar e só depois lançar deixaria a
+        // obrigação suja em memória, à mercê de um flush alheio na mesma request.
+        $novoExigivel = (int) $input->valorOriginal + $input->juros + $input->multa + $input->correcao;
         $totalAlocado = $this->alocacaoRepository->totalAlocadoEmObrigacoes([(int) $obrigacao->getId()], $tenant);
         if ($novoExigivel < $totalAlocado) {
             throw new ValorAbaixoDoAlocadoException((int) $obrigacao->getId(), $novoExigivel, $totalAlocado);
@@ -87,21 +86,32 @@ final class EditarObrigacaoUseCase
         // Encargos só são tocados quando REALMENTE mudaram, e é a mudança que congela.
         //
         // Este form edita descrição, valor, vencimento, referência e encargos de uma vez, e reenvia
-        // todos os campos sempre. Mexer nos encargos incondicionalmente teria dois efeitos que
-        // ninguém pediu ao corrigir um typo na descrição: (1) a ponte `setEncargosReconhecidos()`
-        // joga o agregado inteiro em `juros` e ZERA multa/correção, destruindo o split que esta
-        // feature existe para preservar; (2) o congelamento tiraria a obrigação do cron PARA SEMPRE
-        // — não há UI de descongelar (`descongelarEncargos()` não tem chamador em app/src).
+        // todos os campos sempre. Mexer nos encargos incondicionalmente tiraria a obrigação do cron
+        // PARA SEMPRE por causa de um typo corrigido na descrição — não há UI de descongelar
+        // (`descongelarEncargos()` não tem chamador em app/src). A spec §8 condiciona o congelamento
+        // a editar VALORES/CONFIG à mão, não a qualquer edição.
         //
-        // A spec §8 condiciona o congelamento a editar VALORES/CONFIG à mão, não a qualquer edição.
-        // Comparar contra o agregado atual é exato: por INV-E1 ele é `juros + multa + correcao`.
-        if ($input->encargosReconhecidos !== $obrigacao->getEncargosReconhecidos()) {
-            $obrigacao->setEncargosReconhecidos($input->encargosReconhecidos);
+        // A comparação é COMPONENTE A COMPONENTE, não pelo agregado: trocar R$ 10 de multa por R$ 10
+        // de juros mantém o agregado igual e mudou dinheiro de categoria — tem de congelar.
+        $mudou = $input->juros !== $obrigacao->getJuros()
+            || $input->multa !== $obrigacao->getMulta()
+            || $input->correcao !== $obrigacao->getCorrecao();
+
+        if ($mudou) {
+            $agora = new \DateTimeImmutable();
+
+            // F4: aqui morre o último uso da ponte deprecada `setEncargosReconhecidos()` no caminho de
+            // edição — era o achado I5 da revisão da F2: ela jogava o agregado inteiro em `juros` e
+            // ZERAVA multa/correção, destruindo o split que esta feature existe para preservar. Com
+            // `definirEncargos()` cada componente vai para o seu campo. Os HONORÁRIOS são repassados
+            // como estão: a UI não os edita e o motor de cálculo é quem os materializa — passar 0 aqui
+            // apagaria a dívida de honorários a cada correção de digitação.
+            $obrigacao->definirEncargos($input->juros, $input->multa, $input->correcao, $obrigacao->getHonorarios(), $agora);
 
             // Editar encargos à mão é decisão de gente sobre dinheiro: a partir daqui o cron da F3
             // (`app:cobranca:atualizar-encargos`) não recalcula mais esta obrigação (INV-E4). Sem
             // isto o robô desfaria a correção manual na madrugada seguinte.
-            $obrigacao->congelarEncargos(new \DateTimeImmutable());
+            $obrigacao->congelarEncargos($agora);
         }
 
         $motivo = trim((string) $input->motivo);
@@ -125,7 +135,7 @@ final class EditarObrigacaoUseCase
     }
 
     /**
-     * @return array{descricao: string, valorOriginal: int, vencimentoOriginal: string, encargosReconhecidos: int, referenciaExterna: ?string, encargosCongeladosEm: ?string}
+     * @return array{descricao: string, valorOriginal: int, vencimentoOriginal: string, encargosReconhecidos: int, juros: int, multa: int, correcao: int, referenciaExterna: ?string, encargosCongeladosEm: ?string}
      */
     private function snapshot(Obrigacao $obrigacao): array
     {
@@ -133,7 +143,13 @@ final class EditarObrigacaoUseCase
             'descricao' => $obrigacao->getDescricao(),
             'valorOriginal' => $obrigacao->getValorOriginal(),
             'vencimentoOriginal' => $obrigacao->getVencimentoOriginal()->format('Y-m-d'),
+            // O agregado continua no snapshot (derivado, INV-E1) para não quebrar a leitura do
+            // histórico ANTIGO, que só conhece esta chave; os três componentes entram ao lado —
+            // sem eles o histórico não explica QUAL encargo o gestor mexeu.
             'encargosReconhecidos' => $obrigacao->getEncargosReconhecidos(),
+            'juros' => $obrigacao->getJuros(),
+            'multa' => $obrigacao->getMulta(),
+            'correcao' => $obrigacao->getCorrecao(),
             'referenciaExterna' => $obrigacao->getReferenciaExterna(),
             // O histórico tem de registrar o congelamento: é ele que explica por que aquela
             // obrigação parou de crescer a partir desta edição (antes null → depois preenchido).

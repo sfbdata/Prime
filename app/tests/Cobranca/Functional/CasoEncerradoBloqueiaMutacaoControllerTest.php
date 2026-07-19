@@ -83,7 +83,11 @@ final class CasoEncerradoBloqueiaMutacaoControllerTest extends CobrancaWebTestCa
         $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
             'editar_obrigacao' => [
                 'descricao' => 'TENTOU MUDAR', 'valorOriginal' => '999,00', 'vencimentoOriginal' => '2026-09-01',
-                'encargosReconhecidos' => '15,00', 'motivo' => 'x', '_token' => $token,
+                // F4: os encargos são três campos. Com a chave agregada antiga o payload viraria "campo
+                // extra", o form seria REJEITADO na validação e este teste ficaria verde sem nunca
+                // chegar ao guard de caso encerrado que ele existe para provar (falso positivo).
+                'juros' => '15,00', 'multa' => '0,00', 'correcao' => '0,00',
+                'motivo' => 'x', '_token' => $token,
             ],
         ]);
 

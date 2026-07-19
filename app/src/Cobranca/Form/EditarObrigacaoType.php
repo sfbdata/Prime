@@ -13,8 +13,17 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * Editar (corrigir) uma obrigação. `obrigacaoId` NÃO é campo — vem da rota. Espelha o form de registro +
- * `encargosReconhecidos` (unificação do "Reconhecer valor", ajuste 5) + `motivo` obrigatório. O modal é
- * reutilizável (1 por página) e pré-preenchido por JS via os `data-*` da linha da obrigação.
+ * os encargos SEPARADOS (juros/multa/correção — F4; antes era o agregado `encargosReconhecidos`, da
+ * unificação do "Reconhecer valor" do ajuste 5) + `motivo` obrigatório. O modal é reutilizável (1 por
+ * página) e pré-preenchido por JS via os `data-*` da linha da obrigação.
+ *
+ * Os campos de encargo são em R$ (CentavosType) e são a ÚNICA fonte de verdade submetida. O "%" ao lado
+ * de cada um, no Twig, é auxiliar: não tem `name`, não chega ao servidor e por isso não precisa de
+ * validação nem de reidratação no B5 — o JS o recalcula a partir do R$ quando o modal abre.
+ *
+ * `data-encargo` é o gancho que o JS usa para casar cada R$ com o seu % (travado por
+ * ObjetoShowContratoJsTest). `empty_data => '0'` é string porque o transformer roda ANTES da conversão
+ * para centavos; campo vazio vira 0, não null — nenhum encargo é obrigatório.
  */
 final class EditarObrigacaoType extends AbstractType
 {
@@ -40,11 +49,23 @@ final class EditarObrigacaoType extends AbstractType
                 'required' => false,
                 'attr' => ['class' => 'form-control', 'maxlength' => 255],
             ])
-            ->add('encargosReconhecidos', CentavosType::class, [
-                'label' => 'Encargos reconhecidos (R$)',
+            ->add('juros', CentavosType::class, [
+                'label' => 'Juros (R$)',
                 'required' => false,
                 'empty_data' => '0',
-                'attr' => ['class' => 'form-control'],
+                'attr' => ['class' => 'form-control', 'data-encargo' => 'juros'],
+            ])
+            ->add('multa', CentavosType::class, [
+                'label' => 'Multa (R$)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control', 'data-encargo' => 'multa'],
+            ])
+            ->add('correcao', CentavosType::class, [
+                'label' => 'Correção (R$)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control', 'data-encargo' => 'correcao'],
             ])
             ->add('motivo', TextType::class, [
                 'label' => 'Motivo da correção',

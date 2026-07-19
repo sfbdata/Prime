@@ -14,6 +14,10 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 /**
  * Registrar uma obrigação (dívida) no Caso. `casoId` NÃO é campo — vem da rota e é preenchido pelo
  * controller. Dinheiro em CentavosType (int centavos no DTO); validação via #[Assert] do DTO.
+ *
+ * Encargos separados (F4, spec §11): juros/multa/correção OPCIONAIS já no lançamento, cada um com um "%"
+ * auxiliar ao lado no Twig (sem `name`, só JS — o R$ é a fonte de verdade submetida). Deixar os três
+ * vazios é o caso comum: a obrigação nasce zerada e o cron passa a calcular.
  */
 final class RegistrarObrigacaoType extends AbstractType
 {
@@ -38,6 +42,24 @@ final class RegistrarObrigacaoType extends AbstractType
                 'label' => 'Referência externa (opcional)',
                 'required' => false,
                 'attr' => ['class' => 'form-control', 'placeholder' => 'Ex.: nº do boleto', 'maxlength' => 255],
+            ])
+            ->add('juros', CentavosType::class, [
+                'label' => 'Juros (R$)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control', 'data-encargo' => 'juros'],
+            ])
+            ->add('multa', CentavosType::class, [
+                'label' => 'Multa (R$)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control', 'data-encargo' => 'multa'],
+            ])
+            ->add('correcao', CentavosType::class, [
+                'label' => 'Correção (R$)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control', 'data-encargo' => 'correcao'],
             ]);
     }
 

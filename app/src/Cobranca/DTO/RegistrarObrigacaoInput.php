@@ -11,6 +11,10 @@ use Symfony\Component\Validator\Constraints as Assert;
  * id + tenant no RegistrarObrigacaoUseCase (guarda multi-tenant). O valor é informado em CENTAVOS
  * inteiros e, junto do vencimento, preserva-se como ORIGINAL (invariável 20). A normalização final
  * da referência externa (trim; null se vazio) ocorre no UseCase.
+ *
+ * Encargos separados (F4, spec §11): a obrigação lançada à mão pode já NASCER com encargos reconhecidos
+ * (dívida antiga trazida de outro sistema, boleto já com juros calculados). São opcionais e default 0 —
+ * o caso comum continua sendo nascer zerada e deixar o cron calcular.
  */
 final class RegistrarObrigacaoInput
 {
@@ -32,4 +36,17 @@ final class RegistrarObrigacaoInput
 
     #[Assert\Length(max: 255, maxMessage: 'A referência externa pode ter no máximo {{ limit }} caracteres.')]
     public ?string $referenciaExterna = null;
+
+    /**
+     * Encargos já reconhecidos no lançamento, em CENTAVOS. Opcionais (default 0) — nenhum pode virar
+     * obrigatório: o importador e todo chamador programático montam este DTO sem eles.
+     */
+    #[Assert\PositiveOrZero(message: 'Os juros não podem ser negativos.')]
+    public int $juros = 0;
+
+    #[Assert\PositiveOrZero(message: 'A multa não pode ser negativa.')]
+    public int $multa = 0;
+
+    #[Assert\PositiveOrZero(message: 'A correção não pode ser negativa.')]
+    public int $correcao = 0;
 }

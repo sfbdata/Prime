@@ -63,9 +63,32 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
 
         // Modais que o JS abre/rehidrata (ids fixos)
         foreach (['#modalRegistrarPagamento', '#modalCriarAcordo', '#modalEditarObrigacao',
-                  '#modalExcluirObrigacao', '#modalConcluirAcao'] as $gancho) {
+                  '#modalRegistrarObrigacao', '#modalExcluirObrigacao', '#modalConcluirAcao'] as $gancho) {
             self::assertSelectorExists($gancho, "Sumiu o gancho: {$gancho}");
         }
+
+        // F4 (encargos separados): o espelho % ↔ R$ casa cada input de percentual (`data-encargo-pct`,
+        // auxiliar e SEM `name`) com o campo do Form em reais (`data-encargo`), e lê a base no campo
+        // apontado por `data-encargo-base`. Se qualquer ponta sumir, o par se desfaz em silêncio: o
+        // gestor digitaria um percentual que não vira dinheiro nenhum. Vale nos DOIS modais.
+        foreach (['#modalEditarObrigacao', '#modalRegistrarObrigacao'] as $modal) {
+            foreach (['juros', 'multa', 'correcao'] as $encargo) {
+                self::assertSelectorExists(
+                    $modal . ' [data-encargo-pct="' . $encargo . '"][data-encargo-base="valorOriginal"]',
+                    "Sumiu o input de % de {$encargo} em {$modal}",
+                );
+                self::assertSelectorExists(
+                    $modal . ' [data-encargo="' . $encargo . '"]',
+                    "Sumiu o campo em R$ de {$encargo} em {$modal}",
+                );
+            }
+            // A base do espelho: sem ela o JS desabilita os % (não há por que dividir).
+            self::assertSelectorExists($modal . ' input[name$="[valorOriginal]"]', "Sumiu a base do % em {$modal}");
+        }
+
+        // O % é DERIVADO do R$ e nunca é submetido: se ganhar `name`, vira uma segunda fonte de verdade
+        // sobre dinheiro, que o B5 teria de reidratar e que divergiria do R$ por arredondamento.
+        self::assertSelectorNotExists('[data-encargo-pct][name]', 'o input de % não pode ser submetido ao servidor');
 
         // Ajuste 11 (T3): a "Próxima ação" migrou da coluna principal para o cartão de destaque
         // do trilho (`.cob-proxima`) — o gancho visual, não só o modal que ela abre.

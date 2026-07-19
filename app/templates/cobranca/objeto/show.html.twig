@@ -321,8 +321,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    /* Modal reutilizável de "editar obrigação": o botão da linha injeta a URL e pré-preenche os campos
-       (valores em centavos → reais com ponto, que o CentavosType aceita no reverse). */
+    /* Modal reutilizável de "editar obrigação": o botão da linha injeta a URL e pré-preenche os campos.
+       Centavos → valor de CAMPO em pt-BR (vírgula), via `reaisInput`: o CentavosType aceita os dois
+       formatos, mas o `parseCentavos` daqui trata PONTO como separador de MILHAR — preencher
+       "1200.00" faria o espelho %↔R$ ler R$ 120.000,00 como base e errar todo percentual por 100x. */
     var modalEditar = document.getElementById('modalEditarObrigacao');
     if (modalEditar) {
         modalEditar.addEventListener('show.bs.modal', function (event) {
@@ -334,15 +336,110 @@ document.addEventListener('DOMContentLoaded', function () {
                 var el = modalEditar.querySelector('[name="editar_obrigacao[' + campo + ']"]');
                 if (el) { el.value = valor; }
             };
-            var reais = function (centavos) { return (parseInt(centavos || '0', 10) / 100).toFixed(2); };
+            var reais = function (centavos) {
+                var n = parseInt(centavos || '0', 10);
+                // `data-*` ausente (linha de uma versão anterior do partial) ou lixo → 0, nunca "NaN"
+                // dentro de um campo de dinheiro.
+                return reaisInput(isNaN(n) ? 0 : n);
+            };
             setVal('descricao', botao.getAttribute('data-descricao') || '');
             setVal('referenciaExterna', botao.getAttribute('data-referencia') || '');
             setVal('vencimentoOriginal', botao.getAttribute('data-vencimento') || '');
             setVal('valorOriginal', reais(botao.getAttribute('data-valor-centavos')));
-            setVal('encargosReconhecidos', reais(botao.getAttribute('data-encargos-centavos')));
+            /* F4: os encargos deixaram de ser um número só. TODO campo do modal precisa de um `setVal`
+               aqui — os modais de obrigação não têm `hidden.bs.modal`, o reset deles é este preenchimento;
+               um campo esquecido vaza o valor da obrigação aberta antes. */
+            setVal('juros', reais(botao.getAttribute('data-juros-centavos')));
+            setVal('multa', reais(botao.getAttribute('data-multa-centavos')));
+            setVal('correcao', reais(botao.getAttribute('data-correcao-centavos')));
             setVal('motivo', '');
         });
     }
+
+    /* Espelho % ↔ R$ dos encargos (F4, spec §11), nos modais de registrar e editar obrigação.
+       O R$ é a FONTE DE VERDADE: é o campo do Form, é o que vai ao servidor e o que o B5 reidrata.
+       O "%" não tem `name` — é conveniência de digitação, derivada do R$ sobre o valor original. */
+    function initEspelhoEncargos(modal) {
+        if (!modal) { return; }
+        var pares = [];
+        var campoBase = 'valorOriginal';
+        modal.querySelectorAll('[data-encargo-pct]').forEach(function (pctInput) {
+            var nome = pctInput.getAttribute('data-encargo-pct');
+            campoBase = pctInput.getAttribute('data-encargo-base') || campoBase;
+            var reaisInputEl = modal.querySelector('[data-encargo="' + nome + '"]');
+            if (reaisInputEl) { pares.push({ pct: pctInput, reais: reaisInputEl }); }
+        });
+        // A base do percentual é o campo declarado em `data-encargo-base` (hoje o valor original).
+        var base = modal.querySelector('input[name$="[' + campoBase + ']"]');
+        if (!base || pares.length === 0) { return; }
+
+        /* Percentual digitado → número. Aceita vírgula (pt-BR) e ponto; string vazia vira null, para
+           distinguir "não informado" de "zero por cento". */
+        function parsePercentual(texto) {
+            var s = String(texto === null || texto === undefined ? '' : texto).trim().replace(/\s/g, '').replace('%', '');
+            if (s === '') { return null; }
+            var f = parseFloat(s.replace(',', '.'));
+            return isNaN(f) ? null : f;
+        }
+        function baseCentavos() { return parseCentavos(base.value); }
+
+        /* % → R$ em CENTAVOS INTEIROS. O percentual vira inteiro em décimos de milésimo de ponto
+           (4 casas) e há UMA única divisão no fim, arredondada half-up (`Math.round`, valores nunca
+           negativos aqui). É dinheiro: nada de acumular erro de float em cascata. */
+        function percentualParaCentavos(baseCent, pct) {
+            var escala = Math.round(pct * 10000);
+            return Math.round(baseCent * escala / 1000000);
+        }
+        function centavosParaPercentual(baseCent, cent) {
+            return (cent * 100 / baseCent).toFixed(2).replace('.', ',');
+        }
+
+        /* Sem base (valor original vazio ou zero) não há percentual possível: dividir por zero daria
+           Infinity/NaN no campo. Desabilita e esvazia o "%", deixando o R$ livre para ser digitado. */
+        function aplicarDisponibilidade(baseCent) {
+            var indisponivel = baseCent <= 0;
+            pares.forEach(function (par) {
+                par.pct.disabled = indisponivel;
+                if (indisponivel) { par.pct.value = ''; }
+            });
+            return !indisponivel;
+        }
+        /* Recalcula os "%" a partir dos R$ — nunca o contrário. Usado ao abrir o modal e quando o valor
+           original muda: mexer no principal não pode alterar o dinheiro já reconhecido. */
+        function sincronizarPercentuais() {
+            var baseCent = baseCentavos();
+            if (!aplicarDisponibilidade(baseCent)) { return; }
+            pares.forEach(function (par) {
+                var cent = parseCentavos(par.reais.value);
+                par.pct.value = cent === 0 && String(par.reais.value).trim() === '' ? '' : centavosParaPercentual(baseCent, cent);
+            });
+        }
+
+        pares.forEach(function (par) {
+            par.pct.addEventListener('input', function () {
+                var baseCent = baseCentavos();
+                if (baseCent <= 0) { return; }
+                var pct = parsePercentual(par.pct.value);
+                par.reais.value = pct === null ? '' : reaisInput(percentualParaCentavos(baseCent, pct));
+            });
+            par.reais.addEventListener('input', function () {
+                var baseCent = baseCentavos();
+                if (baseCent <= 0) { return; }
+                var texto = String(par.reais.value).trim();
+                par.pct.value = texto === '' ? '' : centavosParaPercentual(baseCent, parseCentavos(texto));
+            });
+        });
+        base.addEventListener('input', sincronizarPercentuais);
+
+        /* Registrado DEPOIS do preenchimento do modal de editar (acima): quando este roda, os R$ da
+           linha já estão nos campos, e o % sai deles. No B5 (reidratação) o `relatedTarget` é undefined,
+           o preenchimento cai fora pelo early-return e aqui os % saem do que o servidor devolveu — por
+           isso o % não precisa ser reidratado: ele é sempre derivado, nunca guardado. */
+        modal.addEventListener('show.bs.modal', sincronizarPercentuais);
+        sincronizarPercentuais();
+    }
+    initEspelhoEncargos(document.getElementById('modalEditarObrigacao'));
+    initEspelhoEncargos(document.getElementById('modalRegistrarObrigacao'));
 
     /* Modal reutilizável de "excluir obrigação": o botão da linha injeta a URL, o token CSRF e a descrição. */
     var modalExcluir = document.getElementById('modalExcluirObrigacao');

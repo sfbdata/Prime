@@ -144,7 +144,12 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
                 'valorOriginal' => '1.200,00',
                 'vencimentoOriginal' => '2026-09-01',
                 'referenciaExterna' => 'REF-9',
-                'encargosReconhecidos' => '250,00',
+                // F4: os encargos deixaram de ser um campo só. Valores DISTINTOS de propósito — se o
+                // form achatasse tudo num componente (era o que a ponte deprecada fazia), três valores
+                // iguais ou um agregado só não denunciariam nada.
+                'juros' => '200,00',
+                'multa' => '40,00',
+                'correcao' => '10,00',
                 'motivo' => 'Valor digitado errado na importação',
                 '_token' => $token,
             ],
@@ -157,8 +162,162 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $fresh = $em->find(Obrigacao::class, $obrigacaoId);
         self::assertSame('Boleto corrigido ABC', $fresh->getDescricao());
         self::assertSame(120000, $fresh->getValorOriginal(), 'valor original corrigido para R$1.200,00');
-        self::assertSame(25000, $fresh->getEncargosReconhecidos(), 'encargos corrigidos para R$250,00');
+        self::assertSame(20000, $fresh->getJuros(), 'juros corrigidos para R$200,00');
+        self::assertSame(4000, $fresh->getMulta(), 'multa corrigida para R$40,00');
+        self::assertSame(1000, $fresh->getCorrecao(), 'correção corrigida para R$10,00');
+        // O agregado é DERIVADO (INV-E1): continua valendo R$250,00, como no contrato antigo.
+        self::assertSame(25000, $fresh->getEncargosReconhecidos(), 'o agregado é a soma dos três');
+        self::assertSame(145000, $fresh->valorExigivel(), 'exigível = original + os três encargos');
         self::assertSame('2026-09-01', $fresh->getVencimentoOriginal()->format('Y-m-d'));
+    }
+
+    #[TestDox('Editar obrigação: os encargos separados NÃO são obrigatórios — o form sem eles é válido')]
+    public function testEditarObrigacaoSemInformarEncargosEhValido(): void
+    {
+        // Nenhum campo novo pode ser obrigatório: um `NotBlank` neles quebraria todo POST que não os
+        // manda (payload legado, chamador programático) DEPOIS do deploy, em produção.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'So a descricao mudou',
+                'valorOriginal' => '1.000,00',
+                'vencimentoOriginal' => '2026-09-01',
+                'motivo' => 'typo na descrição',
+                '_token' => $token,
+            ],
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertCount(0, $crawler->filter('[data-modal-erro]'), 'o form sem os encargos não pode falhar na validação');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->find(Obrigacao::class, $obrigacaoId);
+        self::assertSame('So a descricao mudou', $fresh->getDescricao(), 'a edição foi aplicada');
+        self::assertFalse($fresh->encargosCongelados(), 'não mexeu em encargos → não congela');
+    }
+
+    #[TestDox('Editar obrigação: trocar a composição dos encargos congela e preserva os honorários')]
+    public function testEditarObrigacaoRecomporEncargosCongelaEPreservaHonorarios(): void
+    {
+        // Regressão do achado I5 da F2: a ponte deprecada `setEncargosReconhecidos()` jogava o agregado
+        // inteiro em `juros` e ZERAVA multa/correção. Aqui o agregado é o MESMO antes e depois
+        // (R$ 350,00) e só a composição muda — o único jeito de o teste ficar verde é cada componente
+        // ter ido para o seu campo.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        // O split de partida (com honorários materializados) não sai da factory: ela só conhece o
+        // agregado. Grava-se aqui, antes do POST.
+        $obrigacao->definirEncargos(30000, 4000, 1000, 9000, new \DateTimeImmutable('2026-02-01'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
+
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'Recomposicao',
+                'valorOriginal' => '1.000,00',
+                'vencimentoOriginal' => '2026-09-01',
+                // Agregado idêntico (35000), composição diferente.
+                'juros' => '200,00',
+                'multa' => '140,00',
+                'correcao' => '10,00',
+                'motivo' => 'juros lançados como multa',
+                '_token' => $token,
+            ],
+        ]);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->find(Obrigacao::class, $obrigacaoId);
+        self::assertSame(20000, $fresh->getJuros());
+        self::assertSame(14000, $fresh->getMulta());
+        self::assertSame(1000, $fresh->getCorrecao());
+        self::assertSame(9000, $fresh->getHonorarios(), 'a UI não edita honorários — eles não podem ser zerados por uma correção');
+        self::assertTrue($fresh->encargosCongelados(), 'mexer em dinheiro à mão tira a obrigação do cron (INV-E4)');
+    }
+
+    #[TestDox('Registrar obrigação com encargos: nasce com o split e já congelada')]
+    public function testRegistrarObrigacaoComEncargosCongela(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_obrigacao');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/obrigacoes', [
+            'registrar_obrigacao' => [
+                'descricao' => 'Divida vinda de outro sistema',
+                'valorOriginal' => '1.000,00',
+                'vencimentoOriginal' => '2026-08-10',
+                'juros' => '50,00',
+                'multa' => '20,00',
+                'correcao' => '5,00',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $criada = $em->getRepository(Obrigacao::class)->findOneBy(['descricao' => 'Divida vinda de outro sistema']);
+        self::assertNotNull($criada);
+        self::assertSame(5000, $criada->getJuros());
+        self::assertSame(2000, $criada->getMulta());
+        self::assertSame(500, $criada->getCorrecao());
+        self::assertSame(107500, $criada->valorExigivel());
+        self::assertTrue($criada->encargosCongelados(), 'número digitado por gente não é sobrescrito pelo cron');
+    }
+
+    #[TestDox('Registrar obrigação sem encargos: nasce zerada e NÃO congelada (o cron cuida)')]
+    public function testRegistrarObrigacaoSemEncargosNaoCongela(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_obrigacao');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/obrigacoes', [
+            'registrar_obrigacao' => [
+                'descricao' => 'Boleto novo sem encargos',
+                'valorOriginal' => '1.000,00',
+                'vencimentoOriginal' => '2026-08-10',
+                '_token' => $token,
+            ],
+        ]);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $criada = $em->getRepository(Obrigacao::class)->findOneBy(['descricao' => 'Boleto novo sem encargos']);
+        self::assertNotNull($criada, 'os encargos são opcionais: o lançamento sem eles continua válido');
+        self::assertSame(0, $criada->getEncargosReconhecidos());
+        self::assertFalse(
+            $criada->encargosCongelados(),
+            'congelar aqui tiraria do cron toda obrigação criada à mão, sem UI de descongelar',
+        );
     }
 
     #[TestDox('Editar obrigação sem a capacidade: negado (redirect, não caso)')]
@@ -420,7 +579,9 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
                 'descricao' => 'Descrição corrigida XYZ',
                 'valorOriginal' => '1.200,00',
                 'vencimentoOriginal' => '2026-09-01',
-                'encargosReconhecidos' => '0,00',
+                'juros' => '12,00',
+                'multa' => '3,00',
+                'correcao' => '0,00',
                 'motivo' => '',
                 '_token' => $token,
             ],
@@ -436,5 +597,19 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $modalHtml = $crawler->filter('#modalEditarObrigacao')->html();
         self::assertStringContainsString('Informe o motivo da correção.', $modalHtml);
         self::assertStringContainsString('Descrição corrigida XYZ', $modalHtml, 'o digitado tem de sobreviver ao redirect');
+
+        // F4: os encargos separados são campos do Form, então o B5 os reidrata como qualquer outro —
+        // o gestor não redigita dinheiro por causa de um motivo esquecido. (O "%" ao lado não precisa
+        // reidratar: não é submetido, o JS o deriva destes valores quando o modal reabre.)
+        self::assertSame(
+            '12,00',
+            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[juros]"]')->attr('value'),
+            'os juros digitados sobrevivem ao redirect',
+        );
+        self::assertSame(
+            '3,00',
+            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[multa]"]')->attr('value'),
+            'a multa digitada sobrevive ao redirect',
+        );
     }
 }

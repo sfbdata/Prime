@@ -1,9 +1,53 @@
 {# Modais de mutação do Caso (Onda 8B). Só renderizados para quem tem a capacidade de gerenciar
    cobranças; o gate real é no controller. Cada fatia da 8B acrescenta seus modais aqui. #}
 
+{# Bloco de encargos separados (F4, spec §11), compartilhado pelos modais de REGISTRAR e EDITAR
+   obrigação. Espera no contexto: `formEncargos` (a view do form) e `prefixoEncargos` (o prefixo dos
+   ids, só para dar um id único ao input de % de cada modal — os dois modais coexistem na página).
+
+   Cada encargo é um par lado a lado: o "%" à esquerda e o R$ à direita. O R$ é o campo do Form — é ele
+   que é submetido, validado e reidratado pelo B5. O "%" é auxiliar: NÃO tem `name`, nunca chega ao
+   servidor, e o JS o deriva do R$ sobre o valor original ao abrir o modal. Duas fontes de verdade sobre
+   dinheiro divergiriam por arredondamento; aqui só existe uma. #}
+{% macro camposEncargos(formEncargos, prefixoEncargos) %}
+<hr class="my-3">
+<h6 class="fw-semibold mb-1">Encargos reconhecidos</h6>
+<div class="form-text mb-3">
+    Informe o percentual <em>ou</em> o valor em reais — um preenche o outro, sobre o valor original.
+    Ao gravar um valor aqui a obrigação fica <strong>congelada</strong>: o cálculo automático diário
+    para de atualizá-la, e o que ficar registrado passa a valer até alguém corrigir de novo.
+</div>
+
+{% for campo, rotulo in {'juros': 'Juros', 'multa': 'Multa', 'correcao': 'Correção'} %}
+    <div class="row g-2 mb-3">
+        <div class="col-5">
+            <label class="form-label" for="{{ prefixoEncargos }}_{{ campo }}_pct">{{ rotulo }} (%)</label>
+            <div class="input-group">
+                <input type="text" class="form-control" inputmode="decimal"
+                       id="{{ prefixoEncargos }}_{{ campo }}_pct"
+                       data-encargo-pct="{{ campo }}" data-encargo-base="valorOriginal"
+                       autocomplete="off">
+                <span class="input-group-text">%</span>
+            </div>
+        </div>
+        <div class="col-7">
+            <label class="form-label" for="{{ attribute(formEncargos, campo).vars.id }}">{{ rotulo }} (R$)</label>
+            <div class="input-group">
+                {{ form_widget(attribute(formEncargos, campo)) }}
+                <span class="input-group-text">R$</span>
+            </div>
+            {{ form_errors(attribute(formEncargos, campo)) }}
+        </div>
+    </div>
+{% endfor %}
+{% endmacro %}
+
+{# Macro do próprio template: no Twig 3 chamar via `_self` exige o import explícito. #}
+{% import _self as blocoEncargos %}
+
 {# ── Registrar obrigação ─────────────────────────────────────────── #}
 <div class="modal fade" id="modalRegistrarObrigacao" tabindex="-1" aria-labelledby="tituloRegistrarObrigacao" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             {{ form_start(forms.registrarObrigacao, {action: path('cobranca_obrigacao_registrar', {id: caso.id})}) }}
             <div class="modal-header">
@@ -15,6 +59,7 @@
                 {{ form_row(forms.registrarObrigacao.valorOriginal) }}
                 {{ form_row(forms.registrarObrigacao.vencimentoOriginal) }}
                 {{ form_row(forms.registrarObrigacao.referenciaExterna) }}
+                {{ blocoEncargos.camposEncargos(forms.registrarObrigacao, 'registrarObrigacao') }}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -27,7 +72,7 @@
 
 {# ── Editar obrigação (modal reutilizável; JS injeta action + pré-preenche os campos da linha) ── #}
 <div class="modal fade" id="modalEditarObrigacao" tabindex="-1" aria-labelledby="tituloEditarObrigacao" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             {{ form_start(forms.editarObrigacao, {attr: {id: 'formEditarObrigacao'}}) }}
             <div class="modal-header">
@@ -40,7 +85,8 @@
                 {{ form_row(forms.editarObrigacao.valorOriginal) }}
                 {{ form_row(forms.editarObrigacao.vencimentoOriginal) }}
                 {{ form_row(forms.editarObrigacao.referenciaExterna) }}
-                {{ form_row(forms.editarObrigacao.encargosReconhecidos) }}
+                {{ blocoEncargos.camposEncargos(forms.editarObrigacao, 'editarObrigacao') }}
+                <hr class="my-3">
                 {{ form_row(forms.editarObrigacao.motivo) }}
             </div>
             <div class="modal-footer">

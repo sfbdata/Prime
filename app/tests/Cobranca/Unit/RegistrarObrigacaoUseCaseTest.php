@@ -94,6 +94,80 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         self::assertSame('EXT-77', $obrigacao->getReferenciaExterna());
         // Encargos nascem zerados; valor original preservado (invariável 20).
         self::assertSame(0, $obrigacao->getEncargosReconhecidos());
+        // Sem encargos digitados a obrigação segue sob o cron: congelar aqui tiraria do cálculo
+        // automático toda obrigação criada à mão, sem UI de descongelar (INV-E4).
+        self::assertFalse($obrigacao->encargosCongelados());
+    }
+
+    /**
+     * Uma dívida trazida de outro sistema já vem com os encargos calculados lá fora. O gestor os digita
+     * no lançamento; a partir daí eles são a verdade e o cron não pode passar por cima na madrugada
+     * seguinte (spec §8, INV-E4) — mesma regra da edição manual.
+     */
+    #[Test]
+    public function encargosInformadosNoLancamentoNascemSeparadosECongelados(): void
+    {
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+
+        $capturado = null;
+        $this->eventoRepository->method('salvar')
+            ->willReturnCallback(function (EventoHistorico $e, bool $flush) use (&$capturado): void {
+                $capturado = $e;
+            });
+
+        $input = new RegistrarObrigacaoInput();
+        $input->casoId = 30;
+        $input->descricao = 'Dívida antiga importada à mão';
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2025-03-10');
+        $input->juros = 5000;
+        $input->multa = 2000;
+        $input->correcao = 500;
+
+        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        // Cada componente no seu campo (nada de agregar tudo em `juros`).
+        self::assertSame(5000, $obrigacao->getJuros());
+        self::assertSame(2000, $obrigacao->getMulta());
+        self::assertSame(500, $obrigacao->getCorrecao());
+        self::assertSame(7500, $obrigacao->getEncargosReconhecidos(), 'o agregado é o derivado (INV-E1)');
+        self::assertSame(107500, $obrigacao->valorExigivel());
+        // Honorários NÃO são digitados neste form: nascem zerados, materializados pelo motor depois.
+        self::assertSame(0, $obrigacao->getHonorarios());
+        self::assertTrue($obrigacao->encargosCongelados(), 'valor digitado por gente não é sobrescrito pelo cron');
+
+        // O histórico precisa explicar de onde veio esse dinheiro e por que a obrigação já nasceu presa.
+        self::assertInstanceOf(EventoHistorico::class, $capturado);
+        $dados = $capturado->getDados();
+        self::assertSame(5000, $dados['juros']);
+        self::assertSame(2000, $dados['multa']);
+        self::assertSame(500, $dados['correcao']);
+    }
+
+    #[Test]
+    public function encargosZeradosNaoCongelamAObrigacao(): void
+    {
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+
+        $input = new RegistrarObrigacaoInput();
+        $input->casoId = 30;
+        $input->descricao = 'Boleto novo';
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2026-03-10');
+        // Os três explicitamente em zero: é o default do form quando o gestor não preenche nada.
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
+
+        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertFalse(
+            $obrigacao->encargosCongelados(),
+            'zero não é "valor digitado": a obrigação nova tem de continuar sendo calculada pelo cron',
+        );
+        self::assertNull($obrigacao->getEncargosAtualizadosEm(), 'sem encargos informados não há materialização a datar');
     }
 
     #[Test]

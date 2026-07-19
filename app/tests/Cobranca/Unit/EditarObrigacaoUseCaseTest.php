@@ -72,7 +72,10 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $input->valorOriginal = 25000;
         $input->vencimentoOriginal = new \DateTimeImmutable('2026-03-15');
         $input->referenciaExterna = '  REF-NEW  ';
-        $input->encargosReconhecidos = 500;
+        // F4: os encargos entram separados (soma 500 — o mesmo agregado do contrato anterior).
+        $input->juros = 300;
+        $input->multa = 150;
+        $input->correcao = 50;
         $input->motivo = '  valor digitado errado  ';
 
         return $input;
@@ -98,6 +101,10 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertSame('Boleto correto', $resultado->getDescricao());
         self::assertSame(25000, $resultado->getValorOriginal());
         self::assertSame('2026-03-15', $resultado->getVencimentoOriginal()->format('Y-m-d'));
+        // Cada componente no seu campo; o agregado é o derivado (INV-E1).
+        self::assertSame(300, $resultado->getJuros());
+        self::assertSame(150, $resultado->getMulta());
+        self::assertSame(50, $resultado->getCorrecao());
         self::assertSame(500, $resultado->getEncargosReconhecidos());
         self::assertSame('REF-NEW', $resultado->getReferenciaExterna());
         self::assertSame(25500, $resultado->valorExigivel());
@@ -111,6 +118,15 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertSame(25000, $dados['depois']['valorOriginal']);
         self::assertSame('REF-OLD', $dados['antes']['referenciaExterna']);
         self::assertSame('valor digitado errado', $dados['motivo']);
+
+        // O snapshot passa a registrar os TRÊS componentes: sem eles o histórico diz que "os encargos
+        // mudaram" mas não qual deles, que é exatamente a pergunta que se faz depois.
+        self::assertSame(0, $dados['antes']['juros']);
+        self::assertSame(300, $dados['depois']['juros']);
+        self::assertSame(150, $dados['depois']['multa']);
+        self::assertSame(50, $dados['depois']['correcao']);
+        // O agregado continua no snapshot para o histórico antigo seguir legível.
+        self::assertSame(500, $dados['depois']['encargosReconhecidos']);
     }
 
     #[Test]
@@ -230,11 +246,9 @@ final class EditarObrigacaoUseCaseTest extends TestCase
      * Editar SEM mexer nos encargos não pode congelar nem achatar o split.
      *
      * Este form manda descrição, valor, vencimento, referência e encargos juntos, e reenvia tudo
-     * sempre. Se os encargos fossem gravados incondicionalmente, corrigir um typo na descrição teria
-     * dois efeitos que ninguém pediu: a ponte `setEncargosReconhecidos()` jogaria o agregado inteiro
-     * em `juros` (zerando multa e correção — justamente o split que a feature existe para preservar)
-     * e o congelamento tiraria a obrigação do cron PARA SEMPRE, já que não há UI de descongelar.
-     * A spec §8 condiciona o congelamento a editar VALORES à mão, não a qualquer edição.
+     * sempre. Se os encargos fossem gravados incondicionalmente, o congelamento tiraria a obrigação
+     * do cron PARA SEMPRE por causa de um typo corrigido na descrição, já que não há UI de
+     * descongelar. A spec §8 condiciona o congelamento a editar VALORES à mão, não a qualquer edição.
      */
     #[Test]
     public function editarSemMexerNosEncargosNaoCongelaNemAchataOSplit(): void
@@ -246,10 +260,13 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
         $this->eventoRepository->method('salvar');
 
-        // Só a descrição muda; o agregado reenviado é o mesmo que já está lá (100+200+50 = 350).
+        // Só a descrição muda; os encargos reenviados são EXATAMENTE os que já estão lá (é o que o
+        // modal faz: pré-preenche os três a partir da linha e o gestor não os toca).
         $input = $this->inputValido();
         $input->descricao = 'Descrição corrigida';
-        $input->encargosReconhecidos = 350;
+        $input->juros = 100;
+        $input->multa = 200;
+        $input->correcao = 50;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
@@ -262,5 +279,84 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertSame(200, $resultado->getMulta(), 'a multa não pode ser zerada por uma edição de texto');
         self::assertSame(50, $resultado->getCorrecao());
         self::assertSame(900, $resultado->getHonorarios());
+    }
+
+    /**
+     * Regressão do achado I5 da revisão da F2: a ponte deprecada `setEncargosReconhecidos()` jogava o
+     * agregado inteiro em `juros` e ZERAVA multa/correção. Aqui o agregado é o MESMO antes e depois
+     * (350) e só a COMPOSIÇÃO muda — com a ponte no caminho, este teste fica vermelho duas vezes: nem
+     * detectaria a mudança (compara pelo agregado) nem gravaria o split.
+     */
+    #[Test]
+    public function recomporOsEncargosMantendoOAgregadoAindaAssimGravaECongela(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $obrigacao->definirEncargos(100, 200, 50, 900, new \DateTimeImmutable('2026-02-01'));
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+        $this->eventoRepository->method('salvar');
+
+        $input = $this->inputValido();
+        // Mesma soma (350), outra composição: dinheiro trocou de categoria.
+        $input->juros = 200;
+        $input->multa = 100;
+        $input->correcao = 50;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame(200, $resultado->getJuros());
+        self::assertSame(100, $resultado->getMulta());
+        self::assertSame(50, $resultado->getCorrecao());
+        self::assertSame(350, $resultado->getEncargosReconhecidos(), 'o agregado não mudou — a composição sim');
+        self::assertTrue($resultado->encargosCongelados(), 'recompor à mão é editar dinheiro: congela');
+    }
+
+    /**
+     * Honorários são materializados pelo motor de cálculo e a UI de edição NÃO os edita. Se o UseCase
+     * passasse 0 para `definirEncargos`, cada correção de encargo apagaria a dívida de honorários do
+     * escritório — dinheiro sumindo por efeito colateral de outra tela.
+     */
+    #[Test]
+    public function editarEncargosPreservaOsHonorariosMaterializados(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $obrigacao->definirEncargos(100, 200, 50, 4321, new \DateTimeImmutable('2026-02-01'));
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+        $this->eventoRepository->method('salvar');
+
+        $resultado = $this->sut->executar($this->inputValido(), $this->tenant, $this->usuario);
+
+        self::assertSame(4321, $resultado->getHonorarios(), 'a edição de encargos não pode zerar os honorários');
+        // E os honorários seguem FORA do exigível (INV-E2): 25000 + 300 + 150 + 50.
+        self::assertSame(25500, $resultado->valorExigivel());
+    }
+
+    /**
+     * O guard do exigível roda ANTES de mutar: se ele falhasse depois, a obrigação ficaria suja em
+     * memória à mercê de um flush alheio na mesma request. A soma dos TRÊS é o exigível novo (INV-E1).
+     */
+    #[Test]
+    public function guardDoExigivelSomaOsTresEncargosENaoMutaAoRejeitar(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        // Alocado R$ 260,00; o novo exigível seria 25000 + 300 + 150 + 50 = 25500 (< 26000) → rejeita.
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(26000);
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        try {
+            $this->sut->executar($this->inputValido(), $this->tenant, $this->usuario);
+            self::fail('o guard do exigível deveria ter barrado a edição');
+        } catch (ValorAbaixoDoAlocadoException) {
+            // esperado
+        }
+
+        self::assertSame('Boleto errado', $obrigacao->getDescricao(), 'nada pode ter sido mutado antes do guard');
+        self::assertSame(10000, $obrigacao->getValorOriginal());
+        self::assertSame(0, $obrigacao->getEncargosReconhecidos());
+        self::assertFalse($obrigacao->encargosCongelados());
     }
 }
