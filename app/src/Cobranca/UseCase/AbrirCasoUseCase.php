@@ -69,6 +69,20 @@ final class AbrirCasoUseCase
         $caso->setPessoaCobradaAtual($pessoa);
         $caso->setFormaHonorarios($carteira->getFormaHonorarios());
         $caso->setPercentualHonorarios($carteira->getPercentualHonorarios());
+
+        // Snapshot dos encargos por atraso (nível 2 da cascata, spec §4.1/§5): CÓPIA NO NASCIMENTO.
+        // O caso passa a carregar a config vigente na carteira agora; mudar a carteira depois NÃO
+        // altera este caso — só vale para os casos abertos daí em diante (mesma regra dos honorários).
+        $caso->setTaxaJurosMensalBp($carteira->getTaxaJurosMensalBp());
+        $caso->setRegimeJuros($carteira->getRegimeJuros());
+        $caso->setTaxaMultaBp($carteira->getTaxaMultaBp());
+        $caso->setBaseMulta($carteira->getBaseMulta());
+        $caso->setTaxaCorrecaoBp($carteira->getTaxaCorrecaoBp());
+        $caso->setBaseCorrecao($carteira->getBaseCorrecao());
+        $caso->setBaseHonorarios($carteira->getBaseHonorarios());
+        $caso->setCarenciaHonorariosDias($carteira->getCarenciaHonorariosDias());
+        $caso->setToleranciaJurosMultaDias($carteira->getToleranciaJurosMultaDias());
+
         $caso->setCriadoPor($criadoPor);
 
         // Persiste sem flush; o registro do evento fecha a transação (persiste os dois de uma vez).

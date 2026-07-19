@@ -262,6 +262,17 @@ final class CarteiraController extends AbstractController
             $config->toleranciaAtrasoDias = $carteira->getToleranciaAtrasoDias();
             $config->tipoVinculoPreferido = $carteira->getTipoVinculoPreferido();
             $config->rotuloObjeto = $carteira->getRotuloObjeto();
+            // Encargos por atraso: o modal abre com o que já está salvo (senão editar a tolerância
+            // zeraria as taxas sem querer, porque o form submete o DTO inteiro).
+            $config->taxaJurosMensalBp = $carteira->getTaxaJurosMensalBp();
+            $config->regimeJuros = $carteira->getRegimeJuros();
+            $config->taxaMultaBp = $carteira->getTaxaMultaBp();
+            $config->baseMulta = $carteira->getBaseMulta();
+            $config->taxaCorrecaoBp = $carteira->getTaxaCorrecaoBp();
+            $config->baseCorrecao = $carteira->getBaseCorrecao();
+            $config->baseHonorarios = $carteira->getBaseHonorarios();
+            $config->carenciaHonorariosDias = $carteira->getCarenciaHonorariosDias();
+            $config->toleranciaJurosMultaDias = $carteira->getToleranciaJurosMultaDias();
 
             $forms['editarConfiguracao'] = $this->createForm(EditarConfiguracaoCarteiraType::class, $config)->createView();
         }

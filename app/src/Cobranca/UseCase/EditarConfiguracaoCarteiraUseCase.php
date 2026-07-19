@@ -44,6 +44,18 @@ final class EditarConfiguracaoCarteiraUseCase
         $carteira->setTipoVinculoPreferido($input->tipoVinculoPreferido);
         $carteira->setRotuloObjeto($input->rotuloObjeto);
 
+        // Encargos por atraso (nível 1 da cascata, spec §4.1): valem para as NOVAS cobranças. Caso e
+        // obrigação já existentes guardam o próprio snapshot e não são recalculados (spec §5).
+        $carteira->setTaxaJurosMensalBp($input->taxaJurosMensalBp);
+        $carteira->setRegimeJuros($input->regimeJuros);
+        $carteira->setTaxaMultaBp($input->taxaMultaBp);
+        $carteira->setBaseMulta($input->baseMulta);
+        $carteira->setTaxaCorrecaoBp($input->taxaCorrecaoBp);
+        $carteira->setBaseCorrecao($input->baseCorrecao);
+        $carteira->setBaseHonorarios($input->baseHonorarios);
+        $carteira->setCarenciaHonorariosDias($input->carenciaHonorariosDias);
+        $carteira->setToleranciaJurosMultaDias($input->toleranciaJurosMultaDias);
+
         $this->carteiraRepository->salvar($carteira, true);
 
         return $carteira;

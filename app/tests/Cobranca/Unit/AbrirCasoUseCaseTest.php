@@ -10,8 +10,10 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Pessoa;
+use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
+use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\Exception\CasoAtivoJaExisteException;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
@@ -113,6 +115,56 @@ final class AbrirCasoUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function copiaOsNoveCamposDeEncargosDaCarteiraParaOCaso(): void
+    {
+        $carteira = $this->carteiraComEncargos();
+        $caso = $this->abrirCasoPara($carteira);
+
+        // Snapshot dos encargos (nível 2 da cascata): o caso nasce com a config vigente na carteira.
+        // Todos os valores são não-default no CasoCobranca (que nasce com os 9 em null): se um
+        // setter faltar, a asserção acusa null.
+        self::assertSame(100, $caso->getTaxaJurosMensalBp());
+        self::assertSame(RegimeJuros::Composto, $caso->getRegimeJuros());
+        self::assertSame(200, $caso->getTaxaMultaBp());
+        self::assertSame(BaseEncargo::Composta, $caso->getBaseMulta());
+        self::assertSame(50, $caso->getTaxaCorrecaoBp());
+        self::assertSame(BaseEncargo::Composta, $caso->getBaseCorrecao());
+        self::assertSame(BaseEncargo::Principal, $caso->getBaseHonorarios());
+        self::assertSame(30, $caso->getCarenciaHonorariosDias());
+        self::assertSame(5, $caso->getToleranciaJurosMultaDias());
+    }
+
+    #[Test]
+    public function encargosSaoCopiaNoNascimentoEMudarACarteiraDepoisNaoAfetaOCasoAberto(): void
+    {
+        $carteira = $this->carteiraComEncargos();
+        $caso = $this->abrirCasoPara($carteira);
+
+        // O gestor reconfigura a carteira DEPOIS de o caso já estar aberto (spec §5).
+        $carteira
+            ->setTaxaJurosMensalBp(900)
+            ->setRegimeJuros(RegimeJuros::Simples)
+            ->setTaxaMultaBp(1000)
+            ->setBaseMulta(BaseEncargo::Principal)
+            ->setTaxaCorrecaoBp(700)
+            ->setBaseCorrecao(BaseEncargo::Principal)
+            ->setBaseHonorarios(BaseEncargo::Composta)
+            ->setCarenciaHonorariosDias(90)
+            ->setToleranciaJurosMultaDias(60);
+
+        // O caso já aberto continua com o que copiou: a nova config só vale para os PRÓXIMOS casos.
+        self::assertSame(100, $caso->getTaxaJurosMensalBp());
+        self::assertSame(RegimeJuros::Composto, $caso->getRegimeJuros());
+        self::assertSame(200, $caso->getTaxaMultaBp());
+        self::assertSame(BaseEncargo::Composta, $caso->getBaseMulta());
+        self::assertSame(50, $caso->getTaxaCorrecaoBp());
+        self::assertSame(BaseEncargo::Composta, $caso->getBaseCorrecao());
+        self::assertSame(BaseEncargo::Principal, $caso->getBaseHonorarios());
+        self::assertSame(30, $caso->getCarenciaHonorariosDias());
+        self::assertSame(5, $caso->getToleranciaJurosMultaDias());
+    }
+
+    #[Test]
     public function rejeitaSegundoCasoAtivoNoModoUnico(): void
     {
         $carteira = (new Carteira())->setModo(ModoCarteira::Unico);
@@ -167,5 +219,39 @@ final class AbrirCasoUseCaseTest extends TestCase
         $input->pessoaCobradaId = 999;
 
         $this->sut->executar($input, $this->tenant, $this->criadoPor);
+    }
+
+    /** Carteira com os 9 encargos configurados, todos fora do default do CasoCobranca (null). */
+    private function carteiraComEncargos(): Carteira
+    {
+        return (new Carteira())
+            ->setModo(ModoCarteira::Multiplo)
+            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
+            ->setPercentualHonorarios('20.00')
+            ->setTaxaJurosMensalBp(100)
+            ->setRegimeJuros(RegimeJuros::Composto)
+            ->setTaxaMultaBp(200)
+            ->setBaseMulta(BaseEncargo::Composta)
+            ->setTaxaCorrecaoBp(50)
+            ->setBaseCorrecao(BaseEncargo::Composta)
+            ->setBaseHonorarios(BaseEncargo::Principal)
+            ->setCarenciaHonorariosDias(30)
+            ->setToleranciaJurosMultaDias(5);
+    }
+
+    /** Abre um caso no caminho feliz para a carteira dada (modo B, sem caso ativo concorrente). */
+    private function abrirCasoPara(Carteira $carteira): CasoCobranca
+    {
+        $objeto = (new ObjetoCobranca())->setCarteira($carteira);
+
+        $this->objetoRepository->method('findOneByIdDoTenant')->willReturn($objeto);
+        $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn(new Pessoa());
+        $this->casoRepository->method('existeCasoAtivoParaObjeto')->willReturn(false);
+
+        $input = new AbrirCasoInput();
+        $input->objetoId = 50;
+        $input->pessoaCobradaId = 70;
+
+        return $this->sut->executar($input, $this->tenant, $this->criadoPor);
     }
 }
