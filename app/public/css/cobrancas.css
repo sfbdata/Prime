@@ -262,7 +262,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 
    Estado base (< lg): só o Total; os encargos viram o subtexto `.jp-obr-composicao`. */
 #secao-divida .jp-obr, #secao-divida .jp-lista-head {
-    grid-template-columns: 18px 96px minmax(0, 1fr) minmax(96px, auto) auto;
+    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(96px, 8rem) auto;
 }
 #secao-divida .jp-obr > .col-original, #secao-divida .jp-lista-head > .col-original,
 #secao-divida .jp-obr > .col-detalhe, #secao-divida .jp-lista-head > .col-detalhe { display: none; }
@@ -271,12 +271,14 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-obr-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 /* Composição dos encargos quando eles não têm coluna própria: "J 13,60 · M 3,40 · C 0,00 · H 37,40".
    Sem "R$" repetido (não caberia) e com classe PRÓPRIA, nunca `.jp-obr-sub` — o primeiro `.jp-obr-sub`
-   da linha é o "já recebidos" da descrição, e há teste lendo exatamente esse primeiro nó. */
-   `white-space: normal` desfaz o `nowrap` herdado de `.jp-obr-valor`: em celular a composição é a
-   linha mais longa da célula e, sem poder quebrar, seria ela a empurrar a página para a rolagem
-   horizontal (o track do grid não encolhe abaixo do min-content do conteúdo). */
+   da linha é o "já recebidos" da descrição, e há teste lendo exatamente esse primeiro nó.
+
+   `white-space: normal` desfaz o `nowrap` herdado de `.jp-obr-valor`, e o `min-width: 0` é o que
+   impede esta linha de DITAR a largura da coluna: sem ele o track do Total cresce até o min-content
+   da composição, come o espaço livre, e o `1fr` da descrição colapsa a ZERO — a descrição então
+   quebra letra a letra e a linha vira uma coluna de 2000px de altura. Aconteceu no smoke. */
 .jp-obr-composicao {
-    display: block; font-size: .72rem; font-weight: 500;
+    display: block; font-size: .72rem; font-weight: 500; min-width: 0;
     color: var(--bs-secondary-color); white-space: normal; font-variant-numeric: tabular-nums;
 }
 /* Sinal de encargos congelados (INV-E4): discreto, ao lado do Total, sem coluna própria. */
@@ -285,7 +287,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 /* Estado médio (≥ lg): entra o Original; juros/multa/correção/honorários seguem no subtexto. */
 @media (min-width: 992px) {
     #secao-divida .jp-obr, #secao-divida .jp-lista-head {
-        grid-template-columns: 18px 96px minmax(0, 1fr) minmax(80px, auto) minmax(96px, auto) auto;
+        grid-template-columns: 18px 96px minmax(12rem, 1fr) minmax(72px, 4.5rem) minmax(92px, 6.5rem) auto;
     }
     #secao-divida .jp-obr > .col-original, #secao-divida .jp-lista-head > .col-original { display: block; }
 }
@@ -298,9 +300,15 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 @media (min-width: 1400px) {
     #secao-divida .jp-obr, #secao-divida .jp-lista-head {
         gap: .5rem;
-        grid-template-columns: 18px 88px minmax(0, 1fr) repeat(5, minmax(56px, auto)) minmax(92px, auto) auto;
+        grid-template-columns: 18px 84px minmax(10rem, 1fr) repeat(5, minmax(52px, 4.4rem)) minmax(88px, 6rem) auto;
     }
     #secao-divida .jp-obr > .col-detalhe, #secao-divida .jp-lista-head > .col-detalhe { display: block; }
+    /* "HONORÁRIOS" não cabe na largura da coluna com o corpo padrão do cabeçalho (.7rem + tracking):
+       os rótulos transbordavam e colavam uns nos outros ("CORREÇÃOHONORÁRIOS"). Encolher só o
+       cabeçalho das colunas estreitas preserva os nomes por extenso — que é o que torna o número
+       conferível contra o PDF — sem roubar largura da descrição. */
+    #secao-divida .jp-lista-head > .col-detalhe,
+    #secao-divida .jp-lista-head > .col-original { font-size: .62rem; letter-spacing: 0; }
     #secao-divida .jp-obr > .jp-obr-num { font-size: .82rem; }
     #secao-divida .jp-obr-composicao { display: none; }
 }

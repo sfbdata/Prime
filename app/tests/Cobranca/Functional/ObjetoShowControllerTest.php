@@ -618,9 +618,17 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('3,40', $linha->filter('.col-multa')->text());
         self::assertStringContainsString('0,00', $linha->filter('.col-correcao')->text());
         self::assertStringContainsString('37,40', $linha->filter('.col-honorarios')->text());
-        // Total = EXIGÍVEL (17000 + 1360 + 340 + 0 = 18700). Honorários ficam fora do exigível
-        // (INV-E2): aparecem em coluna própria, não somados ao total que alimenta saldo e acordos.
-        self::assertStringContainsString('187,00', $linha->filter('.col-total')->text());
+        // Total = o do RELATÓRIO da contabilidade: 170,00 + 13,60 + 3,40 + 0,00 + 37,40 = 224,40.
+        // É o número da prova real do Apêndice A ("Tot 224,40") e o que esta linha existe para
+        // reproduzir — as seis colunas na tela têm de fechar a soma, senão não dá para conferir
+        // contra o PDF. NÃO é o exigível (18700), que exclui honorários por INV-E2 e segue sendo o
+        // que alimenta saldo/FIFO/acordo, sem aparecer nesta coluna.
+        self::assertStringContainsString('224,40', $linha->filter('.col-total')->text());
+        self::assertSame(
+            22440,
+            17000 + 1360 + 340 + 0 + 3740,
+            'as seis colunas exibidas têm de fechar a soma do relatório',
+        );
     }
 
     #[TestDox('F4: o cabeçalho nomeia cada coluna de dinheiro — sem nome, número não significa nada')]
