@@ -246,6 +246,65 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     color: var(--bs-secondary-color); font-weight: 700;
 }
 .jp-lista-head .col-valor { text-align: right; }
+
+/* ── Colunas do relatório da contabilidade na dívida (encargos separados, spec §11) ──
+   A linha da obrigação deixou de ter uma coluna "Valor" e passou a ter as SEIS do PDF:
+   Original · Juros · Multa · Correção · Honorários · Total.
+
+   Escopo `#secao-divida` de propósito: `.jp-lista-head` também é usado pelo extrato de movimentos
+   (`_movimentos.html.twig`), que continua com 5 células — mudar a grade compartilhada desalinharia
+   aquela lista sem que ninguém pedisse.
+
+   Onze colunas não cabem em tela média, então a grade tem TRÊS estados (mobile-first, cada breakpoint
+   só ACRESCENTA colunas). As células que não cabem saem por `display: none` — nunca do DOM, porque os
+   testes e o JS da seleção leem a linha inteira. Como item com `display: none` sai do fluxo do grid, a
+   contagem de células bate com a de tracks em cada estado.
+
+   Estado base (< lg): só o Total; os encargos viram o subtexto `.jp-obr-composicao`. */
+#secao-divida .jp-obr, #secao-divida .jp-lista-head {
+    grid-template-columns: 18px 96px minmax(0, 1fr) minmax(96px, auto) auto;
+}
+#secao-divida .jp-obr > .col-original, #secao-divida .jp-lista-head > .col-original,
+#secao-divida .jp-obr > .col-detalhe, #secao-divida .jp-lista-head > .col-detalhe { display: none; }
+
+/* Utilitária das células numéricas — em vez de repetir alinhamento coluna a coluna */
+.jp-obr-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* Composição dos encargos quando eles não têm coluna própria: "J 13,60 · M 3,40 · C 0,00 · H 37,40".
+   Sem "R$" repetido (não caberia) e com classe PRÓPRIA, nunca `.jp-obr-sub` — o primeiro `.jp-obr-sub`
+   da linha é o "já recebidos" da descrição, e há teste lendo exatamente esse primeiro nó. */
+   `white-space: normal` desfaz o `nowrap` herdado de `.jp-obr-valor`: em celular a composição é a
+   linha mais longa da célula e, sem poder quebrar, seria ela a empurrar a página para a rolagem
+   horizontal (o track do grid não encolhe abaixo do min-content do conteúdo). */
+.jp-obr-composicao {
+    display: block; font-size: .72rem; font-weight: 500;
+    color: var(--bs-secondary-color); white-space: normal; font-variant-numeric: tabular-nums;
+}
+/* Sinal de encargos congelados (INV-E4): discreto, ao lado do Total, sem coluna própria. */
+.jp-obr-congelado { font-size: .78rem; color: var(--bs-secondary-color); margin-left: .25rem; }
+
+/* Estado médio (≥ lg): entra o Original; juros/multa/correção/honorários seguem no subtexto. */
+@media (min-width: 992px) {
+    #secao-divida .jp-obr, #secao-divida .jp-lista-head {
+        grid-template-columns: 18px 96px minmax(0, 1fr) minmax(80px, auto) minmax(96px, auto) auto;
+    }
+    #secao-divida .jp-obr > .col-original, #secao-divida .jp-lista-head > .col-original { display: block; }
+}
+
+/* Estado largo (≥ xxl): as seis colunas do PDF. Gap e mínimos apertados de propósito — a dívida vive
+   na coluna esquerda do cockpit (`.cob-main`, ~62% da área útil), então cada pixel gasto aqui é pixel
+   que falta para a descrição. O "R$" só sobra no Total (âncora da leitura); as demais usam
+   `|centavos_curto`. Com a descrição em `minmax(0,1fr)` e as ações podendo quebrar linha, a lista
+   encolhe até caber em vez de empurrar a página para a rolagem horizontal. */
+@media (min-width: 1400px) {
+    #secao-divida .jp-obr, #secao-divida .jp-lista-head {
+        gap: .5rem;
+        grid-template-columns: 18px 88px minmax(0, 1fr) repeat(5, minmax(56px, auto)) minmax(92px, auto) auto;
+    }
+    #secao-divida .jp-obr > .col-detalhe, #secao-divida .jp-lista-head > .col-detalhe { display: block; }
+    #secao-divida .jp-obr > .jp-obr-num { font-size: .82rem; }
+    #secao-divida .jp-obr-composicao { display: none; }
+}
+
 .jp-obr:hover { background: var(--bs-tertiary-bg); }
 /* Linha vencida: tint danger translúcido + "espinha" de 3px à esquerda — mesmo padrão do
    `.jp-obr.is-selecionada` logo abaixo (box-shadow inset, não uma coluna de grid dedicada). */
@@ -272,11 +331,16 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-obr-data-rel { font-size: .72rem; color: var(--bs-secondary-color); white-space: nowrap; }
 .jp-obr-data-rel.is-atrasado { color: var(--bs-danger); font-weight: 600; }
 
-.jp-obr-desc { font-weight: 600; min-width: 0; }
+/* `min-width: 0` + quebra em qualquer ponto: com as colunas de encargos, a descrição é a coluna
+   elástica (`minmax(0,1fr)`). Sem a quebra, uma descrição longa sem espaços (ex.: uma referência
+   externa colada) viraria o piso da linha e jogaria a página inteira na rolagem horizontal. */
+.jp-obr-desc { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
 .jp-obr-sub { font-size: .78rem; color: var(--bs-secondary-color); font-weight: 400; }
 .jp-obr-valor { text-align: right; white-space: nowrap; font-weight: 700; font-variant-numeric: tabular-nums; }
 .jp-obr-restante { display: block; font-size: .72rem; color: var(--bs-secondary-color); font-weight: 500; }
-.jp-obr-acoes { display: flex; gap: .35rem; justify-content: flex-end; align-items: center; }
+/* `flex-wrap`: com seis colunas de dinheiro disputando a largura, "Receber" + "Acordar" + "⋯" quebram
+   em duas linhas em vez de esticar a grade além do container. */
+.jp-obr-acoes { display: flex; gap: .35rem; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
 
 /* Botões de ação do módulo (Ajuste 11): verde sólido para dinheiro, outline neutro para o resto —
    nunca `btn-primary`/`btn-outline-primary` (índigo do Bootstrap). Usa os tokens do próprio módulo. */

@@ -19,6 +19,7 @@ final class CobrancaExtension extends AbstractExtension
     {
         return [
             new TwigFilter('centavos', $this->centavos(...)),
+            new TwigFilter('centavos_curto', $this->centavosCurto(...)),
             new TwigFilter('tempo_relativo', $this->tempoRelativo(...)),
         ];
     }
@@ -26,7 +27,21 @@ final class CobrancaExtension extends AbstractExtension
     /** Centavos inteiros → "R$ 1.234,56". */
     public function centavos(?int $centavos): string
     {
-        return 'R$ ' . number_format(($centavos ?? 0) / 100, 2, ',', '.');
+        return 'R$ ' . $this->centavosCurto($centavos);
+    }
+
+    /**
+     * Centavos inteiros → "1.234,56", SEM o prefixo "R$" (encargos separados, spec §11).
+     *
+     * A linha da obrigação passou a ter seis colunas de dinheiro (Original · Juros · Multa · Correção ·
+     * Honorários · Total) e o subtexto que as resume nas telas estreitas. Repetir "R$" em cada célula
+     * gasta a largura que falta para as colunas caberem e não acrescenta informação: o cabeçalho já diz
+     * que a coluna é dinheiro e o Total — a âncora da leitura — continua com o símbolo.
+     * Mesma aritmética do `centavos` (é ele que delega para cá), para as duas formas nunca divergirem.
+     */
+    public function centavosCurto(?int $centavos): string
+    {
+        return number_format(($centavos ?? 0) / 100, 2, ',', '.');
     }
 
     /**

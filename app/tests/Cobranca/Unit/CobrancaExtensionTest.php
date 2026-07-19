@@ -63,4 +63,31 @@ final class CobrancaExtensionTest extends TestCase
         self::assertSame('R$ 1.234,56', $sut->centavos(123456));
         self::assertSame('R$ 0,00', $sut->centavos(null));
     }
+
+    #[Test]
+    #[TestDox('centavos_curto: mesmo dinheiro SEM o "R$" — as colunas de encargos não repetem o símbolo')]
+    public function centavosCurtoFormataSemOSimboloDeMoeda(): void
+    {
+        $sut = new CobrancaExtension();
+
+        self::assertSame('1.234,56', $sut->centavosCurto(123456));
+        self::assertSame('13,60', $sut->centavosCurto(1360));
+        self::assertSame('0,00', $sut->centavosCurto(0));
+        self::assertSame('0,00', $sut->centavosCurto(null));
+        // Negativo é possível numa correção que devolve valor: o sinal não pode sumir na formatação.
+        self::assertSame('-13,60', $sut->centavosCurto(-1360));
+    }
+
+    #[Test]
+    #[TestDox('centavos e centavos_curto não podem divergir: um é o outro com o prefixo')]
+    public function centavosEhOCurtoComPrefixo(): void
+    {
+        $sut = new CobrancaExtension();
+
+        // Duas aritméticas separadas divergiriam em silêncio no arredondamento — e são as mesmas
+        // colunas de dinheiro da mesma linha da tela.
+        foreach ([0, 1, 99, 1360, 123456, -500] as $centavos) {
+            self::assertSame('R$ ' . $sut->centavosCurto($centavos), $sut->centavos($centavos));
+        }
+    }
 }

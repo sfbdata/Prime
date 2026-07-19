@@ -19,6 +19,7 @@ use App\Tests\Factory\Cobranca\ObrigacaoFactory;
 use App\Tests\Factory\Cobranca\PagamentoFactory;
 use App\Tests\Factory\Cobranca\ProximaAcaoFactory;
 use App\Tests\Factory\Cobranca\VinculoPessoaObjetoFactory;
+use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 
@@ -584,5 +585,173 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $client->request('GET', '/cobrancas/casos/' . $caso->getId());
 
         self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+    }
+
+    // ── Encargos separados (spec "encargos configuráveis em cascata" §11) ──────────────────────────
+    // A linha da obrigação deixou de ter uma coluna "Valor" e passou a ter as do relatório da
+    // contabilidade: Original · Juros · Multa · Correção · Honorários · Total.
+
+    #[TestDox('F4: a linha mostra as colunas do PDF com o split real da contabilidade (Apêndice A)')]
+    public function testALinhaMostraAsColunasDeEncargosSeparados(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        // Linha REAL da prova TOPLIFE (Apêndice A da spec): principal R$ 170,00 com 240 dias de atraso →
+        // juros 13,60 · multa 3,40 · correção 0,00 · honorários 37,40. Valores LITERAIS de propósito:
+        // é dinheiro na tela, e um teste que recalcula a fórmula não prova nada sobre o que aparece.
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Boleto TOPLIFE', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-03-10'),
+        ])->_real();
+        $obrigacao->definirEncargos(1360, 340, 0, 3740, new \DateTimeImmutable('2026-07-16'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $linha = $crawler->filter('#secao-divida .jp-obr');
+        self::assertCount(1, $linha);
+        self::assertStringContainsString('170,00', $linha->filter('.col-original')->text());
+        self::assertStringContainsString('13,60', $linha->filter('.col-juros')->text());
+        self::assertStringContainsString('3,40', $linha->filter('.col-multa')->text());
+        self::assertStringContainsString('0,00', $linha->filter('.col-correcao')->text());
+        self::assertStringContainsString('37,40', $linha->filter('.col-honorarios')->text());
+        // Total = EXIGÍVEL (17000 + 1360 + 340 + 0 = 18700). Honorários ficam fora do exigível
+        // (INV-E2): aparecem em coluna própria, não somados ao total que alimenta saldo e acordos.
+        self::assertStringContainsString('187,00', $linha->filter('.col-total')->text());
+    }
+
+    #[TestDox('F4: o cabeçalho nomeia cada coluna de dinheiro — sem nome, número não significa nada')]
+    public function testOCabecalhoNomeiaAsColunasDeEncargos(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Março/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $cabecalho = $crawler->filter('#secao-divida .jp-lista-head');
+        self::assertCount(1, $cabecalho);
+        $texto = $cabecalho->text();
+        foreach (['Original', 'Juros', 'Multa', 'Correção', 'Honorários', 'Total'] as $coluna) {
+            self::assertStringContainsString($coluna, $texto, "o cabeçalho precisa nomear a coluna {$coluna}");
+        }
+        // O cabeçalho tem de ter EXATAMENTE a mesma quantidade de células da linha, senão a grade
+        // (CSS grid compartilhado) desalinha coluna com rótulo.
+        self::assertSame(
+            $crawler->filter('#secao-divida .jp-obr')->first()->children()->count(),
+            $cabecalho->children()->count(),
+        );
+    }
+
+    #[TestDox('F4 (INV-E4): obrigação congelada avisa que os encargos não crescem mais; a normal não avisa')]
+    public function testObrigacaoCongeladaMostraOIndicadorEANaoCongeladaNao(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $congelada = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Veio do relatório da contabilidade', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-01-10'),
+        ])->_real();
+        $congelada->definirEncargos(1360, 340, 0, 3740, new \DateTimeImmutable('2026-02-01'));
+        $congelada->congelarEncargos(new \DateTimeImmutable('2026-02-01 10:00:00'));
+
+        $viva = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Calculada pelo cron', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('2026-03-10'),
+        ])->_real();
+        $viva->definirEncargos(1360, 340, 0, 3740, new \DateTimeImmutable('2026-07-16'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        self::assertCount(2, $crawler->filter('#secao-divida .jp-obr'), 'as duas obrigações estão na tela');
+        // Só a congelada carrega o sinal — se as duas o mostrassem, ele não diria nada.
+        $indicador = $crawler->filter('#secao-divida .jp-obr-congelado');
+        self::assertCount(1, $indicador);
+        self::assertStringContainsString('Encargos congelados em 01/02/2026', (string) $indicador->attr('title'));
+        self::assertStringContainsString('não são recalculados automaticamente', (string) $indicador->attr('title'));
+        // A não-congelada diz quando foi a última atualização, no próprio Total.
+        $totais = $crawler->filter('#secao-divida .jp-obr .col-total')->each(
+            static fn ($node) => (string) $node->attr('title'),
+        );
+        self::assertContains('Encargos atualizados em 16/07/2026.', $totais);
+    }
+
+    #[TestDox('F4: avulsa, parcela de acordo e substituída têm a MESMA estrutura de colunas')]
+    public function testAsTresVariantesDeLinhaTemAMesmaEstruturaDeColunas(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $acordo = AcordoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo,
+        ])->_real();
+        // 1) avulsa · 2) parcela do acordo vigente · 3) obrigação que o acordo substituiu
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Avulsa',
+            'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+        ]);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela 1/1',
+            'valorOriginal' => 50000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $acordo,
+        ]);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Trocada pelo acordo',
+            'valorOriginal' => 60000, 'encargosReconhecidos' => 0, 'acordoSubstituto' => $acordo,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $linhas = $crawler->filter('#secao-divida .jp-obr');
+        self::assertCount(3, $linhas, 'as três variantes de linha têm de estar na tela');
+        // As três dividem a mesma grade CSS: mesma contagem de células, ou a lista desalinha inteira
+        // (foi por isso que as colunas de dinheiro viraram um macro único).
+        $celulas = $linhas->each(static fn ($node) => $node->children()->count());
+        self::assertSame([$celulas[0], $celulas[0], $celulas[0]], $celulas, 'as três linhas têm a mesma contagem de células');
+        // E cada variante traz as seis colunas de dinheiro — inclusive a substituída (histórico).
+        foreach (['.col-original', '.col-juros', '.col-multa', '.col-correcao', '.col-honorarios', '.col-total'] as $coluna) {
+            self::assertCount(3, $crawler->filter('#secao-divida .jp-obr ' . $coluna), "faltou {$coluna} em alguma variante");
+        }
+    }
+
+    #[TestDox('F4: o menu Editar leva o split de encargos (contrato dos data-* lido pelo JS do modal)')]
+    public function testOMenuEditarCarregaOSplitDeEncargosNosDataAttributes(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Boleto TOPLIFE', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        $obrigacao->definirEncargos(1360, 340, 0, 3740, new \DateTimeImmutable('2026-07-16'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        $item = $crawler->filter('#secao-divida [data-bs-target="#modalEditarObrigacao"]');
+        self::assertCount(1, $item);
+        // O `data-encargos-centavos` (a SOMA, INV-E1) permanece por compatibilidade e os três do split
+        // entram ao lado: é o contrato que o JS do modal de edição reidrata.
+        // 1360+340+0: a soma vem da coluna-sombra `encargos_reconhecidos`, que a entidade sincroniza
+        // no `PreUpdate` (F1). Falhar AQUI aponta para a sombra, não para o template.
+        self::assertSame('1700', $item->attr('data-encargos-centavos'), 'a soma continua publicada');
+        self::assertSame('1360', $item->attr('data-juros-centavos'));
+        self::assertSame('340', $item->attr('data-multa-centavos'));
+        self::assertSame('0', $item->attr('data-correcao-centavos'));
     }
 }

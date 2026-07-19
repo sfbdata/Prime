@@ -12,6 +12,52 @@
 
    Ordenação: já vem `vencimentoOriginal ASC` do `ObrigacaoRepository::doCaso` — não reordenar aqui.
 ─────────────────────────────────────────────────────────────────────────── #}
+{% import _self as colunas %}
+
+{% macro valores(o) %}
+    {# ── As colunas de dinheiro do relatório da contabilidade (encargos separados, spec §11) ──
+       Original · Juros · Multa · Correção · Honorários · Total, no lugar da antiga coluna única "Valor".
+
+       DEFINIÇÃO ÚNICA, de propósito: a linha aparece em TRÊS lugares desta seção (obrigação avulsa,
+       parcela de acordo e obrigação substituída) e os três compartilham a MESMA grade CSS. Uma célula a
+       mais ou a menos em um deles desalinha a lista inteira — por isso as células nascem aqui, e não
+       copiadas três vezes. O macro (em vez de um partial incluído) mantém a mudança pequena: ele só
+       precisa do próprio `ObrigacaoOutput`, nada do contexto externo (permissões, `hoje`, `caso`).
+
+       Nada de aritmética aqui: `juros/multa/correcao/honorarios` vêm materializados do domínio e
+       `valorAtual` é o exigível (original + os três encargos, INV-E1). Honorários ficam FORA do
+       exigível (INV-E2) — aparecem em coluna própria, não somados ao Total.
+
+       As colunas `col-detalhe` e `col-original` continuam no DOM em qualquer largura (o CSS as esconde
+       nas telas menores): sumir do HTML quebraria testes e ganchos que leem a linha inteira. #}
+    <span class="jp-obr-num col-original">{{ o.valorOriginal|centavos_curto }}</span>
+    <span class="jp-obr-num col-detalhe col-juros">{{ o.juros|centavos_curto }}</span>
+    <span class="jp-obr-num col-detalhe col-multa">{{ o.multa|centavos_curto }}</span>
+    <span class="jp-obr-num col-detalhe col-correcao">{{ o.correcao|centavos_curto }}</span>
+    <span class="jp-obr-num col-detalhe col-honorarios">{{ o.honorarios|centavos_curto }}</span>
+    <div class="jp-obr-valor jp-money col-total"
+         {%- if o.encargosCongeladosEm is null and o.encargosAtualizadosEm is not null %} data-bs-toggle="tooltip"
+         title="Encargos atualizados em {{ o.encargosAtualizadosEm|date('d/m/Y') }}."{% endif %}>
+        {{ o.valorAtual|centavos }}
+        {%- if o.encargosCongeladosEm is not null %}
+            {# Congelada (INV-E4): estes encargos não crescem mais — o cron não a toca. Sinal discreto,
+               que não pode competir com os números nem ocupar coluna própria. #}
+            <i class="bi bi-snow jp-obr-congelado" data-bs-toggle="tooltip"
+               title="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }} — não são recalculados automaticamente."
+               aria-label="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }}"></i>
+        {%- endif %}
+        {% if o.juros > 0 or o.multa > 0 or o.correcao > 0 or o.honorarios > 0 %}
+            {# Composição para as telas em que as colunas de detalhe não cabem: o CSS a esconde a partir
+               de xxl, onde cada encargo já tem coluna. Classe PRÓPRIA (nunca `.jp-obr-sub`): os testes
+               leem o PRIMEIRO `.jp-obr-sub` da linha e ele é o "já recebidos" da descrição. #}
+            <span class="jp-obr-composicao">J {{ o.juros|centavos_curto }} · M {{ o.multa|centavos_curto }} · C {{ o.correcao|centavos_curto }} · H {{ o.honorarios|centavos_curto }}</span>
+        {% endif %}
+        {% if o.alocado > 0 and not o.quitada %}
+            <span class="jp-obr-restante">falta {{ o.restante|centavos }}</span>
+        {% endif %}
+    </div>
+{% endmacro %}
+
 {% set podeGerenciar = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
 {# `movimentacao_financeira` é capacidade SEPARADA de `gerenciar` (SPEC §22): quem acorda não
    necessariamente recebe. Espelha o gate do `_movimentos.html.twig` e o do controller. #}
@@ -58,11 +104,18 @@
         </div>
     {% else %}
         <div class="jp-lista">
+            {# Um cabeçalho por coluna de dinheiro: é assim que o relatório da contabilidade se lê, e é
+               ele que dá nome ao que cada número significa. Mesma quantidade de células das linhas. #}
             <div class="jp-lista-head">
                 <span></span>
                 <span>Venceu em</span>
                 <span>O que é</span>
-                <span class="col-valor">Valor</span>
+                <span class="jp-obr-num col-original">Original</span>
+                <span class="jp-obr-num col-detalhe col-juros">Juros</span>
+                <span class="jp-obr-num col-detalhe col-multa">Multa</span>
+                <span class="jp-obr-num col-detalhe col-correcao">Correção</span>
+                <span class="jp-obr-num col-detalhe col-honorarios">Honorários</span>
+                <span class="jp-obr-num col-total col-valor">Total</span>
                 <span></span>
             </div>
 
@@ -101,12 +154,7 @@
                         {% endif %}
                     </div>
 
-                    <div class="jp-obr-valor jp-money">
-                        {{ o.valorAtual|centavos }}
-                        {% if o.alocado > 0 and not o.quitada %}
-                            <span class="jp-obr-restante">falta {{ o.restante|centavos }}</span>
-                        {% endif %}
-                    </div>
+                    {{ colunas.valores(o) }}
 
                     {# A obrigação e o pagamento dela são a mesma conversa: as ações vêm para a linha (T5).
                        Antes, pagar UMA obrigação custava 6-7 cliques por outra aba. #}
@@ -145,7 +193,12 @@
                                             data-referencia="{{ o.referenciaExterna|e('html_attr') }}"
                                             data-vencimento="{{ o.vencimentoOriginal|date('Y-m-d') }}"
                                             data-valor-centavos="{{ o.valorOriginal }}"
-                                            data-encargos-centavos="{{ o.encargosReconhecidos }}">
+                                            {# `data-encargos-centavos` (a soma, INV-E1) PERMANECE por compatibilidade;
+                                               os três abaixo são o split que o modal de edição reidrata (spec §11). #}
+                                            data-encargos-centavos="{{ o.encargosReconhecidos }}"
+                                            data-juros-centavos="{{ o.juros }}"
+                                            data-multa-centavos="{{ o.multa }}"
+                                            data-correcao-centavos="{{ o.correcao }}">
                                         <i class="bi bi-pencil me-2"></i>Editar (corrigir)
                                     </button>
                                 </li>
@@ -208,10 +261,7 @@
                     {{ p.descricao }}
                     {% if p.alocado > 0 and not p.quitada %}<span class="jp-obr-sub">{{ p.alocado|centavos }} já recebidos</span>{% endif %}
                 </div>
-                <div class="jp-obr-valor jp-money">
-                    {{ p.valorAtual|centavos }}
-                    {% if p.alocado > 0 and not p.quitada %}<span class="jp-obr-restante">falta {{ p.restante|centavos }}</span>{% endif %}
-                </div>
+                {{ colunas.valores(p) }}
                 {# Parcela é gerida pelo acordo: para editar, abra o acordo. Receber, porém, é o fluxo
                    NORMAL — a parcela é exigível e está no select do modal de pagamento.
                    INV-U1 (ajuste 9): "Acordar" nunca aparece aqui. Acordo sobre acordo duplica dívida no
@@ -248,7 +298,7 @@
                         {{ s.descricao }}
                         <span class="jp-obr-sub">trocada pelo acordo #{{ g.acordoId }} · volta ao total se o acordo for rompido</span>
                     </div>
-                    <div class="jp-obr-valor jp-money">{{ s.valorAtual|centavos }}</div>
+                    {{ colunas.valores(s) }}
                     <span></span>
                 </div>
                 {% endfor %}
