@@ -82,6 +82,56 @@ final class TaxaBpParaTextoTransformerTest extends TestCase
         ];
     }
 
+    /**
+     * Terceira casa decimal: HALF-UP exato, por aritmética inteira. Antes a conversão passava por
+     * `round((float) $x * 100)` e o resultado dependia do pré-arredondamento interno do `round()` do
+     * PHP — para "1,005" o produto em float vale 100,49999999999998578…, ou seja, o valor certo (101)
+     * só saía por causa de uma heurística não-contratual que o PHP 8.4 reescreveu. Taxa que muda de
+     * valor conforme a versão do PHP é perda silenciosa de dinheiro; estes casos prendem a regra.
+     *
+     * @return array<string, array{0: string, 1: int}>
+     */
+    public static function tresCasasDecimais(): array
+    {
+        return [
+            // Exatamente meio bp → sobe (half-up), nunca desce.
+            'meio bp sobe: 1,005' => ['1,005', 101],
+            'meio bp sobe: 0,005' => ['0,005', 1],
+            'meio bp sobe: 2,555' => ['2,555', 256],
+            // Abaixo de meio bp → desce.
+            'abaixo de meio desce: 1,004' => ['1,004', 100],
+            'abaixo de meio desce: 0,004' => ['0,004', 0],
+            // Quarta casa não muda a decisão tomada na terceira.
+            'quarta casa não reabre a decisão: 1,0049' => ['1,0049', 100],
+            'quarta casa não reabre a decisão: 1,0051' => ['1,0051', 101],
+            // Arredondamento que sobe de "casa" inteira.
+            'sobe para o inteiro seguinte: 10,999' => ['10,999', 1100],
+            // Três zeros decimais não inventam bp nenhum.
+            'três zeros continuam exatos: 1,000' => ['1,000', 100],
+        ];
+    }
+
+    #[DataProvider('tresCasasDecimais')]
+    #[TestDox('terceira casa decimal arredonda half-up sem passar por float')]
+    public function testReverseTransformTresCasas(string $entrada, int $esperado): void
+    {
+        self::assertSame($esperado, $this->sut->reverseTransform($entrada));
+    }
+
+    #[TestDox('notação científica não é percentual válido')]
+    public function testReverseTransformRejeitaNotacaoCientifica(): void
+    {
+        $this->expectException(TransformationFailedException::class);
+        $this->sut->reverseTransform('1e3');
+    }
+
+    #[TestDox('número absurdamente longo falha em vez de estourar o int em silêncio')]
+    public function testReverseTransformRejeitaOverflow(): void
+    {
+        $this->expectException(TransformationFailedException::class);
+        $this->sut->reverseTransform('99999999999999999999');
+    }
+
     #[DataProvider('entradasValidas')]
     #[TestDox('percentual digitado → bp int')]
     public function testReverseTransform(string $entrada, int $esperado): void

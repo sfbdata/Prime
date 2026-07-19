@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Cobranca\Form;
 
 use App\Cobranca\DTO\CriarCarteiraInput;
+use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
+use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\Enum\TipoVinculo;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\ChoiceType;
@@ -73,6 +75,69 @@ final class CriarCarteiraType extends AbstractType
                 'label' => 'Rótulo do objeto (opcional)',
                 'required' => false,
                 'attr' => ['class' => 'form-control', 'placeholder' => 'Ex.: Unidade, Veículo', 'maxlength' => 50],
+            ])
+            // Encargos por atraso (nível 1 da cascata): espelham campo a campo o
+            // EditarConfiguracaoCarteiraType. Precisam existir JÁ NA CRIAÇÃO porque o caso snapshota a
+            // config ao nascer — carteira criada sem taxa gera casos pinados em 0% para sempre.
+            ->add('taxaJurosMensalBp', TaxaBpType::class, [
+                'label' => 'Juros ao mês (%)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control'],
+            ])
+            // Sem `empty_data` nos selects: ver a nota em EditarConfiguracaoCarteiraType — config de
+            // dinheiro não pode ser reescrita pelo default a partir de um POST incompleto.
+            ->add('regimeJuros', EnumType::class, [
+                'label' => 'Regime de juros',
+                'class' => RegimeJuros::class,
+                'choice_label' => static fn (RegimeJuros $r): string => $r->label(),
+                'attr' => ['class' => 'form-select'],
+            ])
+            ->add('taxaMultaBp', TaxaBpType::class, [
+                'label' => 'Multa (%)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control'],
+            ])
+            ->add('baseMulta', EnumType::class, [
+                'label' => 'Base da multa',
+                'class' => BaseEncargo::class,
+                'choice_label' => static fn (BaseEncargo $b): string => $b->label(),
+                'attr' => ['class' => 'form-select'],
+            ])
+            ->add('taxaCorrecaoBp', TaxaBpType::class, [
+                'label' => 'Correção monetária (%)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control'],
+            ])
+            ->add('baseCorrecao', EnumType::class, [
+                'label' => 'Base da correção',
+                'class' => BaseEncargo::class,
+                'choice_label' => static fn (BaseEncargo $b): string => $b->label(),
+                'attr' => ['class' => 'form-select'],
+            ])
+            ->add('baseHonorarios', EnumType::class, [
+                'label' => 'Base dos honorários',
+                'class' => BaseEncargo::class,
+                'choice_label' => static fn (BaseEncargo $b): string => $b->label(),
+                'attr' => ['class' => 'form-select'],
+            ])
+            // Vazio = null = herda a tolerância de atraso da carteira (não vira 0 por acidente).
+            ->add('carenciaHonorariosDias', IntegerType::class, [
+                'label' => 'Carência dos honorários (dias)',
+                'required' => false,
+                'attr' => [
+                    'class' => 'form-control',
+                    'min' => 0,
+                    'placeholder' => 'Vazio = usa a tolerância de atraso',
+                ],
+            ])
+            ->add('toleranciaJurosMultaDias', IntegerType::class, [
+                'label' => 'Carência de juros e multa (dias)',
+                'required' => false,
+                'empty_data' => '0',
+                'attr' => ['class' => 'form-control', 'min' => 0],
             ]);
     }
 

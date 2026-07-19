@@ -29,7 +29,7 @@
 | H | Valor (R$) | `190` | Valor principal do lançamento. |
 | I | Juros (R$) | `9.37` | Encargo (juros). |
 | J | Multa (R$) | `3.8` | Encargo (multa). |
-| K | Correção (R$) | `0` | **Sempre 0** nos dois arquivos. Ignorar. |
+| K | Correção (R$) | `0` | **Encargo (correção monetária)** — importada para o balde próprio `correcao`. Medição: K = 0 em **4.412/4.412** linhas reais dos dois arquivos, então hoje ela não move nenhum valor; ainda assim **é lida**, e não mais descartada, para que a fonte deixe de mentir por omissão se um relatório futuro trouxer correção. |
 | L | Honorários (R$) | `40.63` | Honorários advocatícios do lançamento (§18, separado da dívida). |
 | M | Total (R$) | `243.8` | Derivado (= H+I+J+K+L). Conferência, não importar como campo. |
 | N | Informações do acordo | `-` ou `Acordo 396 - Parc. 2/11` | Vínculo a acordo (**ver decisão E**). |
@@ -39,7 +39,8 @@
 - **Carteira de Cobrança escolhida no import** (§21): um arquivo = um condomínio = uma Carteira (o operador escolhe/cria a Carteira; o credor é o condomínio, um Cliente já cadastrado). O arquivo NÃO traz o credor — vem do contexto do import.
 - **Objeto** por Unidade (98 unidades distintas no TOPLIFE I ≈ 98 sacados → ~1 sacado por unidade).
 - **Caso de Cobrança** por Objeto (uma cobrança ativa por objeto = modo A da carteira, provável).
-- **Correção** e **Recebimento** ausentes/zerados → fora do escopo desta fonte.
+- **Correção (K)** entrou no escopo: é lida e somada no balde `correcao` da obrigação (zerada em 100%
+  das linhas medidas, mas não mais ignorada). **Recebimento (O)** segue ausente → sem Pagamento a importar.
 - **Atraso, Total** derivados → não importar.
 - **Rodapé e linhas-lixo** → "ignorado" (não são dados) ou "rejeitado" com motivo.
 
@@ -73,7 +74,12 @@ Obrigações por boleto.
 ### D. Classes de conta → domínio (4A, sem dupla contagem)
 Agregando por boleto (NN):
 - **principal da Obrigação** = Σ `Valor(H)` das linhas classe `1.1 Taxa de condomínio` e `1.14 Energia`;
-- **encargos reconhecidos** = Σ `Juros(I)`+`Multa(J)` de todas as linhas **+** Σ `Valor(H)` das linhas classe `1.4 Juros`/`1.5 Multas`;
+- **encargos em TRÊS BALDES SEPARADOS** (antes era um agregado único "encargos reconhecidos"):
+  - `juros` = Σ `Juros(I)` de todas as linhas **+** Σ `Valor(H)` das linhas classe `1.4 Juros`;
+  - `multa` = Σ `Multa(J)` de todas as linhas **+** Σ `Valor(H)` das linhas classe `1.5 Multas`;
+  - `correcao` = Σ `Correção(K)` de todas as linhas;
+  A soma dos três é idêntica ao agregado antigo (nenhum centavo entra ou sai) — o que se ganha é saber
+  **qual** encargo é qual, que é o insumo do cálculo configurável em cascata;
 - **honorários** (§18, separado da dívida) = por linha: `Classe==1.15 ? Valor(H) : Honorários(L)` (evita a
   dupla contagem — a linha 1.15 sempre tem L=0; provado: Σ L≈110k × Σ H(1.15)≈6k, disjuntos por linha);
 - **`1.6 Descontos`** = redução/ajuste do valor (negativo), **nunca** nova Obrigação.
@@ -95,9 +101,12 @@ Tipos e camadas em `app/src/Cobranca/Service/Importacao/` e `UseCase/`. Fonte-es
 
 **Value objects (fonte-agnósticos, saída do adapter):**
 - `BoletoImportavel`: `nn`, `objetoIdentificacao` (unidade principal, sem parênteses), `unidadeMetadata` (parênteses→obs),
-  `sacadoNome`, `principalCentavos` (Σ H de 1.1/1.14 + Σ H de 1.6 descontos), `encargosCentavos`
-  (Σ(I+J) todas + Σ H de 1.4/1.5), `honorariosInformadosCentavos` (por linha: 1.15→H senão L — só preview),
-  `vencimento`, `competencia`, `acordoTexto` (obs), `linhas[]` (detalhamento/auditoria).
+  `sacadoNome`, `principalCentavos` (Σ H de 1.1/1.14 + Σ H de 1.6 descontos), **`jurosCentavos`**
+  (Σ I todas + Σ H de 1.4), **`multaCentavos`** (Σ J todas + Σ H de 1.5), **`correcaoCentavos`** (Σ K todas),
+  `honorariosInformadosCentavos` (por linha: 1.15→H senão L), `vencimento`, `competencia`,
+  `acordoTexto` (obs), `linhas[]` (detalhamento/auditoria).
+  `encargosCentavos` **deixou de ser campo e virou método** (`juros + multa + correcao`) — o agregado
+  continua disponível para conferência, mas a fonte da verdade passaram a ser os três baldes.
 - `LinhaRejeitada`: `referencia` (NN/linha), `motivo`, `dados`.
 - `ResultadoImportacao`: contadores + listas por status (`importados`, `atualizados`, `ignorados`, `rejeitados`).
 
@@ -110,8 +119,16 @@ itera dados, **agrega por NN** em `BoletoImportavel`, aplica ignorar/rejeitar. P
   resolve/cria **Pessoa** (por nome normalizado **no Objeto**; nome novo no mesmo objeto = nova Pessoa — decisão A) →
   resolve/cria **Caso** ativo do Objeto (com a Pessoa cobrada) → resolve/cria/atualiza **Obrigação** (dedup por
   `referenciaExterna = NN` no Caso; existente → `reconhecerEncargos`/atualiza, **não duplica** — idempotente).
-  Reusa `CriarObjeto`/`CriarPessoa`/`VincularPessoaAObjeto`/`AbrirCaso`/`RegistrarObrigacao`. Honorários: **não**
-  persistidos por obrigação (derivados da Carteira, §18/§19); o valor do relatório entra só no preview/reconciliação.
+  Reusa `CriarObjeto`/`CriarPessoa`/`VincularPessoaAObjeto`/`AbrirCaso`/`RegistrarObrigacao`.
+  **Honorários: PERSISTIDOS** na coluna `honorarios` da obrigação (não são mais só preview). Não afetam
+  o saldo: `Obrigacao::valorExigivel()` soma apenas `valorOriginal + juros + multa + correcao`.
+
+**A obrigação importada nasce CONGELADA** (`encargosCongeladosEm` preenchido — spec §9, INV-E4): os números
+vieram da contabilidade e são a verdade, então o cron de materialização de encargos **não** os recalcula nem
+os sobrescreve. Congela SEMPRE, inclusive quando os encargos são zero — boleto que a contabilidade diz valer
+só o principal tem de continuar valendo só o principal, e não virar base de cálculo automático. O legado
+importado ANTES de o congelamento existir foi congelado retroativamente pela migração
+`Version20260719140000` (só as obrigações com encargo > 0).
 
 **Queries de dedup a adicionar** (hoje inexistentes): `ObjetoCobrancaRepository::findOnePorIdentificacaoNaCarteira`;
 `ObrigacaoRepository::findOnePorReferenciaExternaNoCaso`; busca de Pessoa por nome normalizado vinculada ao Objeto

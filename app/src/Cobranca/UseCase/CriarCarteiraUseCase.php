@@ -49,6 +49,20 @@ final class CriarCarteiraUseCase
         $carteira->setToleranciaAtrasoDias($input->toleranciaAtrasoDias);
         $carteira->setTipoVinculoPreferido($input->tipoVinculoPreferido);
         $carteira->setRotuloObjeto($input->rotuloObjeto);
+
+        // Encargos por atraso (nível 1 da cascata, spec §4.1) já na criação: o caso snapshota a config
+        // da carteira no instante em que nasce (spec §5), então uma carteira criada sem taxa produz
+        // casos pinados em 0% que configurar a carteira depois NÃO conserta.
+        $carteira->setTaxaJurosMensalBp($input->taxaJurosMensalBp);
+        $carteira->setRegimeJuros($input->regimeJuros);
+        $carteira->setTaxaMultaBp($input->taxaMultaBp);
+        $carteira->setBaseMulta($input->baseMulta);
+        $carteira->setTaxaCorrecaoBp($input->taxaCorrecaoBp);
+        $carteira->setBaseCorrecao($input->baseCorrecao);
+        $carteira->setBaseHonorarios($input->baseHonorarios);
+        $carteira->setCarenciaHonorariosDias($input->carenciaHonorariosDias);
+        $carteira->setToleranciaJurosMultaDias($input->toleranciaJurosMultaDias);
+
         $carteira->setCriadoPor($criadoPor);
 
         $this->carteiraRepository->salvar($carteira, true);

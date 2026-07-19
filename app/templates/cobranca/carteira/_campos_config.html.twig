@@ -47,79 +47,79 @@
 {{ form_row(form.tipoVinculoPreferido) }}
 {{ form_row(form.rotuloObjeto) }}
 
-{# Encargos por atraso (spec "encargos configuráveis em cascata" §4.1) — só no form de EDITAR config.
-   O modal de CRIAR compartilha este partial com um form que não tem esses campos: a carteira nasce
-   com os padrões neutros da entidade e o gestor configura as taxas depois, em "Editar configuração". #}
-{% if form.taxaJurosMensalBp is defined %}
-    <hr class="my-4">
+{# Encargos por atraso (spec "encargos configuráveis em cascata" §4.1) — presentes nos DOIS forms que
+   incluem este partial (criar e editar configuração). Já valiam no editar; passaram a valer também no
+   criar porque o caso snapshota a config da carteira ao nascer: carteira criada sem taxa gera casos
+   pinados em 0% que configurar depois não conserta. Por isso não há mais guarda `is defined` aqui —
+   campo faltando vira erro de template, que é o que se quer, em vez de sumir calado da tela. #}
+<hr class="my-4">
 
-    <h6 class="fw-semibold mb-1">Encargos por atraso</h6>
-    <div class="form-text mb-3">
-        Padrões desta carteira para <strong>novas</strong> obrigações — alterar aqui não recalcula
-        o que já existe. Deixe a carência dos honorários <strong>vazia</strong> para usar a tolerância
-        de atraso configurada acima.
+<h6 class="fw-semibold mb-1">Encargos por atraso</h6>
+<div class="form-text mb-3">
+    Padrões desta carteira para <strong>novas</strong> obrigações — alterar aqui não recalcula
+    o que já existe. Deixe a carência dos honorários <strong>vazia</strong> para usar a tolerância
+    de atraso configurada acima.
+</div>
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <label class="form-label" for="{{ form.taxaJurosMensalBp.vars.id }}">{{ form.taxaJurosMensalBp.vars.label }}</label>
+        <div class="input-group">
+            {{ form_widget(form.taxaJurosMensalBp) }}
+            <span class="input-group-text">%</span>
+        </div>
+        {{ form_errors(form.taxaJurosMensalBp) }}
     </div>
 
-    <div class="row g-3">
-        <div class="col-md-6">
-            <label class="form-label" for="{{ form.taxaJurosMensalBp.vars.id }}">{{ form.taxaJurosMensalBp.vars.label }}</label>
-            <div class="input-group">
-                {{ form_widget(form.taxaJurosMensalBp) }}
-                <span class="input-group-text">%</span>
-            </div>
-            {{ form_errors(form.taxaJurosMensalBp) }}
-        </div>
-
-        <div class="col-md-6">
-            {{ form_row(form.regimeJuros) }}
-        </div>
-
-        <div class="col-md-6">
-            <label class="form-label" for="{{ form.taxaMultaBp.vars.id }}">{{ form.taxaMultaBp.vars.label }}</label>
-            <div class="input-group">
-                {{ form_widget(form.taxaMultaBp) }}
-                <span class="input-group-text">%</span>
-            </div>
-            {{ form_errors(form.taxaMultaBp) }}
-        </div>
-
-        <div class="col-md-6">
-            {{ form_row(form.baseMulta) }}
-        </div>
-
-        <div class="col-md-6">
-            <label class="form-label" for="{{ form.taxaCorrecaoBp.vars.id }}">{{ form.taxaCorrecaoBp.vars.label }}</label>
-            <div class="input-group">
-                {{ form_widget(form.taxaCorrecaoBp) }}
-                <span class="input-group-text">%</span>
-            </div>
-            {{ form_errors(form.taxaCorrecaoBp) }}
-        </div>
-
-        <div class="col-md-6">
-            {{ form_row(form.baseCorrecao) }}
-        </div>
-
-        <div class="col-md-6">
-            {{ form_row(form.baseHonorarios) }}
-        </div>
-
-        <div class="col-md-6">
-            <label class="form-label" for="{{ form.carenciaHonorariosDias.vars.id }}">{{ form.carenciaHonorariosDias.vars.label }}</label>
-            <div class="input-group">
-                {{ form_widget(form.carenciaHonorariosDias) }}
-                <span class="input-group-text">dias</span>
-            </div>
-            {{ form_errors(form.carenciaHonorariosDias) }}
-        </div>
-
-        <div class="col-md-6">
-            <label class="form-label" for="{{ form.toleranciaJurosMultaDias.vars.id }}">{{ form.toleranciaJurosMultaDias.vars.label }}</label>
-            <div class="input-group">
-                {{ form_widget(form.toleranciaJurosMultaDias) }}
-                <span class="input-group-text">dias</span>
-            </div>
-            {{ form_errors(form.toleranciaJurosMultaDias) }}
-        </div>
+    <div class="col-md-6">
+        {{ form_row(form.regimeJuros) }}
     </div>
-{% endif %}
+
+    <div class="col-md-6">
+        <label class="form-label" for="{{ form.taxaMultaBp.vars.id }}">{{ form.taxaMultaBp.vars.label }}</label>
+        <div class="input-group">
+            {{ form_widget(form.taxaMultaBp) }}
+            <span class="input-group-text">%</span>
+        </div>
+        {{ form_errors(form.taxaMultaBp) }}
+    </div>
+
+    <div class="col-md-6">
+        {{ form_row(form.baseMulta) }}
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label" for="{{ form.taxaCorrecaoBp.vars.id }}">{{ form.taxaCorrecaoBp.vars.label }}</label>
+        <div class="input-group">
+            {{ form_widget(form.taxaCorrecaoBp) }}
+            <span class="input-group-text">%</span>
+        </div>
+        {{ form_errors(form.taxaCorrecaoBp) }}
+    </div>
+
+    <div class="col-md-6">
+        {{ form_row(form.baseCorrecao) }}
+    </div>
+
+    <div class="col-md-6">
+        {{ form_row(form.baseHonorarios) }}
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label" for="{{ form.carenciaHonorariosDias.vars.id }}">{{ form.carenciaHonorariosDias.vars.label }}</label>
+        <div class="input-group">
+            {{ form_widget(form.carenciaHonorariosDias) }}
+            <span class="input-group-text">dias</span>
+        </div>
+        {{ form_errors(form.carenciaHonorariosDias) }}
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label" for="{{ form.toleranciaJurosMultaDias.vars.id }}">{{ form.toleranciaJurosMultaDias.vars.label }}</label>
+        <div class="input-group">
+            {{ form_widget(form.toleranciaJurosMultaDias) }}
+            <span class="input-group-text">dias</span>
+        </div>
+        {{ form_errors(form.toleranciaJurosMultaDias) }}
+    </div>
+</div>

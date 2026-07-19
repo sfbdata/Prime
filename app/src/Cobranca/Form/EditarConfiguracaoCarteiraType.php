@@ -71,13 +71,16 @@ final class EditarConfiguracaoCarteiraType extends AbstractType
                 'empty_data' => '0',
                 'attr' => ['class' => 'form-control'],
             ])
-            // empty_data = valor da VIEW (o `value` do enum): rede de segurança para POST que não
-            // traz o select (o DTO tem a propriedade tipada não-nullable — null viraria TypeError).
+            // SEM `empty_data` nos selects de encargo — de propósito. `empty_data` faria um POST que
+            // omitisse o campo reescrever o DEFAULT por cima do valor salvo: carteira configurada com
+            // base composta voltaria a "principal" sozinha, sem erro e sem aviso, e toda obrigação
+            // nova nasceria com a base errada. Config de dinheiro não pode resetar em silêncio.
+            // Estes 4 selects seguem exatamente a mesma convenção dos selects `modo` e
+            // `formaHonorarios` acima, que também nunca tiveram `empty_data`.
             ->add('regimeJuros', EnumType::class, [
                 'label' => 'Regime de juros',
                 'class' => RegimeJuros::class,
                 'choice_label' => static fn (RegimeJuros $r): string => $r->label(),
-                'empty_data' => RegimeJuros::Simples->value,
                 'attr' => ['class' => 'form-select'],
             ])
             ->add('taxaMultaBp', TaxaBpType::class, [
@@ -90,7 +93,6 @@ final class EditarConfiguracaoCarteiraType extends AbstractType
                 'label' => 'Base da multa',
                 'class' => BaseEncargo::class,
                 'choice_label' => static fn (BaseEncargo $b): string => $b->label(),
-                'empty_data' => BaseEncargo::Principal->value,
                 'attr' => ['class' => 'form-select'],
             ])
             ->add('taxaCorrecaoBp', TaxaBpType::class, [
@@ -103,14 +105,12 @@ final class EditarConfiguracaoCarteiraType extends AbstractType
                 'label' => 'Base da correção',
                 'class' => BaseEncargo::class,
                 'choice_label' => static fn (BaseEncargo $b): string => $b->label(),
-                'empty_data' => BaseEncargo::Principal->value,
                 'attr' => ['class' => 'form-select'],
             ])
             ->add('baseHonorarios', EnumType::class, [
                 'label' => 'Base dos honorários',
                 'class' => BaseEncargo::class,
                 'choice_label' => static fn (BaseEncargo $b): string => $b->label(),
-                'empty_data' => BaseEncargo::Composta->value,
                 'attr' => ['class' => 'form-select'],
             ])
             // Vazio = null = herda a tolerância de atraso da carteira (não vira 0 por acidente).

@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Cobranca\DTO;
 
+use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
+use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\Enum\TipoVinculo;
 use Symfony\Component\Validator\Constraints as Assert;
 
@@ -42,4 +44,51 @@ final class CriarCarteiraInput
 
     #[Assert\Length(max: 50, maxMessage: 'O rótulo do objeto pode ter no máximo {{ limit }} caracteres.')]
     public ?string $rotuloObjeto = null;
+
+    // --- Encargos por atraso (spec "encargos configuráveis em cascata" §4.1) -------------------
+    // Os MESMOS 9 campos do EditarConfiguracaoCarteiraInput, e pelo mesmo motivo — só que já na
+    // CRIAÇÃO. Sem eles, a carteira nasce com as taxas neutras (0) e todo caso aberto na janela
+    // entre "criar a carteira" e "editar a configuração" leva o snapshot de 0% consigo PARA SEMPRE
+    // (o AbrirCasoUseCase snapshota a config no momento em que o caso nasce, spec §5): configurar a
+    // carteira depois não conserta o que já nasceu. Por isso a configuração de encargo tem de estar
+    // disponível desde a primeira tela. Defaults idênticos aos do editar (neutros, não-breaking).
+    // Taxas em BASIS POINTS (100 bp = 1%); sobre o teto de 100000 bp, ver a nota longa em
+    // EditarConfiguracaoCarteiraInput — é freio de sanidade de entrada, não garantia contra estouro.
+
+    /** Juros de mora ao mês, em basis points (100 bp = 1% a.m.); pró-rata diária no motor. */
+    #[Assert\PositiveOrZero(message: 'A taxa de juros não pode ser negativa.')]
+    #[Assert\LessThanOrEqual(value: 100000, message: 'A taxa de juros ao mês é alta demais (máximo 1.000%).')]
+    public int $taxaJurosMensalBp = 0;
+
+    /** Regime de capitalização dos juros: simples (default, provado nos dados) ou composto. */
+    public RegimeJuros $regimeJuros = RegimeJuros::Simples;
+
+    /** Multa por atraso, em basis points (ex.: 200 bp = 2%); aplicação única, não cresce no tempo. */
+    #[Assert\PositiveOrZero(message: 'A taxa de multa não pode ser negativa.')]
+    #[Assert\LessThanOrEqual(value: 100000, message: 'A taxa de multa é alta demais (máximo 1.000%).')]
+    public int $taxaMultaBp = 0;
+
+    /** Base de incidência da multa: principal puro (fixa) ou base composta (progressiva). */
+    public BaseEncargo $baseMulta = BaseEncargo::Principal;
+
+    /** Correção monetária, em basis points; default 0 (não usada na operação de referência). */
+    #[Assert\PositiveOrZero(message: 'A taxa de correção não pode ser negativa.')]
+    #[Assert\LessThanOrEqual(value: 100000, message: 'A taxa de correção é alta demais (máximo 1.000%).')]
+    public int $taxaCorrecaoBp = 0;
+
+    /** Base de incidência da correção monetária: principal puro (fixa) ou composta (progressiva). */
+    public BaseEncargo $baseCorrecao = BaseEncargo::Principal;
+
+    /** Base dos honorários: composta (principal + juros + multa + correção) por default. */
+    public BaseEncargo $baseHonorarios = BaseEncargo::Composta;
+
+    /** Dias de carência dos honorários; null = usa a tolerância de atraso da própria carteira. */
+    #[Assert\PositiveOrZero(message: 'A carência dos honorários não pode ser negativa.')]
+    #[Assert\LessThanOrEqual(value: 3650, message: 'A carência dos honorários pode ter no máximo {{ compared_value }} dias.')]
+    public ?int $carenciaHonorariosDias = null;
+
+    /** Dias de carência de juros e multa; default 0 = ambos valem desde o 1º dia de atraso. */
+    #[Assert\PositiveOrZero(message: 'A carência de juros e multa não pode ser negativa.')]
+    #[Assert\LessThanOrEqual(value: 3650, message: 'A carência de juros e multa pode ter no máximo {{ compared_value }} dias.')]
+    public int $toleranciaJurosMultaDias = 0;
 }

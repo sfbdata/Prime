@@ -45,9 +45,14 @@ final class EditarConfiguracaoCarteiraInput
     // --- Encargos por atraso (spec "encargos configuráveis em cascata" §4.1) -------------------
     // Estes 9 campos são o NÍVEL 1 da cascata (Carteira → Objeto → Obrigação): valem como padrão
     // para as NOVAS cobranças; mudá-los aqui não recalcula caso/obrigação já existente (spec §5).
-    // Taxas em BASIS POINTS (100 bp = 1%). O teto de 100000 bp (1000% a.m.) é freio de sanidade:
-    // taxa absurda no regime composto estoura o motor (EncargosInexequiveisException) — melhor
-    // barrar como erro de campo aqui do que deixar chegar no cálculo.
+    // Taxas em BASIS POINTS (100 bp = 1%). O teto de 100000 bp (1000% a.m.) é freio de SANIDADE DE
+    // ENTRADA — impede digitar uma taxa absurda, e só isso. Ele NÃO é garantia contra estouro do
+    // motor, e não deve ser lido como tal: no regime composto, 1000% a.m. multiplica o montante por
+    // ~11 a cada mês, então um principal de R$ 1.000 estoura PHP_INT_MAX em ~8 meses de atraso. Pior:
+    // os DIAS DE ATRASO não têm teto nenhum aqui — o LessThanOrEqual(3650) abaixo limita a CARÊNCIA,
+    // que é outra coisa. Quem sinaliza o estouro é a EncargosInexequiveisException lançada pela
+    // CalculadoraEncargos; o cron da F3 tem de capturá-la POR OBRIGAÇÃO, para que um caso patológico
+    // não derrube a rodada inteira.
 
     /** Juros de mora ao mês, em basis points (100 bp = 1% a.m.); pró-rata diária no motor. */
     #[Assert\PositiveOrZero(message: 'A taxa de juros não pode ser negativa.')]

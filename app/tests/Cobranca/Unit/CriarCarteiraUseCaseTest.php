@@ -8,8 +8,10 @@ use App\Cliente\Entity\Cliente;
 use App\Cliente\Repository\ClienteRepository;
 use App\Cobranca\DTO\CriarCarteiraInput;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
+use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Cobranca\Exception\ClienteCredorNaoEncontradoException;
 use App\Cobranca\Repository\CarteiraRepository;
@@ -69,6 +71,64 @@ final class CriarCarteiraUseCaseTest extends TestCase
         self::assertSame(TipoVinculo::Proprietario, $carteira->getTipoVinculoPreferido());
         self::assertSame('Unidade', $carteira->getRotuloObjeto());
         self::assertSame($this->user, $carteira->getCriadoPor());
+    }
+
+    /**
+     * A carteira precisa nascer JÁ configurada: o caso snapshota a config no instante em que é aberto
+     * (spec §5), então todo caso criado antes de alguém abrir "Editar configuração" ficaria pinado em
+     * 0% para sempre. Este teste prende os 9 campos de encargo no caminho da CRIAÇÃO.
+     */
+    #[Test]
+    public function gravaOsNoveCamposDeEncargoNaCriacaoDaCarteira(): void
+    {
+        $this->clienteRepository->method('findOneBy')->willReturn($this->createStub(Cliente::class));
+
+        $input = $this->input();
+        $input->taxaJurosMensalBp = 100;
+        $input->regimeJuros = RegimeJuros::Composto;
+        $input->taxaMultaBp = 200;
+        $input->baseMulta = BaseEncargo::Composta;
+        $input->taxaCorrecaoBp = 50;
+        $input->baseCorrecao = BaseEncargo::Composta;
+        $input->baseHonorarios = BaseEncargo::Principal;
+        $input->carenciaHonorariosDias = 30;
+        $input->toleranciaJurosMultaDias = 3;
+
+        $carteira = $this->sut->executar($input, $this->tenant, $this->user);
+
+        self::assertSame(100, $carteira->getTaxaJurosMensalBp());
+        self::assertSame(RegimeJuros::Composto, $carteira->getRegimeJuros());
+        self::assertSame(200, $carteira->getTaxaMultaBp());
+        self::assertSame(BaseEncargo::Composta, $carteira->getBaseMulta());
+        self::assertSame(50, $carteira->getTaxaCorrecaoBp());
+        self::assertSame(BaseEncargo::Composta, $carteira->getBaseCorrecao());
+        self::assertSame(BaseEncargo::Principal, $carteira->getBaseHonorarios());
+        self::assertSame(30, $carteira->getCarenciaHonorariosDias());
+        self::assertSame(3, $carteira->getToleranciaJurosMultaDias());
+    }
+
+    /**
+     * Default não-breaking (decisão D4 do ledger): sem nada informado, a carteira nasce NEUTRA — taxas
+     * zeradas, comportamento idêntico ao de antes da feature. Criar carteira não pode passar a gerar
+     * encargo sozinho num módulo que já está em produção.
+     */
+    #[Test]
+    public function carteiraNasceComEncargosNeutrosQuandoNadaEInformado(): void
+    {
+        $this->clienteRepository->method('findOneBy')->willReturn($this->createStub(Cliente::class));
+
+        $carteira = $this->sut->executar($this->input(), $this->tenant, $this->user);
+
+        self::assertSame(0, $carteira->getTaxaJurosMensalBp());
+        self::assertSame(0, $carteira->getTaxaMultaBp());
+        self::assertSame(0, $carteira->getTaxaCorrecaoBp());
+        self::assertSame(RegimeJuros::Simples, $carteira->getRegimeJuros());
+        self::assertSame(BaseEncargo::Principal, $carteira->getBaseMulta());
+        self::assertSame(BaseEncargo::Principal, $carteira->getBaseCorrecao());
+        self::assertSame(BaseEncargo::Composta, $carteira->getBaseHonorarios());
+        // null = herda a tolerância de atraso da própria carteira; não vira 0 por acidente.
+        self::assertNull($carteira->getCarenciaHonorariosDias());
+        self::assertSame(0, $carteira->getToleranciaJurosMultaDias());
     }
 
     #[Test]
