@@ -361,17 +361,22 @@ document.addEventListener('DOMContentLoaded', function () {
        O "%" não tem `name` — é conveniência de digitação, derivada do R$ sobre o valor original. */
     function initEspelhoEncargos(modal) {
         if (!modal) { return; }
+        /* Cada par guarda a PRÓPRIA base. Uma variável única compartilhada parecia bastar (hoje os três
+           declaram `valorOriginal`), mas a última iteração vencia para todos — e a spec §11 prevê bases
+           configuráveis por encargo (multa sobre o principal, honorários sobre a base composta). No dia
+           em que a primeira base divergir, o espelho calcularia tudo sobre a base errada, em silêncio e
+           sobre dinheiro. Resolver por par custa nada agora e fecha a armadilha. */
         var pares = [];
-        var campoBase = 'valorOriginal';
         modal.querySelectorAll('[data-encargo-pct]').forEach(function (pctInput) {
             var nome = pctInput.getAttribute('data-encargo-pct');
-            campoBase = pctInput.getAttribute('data-encargo-base') || campoBase;
+            var campoBase = pctInput.getAttribute('data-encargo-base') || 'valorOriginal';
+            var baseEl = modal.querySelector('input[name$="[' + campoBase + ']"]');
             var reaisInputEl = modal.querySelector('[data-encargo="' + nome + '"]');
-            if (reaisInputEl) { pares.push({ pct: pctInput, reais: reaisInputEl }); }
+            if (reaisInputEl && baseEl) { pares.push({ pct: pctInput, reais: reaisInputEl, base: baseEl }); }
         });
-        // A base do percentual é o campo declarado em `data-encargo-base` (hoje o valor original).
-        var base = modal.querySelector('input[name$="[' + campoBase + ']"]');
-        if (!base || pares.length === 0) { return; }
+        if (pares.length === 0) { return; }
+        // Campo que dispara a re-sincronização geral: a base do primeiro par (hoje, de todos).
+        var base = pares[0].base;
 
         /* Percentual digitado → número. Aceita vírgula (pt-BR) e ponto; string vazia vira null, para
            distinguir "não informado" de "zero por cento". */
@@ -381,7 +386,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var f = parseFloat(s.replace(',', '.'));
             return isNaN(f) ? null : f;
         }
-        function baseCentavos() { return parseCentavos(base.value); }
+        function baseCentavos(par) { return parseCentavos(par.base.value); }
 
         /* % → R$ em CENTAVOS INTEIROS. O percentual vira inteiro em décimos de milésimo de ponto
            (4 casas) e há UMA única divisão no fim, arredondada half-up (`Math.round`, valores nunca
@@ -396,34 +401,32 @@ document.addEventListener('DOMContentLoaded', function () {
 
         /* Sem base (valor original vazio ou zero) não há percentual possível: dividir por zero daria
            Infinity/NaN no campo. Desabilita e esvazia o "%", deixando o R$ livre para ser digitado. */
-        function aplicarDisponibilidade(baseCent) {
-            var indisponivel = baseCent <= 0;
-            pares.forEach(function (par) {
-                par.pct.disabled = indisponivel;
-                if (indisponivel) { par.pct.value = ''; }
-            });
+        function aplicarDisponibilidade(par) {
+            var indisponivel = baseCentavos(par) <= 0;
+            par.pct.disabled = indisponivel;
+            if (indisponivel) { par.pct.value = ''; }
+
             return !indisponivel;
         }
         /* Recalcula os "%" a partir dos R$ — nunca o contrário. Usado ao abrir o modal e quando o valor
            original muda: mexer no principal não pode alterar o dinheiro já reconhecido. */
         function sincronizarPercentuais() {
-            var baseCent = baseCentavos();
-            if (!aplicarDisponibilidade(baseCent)) { return; }
             pares.forEach(function (par) {
+                if (!aplicarDisponibilidade(par)) { return; }
                 var cent = parseCentavos(par.reais.value);
-                par.pct.value = cent === 0 && String(par.reais.value).trim() === '' ? '' : centavosParaPercentual(baseCent, cent);
+                par.pct.value = cent === 0 && String(par.reais.value).trim() === '' ? '' : centavosParaPercentual(baseCentavos(par), cent);
             });
         }
 
         pares.forEach(function (par) {
             par.pct.addEventListener('input', function () {
-                var baseCent = baseCentavos();
+                var baseCent = baseCentavos(par);
                 if (baseCent <= 0) { return; }
                 var pct = parsePercentual(par.pct.value);
                 par.reais.value = pct === null ? '' : reaisInput(percentualParaCentavos(baseCent, pct));
             });
             par.reais.addEventListener('input', function () {
-                var baseCent = baseCentavos();
+                var baseCent = baseCentavos(par);
                 if (baseCent <= 0) { return; }
                 var texto = String(par.reais.value).trim();
                 par.pct.value = texto === '' ? '' : centavosParaPercentual(baseCent, parseCentavos(texto));
@@ -437,9 +440,24 @@ document.addEventListener('DOMContentLoaded', function () {
            isso o % não precisa ser reidratado: ele é sempre derivado, nunca guardado. */
         modal.addEventListener('show.bs.modal', sincronizarPercentuais);
         sincronizarPercentuais();
+
+        /* Limpa os encargos ao FECHAR, quando o modal não é repreenchido na abertura.
+           O de editar recebe todos os campos dos `data-*` da linha a cada `show` — nada vaza. O de
+           "Nova obrigação" não recebe nada: o que ficou digitado continua lá na próxima vez. Para
+           descrição/valor isso é visível e será sobrescrito; para os encargos, não — eles vivem abaixo
+           de um `<hr>`, num bloco que o caso comum nem abre. Um "2%" de multa digitado e abandonado
+           voltaria silencioso no lançamento seguinte, virando dinheiro que ninguém pediu numa obrigação
+           que nem venceu. Só os encargos são limpos: o resíduo dos demais campos é comportamento antigo
+           desta tela e não é desta fatia mexer nele. */
+        if (!modal.hasAttribute('data-preenche-ao-abrir')) {
+            modal.addEventListener('hidden.bs.modal', function () {
+                pares.forEach(function (par) { par.pct.value = ''; par.reais.value = ''; });
+            });
+        }
     }
     initEspelhoEncargos(document.getElementById('modalEditarObrigacao'));
     initEspelhoEncargos(document.getElementById('modalRegistrarObrigacao'));
+
 
     /* Modal reutilizável de "excluir obrigação": o botão da linha injeta a URL, o token CSRF e a descrição. */
     var modalExcluir = document.getElementById('modalExcluirObrigacao');

@@ -60,17 +60,21 @@ final class RegistrarObrigacaoUseCase
         $obrigacao->setReferenciaExterna($this->normalizar($input->referenciaExterna));
         $obrigacao->setCriadoPor($criadoPor);
 
-        // Encargos informados no lançamento (F4): valor digitado por gente sobre dinheiro. Congela, pela
-        // mesma regra da edição (spec §8/INV-E4) — sem isso o cron passaria na madrugada seguinte e
-        // recalcularia por cima do que o gestor trouxe do outro sistema. Honorários entram 0: eles são
-        // materializados pelo motor de cálculo, não digitados neste form.
+        // Encargos informados no lançamento (F4): materializa o que o gestor trouxe, e NÃO congela.
         //
-        // Os três zerados NÃO congelam: é o caso comum (obrigação nova, ainda a vencer), e congelar aqui
-        // tiraria do cron toda obrigação criada à mão — sem UI de descongelar, seria irreversível.
+        // Congelar aqui — como uma versão anterior fazia, por analogia com a edição — apagava dinheiro
+        // do escritório em silêncio: os honorários entram 0 (não são digitados neste form, são
+        // calculados pelo motor), e a obrigação congelada sai do cron PARA SEMPRE, sem UI de
+        // descongelar. Numa carteira com honorários de 20%, lançar uma dívida de R$ 1.000,00 com juros
+        // já calculados fora deixaria os ~R$ 210,00 de honorário sem nunca serem materializados.
+        //
+        // A spec §8 condiciona o congelamento a EDITAR valores à mão; criar não é editar. Deixando
+        // recalculável, o cron completa os honorários na primeira rodada — e o que foi digitado está
+        // protegido de encolher pelo freio de redução do próprio cron
+        // (`ReducaoDeEncargosBloqueadaException`), que só grava para cima. Quem quiser de fato travar
+        // a obrigação edita depois: a edição congela.
         if ($input->juros > 0 || $input->multa > 0 || $input->correcao > 0) {
-            $agora = new \DateTimeImmutable();
-            $obrigacao->definirEncargos($input->juros, $input->multa, $input->correcao, 0, $agora);
-            $obrigacao->congelarEncargos($agora);
+            $obrigacao->definirEncargos($input->juros, $input->multa, $input->correcao, 0, new \DateTimeImmutable());
         }
 
         // Persiste sem flush; o registro do evento fecha a transação (persiste os dois de uma vez).

@@ -105,7 +105,7 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
      * seguinte (spec §8, INV-E4) — mesma regra da edição manual.
      */
     #[Test]
-    public function encargosInformadosNoLancamentoNascemSeparadosECongelados(): void
+    public function encargosInformadosNoLancamentoNascemSeparadosERecalculaveis(): void
     {
         $caso = (new CasoCobranca())->setTenant($this->tenant);
         $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
@@ -135,9 +135,18 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         self::assertSame(107500, $obrigacao->valorExigivel());
         // Honorários NÃO são digitados neste form: nascem zerados, materializados pelo motor depois.
         self::assertSame(0, $obrigacao->getHonorarios());
-        self::assertTrue($obrigacao->encargosCongelados(), 'valor digitado por gente não é sobrescrito pelo cron');
 
-        // O histórico precisa explicar de onde veio esse dinheiro e por que a obrigação já nasceu presa.
+        // E é exatamente por isso que o lançamento NÃO congela. Congelar aqui deixaria os honorários
+        // presos em zero para sempre — a obrigação sairia do cron sem UI de descongelar, e numa carteira
+        // de 20% seriam ~R$ 21.500 de honorário que nunca se materializam. A spec §8 manda congelar ao
+        // EDITAR valores à mão; criar não é editar. O que foi digitado está protegido de encolher pelo
+        // freio de redução do cron, que só grava para cima.
+        self::assertFalse(
+            $obrigacao->encargosCongelados(),
+            'lançar com encargos não pode congelar: os honorários ainda não foram calculados',
+        );
+
+        // O histórico precisa explicar de onde veio esse dinheiro.
         self::assertInstanceOf(EventoHistorico::class, $capturado);
         $dados = $capturado->getDados();
         self::assertSame(5000, $dados['juros']);

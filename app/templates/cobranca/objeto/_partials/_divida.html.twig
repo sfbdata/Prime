@@ -123,7 +123,13 @@
                 <span class="jp-obr-num col-detalhe col-multa">Multa</span>
                 <span class="jp-obr-num col-detalhe col-correcao">Correção</span>
                 <span class="jp-obr-num col-detalhe col-honorarios">Honorários</span>
-                <span class="jp-obr-num col-total col-valor">Total</span>
+                {# "Total" aparece DUAS vezes nesta tela com sentidos diferentes: aqui é o total BRUTO
+                   do relatório (com honorários, sem abater o que já foi recebido), e no cabeçalho do
+                   objeto é o "Total em aberto" — o saldo exigível, já descontados pagamentos e
+                   liquidações e SEM honorários. Somar esta coluna e comparar com o cabeçalho não fecha,
+                   por dois motivos, e sem esta explicação quem confere conclui que há erro. #}
+                <span class="jp-obr-num col-total col-valor" data-bs-toggle="tooltip"
+                      title="Total do relatório: original + juros + multa + correção + honorários, sem abater o que já foi recebido. O “Total em aberto” do topo é outra conta — o saldo exigível, já com os recebimentos descontados e sem honorários.">Total</span>
                 <span></span>
             </div>
 

@@ -71,7 +71,11 @@
 </div>
 
 {# ── Editar obrigação (modal reutilizável; JS injeta action + pré-preenche os campos da linha) ── #}
-<div class="modal fade" id="modalEditarObrigacao" tabindex="-1" aria-labelledby="tituloEditarObrigacao" aria-hidden="true">
+{# `data-preenche-ao-abrir`: este modal é repreenchido campo a campo pelos `data-*` da linha a cada
+   abertura, então não pode ser limpo ao fechar — limpá-lo apagaria a reidratação do B5, que chega
+   pelo servidor justamente quando o `show` não tem `relatedTarget`. O de "Nova obrigação" não tem a
+   marca, e por isso é limpo. #}
+<div class="modal fade" id="modalEditarObrigacao" data-preenche-ao-abrir tabindex="-1" aria-labelledby="tituloEditarObrigacao" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             {{ form_start(forms.editarObrigacao, {attr: {id: 'formEditarObrigacao'}}) }}

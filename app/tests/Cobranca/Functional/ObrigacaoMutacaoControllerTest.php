@@ -253,8 +253,8 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertTrue($fresh->encargosCongelados(), 'mexer em dinheiro à mão tira a obrigação do cron (INV-E4)');
     }
 
-    #[TestDox('Registrar obrigação com encargos: nasce com o split e já congelada')]
-    public function testRegistrarObrigacaoComEncargosCongela(): void
+    #[TestDox('Registrar obrigação com encargos: nasce com o split e RECALCULÁVEL (não congela)')]
+    public function testRegistrarObrigacaoComEncargosNaoCongela(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -286,7 +286,14 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(2000, $criada->getMulta());
         self::assertSame(500, $criada->getCorrecao());
         self::assertSame(107500, $criada->valorExigivel());
-        self::assertTrue($criada->encargosCongelados(), 'número digitado por gente não é sobrescrito pelo cron');
+        // Honorários não são digitados neste form; congelar no lançamento os deixaria em zero PARA
+        // SEMPRE (a obrigação sairia do cron e não há UI de descongelar). Quem quiser travar, edita
+        // depois — a edição congela. O digitado não corre risco de encolher: o cron só grava para cima.
+        self::assertSame(0, $criada->getHonorarios());
+        self::assertFalse(
+            $criada->encargosCongelados(),
+            'lançar não é editar: a obrigação segue recalculável para os honorários serem materializados',
+        );
     }
 
     #[TestDox('Registrar obrigação sem encargos: nasce zerada e NÃO congelada (o cron cuida)')]
@@ -581,7 +588,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
                 'vencimentoOriginal' => '2026-09-01',
                 'juros' => '12,00',
                 'multa' => '3,00',
-                'correcao' => '0,00',
+                'correcao' => '7,50',
                 'motivo' => '',
                 '_token' => $token,
             ],
@@ -610,6 +617,14 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             '3,00',
             $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[multa]"]')->attr('value'),
             'a multa digitada sobrevive ao redirect',
+        );
+        // A correção entra com valor DIFERENTE de zero de propósito: com '0,00' o teste passaria mesmo
+        // se o campo não reidratasse nada (zero é o default), e uma regressão que perdesse só a
+        // correção seguiria verde.
+        self::assertSame(
+            '7,50',
+            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[correcao]"]')->attr('value'),
+            'a correção digitada sobrevive ao redirect',
         );
     }
 }
