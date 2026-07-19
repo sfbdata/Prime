@@ -194,6 +194,35 @@ Roda **depois** do backup das 02:00, para que o dump da noite ainda contenha o e
 > A carência de quarentena (padrão 365 dias) é configurável sem deploy via
 > `TENANT_CARENCIA_PURGA_DIAS` no `.env.prod`.
 
+### Atualização de encargos de cobrança (crontab na VPS)
+
+Job diário que faz os encargos das obrigações **crescerem no tempo**: recalcula juros, multa,
+correção e honorários para a data de hoje e grava nas colunas da obrigação. Os juros de mora
+mudam todo dia, mas o `valorExigivel()` é materializado (não derivado) — sem este cron o valor
+congela no dia em que a obrigação foi cadastrada.
+
+Roda **depois** do backup das 02:00 e da purga das 03:00, para que o dump da noite tenha o
+estado anterior ao recálculo (janela de conferência) e para não disputar CPU com os dois.
+
+```
+30 3 * * * docker exec jusprime_php_prod php bin/console app:cobranca:atualizar-encargos >> /var/log/jusprime-encargos.log 2>&1
+```
+
+> **Antes de agendar:** rode uma vez em simulação e confira o delta relatado —
+> `docker exec jusprime_php_prod php bin/console app:cobranca:atualizar-encargos --dry-run`.
+> O `--dry-run` calcula tudo e mostra o relatório sem gravar nada. Para amostrar um escritório
+> só: `--tenant=1 --limit=50`.
+>
+> **O que ele toca:** apenas obrigações **não congeladas** (`encargos_congelados_em IS NULL`) de
+> casos **não encerrados**. Obrigação editada à mão, importada da contabilidade ou ligada a um
+> acordo vigente é **pulada** — o cron nunca desfaz decisão de gente nem infla dívida já
+> renegociada.
+>
+> **Exit code 1 significa que alguma obrigação FALHOU** no recálculo (o comando segue a rodada e
+> alarma no fim). Leia `/var/log/jusprime-encargos.log`: a seção "Obrigações que falharam" traz o
+> id e o motivo — tipicamente uma taxa configurada em regime composto alta demais para o atraso
+> acumulado. As demais obrigações foram atualizadas normalmente.
+
 ### Personalizar configuração
 
 Variáveis de ambiente que sobrescrevem os padrões do script:

@@ -8,6 +8,7 @@ use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusAcordo;
+use App\Cobranca\Enum\StatusCaso;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -198,6 +199,81 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
             ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value])
             ->orderBy('o.vencimentoOriginal', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * IDs das obrigações candidatas ao recálculo de encargos (cron da F3): NÃO congeladas
+     * (`encargosCongeladosEm IS NULL`, INV-E4) e de caso NÃO encerrado (SPEC §17: caso encerrado é
+     * fim de ciclo, não cresce mais). `Judicializado` NÃO é terminal — é fase viva e continua sendo
+     * atualizado.
+     *
+     * Devolve IDs ESCALARES (não entidades) porque o cron faz `em->clear()` entre lotes: entidades
+     * carregadas aqui virariam objetos destacados no lote seguinte. O id inteiro sobrevive ao clear.
+     *
+     * `innerJoin` no caso de propósito: obrigação ÓRFÃ (sem caso) resolveria para a config `neutra()`
+     * e o cron a ZERARIA. Fora do lote é o comportamento conservador — dinheiro não se apaga por
+     * navegação nula.
+     *
+     * Tenant SEMPRE explícito: o `TenantFilter` do Doctrine fica DESLIGADO fora de um request, então
+     * no CLI este `andWhere` é a única defesa contra vazamento entre escritórios.
+     *
+     * @return list<int>
+     */
+    public function idsParaAtualizarEncargos(Tenant $tenant, ?int $limite = null): array
+    {
+        $qb = $this->createQueryBuilder('o')
+            ->select('o.id')
+            ->innerJoin('o.caso', 'c')
+            ->andWhere('o.encargosCongeladosEm IS NULL')
+            ->andWhere('c.status != :encerrado')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('encerrado', StatusCaso::Encerrado->value)
+            ->setParameter('tenant', $tenant)
+            // Ordem estável: o lote N do `array_chunk` tem de ser sempre o mesmo conjunto.
+            ->orderBy('o.id', 'ASC');
+
+        if ($limite !== null) {
+            $qb->setMaxResults($limite);
+        }
+
+        return array_map(
+            static fn (mixed $id): int => (int) $id,
+            $qb->getQuery()->getSingleColumnResult(),
+        );
+    }
+
+    /**
+     * Carrega um LOTE de obrigações com caso, objeto e carteira em join fetch. Sem isso o
+     * `ResolvedorConfigEncargos` (que sobe a cascata Obrigação → Caso → Objeto → Carteira) dispara
+     * ~3 queries de lazy-load POR obrigação — o cron rodaria milhares de queries por rodada.
+     *
+     * `leftJoin` aqui (e não `innerJoin`): a seleção de quem entra no lote já foi feita em
+     * `idsParaAtualizarEncargos`; este método só materializa o grafo, sem re-filtrar linha nenhuma.
+     *
+     * Tenant SEMPRE explícito: defesa em profundidade contra um id de outro escritório entrar na
+     * lista (o filtro automático não existe no CLI). `$ids` vazio → `[]` sem query.
+     *
+     * @param list<int> $ids
+     *
+     * @return list<Obrigacao>
+     */
+    public function loteParaAtualizarEncargos(array $ids, Tenant $tenant): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('o')
+            ->leftJoin('o.caso', 'c')->addSelect('c')
+            ->leftJoin('c.objeto', 'ob')->addSelect('ob')
+            ->leftJoin('ob.carteira', 'cart')->addSelect('cart')
+            ->andWhere('o.id IN (:ids)')
+            ->andWhere('o.tenant = :tenant')
+            ->setParameter('ids', $ids)
+            ->setParameter('tenant', $tenant)
+            ->orderBy('o.id', 'ASC')
             ->getQuery()
             ->getResult();
     }

@@ -188,4 +188,41 @@ final class EditarObrigacaoUseCaseTest extends TestCase
 
         $this->sut->executar($this->inputValido(), $this->tenant, $this->usuario);
     }
+
+    #[Test]
+    public function editarCongelaOsEncargosParaQueOCronNaoDesfacaACorrecao(): void
+    {
+        // Sem o congelamento (spec §5/§8, INV-E4), o cron `app:cobranca:atualizar-encargos` passaria
+        // de madrugada e sobrescreveria o valor que o gestor acabou de corrigir à mão.
+        $obrigacao = $this->obrigacaoAtiva();
+        self::assertFalse($obrigacao->encargosCongelados(), 'pré-condição: a obrigação nasce recalculável');
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+
+        $capturado = null;
+        $this->eventoRepository->expects($this->once())->method('salvar')
+            ->willReturnCallback(function (EventoHistorico $e, bool $flush) use (&$capturado): void {
+                $capturado = $e;
+            });
+
+        $antesDaEdicao = new \DateTimeImmutable();
+        $resultado = $this->sut->executar($this->inputValido(), $this->tenant, $this->usuario);
+
+        self::assertTrue($resultado->encargosCongelados(), 'editar à mão congela: a obrigação para de crescer');
+        $congeladoEm = $resultado->getEncargosCongeladosEm();
+        self::assertNotNull($congeladoEm);
+        self::assertGreaterThanOrEqual($antesDaEdicao, $congeladoEm, 'o congelamento é do momento da edição');
+
+        // O histórico tem de registrar a transição: sem isso ninguém explica depois por que aquela
+        // obrigação parou de acompanhar os juros.
+        self::assertInstanceOf(EventoHistorico::class, $capturado);
+        $dados = $capturado->getDados();
+        self::assertNull($dados['antes']['encargosCongeladosEm'], 'antes da edição não havia congelamento');
+        self::assertSame(
+            $congeladoEm->format('Y-m-d H:i:s'),
+            $dados['depois']['encargosCongeladosEm'],
+            'o snapshot "depois" tem de trazer o congelamento gravado',
+        );
+    }
 }

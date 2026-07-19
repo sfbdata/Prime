@@ -85,6 +85,12 @@ final class EditarObrigacaoUseCase
         $obrigacao->setEncargosReconhecidos($input->encargosReconhecidos);
         $obrigacao->setReferenciaExterna($referencia);
 
+        // CONGELA a obrigação editada (spec §5/§8, INV-E4). Sem isto o cron da F3
+        // (`app:cobranca:atualizar-encargos`) sobrescreveria a correção manual na madrugada
+        // seguinte: o gestor ajusta um valor à mão e o robô o desfaz. Editar à mão é uma decisão
+        // de gente sobre dinheiro — a partir daqui esta obrigação para de crescer sozinha.
+        $obrigacao->congelarEncargos(new \DateTimeImmutable());
+
         $motivo = trim((string) $input->motivo);
 
         // A obrigação é managed: o flush do evento commita, na mesma transação, a alteração + o evento.
@@ -106,7 +112,7 @@ final class EditarObrigacaoUseCase
     }
 
     /**
-     * @return array{descricao: string, valorOriginal: int, vencimentoOriginal: string, encargosReconhecidos: int, referenciaExterna: ?string}
+     * @return array{descricao: string, valorOriginal: int, vencimentoOriginal: string, encargosReconhecidos: int, referenciaExterna: ?string, encargosCongeladosEm: ?string}
      */
     private function snapshot(Obrigacao $obrigacao): array
     {
@@ -116,6 +122,9 @@ final class EditarObrigacaoUseCase
             'vencimentoOriginal' => $obrigacao->getVencimentoOriginal()->format('Y-m-d'),
             'encargosReconhecidos' => $obrigacao->getEncargosReconhecidos(),
             'referenciaExterna' => $obrigacao->getReferenciaExterna(),
+            // O histórico tem de registrar o congelamento: é ele que explica por que aquela
+            // obrigação parou de crescer a partir desta edição (antes null → depois preenchido).
+            'encargosCongeladosEm' => $obrigacao->getEncargosCongeladosEm()?->format('Y-m-d H:i:s'),
         ];
     }
 
