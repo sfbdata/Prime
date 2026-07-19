@@ -1,9 +1,22 @@
 # Handoff — Encargos separados e configuráveis em cascata (Cobrança)
 
 > Feature NOVA (pós-Ajuste 10). Risco **ALTO** (dinheiro no cálculo + migração). Módulo **em produção**.
-> **Nada implementado ainda** — este chat só PREPAROU: spec + docs + memória + prompt de arranque.
 > Fonte de verdade do *o quê/porquê*: **`docs/specs/cobranca-encargos-configuraveis-cascata.md`**.
-> Prompt para o chat de implementação: **`docs/gestao-cobrancas/NEW_CHAT_PROMPT_ENCARGOS.md`**.
+> Estado vivo da execução (ledger, gitignored): **`.superpowers/sdd/progress-encargos.md`**.
+
+## ⏱️ Estado atual (2026-07-19)
+
+**F1 ENTREGUE E PROVADA** na branch local **`cobranca-encargos-cascata`** (de `master` `d19f652`);
+commits `93ce9e7` + `ee51f92`. **Nada publicado** — push/merge/deploy seguem sendo do humano.
+
+- `tests/Cobranca` **676/676** (baseline 611 + 65 novos, zero regressões) · **global 2040/2040**.
+- Migração `Version20260719120000` aplicada em **dev**: backfill com **diferença 0 ao centavo em 3.294
+  obrigações reais**. `schema:validate` sem divergência de coluna.
+- Smoke visual OK (objeto 117): total exibido idêntico ao de antes, ao centavo.
+- **Comportamento em runtime é idêntico ao de hoje**: as configs nascem neutras/nulas e nada materializa
+  encargos automaticamente ainda (isso começa na F2/F3). Nenhuma regressão possível para o usuário.
+
+**Fases restantes: F2 → F6** (ver spec §14 e o ledger).
 
 ## Em uma frase
 Separar `encargosReconhecidos` (número único) em **juros / multa / correção** (+ honorários), com **%↔R$
@@ -61,5 +74,20 @@ A premissa do brainstorm estava **parcialmente errada**; os dados reais mostram:
 - Git: commit local OK; **push/merge/deploy = humano**. Um piloto de git por vez.
 
 ## Estado de verdade viva
-- Ledger da feature: criar `.superpowers/sdd/progress-encargos.md` no chat de implementação (tarefa COMPLETE não se refaz).
+- Ledger da feature: `.superpowers/sdd/progress-encargos.md` (gitignored; tarefa COMPLETE não se refaz).
+  É lá que estão as decisões D1–D5, os contratos congelados e as provas de cada fase.
 - Memória: `project_cobranca_encargos.md` (índice em `MEMORY.md`).
+
+## Achados abertos que a próxima fase precisa considerar
+
+1. **Ordem F3 × F5:** `EditarObrigacaoUseCase` hoje **não congela** a obrigação. Se o cron (F3) entrar
+   antes da F5, **ele sobrescreve edição manual**. Ou a F3 já seta `encargosCongeladosEm` na edição, ou a
+   F5 vem antes. Decidir na F3.
+2. **N+1 na F3:** `ResolvedorConfigEncargos` navega `caso → objeto → carteira` (lazy-load, ~3 queries por
+   obrigação). O cron precisa de **join fetch** para não fazer ~10k queries em 3.294 obrigações.
+3. **Overflow do regime Composto** já tratado com `EncargosInexequiveisException` — **a F3 deve capturá-la
+   POR OBRIGAÇÃO**, para um caso patológico não derrubar a rodada inteira.
+4. **Dívida pré-existente (não é da feature):** 3 índices **parciais/funcionais** vivem só nas migrations
+   e o `doctrine:schema:create` não os cria → recriar o banco de teste quebra
+   `ImportarRelatorioCarteiraTest::testIndiceUnicoBloqueiaObrigacaoDuplicada` até rodar o `CREATE UNIQUE
+   INDEX` à mão. Aconteceu nesta sessão. Vale um hook no bootstrap de teste, em tarefa separada.
