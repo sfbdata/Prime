@@ -85,6 +85,16 @@
             </div>
             <div class="modal-body">
                 <p class="text-muted small mb-3">Correção de cadastro — informe o motivo. O saldo se ajusta automaticamente.</p>
+                {# F5 (spec §12): quando a obrigação já recebeu pagamento, mudar o valor pode deixar o
+                   recebido sobrando ou faltando. Nasce escondido (`d-none`) e o JS de show.html.twig o
+                   revela conforme o `data-tem-pagamento` do botão "Editar" da linha — o modal é
+                   reutilizável (1 por página), então o gatilho tem de vir do item clicado, não do render. #}
+                <div class="alert alert-info small d-flex align-items-start gap-2 mb-3 d-none" data-aviso-reconciliar>
+                    <i class="bi bi-info-circle-fill"></i>
+                    <div>Esta obrigação já recebeu pagamento. Se você <strong>alterar o valor</strong>, o valor
+                        recebido pode ficar sobrando ou faltando — nesse caso, ajuste-o depois em
+                        <strong>Corrigir pagamento</strong>, no extrato de movimentos.</div>
+                </div>
                 {{ form_row(forms.editarObrigacao.descricao) }}
                 {{ form_row(forms.editarObrigacao.valorOriginal) }}
                 {{ form_row(forms.editarObrigacao.vencimentoOriginal) }}

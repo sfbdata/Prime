@@ -353,6 +353,12 @@ document.addEventListener('DOMContentLoaded', function () {
             setVal('multa', reais(botao.getAttribute('data-multa-centavos')));
             setVal('correcao', reais(botao.getAttribute('data-correcao-centavos')));
             setVal('motivo', '');
+            /* F5 (spec §12): revela o aviso de reconciliação só quando a linha carrega pagamento
+               (`data-tem-pagamento="1"`). Como o modal é reutilizável, o estado é reposto a cada
+               abertura com `relatedTarget` — o botão "Editar" de uma obrigação sem pagamento o
+               esconde de novo, sem vazar o aviso da obrigação aberta antes. */
+            var avisoRec = modalEditar.querySelector('[data-aviso-reconciliar]');
+            if (avisoRec) { avisoRec.classList.toggle('d-none', botao.getAttribute('data-tem-pagamento') !== '1'); }
         });
     }
 

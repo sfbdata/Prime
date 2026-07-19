@@ -359,4 +359,90 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertSame(0, $obrigacao->getEncargosReconhecidos());
         self::assertFalse($obrigacao->encargosCongelados());
     }
+
+    /**
+     * F5 (spec §5/§12): editar uma obrigação PAGA é permitido — "quitada" é conceito de LEITURA
+     * (`alocado >= exigível`), não estado persistido, e o único limite é o guard `< totalAlocado`.
+     * Aqui o valor de uma obrigação com R$100,00 já recebidos SOBE para R$150,00: passa folgado, os
+     * campos são gravados e o evento sai. E o UseCase de editar NÃO reescreve as alocações — sua única
+     * conversa com o repositório de alocações é a LEITURA do total (a reconciliação do recebido é papel
+     * separado do CorrigirPagamentoUseCase).
+     */
+    #[Test]
+    public function editaObrigacaoPagaAumentandoOValorPassaNoGuardENaoRealocaPagamento(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva(); // valorOriginal 10000, encargos 0 → exigível 10000
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        // A ÚNICA interação com o repositório de alocações é ler o total (R$100,00 já alocados): o
+        // UseCase de editar nunca chama método de escrita de `AlocacaoPagamento`.
+        $this->alocacaoRepository->expects($this->once())
+            ->method('totalAlocadoEmObrigacoes')->willReturn(10000);
+        $this->eventoRepository->expects($this->once())->method('salvar');
+
+        $input = $this->inputValido();
+        $input->valorOriginal = 15000;
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame(15000, $resultado->getValorOriginal(), 'o valor de uma obrigação paga pode ser aumentado');
+        // Exigível novo = 15000 (> 10000 alocado): a obrigação deixa de estar quitada e volta a ter saldo.
+        self::assertSame(15000, $resultado->valorExigivel());
+    }
+
+    /**
+     * F5: reduzir o exigível de uma obrigação paga até EXATAMENTE o total alocado é o limite legítimo —
+     * fica quitada com saldo zero. O guard é `<`, não `<=`; este cenário prova a fronteira exata.
+     */
+    #[Test]
+    public function editaObrigacaoPagaReduzindoAteExatamenteOAlocadoEhPermitido(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(10000);
+        $this->eventoRepository->expects($this->once())->method('salvar');
+
+        $input = $this->inputValido();
+        $input->valorOriginal = 10000; // exigível novo == alocado (10000): limite exato
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame(10000, $resultado->valorExigivel(), 'exigível novo == alocado (limite exato) é permitido');
+    }
+
+    /**
+     * F5: reduzir o exigível ABAIXO do alocado é bloqueado — apagaria dinheiro já recebido. Não basta
+     * o TIPO da exceção: "seguro inalcançável não é seguro" (lição do projeto), então asserimos a
+     * MENSAGEM que o gestor lê, e provamos que a obrigação não foi mutada antes do guard.
+     */
+    #[Test]
+    public function editaObrigacaoPagaReduzindoAbaixoDoAlocadoBloqueiaComMensagem(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(10000);
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $input = $this->inputValido();
+        $input->valorOriginal = 9900; // exigível novo 9900 < 10000 alocado → bloqueia
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
+
+        $this->expectException(ValorAbaixoDoAlocadoException::class);
+        $this->expectExceptionMessage('ficaria abaixo do total já pago/alocado (10000 centavos)');
+
+        try {
+            $this->sut->executar($input, $this->tenant, $this->usuario);
+        } finally {
+            // O guard roda ANTES de mutar: mesmo lançando, a obrigação continua com o valor original.
+            self::assertSame(10000, $obrigacao->getValorOriginal(), 'nada pode ter sido mutado antes do guard');
+            self::assertFalse($obrigacao->encargosCongelados());
+        }
+    }
 }

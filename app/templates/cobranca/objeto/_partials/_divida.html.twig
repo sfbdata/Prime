@@ -212,7 +212,12 @@
                                             data-encargos-centavos="{{ o.encargosReconhecidos }}"
                                             data-juros-centavos="{{ o.juros }}"
                                             data-multa-centavos="{{ o.multa }}"
-                                            data-correcao-centavos="{{ o.correcao }}">
+                                            data-correcao-centavos="{{ o.correcao }}"
+                                            {# F5 (spec §12): a obrigação já recebeu pagamento? Se sim, mudar o valor pode
+                                               deixar o recebido sobrando/faltando — o modal de edição usa este gatilho para
+                                               revelar o aviso de "reconciliar em Corrigir pagamento". `o.alocado` já vem
+                                               materializado no ObrigacaoOutput (não recalcula nada aqui). #}
+                                            data-tem-pagamento="{{ o.alocado > 0 ? '1' : '0' }}">
                                         <i class="bi bi-pencil me-2"></i>Editar (corrigir)
                                     </button>
                                 </li>
