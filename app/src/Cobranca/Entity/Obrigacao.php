@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Entity;
 
+use App\Cobranca\Enum\BaseEncargo;
+use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -14,8 +16,21 @@ use Doctrine\ORM\Mapping as ORM;
 /**
  * Obrigação (SPEC §10): um valor devido dentro de um Caso de Cobrança (competência, parcela,
  * mensalidade, taxa, aluguel...). Preserva SEMPRE o valor e o vencimento ORIGINAIS (invariável 20);
- * encargos reconhecidos manualmente (juros/multa/correção) entram à parte, sem recalcular nada
- * automaticamente e sem apagar o original (SPEC §10). Valores em CENTAVOS inteiros.
+ * os encargos entram à parte, sem apagar o original (SPEC §10). Valores em CENTAVOS inteiros.
+ *
+ * Encargos SEPARADOS (spec "encargos configuráveis em cascata", decisão D1): o antigo campo único
+ * `encargosReconhecidos` deu lugar a quatro valores materializados — `juros`, `multa`, `correcao` e
+ * `honorarios`. `getEncargosReconhecidos()` continua existindo, mas agora é DERIVADO
+ * (`juros + multa + correcao`), de modo que a invariante INV-E1 — "a soma dos três é igual ao
+ * encargo agregado de antes" — vale POR CONSTRUÇÃO, e não por disciplina de quem escreve o código.
+ * Consequência prática: `CalculadoraSaldo`, Dashboard, FIFO e Acordo não mudaram nem precisam mudar.
+ *
+ * Honorários ficam FORA do `valorExigivel()` (INV-E2/SPEC §18.5): honorário não é dívida do credor.
+ * Quem quiser o total exibido na linha do relatório usa `totalComHonorarios()`.
+ *
+ * O crescimento no tempo é MATERIALIZADO, não derivado (spec §6-B): os quatro campos são
+ * persistidos e recalculados por um cron; `valorExigivel()` continua puro e sem `$hoje` (INV-E3).
+ * Uma obrigação com `encargosCongeladosEm` preenchido nunca é tocada pelo cron (INV-E4).
  */
 #[ORM\Entity(repositoryClass: ObrigacaoRepository::class)]
 #[ORM\Table(name: 'cobranca_obrigacao')]
@@ -46,9 +61,76 @@ class Obrigacao implements TenantAware, Auditavel
     #[ORM\Column(type: 'date_immutable')]
     private \DateTimeImmutable $vencimentoOriginal;
 
-    /** Encargos reconhecidos manualmente pelo gestor, em CENTAVOS (SPEC §10); default 0. */
+    /**
+     * COLUNA-SOMBRA do antigo encargo agregado, em centavos (spec §10.3). Mantida por um release
+     * para permitir rollback do deploy sem perder o saldo; é escrita automaticamente pelos
+     * lifecycle callbacks com `juros + multa + correcao` e NUNCA é lida pela lógica de negócio —
+     * quem lê usa `getEncargosReconhecidos()`, que deriva dos três campos. Remover no release
+     * seguinte, junto com `sincronizarSombraDeEncargos()`.
+     */
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $encargosReconhecidos = 0;
+
+    /** Juros de mora materializados, em CENTAVOS. */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $juros = 0;
+
+    /** Multa por atraso materializada, em CENTAVOS. */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $multa = 0;
+
+    /** Correção monetária materializada, em CENTAVOS. */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $correcao = 0;
+
+    /** Honorários materializados, em CENTAVOS — FORA do valor exigível (INV-E2). */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $honorarios = 0;
+
+    /**
+     * Quando preenchido, os encargos desta obrigação PARARAM de crescer (INV-E4): foram editados à
+     * mão, importados da contabilidade ou negociados. O cron de atualização ignora congeladas.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $encargosCongeladosEm = null;
+
+    /** Data de REFERÊNCIA da última materialização dos encargos (o "atualizado em" da tela). */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $encargosAtualizadosEm = null;
+
+    // ------------------------------------------------------------------------------------------
+    // Configuração de encargos — NÍVEL 3 (último) da cascata. TODOS nullable: null = "herda o
+    // Caso" (que por sua vez herda a Carteira). Resolução campo a campo pelo
+    // `ResolvedorConfigEncargos`. Não há coluna de TAXA de honorários aqui (decisão D2): a
+    // alíquota vem do snapshot de honorários do Caso.
+    // ------------------------------------------------------------------------------------------
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $taxaJurosMensalBp = null;
+
+    #[ORM\Column(length: 20, enumType: RegimeJuros::class, nullable: true)]
+    private ?RegimeJuros $regimeJuros = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $taxaMultaBp = null;
+
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, nullable: true)]
+    private ?BaseEncargo $baseMulta = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $taxaCorrecaoBp = null;
+
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, nullable: true)]
+    private ?BaseEncargo $baseCorrecao = null;
+
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, nullable: true)]
+    private ?BaseEncargo $baseHonorarios = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $carenciaHonorariosDias = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $toleranciaJurosMultaDias = null;
 
     /** Referência da fonte externa (importação), para deduplicação intra-tenant. */
     #[ORM\Column(length: 255, nullable: true)]
@@ -80,24 +162,97 @@ class Obrigacao implements TenantAware, Auditavel
         $this->vencimentoOriginal = new \DateTimeImmutable();
     }
 
+    #[ORM\PrePersist]
+    public function aoCriar(): void
+    {
+        $this->sincronizarSombraDeEncargos();
+    }
+
     #[ORM\PreUpdate]
     public function aoAtualizar(): void
     {
         $this->atualizadoEm = new \DateTimeImmutable();
+        $this->sincronizarSombraDeEncargos();
     }
 
-    /** Valor exigível da obrigação em centavos: original + encargos reconhecidos (SPEC §10). */
+    /**
+     * Mantém a coluna-sombra `encargos_reconhecidos` igual à soma dos encargos separados, para que
+     * um rollback do deploy encontre o saldo intacto (spec §10.3). É escrita-só: nada no código lê
+     * essa propriedade além daqui.
+     */
+    private function sincronizarSombraDeEncargos(): void
+    {
+        $this->encargosReconhecidos = $this->juros + $this->multa + $this->correcao;
+    }
+
+    /**
+     * Valor exigível da obrigação em centavos: original + juros + multa + correção (INV-E1).
+     * Honorários ficam DE FORA de propósito (INV-E2/SPEC §18.5) — não são dívida do credor e não
+     * podem entrar no saldo que alimenta acordos e pagamentos.
+     *
+     * Método PURO e sem data: o crescimento no tempo vem da materialização periódica dos campos,
+     * nunca de recalcular aqui (INV-E3).
+     */
     public function valorExigivel(): int
     {
-        return $this->valorOriginal + $this->encargosReconhecidos;
+        return $this->valorOriginal + $this->juros + $this->multa + $this->correcao;
     }
 
-    /** Reconhece encargos atualizados (juros/multa/correção) em centavos — não toca o original. */
-    public function reconhecerEncargos(int $encargosEmCentavos): self
+    /** Total exibido na linha do relatório: o exigível MAIS os honorários advocatícios. */
+    public function totalComHonorarios(): int
     {
-        $this->encargosReconhecidos = $encargosEmCentavos;
+        return $this->valorExigivel() + $this->honorarios;
+    }
+
+    /**
+     * Materializa os quatro encargos calculados para uma data de referência (é o que a
+     * `CalculadoraEncargos` devolve). Não toca o valor original nem o congelamento.
+     */
+    public function definirEncargos(
+        int $juros,
+        int $multa,
+        int $correcao,
+        int $honorarios,
+        \DateTimeImmutable $referencia,
+    ): self {
+        $this->juros = $juros;
+        $this->multa = $multa;
+        $this->correcao = $correcao;
+        $this->honorarios = $honorarios;
+        $this->encargosAtualizadosEm = $referencia;
 
         return $this;
+    }
+
+    /** Congela os encargos: a partir daqui o cron não recalcula mais esta obrigação (INV-E4). */
+    public function congelarEncargos(\DateTimeImmutable $em): self
+    {
+        $this->encargosCongeladosEm = $em;
+
+        return $this;
+    }
+
+    /** Volta a obrigação para o recálculo automático pelo cron. */
+    public function descongelarEncargos(): self
+    {
+        $this->encargosCongeladosEm = null;
+
+        return $this;
+    }
+
+    public function encargosCongelados(): bool
+    {
+        return $this->encargosCongeladosEm !== null;
+    }
+
+    /**
+     * @deprecated Ponte de compatibilidade da migração de encargos separados (spec §10.2, decisão
+     *             D1). Joga o agregado inteiro em `juros` e zera multa/correção — preserva o saldo
+     *             ao centavo, mas PERDE o split. Código novo usa `definirEncargos()`.
+     */
+    public function reconhecerEncargos(int $encargosEmCentavos): self
+    {
+        return $this->setEncargosReconhecidos($encargosEmCentavos);
     }
 
     public function getId(): ?int
@@ -165,14 +320,195 @@ class Obrigacao implements TenantAware, Auditavel
         return $this;
     }
 
+    /**
+     * Encargos agregados em centavos — DERIVADO de `juros + multa + correcao` (decisão D1). Não lê
+     * a coluna-sombra: é justamente por derivar que a invariante INV-E1 vale por construção e o
+     * maquinário de saldo continuou intacto.
+     */
     public function getEncargosReconhecidos(): int
     {
-        return $this->encargosReconhecidos;
+        return $this->juros + $this->multa + $this->correcao;
     }
 
+    /**
+     * @deprecated Ponte de compatibilidade da migração de encargos separados (spec §10.2, decisão
+     *             D1): escreve o agregado inteiro em `juros` e zera `multa`/`correcao`. Preserva o
+     *             saldo exato (`getEncargosReconhecidos()` devolve o mesmo valor), mas o split se
+     *             perde — quem sabe separar deve usar `definirEncargos()`. Existe para os
+     *             chamadores antigos (importador, edição, factories de teste) continuarem válidos
+     *             enquanto a UI separada (F4) não chega.
+     */
     public function setEncargosReconhecidos(int $encargosReconhecidos): self
     {
-        $this->encargosReconhecidos = $encargosReconhecidos;
+        $this->juros = $encargosReconhecidos;
+        $this->multa = 0;
+        $this->correcao = 0;
+
+        return $this;
+    }
+
+    public function getJuros(): int
+    {
+        return $this->juros;
+    }
+
+    public function setJuros(int $juros): self
+    {
+        $this->juros = $juros;
+
+        return $this;
+    }
+
+    public function getMulta(): int
+    {
+        return $this->multa;
+    }
+
+    public function setMulta(int $multa): self
+    {
+        $this->multa = $multa;
+
+        return $this;
+    }
+
+    public function getCorrecao(): int
+    {
+        return $this->correcao;
+    }
+
+    public function setCorrecao(int $correcao): self
+    {
+        $this->correcao = $correcao;
+
+        return $this;
+    }
+
+    public function getHonorarios(): int
+    {
+        return $this->honorarios;
+    }
+
+    public function setHonorarios(int $honorarios): self
+    {
+        $this->honorarios = $honorarios;
+
+        return $this;
+    }
+
+    public function getEncargosCongeladosEm(): ?\DateTimeImmutable
+    {
+        return $this->encargosCongeladosEm;
+    }
+
+    public function getEncargosAtualizadosEm(): ?\DateTimeImmutable
+    {
+        return $this->encargosAtualizadosEm;
+    }
+
+    public function getTaxaJurosMensalBp(): ?int
+    {
+        return $this->taxaJurosMensalBp;
+    }
+
+    public function setTaxaJurosMensalBp(?int $taxaJurosMensalBp): self
+    {
+        $this->taxaJurosMensalBp = $taxaJurosMensalBp;
+
+        return $this;
+    }
+
+    public function getRegimeJuros(): ?RegimeJuros
+    {
+        return $this->regimeJuros;
+    }
+
+    public function setRegimeJuros(?RegimeJuros $regimeJuros): self
+    {
+        $this->regimeJuros = $regimeJuros;
+
+        return $this;
+    }
+
+    public function getTaxaMultaBp(): ?int
+    {
+        return $this->taxaMultaBp;
+    }
+
+    public function setTaxaMultaBp(?int $taxaMultaBp): self
+    {
+        $this->taxaMultaBp = $taxaMultaBp;
+
+        return $this;
+    }
+
+    public function getBaseMulta(): ?BaseEncargo
+    {
+        return $this->baseMulta;
+    }
+
+    public function setBaseMulta(?BaseEncargo $baseMulta): self
+    {
+        $this->baseMulta = $baseMulta;
+
+        return $this;
+    }
+
+    public function getTaxaCorrecaoBp(): ?int
+    {
+        return $this->taxaCorrecaoBp;
+    }
+
+    public function setTaxaCorrecaoBp(?int $taxaCorrecaoBp): self
+    {
+        $this->taxaCorrecaoBp = $taxaCorrecaoBp;
+
+        return $this;
+    }
+
+    public function getBaseCorrecao(): ?BaseEncargo
+    {
+        return $this->baseCorrecao;
+    }
+
+    public function setBaseCorrecao(?BaseEncargo $baseCorrecao): self
+    {
+        $this->baseCorrecao = $baseCorrecao;
+
+        return $this;
+    }
+
+    public function getBaseHonorarios(): ?BaseEncargo
+    {
+        return $this->baseHonorarios;
+    }
+
+    public function setBaseHonorarios(?BaseEncargo $baseHonorarios): self
+    {
+        $this->baseHonorarios = $baseHonorarios;
+
+        return $this;
+    }
+
+    public function getCarenciaHonorariosDias(): ?int
+    {
+        return $this->carenciaHonorariosDias;
+    }
+
+    public function setCarenciaHonorariosDias(?int $carenciaHonorariosDias): self
+    {
+        $this->carenciaHonorariosDias = $carenciaHonorariosDias;
+
+        return $this;
+    }
+
+    public function getToleranciaJurosMultaDias(): ?int
+    {
+        return $this->toleranciaJurosMultaDias;
+    }
+
+    public function setToleranciaJurosMultaDias(?int $toleranciaJurosMultaDias): self
+    {
+        $this->toleranciaJurosMultaDias = $toleranciaJurosMultaDias;
 
         return $this;
     }

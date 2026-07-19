@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Cobranca\Entity;
 
 use App\Cliente\Entity\Cliente;
+use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
+use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Entity\Auth\User;
@@ -58,6 +60,57 @@ class Carteira implements TenantAware, Auditavel
     /** Dias de tolerância para alertas de atraso — não rompe acordos automaticamente (SPEC §12). */
     #[ORM\Column(type: 'integer', options: ['default' => 0])]
     private int $toleranciaAtrasoDias = 0;
+
+    // ------------------------------------------------------------------------------------------
+    // Configuração de encargos — NÍVEL 1 da cascata Carteira → Objeto/Caso → Obrigação
+    // (spec "encargos configuráveis em cascata" §4.1). Aqui os campos são NOT NULL, porque é o
+    // fundo do poço da resolução: o Caso e a Obrigação usam null para dizer "herda de cima".
+    //
+    // Os defaults são NEUTROS (taxa 0), decisão D4: o módulo está EM PRODUÇÃO e não pode começar a
+    // gerar juros e multa sozinho por causa de um deploy. Quem quiser encargos, configura a
+    // carteira (o preset da operação real é `ConfigEncargos::padraoTopLife()`).
+    // ------------------------------------------------------------------------------------------
+
+    /** Juros de mora ao mês em basis points (100 bp = 1% a.m.); pró-rata diária, mês = 30 dias. */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $taxaJurosMensalBp = 0;
+
+    #[ORM\Column(length: 20, enumType: RegimeJuros::class, options: ['default' => 'simples'])]
+    private RegimeJuros $regimeJuros = RegimeJuros::Simples;
+
+    /** Multa por atraso em basis points (200 bp = 2%); aplicação única, não cresce. */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $taxaMultaBp = 0;
+
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, options: ['default' => 'principal'])]
+    private BaseEncargo $baseMulta = BaseEncargo::Principal;
+
+    /** Correção monetária em basis points; default 0 (não usada na operação real observada). */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $taxaCorrecaoBp = 0;
+
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, options: ['default' => 'principal'])]
+    private BaseEncargo $baseCorrecao = BaseEncargo::Principal;
+
+    /**
+     * Base dos honorários. Não há coluna de TAXA de honorários (decisão D2): a alíquota continua
+     * vindo de `percentualHonorarios`/`formaHonorarios`, que já existem — nada de campo paralelo.
+     */
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, options: ['default' => 'composta'])]
+    private BaseEncargo $baseHonorarios = BaseEncargo::Composta;
+
+    /**
+     * Dias de atraso sem honorários (corte estrito: 30 ⇒ honorário a partir do 31º dia). NULL cai
+     * para `toleranciaAtrasoDias` (decisão D3): os dados reais mostram que a tolerância de ~30 dias
+     * já configurada nas carteiras é, na prática, carência de HONORÁRIOS — juros e multa valem
+     * desde o 1º dia.
+     */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $carenciaHonorariosDias = null;
+
+    /** Dias de atraso sem juros/multa; default 0 — os dados provam que valem desde o 1º dia. */
+    #[ORM\Column(type: 'integer', options: ['default' => 0])]
+    private int $toleranciaJurosMultaDias = 0;
 
     /** Tipo de vínculo normalmente cobrado — apenas sugestão, nunca decide (SPEC §8.5/8.6). */
     #[ORM\Column(enumType: TipoVinculo::class, nullable: true)]
@@ -173,6 +226,114 @@ class Carteira implements TenantAware, Auditavel
     public function setToleranciaAtrasoDias(int $toleranciaAtrasoDias): self
     {
         $this->toleranciaAtrasoDias = $toleranciaAtrasoDias;
+
+        return $this;
+    }
+
+    public function getTaxaJurosMensalBp(): int
+    {
+        return $this->taxaJurosMensalBp;
+    }
+
+    public function setTaxaJurosMensalBp(int $taxaJurosMensalBp): self
+    {
+        $this->taxaJurosMensalBp = $taxaJurosMensalBp;
+
+        return $this;
+    }
+
+    public function getRegimeJuros(): RegimeJuros
+    {
+        return $this->regimeJuros;
+    }
+
+    public function setRegimeJuros(RegimeJuros $regimeJuros): self
+    {
+        $this->regimeJuros = $regimeJuros;
+
+        return $this;
+    }
+
+    public function getTaxaMultaBp(): int
+    {
+        return $this->taxaMultaBp;
+    }
+
+    public function setTaxaMultaBp(int $taxaMultaBp): self
+    {
+        $this->taxaMultaBp = $taxaMultaBp;
+
+        return $this;
+    }
+
+    public function getBaseMulta(): BaseEncargo
+    {
+        return $this->baseMulta;
+    }
+
+    public function setBaseMulta(BaseEncargo $baseMulta): self
+    {
+        $this->baseMulta = $baseMulta;
+
+        return $this;
+    }
+
+    public function getTaxaCorrecaoBp(): int
+    {
+        return $this->taxaCorrecaoBp;
+    }
+
+    public function setTaxaCorrecaoBp(int $taxaCorrecaoBp): self
+    {
+        $this->taxaCorrecaoBp = $taxaCorrecaoBp;
+
+        return $this;
+    }
+
+    public function getBaseCorrecao(): BaseEncargo
+    {
+        return $this->baseCorrecao;
+    }
+
+    public function setBaseCorrecao(BaseEncargo $baseCorrecao): self
+    {
+        $this->baseCorrecao = $baseCorrecao;
+
+        return $this;
+    }
+
+    public function getBaseHonorarios(): BaseEncargo
+    {
+        return $this->baseHonorarios;
+    }
+
+    public function setBaseHonorarios(BaseEncargo $baseHonorarios): self
+    {
+        $this->baseHonorarios = $baseHonorarios;
+
+        return $this;
+    }
+
+    public function getCarenciaHonorariosDias(): ?int
+    {
+        return $this->carenciaHonorariosDias;
+    }
+
+    public function setCarenciaHonorariosDias(?int $carenciaHonorariosDias): self
+    {
+        $this->carenciaHonorariosDias = $carenciaHonorariosDias;
+
+        return $this;
+    }
+
+    public function getToleranciaJurosMultaDias(): int
+    {
+        return $this->toleranciaJurosMultaDias;
+    }
+
+    public function setToleranciaJurosMultaDias(int $toleranciaJurosMultaDias): self
+    {
+        $this->toleranciaJurosMultaDias = $toleranciaJurosMultaDias;
 
         return $this;
     }

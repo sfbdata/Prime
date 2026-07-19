@@ -61,6 +61,13 @@ final class EditarObrigacaoUseCase
         }
 
         // O novo valor exigível não pode cair abaixo do que já foi pago/alocado nesta obrigação.
+        //
+        // Encargos separados (F1): o input ainda carrega só o AGREGADO `encargosReconhecidos` — a
+        // UI com juros/multa/correção separados é a F4. Pela invariante INV-E1 o agregado é
+        // exatamente `juros + multa + correcao`, então esta soma continua sendo o `valorExigivel()`
+        // do estado NOVO, ao centavo. Chamar `$obrigacao->valorExigivel()` aqui não serve: o guard
+        // roda ANTES de mutar a entidade — mutar e só depois lançar deixaria a obrigação suja em
+        // memória, à mercê de um flush alheio na mesma request.
         $novoExigivel = (int) $input->valorOriginal + $input->encargosReconhecidos;
         $totalAlocado = $this->alocacaoRepository->totalAlocadoEmObrigacoes([(int) $obrigacao->getId()], $tenant);
         if ($novoExigivel < $totalAlocado) {

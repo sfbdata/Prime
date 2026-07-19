@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Entity;
 
+use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
+use App\Cobranca\Enum\RegimeJuros;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Entity\Auth\User;
@@ -55,6 +57,40 @@ class CasoCobranca implements TenantAware, Auditavel
     /** Snapshot do percentual aplicado; nulo quando a forma não usa percentual. */
     #[ORM\Column(type: 'decimal', precision: 5, scale: 2, nullable: true)]
     private ?string $percentualHonorarios = null;
+
+    // ------------------------------------------------------------------------------------------
+    // Configuração de encargos — NÍVEL 2 da cascata (spec "encargos configuráveis em cascata"
+    // §4.1). TODOS nullable, e null tem significado: "herda a carteira". Preenchido = override
+    // deste objeto/caso. A resolução é CAMPO A CAMPO (`ResolvedorConfigEncargos`): sobrepor só a
+    // taxa de juros mantém todo o resto herdado.
+    // ------------------------------------------------------------------------------------------
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $taxaJurosMensalBp = null;
+
+    #[ORM\Column(length: 20, enumType: RegimeJuros::class, nullable: true)]
+    private ?RegimeJuros $regimeJuros = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $taxaMultaBp = null;
+
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, nullable: true)]
+    private ?BaseEncargo $baseMulta = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $taxaCorrecaoBp = null;
+
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, nullable: true)]
+    private ?BaseEncargo $baseCorrecao = null;
+
+    #[ORM\Column(length: 20, enumType: BaseEncargo::class, nullable: true)]
+    private ?BaseEncargo $baseHonorarios = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $carenciaHonorariosDias = null;
+
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $toleranciaJurosMultaDias = null;
 
     /**
      * Pasta judicial vinculada na judicialização (SPEC §16). Ligação UNIDIRECIONAL Caso → Pasta
@@ -183,6 +219,114 @@ class CasoCobranca implements TenantAware, Auditavel
     public function setPercentualHonorarios(?string $percentualHonorarios): self
     {
         $this->percentualHonorarios = $percentualHonorarios;
+
+        return $this;
+    }
+
+    public function getTaxaJurosMensalBp(): ?int
+    {
+        return $this->taxaJurosMensalBp;
+    }
+
+    public function setTaxaJurosMensalBp(?int $taxaJurosMensalBp): self
+    {
+        $this->taxaJurosMensalBp = $taxaJurosMensalBp;
+
+        return $this;
+    }
+
+    public function getRegimeJuros(): ?RegimeJuros
+    {
+        return $this->regimeJuros;
+    }
+
+    public function setRegimeJuros(?RegimeJuros $regimeJuros): self
+    {
+        $this->regimeJuros = $regimeJuros;
+
+        return $this;
+    }
+
+    public function getTaxaMultaBp(): ?int
+    {
+        return $this->taxaMultaBp;
+    }
+
+    public function setTaxaMultaBp(?int $taxaMultaBp): self
+    {
+        $this->taxaMultaBp = $taxaMultaBp;
+
+        return $this;
+    }
+
+    public function getBaseMulta(): ?BaseEncargo
+    {
+        return $this->baseMulta;
+    }
+
+    public function setBaseMulta(?BaseEncargo $baseMulta): self
+    {
+        $this->baseMulta = $baseMulta;
+
+        return $this;
+    }
+
+    public function getTaxaCorrecaoBp(): ?int
+    {
+        return $this->taxaCorrecaoBp;
+    }
+
+    public function setTaxaCorrecaoBp(?int $taxaCorrecaoBp): self
+    {
+        $this->taxaCorrecaoBp = $taxaCorrecaoBp;
+
+        return $this;
+    }
+
+    public function getBaseCorrecao(): ?BaseEncargo
+    {
+        return $this->baseCorrecao;
+    }
+
+    public function setBaseCorrecao(?BaseEncargo $baseCorrecao): self
+    {
+        $this->baseCorrecao = $baseCorrecao;
+
+        return $this;
+    }
+
+    public function getBaseHonorarios(): ?BaseEncargo
+    {
+        return $this->baseHonorarios;
+    }
+
+    public function setBaseHonorarios(?BaseEncargo $baseHonorarios): self
+    {
+        $this->baseHonorarios = $baseHonorarios;
+
+        return $this;
+    }
+
+    public function getCarenciaHonorariosDias(): ?int
+    {
+        return $this->carenciaHonorariosDias;
+    }
+
+    public function setCarenciaHonorariosDias(?int $carenciaHonorariosDias): self
+    {
+        $this->carenciaHonorariosDias = $carenciaHonorariosDias;
+
+        return $this;
+    }
+
+    public function getToleranciaJurosMultaDias(): ?int
+    {
+        return $this->toleranciaJurosMultaDias;
+    }
+
+    public function setToleranciaJurosMultaDias(?int $toleranciaJurosMultaDias): self
+    {
+        $this->toleranciaJurosMultaDias = $toleranciaJurosMultaDias;
 
         return $this;
     }

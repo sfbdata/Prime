@@ -45,7 +45,27 @@ final class ObrigacaoOutput
          * UseCase, que é quem conhece o snapshot de honorários do caso — o DTO continua burro.
          */
         public readonly int $brutoSugerido = 0,
+        /**
+         * Encargos SEPARADOS materializados (centavos) — as colunas do relatório da contabilidade
+         * (spec "encargos configuráveis em cascata" §11). `encargosReconhecidos` acima continua
+         * sendo a soma de juros+multa+correcao (INV-E1); honorários ficam FORA do `valorAtual`
+         * (INV-E2), aparecem só na linha. Defaults 0 preservam os chamadores antigos.
+         */
+        public readonly int $juros = 0,
+        public readonly int $multa = 0,
+        public readonly int $correcao = 0,
+        public readonly int $honorarios = 0,
+        /** Preenchido = encargos congelados, param de crescer (INV-E4); a UI marca isso. */
+        public readonly ?\DateTimeImmutable $encargosCongeladosEm = null,
+        /** Data de referência da última materialização — o "atualizado em" da tela. */
+        public readonly ?\DateTimeImmutable $encargosAtualizadosEm = null,
     ) {
+    }
+
+    /** Total exibido na linha do relatório: exigível MAIS honorários (que não entram no saldo). */
+    public function totalComHonorarios(): int
+    {
+        return $this->valorAtual + $this->honorarios;
     }
 
     /**
@@ -73,7 +93,9 @@ final class ObrigacaoOutput
             descricao: $o->getDescricao(),
             valorOriginal: $o->getValorOriginal(),
             encargosReconhecidos: $o->getEncargosReconhecidos(),
-            valorAtual: $o->getValorOriginal() + $o->getEncargosReconhecidos(),
+            // A fórmula do exigível mora na ENTIDADE (INV-E1). Aqui era replicada — e replicar
+            // fórmula de dinheiro é como as duas versões divergem sem ninguém notar.
+            valorAtual: $o->valorExigivel(),
             vencimentoOriginal: $o->getVencimentoOriginal(),
             referenciaExterna: $o->getReferenciaExterna(),
             // Vigente-aware: só marca/trava quando o acordo está ATIVO/CUMPRIDO. Acordo rompido/cancelado
@@ -85,6 +107,12 @@ final class ObrigacaoOutput
             acordoSubstitutoId: $substituto?->getId(),
             alocado: $alocado,
             brutoSugerido: $brutoSugerido,
+            juros: $o->getJuros(),
+            multa: $o->getMulta(),
+            correcao: $o->getCorrecao(),
+            honorarios: $o->getHonorarios(),
+            encargosCongeladosEm: $o->getEncargosCongeladosEm(),
+            encargosAtualizadosEm: $o->getEncargosAtualizadosEm(),
         );
     }
 }
