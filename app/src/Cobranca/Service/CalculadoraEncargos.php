@@ -7,6 +7,7 @@ namespace App\Cobranca\Service;
 use App\Cobranca\DTO\ConfigEncargos;
 use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\RegimeJuros;
+use App\Cobranca\Exception\EncargosInexequiveisException;
 
 /**
  * Motor de cálculo dos encargos de uma obrigação em atraso (spec "encargos configuráveis em
@@ -182,11 +183,24 @@ final class CalculadoraEncargos
         $diasRestantes = $dias % self::DIAS_DO_MES;
         $montante = $principal;
 
+        // Teto de segurança: acima dele a próxima multiplicação estoura PHP_INT_MAX, o inteiro vira
+        // float e `strict_types` derruba a chamada com TypeError. Checar ANTES de multiplicar é o
+        // único jeito de errar alto e explícito em vez de baixo e silencioso.
+        $tetoMontante = intdiv(\PHP_INT_MAX, $config->taxaJurosMensalBp * max(1, $diasRestantes));
+
         for ($mes = 0; $mes < $mesesInteiros; ++$mes) {
+            if ($montante > $tetoMontante) {
+                throw new EncargosInexequiveisException($principal, $dias, $config->taxaJurosMensalBp);
+            }
+
             $montante += self::arredondarMeioParaCima(
                 $montante * $config->taxaJurosMensalBp,
                 self::BASIS_POINTS,
             );
+        }
+
+        if ($montante > $tetoMontante) {
+            throw new EncargosInexequiveisException($principal, $dias, $config->taxaJurosMensalBp);
         }
 
         $montante += self::arredondarMeioParaBaixo(

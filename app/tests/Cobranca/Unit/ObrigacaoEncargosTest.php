@@ -183,6 +183,35 @@ final class ObrigacaoEncargosTest extends TestCase
         self::assertNull($obrigacao->getToleranciaJurosMultaDias());
     }
 
+    /**
+     * A coluna-sombra `encargos_reconhecidos` é o plano de rollback do deploy: se a feature voltar
+     * atrás, é dela que o saldo é relido. Nada no código a LÊ, então ela é escrita-só — se a
+     * sincronização quebrasse, a suíte inteira passaria verde e a defasagem só apareceria no pior
+     * momento possível. É o padrão "seguro inalcançável não é seguro": prender por teste.
+     */
+    #[Test]
+    public function colunaSombraDeEncargosAcompanhaASomaDosTresAoPersistirEAoAtualizar(): void
+    {
+        $obrigacao = $this->obrigacao(10000);
+        $obrigacao->definirEncargos(100, 200, 50, 900, $this->agora());
+
+        $obrigacao->aoCriar();
+        self::assertSame(350, $this->sombraDe($obrigacao));
+
+        $obrigacao->definirEncargos(700, 200, 50, 900, $this->agora());
+        $obrigacao->aoAtualizar();
+        self::assertSame(950, $this->sombraDe($obrigacao));
+        self::assertSame($obrigacao->getEncargosReconhecidos(), $this->sombraDe($obrigacao));
+    }
+
+    /** Lê a propriedade privada da sombra: nenhum getter a expõe, e é justamente esse o ponto. */
+    private function sombraDe(Obrigacao $obrigacao): int
+    {
+        $propriedade = new \ReflectionProperty(Obrigacao::class, 'encargosReconhecidos');
+
+        return (int) $propriedade->getValue($obrigacao);
+    }
+
     private function obrigacao(int $valorOriginal): Obrigacao
     {
         return (new Obrigacao())->setDescricao('Mensalidade')->setValorOriginal($valorOriginal);

@@ -304,6 +304,31 @@ final class ResolvedorConfigEncargosTest extends TestCase
             ->setPercentualHonorarios('20.00');
     }
 
+    /**
+     * A taxa de honorários é a ÚNICA que NÃO cascateia como as outras, e isso é deliberado: ela vem
+     * do snapshot do próprio Caso (`formaHonorarios`/`percentualHonorarios`, colunas NOT NULL
+     * gravadas no nascimento — spec §18.2/§18.3), não de um override nullable. Um caso cujo
+     * snapshot diz "sem percentual" está afirmando 0, não omitindo — por isso NÃO herda os 20% da
+     * carteira, enquanto juros e multa herdam normalmente.
+     *
+     * Sem este teste a assimetria ficaria só no docblock, e um caminho novo de criação de caso
+     * (F2) poderia zerar honorários em silêncio com a suíte verde.
+     */
+    #[Test]
+    public function honorariosVemDoSnapshotDoCasoEnquantoOsDemaisCamposHerdamACarteira(): void
+    {
+        $carteira = $this->carteiraTopLife();
+
+        $casoSemSnapshot = (new CasoCobranca())
+            ->setObjeto((new ObjetoCobranca())->setCarteira($carteira));
+
+        $config = $this->sut->resolverDoCaso($casoSemSnapshot);
+
+        self::assertSame(0, $config->taxaHonorariosBp, 'snapshot "sem percentual" afirma 0, não herda');
+        self::assertSame(100, $config->taxaJurosMensalBp, 'juros herda a carteira normalmente');
+        self::assertSame(200, $config->taxaMultaBp, 'multa herda a carteira normalmente');
+    }
+
     /** Caso ligado à carteira pelo objeto, com o snapshot de honorários espelhando a carteira. */
     private function casoDe(Carteira $carteira): CasoCobranca
     {

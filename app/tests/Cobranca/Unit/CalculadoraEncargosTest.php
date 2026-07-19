@@ -7,6 +7,7 @@ namespace App\Tests\Cobranca\Unit;
 use App\Cobranca\DTO\ConfigEncargos;
 use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\RegimeJuros;
+use App\Cobranca\Exception\EncargosInexequiveisException;
 use App\Cobranca\Service\CalculadoraEncargos;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -433,6 +434,25 @@ final class CalculadoraEncargosTest extends TestCase
             ConfigEncargos::padraoTopLife($honorariosBp),
             $this->apos($dias),
         );
+    }
+
+    /**
+     * O regime composto capitaliza exponencialmente: taxa alta com atraso longo passa de
+     * PHP_INT_MAX, o inteiro degrada para float e `strict_types` derruba com TypeError cru. Dinheiro
+     * não pode virar aproximação silenciosa nem estourar com erro ininteligível — falha alto, com
+     * exceção de domínio que o cron da F3 possa capturar POR OBRIGAÇÃO e seguir a rodada.
+     */
+    #[Test]
+    public function regimeCompostoComTaxaEAtrasoExtremosLancaExcecaoDeDominioEmVezDeEstourarOInteiro(): void
+    {
+        $config = new ConfigEncargos(
+            taxaJurosMensalBp: 10000,
+            regimeJuros: RegimeJuros::Composto,
+        );
+
+        $this->expectException(EncargosInexequiveisException::class);
+
+        $this->sut->calcular(100000, $this->vencimento(), $config, $this->apos(3650));
     }
 
     /** @param array{juros:int, multa:int, correcao:int, honorarios:int} $encargos */
