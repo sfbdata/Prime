@@ -5,14 +5,17 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Command\AtualizarEncargosCommand;
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\RegimeJuros;
+use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cliente\ClientePFFactory;
+use App\Tests\Factory\Cobranca\AcordoFactory;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
 use App\Tests\Factory\Cobranca\CasoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
@@ -403,6 +406,73 @@ final class AtualizarEncargosCommandTest extends KernelTestCase
     private function casoTopLife(Tenant $tenant, StatusCaso $status = StatusCaso::Ativo): CasoCobranca
     {
         return $this->caso($tenant, $this->carteira($tenant), $status);
+    }
+
+    /**
+     * Original cujo acordo substituto foi CANCELADO volta ao saldo (invariável 20) e, por isso, tem
+     * de voltar a crescer.
+     *
+     * Este caso foi encontrado em DADO REAL de dev, não por inspeção: o cron pulava essas obrigações
+     * porque `foiSubstituida()` só olha se existe substituto, ignorando o STATUS dele. Resultado: uma
+     * dívida viva ficava congelada de fato, para sempre, sem nunca ter sido congelada de direito.
+     */
+    #[Test]
+    #[TestDox('Original cujo acordo substituto foi CANCELADO volta a crescer')]
+    public function originalComAcordoSubstitutoCanceladoVoltaACrescer(): void
+    {
+        $tenant = $this->tenant();
+        $caso = $this->casoTopLife($tenant);
+        $obrigacao = $this->obrigacao($tenant, $caso);
+        $obrigacao->setAcordoSubstituto($this->acordo($tenant, $caso, StatusAcordo::Cancelado));
+        $this->em->flush();
+        $id = $this->idDe($obrigacao);
+
+        $tester = $this->rodar(['--hoje' => self::HOJE]);
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $this->em->clear();
+        $recarregada = $this->recarregar($id);
+        self::assertSame(1360, $recarregada->getJuros(), 'dívida que voltou ao saldo tem de crescer');
+        self::assertSame(340, $recarregada->getMulta());
+        self::assertSame(18700, $recarregada->valorExigivel());
+    }
+
+    /**
+     * Parcela de acordo CANCELADO virou histórico — não é dívida, e o cron não pode inflá-la.
+     *
+     * O outro lado do mesmo erro: como nada filtrava a parcela de acordo não-vigente, o cron
+     * materializava encargos sobre uma linha que o saldo nem enxerga. Foi observado em dev
+     * materializando honorários numa parcela cancelada.
+     */
+    #[Test]
+    #[TestDox('Parcela de acordo CANCELADO não recebe encargos (virou histórico)')]
+    public function parcelaDeAcordoCanceladoNaoRecebeEncargos(): void
+    {
+        $tenant = $this->tenant();
+        $caso = $this->casoTopLife($tenant);
+        $parcela = $this->obrigacao($tenant, $caso);
+        $parcela->setAcordoOrigem($this->acordo($tenant, $caso, StatusAcordo::Cancelado));
+        $this->em->flush();
+        $id = $this->idDe($parcela);
+
+        $tester = $this->rodar(['--hoje' => self::HOJE]);
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode());
+
+        $this->em->clear();
+        $recarregada = $this->recarregar($id);
+        self::assertSame(0, $recarregada->getJuros(), 'parcela de acordo cancelado não é dívida viva');
+        self::assertSame(0, $recarregada->getMulta());
+        self::assertSame(0, $recarregada->getHonorarios());
+        self::assertSame(self::PRINCIPAL, $recarregada->valorExigivel());
+    }
+
+    private function acordo(Tenant $tenant, CasoCobranca $caso, StatusAcordo $status): Acordo
+    {
+        return AcordoFactory::createOne([
+            'tenant' => $tenant,
+            'caso' => $caso,
+            'status' => $status,
+        ])->_real();
     }
 
     private function obrigacao(

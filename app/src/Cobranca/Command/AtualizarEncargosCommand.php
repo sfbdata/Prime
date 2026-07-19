@@ -255,14 +255,15 @@ final class AtualizarEncargosCommand extends Command
      * Congelada (INV-E4) já é excluída pela query — a checagem aqui é defesa em profundidade, para o
      * dia em que alguém chamar o lote por outro caminho.
      *
-     * Acordo vigente / substituída: aquela dívida foi renegociada e virou parcela de acordo. Crescer
-     * os juros dela cobraria algo que já foi substituído (invariáveis 14/15).
+     * O filtro de EXIGIBILIDADE (acordo) mora na query, em `idsParaAtualizarEncargos()`, e usa o
+     * mesmo predicado de `exigiveisDosCasos()`. Não use aqui `foiSubstituida()` nem
+     * `participaDeAcordoVigente()`: eles respondem "está travada para edição?", não "é dívida viva?",
+     * e divergem justamente nos acordos cancelados/rompidos — o que fazia o cron ignorar original que
+     * voltou ao saldo e, ao mesmo tempo, inflar parcela de acordo cancelado.
      */
     private function devePular(Obrigacao $obrigacao): bool
     {
-        return $obrigacao->encargosCongelados()
-            || $obrigacao->participaDeAcordoVigente()
-            || $obrigacao->foiSubstituida();
+        return $obrigacao->encargosCongelados();
     }
 
     /**

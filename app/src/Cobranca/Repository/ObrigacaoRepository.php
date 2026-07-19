@@ -219,6 +219,16 @@ class ObrigacaoRepository extends ServiceEntityRepository
      * Tenant SEMPRE explícito: o `TenantFilter` do Doctrine fica DESLIGADO fora de um request, então
      * no CLI este `andWhere` é a única defesa contra vazamento entre escritórios.
      *
+     * EXIGIBILIDADE: o predicado de acordo é o MESMO de `exigiveisDosCasos()` — deliberadamente, e
+     * não `foiSubstituida()`/`participaDeAcordoVigente()`. Aqueles helpers respondem outra pergunta
+     * ("está travada para edição?") e divergem em dois pontos que custam dinheiro:
+     *   1. `foiSubstituida()` ignora o STATUS do substituto, então uma original cujo acordo foi
+     *      CANCELADO — que voltou ao saldo (invariável 20) — nunca mais cresceria;
+     *   2. nada excluía a PARCELA de acordo cancelado/rompido, que virou histórico e não é dívida:
+     *      o cron materializava encargos nela.
+     * Ambos foram observados em dado real de dev antes desta correção. Se cresce encargo, tem de ser
+     * exatamente o que o saldo considera exigível — um único critério, uma única verdade.
+     *
      * @return list<int>
      */
     public function idsParaAtualizarEncargos(Tenant $tenant, ?int $limite = null): array
@@ -226,11 +236,18 @@ class ObrigacaoRepository extends ServiceEntityRepository
         $qb = $this->createQueryBuilder('o')
             ->select('o.id')
             ->innerJoin('o.caso', 'c')
+            ->leftJoin('o.acordoSubstituto', 'asub')
+            ->leftJoin('o.acordoOrigem', 'aorig')
             ->andWhere('o.encargosCongeladosEm IS NULL')
             ->andWhere('c.status != :encerrado')
             ->andWhere('o.tenant = :tenant')
+            // Parênteses explícitos: `andWhere` junta com AND sem parentetizar o OR.
+            ->andWhere('(asub.id IS NULL OR asub.status IN (:naoVigentes))')
+            ->andWhere('(aorig.id IS NULL OR aorig.status IN (:vigentes))')
             ->setParameter('encerrado', StatusCaso::Encerrado->value)
             ->setParameter('tenant', $tenant)
+            ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
+            ->setParameter('vigentes', [StatusAcordo::Ativo->value, StatusAcordo::Cumprido->value])
             // Ordem estável: o lote N do `array_chunk` tem de ser sempre o mesmo conjunto.
             ->orderBy('o.id', 'ASC');
 
