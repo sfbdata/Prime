@@ -16,9 +16,15 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
  * H Valor · I Juros · J Multa · K Correção · L Honorários · M Total · N Acordo · O Recebimento.
  *
  * Regras: agrega por NN em UMA Obrigação (decisão C); principal = H de 1.1/1.14 + H de 1.6 (desconto);
- * encargos = Σ(I+J) + H de 1.4/1.5; honorários informados = (classe 1.15 → H, senão L). Linha sem
- * Vencimento válido → IGNORADA; boleto sem Sacado / competência inválida / valor não numérico / sem
- * principal (>0) → REJEITADO com motivo.
+ * encargos SEPARADOS (spec §9): juros = Σ I + H das linhas 1.4; multa = Σ J + H das linhas 1.5;
+ * correção = Σ K; honorários informados = (classe 1.15 → H, senão L). Linha sem Vencimento válido →
+ * IGNORADA; boleto sem Sacado / competência inválida / valor não numérico / sem principal (>0) →
+ * REJEITADO com motivo.
+ *
+ * INV-E1: `juros + multa + correcao` é EXATAMENTE o antigo agregado `encargos` (Σ(I+J) + H de 1.4/1.5)
+ * mais a correção (coluna K, antes descartada e igual a 0 em 100% do dado real). A separação redistribui
+ * as mesmas parcelas em três acumuladores — nenhuma parcela entra duas vezes nem some. Se essa soma
+ * mudar, saldos já existentes mudam.
  */
 final class TopLifeInadimplenciaAdapter
 {
@@ -31,12 +37,16 @@ final class TopLifeInadimplenciaAdapter
     private const COL_VALOR = 7;
     private const COL_JUROS = 8;
     private const COL_MULTA = 9;
+    private const COL_CORRECAO = 10;
     private const COL_HONORARIOS = 11;
     private const COL_ACORDO = 13;
 
     private const CODIGOS_PRINCIPAL = ['1.1', '1.14'];
     private const CODIGO_DESCONTO = '1.6';
-    private const CODIGOS_ENCARGO_LINHA = ['1.4', '1.5'];
+    /** Lançamento fechado de JUROS na coluna Valor (H) — vai para o acumulador de juros. */
+    private const CODIGO_JUROS_LINHA = '1.4';
+    /** Lançamento fechado de MULTA na coluna Valor (H) — vai para o acumulador de multa. */
+    private const CODIGO_MULTA_LINHA = '1.5';
     private const CODIGO_HONORARIO_LINHA = '1.15';
 
     public function ler(string $caminhoArquivo): ResultadoLeitura
@@ -115,7 +125,11 @@ final class TopLifeInadimplenciaAdapter
         }
 
         $principal = 0;
-        $encargos = 0;
+        // Encargos separados (spec §9). A soma dos três acumuladores reproduz, ao centavo, o antigo
+        // acumulador único `$encargos` — ver INV-E1 no docblock da classe.
+        $jurosTotal = 0;
+        $multaTotal = 0;
+        $correcaoTotal = 0;
         $honorarios = 0;
         $detalhe = [];
         $vencimento = null;
@@ -126,17 +140,27 @@ final class TopLifeInadimplenciaAdapter
             $valor = $this->parseCentavos($linha[self::COL_VALOR] ?? null);
             $juros = $this->parseCentavos($linha[self::COL_JUROS] ?? null);
             $multa = $this->parseCentavos($linha[self::COL_MULTA] ?? null);
+            $correcao = $this->parseCentavos($linha[self::COL_CORRECAO] ?? null);
             $hono = $this->parseCentavos($linha[self::COL_HONORARIOS] ?? null);
-            if ($valor === false || $juros === false || $multa === false || $hono === false) {
+            if ($valor === false || $juros === false || $multa === false || $correcao === false || $hono === false) {
                 return new LinhaRejeitada($nn, 'Valor não numérico em uma das linhas do boleto.', $dados);
             }
 
             if (in_array($codigo, self::CODIGOS_PRINCIPAL, true) || $codigo === self::CODIGO_DESCONTO) {
                 $principal += $valor;
             }
-            $encargos += $juros + $multa;
-            if (in_array($codigo, self::CODIGOS_ENCARGO_LINHA, true)) {
-                $encargos += $valor;
+            // Colunas I/J/K de TODA linha entram nos acumuladores correspondentes (antes I e J caíam
+            // juntas em `$encargos` e K era descartada).
+            $jurosTotal += $juros;
+            $multaTotal += $multa;
+            $correcaoTotal += $correcao;
+            // Lançamentos fechados na coluna Valor: 1.4 é juros, 1.5 é multa. Antes ambos somavam no
+            // mesmo balde — era exatamente esta informação que se perdia.
+            if ($codigo === self::CODIGO_JUROS_LINHA) {
+                $jurosTotal += $valor;
+            }
+            if ($codigo === self::CODIGO_MULTA_LINHA) {
+                $multaTotal += $valor;
             }
             $honorarios += $codigo === self::CODIGO_HONORARIO_LINHA ? $valor : $hono;
 
@@ -147,6 +171,7 @@ final class TopLifeInadimplenciaAdapter
                 'valor' => $valor,
                 'juros' => $juros,
                 'multa' => $multa,
+                'correcao' => $correcao,
                 'honorarios' => $hono,
             ];
         }
@@ -166,7 +191,9 @@ final class TopLifeInadimplenciaAdapter
             unidadeMetadata: $metadata,
             sacadoNome: $sacado,
             principalCentavos: $principal,
-            encargosCentavos: $encargos,
+            jurosCentavos: $jurosTotal,
+            multaCentavos: $multaTotal,
+            correcaoCentavos: $correcaoTotal,
             honorariosInformadosCentavos: $honorarios,
             vencimento: $vencimento,
             competencia: $competencia,

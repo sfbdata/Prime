@@ -137,6 +137,100 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(4, $this->em->getRepository(Pessoa::class)->count(['tenant' => $tenant]));
     }
 
+    #[TestDox('Encargos importados entram separados e o valor exigível não muda (INV-E1)')]
+    public function testEncargosImportadosEntramSeparadosSemMudarOExigivel(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $this->importar->confirmar($carteira, $this->adapter->ler(self::FIXTURE), $tenant, $user);
+        $repo = $this->em->getRepository(Obrigacao::class);
+
+        // NN=1001: coluna I 9,37 → juros; coluna J 3,80 → multa; coluna K 0 → correção.
+        $simples = $repo->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '1001']);
+        self::assertNotNull($simples);
+        self::assertSame(937, $simples->getJuros());
+        self::assertSame(380, $simples->getMulta());
+        self::assertSame(0, $simples->getCorrecao());
+        // INV-E1 ponta a ponta: o agregado é o MESMO 1317 de antes da separação, e o exigível é o
+        // principal mais esse agregado — nenhum saldo existente se move por causa da mudança.
+        self::assertSame(1317, $simples->getEncargosReconhecidos(), 'agregado idêntico ao de antes');
+        self::assertSame(19000 + 1317, $simples->valorExigivel());
+
+        // NN=1004: mistura colunas I/J com lançamentos fechados 1.4 (juros) e 1.5 (multa).
+        $comClasseEspecial = $repo->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '1004']);
+        self::assertNotNull($comClasseEspecial);
+        self::assertSame(1409, $comClasseEspecial->getJuros(), '1,59 (col. I) + 12,50 (linha 1.4)');
+        self::assertSame(680, $comClasseEspecial->getMulta(), '3,40 (col. J) + 3,40 (linha 1.5)');
+        self::assertSame(0, $comClasseEspecial->getCorrecao());
+        self::assertSame(2089, $comClasseEspecial->getEncargosReconhecidos(), 'agregado idêntico ao de antes');
+        self::assertSame(17000 + 2089, $comClasseEspecial->valorExigivel());
+
+        // INV-E2: honorários são materializados, mas FICAM FORA do exigível (não são dívida do credor).
+        self::assertSame(5000, $comClasseEspecial->getHonorarios());
+        self::assertSame(17000 + 2089, $comClasseEspecial->valorExigivel(), 'honorário não entra no exigível');
+        self::assertSame(17000 + 2089 + 5000, $comClasseEspecial->totalComHonorarios());
+    }
+
+    #[TestDox('Obrigação importada nasce congelada, inclusive com encargos zero')]
+    public function testObrigacaoImportadaNasceCongelada(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $this->importar->confirmar($carteira, $this->adapter->ler(self::FIXTURE), $tenant, $user);
+        $repo = $this->em->getRepository(Obrigacao::class);
+
+        foreach ($repo->findBy(['tenant' => $tenant]) as $obrigacao) {
+            self::assertTrue(
+                $obrigacao->encargosCongelados(),
+                "obrigação {$obrigacao->getReferenciaExterna()} deveria nascer congelada (o relatório é a verdade)",
+            );
+        }
+
+        // NN=1003 tem I=J=K=0: mesmo SEM encargo nenhum, precisa estar congelada — senão o cron
+        // passaria a calcular encargos por cima de um boleto que a contabilidade disse valer só o
+        // principal (INV-E4).
+        $semEncargos = $repo->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '1003']);
+        self::assertNotNull($semEncargos);
+        self::assertSame(0, $semEncargos->getEncargosReconhecidos(), 'boleto sem encargo nenhum');
+        self::assertTrue($semEncargos->encargosCongelados(), 'congelada mesmo com encargos zero');
+    }
+
+    #[TestDox('Reimportação re-congela os encargos na referência nova')]
+    public function testReimportacaoReCongelaOsEncargos(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $this->importar->confirmar($carteira, $this->adapter->ler(self::FIXTURE), $tenant, $user);
+        $repo = $this->em->getRepository(Obrigacao::class);
+
+        // Simula uma obrigação que foi descongelada entre os dois relatórios: a reimportação tem de
+        // devolvê-la ao estado congelado, com os números do relatório novo.
+        $obrigacao = $repo->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '1001']);
+        self::assertNotNull($obrigacao);
+        $obrigacao->descongelarEncargos()->definirEncargos(1, 2, 3, 4, new \DateTimeImmutable('2020-01-01'));
+        $this->em->flush();
+        self::assertFalse($obrigacao->encargosCongelados());
+
+        $segunda = $this->importar->confirmar($carteira, $this->adapter->ler(self::FIXTURE), $tenant, $user);
+
+        self::assertSame(6, $segunda->totalAtualizadas());
+        self::assertSame(0, $segunda->totalImportadas(), 'reimportar continua idempotente');
+        self::assertSame(6, $repo->count(['tenant' => $tenant]), 'sem duplicação');
+
+        $this->em->refresh($obrigacao);
+        self::assertTrue($obrigacao->encargosCongelados(), 'a reimportação re-congela');
+        self::assertSame(937, $obrigacao->getJuros(), 'e restaura os números do relatório');
+        self::assertSame(380, $obrigacao->getMulta());
+        self::assertSame(0, $obrigacao->getCorrecao());
+        self::assertSame(1317, $obrigacao->getEncargosReconhecidos());
+    }
+
     #[TestDox('Preview projeta o resultado sem persistir nada')]
     public function testPreviewNaoPersiste(): void
     {
@@ -226,7 +320,9 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
             unidadeMetadata: null,
             sacadoNome: 'NOVO PROPRIETARIO EXEMPLO',
             principalCentavos: 19000,
-            encargosCentavos: 1317,
+            jurosCentavos: 937,
+            multaCentavos: 380,
+            correcaoCentavos: 0,
             honorariosInformadosCentavos: 4063,
             vencimento: new \DateTimeImmutable('2026-02-10'),
             competencia: '02/2026',

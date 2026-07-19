@@ -9,8 +9,10 @@ namespace App\Cobranca\Service\Importacao;
  * Value object fonte-agnóstico: o adapter TOPLIFE traduz as linhas do relatório para este conceito
  * do domínio; o UseCase de importação consome isto sem saber que a origem era uma planilha.
  *
- * Valores em CENTAVOS inteiros (padrão do domínio). Honorários informados servem só ao
- * preview/reconciliação — NÃO são persistidos por obrigação (o domínio os deriva da Carteira, §18/§19).
+ * Valores em CENTAVOS inteiros (padrão do domínio). Encargos vêm SEPARADOS em juros/multa/correção
+ * (spec §9): a fonte já distingue as três parcelas e o domínio passou a materializá-las separadas —
+ * colapsá-las de novo num número só perderia informação que a contabilidade forneceu. Honorários
+ * informados são a leitura da fonte (o domínio também sabe derivá-los da Carteira, §18/§19).
  */
 final class BoletoImportavel
 {
@@ -23,13 +25,26 @@ final class BoletoImportavel
         public readonly ?string $unidadeMetadata,
         public readonly string $sacadoNome,
         public readonly int $principalCentavos,
-        public readonly int $encargosCentavos,
+        public readonly int $jurosCentavos,
+        public readonly int $multaCentavos,
+        public readonly int $correcaoCentavos,
         public readonly int $honorariosInformadosCentavos,
         public readonly \DateTimeImmutable $vencimento,
         public readonly string $competencia,
         public readonly ?string $acordoTexto,
         public readonly array $linhas,
     ) {
+    }
+
+    /**
+     * Encargo agregado (juros + multa + correção), para quem só quer o total — preview, reconciliação,
+     * conferência contra a coluna Total do relatório. Fórmula em UM lugar só: é a mesma soma que a
+     * `Obrigacao::getEncargosReconhecidos()` faz do outro lado, o que mantém INV-E1 por construção.
+     * Honorários ficam FORA (INV-E2: honorário não é dívida do credor).
+     */
+    public function encargosCentavos(): int
+    {
+        return $this->jurosCentavos + $this->multaCentavos + $this->correcaoCentavos;
     }
 
     /** Descrição sugerida da Obrigação (competência + classes presentes). */

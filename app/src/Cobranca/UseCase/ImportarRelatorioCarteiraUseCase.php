@@ -12,6 +12,7 @@ use App\Cobranca\DTO\VincularPessoaAObjetoInput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
 use App\Cobranca\Repository\CarteiraRepository;
@@ -37,7 +38,9 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Por boleto, na ordem: resolve/cria Objeto (dedup por identificação na Carteira) → resolve/cria Pessoa
  * cobrada (por nome no Objeto — decisão A) e Caso ativo → resolve/cria/atualiza Obrigação (dedup por NN).
- * Honorários do relatório NÃO são persistidos (derivados da Carteira, §18/§19). NUNCA cruza tenants.
+ * Encargos entram SEPARADOS (juros/multa/correção) e a obrigação nasce CONGELADA — o relatório da
+ * contabilidade é a verdade e o cron de materialização não a sobrescreve (spec §9). Honorários do
+ * relatório passam a ser persistidos, fora do valor exigível (§4.2/INV-E2). NUNCA cruza tenants.
  */
 final class ImportarRelatorioCarteiraUseCase
 {
@@ -116,12 +119,19 @@ final class ImportarRelatorioCarteiraUseCase
 
     /**
      * Persiste a importação numa transação única (ou tudo, ou nada). Idempotente na reimportação.
+     *
+     * Data de referência do congelamento (spec §9 pede "a data do relatório"): a fonte lida hoje NÃO
+     * carrega essa data — `ResultadoLeitura`/`BoletoImportavel` não a expõem e inventar um campo aqui
+     * seria mudar contrato compartilhado. Usa-se então o momento da importação, capturado UMA vez para
+     * o lote inteiro, de modo que todos os boletos do mesmo relatório fiquem com a mesma referência
+     * (importante para auditoria: um lote = uma data, não N timestamps espalhados pelo loop).
      */
     public function confirmar(int $carteiraId, ResultadoLeitura $leitura, Tenant $tenant, User $user): ResultadoImportacao
     {
         $carteira = $this->resolverCarteira($carteiraId, $tenant);
+        $referencia = new \DateTimeImmutable();
 
-        return $this->em->wrapInTransaction(function () use ($carteira, $leitura, $tenant, $user): ResultadoImportacao {
+        return $this->em->wrapInTransaction(function () use ($carteira, $leitura, $tenant, $user, $referencia): ResultadoImportacao {
             $criadas = [];
             $atualizadas = [];
             $divergentes = [];
@@ -156,24 +166,41 @@ final class ImportarRelatorioCarteiraUseCase
                 $obrigacao = $this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $boleto->nn);
                 if ($obrigacao === null) {
                     $obrigacao = $this->registrarObrigacao->executar($this->obrigacaoInput($caso->getId(), $boleto), $tenant, $user);
-                    if ($boleto->encargosCentavos !== 0) {
-                        $obrigacao->reconhecerEncargos($boleto->encargosCentavos);
-                        $this->obrigacaoRepository->salvar($obrigacao, true);
-                    }
+                    $this->materializarEncargosImportados($obrigacao, $boleto, $referencia);
                     $criadas[] = $boleto->nn;
 
                     continue;
                 }
 
-                // Reimportação idempotente: atualiza SÓ os encargos ao snapshot novo (decisão C). Preserva
-                // o valorOriginal (invariável 20) e não duplica.
-                $obrigacao->setEncargosReconhecidos($boleto->encargosCentavos);
-                $this->obrigacaoRepository->salvar($obrigacao, true);
+                // Reimportação idempotente: atualiza SÓ os encargos ao snapshot novo e RE-CONGELA na data
+                // nova (spec §9). Preserva o valorOriginal (invariável 20) e não duplica.
+                $this->materializarEncargosImportados($obrigacao, $boleto, $referencia);
                 $atualizadas[] = $boleto->nn;
             }
 
             return new ResultadoImportacao($criadas, $atualizadas, $leitura->rejeitadas, $leitura->linhasIgnoradas, $objetosCriados, $pessoasCriadas, $casosCriados, $divergentes);
         });
+    }
+
+    /**
+     * Grava os encargos do relatório SEPARADOS (juros/multa/correção/honorários) e CONGELA a obrigação:
+     * os números da contabilidade são a verdade, o cron de materialização não pode sobrescrevê-los
+     * (spec §9, INV-E4). Congela SEMPRE, inclusive com encargos zero — um boleto que a contabilidade
+     * diz valer só o principal precisa continuar valendo só o principal, e não virar base de cálculo
+     * automático. Honorários passam a ser persistidos (§4.2): NÃO afetam o saldo, porque
+     * `Obrigacao::valorExigivel()` soma apenas valorOriginal + juros + multa + correção (INV-E2).
+     */
+    private function materializarEncargosImportados(Obrigacao $obrigacao, BoletoImportavel $boleto, \DateTimeImmutable $referencia): void
+    {
+        $obrigacao->definirEncargos(
+            $boleto->jurosCentavos,
+            $boleto->multaCentavos,
+            $boleto->correcaoCentavos,
+            $boleto->honorariosInformadosCentavos,
+            $referencia,
+        );
+        $obrigacao->congelarEncargos($referencia);
+        $this->obrigacaoRepository->salvar($obrigacao, true);
     }
 
     /**
