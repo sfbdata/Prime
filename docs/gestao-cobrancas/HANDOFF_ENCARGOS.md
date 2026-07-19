@@ -4,31 +4,39 @@
 > Fonte de verdade do *o quê/porquê*: **`docs/specs/cobranca-encargos-configuraveis-cascata.md`**.
 > Estado vivo da execução (ledger, gitignored): **`.superpowers/sdd/progress-encargos.md`**.
 
-## ⏱️ Estado atual (2026-07-19)
+## ⏱️ Estado atual (2026-07-19) — 🎉 FEATURE COMPLETA (F1→F6)
 
-**F1 e F2 ENTREGUES E PROVADAS** na branch local **`cobranca-encargos-cascata`** (de `master` `d19f652`).
-**Nada publicado** — push/merge/deploy seguem sendo do humano.
+**Todas as 6 fases ENTREGUES E PROVADAS** na branch local **`cobranca-encargos-cascata`** (de `master`
+`d19f652`). **Nada publicado** — push/merge/deploy seguem sendo do humano.
+**Checklist de go-live: `docs/gestao-cobrancas/GO_LIVE_ENCARGOS.md`.**
 
 | Commit | O quê |
 |---|---|
-| `93ce9e7` | F1 — motor `CalculadoraEncargos` + colunas + `ResolvedorConfigEncargos` + migração |
-| `ee51f92` | F1 — fecha achados da revisão |
-| `2112e3e` | F2 — config de encargos na carteira + snapshot no caso |
-| `40d82e7` | F2 — importador lê Correção, separa juros/multa e congela |
-| `2e7097f` | F2 — fecha achados da revisão (inclui a migração que desarma a bomba do cron) |
+| `93ce9e7` `ee51f92` | F1 — motor + colunas + resolvedor + migração (+ achados da revisão) |
+| `2112e3e` `40d82e7` `2e7097f` | F2 — config na carteira + snapshot no caso + importador (+ migração que desarma a bomba do cron) |
+| `b008b4d` `e14d638` `d805332` | F3 — cron de crescimento (+ alinhar critério de exigibilidade + achados da revisão) |
+| `64b4961` `81bfcab` `f3d9dd9` `64ff658` | F4 — UI: colunas do PDF + %↔R$ + correções de layout/Total + achados da revisão |
+| `83a08b2` | F5 — editar obrigação paga + aviso de reconciliação, com provas |
 
-- `tests/Cobranca` **726/726** (baseline era 611) · **global 2090/2090**. Zero regressões.
+- `tests/Cobranca` **764/764** (baseline era 611) · **global 2128/2128**. Zero regressões.
 - Migrações `Version20260719120000` e `Version20260719140000` aplicadas em **dev**.
-- Backfill da F1: **diferença 0 ao centavo em 3.294 obrigações reais**.
-- Smoke visual real nas duas fases (tela do objeto e form da carteira), conferido contra o banco.
+- **Verificação independente da fórmula (F6): 4.317/4.317 linhas reais TOPLIFE ao centavo**, half-down do
+  juros confirmado com 555 empates.
+- Smoke visual real em todas as fases com UI (tela do objeto em 3 larguras, modais, aviso de reconciliação).
 
 ### ⚠️ Bomba do cron encontrada e DESARMADA na F2
-Havia **3.271 obrigações não congeladas com R$ 155.209,73 em encargos**, e as 3 carteiras estavam com
-taxa **0**. Quando a F3 ligasse o cron (que recalcula as **não congeladas**), ele teria recalculado tudo
-com taxa zero e **apagado esses R$ 155 mil**. A migração `Version20260719140000` congela o legado com
-encargos > 0. Verificado depois de aplicar: **0 em risco, 3.271 congeladas, soma idêntica**.
+Havia **3.271 obrigações não congeladas com R$ 155.209,73 em encargos**, e as carteiras estavam com taxa
+**0**. Quando a F3 ligasse o cron (que recalcula as **não congeladas**), ele teria recalculado tudo com
+taxa zero e **apagado esses R$ 155 mil**. A migração `Version20260719140000` congela o legado com encargos
+> 0. Verificado: **0 em risco, 3.271 congeladas, soma idêntica**. A F3 ainda acrescentou um **freio de
+redução** (`ReducaoDeEncargosBloqueadaException`): o cron nunca grava encargo menor sem `--permitir-reducao`.
 
-**Fases restantes: F3 → F6** (ver spec §14 e o ledger).
+### Duas pendências humanas antes do deploy (checklist §4)
+1. **Confirmar o corte da carência de honorários** (`d > 30`) com a contabilidade — reproduz 100% dos
+   dados, mas o boundary 29–32 não é observável (nenhuma obrigação real caiu nele). Só afeta futuras.
+2. **Configurar as carteiras TOPLIFE em produção** (I: honorários 20% · II: 15%; ambas juros 1%/multa 2%/
+   carência 30). Fórmula certa + config errada = valor errado. As importadas nascem congeladas, então não
+   afeta o histórico; o risco é prospectivo.
 
 ## Em uma frase
 Separar `encargosReconhecidos` (número único) em **juros / multa / correção** (+ honorários), com **%↔R$
