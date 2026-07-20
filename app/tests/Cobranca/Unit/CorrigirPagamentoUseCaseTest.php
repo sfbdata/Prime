@@ -21,7 +21,11 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\AlocadorPagamento;
 use App\Cobranca\Service\AutoAlocadorFifo;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
+use App\Cobranca\Service\EncargosVivos;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
+use Symfony\Component\Clock\MockClock;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\UseCase\CorrigirPagamentoUseCase;
 use App\Entity\Auth\User;
@@ -55,6 +59,8 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
             $this->alocacaoRepository,
             $this->createMock(LiquidacaoRepository::class),
             $calculadora,
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new ResolvedorConfigEncargos(),
         );
         // RegistrarEventoHistorico é final: usa-se o REAL com o repositório de eventos mockado.
         $this->eventoRepository = $this->createMock(EventoHistoricoRepository::class);

@@ -39,6 +39,8 @@ final class AutoAlocadorFifo
         private readonly AlocacaoPagamentoRepository $alocacaoRepository,
         private readonly LiquidacaoRepository $liquidacaoRepository,
         private readonly CalculadoraHonorarios $calculadoraHonorarios,
+        private readonly EncargosVivos $encargosVivos,
+        private readonly ResolvedorConfigEncargos $resolvedorConfig,
     ) {
     }
 
@@ -50,6 +52,14 @@ final class AutoAlocadorFifo
         [$valorDivida, $valorHonorarios] = $this->calculadoraHonorarios->ratearPagamento($caso, $valorPago);
 
         $exigiveis = $this->obrigacaoRepository->doCasoExigiveis($caso);
+
+        // Encargos AO VIVO (spec §6.2/INV-V5): hidrata EM MEMÓRIA as obrigacoes VIVAS para HOJE antes
+        // de derivar saldo/salas — a alocacao FIFO opera sobre o MESMO exigivel vivo que o saldo e a
+        // tela. Congeladas (Liquidada/Substituida) mantem o snapshot. Config resolvida 1x por caso.
+        // Nota (§6.5): `derivar` alimenta tambem o caminho de ESCRITA (RegistrarPagamento/CorrigirPagamento
+        // dao flush depois); as colunas de encargo de uma Viva hidratada podem ir ao banco como CACHE, e
+        // sao sempre reescritas em memoria na proxima leitura — a fonte de verdade da Viva e sempre o vivo.
+        $this->encargosVivos->hidratar($this->resolvedorConfig->resolverDoCaso($caso), $exigiveis);
 
         $casoId = $caso->getId();
         $alocado = $casoId === null ? [] : $this->alocacaoRepository->somasPorObrigacaoDosCasos([$casoId], $tenant);

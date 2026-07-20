@@ -35,8 +35,10 @@ use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Cobranca\Service\EncargosVivos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
+use Symfony\Component\Clock\MockClock;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CorrigirPagamentoUseCase;
 use App\Cobranca\UseCase\RegistrarLiquidacaoUseCase;
@@ -105,14 +107,28 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
         $calculadora = new CalculadoraHonorarios();
         $alocador = new AlocadorPagamento($obrigacaoRepo, $calculadora);
-        $autoAlocador = new AutoAlocadorFifo($obrigacaoRepo, $alocacaoRepo, $liquidacaoRepo, $calculadora);
+        $autoAlocador = new AutoAlocadorFifo(
+            $obrigacaoRepo,
+            $alocacaoRepo,
+            $liquidacaoRepo,
+            $calculadora,
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new ResolvedorConfigEncargos(),
+        );
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
         $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
         $this->registrarPagamento = new RegistrarPagamentoUseCase($pagamentoRepo, $casoRepo, $alocador, $autoAlocador, $registrarEvento);
         $this->corrigirPagamento = new CorrigirPagamentoUseCase($pagamentoRepo, $alocador, $autoAlocador, $registrarEvento);
         $this->registrarLiquidacao = new RegistrarLiquidacaoUseCase($liquidacaoRepo, $casoRepo, $registrarEvento);
-        $this->calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo, new \App\Cobranca\Service\EncargosVivos(new \Symfony\Component\Clock\MockClock(new \DateTimeImmutable('2026-07-20')), new \App\Cobranca\Service\CalculadoraEncargos()), new \App\Cobranca\Service\ResolvedorConfigEncargos());
+        $this->calculadoraSaldo = new CalculadoraSaldo(
+            $obrigacaoRepo,
+            $casoRepo,
+            $alocacaoRepo,
+            $liquidacaoRepo,
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new ResolvedorConfigEncargos(),
+        );
     }
 
     #[TestDox('Pagamento alocado reduz o saldo derivado do caso no mesmo escritório')]

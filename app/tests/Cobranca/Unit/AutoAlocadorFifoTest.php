@@ -14,12 +14,16 @@ use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\AutoAlocadorFifo;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
+use App\Cobranca\Service\EncargosVivos;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * Auto-alocação FIFO (Ajuste 6): a partir do valor pago (bruto), separa a parte-dívida via
@@ -42,12 +46,16 @@ final class AutoAlocadorFifoTest extends TestCase
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
         $this->liquidacaoRepository = $this->createMock(LiquidacaoRepository::class);
-        // CalculadoraHonorarios é final e pura: usa-se a REAL.
+        // CalculadoraHonorarios, EncargosVivos e ResolvedorConfigEncargos são finais e puros: usam-se
+        // as instâncias REAIS. Os casos de teste não têm carteira/config → a hidratação recalcula
+        // encargo 0 (no-op sobre o exigível); honorários ficam fora do exigível, então não movem o FIFO.
         $this->sut = new AutoAlocadorFifo(
             $this->obrigacaoRepository,
             $this->alocacaoRepository,
             $this->liquidacaoRepository,
             new CalculadoraHonorarios(),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new ResolvedorConfigEncargos(),
         );
         $this->tenant = new Tenant();
     }
