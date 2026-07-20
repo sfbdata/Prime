@@ -26,6 +26,7 @@ use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Cobranca\Service\EncargosVivos;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 
 /**
@@ -53,12 +54,24 @@ final class MontarDetalheCasoUseCase
         private readonly AlocacaoPagamentoRepository $alocacaoRepository,
         private readonly CalculadoraHonorarios $calculadoraHonorarios,
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
+        private readonly EncargosVivos $encargosVivos,
     ) {
     }
 
     public function executar(CasoCobranca $caso): CasoDetalheOutput
     {
         $hoje = new \DateTimeImmutable('today');
+
+        // Encargos AO VIVO (spec §6.2/INV-V5): hidrata EM MEMÓRIA as obrigações EXIGÍVEIS (vivas) do
+        // caso para HOJE, resolvendo a config 1× — assim exibição e saldo leem o MESMO exigível vivo.
+        // Congeladas (Liquidada/Substituída) e não-exigíveis (substituídas por acordo vigente, parcelas
+        // de acordo rompido) ficam fora de `doCasoExigiveis` e mantêm o snapshot. As instâncias managed
+        // são as mesmas que `doCaso` devolve abaixo (identity map do Doctrine): a hidratação aqui não
+        // depende do efeito colateral do `saldoExigivel`.
+        $this->encargosVivos->hidratar(
+            $this->resolvedorConfig->resolverDoCaso($caso),
+            $this->obrigacaoRepository->doCasoExigiveis($caso),
+        );
 
         $objeto = $caso->getObjeto();
         $carteira = $objeto?->getCarteira();

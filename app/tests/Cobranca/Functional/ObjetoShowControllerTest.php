@@ -596,17 +596,23 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant);
-        // Linha REAL da prova TOPLIFE (Apêndice A da spec): principal R$ 170,00 com 240 dias de atraso →
-        // juros 13,60 · multa 3,40 · correção 0,00 · honorários 37,40. Valores LITERAIS de propósito:
-        // é dinheiro na tela, e um teste que recalcula a fórmula não prova nada sobre o que aparece.
-        $obrigacao = ObrigacaoFactory::createOne([
+        // Config TOPLIFE I no caso (juros 1% a.m., multa 2%, honorários 20%, carência 30). No modelo AO
+        // VIVO os encargos NÃO são materializados na fixture: a tela os calcula de (vencimento → hoje).
+        // Principal R$ 170,00 com 240 dias de atraso reproduz, AO CENTAVO, a linha real do Apêndice A da
+        // spec: juros 13,60 · multa 3,40 · correção 0,00 · honorários 37,40. Vencimento relativo a hoje
+        // (−240 dias) para o cálculo ser determinístico em qualquer dia de execução.
+        [, $caso] = $this->semearGrafo($tenant, [
+            'taxaJurosMensalBp' => 100,
+            'taxaMultaBp' => 200,
+            'carenciaHonorariosDias' => 30,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+        ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso,
             'descricao' => 'Boleto TOPLIFE', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
-            'vencimentoOriginal' => new \DateTimeImmutable('2026-03-10'),
-        ])->_real();
-        $obrigacao->definirEncargos(1360, 340, 0, 3740, new \DateTimeImmutable('2026-07-16'));
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
+            'vencimentoOriginal' => (new \DateTimeImmutable('today'))->modify('-240 days'),
+        ]);
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
@@ -678,12 +684,13 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $congelada->definirEncargos(1360, 340, 0, 3740, new \DateTimeImmutable('2026-02-01'));
         $congelada->congelarEncargos(new \DateTimeImmutable('2026-02-01 10:00:00'));
 
-        $viva = ObrigacaoFactory::createOne([
+        // No modelo AO VIVO a obrigação não-congelada é recalculada na leitura para HOJE — o "atualizado
+        // em" acompanha o relógio, então não é mais um valor semeado (era o antigo cron).
+        ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso,
-            'descricao' => 'Calculada pelo cron', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+            'descricao' => 'Calculada ao vivo', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
             'vencimentoOriginal' => new \DateTimeImmutable('2026-03-10'),
-        ])->_real();
-        $viva->definirEncargos(1360, 340, 0, 3740, new \DateTimeImmutable('2026-07-16'));
+        ]);
         static::getContainer()->get(EntityManagerInterface::class)->flush();
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
@@ -695,11 +702,12 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertCount(1, $indicador);
         self::assertStringContainsString('Encargos congelados em 01/02/2026', (string) $indicador->attr('title'));
         self::assertStringContainsString('não são recalculados automaticamente', (string) $indicador->attr('title'));
-        // A não-congelada diz quando foi a última atualização, no próprio Total.
+        // A não-congelada diz quando foi a última atualização, no próprio Total — AO VIVO, é HOJE.
         $totais = $crawler->filter('#secao-divida .jp-obr .col-total')->each(
             static fn ($node) => (string) $node->attr('title'),
         );
-        self::assertContains('Encargos atualizados em 16/07/2026.', $totais);
+        $hojeFmt = (new \DateTimeImmutable('today'))->format('d/m/Y');
+        self::assertContains("Encargos atualizados em {$hojeFmt}.", $totais);
     }
 
     #[TestDox('F4 (encargos na linha): avulsa e parcela mostram a faixa de encargos; a substituída é histórico simples')]
@@ -746,13 +754,20 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant);
-        $obrigacao = ObrigacaoFactory::createOne([
+        // Config TOPLIFE I no caso: no modelo AO VIVO os encargos vêm de (vencimento → hoje). P=170,00
+        // com 240 dias de atraso → juros 1360 · multa 340 · correção 0 (soma 1700), reproduzidos ao vivo.
+        [, $caso] = $this->semearGrafo($tenant, [
+            'taxaJurosMensalBp' => 100,
+            'taxaMultaBp' => 200,
+            'carenciaHonorariosDias' => 30,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+        ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso,
             'descricao' => 'Boleto TOPLIFE', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
-        ])->_real();
-        $obrigacao->definirEncargos(1360, 340, 0, 3740, new \DateTimeImmutable('2026-07-16'));
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
+            'vencimentoOriginal' => (new \DateTimeImmutable('today'))->modify('-240 days'),
+        ]);
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 

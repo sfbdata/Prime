@@ -65,7 +65,7 @@ final class MontarVisaoCarteiraUseCaseTest extends KernelTestCase
         /** @var ObjetoCobrancaRepository $objetoRepo */
         $objetoRepo = $this->em->getRepository(\App\Cobranca\Entity\ObjetoCobranca::class);
 
-        $this->calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
+        $this->calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo, new \App\Cobranca\Service\EncargosVivos(new \Symfony\Component\Clock\MockClock(new \DateTimeImmutable('2026-07-20')), new \App\Cobranca\Service\CalculadoraEncargos()), new \App\Cobranca\Service\ResolvedorConfigEncargos());
         $this->sut = new MontarVisaoCarteiraUseCase($objetoRepo, $casoRepo, $this->calcSaldo);
     }
 

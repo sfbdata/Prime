@@ -18,9 +18,12 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Cobranca\Service\EncargosVivos;
+use Symfony\Component\Clock\MockClock;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -102,6 +105,9 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $this->calculadoraHonorarios,
             // ResolvedorConfigEncargos é `final` e PURO (navega o grafo em memória, sem I/O): instância real.
             new ResolvedorConfigEncargos(),
+            // EncargosVivos com relógio fixo (aplicador puro): as obrigações do teste têm vencimento/config
+            // que não geram encargo, então a hidratação é no-op — o foco do teste é a agregação/DTOs.
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
         );
 
         $this->tenant = new Tenant();

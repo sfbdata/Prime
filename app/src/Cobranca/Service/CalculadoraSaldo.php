@@ -6,6 +6,7 @@ namespace App\Cobranca\Service;
 
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\LiquidacaoRepository;
@@ -32,7 +33,27 @@ class CalculadoraSaldo
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly AlocacaoPagamentoRepository $alocacaoRepository,
         private readonly LiquidacaoRepository $liquidacaoRepository,
+        private readonly EncargosVivos $encargosVivos,
+        private readonly ResolvedorConfigEncargos $resolvedor,
     ) {
+    }
+
+    /**
+     * Hidrata EM MEMÓRIA (sem flush) os encargos das obrigações VIVAS do caso para HOJE (modelo
+     * "encargos ao vivo", spec §6.2/INV-V3): resolve a config do caso 1× e aplica a fórmula sobre a
+     * data de referência do relógio injetado. Congeladas (Liquidada/Substituída) são ignoradas — o
+     * `EncargosVivos` não as toca. Chamado logo após carregar as obrigações e antes de somar, para
+     * que exibição e saldo leiam o MESMO exigível vivo.
+     *
+     * @param Obrigacao[] $obrigacoes
+     */
+    private function hidratarVivas(CasoCobranca $caso, array $obrigacoes): void
+    {
+        if ($obrigacoes === []) {
+            return;
+        }
+
+        $this->encargosVivos->hidratar($this->resolvedor->resolverDoCaso($caso), $obrigacoes);
     }
 
     /**
@@ -44,7 +65,10 @@ class CalculadoraSaldo
         $bruto = 0;
         $ids = [];
 
-        foreach ($this->obrigacaoRepository->doCasoExigiveis($caso) as $obrigacao) {
+        $obrigacoes = $this->obrigacaoRepository->doCasoExigiveis($caso);
+        $this->hidratarVivas($caso, $obrigacoes);
+
+        foreach ($obrigacoes as $obrigacao) {
             $bruto += $obrigacao->valorExigivel();
             $id = $obrigacao->getId();
 
@@ -72,7 +96,10 @@ class CalculadoraSaldo
         $bruto = 0;
         $idsVencidas = [];
 
-        foreach ($this->obrigacaoRepository->doCasoExigiveis($caso) as $obrigacao) {
+        $obrigacoes = $this->obrigacaoRepository->doCasoExigiveis($caso);
+        $this->hidratarVivas($caso, $obrigacoes);
+
+        foreach ($obrigacoes as $obrigacao) {
             if ($obrigacao->getVencimentoOriginal() <= $hoje) {
                 $bruto += $obrigacao->valorExigivel();
                 $idVencida = $obrigacao->getId();
@@ -217,6 +244,15 @@ class CalculadoraSaldo
             $casoId = $obrigacao->getCaso()?->getId();
             if ($casoId !== null) {
                 $exigiveisPorCaso[$casoId][] = $obrigacao;
+            }
+        }
+
+        // Hidrata as VIVAS de cada caso (config resolvida 1× por caso) antes de derivar — a mesma
+        // regra ao vivo dos métodos por-caso, sem reintroduzir N+1 na carga em lote.
+        foreach ($casos as $caso) {
+            $casoId = $caso->getId();
+            if ($casoId !== null && isset($exigiveisPorCaso[$casoId])) {
+                $this->hidratarVivas($caso, $exigiveisPorCaso[$casoId]);
             }
         }
 

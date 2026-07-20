@@ -77,7 +77,7 @@ final class CobrancaBatchConsistenciaTest extends KernelTestCase
         $acaoRepo = $this->em->getRepository(ProximaAcao::class);
         $this->acaoRepo = $acaoRepo;
 
-        $this->calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
+        $this->calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo, new \App\Cobranca\Service\EncargosVivos(new \Symfony\Component\Clock\MockClock(new \DateTimeImmutable('2026-07-20')), new \App\Cobranca\Service\CalculadoraEncargos()), new \App\Cobranca\Service\ResolvedorConfigEncargos());
         $this->alertas = new AlertasCobranca($obrigacaoRepo, $acaoRepo, $this->calcSaldo);
 
         $this->hoje = new \DateTimeImmutable('2026-07-20');

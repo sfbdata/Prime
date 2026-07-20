@@ -21,8 +21,12 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Cobranca\Service\EncargosVivos;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
+use Symfony\Component\Clock\MockClock;
 use App\Cobranca\UseCase\MontarDashboardCobrancaUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cliente\ClientePFFactory;
@@ -78,7 +82,14 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
         /** @var ProximaAcaoRepository $acaoRepo */
         $acaoRepo = $this->em->getRepository(\App\Cobranca\Entity\ProximaAcao::class);
 
-        $calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
+        $calcSaldo = new CalculadoraSaldo(
+            $obrigacaoRepo,
+            $casoRepo,
+            $alocacaoRepo,
+            $liquidacaoRepo,
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new ResolvedorConfigEncargos(),
+        );
         $calcHon = new CalculadoraHonorarios();
 
         $this->sut = new MontarDashboardCobrancaUseCase(
@@ -394,6 +405,8 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             $this->em->getRepository(CasoCobranca::class),
             $this->em->getRepository(AlocacaoPagamento::class),
             $this->em->getRepository(Liquidacao::class),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new ResolvedorConfigEncargos(),
         );
         $alertas = new AlertasCobranca(
             $obrigacaoRepo,
