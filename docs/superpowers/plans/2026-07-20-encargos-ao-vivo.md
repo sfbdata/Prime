@@ -3,6 +3,33 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recomendado) ou
 > superpowers:executing-plans para implementar tarefa-a-tarefa. Steps usam checkbox (`- [ ]`).
 
+## 🔖 STATUS & COMO RETOMAR (execução autônoma até o fim)
+
+**Feito:** **F1 COMPLETA** (commits `fd7ae79` serviço+testes, `aa03a30` prova ao centavo). `tests/Cobranca` **799/799**.
+Docs alinhados (`95bb6df`). Nada religado ainda — F1 é infra isolada.
+
+**➡️ RETOMAR EM: Fase F2, Task 3 (`CalculadoraSaldo`).** Executar F2 → F3 → F4 → F5 **em ordem**, tarefa-a-tarefa.
+
+**Mandato do dono (2026-07-20):** seguir **autônomo até o final**. Por fase: implementar (TDD) → `/review`
+(`feature-review-agent` contra a spec) → corrigir → testes direcionados no container → estabilizar → **commit local**.
+Ao terminar F5: parar em "pronto para o humano publicar" — **NUNCA push/merge/deploy** (é do humano).
+
+**Gotchas que já custaram tempo (não repetir):**
+- Rodar TODO teste no container: `docker exec jusprime_php_dev bash -c 'cd app && php -d memory_limit=512M bin/phpunit ...'`.
+- **`MockClock` a partir de `new \DateTimeImmutable('YYYY-MM-DD')`, NUNCA de string** — string cai em fuso diferente do
+  vencimento e o `diff` erra 1 dia (juros off-by-one). Ver `EncargosVivosTest`.
+- **Config é do CHAMADOR:** `$config = $resolvedor->resolverDoCaso($caso); $encargosVivos->hidratar($config, $obrs);`
+  (o serviço `EncargosVivos` NÃO resolve config; é aplicador puro).
+- **F2 religa TODOS os leitores JUNTOS** (saldo, FIFO, acordo, dashboard, DTO) — exibição e saldo não podem divergir.
+- **Config da carteira é load-bearing** (sem valor guardado de rede): configurar TOPLIFE (juros 1%, multa 2%, hon
+  20%/15%, carência 30) antes de qualquer smoke que valide números.
+- `ConfigEncargos::padraoTopLife(2000)`=TL I (20%), `padraoTopLife(1500)`=TL II (15%). Fórmula provada ao centavo
+  contra a planilha nova (spec §2) — NÃO mexer no motor `CalculadoraEncargos`.
+- Só há uma decisão de produto adiada (§7/§11 spec: override de taxa por-obrigação) — **fora do escopo F1–F5**, é
+  follow-up. Se algo forçar essa decisão no meio, PARAR e sinalizar; senão, seguir.
+
+---
+
 **Goal:** Tornar os encargos de obrigação em aberto **calculados ao vivo** (vencimento→hoje), removendo o cron e o
 congelamento manual; o relógio só para ao **liquidar** (pagar/acordar).
 

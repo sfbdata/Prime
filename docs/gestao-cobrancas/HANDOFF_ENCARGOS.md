@@ -1,5 +1,18 @@
 # Handoff — Encargos separados e configuráveis em cascata (Cobrança)
 
+> ## 🔄 2026-07-20 — PIVÔ "ENCARGOS AO VIVO" (frente atual; este handoff abaixo é o estado ANTERIOR)
+>
+> O dono pediu **tirar o cron e o congelamento**: encargo passa a ser **calculado ao vivo** (vencimento→hoje×taxa,
+> tipo Excel), parando só ao **pagar/acordar**; editar não congela; parcela cresce. **A fórmula NÃO muda** (provada
+> ao centavo contra a planilha nova). O card também mudou (faixa neutra na linha, sem chevron — commit `6f64bcb`).
+>
+> **Fonte de verdade da frente nova:** spec **`docs/specs/cobranca-encargos-ao-vivo.md`** + plano
+> **`docs/superpowers/plans/2026-07-20-encargos-ao-vivo.md`** (tem bloco "STATUS & COMO RETOMAR" no topo).
+> **F1 FEITA** (serviço `EncargosVivos`, `tests/Cobranca` 799/799). **➡️ RETOMAR AUTÔNOMO em F2 Task 3.**
+> A seção "PRÓXIMO CHAT" mais abaixo (ajustes visuais do card) está **CONCLUÍDA** — ignorar. HEAD `95bb6df`.
+>
+> ---
+
 > Feature NOVA (pós-Ajuste 10). Risco **ALTO** (dinheiro no cálculo + migração). Módulo **em produção**.
 > Fonte de verdade do *o quê/porquê*: **`docs/specs/cobranca-encargos-configuraveis-cascata.md`**.
 > Estado vivo da execução (ledger, gitignored): **`.superpowers/sdd/progress-encargos.md`**.
