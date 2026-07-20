@@ -14,54 +14,92 @@
 ─────────────────────────────────────────────────────────────────────────── #}
 {% import _self as colunas %}
 
-{% macro valores(o) %}
-    {# ── As colunas de dinheiro do relatório da contabilidade (encargos separados, spec §11) ──
-       Original · Juros · Multa · Correção · Honorários · Total, no lugar da antiga coluna única "Valor".
+{% macro valores(o, expansivel = true) %}
+    {# ── Célula compacta do "Total" + o chevron que abre o detalhamento (redesign: card expansível) ──
+       A linha da dívida nasce COMPACTA: mostra só o Total do relatório (`totalComHonorarios`), o floco de
+       congelado quando há, e o "falta …" quando sobrou saldo. O detalhamento dos encargos (Original/Juros/
+       Multa/Correção/Honorários) migrou para o painel expansível (`detalhe(o)`), no lugar das seis colunas
+       que ficavam apertadas. Um objeto pode ter 150+ obrigações — colapsado por padrão, a lista rola densa.
 
-       DEFINIÇÃO ÚNICA, de propósito: a linha aparece em TRÊS lugares desta seção (obrigação avulsa,
-       parcela de acordo e obrigação substituída) e os três compartilham a MESMA grade CSS. Uma célula a
-       mais ou a menos em um deles desalinha a lista inteira — por isso as células nascem aqui, e não
-       copiadas três vezes. O macro (em vez de um partial incluído) mantém a mudança pequena: ele só
-       precisa do próprio `ObrigacaoOutput`, nada do contexto externo (permissões, `hoje`, `caso`).
+       DEFINIÇÃO ÚNICA, de propósito: a linha aparece em TRÊS lugares desta seção (obrigação avulsa, parcela
+       de acordo e obrigação substituída) e os três compartilham a MESMA grade CSS. As células nascem aqui,
+       e não copiadas três vezes. `expansivel = false` (substituídas, já dentro de um collapse) rende só o
+       Total + um espaço vazio no lugar do chevron, para não aninhar collapse dentro de collapse.
 
-       Nada de aritmética aqui: `juros/multa/correcao/honorarios` vêm materializados do domínio.
-
-       O "Total" desta coluna é `totalComHonorarios` — original + os três encargos + honorários —,
-       porque esta linha REPRODUZ o relatório da contabilidade (spec §1.3 e Apêndice A: "total =
-       P + juros + multa + correção + honorários; honorários ENTRAM no Total do relatório"). Somar as
-       seis colunas na tela tem de fechar, senão o número não é conferível contra o PDF.
-
-       Não confundir com o `valorAtual` (exigível), que é original + os três encargos SEM honorários
-       (INV-E2) e continua sendo o que alimenta saldo, FIFO e acordo. Os dois números coexistem de
-       propósito: o Total é o que se mostra ao devedor, o exigível é o que o sistema cobra. Onde a
-       diferença importa para o usuário — o quanto ainda falta — quem fala é `.jp-obr-restante`.
-
-       As colunas `col-detalhe` e `col-original` continuam no DOM em qualquer largura (o CSS as esconde
-       nas telas menores): sumir do HTML quebraria testes e ganchos que leem a linha inteira. #}
-    <span class="jp-obr-num col-original">{{ o.valorOriginal|centavos_curto }}</span>
-    <span class="jp-obr-num col-detalhe col-juros">{{ o.juros|centavos_curto }}</span>
-    <span class="jp-obr-num col-detalhe col-multa">{{ o.multa|centavos_curto }}</span>
-    <span class="jp-obr-num col-detalhe col-correcao">{{ o.correcao|centavos_curto }}</span>
-    <span class="jp-obr-num col-detalhe col-honorarios">{{ o.honorarios|centavos_curto }}</span>
+       O "Total" é `totalComHonorarios` — original + os três encargos + honorários —, porque esta linha
+       REPRODUZ o relatório da contabilidade (spec §1.3 e Apêndice A). Não confundir com o `valorAtual`
+       (exigível, SEM honorários, INV-E2), que alimenta saldo, FIFO e acordo. Onde a diferença importa para
+       o usuário — o quanto ainda falta — quem fala é `.jp-obr-restante`. Nada de aritmética de encargo aqui:
+       `juros/multa/correcao/honorarios` vêm materializados do domínio. #}
     <div class="jp-obr-valor jp-money col-total"
          {%- if o.encargosCongeladosEm is null and o.encargosAtualizadosEm is not null %} data-bs-toggle="tooltip"
          title="Encargos atualizados em {{ o.encargosAtualizadosEm|date('d/m/Y') }}."{% endif %}>
         {{ o.totalComHonorarios|centavos }}
         {%- if o.encargosCongeladosEm is not null %}
             {# Congelada (INV-E4): estes encargos não crescem mais — o cron não a toca. Sinal discreto,
-               que não pode competir com os números nem ocupar coluna própria. #}
+               que não pode competir com o número nem ocupar coluna própria. #}
             <i class="bi bi-snow jp-obr-congelado" data-bs-toggle="tooltip"
                title="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }} — não são recalculados automaticamente."
                aria-label="Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }}"></i>
         {%- endif %}
-        {% if o.juros > 0 or o.multa > 0 or o.correcao > 0 or o.honorarios > 0 %}
-            {# Composição para as telas em que as colunas de detalhe não cabem: o CSS a esconde a partir
-               de xxl, onde cada encargo já tem coluna. Classe PRÓPRIA (nunca `.jp-obr-sub`): os testes
-               leem o PRIMEIRO `.jp-obr-sub` da linha e ele é o "já recebidos" da descrição. #}
-            <span class="jp-obr-composicao">J {{ o.juros|centavos_curto }} · M {{ o.multa|centavos_curto }} · C {{ o.correcao|centavos_curto }} · H {{ o.honorarios|centavos_curto }}</span>
-        {% endif %}
         {% if o.alocado > 0 and not o.quitada %}
             <span class="jp-obr-restante">falta {{ o.restante|centavos }}</span>
+        {% endif %}
+    </div>
+    {% if expansivel %}
+        {# Chevron: botão PRÓPRIO (a linha inteira NÃO é clicável, para não brigar com o checkbox de
+           seleção, os botões de ação nem o dropdown `⋯`). `aria-controls` aponta para o painel de `o.id`.
+           O JS de show.html.twig alterna `hidden` do painel + `aria-expanded`; o CSS gira o chevron. #}
+        <button type="button" class="jp-obr-toggle" aria-expanded="false"
+                aria-controls="detalhe-obr-{{ o.id }}" aria-label="Ver detalhamento dos encargos">
+            <i class="bi bi-chevron-down"></i>
+        </button>
+    {% else %}
+        <span></span>
+    {% endif %}
+{% endmacro %}
+
+{% macro detalhe(o) %}
+    {# ── Painel expansível: o detalhamento dos encargos do relatório, ROTULADO e colorido ──
+       Ocupa a largura toda da linha (`grid-column: 1 / -1`) e nasce `hidden`. Os "%" são SÓ apresentação,
+       derivados na hora, com guarda contra divisão por zero. Nada aqui recalcula regra: os valores vêm
+       materializados do domínio. Somar as células fecha com o Total (spec §1.3 e Apêndice A). #}
+    {% set baseHonorarios = o.valorOriginal + o.juros + o.multa + o.correcao %}
+    <div class="jp-obr-detalhe" id="detalhe-obr-{{ o.id }}" hidden>
+        {# As classes `col-original/col-juros/col-multa/col-correcao/col-honorarios` MIGRARAM das antigas
+           colunas para os valores do painel (é onde os números do relatório vivem agora). Preservadas de
+           propósito: os functional de `ObjetoShowControllerTest` (F4) leem `.jp-obr .col-*` pelo texto. #}
+        <div class="jp-detalhe-grid">
+            <div class="jp-encargo jp-encargo-original">
+                <span class="jp-encargo-rot">Original</span>
+                <span class="jp-encargo-val col-original">{{ o.valorOriginal|centavos }}</span>
+            </div>
+            <div class="jp-encargo jp-encargo-juros">
+                <span class="jp-encargo-rot">Juros{% if o.valorOriginal > 0 and o.juros > 0 %} <span class="jp-encargo-pct">{{ (o.juros * 100 / o.valorOriginal)|round(2) }}%</span>{% endif %}</span>
+                <span class="jp-encargo-val col-juros">{{ o.juros|centavos }}</span>
+            </div>
+            <div class="jp-encargo jp-encargo-multa">
+                <span class="jp-encargo-rot">Multa{% if o.valorOriginal > 0 and o.multa > 0 %} <span class="jp-encargo-pct">{{ (o.multa * 100 / o.valorOriginal)|round(2) }}%</span>{% endif %}</span>
+                <span class="jp-encargo-val col-multa">{{ o.multa|centavos }}</span>
+            </div>
+            <div class="jp-encargo jp-encargo-correcao">
+                <span class="jp-encargo-rot">Correção</span>
+                <span class="jp-encargo-val col-correcao">{{ o.correcao|centavos }}</span>
+            </div>
+            <div class="jp-encargo jp-encargo-honorarios">
+                <span class="jp-encargo-rot">Honorários{% if baseHonorarios > 0 and o.honorarios > 0 %} <span class="jp-encargo-pct">{{ (o.honorarios * 100 / baseHonorarios)|round(2) }}%</span>{% endif %}</span>
+                <span class="jp-encargo-val col-honorarios">{{ o.honorarios|centavos }}</span>
+                <span class="jp-encargo-nota">sobre a base composta (original + encargos)</span>
+            </div>
+            <div class="jp-encargo jp-encargo-total">
+                <span class="jp-encargo-rot">Total</span>
+                <span class="jp-encargo-val">{{ o.totalComHonorarios|centavos }}</span>
+            </div>
+        </div>
+        {% if o.encargosCongeladosEm is not null %}
+            <div class="jp-detalhe-selo"><i class="bi bi-snow"></i> Encargos congelados em {{ o.encargosCongeladosEm|date('d/m/Y') }}</div>
+        {% elseif o.encargosAtualizadosEm is not null %}
+            <div class="jp-detalhe-selo"><i class="bi bi-arrow-repeat"></i> Encargos atualizados em {{ o.encargosAtualizadosEm|date('d/m/Y') }}</div>
         {% endif %}
     </div>
 {% endmacro %}
@@ -112,24 +150,21 @@
         </div>
     {% else %}
         <div class="jp-lista">
-            {# Um cabeçalho por coluna de dinheiro: é assim que o relatório da contabilidade se lê, e é
-               ele que dá nome ao que cada número significa. Mesma quantidade de células das linhas. #}
+            {# Cabeçalho do compacto: dá nome ao que cada célula da fila significa (venceu · o que é ·
+               Total). O detalhamento dos encargos (Original/Juros/Multa/Correção/Honorários) vive agora
+               no painel expansível de cada linha, não mais em colunas. Mesma quantidade de células/tracks. #}
             <div class="jp-lista-head">
                 <span></span>
                 <span>Venceu em</span>
                 <span>O que é</span>
-                <span class="jp-obr-num col-original">Original</span>
-                <span class="jp-obr-num col-detalhe col-juros">Juros</span>
-                <span class="jp-obr-num col-detalhe col-multa">Multa</span>
-                <span class="jp-obr-num col-detalhe col-correcao">Correção</span>
-                <span class="jp-obr-num col-detalhe col-honorarios">Honorários</span>
                 {# "Total" aparece DUAS vezes nesta tela com sentidos diferentes: aqui é o total BRUTO
                    do relatório (com honorários, sem abater o que já foi recebido), e no cabeçalho do
                    objeto é o "Total em aberto" — o saldo exigível, já descontados pagamentos e
                    liquidações e SEM honorários. Somar esta coluna e comparar com o cabeçalho não fecha,
                    por dois motivos, e sem esta explicação quem confere conclui que há erro. #}
-                <span class="jp-obr-num col-total col-valor" data-bs-toggle="tooltip"
+                <span class="col-total col-valor" data-bs-toggle="tooltip"
                       title="Total do relatório: original + juros + multa + correção + honorários, sem abater o que já foi recebido. O “Total em aberto” do topo é outra conta — o saldo exigível, já com os recebimentos descontados e sem honorários.">Total</span>
+                <span></span>
                 <span></span>
             </div>
 
@@ -234,6 +269,7 @@
                         </div>
                         {% endif %}
                     </div>
+                    {{ colunas.detalhe(o) }}
                 </div>
             {% else %}
                 <div class="jp-vazio">
@@ -297,6 +333,7 @@
                     </button>
                     {% endif %}
                 </div>
+                {{ colunas.detalhe(p) }}
             </div>
             {% endfor %}
 
@@ -310,6 +347,8 @@
             </button>
             <div class="collapse" id="substituidasAcordo{{ g.acordoId }}">
                 {% for s in g.substituidas %}
+                {# Substituídas: expansivel=false — só o Total + um espaço no lugar do chevron (sem painel),
+                   para não aninhar collapse dentro de collapse. Mantém 6 células = alinha com a grade. #}
                 <div class="jp-obr is-substituida">
                     <span></span>
                     <div class="jp-obr-data"><div class="jp-obr-data-dia">{{ s.vencimentoOriginal|date('d/m/Y') }}</div></div>
@@ -317,7 +356,7 @@
                         {{ s.descricao }}
                         <span class="jp-obr-sub">trocada pelo acordo #{{ g.acordoId }} · volta ao total se o acordo for rompido</span>
                     </div>
-                    {{ colunas.valores(s) }}
+                    {{ colunas.valores(s, false) }}
                     <span></span>
                 </div>
                 {% endfor %}

@@ -1082,6 +1082,22 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!f.getAttribute('action')) { e.preventDefault(); }
         });
     });
+
+    /* ── Card expansível da obrigação (redesign da dívida) ──────────────────────────────────────
+       A linha nasce compacta; o chevron (`.jp-obr-toggle`) abre o painel (`.jp-obr-detalhe`) com o
+       detalhamento dos encargos. Delegação de clique SÓ no botão do chevron — a linha inteira não é
+       clicável de propósito, para não brigar com o checkbox de seleção (`.jp-check`), os botões de
+       ação nem o dropdown `⋯`. Alterna `hidden` do painel, `aria-expanded` do botão (a11y) e, via
+       esse atributo, o giro do chevron (CSS). Simples, sem libs. */
+    document.addEventListener('click', function (e) {
+        var toggle = e.target.closest('.jp-obr-toggle');
+        if (!toggle) { return; }
+        var painel = document.getElementById(toggle.getAttribute('aria-controls') || '');
+        if (!painel) { return; }
+        var aberto = toggle.getAttribute('aria-expanded') === 'true';
+        toggle.setAttribute('aria-expanded', aberto ? 'false' : 'true');
+        painel.hidden = aberto;
+    });
 });
 </script>
 
