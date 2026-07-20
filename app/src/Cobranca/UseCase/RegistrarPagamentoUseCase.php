@@ -5,15 +5,21 @@ declare(strict_types=1);
 namespace App\Cobranca\UseCase;
 
 use App\Cobranca\DTO\RegistrarPagamentoInput;
+use App\Cobranca\Entity\AlocacaoPagamento;
+use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\AlocadorPagamento;
 use App\Cobranca\Service\AutoAlocadorFifo;
+use App\Cobranca\Service\ReconciliadorLiquidacao;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
@@ -37,6 +43,9 @@ final class RegistrarPagamentoUseCase
         private readonly AlocadorPagamento $alocador,
         private readonly AutoAlocadorFifo $autoAlocadorFifo,
         private readonly RegistrarEventoHistorico $registrarEvento,
+        private readonly AlocacaoPagamentoRepository $alocacaoRepository,
+        private readonly ResolvedorConfigEncargos $resolvedorConfig,
+        private readonly ReconciliadorLiquidacao $reconciliador,
     ) {
     }
 
@@ -82,6 +91,17 @@ final class RegistrarPagamentoUseCase
             $pagamento->adicionarAlocacao($alocacao);
         }
 
+        // Encargos AO VIVO (spec §6.3): quita as obrigações que este pagamento fechou. O alocado FINAL
+        // por obrigação = o já alocado (antes deste pagamento) + o que este pagamento aloca a ela; onde
+        // isso cobre o exigível vivo, o Reconciliador materializa o snapshot na DATA do pagamento,
+        // congela e marca `liquidadaEm` (o relógio para). Obrigação apenas parcial segue Viva (cresce).
+        $this->reconciliador->reconciliar(
+            $this->resolvedorConfig->resolverDoCaso($caso),
+            $this->obrigacoesTocadas($alocacoes),
+            $this->alocadoFinalPorObrigacao($caso, $tenant, $alocacoes),
+            $input->data,
+        );
+
         // Persiste sem flush (cascade nas alocações); o registro do evento fecha a transação.
         $this->pagamentoRepository->salvar($pagamento);
 
@@ -99,6 +119,53 @@ final class RegistrarPagamentoUseCase
         );
 
         return $pagamento;
+    }
+
+    /**
+     * Obrigações distintas tocadas por este pagamento (obrigacaoId => Obrigacao) — o conjunto que o
+     * Reconciliador avalia para quitar.
+     *
+     * @param AlocacaoPagamento[]     $alocacoes
+     *
+     * @return array<int, Obrigacao>
+     */
+    private function obrigacoesTocadas(array $alocacoes): array
+    {
+        $tocadas = [];
+        foreach ($alocacoes as $alocacao) {
+            $obrigacao = $alocacao->getObrigacao();
+            $id = $obrigacao?->getId();
+            if ($obrigacao !== null && $id !== null) {
+                $tocadas[$id] = $obrigacao;
+            }
+        }
+
+        return $tocadas;
+    }
+
+    /**
+     * Alocado FINAL por obrigação após este pagamento: o Σ já persistido (este pagamento ainda não foi
+     * flushado) MAIS o que estas alocações somam a cada obrigação.
+     *
+     * @param AlocacaoPagamento[] $alocacoes
+     *
+     * @return array<int, int>
+     */
+    private function alocadoFinalPorObrigacao(CasoCobranca $caso, Tenant $tenant, array $alocacoes): array
+    {
+        $casoId = $caso->getId();
+        $final = $casoId === null
+            ? []
+            : $this->alocacaoRepository->somasPorObrigacaoDosCasos([$casoId], $tenant);
+
+        foreach ($alocacoes as $alocacao) {
+            $id = $alocacao->getObrigacao()?->getId();
+            if ($id !== null) {
+                $final[$id] = ($final[$id] ?? 0) + $alocacao->getValor();
+            }
+        }
+
+        return $final;
     }
 
     /** Formata centavos como reais para a descrição do histórico — sem float na conta. */

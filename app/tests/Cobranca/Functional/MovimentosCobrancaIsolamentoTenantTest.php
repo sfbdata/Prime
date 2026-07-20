@@ -36,6 +36,7 @@ use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\EncargosVivos;
+use App\Cobranca\Service\ReconciliadorLiquidacao;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use Symfony\Component\Clock\MockClock;
@@ -118,8 +119,9 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
         $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
-        $this->registrarPagamento = new RegistrarPagamentoUseCase($pagamentoRepo, $casoRepo, $alocador, $autoAlocador, $registrarEvento);
-        $this->corrigirPagamento = new CorrigirPagamentoUseCase($pagamentoRepo, $alocador, $autoAlocador, $registrarEvento);
+        $reconciliador = new ReconciliadorLiquidacao(new CalculadoraEncargos());
+        $this->registrarPagamento = new RegistrarPagamentoUseCase($pagamentoRepo, $casoRepo, $alocador, $autoAlocador, $registrarEvento, $alocacaoRepo, new ResolvedorConfigEncargos(), $reconciliador);
+        $this->corrigirPagamento = new CorrigirPagamentoUseCase($pagamentoRepo, $alocador, $autoAlocador, $registrarEvento, $alocacaoRepo, new ResolvedorConfigEncargos(), $reconciliador);
         $this->registrarLiquidacao = new RegistrarLiquidacaoUseCase($liquidacaoRepo, $casoRepo, $registrarEvento);
         $this->calculadoraSaldo = new CalculadoraSaldo(
             $obrigacaoRepo,

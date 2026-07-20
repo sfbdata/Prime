@@ -26,6 +26,7 @@ use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\EncargosVivos;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use Symfony\Component\Clock\MockClock;
+use App\Cobranca\Service\ReconciliadorLiquidacao;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\UseCase\CorrigirPagamentoUseCase;
 use App\Entity\Auth\User;
@@ -70,6 +71,9 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
             $alocador,
             $autoAlocador,
             $registrarEvento,
+            $this->alocacaoRepository,
+            new ResolvedorConfigEncargos(),
+            new ReconciliadorLiquidacao(new CalculadoraEncargos()),
         );
         $this->tenant = new Tenant();
         $this->usuario = new User();

@@ -30,6 +30,7 @@ use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\EncargosVivos;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use Symfony\Component\Clock\MockClock;
+use App\Cobranca\Service\ReconciliadorLiquidacao;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\UseCase\RegistrarPagamentoUseCase;
 use App\Entity\Auth\User;
@@ -45,6 +46,7 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
     private PagamentoRepository&MockObject $pagamentoRepository;
     private CasoCobrancaRepository&MockObject $casoRepository;
     private ObrigacaoRepository&MockObject $obrigacaoRepository;
+    private AlocacaoPagamentoRepository&MockObject $alocacaoRepository;
     private EventoHistoricoRepository&MockObject $eventoRepository;
     private RegistrarPagamentoUseCase $sut;
     private Tenant $tenant;
@@ -55,12 +57,14 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
         $this->pagamentoRepository = $this->createMock(PagamentoRepository::class);
         $this->casoRepository = $this->createMock(CasoCobrancaRepository::class);
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
-        // AlocadorPagamento, AutoAlocadorFifo e CalculadoraHonorarios são finais e puros: usa-se os REAIS.
+        $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
+        // AlocadorPagamento, AutoAlocadorFifo, CalculadoraHonorarios e o Reconciliador são finais/puros:
+        // usa-se os REAIS. Sem carteira/config nos casos de teste → encargo 0 (exigível = valor original).
         $calculadora = new CalculadoraHonorarios();
         $alocador = new AlocadorPagamento($this->obrigacaoRepository, $calculadora);
         $autoAlocador = new AutoAlocadorFifo(
             $this->obrigacaoRepository,
-            $this->createMock(AlocacaoPagamentoRepository::class),
+            $this->alocacaoRepository,
             $this->createMock(LiquidacaoRepository::class),
             $calculadora,
             new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
@@ -75,6 +79,9 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
             $alocador,
             $autoAlocador,
             $registrarEvento,
+            $this->alocacaoRepository,
+            new ResolvedorConfigEncargos(),
+            new ReconciliadorLiquidacao(new CalculadoraEncargos()),
         );
         $this->tenant = new Tenant();
         $this->criadoPor = new User();

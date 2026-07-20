@@ -5,14 +5,20 @@ declare(strict_types=1);
 namespace App\Cobranca\UseCase;
 
 use App\Cobranca\DTO\CorrigirPagamentoInput;
+use App\Cobranca\Entity\AlocacaoPagamento;
+use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\PagamentoNaoEncontradoException;
+use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Service\AlocadorPagamento;
 use App\Cobranca\Service\AutoAlocadorFifo;
+use App\Cobranca\Service\ReconciliadorLiquidacao;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
@@ -36,6 +42,9 @@ final class CorrigirPagamentoUseCase
         private readonly AlocadorPagamento $alocador,
         private readonly AutoAlocadorFifo $autoAlocadorFifo,
         private readonly RegistrarEventoHistorico $registrarEvento,
+        private readonly AlocacaoPagamentoRepository $alocacaoRepository,
+        private readonly ResolvedorConfigEncargos $resolvedorConfig,
+        private readonly ReconciliadorLiquidacao $reconciliador,
     ) {
     }
 
@@ -74,6 +83,10 @@ final class CorrigirPagamentoUseCase
             $tenant,
         );
 
+        // Snapshot das alocações ANTIGAS antes de descartá-las — o alocado FINAL desta correção é
+        // (Σ já persistido, que ainda inclui estas antigas) − antigas + novas.
+        $alocacoesAntigas = $pagamento->getAlocacoes()->toArray();
+
         // Descarta as alocações antigas (orphanRemoval as apaga no flush) e aplica as novas.
         $pagamento->limparAlocacoes();
 
@@ -90,6 +103,16 @@ final class CorrigirPagamentoUseCase
         if ($input->data !== null) {
             $pagamento->setData($input->data);
         }
+
+        // Encargos AO VIVO (spec §6.3): a correção pode QUITAR (o alocado subiu e passou a cobrir o
+        // exigível) ou REABRIR (o alocado caiu abaixo do exigível → volta a Viva e cresce). Reconcilia
+        // na DATA efetiva do pagamento sobre as obrigações tocadas (antigas ∪ novas).
+        $this->reconciliador->reconciliar(
+            $this->resolvedorConfig->resolverDoCaso($caso),
+            $this->obrigacoesTocadas($alocacoesAntigas, $novasAlocacoes),
+            $this->alocadoFinalPorObrigacao($caso, $tenant, $alocacoesAntigas, $novasAlocacoes),
+            $pagamento->getData(),
+        );
 
         // Persiste sem flush; o registro do evento fecha a transação.
         $this->pagamentoRepository->salvar($pagamento);
@@ -114,5 +137,61 @@ final class CorrigirPagamentoUseCase
         );
 
         return $pagamento;
+    }
+
+    /**
+     * Obrigações distintas tocadas pela correção (antes ∪ depois) — o conjunto que o Reconciliador
+     * avalia para quitar ou reabrir.
+     *
+     * @param AlocacaoPagamento[] $antigas
+     * @param AlocacaoPagamento[] $novas
+     *
+     * @return array<int, Obrigacao>
+     */
+    private function obrigacoesTocadas(array $antigas, array $novas): array
+    {
+        $tocadas = [];
+        foreach (array_merge($antigas, $novas) as $alocacao) {
+            $obrigacao = $alocacao->getObrigacao();
+            $id = $obrigacao?->getId();
+            if ($obrigacao !== null && $id !== null) {
+                $tocadas[$id] = $obrigacao;
+            }
+        }
+
+        return $tocadas;
+    }
+
+    /**
+     * Alocado FINAL por obrigação após a correção: o Σ já persistido (que ainda inclui as alocações
+     * ANTIGAS deste pagamento, pois o descarte só some no flush) MENOS as antigas MAIS as novas.
+     *
+     * @param AlocacaoPagamento[] $antigas
+     * @param AlocacaoPagamento[] $novas
+     *
+     * @return array<int, int>
+     */
+    private function alocadoFinalPorObrigacao(CasoCobranca $caso, Tenant $tenant, array $antigas, array $novas): array
+    {
+        $casoId = $caso->getId();
+        $final = $casoId === null
+            ? []
+            : $this->alocacaoRepository->somasPorObrigacaoDosCasos([$casoId], $tenant);
+
+        foreach ($antigas as $alocacao) {
+            $id = $alocacao->getObrigacao()?->getId();
+            if ($id !== null) {
+                $final[$id] = ($final[$id] ?? 0) - $alocacao->getValor();
+            }
+        }
+
+        foreach ($novas as $alocacao) {
+            $id = $alocacao->getObrigacao()?->getId();
+            if ($id !== null) {
+                $final[$id] = ($final[$id] ?? 0) + $alocacao->getValor();
+            }
+        }
+
+        return $final;
     }
 }
