@@ -258,9 +258,15 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    elástico) — sem rolagem horizontal em nenhuma largura. Escopo `#secao-divida` de propósito: o extrato
    de movimentos usa `.jp-lista-head` próprio (5 colunas) e não pode ser desalinhado. */
 
-/* Cabeçalho: alinhado às colunas do compacto. Some no mobile (cartão empilhado dispensa cabeçalho). */
+/* CONTAINER QUERY, não media query: a dívida vive na coluna esquerda do cockpit e sua largura depende do
+   LAYOUT (a sidebar encolhe a coluna), não do viewport — a 1024px de viewport a coluna já é estreita e a
+   fila de 6 colunas não cabe. Medir a largura da PRÓPRIA seção (`@container` abaixo) faz o cartão empilhar
+   quando a coluna aperta, seja qual for o motivo (viewport pequeno OU sidebar presente). */
+#secao-divida { container-type: inline-size; container-name: divida; }
+
+/* Cabeçalho: alinhado às colunas do compacto. Some no cartão empilhado (dispensa cabeçalho). */
 #secao-divida .jp-lista-head {
-    grid-template-columns: 18px 96px minmax(0, 1fr) minmax(90px, auto) 2rem auto;
+    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) 2rem auto;
     grid-template-areas: none;
 }
 #secao-divida .jp-lista-head .col-total { text-align: right; }
@@ -268,7 +274,12 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 /* Linha = fila compacta (6 colunas) + painel full-width na linha de baixo. As áreas nomeadas deixam o
    painel abrir sem bagunçar a fila, e permitem o reflow limpo para cartão no mobile (abaixo). */
 #secao-divida .jp-obr {
-    grid-template-columns: 18px 96px minmax(0, 1fr) minmax(90px, auto) 2rem auto;
+    /* `desc` tem PISO de 7rem (nunca `minmax(0,…)`): sem ele, quando o container estreita — a dívida vive
+       na coluna esquerda do cockpit e encolhe com a sidebar — a coluna de ações (`auto` = largura dos três
+       botões numa linha só) comia toda a largura, a descrição ia a ZERO e quebrava letra a letra (linha de
+       2000px de altura, o mesmo bug da F4). `acoes` virou `minmax(0, auto)`: pode ENCOLHER, e aí os botões
+       quebram em duas linhas (flex-wrap) em vez de starvar a descrição. */
+    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) 2rem minmax(0, auto);
     grid-template-areas:
         "check data desc total chevron acoes"
         "detalhe detalhe detalhe detalhe detalhe detalhe";
@@ -287,7 +298,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    áreas. As duas células vazias (chevron/ações) são tracks `auto` que colapsam a 0 — assim a linha cabe
    mesmo indentada dentro do acordo, em qualquer largura. Os tracks 1–4 batem com as parcelas de cima. */
 #secao-divida .jp-obr.is-substituida {
-    grid-template-columns: 18px 96px minmax(0, 1fr) minmax(90px, auto) auto auto;
+    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) auto auto;
     grid-template-areas: none;
 }
 
@@ -348,9 +359,12 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 }
 .jp-detalhe-selo .bi { font-size: .8rem; }
 
-/* ── Mobile (< sm): cartão empilhado. Só 3 colunas (check · conteúdo elástico · chevron); as ações e o
-   painel ganham a largura toda embaixo. Nada fixo grande o bastante para empurrar a rolagem horizontal. */
-@media (max-width: 575.98px) {
+/* ── Coluna da dívida estreita (< 720px de LARGURA DA SEÇÃO, não do viewport): cartão empilhado. Só 3
+   colunas (check · conteúdo elástico · chevron); as ações e o painel ganham a largura toda embaixo. Nada
+   fixo grande o bastante para empurrar a rolagem horizontal. Dispara tanto num telefone quanto num desktop
+   1024px em que a sidebar do cockpit espremeu a coluna — foi ali que a fila de 6 colunas quebrava a
+   descrição letra a letra. */
+@container divida (max-width: 720px) {
     #secao-divida .jp-lista-head { display: none; }
     #secao-divida .jp-obr:not(.is-substituida) {
         grid-template-columns: auto minmax(0, 1fr) 2rem;

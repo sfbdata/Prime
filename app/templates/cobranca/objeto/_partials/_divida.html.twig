@@ -75,11 +75,11 @@
                 <span class="jp-encargo-val col-original">{{ o.valorOriginal|centavos }}</span>
             </div>
             <div class="jp-encargo jp-encargo-juros">
-                <span class="jp-encargo-rot">Juros{% if o.valorOriginal > 0 and o.juros > 0 %} <span class="jp-encargo-pct">{{ (o.juros * 100 / o.valorOriginal)|round(2) }}%</span>{% endif %}</span>
+                <span class="jp-encargo-rot">Juros{% if o.valorOriginal > 0 and o.juros > 0 %} <span class="jp-encargo-pct">{{ (o.juros * 100 / o.valorOriginal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
                 <span class="jp-encargo-val col-juros">{{ o.juros|centavos }}</span>
             </div>
             <div class="jp-encargo jp-encargo-multa">
-                <span class="jp-encargo-rot">Multa{% if o.valorOriginal > 0 and o.multa > 0 %} <span class="jp-encargo-pct">{{ (o.multa * 100 / o.valorOriginal)|round(2) }}%</span>{% endif %}</span>
+                <span class="jp-encargo-rot">Multa{% if o.valorOriginal > 0 and o.multa > 0 %} <span class="jp-encargo-pct">{{ (o.multa * 100 / o.valorOriginal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
                 <span class="jp-encargo-val col-multa">{{ o.multa|centavos }}</span>
             </div>
             <div class="jp-encargo jp-encargo-correcao">
@@ -87,7 +87,7 @@
                 <span class="jp-encargo-val col-correcao">{{ o.correcao|centavos }}</span>
             </div>
             <div class="jp-encargo jp-encargo-honorarios">
-                <span class="jp-encargo-rot">Honorários{% if baseHonorarios > 0 and o.honorarios > 0 %} <span class="jp-encargo-pct">{{ (o.honorarios * 100 / baseHonorarios)|round(2) }}%</span>{% endif %}</span>
+                <span class="jp-encargo-rot">Honorários{% if baseHonorarios > 0 and o.honorarios > 0 %} <span class="jp-encargo-pct">{{ (o.honorarios * 100 / baseHonorarios)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
                 <span class="jp-encargo-val col-honorarios">{{ o.honorarios|centavos }}</span>
                 <span class="jp-encargo-nota">sobre a base composta (original + encargos)</span>
             </div>
