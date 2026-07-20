@@ -58,6 +58,12 @@
                 <div class="text-end cob-hero-sub">
                     <div class="cob-hero-label">Honorários</div>
                     <div class="fw-semibold text-white">{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} ({{ caso.percentualHonorarios }}%){% endif %}</div>
+                    {# Ajuste 2, Fatia A: editar os honorários do caso âncora (recalcula as automáticas). #}
+                    {% if podeGerenciar %}
+                    <button type="button" class="btn btn-sm jp-btn-outline py-0 mt-1" data-bs-toggle="modal" data-bs-target="#modalEditarConfigCaso">
+                        <i class="bi bi-pencil me-1"></i>Editar honorários
+                    </button>
+                    {% endif %}
                 </div>
             </div>
         </div>

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Service;
 
 use App\Cobranca\DTO\CriarAcordoInput;
+use App\Cobranca\DTO\EditarConfiguracaoCasoInput;
 use App\Cobranca\DTO\RegistrarPagamentoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\CasoCobranca;
@@ -14,6 +15,7 @@ use App\Cobranca\Form\CancelarAcordoType;
 use App\Cobranca\Form\ConcluirAcaoType;
 use App\Cobranca\Form\CorrigirPagamentoType;
 use App\Cobranca\Form\DefinirProximaAcaoType;
+use App\Cobranca\Form\EditarConfiguracaoCasoType;
 use App\Cobranca\Form\EditarObrigacaoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\JudicializarCasoType;
@@ -90,6 +92,17 @@ final class MontadorModaisCaso
         $acordoHoje = new CriarAcordoInput();
         $acordoHoje->dataAcordo = new \DateTimeImmutable('today');
 
+        // Editar honorários do caso (Ajuste 2, Fatia A): o modal abre PRÉ-PREENCHIDO com o snapshot
+        // atual do caso (forma/%/base/carência), como o modal de config da carteira faz. Em erro de
+        // validação, o B5 (`reidratarSeErro`) re-submete o payload cru sobre este form, mostrando os
+        // valores digitados + erros no lugar do pré-preenchido.
+        $configHonorarios = new EditarConfiguracaoCasoInput();
+        $configHonorarios->casoId = $caso->getId();
+        $configHonorarios->formaHonorarios = $caso->getFormaHonorarios();
+        $configHonorarios->percentualHonorarios = $caso->getPercentualHonorarios();
+        $configHonorarios->baseHonorarios = $caso->getBaseHonorarios();
+        $configHonorarios->carenciaHonorariosDias = $caso->getCarenciaHonorariosDias();
+
         $views = [
             'registrarObrigacao' => $this->reidratarSeErro($this->formFactory->create(RegistrarObrigacaoType::class), 'registrarObrigacao', $erroModal),
             'editarObrigacao' => $this->reidratarSeErro($this->formFactory->create(EditarObrigacaoType::class), 'editarObrigacao', $erroModal),
@@ -107,6 +120,11 @@ final class MontadorModaisCaso
             'alterarPessoa' => $this->reidratarSeErro($this->formFactory->create(AlterarPessoaCobradaType::class, null, [
                 'pessoas' => $this->pessoaRepository->opcoesDoTenant($caso->getTenant()),
             ]), 'alterarPessoa', $erroModal),
+            'editarConfigCaso' => $this->reidratarSeErro(
+                $this->formFactory->create(EditarConfiguracaoCasoType::class, $configHonorarios),
+                'editarConfigCaso',
+                $erroModal,
+            ),
         ];
 
         if ($incluirJudicializar) {

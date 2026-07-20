@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Controller;
 
 use App\Cobranca\DTO\AlterarPessoaCobradaInput;
+use App\Cobranca\DTO\EditarConfiguracaoCasoInput;
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\JudicializarCasoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
@@ -15,6 +16,7 @@ use App\Cobranca\Exception\PastaNaoEncontradaException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Exception\SaldoNaoResolvidoException;
 use App\Cobranca\Form\AlterarPessoaCobradaType;
+use App\Cobranca\Form\EditarConfiguracaoCasoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\JudicializarCasoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
@@ -22,6 +24,7 @@ use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\UseCase\AlterarPessoaCobradaUseCase;
+use App\Cobranca\UseCase\EditarConfiguracaoCasoUseCase;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
 use App\Cobranca\UseCase\ListarCasosUseCase;
@@ -61,6 +64,7 @@ final class CasoController extends AbstractController
         private readonly PastaRepository $pastaRepository,
         private readonly AlterarPessoaCobradaUseCase $alterarPessoaCobrada,
         private readonly PessoaRepository $pessoaRepository,
+        private readonly EditarConfiguracaoCasoUseCase $editarConfiguracaoCaso,
     ) {
     }
 
@@ -260,6 +264,45 @@ final class CasoController extends AbstractController
         } else {
             // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
             $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'registrarTentativa', 'modalRegistrarTentativa', 'registrar_tentativa_cobranca');
+        }
+
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
+    }
+
+    /**
+     * Editar os honorários do caso âncora (Ajuste 2, Fatia A). Gate `resources.cobranca.gerenciar`,
+     * resolução tenant-safe por id (anti-IDOR → 404). Salvar recalcula na hora as automáticas vivas do
+     * caso (D-A2-3), delegado ao UseCase. Config de honorários NÃO é bloqueada por caso encerrado
+     * (D-A2-7): é metadado, não movimento financeiro — mantém só a guarda multi-tenant.
+     */
+    #[Route('/{id}/configuracao-honorarios', name: 'cobranca_caso_editar_config', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function editarConfiguracaoHonorarios(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $caso = $this->casoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($caso === null) {
+            throw $this->createNotFoundException('Caso de cobrança não encontrado.');
+        }
+
+        $input = new EditarConfiguracaoCasoInput();
+        $input->casoId = $id;
+        $form = $this->createForm(EditarConfiguracaoCasoType::class, $input);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->editarConfiguracaoCaso->executar($input, $tenant);
+                $this->addFlash('success', 'Honorários do caso atualizados.');
+            } catch (CasoNaoEncontradoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        } else {
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $this->objetoIdDoCaso($caso), 'editarConfigCaso', 'modalEditarConfigCaso', 'editar_configuracao_caso');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);

@@ -267,6 +267,46 @@ class ObrigacaoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Obrigações de UM caso candidatas ao recálculo imediato de encargos (Ajuste 2, Fatia A): o MESMO
+     * predicado do cron `idsParaAtualizarEncargos` — NÃO congeladas (`encargosCongeladosEm IS NULL`,
+     * INV-E4), de caso NÃO encerrado (SPEC §17), exigíveis que NÃO sejam parcela de acordo
+     * (`aorig.id IS NULL`) nem substituídas por acordo VIGENTE (`asub.id IS NULL OR asub.status IN
+     * (:naoVigentes)`) —, porém ESCOPADO ao caso (`o.caso = :caso`).
+     *
+     * Difere do cron em dois pontos deliberados, porque aqui NÃO há `em->clear()` entre lotes:
+     *  - devolve ENTIDADES managed (não ids escalares): o UseCase recalcula e flusha na MESMA unidade
+     *    de trabalho, então precisa dos objetos gerenciados, não de ids;
+     *  - NÃO usa `doCasoExigiveis` de propósito — aquele inclui a parcela de acordo VIGENTE, que o cron
+     *    (e este recálculo) EXCLUI: valor pactuado não recebe mora automática (ver
+     *    `idsParaAtualizarEncargos`).
+     *
+     * Tenant do caso SEMPRE explícito (defesa em profundidade). Ordem estável por id.
+     *
+     * @return list<Obrigacao>
+     */
+    public function paraRecalculoDeEncargosDoCaso(CasoCobranca $caso): array
+    {
+        return $this->createQueryBuilder('o')
+            ->innerJoin('o.caso', 'c')
+            ->leftJoin('o.acordoSubstituto', 'asub')
+            ->leftJoin('o.acordoOrigem', 'aorig')
+            ->andWhere('o.caso = :caso')
+            ->andWhere('o.encargosCongeladosEm IS NULL')
+            ->andWhere('c.status != :encerrado')
+            ->andWhere('o.tenant = :tenant')
+            // Parênteses explícitos: `andWhere` junta com AND sem parentetizar o OR.
+            ->andWhere('(asub.id IS NULL OR asub.status IN (:naoVigentes))')
+            ->andWhere('aorig.id IS NULL')
+            ->setParameter('caso', $caso)
+            ->setParameter('encerrado', StatusCaso::Encerrado->value)
+            ->setParameter('tenant', $caso->getTenant())
+            ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
+            ->orderBy('o.id', 'ASC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
      * Carrega um LOTE de obrigações com caso, objeto e carteira em join fetch. Sem isso o
      * `ResolvedorConfigEncargos` (que sobe a cascata Obrigação → Caso → Objeto → Carteira) dispara
      * ~3 queries de lazy-load POR obrigação — o cron rodaria milhares de queries por rodada.
