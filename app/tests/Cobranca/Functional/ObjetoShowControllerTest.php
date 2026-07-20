@@ -631,8 +631,8 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         );
     }
 
-    #[TestDox('F4 (card expansível): o cabeçalho nomeia as colunas compactas e o painel rotula cada encargo')]
-    public function testOCabecalhoNomeiaAsColunasCompactasEOPainelRotulaCadaEncargo(): void
+    #[TestDox('F4 (encargos na linha): o cabeçalho nomeia as colunas compactas e a faixa rotula cada encargo')]
+    public function testOCabecalhoNomeiaAsColunasCompactasEAFaixaRotulaCadaEncargo(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -645,21 +645,22 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
-        // Redesign (card expansível): a linha nasce COMPACTA, então o cabeçalho nomeia só as colunas
-        // sempre visíveis — o detalhamento dos encargos migrou para o painel expansível de cada linha.
+        // A linha é COMPACTA, então o cabeçalho nomeia só as colunas fixas — o detalhamento dos encargos
+        // vive na faixa sempre visível de cada linha, não em colunas próprias.
         $cabecalho = $crawler->filter('#secao-divida .jp-lista-head');
         self::assertCount(1, $cabecalho);
         $textoCabecalho = $cabecalho->text();
         foreach (['Venceu em', 'O que é', 'Total'] as $coluna) {
             self::assertStringContainsString($coluna, $textoCabecalho, "o cabeçalho precisa nomear a coluna {$coluna}");
         }
-        // Cada número de dinheiro é ROTULADO onde ele aparece — agora no painel: sem nome, número não
-        // significa nada. O painel nasce `hidden`, mas o crawler lê o texto do DOM independentemente.
-        $painel = $crawler->filter('#secao-divida .jp-obr .jp-obr-detalhe');
-        self::assertCount(1, $painel);
-        $textoPainel = $painel->text();
-        foreach (['Original', 'Juros', 'Multa', 'Correção', 'Honorários', 'Total'] as $encargo) {
-            self::assertStringContainsString($encargo, $textoPainel, "o painel precisa rotular o encargo {$encargo}");
+        // Cada número de dinheiro é ROTULADO onde ele aparece — na FAIXA sempre visível da linha (o dono
+        // quer ver cada encargo sem expandir; não há mais chevron/painel). O "Total" fica na célula própria
+        // (col-total), fora da faixa.
+        $faixa = $crawler->filter('#secao-divida .jp-obr .jp-obr-encargos');
+        self::assertCount(1, $faixa);
+        $textoFaixa = $faixa->text();
+        foreach (['Original', 'Juros', 'Multa', 'Correção', 'Honorários'] as $encargo) {
+            self::assertStringContainsString($encargo, $textoFaixa, "a faixa precisa rotular o encargo {$encargo}");
         }
     }
 
@@ -701,8 +702,8 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertContains('Encargos atualizados em 16/07/2026.', $totais);
     }
 
-    #[TestDox('F4 (card expansível): avulsa e parcela têm painel; a substituída é histórico simples')]
-    public function testAvulsaEParcelaTemPainelEaSubstituidaEhSimples(): void
+    #[TestDox('F4 (encargos na linha): avulsa e parcela mostram a faixa de encargos; a substituída é histórico simples')]
+    public function testAvulsaEParcelaMostramAFaixaEaSubstituidaEhSimples(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -728,16 +729,15 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
         self::assertCount(3, $crawler->filter('#secao-divida .jp-obr'), 'as três variantes de linha estão na tela');
-        // Redesign (card expansível): a dívida VIVA — avulsa e parcela de acordo — ganha o chevron e o
-        // painel de detalhamento. A substituída é histórico (já dentro do collapse do acordo que a trocou),
-        // então fica SIMPLES: só o Total, sem chevron nem painel (não aninha detalhe dentro de collapse).
-        self::assertCount(2, $crawler->filter('#secao-divida .jp-obr-toggle'), 'avulsa e parcela têm o chevron de expandir');
-        self::assertCount(2, $crawler->filter('#secao-divida .jp-obr-detalhe'), 'avulsa e parcela têm o painel de detalhamento');
+        // A dívida VIVA — avulsa e parcela de acordo — mostra a faixa de encargos na própria linha. A
+        // substituída é histórico (já dentro do collapse do acordo que a trocou), então fica SIMPLES: só o
+        // Total, sem a faixa (não repete o split de quem já saiu do total em aberto).
+        self::assertCount(2, $crawler->filter('#secao-divida .jp-obr-encargos'), 'avulsa e parcela têm a faixa de encargos');
         self::assertCount(1, $crawler->filter('#secao-divida .jp-obr.is-substituida'), 'a substituída está na tela');
-        self::assertCount(0, $crawler->filter('#secao-divida .jp-obr.is-substituida .jp-obr-toggle'), 'a substituída NÃO expande');
-        // Os encargos rotulados do relatório vivem no painel — presentes nas duas variantes expansíveis.
+        self::assertCount(0, $crawler->filter('#secao-divida .jp-obr.is-substituida .jp-obr-encargos'), 'a substituída NÃO mostra a faixa');
+        // Os encargos rotulados do relatório vivem na faixa — presentes nas duas variantes vivas.
         foreach (['.col-original', '.col-juros', '.col-multa', '.col-correcao', '.col-honorarios'] as $coluna) {
-            self::assertCount(2, $crawler->filter('#secao-divida .jp-obr-detalhe ' . $coluna), "faltou {$coluna} nos painéis");
+            self::assertCount(2, $crawler->filter('#secao-divida .jp-obr-encargos ' . $coluna), "faltou {$coluna} nas faixas");
         }
     }
 

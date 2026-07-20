@@ -247,16 +247,18 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 }
 .jp-lista-head .col-valor { text-align: right; }
 
-/* ── Card expansível da obrigação (redesign) ──────────────────────────────────────────────────────
-   A linha da dívida virou um CARD EXPANSÍVEL: compacta por padrão (um objeto pode ter 150+ obrigações,
-   densidade importa) e, no chevron, abre um painel com o detalhamento dos encargos ROTULADOS e coloridos
-   (Original · Juros · Multa · Correção · Honorários · Total). Antes as seis colunas do PDF disputavam a
-   largura e ficavam apertadas; agora os números têm espaço e rótulo no painel.
+/* ── Linha da obrigação: fila compacta + faixa de encargos sempre visível ─────────────────────────
+   A linha da dívida é uma fila compacta (check · data · descrição · Total · ações) seguida de uma FAIXA
+   de encargos que ocupa a largura toda (`grid-area: resumo`) e mostra CADA encargo do relatório rotulado,
+   com o % de incidência (Original · Juros · Multa · Correção · Honorários), em pílulas NEUTRAS e discretas
+   (sem código de cor por encargo — pedido do dono). O dono quis ver todos os encargos na própria linha,
+   sem precisar expandir — por isso não há mais chevron nem painel; o % que morava no expandir veio para
+   dentro das pílulas da faixa.
 
-   Grade em ÁREAS: a fila compacta ocupa a 1ª linha do grid e o painel (`.jp-obr-detalhe`) ocupa a 2ª,
-   `grid-column: 1 / -1`. No mobile a mesma grade REFLUI para um cartão empilhado (só 3 colunas, tudo
-   elástico) — sem rolagem horizontal em nenhuma largura. Escopo `#secao-divida` de propósito: o extrato
-   de movimentos usa `.jp-lista-head` próprio (5 colunas) e não pode ser desalinhado. */
+   Grade em ÁREAS: a fila ocupa a 1ª linha do grid e a faixa a 2ª (`grid-column: 1 / -1`). No mobile a
+   mesma grade REFLUI para um cartão empilhado (2 colunas, tudo elástico) — sem rolagem horizontal em
+   nenhuma largura. Escopo `#secao-divida` de propósito: o extrato de movimentos usa `.jp-lista-head`
+   próprio (5 colunas) e não pode ser desalinhado. */
 
 /* CONTAINER QUERY, não media query: a dívida vive na coluna esquerda do cockpit e sua largura depende do
    LAYOUT (a sidebar encolhe a coluna), não do viewport — a 1024px de viewport a coluna já é estreita e a
@@ -266,7 +268,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 
 /* Cabeçalho: alinhado às colunas do compacto. Some no cartão empilhado (dispensa cabeçalho). */
 #secao-divida .jp-lista-head {
-    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) 2rem auto;
+    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) auto;
     grid-template-areas: none;
 }
 #secao-divida .jp-lista-head .col-total { text-align: right; }
@@ -279,138 +281,84 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
        botões numa linha só) comia toda a largura, a descrição ia a ZERO e quebrava letra a letra (linha de
        2000px de altura, o mesmo bug da F4). `acoes` virou `minmax(0, auto)`: pode ENCOLHER, e aí os botões
        quebram em duas linhas (flex-wrap) em vez de starvar a descrição. */
-    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) 2rem minmax(0, auto);
+    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) minmax(0, auto);
     grid-template-areas:
-        "check data desc total chevron acoes"
-        "resumo resumo resumo resumo resumo resumo"
-        "detalhe detalhe detalhe detalhe detalhe detalhe";
+        "check data desc total acoes"
+        "resumo resumo resumo resumo resumo";
     row-gap: 0;
+    /* Separação ENTRE cards de obrigação mais evidente (pedido do dono): divisória com mais contraste que
+       a `--bs-border-color` padrão — o color-mix puxa a borda na direção do texto, então ganha contraste
+       tanto no tema claro quanto no escuro — e mais respiro vertical, para cada obrigação ler como um bloco
+       próprio. Escopo `#secao-divida` de propósito: não mexe no extrato de movimentos. */
+    border-top: 1px solid color-mix(in srgb, var(--bs-border-color), var(--bs-body-color) 28%);
+    padding-top: .9rem; padding-bottom: .9rem;
 }
 #secao-divida .jp-obr:not(.is-substituida) > *:first-child { grid-area: check; }
 #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-data { grid-area: data; }
 #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-desc { grid-area: desc; }
 #secao-divida .jp-obr:not(.is-substituida) > .col-total { grid-area: total; }
-#secao-divida .jp-obr:not(.is-substituida) > .jp-obr-toggle { grid-area: chevron; }
 #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-acoes { grid-area: acoes; }
 #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-encargos { grid-area: resumo; }
-#secao-divida .jp-obr:not(.is-substituida) > .jp-obr-detalhe { grid-area: detalhe; }
 #secao-divida .jp-obr .col-total { text-align: right; }
 
-/* Faixa de encargos SEMPRE visível na linha (o dono quer ver CADA encargo sem precisar expandir). Flui e
-   quebra sozinha (flex-wrap), sem as colunas rígidas que apertavam (F4). Uma pílula por encargo, com cor
-   suave (rgba sobre tokens, tema-aware claro/escuro). O painel do chevron guarda o "extra": o % e a base. */
+/* Faixa de encargos SEMPRE visível na linha (o dono quer ver CADA encargo, mesmo zerado, sem expandir).
+   Flui e quebra sozinha (flex-wrap), sem as colunas rígidas que apertavam (F4). DISCRETA de propósito
+   (pedido do dono): pílulas NEUTRAS (sem código de cor por encargo), fundo faint uniforme, separador
+   interno suave — a faixa não pode competir com a divisória ENTRE cards nem com o Total. */
 .jp-obr-encargos {
     display: flex; flex-wrap: wrap; gap: .3rem .4rem;
     margin-top: .4rem; padding-top: .4rem;
-    border-top: 1px dashed var(--bs-border-color);
+    border-top: 1px dashed color-mix(in srgb, var(--bs-border-color), transparent 45%);
 }
 .jp-obr-enc {
     display: inline-flex; align-items: baseline; gap: .3rem;
-    padding: .12rem .5rem; border-radius: .4rem; white-space: nowrap;
-    border-left: 3px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
+    padding: .1rem .45rem; border-radius: .35rem; white-space: nowrap;
+    background: var(--bs-tertiary-bg);
 }
 .jp-enc-rot { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--bs-secondary-color); }
-.jp-enc-val { font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
-.jp-enc-original   { border-left-color: var(--bs-secondary-color); }
-.jp-enc-juros      { border-left-color: rgba(var(--bs-warning-rgb), .85); background: rgba(var(--bs-warning-rgb), .08); }
-.jp-enc-multa      { border-left-color: rgba(var(--bs-danger-rgb), .85);  background: rgba(var(--bs-danger-rgb), .07); }
-.jp-enc-correcao   { border-left-color: rgba(var(--bs-info-rgb), .85);    background: rgba(var(--bs-info-rgb), .08); }
-.jp-enc-honorarios { border-left-color: rgba(var(--jp-accent-rgb), .85);  background: rgba(var(--jp-accent-rgb), .08); }
+/* O % de incidência, dentro do rótulo (veio do painel do chevron, que foi removido). Discreto: não é
+   dinheiro, é contexto — não pode competir com o valor. `text-transform:none` para não virar caixa-alta. */
+.jp-enc-pct { font-weight: 600; text-transform: none; letter-spacing: 0; opacity: .85; }
+.jp-enc-val { font-size: .8rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
 
-/* Substituídas (dentro de um collapse, de-emphasizadas): sem expansível — só a fila em 6 colunas, sem
-   áreas. As duas células vazias (chevron/ações) são tracks `auto` que colapsam a 0 — assim a linha cabe
-   mesmo indentada dentro do acordo, em qualquer largura. Os tracks 1–4 batem com as parcelas de cima. */
+/* Substituídas (dentro de um collapse, de-emphasizadas): sem faixa de encargos — só a fila em 5 colunas,
+   sem áreas. A célula vazia final é track `auto` que colapsa a 0 — assim a linha cabe mesmo indentada
+   dentro do acordo, em qualquer largura. Os tracks 1–4 batem com as parcelas de cima. */
 #secao-divida .jp-obr.is-substituida {
-    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) auto auto;
+    grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) auto;
     grid-template-areas: none;
 }
-
-/* Chevron: botão próprio (a linha NÃO é clicável — não briga com checkbox/ações/dropdown). Gira ao abrir. */
-.jp-obr-toggle {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 2rem; height: 2rem; padding: 0;
-    border: 1px solid transparent; border-radius: .5rem;
-    background: transparent; color: var(--bs-secondary-color); cursor: pointer;
-    transition: background .15s ease, color .15s ease;
-}
-.jp-obr-toggle:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
-.jp-obr-toggle:focus-visible { outline: 2px solid var(--jp-accent); outline-offset: 1px; }
-.jp-obr-toggle .bi { transition: transform .18s ease; }
-.jp-obr-toggle[aria-expanded="true"] .bi { transform: rotate(180deg); }
 
 /* Sinal de encargos congelados (INV-E4): discreto, ao lado do Total, sem coluna própria. */
 .jp-obr-congelado { font-size: .78rem; color: var(--bs-secondary-color); margin-left: .25rem; }
 
-/* ── Painel expandido: detalhamento dos encargos, rotulado e colorido (tema-aware, rgba translúcido) ── */
-.jp-obr-detalhe {
-    margin-top: .55rem; padding: .75rem .85rem;
-    border: 1px solid var(--bs-border-color); border-radius: .625rem;
-    background: var(--bs-tertiary-bg);
-}
-.jp-obr-detalhe[hidden] { display: none; }
-/* Grid interno que quebra sozinho (auto-fit): nunca força rolagem horizontal em nenhuma largura. */
-.jp-detalhe-grid {
-    display: grid; gap: .5rem .6rem;
-    grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
-}
-.jp-encargo {
-    display: flex; flex-direction: column; gap: .1rem;
-    padding: .4rem .55rem; border-radius: .5rem; min-width: 0;
-    background: var(--bs-body-bg); border-left: 3px solid var(--bs-border-color);
-}
-.jp-encargo-rot {
-    display: flex; align-items: baseline; gap: .3rem; flex-wrap: wrap;
-    font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
-    color: var(--bs-secondary-color);
-}
-.jp-encargo-pct { font-size: .64rem; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--bs-secondary-color); }
-.jp-encargo-val { font-size: .95rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
-.jp-encargo-nota { font-size: .62rem; font-weight: 500; color: var(--bs-secondary-color); }
-
-/* Cores suaves por encargo — rgba sobre tokens, para funcionar no claro e no escuro (nunca hex claro). */
-.jp-encargo-original   { border-left-color: var(--bs-secondary-color); }
-.jp-encargo-juros      { border-left-color: rgba(var(--bs-warning-rgb), .85); background: rgba(var(--bs-warning-rgb), .07); }
-.jp-encargo-multa      { border-left-color: rgba(var(--bs-danger-rgb), .85);  background: rgba(var(--bs-danger-rgb), .06); }
-.jp-encargo-correcao   { border-left-color: rgba(var(--bs-info-rgb), .85);    background: rgba(var(--bs-info-rgb), .07); }
-.jp-encargo-honorarios { border-left-color: rgba(var(--jp-accent-rgb), .85);  background: rgba(var(--jp-accent-rgb), .07); }
-.jp-encargo-total      { border-left-color: var(--jp-accent); background: rgba(var(--jp-accent-rgb), .13); }
-.jp-encargo-total .jp-encargo-val { color: var(--jp-accent); font-size: 1.05rem; }
-
-.jp-detalhe-selo {
-    display: inline-flex; align-items: center; gap: .35rem;
-    margin-top: .55rem; font-size: .72rem; color: var(--bs-secondary-color);
-}
-.jp-detalhe-selo .bi { font-size: .8rem; }
-
-/* ── Coluna da dívida estreita (< 720px de LARGURA DA SEÇÃO, não do viewport): cartão empilhado. Só 3
-   colunas (check · conteúdo elástico · chevron); as ações e o painel ganham a largura toda embaixo. Nada
-   fixo grande o bastante para empurrar a rolagem horizontal. Dispara tanto num telefone quanto num desktop
-   1024px em que a sidebar do cockpit espremeu a coluna — foi ali que a fila de 6 colunas quebrava a
+/* ── Coluna da dívida estreita (< 720px de LARGURA DA SEÇÃO, não do viewport): cartão empilhado. Só 2
+   colunas (check · conteúdo elástico); as ações e a faixa ganham a largura toda embaixo. Nada fixo grande
+   o bastante para empurrar a rolagem horizontal. Dispara tanto num telefone quanto num desktop 1024px em
+   que a sidebar do cockpit espremeu a coluna — foi ali que a fila de 6 colunas quebrava a
    descrição letra a letra. */
 @container divida (max-width: 720px) {
     #secao-divida .jp-lista-head { display: none; }
     #secao-divida .jp-obr:not(.is-substituida) {
-        grid-template-columns: auto minmax(0, 1fr) 2rem;
+        grid-template-columns: auto minmax(0, 1fr);
         grid-template-areas:
-            "check data    chevron"
-            "check desc    chevron"
-            "check total   chevron"
-            "resumo resumo resumo"
-            "acoes acoes   acoes"
-            "detalhe detalhe detalhe";
+            "check data"
+            "check desc"
+            "check total"
+            "resumo resumo"
+            "acoes acoes";
         align-items: start;
         column-gap: .6rem; row-gap: .1rem;
     }
-    #secao-divida .jp-obr:not(.is-substituida) > *:first-child,
-    #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-toggle { align-self: center; }
+    #secao-divida .jp-obr:not(.is-substituida) > *:first-child { align-self: center; }
     #secao-divida .jp-obr:not(.is-substituida) .col-total { text-align: left; margin-top: .1rem; }
     #secao-divida .jp-obr:not(.is-substituida) .jp-obr-acoes { justify-content: flex-start; margin-top: .35rem; }
 
-    /* Substituídas: seguem em fila (não têm ações nem chevron para empilhar), mas com colunas e gap
-       menores para caber indentadas dentro do collapse do acordo mesmo num telefone estreito. As duas
-       últimas células (vazias) viram tracks 0. */
+    /* Substituídas: seguem em fila (não têm ações para empilhar), mas com colunas e gap menores para caber
+       indentadas dentro do collapse do acordo mesmo num telefone estreito. A última célula (vazia) vira
+       track 0. */
     #secao-divida .jp-obr.is-substituida {
-        grid-template-columns: 16px 82px minmax(0, 1fr) minmax(72px, auto) 0 0;
+        grid-template-columns: 16px 82px minmax(0, 1fr) minmax(72px, auto) 0;
         column-gap: .45rem;
     }
 }
