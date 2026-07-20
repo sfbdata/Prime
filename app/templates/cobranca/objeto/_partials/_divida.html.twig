@@ -110,6 +110,21 @@
     </div>
 {% endmacro %}
 
+{% macro resumoEncargos(o) %}
+    {# CADA encargo VISÍVEL na própria linha (não escondido no expandir) — rótulo + valor, colorido, numa
+       faixa que ocupa a largura toda e QUEBRA sozinha, sem as colunas rígidas que ficavam apertadas (F4).
+       Aqui ficam os VALORES (o que se deve por encargo); o painel do chevron guarda o "extra": o % de cada
+       encargo, a base de incidência e o selo de congelado/atualizado. Sem `col-*` aqui de propósito — essas
+       classes são lidas por teste no PAINEL; a faixa usa `.jp-enc-*` para não duplicar a contagem. #}
+    <div class="jp-obr-encargos">
+        <span class="jp-obr-enc jp-enc-original"><span class="jp-enc-rot">Original</span><span class="jp-enc-val">{{ o.valorOriginal|centavos }}</span></span>
+        <span class="jp-obr-enc jp-enc-juros"><span class="jp-enc-rot">Juros</span><span class="jp-enc-val">{{ o.juros|centavos }}</span></span>
+        <span class="jp-obr-enc jp-enc-multa"><span class="jp-enc-rot">Multa</span><span class="jp-enc-val">{{ o.multa|centavos }}</span></span>
+        <span class="jp-obr-enc jp-enc-correcao"><span class="jp-enc-rot">Correção</span><span class="jp-enc-val">{{ o.correcao|centavos }}</span></span>
+        <span class="jp-obr-enc jp-enc-honorarios"><span class="jp-enc-rot">Honorários</span><span class="jp-enc-val">{{ o.honorarios|centavos }}</span></span>
+    </div>
+{% endmacro %}
+
 {% set podeGerenciar = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
 {# `movimentacao_financeira` é capacidade SEPARADA de `gerenciar` (SPEC §22): quem acorda não
    necessariamente recebe. Espelha o gate do `_movimentos.html.twig` e o do controller. #}
@@ -275,6 +290,7 @@
                         </div>
                         {% endif %}
                     </div>
+                    {{ colunas.resumoEncargos(o) }}
                     {{ colunas.detalhe(o) }}
                 </div>
             {% else %}
@@ -339,6 +355,7 @@
                     </button>
                     {% endif %}
                 </div>
+                {{ colunas.resumoEncargos(p) }}
                 {{ colunas.detalhe(p) }}
             </div>
             {% endfor %}

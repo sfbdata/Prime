@@ -282,6 +282,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     grid-template-columns: 18px 96px minmax(7rem, 1fr) minmax(90px, auto) 2rem minmax(0, auto);
     grid-template-areas:
         "check data desc total chevron acoes"
+        "resumo resumo resumo resumo resumo resumo"
         "detalhe detalhe detalhe detalhe detalhe detalhe";
     row-gap: 0;
 }
@@ -291,8 +292,30 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 #secao-divida .jp-obr:not(.is-substituida) > .col-total { grid-area: total; }
 #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-toggle { grid-area: chevron; }
 #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-acoes { grid-area: acoes; }
+#secao-divida .jp-obr:not(.is-substituida) > .jp-obr-encargos { grid-area: resumo; }
 #secao-divida .jp-obr:not(.is-substituida) > .jp-obr-detalhe { grid-area: detalhe; }
 #secao-divida .jp-obr .col-total { text-align: right; }
+
+/* Faixa de encargos SEMPRE visível na linha (o dono quer ver CADA encargo sem precisar expandir). Flui e
+   quebra sozinha (flex-wrap), sem as colunas rígidas que apertavam (F4). Uma pílula por encargo, com cor
+   suave (rgba sobre tokens, tema-aware claro/escuro). O painel do chevron guarda o "extra": o % e a base. */
+.jp-obr-encargos {
+    display: flex; flex-wrap: wrap; gap: .3rem .4rem;
+    margin-top: .4rem; padding-top: .4rem;
+    border-top: 1px dashed var(--bs-border-color);
+}
+.jp-obr-enc {
+    display: inline-flex; align-items: baseline; gap: .3rem;
+    padding: .12rem .5rem; border-radius: .4rem; white-space: nowrap;
+    border-left: 3px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
+}
+.jp-enc-rot { font-size: .64rem; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; color: var(--bs-secondary-color); }
+.jp-enc-val { font-size: .8rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
+.jp-enc-original   { border-left-color: var(--bs-secondary-color); }
+.jp-enc-juros      { border-left-color: rgba(var(--bs-warning-rgb), .85); background: rgba(var(--bs-warning-rgb), .08); }
+.jp-enc-multa      { border-left-color: rgba(var(--bs-danger-rgb), .85);  background: rgba(var(--bs-danger-rgb), .07); }
+.jp-enc-correcao   { border-left-color: rgba(var(--bs-info-rgb), .85);    background: rgba(var(--bs-info-rgb), .08); }
+.jp-enc-honorarios { border-left-color: rgba(var(--jp-accent-rgb), .85);  background: rgba(var(--jp-accent-rgb), .08); }
 
 /* Substituídas (dentro de um collapse, de-emphasizadas): sem expansível — só a fila em 6 colunas, sem
    áreas. As duas células vazias (chevron/ações) são tracks `auto` que colapsam a 0 — assim a linha cabe
@@ -372,6 +395,7 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
             "check data    chevron"
             "check desc    chevron"
             "check total   chevron"
+            "resumo resumo resumo"
             "acoes acoes   acoes"
             "detalhe detalhe detalhe";
         align-items: start;
