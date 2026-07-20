@@ -16,6 +16,8 @@ use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Cobranca\Service\EncargosVivos;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Entity\Tenant\Tenant;
 
 /**
@@ -60,6 +62,8 @@ final class MontarDashboardCobrancaUseCase
         private readonly ProximaAcaoRepository $proximaAcaoRepository,
         private readonly CalculadoraSaldo $calculadoraSaldo,
         private readonly CalculadoraHonorarios $calculadoraHonorarios,
+        private readonly EncargosVivos $encargosVivos,
+        private readonly ResolvedorConfigEncargos $resolvedorConfig,
     ) {
     }
 
@@ -83,6 +87,18 @@ final class MontarDashboardCobrancaUseCase
 
         // ── Carga em LOTE (uma query cada) para todos os casos do tenant ──────────────────────────
         $exigiveisPorCaso = $this->agruparPorCaso($this->obrigacaoRepository->exigiveisDosCasos($casoIds, $tenant));
+
+        // Encargos AO VIVO (spec §6.2/INV-V5): hidrata EM MEMÓRIA as obrigacoes VIVAS de cada caso para
+        // HOJE antes de derivar/agregar — o Dashboard soma o MESMO exigivel vivo que o saldo e a tela.
+        // Config resolvida 1× por caso; `doTenant` já fez fetch-join de objeto/carteira → sem N+1. As
+        // congeladas mantem o snapshot. Read-only (sem flush): nada de Viva e persistido aqui.
+        foreach ($casos as $caso) {
+            $casoId = $caso->getId();
+            if ($casoId !== null && isset($exigiveisPorCaso[$casoId])) {
+                $this->encargosVivos->hidratar($this->resolvedorConfig->resolverDoCaso($caso), $exigiveisPorCaso[$casoId]);
+            }
+        }
+
         $alocadoPorObrigacao = $this->alocacaoRepository->somasPorObrigacaoDosCasos($casoIds, $tenant);
         $pagamentosPorCaso = $this->agruparPorCaso($this->pagamentoRepository->dosCasos($casoIds, $tenant));
         $liquidacoesPorCaso = $this->agruparPorCaso($this->liquidacaoRepository->dosCasos($casoIds, $tenant));

@@ -101,6 +101,8 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             $acaoRepo,
             $calcSaldo,
             $calcHon,
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new ResolvedorConfigEncargos(),
         );
 
         $this->inicio = new \DateTimeImmutable('2026-07-01 00:00:00');
