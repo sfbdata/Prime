@@ -31,6 +31,31 @@ taxa zero e **apagado esses R$ 155 mil**. A migração `Version20260719140000` c
 > 0. Verificado: **0 em risco, 3.271 congeladas, soma idêntica**. A F3 ainda acrescentou um **freio de
 redução** (`ReducaoDeEncargosBloqueadaException`): o cron nunca grava encargo menor sem `--permitir-reducao`.
 
+## 🔨 RODADA PÓS-GO-LIVE (feedback do teste do dono, 2026-07-20)
+
+O dono testou e pediu 4 ajustes. **A branch já tem o Ajuste 1; 2 e 3 são o próximo chat.**
+
+### ✅ Ajuste 1 — Recálculo automático ao criar/editar (FEITO, commit `f33b538`)
+Queixa: criou obrigação vencendo em 2026, editou para 2020, os juros não recalcularam. Agora a obrigação tem
+dois estados: **automática** (recalcula na criação, na edição e no cron — cresce sozinha, estilo `TODAY()`) e
+**travada** (o gestor digitou o valor à mão → fixo). Digitar um encargo trava e o motor completa os honorários
+sobre a base digitada. `tests/Cobranca` **772/772**. *(Isto revisou a decisão da F4: agora digitar encargo
+CONGELA, com honorários completados — mais coerente.)*
+
+**Decisão sobre correção monetária:** correção real é por índice (IGP-M/IPCA), mas o sistema é de REGISTRO —
+a correção fica **manual por obrigação** (o gestor pesquisa e digita no campo que já existe). **Manter a
+"Correção (%)" da carteira em 0** (taxa fixa não é correção monetária). Não construir busca de índice.
+
+### ⏳ Ajuste 2 — Honorários editáveis no OBJETO/CASO e na OBRIGAÇÃO (PRÓXIMO)
+Hoje só se edita honorário na carteira. O dono quer editar no caso e na obrigação individual, e ter o campo
+de honorário junto dos encargos nos forms. Extensão da cascata para honorários (spec §11 previa "por obrigação").
+
+### ⏳ Ajuste 3 — Redesign do card da obrigação (PRÓXIMO)
+A linha em colunas ficou apertada. O dono quer card com labels/cores/bom UX. ⚠️ 150+ obrigações por objeto →
+densidade importa (candidato: card expansível — compacto por padrão, expande no clique).
+
+**Ordem no próximo chat:** smoke do Ajuste 1 → Ajuste 2 (dinheiro: investigar+spec+implementar) → Ajuste 3 (card).
+
 ### Duas pendências humanas antes do deploy (checklist §4)
 1. **Confirmar o corte da carência de honorários** (`d > 30`) com a contabilidade — reproduz 100% dos
    dados, mas o boundary 29–32 não é observável (nenhuma obrigação real caiu nele). Só afeta futuras.
