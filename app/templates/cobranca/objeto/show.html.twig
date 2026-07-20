@@ -358,6 +358,12 @@ document.addEventListener('DOMContentLoaded', function () {
             setVal('juros', reais(botao.getAttribute('data-juros-centavos')));
             setVal('multa', reais(botao.getAttribute('data-multa-centavos')));
             setVal('correcao', reais(botao.getAttribute('data-correcao-centavos')));
+            /* Honorário (Ajuste 2, D-A2-5): NÃO é pré-preenchido a partir dos `data-*` da linha — fica
+               VAZIO = automático (o motor recalcula/completa). Limpar aqui é obrigatório: o modal é
+               reutilizável, e sem este reset um honorário digitado numa obrigação vazaria para a próxima.
+               No B5 (reidratação) `relatedTarget` é undefined e cai no early-return acima, então o valor
+               que o gestor submeteu sobrevive — como os demais encargos. */
+            setVal('honorarios', '');
             setVal('motivo', '');
             /* F5 (spec §12): revela o aviso de reconciliação só quando a linha carrega pagamento
                (`data-tem-pagamento="1"`). Como o modal é reutilizável, o estado é reposto a cada
@@ -373,22 +379,29 @@ document.addEventListener('DOMContentLoaded', function () {
        O "%" não tem `name` — é conveniência de digitação, derivada do R$ sobre o valor original. */
     function initEspelhoEncargos(modal) {
         if (!modal) { return; }
-        /* Cada par guarda a PRÓPRIA base. Uma variável única compartilhada parecia bastar (hoje os três
-           declaram `valorOriginal`), mas a última iteração vencia para todos — e a spec §11 prevê bases
-           configuráveis por encargo (multa sobre o principal, honorários sobre a base composta). No dia
-           em que a primeira base divergir, o espelho calcularia tudo sobre a base errada, em silêncio e
-           sobre dinheiro. Resolver por par custa nada agora e fecha a armadilha. */
+        /* Cada par guarda a PRÓPRIA base, como uma LISTA de inputs a somar. Juros/multa/correção têm base
+           simples (um input: o valor original); o honorário (Ajuste 2) tem base COMPOSTA — valor + juros +
+           multa + correção. Sem isso o espelho calcularia o % do honorário sobre a base errada, em silêncio
+           e sobre dinheiro (risco 2 da spec). */
         var pares = [];
         modal.querySelectorAll('[data-encargo-pct]').forEach(function (pctInput) {
             var nome = pctInput.getAttribute('data-encargo-pct');
             var campoBase = pctInput.getAttribute('data-encargo-base') || 'valorOriginal';
-            var baseEl = modal.querySelector('input[name$="[' + campoBase + ']"]');
             var reaisInputEl = modal.querySelector('[data-encargo="' + nome + '"]');
-            if (reaisInputEl && baseEl) { pares.push({ pct: pctInput, reais: reaisInputEl, base: baseEl }); }
+            if (!reaisInputEl) { return; }
+            var baseEls;
+            if (campoBase === 'composta') {
+                // Base composta: os quatro inputs em R$; um ausente simplesmente soma 0 (não quebra).
+                baseEls = ['valorOriginal', 'juros', 'multa', 'correcao']
+                    .map(function (campo) { return modal.querySelector('input[name$="[' + campo + ']"]'); })
+                    .filter(function (el) { return el !== null; });
+            } else {
+                var baseEl = modal.querySelector('input[name$="[' + campoBase + ']"]');
+                baseEls = baseEl ? [baseEl] : [];
+            }
+            if (baseEls.length > 0) { pares.push({ pct: pctInput, reais: reaisInputEl, baseEls: baseEls }); }
         });
         if (pares.length === 0) { return; }
-        // Campo que dispara a re-sincronização geral: a base do primeiro par (hoje, de todos).
-        var base = pares[0].base;
 
         /* Percentual digitado → número. Aceita vírgula (pt-BR) e ponto; string vazia vira null, para
            distinguir "não informado" de "zero por cento". */
@@ -398,7 +411,11 @@ document.addEventListener('DOMContentLoaded', function () {
             var f = parseFloat(s.replace(',', '.'));
             return isNaN(f) ? null : f;
         }
-        function baseCentavos(par) { return parseCentavos(par.base.value); }
+        /* Base em centavos = soma dos inputs da base do par (um só para base simples; os quatro para a
+           base composta do honorário). É recalculada a cada leitura, então acompanha o que o gestor digita. */
+        function baseCentavos(par) {
+            return par.baseEls.reduce(function (soma, el) { return soma + parseCentavos(el.value); }, 0);
+        }
 
         /* % → R$ em CENTAVOS INTEIROS. O percentual vira inteiro em décimos de milésimo de ponto
            (4 casas) e há UMA única divisão no fim, arredondada half-up (`Math.round`, valores nunca
@@ -444,7 +461,19 @@ document.addEventListener('DOMContentLoaded', function () {
                 par.pct.value = texto === '' ? '' : centavosParaPercentual(baseCent, parseCentavos(texto));
             });
         });
-        base.addEventListener('input', sincronizarPercentuais);
+        /* Re-sincroniza os % sempre que QUALQUER base muda. Antes só o valor original disparava; agora o
+           honorário depende também de juros/multa/correção (base composta), então cada um desses inputs
+           re-sincroniza o espelho. Dedup por referência: o valor original é base de todos os pares, mas
+           o listener é registrado uma única vez. */
+        var basesObservadas = [];
+        pares.forEach(function (par) {
+            par.baseEls.forEach(function (el) {
+                if (basesObservadas.indexOf(el) === -1) {
+                    basesObservadas.push(el);
+                    el.addEventListener('input', sincronizarPercentuais);
+                }
+            });
+        });
 
         /* Registrado DEPOIS do preenchimento do modal de editar (acima): quando este roda, os R$ da
            linha já estão nos campos, e o % sai deles. No B5 (reidratação) o `relatedTarget` é undefined,

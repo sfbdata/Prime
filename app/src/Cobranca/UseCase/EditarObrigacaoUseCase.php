@@ -70,13 +70,18 @@ final class EditarObrigacaoUseCase
             throw new ObrigacaoDeAcordoException((int) $obrigacao->getId());
         }
 
-        // Detecta ANTES de mutar se o gestor mexeu à mão em algum componente (juros/multa/correção). É
-        // a mudança manual que sinaliza "quero este valor exato" e dispara o congelamento (spec §8,
-        // INV-E4). Comparação COMPONENTE A COMPONENTE: trocar R$ 10 de multa por R$ 10 de juros mantém o
-        // agregado e muda dinheiro de categoria — tem de contar como mexida.
+        // Detecta ANTES de mutar se o gestor mexeu à mão em algum componente (juros/multa/correção OU
+        // honorário — Ajuste 2). É a mudança manual que sinaliza "quero este valor exato" e dispara o
+        // congelamento (spec §8, INV-E4). Comparação COMPONENTE A COMPONENTE: trocar R$ 10 de multa por
+        // R$ 10 de juros mantém o agregado e muda dinheiro de categoria — tem de contar como mexida.
+        //
+        // O honorário é `?int`: `honorarios !== null` é digitação (o gestor fixou um valor — inclusive `0`),
+        // enquanto `null` é "não informado" e NÃO conta como mexida — é o que preserva o Ajuste 1 (editar só
+        // o vencimento de uma automática, com honorário vazio, recalcula na hora em vez de congelar).
         $mexeuManual = $input->juros !== $obrigacao->getJuros()
             || $input->multa !== $obrigacao->getMulta()
-            || $input->correcao !== $obrigacao->getCorrecao();
+            || $input->correcao !== $obrigacao->getCorrecao()
+            || $input->honorarios !== null;
 
         // A config da cascata (Carteira→Caso→Obrigação) NÃO depende do vencimento/valor — pode ser
         // resolvida agora, antes de mutar. O vencimento/valor NOVOS (do input) entram só no cálculo.
@@ -86,13 +91,14 @@ final class EditarObrigacaoUseCase
         // Encargos FINAIS em variáveis locais, SEM tocar a entidade ainda (o guard do exigível roda com
         // eles e precisa poder rejeitar sem deixar a obrigação suja em memória).
         if ($mexeuManual) {
-            // Gestor digitou: os três do input são a verdade e FIXAM (congela). Os honorários não têm
-            // campo — o motor os recompõe sobre a base digitada (não preserva o valor velho nem os zera).
+            // Gestor digitou: os três do input são a verdade e FIXAM (congela). O honorário, quando vazio
+            // (`null`), é RECOMPOSTO pelo motor sobre a base digitada (não preserva o valor velho nem o
+            // zera); quando digitado, é usado como está (override — o motor não o sobrescreve).
             $dias = $this->calculadora->diasDeAtraso($input->vencimentoOriginal, $hoje);
             $jFinal = $input->juros;
             $mFinal = $input->multa;
             $cFinal = $input->correcao;
-            $hFinal = $this->calculadora->honorarios((int) $input->valorOriginal, $jFinal, $mFinal, $cFinal, $config, $dias);
+            $hFinal = $input->honorarios ?? $this->calculadora->honorarios((int) $input->valorOriginal, $jFinal, $mFinal, $cFinal, $config, $dias);
             $vaiMaterializar = true;
             $vaiCongelar = true;
         } elseif (!$obrigacao->encargosCongelados()) {
@@ -172,7 +178,7 @@ final class EditarObrigacaoUseCase
     }
 
     /**
-     * @return array{descricao: string, valorOriginal: int, vencimentoOriginal: string, encargosReconhecidos: int, juros: int, multa: int, correcao: int, referenciaExterna: ?string, encargosCongeladosEm: ?string}
+     * @return array{descricao: string, valorOriginal: int, vencimentoOriginal: string, encargosReconhecidos: int, juros: int, multa: int, correcao: int, honorarios: int, referenciaExterna: ?string, encargosCongeladosEm: ?string}
      */
     private function snapshot(Obrigacao $obrigacao): array
     {
@@ -187,6 +193,9 @@ final class EditarObrigacaoUseCase
             'juros' => $obrigacao->getJuros(),
             'multa' => $obrigacao->getMulta(),
             'correcao' => $obrigacao->getCorrecao(),
+            // Honorário (Ajuste 2): fora do exigível (INV-E2), mas agora editável — o snapshot registra o
+            // antes/depois para explicar override e congelamento na auditoria.
+            'honorarios' => $obrigacao->getHonorarios(),
             'referenciaExterna' => $obrigacao->getReferenciaExterna(),
             // O histórico tem de registrar o congelamento: é ele que explica por que aquela
             // obrigação parou de crescer a partir desta edição (antes null → depois preenchido).

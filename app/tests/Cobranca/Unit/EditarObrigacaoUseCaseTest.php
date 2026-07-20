@@ -581,4 +581,132 @@ final class EditarObrigacaoUseCaseTest extends TestCase
             self::assertFalse($obrigacao->encargosCongelados());
         }
     }
+
+    /**
+     * Ajuste 2 (D-A2-5): editar com honorário DIGITADO é override — o motor não o sobrescreve — e congela,
+     * mesmo quando juros/multa/correção continuam iguais aos atuais (a digitação do honorário sozinho já é
+     * mexida manual, via `honorarios !== null`). Com TOPLIFE (20%) o motor daria 20000; o gestor fixou 7777.
+     */
+    #[Test]
+    public function editarComHonorarioDigitadoEhOverrideECongela(): void
+    {
+        $caso = $this->casoTopLife();
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setDescricao('Boleto automático')
+            ->setValorOriginal(100000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2020-01-01'));
+        self::assertFalse($obrigacao->encargosCongelados(), 'pré-condição: automática');
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+        $this->eventoRepository->method('salvar');
+
+        $input = $this->inputValido();
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        // Juros/multa/correção iguais aos atuais (0/0/0): SÓ o honorário é digitado.
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
+        $input->honorarios = 7777;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame(7777, $resultado->getHonorarios(), 'honorário digitado é override: o motor não o sobrescreve');
+        self::assertSame(100000, $resultado->valorExigivel(), 'honorário fora do exigível (INV-E2)');
+        self::assertTrue($resultado->encargosCongelados(), 'digitar o honorário sozinho já congela');
+    }
+
+    /**
+     * Ajuste 1 INTACTO (prova por mutação): editar SÓ o vencimento de uma automática, com o honorário
+     * VAZIO (`null`), recalcula os 4 na hora e NÃO congela. Se `honorarios !== null` fosse afrouxado a
+     * ponto de o vazio contar como mexida manual, a obrigação congelaria e o Ajuste 1 quebraria — este
+     * teste pega isso.
+     */
+    #[Test]
+    public function editarSoOVencimentoComHonorarioVazioRecalculaENaoCongela(): void
+    {
+        $caso = $this->casoTopLife();
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setDescricao('Boleto recente')
+            ->setValorOriginal(100000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2099-01-01')); // futuro: nasce sem atraso
+        self::assertSame(0, $obrigacao->getJuros(), 'pré-condição: sem atraso, sem juros');
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+        $this->eventoRepository->method('salvar');
+
+        // Edita SÓ o vencimento (para o passado); reenvia os encargos atuais (0/0/0) e o honorário VAZIO.
+        $input = $this->inputValido();
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
+        $input->honorarios = null;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertGreaterThan(0, $resultado->getJuros(), 'mudar o vencimento recalcula os juros na hora (Ajuste 1)');
+        self::assertSame(2000, $resultado->getMulta(), 'a multa (2%) entra com o atraso');
+        self::assertGreaterThan(0, $resultado->getHonorarios(), 'o motor recalcula o honorário do dia');
+        self::assertFalse($resultado->encargosCongelados(), 'honorário vazio não congela: Ajuste 1 intacto');
+    }
+
+    /**
+     * INV-E2 (prova por mutação): o guard `< totalAlocado` olha SÓ valorOriginal + juros + multa + correção.
+     * Um honorário GIGANTE não pode fazer o guard "passar" um exigível que caiu abaixo do já pago — honorário
+     * não é dívida do credor. Aqui o exigível real (só j+m+c) é R$100,00 e já há R$200,00 alocados: tem de
+     * bloquear. Se o guard somasse o honorário (510000), a redução passaria indevidamente.
+     */
+    #[Test]
+    public function honorarioNaoEntraNoGuardDoExigivel(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva(); // valorOriginal 10000, encargos 0
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(20000);
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $input = $this->inputValido();
+        $input->valorOriginal = 10000;
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
+        // Honorário gigante: se ENTRASSE no exigível, o guard passaria. Não pode.
+        $input->honorarios = 500000;
+
+        $this->expectException(ValorAbaixoDoAlocadoException::class);
+
+        $this->sut->executar($input, $this->tenant, $this->usuario);
+    }
+
+    /**
+     * INV-E2: o honorário fica FORA do `valorExigivel()`. Mesmo digitando um honorário alto, o exigível é
+     * só valorOriginal + juros + multa + correção — o honorário não infla o saldo.
+     */
+    #[Test]
+    public function honorarioAltoNaoInflaOExigivel(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+        $this->eventoRepository->method('salvar');
+
+        $input = $this->inputValido();
+        $input->valorOriginal = 10000;
+        $input->juros = 300;
+        $input->multa = 150;
+        $input->correcao = 50;
+        $input->honorarios = 999999;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertSame(999999, $resultado->getHonorarios());
+        self::assertSame(10500, $resultado->valorExigivel(), 'exigível = original + j + m + c; honorário fora (INV-E2)');
+    }
 }

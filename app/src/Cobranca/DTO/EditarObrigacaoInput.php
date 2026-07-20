@@ -53,6 +53,16 @@ final class EditarObrigacaoInput
     #[Assert\PositiveOrZero(message: 'A correção não pode ser negativa.')]
     public int $correcao = 0;
 
+    /**
+     * Honorário reconhecido, em CENTAVOS — o único encargo `?int` de propósito (Ajuste 2, D-A2-5):
+     * `null` = NÃO informado (o motor RECALCULA/completa sobre a base composta; o campo NÃO é
+     * pré-preenchido no editar, para que `null` signifique inequivocamente "automático" e o Ajuste 1 —
+     * editar só o vencimento de uma automática recalcula — siga intacto) ≠ `0` = zero explícito (o gestor
+     * fixou honorário zero e a obrigação congela). Fica FORA do valor exigível e do guard (INV-E2).
+     */
+    #[Assert\PositiveOrZero(message: 'O honorário não pode ser negativo.')]
+    public ?int $honorarios = null;
+
     #[Assert\NotBlank(message: 'Informe o motivo da correção.')]
     #[Assert\Length(max: 255)]
     public ?string $motivo = null;

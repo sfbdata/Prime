@@ -74,13 +74,19 @@ final class RegistrarObrigacaoUseCase
         $hoje = new \DateTimeImmutable('today');
         $config = $this->resolvedor->resolver($obrigacao);
 
-        if ($input->juros > 0 || $input->multa > 0 || $input->correcao > 0) {
-            // O gestor DIGITOU encargos: os três são a verdade e FIXAM (congela). Os honorários não têm
-            // campo no form — são COMPLETADOS pelo motor sobre a base digitada (senão travariam em zero,
-            // o bug bloqueante da F4). Com os honorários materializados, congelar é seguro: número
-            // digitado por gente não é sobrescrito pelo cron na madrugada seguinte (INV-E4).
+        // "Digitou" inclui o honorário (Ajuste 2, D-A2-5): `honorarios !== null` é digitação (mesmo `0`,
+        // zero explícito), enquanto `null` é "não informado" e mantém a obrigação automática. Basta digitar
+        // QUALQUER encargo — juros/multa/correção > 0 OU um honorário — para a obrigação nascer travada.
+        $digitou = $input->juros > 0 || $input->multa > 0 || $input->correcao > 0 || $input->honorarios !== null;
+
+        if ($digitou) {
+            // O gestor DIGITOU encargos: os três são a verdade e FIXAM (congela). O honorário, quando vazio
+            // (`null`), é COMPLETADO pelo motor sobre a base digitada (senão travaria em zero, o bug
+            // bloqueante da F4); quando digitado, é usado como está (override — o motor não o sobrescreve).
+            // Com os encargos materializados, congelar é seguro: número digitado por gente não é
+            // sobrescrito pelo cron na madrugada seguinte (INV-E4).
             $dias = $this->calculadora->diasDeAtraso($input->vencimentoOriginal, $hoje);
-            $honorarios = $this->calculadora->honorarios(
+            $honorarios = $input->honorarios ?? $this->calculadora->honorarios(
                 (int) $input->valorOriginal,
                 $input->juros,
                 $input->multa,
@@ -114,6 +120,9 @@ final class RegistrarObrigacaoUseCase
                 'juros' => $obrigacao->getJuros(),
                 'multa' => $obrigacao->getMulta(),
                 'correcao' => $obrigacao->getCorrecao(),
+                // Honorário materializado (Ajuste 2): fica FORA do exigível, mas é dinheiro editável — o
+                // histórico registra com o que a obrigação nasceu para explicar override/congelamento depois.
+                'honorarios' => $obrigacao->getHonorarios(),
             ],
             flush: true,
         );

@@ -60,6 +60,14 @@ final class RegistrarObrigacaoType extends AbstractType
                 'required' => false,
                 'empty_data' => '0',
                 'attr' => ['class' => 'form-control', 'data-encargo' => 'correcao'],
+            ])
+            // Honorário (Ajuste 2): SEM `empty_data` de propósito — o transformer mapeia campo vazio para
+            // `null` (não `0`), e `null` = automático (o motor completa/recalcula), `0` = zero explícito
+            // (congela). Incide sobre a base COMPOSTA no espelho %↔R$ (data-encargo-base="composta" no Twig).
+            ->add('honorarios', CentavosType::class, [
+                'label' => 'Honorários (R$)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-encargo' => 'honorarios'],
             ]);
     }
 

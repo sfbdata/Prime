@@ -49,4 +49,13 @@ final class RegistrarObrigacaoInput
 
     #[Assert\PositiveOrZero(message: 'A correção não pode ser negativa.')]
     public int $correcao = 0;
+
+    /**
+     * Honorário reconhecido no lançamento, em CENTAVOS — o único encargo `?int` de propósito (Ajuste 2,
+     * D-A2-5): `null` = NÃO informado (o motor COMPLETA/recalcula sobre a base composta, o comportamento
+     * automático de hoje) ≠ `0` = zero explícito (o gestor fixou honorário zero e a obrigação congela).
+     * Colapsar os dois num `0` apagaria a distinção "vazio vs zero". Fica FORA do valor exigível (INV-E2).
+     */
+    #[Assert\PositiveOrZero(message: 'O honorário não pode ser negativo.')]
+    public ?int $honorarios = null;
 }

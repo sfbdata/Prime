@@ -334,6 +334,78 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         );
     }
 
+    #[TestDox('Registrar obrigação com honorário digitado: usa o valor, fica fora do exigível e TRAVA')]
+    public function testRegistrarObrigacaoComHonorarioDigitadoCongela(): void
+    {
+        // Ajuste 2: o honorário é o 4º encargo do modal. Digitá-lo trava a obrigação (INV-E4) e o valor
+        // fica FORA do exigível (INV-E2). A carteira de teste é neutra, mas aqui o honorário é DIGITADO
+        // (6000), então independe da config — prova que o campo chega ao UseCase e é usado.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_obrigacao');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/obrigacoes', [
+            'registrar_obrigacao' => [
+                'descricao' => 'Obrigacao com honorario fixo',
+                'valorOriginal' => '1.000,00',
+                'vencimentoOriginal' => '2026-08-10',
+                'honorarios' => '60,00',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $criada = $em->getRepository(Obrigacao::class)->findOneBy(['descricao' => 'Obrigacao com honorario fixo']);
+        self::assertNotNull($criada);
+        self::assertSame(6000, $criada->getHonorarios(), 'usa o honorário digitado');
+        self::assertSame(100000, $criada->valorExigivel(), 'honorário fora do exigível (INV-E2)');
+        self::assertTrue($criada->encargosCongelados(), 'digitar honorário à mão trava a obrigação');
+    }
+
+    #[TestDox('Editar obrigação com honorário digitado: usa o valor, congela e fica fora do exigível')]
+    public function testEditarObrigacaoComHonorarioDigitadoCongela(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0,
+        ])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
+
+        // SÓ o honorário é digitado (juros/multa/correção ficam vazios = 0, iguais aos atuais): a digitação
+        // do honorário sozinho já é mexida manual e congela.
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'Honorario ajustado',
+                'valorOriginal' => '1.000,00',
+                'vencimentoOriginal' => '2026-09-01',
+                'honorarios' => '75,00',
+                'motivo' => 'fixar honorário da obrigação',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->find(Obrigacao::class, $obrigacaoId);
+        self::assertSame(7500, $fresh->getHonorarios(), 'o honorário digitado é aplicado');
+        self::assertSame(100000, $fresh->valorExigivel(), 'honorário fora do exigível (INV-E2)');
+        self::assertTrue($fresh->encargosCongelados(), 'digitar honorário à mão congela');
+    }
+
     #[TestDox('Editar obrigação sem a capacidade: negado (redirect, não caso)')]
     public function testEditarSemCapacidade(): void
     {

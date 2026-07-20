@@ -186,6 +186,88 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         self::assertNotNull($obrigacao->getEncargosAtualizadosEm(), 'materializou: tem data de referência');
     }
 
+    /**
+     * Ajuste 2 (D-A2-5): honorário DIGITADO é override — o motor NÃO o sobrescreve — e a obrigação nasce
+     * TRAVADA. Com carteira TOPLIFE (20% sobre base composta) o motor produziria 21500; o gestor fixou
+     * 9999 e é isso que fica. Digitar o honorário sozinho já é digitação (mesmo com juros/multa/correção).
+     */
+    #[Test]
+    public function honorarioDigitadoNoLancamentoEhOverrideECongela(): void
+    {
+        $caso = $this->casoTopLife();
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->eventoRepository->method('salvar');
+
+        $input = new RegistrarObrigacaoInput();
+        $input->casoId = 30;
+        $input->descricao = 'Dívida com honorário fixado à mão';
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        $input->juros = 5000;
+        $input->multa = 2000;
+        $input->correcao = 500;
+        // O motor daria 21500 (20% de 107500); o gestor fixou 9999 — é o que tem de prevalecer.
+        $input->honorarios = 9999;
+
+        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertSame(9999, $obrigacao->getHonorarios(), 'honorário digitado é override: o motor não o sobrescreve');
+        self::assertNotSame(21500, $obrigacao->getHonorarios(), 'não é o valor que o motor calcularia');
+        self::assertSame(107500, $obrigacao->valorExigivel(), 'honorário fora do exigível (INV-E2)');
+        self::assertTrue($obrigacao->encargosCongelados(), 'digitar honorário à mão trava a obrigação');
+    }
+
+    /**
+     * Ajuste 2 (D-A2-5, risco 3): honorário VAZIO (`null`) NÃO é digitação. Com os outros três também
+     * vazios, a obrigação é AUTOMÁTICA (o motor calcula os 4 e ela segue recalculável). Prova por mutação:
+     * se `honorarios !== null` fosse afrouxado para tratar o vazio como digitado, ela congelaria e este
+     * teste ficaria vermelho.
+     */
+    #[Test]
+    public function honorarioVazioMantemAObrigacaoAutomatica(): void
+    {
+        $caso = $this->casoTopLife();
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->eventoRepository->method('salvar');
+
+        $input = new RegistrarObrigacaoInput();
+        $input->casoId = 30;
+        $input->descricao = 'Boleto automático';
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        $input->honorarios = null; // explícito: vazio = automático
+
+        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertFalse($obrigacao->encargosCongelados(), 'honorário vazio não congela: segue automática');
+        self::assertGreaterThan(0, $obrigacao->getHonorarios(), 'o motor completa o honorário do dia (não fica em zero)');
+    }
+
+    /**
+     * Ajuste 2 (risco 3): `0` NÃO é `null`. Zero explícito é uma decisão (honorário zero fixo) e CONGELA,
+     * distinto do vazio (automático). Sem essa distinção, o motor de 20% recomporia um honorário que o
+     * gestor zerou de propósito.
+     */
+    #[Test]
+    public function honorarioZeroExplicitoEhRespeitadoECongela(): void
+    {
+        $caso = $this->casoTopLife();
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->eventoRepository->method('salvar');
+
+        $input = new RegistrarObrigacaoInput();
+        $input->casoId = 30;
+        $input->descricao = 'Sem honorário, fixo em zero';
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        $input->honorarios = 0;
+
+        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertSame(0, $obrigacao->getHonorarios(), 'honorário zero explícito é respeitado, não recomposto pelo motor');
+        self::assertTrue($obrigacao->encargosCongelados(), 'zero explícito é digitação: congela');
+    }
+
     #[Test]
     public function encargosZeradosNaoCongelamAObrigacao(): void
     {

@@ -84,6 +84,19 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
             }
             // A base do espelho: sem ela o JS desabilita os % (não há por que dividir).
             self::assertSelectorExists($modal . ' input[name$="[valorOriginal]"]', "Sumiu a base do % em {$modal}");
+
+            // Ajuste 2 (Fatia B): o honorário é o 4º par, mas com base COMPOSTA
+            // (`data-encargo-base="composta"`) — o JS soma valorOriginal + juros + multa + correção.
+            // Se o marcador `composta` sumir, o espelho leria o honorário sobre a base errada, em silêncio
+            // e sobre dinheiro (risco 2 da spec). O R$ é o campo do Form (submetido); o % é auxiliar.
+            self::assertSelectorExists(
+                $modal . ' [data-encargo-pct="honorarios"][data-encargo-base="composta"]',
+                "Sumiu o input de % de honorários com base composta em {$modal}",
+            );
+            self::assertSelectorExists(
+                $modal . ' [data-encargo="honorarios"]',
+                "Sumiu o campo em R$ de honorários em {$modal}",
+            );
         }
 
         // O % é DERIVADO do R$ e nunca é submetido: se ganhar `name`, vira uma segunda fonte de verdade

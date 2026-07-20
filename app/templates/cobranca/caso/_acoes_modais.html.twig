@@ -13,30 +13,41 @@
 <hr class="my-3">
 <h6 class="fw-semibold mb-1">Encargos reconhecidos</h6>
 <div class="form-text mb-3">
-    Informe o percentual <em>ou</em> o valor em reais — um preenche o outro, sobre o valor original.
-    Ao gravar um valor aqui a obrigação fica <strong>congelada</strong>: o cálculo automático diário
-    para de atualizá-la, e o que ficar registrado passa a valer até alguém corrigir de novo.
+    Informe o percentual <em>ou</em> o valor em reais — um preenche o outro. Juros, multa e correção
+    incidem sobre o <strong>valor original</strong>; o <strong>honorário</strong> incide sobre a base
+    composta (valor + juros + multa + correção). Ao gravar juros, multa ou correção a obrigação fica
+    <strong>congelada</strong>: o cálculo automático diário para de atualizá-la. Deixe o honorário
+    <strong>vazio</strong> para calculá-lo automaticamente; ao digitar, a obrigação congela.
 </div>
 
-{% for campo, rotulo in {'juros': 'Juros', 'multa': 'Multa', 'correcao': 'Correção'} %}
+{# Cada encargo carrega a PRÓPRIA base do espelho %↔R$: juros/multa/correção sobre o valor original;
+   honorário sobre a base COMPOSTA (Ajuste 2) — o JS de `initEspelhoEncargos` soma valor+juros+multa+
+   correção quando `data-encargo-base="composta"`. O `?int $honorarios` (Form sem `empty_data`) mapeia
+   campo vazio para `null` = automático; qualquer valor digitado = override + congela. #}
+{% for encargo in [
+    {'campo': 'juros', 'rotulo': 'Juros', 'base': 'valorOriginal'},
+    {'campo': 'multa', 'rotulo': 'Multa', 'base': 'valorOriginal'},
+    {'campo': 'correcao', 'rotulo': 'Correção', 'base': 'valorOriginal'},
+    {'campo': 'honorarios', 'rotulo': 'Honorários', 'base': 'composta'}
+] %}
     <div class="row g-2 mb-3">
         <div class="col-5">
-            <label class="form-label" for="{{ prefixoEncargos }}_{{ campo }}_pct">{{ rotulo }} (%)</label>
+            <label class="form-label" for="{{ prefixoEncargos }}_{{ encargo.campo }}_pct">{{ encargo.rotulo }} (%)</label>
             <div class="input-group">
                 <input type="text" class="form-control" inputmode="decimal"
-                       id="{{ prefixoEncargos }}_{{ campo }}_pct"
-                       data-encargo-pct="{{ campo }}" data-encargo-base="valorOriginal"
+                       id="{{ prefixoEncargos }}_{{ encargo.campo }}_pct"
+                       data-encargo-pct="{{ encargo.campo }}" data-encargo-base="{{ encargo.base }}"
                        autocomplete="off">
                 <span class="input-group-text">%</span>
             </div>
         </div>
         <div class="col-7">
-            <label class="form-label" for="{{ attribute(formEncargos, campo).vars.id }}">{{ rotulo }} (R$)</label>
+            <label class="form-label" for="{{ attribute(formEncargos, encargo.campo).vars.id }}">{{ encargo.rotulo }} (R$)</label>
             <div class="input-group">
-                {{ form_widget(attribute(formEncargos, campo)) }}
+                {{ form_widget(attribute(formEncargos, encargo.campo)) }}
                 <span class="input-group-text">R$</span>
             </div>
-            {{ form_errors(attribute(formEncargos, campo)) }}
+            {{ form_errors(attribute(formEncargos, encargo.campo)) }}
         </div>
     </div>
 {% endfor %}
