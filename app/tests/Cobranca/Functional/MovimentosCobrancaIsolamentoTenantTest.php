@@ -160,6 +160,42 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         self::assertSame(20000, $this->calculadoraSaldo->saldoExigivel($caso));
     }
 
+    #[TestDox('Pagamento RETROATIVO quita pelo exigível da DATA do pagamento (FIFO e reconciliação na mesma base)')]
+    public function testPagamentoRetroativoQuitaPelaDataDoPagamentoEFechaSaldoEmZero(): void
+    {
+        // Relógio dos serviços = 20/07/2026 (setUp). Config TOPLIFE no caso (juros 1% a.m., multa 2%).
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $caso = $this->abrirCasoDe($tenant, $user, ModoCarteira::Multiplo);
+        $caso->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $this->em->flush();
+
+        // Duas obrigações P=100,00, venc 10/06/2026. Exigível em 10/07 (30 dias) = 103,00 CADA (juros
+        // 1,00 + multa 2,00). Em 20/07 (hoje, 40 dias) seria 103,33 cada — é essa divergência que o
+        // pagamento retroativo tem de respeitar (medir na data do pagamento, não em hoje).
+        $obrigA = $this->registrarObrigacao->executar($this->obrigacaoInputVenc((int) $caso->getId(), 10000, '2026-06-10'), $tenant, $user);
+        $obrigB = $this->registrarObrigacao->executar($this->obrigacaoInputVenc((int) $caso->getId(), 10000, '2026-06-10'), $tenant, $user);
+
+        // Paga o total devido NA DATA (10/07) = 206,00, via FIFO (auto-alocação), com data retroativa.
+        $input = new RegistrarPagamentoInput();
+        $input->casoId = (int) $caso->getId();
+        $input->valorPago = 20600;
+        $input->data = new \DateTimeImmutable('2026-07-10');
+        $input->alocarManualmente = false;
+        $this->registrarPagamento->executar($input, $tenant, $user);
+
+        $this->em->refresh($obrigA);
+        $this->em->refresh($obrigB);
+
+        // AMBAS quitam na data do pagamento (antes do fix, a 2ª ficava Viva por o FIFO medir em 20/07).
+        self::assertTrue($obrigA->estaLiquidada(), 'obrigação A liquidada');
+        self::assertTrue($obrigB->estaLiquidada(), 'obrigação B liquidada');
+        self::assertEquals(new \DateTimeImmutable('2026-07-10'), $obrigA->getLiquidadaEm());
+        self::assertSame(10300, $obrigA->valorExigivel(), 'snapshot na data do pagamento (não em hoje)');
+        // Saldo do caso fecha em ZERO — sem resíduo e sem negativo (sem divergência de data-base).
+        self::assertSame(0, $this->calculadoraSaldo->saldoExigivel($caso));
+    }
+
     #[TestDox('Pagamento acrescido_divida rateia honorários e grava a composição no banco')]
     public function testPagamentoAcrescidoRateiaHonorarios(): void
     {
@@ -325,6 +361,17 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $input->descricao = 'Competência';
         $input->valorOriginal = $valorCentavos;
         $input->vencimentoOriginal = new \DateTimeImmutable('-10 days');
+
+        return $input;
+    }
+
+    private function obrigacaoInputVenc(int $casoId, int $valorCentavos, string $vencimento): RegistrarObrigacaoInput
+    {
+        $input = new RegistrarObrigacaoInput();
+        $input->casoId = $casoId;
+        $input->descricao = 'Competência';
+        $input->valorOriginal = $valorCentavos;
+        $input->vencimentoOriginal = new \DateTimeImmutable($vencimento);
 
         return $input;
     }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\DTO\ConfigEncargos;
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\ReconciliadorLiquidacao;
@@ -79,21 +80,45 @@ final class ReconciliadorLiquidacaoTest extends TestCase
         self::assertFalse($o->encargosCongelados());
     }
 
-    #[TestDox('Liquidada que segue totalmente paga permanece liquidada')]
-    public function testLiquidadaQueSeguePagaPermanece(): void
+    #[TestDox('Liquidada que segue paga NÃO re-liquida: preserva o snapshot original (INV-V2)')]
+    public function testNaoReLiquidaJaLiquidadaPreservandoSnapshot(): void
     {
+        // Liquidada em 05/07 com valores FIXOS (50/200), distintos do que o motor daria em 20/07 (100/200).
         $o = $this->obrigacao(10000, '2026-06-20')
-            ->liquidar(100, 200, 0, 0, new \DateTimeImmutable('2026-07-15'));
+            ->liquidar(50, 200, 0, 0, new \DateTimeImmutable('2026-07-05'));
 
+        // Reconcilia numa data DIFERENTE (ex.: correção de OUTRO pagamento) — segue totalmente paga.
         $this->sut()->reconciliar($this->config(), [$o], [$this->idDe($o) => 10300], $this->ref());
 
         self::assertTrue($o->estaLiquidada());
+        self::assertEquals(new \DateTimeImmutable('2026-07-05'), $o->getLiquidadaEm(), 'data do snapshot preservada');
+        self::assertSame(50, $o->getJuros(), 'valores do snapshot NÃO recalculados (INV-V2)');
+        self::assertSame(200, $o->getMulta());
     }
 
-    #[TestDox('Congelada que não é liquidada (substituída/legado) NÃO é tocada')]
-    public function testNaoTocaCongeladaNaoLiquidada(): void
+    #[TestDox('Substituída por acordo vigente (design B: materializada, NÃO congelada) NÃO é tocada')]
+    public function testNaoTocaSubstituidaPorAcordoVigente(): void
     {
-        // Substituída: snapshot congelado, sem liquidadaEm. Mesmo "totalmente paga", fica intacta.
+        // Estado REAL que o CriarAcordo produz: snapshot da dataAcordo via definirEncargos, SEM congelar,
+        // com acordoSubstituto vigente (Ativo é o default). Mesmo "totalmente paga", fica intacta.
+        $acordoVigente = new Acordo(); // status Ativo = vigente (default da entidade)
+        $o = $this->obrigacao(10000, '2026-06-20')
+            ->definirEncargos(50, 100, 0, 0, new \DateTimeImmutable('2026-04-20'))
+            ->setAcordoSubstituto($acordoVigente);
+        self::assertFalse($o->encargosCongelados(), 'design B: substituída não é congelada');
+
+        $this->sut()->reconciliar($this->config(), [$o], [$this->idDe($o) => 999999], $this->ref());
+
+        self::assertFalse($o->estaLiquidada(), 'substituída por acordo vigente nunca é liquidada por pagamento');
+        self::assertFalse($o->encargosCongelados(), 'continua não-congelada (volta a crescer se o acordo romper)');
+        self::assertSame(50, $o->getJuros(), 'snapshot da dataAcordo intacto');
+        self::assertSame(100, $o->getMulta());
+    }
+
+    #[TestDox('Congelada legada que NÃO é liquidada nem substituída NÃO é tocada')]
+    public function testNaoTocaCongeladaLegada(): void
+    {
+        // Encargo legado travado (congelado, sem liquidadaEm, sem acordo): fica intacto.
         $o = $this->obrigacao(10000, '2026-06-20')
             ->definirEncargos(999, 111, 0, 222, new \DateTimeImmutable('2026-02-01'))
             ->congelarEncargos(new \DateTimeImmutable('2026-02-01'));
@@ -101,7 +126,7 @@ final class ReconciliadorLiquidacaoTest extends TestCase
         $this->sut()->reconciliar($this->config(), [$o], [$this->idDe($o) => 999999], $this->ref());
 
         self::assertFalse($o->estaLiquidada());
-        self::assertSame(999, $o->getJuros(), 'snapshot da substituída intacto');
+        self::assertSame(999, $o->getJuros(), 'snapshot legado intacto');
         self::assertSame(111, $o->getMulta());
     }
 

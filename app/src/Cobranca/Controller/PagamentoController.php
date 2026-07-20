@@ -133,7 +133,9 @@ final class PagamentoController extends AbstractController
         }
 
         return $this->json($this->serializarPrevia(
-            $this->autoAlocadorFifo->derivar($caso, max(0, $request->query->getInt('valor')), $tenant, $pagamento),
+            // Prévia ao vivo: data de referência = "agora" (default do derivar); o `$pagamento` em correção
+            // vai no parâmetro próprio (5º), não no da data.
+            $this->autoAlocadorFifo->derivar($caso, max(0, $request->query->getInt('valor')), $tenant, null, $pagamento),
         ));
     }
 

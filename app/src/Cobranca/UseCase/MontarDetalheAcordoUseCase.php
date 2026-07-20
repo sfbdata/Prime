@@ -41,8 +41,9 @@ final class MontarDetalheAcordoUseCase
 
         // Encargos AO VIVO (spec §3 D4): a PARCELA de um acordo VIGENTE é obrigação viva — cresce se
         // atrasar. Hidrata-as para HOJE (config resolvida do caso, 1×). Acordo não-vigente (rompido/
-        // cancelado) tem parcelas históricas → não hidrata. As SUBSTITUÍDAS ficam de fora: seu valor é
-        // o snapshot da data do acordo (não crescem) — congeladas na F3, aqui nunca são recalculadas.
+        // cancelado) tem parcelas históricas → não hidrata. As SUBSTITUÍDAS ficam de fora e NÃO são
+        // hidratadas: a F3 (CriarAcordo) materializou o snapshot na data do acordo (sem congelar), e como
+        // aqui só lemos `valorExigivel()` delas (sem hidratar), a tela mostra exatamente esse snapshot.
         if ($caso !== null && $acordo->getStatus()->ehVigente()) {
             $this->encargosVivos->hidratar(
                 $this->resolvedorConfig->resolverDoCaso($caso),

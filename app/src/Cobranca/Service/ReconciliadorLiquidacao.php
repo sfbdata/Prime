@@ -17,10 +17,15 @@ use App\Cobranca\Entity\Obrigacao;
  * chega RESOLVIDA (o chamador resolve 1× por caso), sem I/O, testável isoladamente.
  *
  * Regra por obrigação:
- *  - Congelada mas NÃO liquidada (Substituída por acordo / encargo legado travado): valor pactuado/
- *    fixado — fica INTACTA (não é dívida viva que uma quitação deva materializar).
- *  - `alocado >= exigível na data` → LIQUIDA: snapshot dos encargos na data + congela + `liquidadaEm`.
- *  - Senão, se estava liquidada → REABRE: volta a Viva (a correção desfez a quitação).
+ *  - Substituída por acordo VIGENTE: valor PACTUADO (snapshot da data do acordo) — fica INTACTA, não é
+ *    dívida viva. Detectada por `acordoSubstituto` vigente (NÃO por `encargosCongelados()`: no design
+ *    "ao vivo" a substituída é materializada mas NÃO congelada, para voltar a crescer se o acordo romper).
+ *  - Congelada mas NÃO liquidada (encargo legado travado): valor fixado — fica INTACTA.
+ *  - `alocado >= exigível na data` e AINDA NÃO liquidada → LIQUIDA: snapshot na data + congela + `liquidadaEm`.
+ *  - `alocado >= exigível` e JÁ liquidada → NÃO re-liquida: preserva o snapshot original (INV-V2 —
+ *    Liquidada nunca recalcula; senão corrigir um pagamento reescreveria a data/valor de uma obrigação
+ *    quitada por OUTRO pagamento).
+ *  - `alocado < exigível` e estava liquidada → REABRE: volta a Viva (a correção desfez a quitação).
  *  - Senão (viva, pagamento parcial) → permanece Viva.
  */
 final class ReconciliadorLiquidacao
@@ -41,7 +46,14 @@ final class ReconciliadorLiquidacao
         \DateTimeImmutable $dataPagamento,
     ): void {
         foreach ($obrigacoes as $obrigacao) {
-            // Substituída/legado congelado (congelada sem `liquidadaEm`): não é dívida viva a quitar.
+            // Substituída por acordo VIGENTE: valor pactuado (snapshot da data do acordo), fora do
+            // exigível — nunca é quitada por um pagamento. Detectada pelo acordo substituto vigente, não
+            // por `encargosCongelados()` (no design "ao vivo" ela é materializada mas NÃO congelada).
+            if ($obrigacao->getAcordoSubstituto()?->getStatus()->ehVigente() ?? false) {
+                continue;
+            }
+
+            // Congelada mas não liquidada (encargo legado travado): valor fixado — não é dívida viva.
             if ($obrigacao->encargosCongelados() && !$obrigacao->estaLiquidada()) {
                 continue;
             }
@@ -59,13 +71,18 @@ final class ReconciliadorLiquidacao
                 + $encargos['juros'] + $encargos['multa'] + $encargos['correcao'];
 
             if ($alocado >= $exigivel) {
-                $obrigacao->liquidar(
-                    $encargos['juros'],
-                    $encargos['multa'],
-                    $encargos['correcao'],
-                    $encargos['honorarios'],
-                    $dataPagamento,
-                );
+                // Só materializa o snapshot na TRANSIÇÃO Viva → Liquidada. Se já estava liquidada e segue
+                // paga, preserva o snapshot original (INV-V2): recalcular reescreveria a data/valor
+                // congelados de uma dívida quitada — possivelmente por OUTRO pagamento — ao corrigir este.
+                if (!$obrigacao->estaLiquidada()) {
+                    $obrigacao->liquidar(
+                        $encargos['juros'],
+                        $encargos['multa'],
+                        $encargos['correcao'],
+                        $encargos['honorarios'],
+                        $dataPagamento,
+                    );
+                }
 
                 continue;
             }

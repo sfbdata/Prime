@@ -245,11 +245,33 @@ final class AutoAlocadorFifoTest extends TestCase
         $alocacao = (new AlocacaoPagamento())->setObrigacao($obrig10)->setValor(30000);
         $pagamento->adicionarAlocacao($alocacao);
 
-        $previa = $this->sut->derivar($caso, 100000, $this->tenant, $pagamento);
+        $previa = $this->sut->derivar($caso, 100000, $this->tenant, null, $pagamento);
 
         self::assertFalse($previa->excede);
         self::assertSame([10, 50000], [$previa->linhas[0]->obrigacaoId, $previa->linhas[0]->valor]);
         self::assertSame([11, 50000], [$previa->linhas[1]->obrigacaoId, $previa->linhas[1]->valor]);
+    }
+
+    #[Test]
+    public function derivarMedeOExigivelNaDataDoPagamentoNaoEmHoje(): void
+    {
+        // Caso TOPLIFE (juros 1% a.m., multa 2%): obrigação P=100,00, venc 10/06/2026.
+        $caso = $this->casoComId(1);
+        $caso->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([
+            $this->obrigacaoComId(10, 10000, 0, '2026-06-10'),
+        ]);
+
+        // Data do pagamento = 10/07 (30 dias de atraso): exigível = 100,00 + juros 1,00 + multa 2,00 = 103,00.
+        // O pagamento de 103,00 CABE exato — mede a dívida na data do pagamento, não em "hoje".
+        $em10jul = $this->sut->derivar($caso, 10300, $this->tenant, new \DateTimeImmutable('2026-07-10'));
+        self::assertFalse($em10jul->excede);
+        self::assertSame(10300, $em10jul->saldoDisponivel, 'exigível medido em 10/07 (data do pagamento)');
+
+        // Sem data (prévia = "agora" = MockClock 20/07, 40 dias): exigível maior (juros 1,33) = 103,33.
+        // Prova que a data do pagamento — e não o relógio — rege a medição da dívida no FIFO.
+        $emHoje = $this->sut->derivar($caso, 10300, $this->tenant);
+        self::assertSame(10333, $emHoje->saldoDisponivel, 'exigível ao vivo em 20/07 é maior que em 10/07');
     }
 
     private function casoComId(int $id): CasoCobranca

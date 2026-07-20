@@ -67,7 +67,8 @@ final class RegistrarPagamentoUseCase
         // O AlocadorPagamento revalida sempre (Σ == parte-dívida, mesmo caso — invariáveis 12 e 20).
         $alocacoesInput = $input->alocarManualmente
             ? $input->alocacoes
-            : $this->autoAlocadorFifo->alocar($caso, (int) $input->valorPago, $tenant);
+            // FIFO mede o exigível na DATA do pagamento (mesma base da quitação/snapshot no Reconciliador).
+            : $this->autoAlocadorFifo->alocar($caso, (int) $input->valorPago, $tenant, $input->data);
 
         // Rateio de honorários + montagem/validação das alocações (invariáveis 12 e 20).
         [$valorDivida, $valorHonorarios, $alocacoes] = $this->alocador->montar(

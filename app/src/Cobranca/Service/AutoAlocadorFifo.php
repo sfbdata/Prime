@@ -47,8 +47,15 @@ final class AutoAlocadorFifo
     /**
      * Deriva a divisão dívida/honorários e a quebra FIFO SEM lançar — insumo da prévia ao vivo.
      */
-    public function derivar(CasoCobranca $caso, int $valorPago, Tenant $tenant, ?Pagamento $pagamentoEmCorrecao = null): PreviaAlocacaoFifo
+    public function derivar(CasoCobranca $caso, int $valorPago, Tenant $tenant, ?\DateTimeImmutable $dataReferencia = null, ?Pagamento $pagamentoEmCorrecao = null): PreviaAlocacaoFifo
     {
+        // A data de referência do exigível é a DATA DO PAGAMENTO (spec §5): a alocação tem de medir a
+        // dívida na MESMA data em que o pagamento a liquida, senão a sala (base data errada) diverge da
+        // quitação/snapshot (ReconciliadorLiquidacao, base data do pagamento) e um pagamento
+        // retroativo/futuro quita errado ou joga o saldo do caso para negativo. Para a prévia ao vivo
+        // (sem data), vale "agora".
+        $dataReferencia ??= $this->encargosVivos->agora();
+
         [$valorDivida, $valorHonorarios] = $this->calculadoraHonorarios->ratearPagamento($caso, $valorPago);
 
         $exigiveis = $this->obrigacaoRepository->doCasoExigiveis($caso);
@@ -88,7 +95,7 @@ final class AutoAlocadorFifo
         foreach ($exigiveis as $obrigacao) {
             $id = $obrigacao->getId();
             $jaAlocado = $id !== null ? ($alocado[$id] ?? 0) : 0;
-            $valorExigivel = $this->encargosVivos->exigivelVivo($config, $obrigacao);
+            $valorExigivel = $this->encargosVivos->exigivelVivo($config, $obrigacao, $dataReferencia);
 
             $saldoBruto += $valorExigivel - $jaAlocado;
             $sala = max(0, min($valorExigivel, $valorExigivel - $jaAlocado));
@@ -144,9 +151,9 @@ final class AutoAlocadorFifo
      *
      * @throws PagamentoExcedeSaldoException
      */
-    public function alocar(CasoCobranca $caso, int $valorPago, Tenant $tenant, ?Pagamento $pagamentoEmCorrecao = null): array
+    public function alocar(CasoCobranca $caso, int $valorPago, Tenant $tenant, ?\DateTimeImmutable $dataReferencia = null, ?Pagamento $pagamentoEmCorrecao = null): array
     {
-        $previa = $this->derivar($caso, $valorPago, $tenant, $pagamentoEmCorrecao);
+        $previa = $this->derivar($caso, $valorPago, $tenant, $dataReferencia, $pagamentoEmCorrecao);
 
         if ($previa->excede) {
             throw new PagamentoExcedeSaldoException($previa->valorDivida, $previa->saldoDisponivel);

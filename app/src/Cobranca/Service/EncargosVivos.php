@@ -37,13 +37,18 @@ final class EncargosVivos
     }
 
     /**
-     * Exigível vivo de UMA obrigação para HOJE, em centavos, SEM mutar a entidade (não chama
-     * `definirEncargos`, não deixa a instância managed suja). É o caminho para contextos de CÁLCULO
-     * dentro de fluxos de ESCRITA (ex.: alocação FIFO num pagamento): ali as obrigações Vivas NÃO
-     * podem ser persistidas (INV-V1), então lê-se o vivo sem tocar as colunas. Congelada
+     * Exigível vivo de UMA obrigação para a DATA DE REFERÊNCIA informada, em centavos, SEM mutar a
+     * entidade (não chama `definirEncargos`, não deixa a instância managed suja). É o caminho para
+     * contextos de CÁLCULO dentro de fluxos de ESCRITA (ex.: alocação FIFO num pagamento): ali as
+     * obrigações Vivas NÃO podem ser persistidas (INV-V1), então lê-se o vivo sem tocar as colunas.
+     *
+     * A data é EXPLÍCITA (spec §5) porque quem aloca um pagamento tem de medir o exigível na MESMA data
+     * em que ele será liquidado (a data do pagamento) — senão a alocação (base "hoje") e a quitação/
+     * snapshot (base "data do pagamento") divergem e um pagamento retroativo/futuro quita errado. Para
+     * a leitura ao vivo comum (prévia, "hoje"), o chamador passa `agora()`. Congelada
      * (Liquidada/Substituída) devolve o snapshot persistido — não recalcula.
      */
-    public function exigivelVivo(ConfigEncargos $config, Obrigacao $obrigacao): int
+    public function exigivelVivo(ConfigEncargos $config, Obrigacao $obrigacao, \DateTimeImmutable $dataReferencia): int
     {
         if ($obrigacao->encargosCongelados()) {
             return $obrigacao->valorExigivel();
@@ -53,7 +58,7 @@ final class EncargosVivos
             $obrigacao->getValorOriginal(),
             $obrigacao->getVencimentoOriginal(),
             $config,
-            $this->clock->now(),
+            $dataReferencia,
         );
 
         return $obrigacao->getValorOriginal() + $e['juros'] + $e['multa'] + $e['correcao'];

@@ -68,12 +68,17 @@ final class CorrigirPagamentoUseCase
         $valorDividaAntes = $pagamento->getValorDivida();
         $valorHonorariosAntes = $pagamento->getValorHonorarios();
 
+        // Data EFETIVA do pagamento após a correção (nova se informada, senão a atual). É a base ÚNICA de
+        // tempo desta correção: o FIFO mede o exigível nela e o Reconciliador quita/reabre e snapshota
+        // nela — nunca em "hoje", senão pagamento com data != hoje distribui/quita errado (spec §5).
+        $dataEfetiva = $input->data ?? $pagamento->getData();
+
         // Auto-alocação FIFO por padrão; manual só quando o usuário assume a distribuição (Ajuste 6).
         // IMPORTANTE: alocar ANTES de limparAlocacoes/flush — assim a query de saldo do FIFO ainda vê
         // as alocações do PRÓPRIO pagamento (que ele exclui da sala via o parâmetro $pagamento).
         $alocacoesInput = $input->alocarManualmente
             ? $input->alocacoes
-            : $this->autoAlocadorFifo->alocar($caso, (int) $input->valorPago, $tenant, $pagamento);
+            : $this->autoAlocadorFifo->alocar($caso, (int) $input->valorPago, $tenant, $dataEfetiva, $pagamento);
 
         // Novo rateio + montagem/validação das alocações (invariáveis 12 e 20).
         [$valorDivida, $valorHonorarios, $novasAlocacoes] = $this->alocador->montar(
@@ -111,7 +116,7 @@ final class CorrigirPagamentoUseCase
             $this->resolvedorConfig->resolverDoCaso($caso),
             $this->obrigacoesTocadas($alocacoesAntigas, $novasAlocacoes),
             $this->alocadoFinalPorObrigacao($caso, $tenant, $alocacoesAntigas, $novasAlocacoes),
-            $pagamento->getData(),
+            $dataEfetiva,
         );
 
         // Persiste sem flush; o registro do evento fecha a transação.
