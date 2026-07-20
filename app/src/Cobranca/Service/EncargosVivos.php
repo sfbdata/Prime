@@ -25,6 +25,17 @@ final class EncargosVivos
     ) {
     }
 
+    /**
+     * "Hoje" segundo o MESMO relógio injetado que rege a hidratação (spec §5: `hoje` sempre injetado
+     * via `ClockInterface`, nunca `new \DateTimeImmutable()` no caminho do dinheiro). Os consumidores
+     * que também filtram por data (ex.: saldo vencido) leem daqui para que a data do encargo e a do
+     * filtro de vencido nunca divirjam — uma única fonte de tempo, não duas.
+     */
+    public function agora(): \DateTimeImmutable
+    {
+        return $this->clock->now();
+    }
+
     /** @param iterable<Obrigacao> $obrigacoes */
     public function hidratar(ConfigEncargos $config, iterable $obrigacoes): void
     {

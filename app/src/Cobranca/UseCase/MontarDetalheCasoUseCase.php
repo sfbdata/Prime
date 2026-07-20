@@ -60,7 +60,9 @@ final class MontarDetalheCasoUseCase
 
     public function executar(CasoCobranca $caso): CasoDetalheOutput
     {
-        $hoje = new \DateTimeImmutable('today');
+        // Fonte de tempo ÚNICA: o mesmo relógio da hidratação (spec §5) — a data do "vencido" e do
+        // encargo não podem divergir, e nada de `new \DateTimeImmutable()` no caminho do dinheiro.
+        $hoje = $this->encargosVivos->agora();
 
         // Encargos AO VIVO (spec §6.2/INV-V5): hidrata EM MEMÓRIA as obrigações EXIGÍVEIS (vivas) do
         // caso para HOJE, resolvendo a config 1× — assim exibição e saldo leem o MESMO exigível vivo.

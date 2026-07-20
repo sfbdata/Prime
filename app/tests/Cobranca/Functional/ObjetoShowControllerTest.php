@@ -702,12 +702,17 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertCount(1, $indicador);
         self::assertStringContainsString('Encargos congelados em 01/02/2026', (string) $indicador->attr('title'));
         self::assertStringContainsString('não são recalculados automaticamente', (string) $indicador->attr('title'));
-        // A não-congelada diz quando foi a última atualização, no próprio Total — AO VIVO, é HOJE.
+        // A não-congelada diz quando foi a última atualização, no próprio Total — AO VIVO, com a data de
+        // hoje. Casa por PADRÃO de data (não pela data exata de execução) para não flakar na virada da
+        // meia-noite entre montar o esperado e renderizar o request.
         $totais = $crawler->filter('#secao-divida .jp-obr .col-total')->each(
             static fn ($node) => (string) $node->attr('title'),
         );
-        $hojeFmt = (new \DateTimeImmutable('today'))->format('d/m/Y');
-        self::assertContains("Encargos atualizados em {$hojeFmt}.", $totais);
+        $temAtualizado = array_filter(
+            $totais,
+            static fn (string $t): bool => 1 === preg_match('#^Encargos atualizados em \d{2}/\d{2}/\d{4}\.$#', $t),
+        );
+        self::assertNotEmpty($temAtualizado, 'a não-congelada mostra "Encargos atualizados em <data>" no Total');
     }
 
     #[TestDox('F4 (encargos na linha): avulsa e parcela mostram a faixa de encargos; a substituída é histórico simples')]

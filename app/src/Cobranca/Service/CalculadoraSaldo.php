@@ -92,7 +92,9 @@ class CalculadoraSaldo
      */
     public function saldoVencido(CasoCobranca $caso, ?\DateTimeImmutable $hoje = null): int
     {
-        $hoje ??= new \DateTimeImmutable();
+        // Fonte de tempo ÚNICA: o mesmo relógio da hidratação (spec §5), para a data do vencido não
+        // divergir da data do encargo.
+        $hoje ??= $this->encargosVivos->agora();
         $bruto = 0;
         $idsVencidas = [];
 
@@ -229,7 +231,8 @@ class CalculadoraSaldo
             return [];
         }
 
-        $hoje ??= new \DateTimeImmutable();
+        // Fonte de tempo ÚNICA: o mesmo relógio da hidratação (spec §5).
+        $hoje ??= $this->encargosVivos->agora();
 
         $casoIds = [];
         foreach ($casos as $caso) {
