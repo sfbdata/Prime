@@ -25,21 +25,20 @@ use App\Entity\Tenant\Tenant;
  * caso é resolvido por id + tenant (guarda multi-tenant): inexistente/de outro escritório é erro de
  * entrada (CasoNaoEncontradoException), tratado no controller.
  *
- * Recálculo imediato (D-A2-3, é dinheiro): mudar o percentual aqui não pode esperar o cron. Para cada
- * obrigação AUTOMÁTICA (não congelada) e VIVA do caso — MESMO predicado do cron F3, escopado ao caso
- * (`ObrigacaoRepository::paraRecalculoDeEncargosDoCaso`) —, recalcula SOMENTE o HONORÁRIO para HOJE,
- * sobre a base ATUAL (`valorOriginal + juros + multa + correção` já materializados). Congeladas ficam
- * intactas (INV-E4).
+ * Recálculo imediato do HONORÁRIO (D-A2-3, é dinheiro): mudar o percentual aqui atualiza já o honorário
+ * materializado. Para cada obrigação AUTOMÁTICA (não congelada) e VIVA do caso
+ * (`ObrigacaoRepository::paraRecalculoDeEncargosDoCaso`), recalcula SOMENTE o HONORÁRIO para HOJE, sobre
+ * a base ATUAL (`valorOriginal + juros + multa + correção`). Congeladas (Liquidada/Substituída) ficam
+ * intactas. No modelo "ao vivo" o honorário também é recomputado na leitura (hidratação); este recálculo
+ * apenas mantém a coluna coerente de imediato para quem lê o cache antes da próxima hidratação.
  *
  * ⚠️ O EXIGÍVEL (juros/multa/correção, INV-E1 — alimenta saldo/FIFO/acordo) fica INTACTO de propósito.
  * Editar a config de HONORÁRIOS não pode mexer no exigível. A versão inicial recompunha os QUATRO
  * encargos com `calcular()`, e uma auditoria adversarial pegou a bomba: juros/multa/correção descem da
  * CARTEIRA (o caso só snapshota a taxa de honorário), então se a taxa da carteira tivesse sido baixada,
- * este laço reduziria o exigível de TODAS as automáticas do caso num POST, sem o FREIO DE REDUÇÃO do
- * cron (`ReducaoDeEncargosBloqueadaException`) e sem o guard de alocado — reabrindo o cenário da F2
- * (R$ 155 mil represados pelo freio). Recalcular só o honorário fecha isso POR CONSTRUÇÃO: quem mexe no
- * exigível, com freio, é exclusivamente o cron. O honorário fica fora do exigível (INV-E2), logo pode
- * subir OU descer livremente aqui — que era a intenção de D-A2-3.
+ * este laço reduziria o exigível de TODAS as automáticas do caso num POST, sem guard de alocado. Recalcular
+ * só o honorário fecha isso POR CONSTRUÇÃO. O honorário fica fora do exigível (INV-E2), logo pode subir OU
+ * descer livremente aqui — que era a intenção de D-A2-3.
  *
  * Persistência em flush ÚNICO: o evento de auditoria entra sem flush e o `salvar($caso, true)` fecha a
  * transação (o caso, as obrigações managed do laço e o evento numa unidade só).

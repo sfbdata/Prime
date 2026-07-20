@@ -204,81 +204,15 @@ class ObrigacaoRepository extends ServiceEntityRepository
     }
 
     /**
-     * IDs das obrigações candidatas ao recálculo de encargos (cron da F3): NÃO congeladas
-     * (`encargosCongeladosEm IS NULL`, INV-E4) e de caso NÃO encerrado (SPEC §17: caso encerrado é
-     * fim de ciclo, não cresce mais). `Judicializado` NÃO é terminal — é fase viva e continua sendo
-     * atualizado.
+     * Obrigações de UM caso candidatas ao recálculo imediato de encargos (Ajuste 2, Fatia A): NÃO
+     * congeladas (`encargosCongeladosEm IS NULL`), de caso NÃO encerrado (SPEC §17), exigíveis que NÃO
+     * sejam parcela de acordo (`aorig.id IS NULL`) nem substituídas por acordo VIGENTE (`asub.id IS NULL
+     * OR asub.status IN (:naoVigentes)`) — ESCOPADO ao caso (`o.caso = :caso`).
      *
-     * Devolve IDs ESCALARES (não entidades) porque o cron faz `em->clear()` entre lotes: entidades
-     * carregadas aqui virariam objetos destacados no lote seguinte. O id inteiro sobrevive ao clear.
-     *
-     * `innerJoin` no caso de propósito: obrigação ÓRFÃ (sem caso) resolveria para a config `neutra()`
-     * e o cron a ZERARIA. Fora do lote é o comportamento conservador — dinheiro não se apaga por
-     * navegação nula.
-     *
-     * Tenant SEMPRE explícito: o `TenantFilter` do Doctrine fica DESLIGADO fora de um request, então
-     * no CLI este `andWhere` é a única defesa contra vazamento entre escritórios.
-     *
-     * ACORDO — o predicado é o de `doCasoSubstituiveis()`: exigível E que NÃO seja parcela de acordo.
-     * Deliberadamente NÃO se usa `foiSubstituida()`/`participaDeAcordoVigente()`, que respondem outra
-     * pergunta ("está travada para edição?") e divergem em dois pontos que custam dinheiro — ambos
-     * observados em dado real de dev:
-     *   1. `foiSubstituida()` ignora o STATUS do substituto, então uma original cujo acordo foi
-     *      CANCELADO — que voltou ao saldo (invariável 20) — nunca mais cresceria;
-     *   2. nada excluía a PARCELA de acordo cancelado/rompido, que virou histórico e não é dívida:
-     *      o cron materializava encargos nela.
-     *
-     * `aorig.id IS NULL` (e não `aorig.status IN (:vigentes)`, como em `exigiveisDosCasos`): parcela
-     * de acordo tem valor PACTUADO e não recebe mora automática. Isto é mais restritivo que a
-     * exigibilidade de propósito — as duas perguntas são diferentes. "Quanto se deve hoje" inclui a
-     * parcela do acordo vigente; "sobre o que o robô faz juros correrem" não, porque aquele número
-     * saiu de uma negociação com o devedor. Se o acordo furar, o caminho é rompê-lo: aí as originais
-     * voltam ao saldo (invariável 20) e crescem com o atraso inteiro, por este mesmo filtro.
-     *
-     * @return list<int>
-     */
-    public function idsParaAtualizarEncargos(Tenant $tenant, ?int $limite = null): array
-    {
-        $qb = $this->createQueryBuilder('o')
-            ->select('o.id')
-            ->innerJoin('o.caso', 'c')
-            ->leftJoin('o.acordoSubstituto', 'asub')
-            ->leftJoin('o.acordoOrigem', 'aorig')
-            ->andWhere('o.encargosCongeladosEm IS NULL')
-            ->andWhere('c.status != :encerrado')
-            ->andWhere('o.tenant = :tenant')
-            // Parênteses explícitos: `andWhere` junta com AND sem parentetizar o OR.
-            ->andWhere('(asub.id IS NULL OR asub.status IN (:naoVigentes))')
-            ->andWhere('aorig.id IS NULL')
-            ->setParameter('encerrado', StatusCaso::Encerrado->value)
-            ->setParameter('tenant', $tenant)
-            ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
-            // Ordem estável: o lote N do `array_chunk` tem de ser sempre o mesmo conjunto.
-            ->orderBy('o.id', 'ASC');
-
-        if ($limite !== null) {
-            $qb->setMaxResults($limite);
-        }
-
-        return array_map(
-            static fn (mixed $id): int => (int) $id,
-            $qb->getQuery()->getSingleColumnResult(),
-        );
-    }
-
-    /**
-     * Obrigações de UM caso candidatas ao recálculo imediato de encargos (Ajuste 2, Fatia A): o MESMO
-     * predicado do cron `idsParaAtualizarEncargos` — NÃO congeladas (`encargosCongeladosEm IS NULL`,
-     * INV-E4), de caso NÃO encerrado (SPEC §17), exigíveis que NÃO sejam parcela de acordo
-     * (`aorig.id IS NULL`) nem substituídas por acordo VIGENTE (`asub.id IS NULL OR asub.status IN
-     * (:naoVigentes)`) —, porém ESCOPADO ao caso (`o.caso = :caso`).
-     *
-     * Difere do cron em dois pontos deliberados, porque aqui NÃO há `em->clear()` entre lotes:
-     *  - devolve ENTIDADES managed (não ids escalares): o UseCase recalcula e flusha na MESMA unidade
-     *    de trabalho, então precisa dos objetos gerenciados, não de ids;
-     *  - NÃO usa `doCasoExigiveis` de propósito — aquele inclui a parcela de acordo VIGENTE, que o cron
-     *    (e este recálculo) EXCLUI: valor pactuado não recebe mora automática (ver
-     *    `idsParaAtualizarEncargos`).
+     * Devolve ENTIDADES managed: o chamador (`EditarConfiguracaoCasoUseCase`) recalcula e flusha na
+     * MESMA unidade de trabalho, então precisa dos objetos gerenciados. NÃO usa `doCasoExigiveis` de
+     * propósito — aquele inclui a parcela de acordo VIGENTE, que aqui se EXCLUI: valor pactuado não
+     * recebe mora automática.
      *
      * Tenant do caso SEMPRE explícito (defesa em profundidade). Ordem estável por id.
      *
@@ -301,40 +235,6 @@ class ObrigacaoRepository extends ServiceEntityRepository
             ->setParameter('encerrado', StatusCaso::Encerrado->value)
             ->setParameter('tenant', $caso->getTenant())
             ->setParameter('naoVigentes', [StatusAcordo::Rompido->value, StatusAcordo::Cancelado->value])
-            ->orderBy('o.id', 'ASC')
-            ->getQuery()
-            ->getResult();
-    }
-
-    /**
-     * Carrega um LOTE de obrigações com caso, objeto e carteira em join fetch. Sem isso o
-     * `ResolvedorConfigEncargos` (que sobe a cascata Obrigação → Caso → Objeto → Carteira) dispara
-     * ~3 queries de lazy-load POR obrigação — o cron rodaria milhares de queries por rodada.
-     *
-     * `leftJoin` aqui (e não `innerJoin`): a seleção de quem entra no lote já foi feita em
-     * `idsParaAtualizarEncargos`; este método só materializa o grafo, sem re-filtrar linha nenhuma.
-     *
-     * Tenant SEMPRE explícito: defesa em profundidade contra um id de outro escritório entrar na
-     * lista (o filtro automático não existe no CLI). `$ids` vazio → `[]` sem query.
-     *
-     * @param list<int> $ids
-     *
-     * @return list<Obrigacao>
-     */
-    public function loteParaAtualizarEncargos(array $ids, Tenant $tenant): array
-    {
-        if ($ids === []) {
-            return [];
-        }
-
-        return $this->createQueryBuilder('o')
-            ->leftJoin('o.caso', 'c')->addSelect('c')
-            ->leftJoin('c.objeto', 'ob')->addSelect('ob')
-            ->leftJoin('ob.carteira', 'cart')->addSelect('cart')
-            ->andWhere('o.id IN (:ids)')
-            ->andWhere('o.tenant = :tenant')
-            ->setParameter('ids', $ids)
-            ->setParameter('tenant', $tenant)
             ->orderBy('o.id', 'ASC')
             ->getQuery()
             ->getResult();
