@@ -21,7 +21,9 @@ use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\CriarAcordoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -56,6 +58,8 @@ final class CriarAcordoUseCaseTest extends TestCase
             $this->obrigacaoRepository,
             $this->casoRepository,
             $registrarEvento,
+            new CalculadoraEncargos(),
+            new ResolvedorConfigEncargos(),
         );
         // Tenant/User não são abstrações do domínio: instâncias reais, não mocks.
         $this->tenant = new Tenant();
@@ -146,6 +150,41 @@ final class CriarAcordoUseCaseTest extends TestCase
         self::assertSame($this->tenant, $acordo->getTenant());
         self::assertSame($this->criadoPor, $acordo->getCriadoPor());
         self::assertTrue($acordo->estaAtivo());
+    }
+
+    #[Test]
+    #[TestDox('Substituída Viva tem os encargos materializados (snapshot) na data do acordo')]
+    public function substituidaVivaRecebeSnapshotDosEncargosNaDataDoAcordo(): void
+    {
+        // Caso TOPLIFE (juros 1% a.m., multa 2%): a substituída P=100,00 vence 30 dias antes da data
+        // do acordo (20/04/2026) → snapshot juros 1,00 + multa 2,00, materializado em 20/04 (não hoje).
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $caso->setTaxaJurosMensalBp(100);
+        $caso->setTaxaMultaBp(200);
+        $obrigSubstituida = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setValorOriginal(10000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2026-03-21'));
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigSubstituida);
+        $this->obrigacaoRepository->method('salvar');
+
+        $this->sut->executar(
+            $this->novoInput(70, [100], [$this->parcela('Parcela 1/1', 10300, '2026-05-20')]),
+            $this->tenant,
+            $this->criadoPor,
+        );
+
+        self::assertSame(100, $obrigSubstituida->getJuros(), 'juros do snapshot na data do acordo');
+        self::assertSame(200, $obrigSubstituida->getMulta());
+        self::assertSame(0, $obrigSubstituida->getCorrecao());
+        self::assertEquals(new \DateTimeImmutable('2026-04-20'), $obrigSubstituida->getEncargosAtualizadosEm());
+        // Não é congelada (design: sai do exigível e não é hidratada; se o acordo romper, volta a crescer)
+        // e não é liquidada.
+        self::assertFalse($obrigSubstituida->encargosCongelados());
+        self::assertFalse($obrigSubstituida->estaLiquidada());
     }
 
     #[Test]

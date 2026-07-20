@@ -18,7 +18,9 @@ use App\Cobranca\Exception\ParcelamentoInvalidoException;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
@@ -41,6 +43,8 @@ final class CriarAcordoUseCase
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly RegistrarEventoHistorico $registrarEvento,
+        private readonly CalculadoraEncargos $calculadora,
+        private readonly ResolvedorConfigEncargos $resolvedorConfig,
     ) {
     }
 
@@ -78,6 +82,10 @@ final class CriarAcordoUseCase
         $acordo->setValorTotalNegociado($totalNegociado);
         $acordo->setValorEntrada($valorEntrada);
 
+        // Config do caso resolvida 1× — o snapshot de cada substituída Viva usa a MESMA config da
+        // hidratação ao vivo, para o valor congelado bater com o que a linha mostrava até a véspera.
+        $configCaso = $this->resolvedorConfig->resolverDoCaso($caso);
+
         foreach ($input->obrigacoesSubstituidasIds as $obrigacaoId) {
             $obrigacao = $this->obrigacaoRepository->findOneByIdDoTenant((int) $obrigacaoId, $tenant);
 
@@ -107,6 +115,22 @@ final class CriarAcordoUseCase
             // status: se rompido/cancelado, a parcela nem é exigível.
             if ($obrigacao->getAcordoOrigem() !== null) {
                 throw new ObrigacaoNaoEhDividaOriginalException((int) $obrigacaoId);
+            }
+
+            // Encargos AO VIVO (spec §4/§5): ao ser substituída, o relógio da obrigação PARA na data do
+            // acordo — materializa o snapshot dos encargos calculados em `dataAcordo`. Só as VIVAS: uma já
+            // congelada (Liquidada/legado) mantém o snapshot que já tinha. A substituída sai do exigível
+            // (`doCasoExigiveis` a exclui) e não é hidratada, então o snapshot é o que a tela exibe; se o
+            // acordo for rompido, ela volta ao exigível e recomeça a crescer ao vivo (sem precisar
+            // descongelar, pois não foi congelada — só materializada).
+            if (!$obrigacao->encargosCongelados()) {
+                $e = $this->calculadora->calcular(
+                    $obrigacao->getValorOriginal(),
+                    $obrigacao->getVencimentoOriginal(),
+                    $configCaso,
+                    $input->dataAcordo,
+                );
+                $obrigacao->definirEncargos($e['juros'], $e['multa'], $e['correcao'], $e['honorarios'], $input->dataAcordo);
             }
 
             // Marca (nunca apaga — invariável 14); já gerenciada, salvar sem flush por clareza.
