@@ -9,8 +9,10 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
+use App\Cobranca\Enum\StatusAcordo;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cliente\ClientePFFactory;
+use App\Tests\Factory\Cobranca\AcordoFactory;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
 use App\Tests\Factory\Cobranca\CasoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
@@ -28,11 +30,12 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(CasoController::class)]
 final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
 {
-    #[TestDox('POST válido: redireciona ao objeto, persiste os honorários e recalcula a automática viva')]
-    public function testEditarHonorariosValidoRecalcula(): void
+    #[TestDox('POST válido: recalcula SÓ o honorário da automática; o exigível (juros/multa) fica intacto')]
+    public function testEditarHonorariosValidoRecalculaSoOHonorario(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
+        // Seed: exigível materializado juros 500 · multa 20 (base composta 1.520,00), honorário 50 a 10%.
         [$caso, $obrigacao] = $this->semearParaRecalculo($tenant, '10.00');
         $casoId = (int) $caso->getId();
         $objetoId = (int) $caso->getObjeto()->getId();
@@ -59,9 +62,119 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         self::assertSame('20.00', $em->find(CasoCobranca::class, $casoId)->getPercentualHonorarios());
 
         $recarregada = $em->find(Obrigacao::class, $obrigacaoId);
-        self::assertGreaterThan(0, $recarregada->getHonorarios(), 'a automática viva teve o honorário recalculado na hora');
-        self::assertGreaterThan(0, $recarregada->getJuros(), 'os demais encargos também foram materializados para hoje');
-        self::assertFalse($recarregada->encargosCongelados(), 'recálculo automático não congela (INV-E4)');
+        // Honorário RECALCULADO a 20% da base composta (100000 + 50000 + 2000 + 0 = 152000) = 30400.
+        self::assertSame(30400, $recarregada->getHonorarios(), 'o honorário foi recalculado ao novo percentual');
+        // EXIGÍVEL INTACTO (o fix do bloqueante): editar honorários NÃO move juros/multa/correção.
+        self::assertSame(50000, $recarregada->getJuros(), 'juros (exigível, INV-E1) preservado — não recomputado');
+        self::assertSame(2000, $recarregada->getMulta(), 'multa (exigível) preservada');
+        self::assertSame(0, $recarregada->getCorrecao(), 'correção (exigível) preservada');
+        self::assertFalse($recarregada->encargosCongelados(), 'recálculo do honorário não congela (INV-E4)');
+    }
+
+    #[TestDox('Bomba F2 fechada: com a taxa de juros da carteira zerada, editar honorários NÃO reduz o exigível')]
+    public function testEditarHonorariosNaoReduzExigivelComTaxaDaCarteiraZerada(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$caso, $obrigacao] = $this->semearParaRecalculo($tenant, '10.00');
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        // Cenário da F2: a taxa de juros/multa da carteira é BAIXADA A ZERO depois do exigível já
+        // materializado (juros 500 represados). Antes do fix, editar honorários chamava calcular() e
+        // recompunha juros para 0 (taxa nova), apagando o exigível em lote, sem o freio do cron.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $carteira = $caso->getObjeto()->getCarteira();
+        $carteira->setTaxaJurosMensalBp(0);
+        $carteira->setTaxaMultaBp(0);
+        $em->flush();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
+            'editar_configuracao_caso' => [
+                'formaHonorarios' => FormaHonorarios::AcrescidoDivida->value,
+                'percentualHonorarios' => '20,00',
+                'baseHonorarios' => '',
+                'carenciaHonorariosDias' => '',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+
+        $em->clear();
+        $recarregada = $em->find(Obrigacao::class, $obrigacaoId);
+        // O exigível NÃO despencou para a taxa zerada — juros/multa continuam os R$ 500/R$ 20 reconhecidos.
+        self::assertSame(50000, $recarregada->getJuros(), 'INV-E1: exigível não reduzido pela taxa zerada (bomba F2 fechada)');
+        self::assertSame(2000, $recarregada->getMulta(), 'INV-E1: multa preservada');
+        // O honorário foi recalculado normalmente (fora do exigível, INV-E2, pode mudar).
+        self::assertSame(30400, $recarregada->getHonorarios(), 'só o honorário mudou');
+    }
+
+    #[TestDox('Recálculo NÃO toca parcela de acordo vigente nem obrigação substituída (valor pactuado)')]
+    public function testRecalculoNaoTocaParcelaNemSubstituida(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$caso, $automatica] = $this->semearParaRecalculo($tenant, '10.00');
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        // Acordo VIGENTE no caso âncora. A parcela (acordoOrigem) e a substituída (acordoSubstituto) têm
+        // valores PACTUADOS: o recálculo de honorários NÃO pode tocá-las (mesma exclusão do cron:
+        // `aorig.id IS NULL` e `asub` não-vigente). Sem este teste, apagar essas cláusulas do query novo
+        // sobrescreveria dinheiro negociado com a suíte inteira verde.
+        $acordo = AcordoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'status' => StatusAcordo::Ativo,
+        ])->_real();
+
+        $parcela = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Parcela 1/1',
+            'valorOriginal' => 60000, 'encargosReconhecidos' => 0, 'acordoOrigem' => $acordo,
+        ])->_real();
+        $parcela->definirEncargos(111, 222, 333, 444, new \DateTimeImmutable('2026-02-01'));
+
+        $substituida = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Trocada pelo acordo',
+            'valorOriginal' => 70000, 'encargosReconhecidos' => 0, 'acordoSubstituto' => $acordo,
+        ])->_real();
+        $substituida->definirEncargos(555, 666, 777, 888, new \DateTimeImmutable('2026-02-01'));
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->flush();
+        $parcelaId = (int) $parcela->getId();
+        $substituidaId = (int) $substituida->getId();
+        $automaticaId = (int) $automatica->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
+            'editar_configuracao_caso' => [
+                'formaHonorarios' => FormaHonorarios::AcrescidoDivida->value,
+                'percentualHonorarios' => '20,00',
+                'baseHonorarios' => '',
+                'carenciaHonorariosDias' => '',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        $em->clear();
+
+        // Parcela de acordo vigente: INTACTA (valor pactuado, não recebe recálculo de honorário).
+        $parcelaRec = $em->find(Obrigacao::class, $parcelaId);
+        self::assertSame(444, $parcelaRec->getHonorarios(), 'parcela de acordo vigente não é tocada');
+        self::assertSame(111, $parcelaRec->getJuros());
+        // Substituída por acordo vigente: INTACTA (histórico fora do saldo).
+        $substituidaRec = $em->find(Obrigacao::class, $substituidaId);
+        self::assertSame(888, $substituidaRec->getHonorarios(), 'substituída por acordo vigente não é tocada');
+        // A automática viva, sim: honorário recalculado (30400 a 20% de 152000).
+        $automaticaRec = $em->find(Obrigacao::class, $automaticaId);
+        self::assertSame(30400, $automaticaRec->getHonorarios(), 'a automática viva teve o honorário recalculado');
     }
 
     #[TestDox('INV-E4: a congelada do caso não é recalculada; a automática ao lado é')]
@@ -227,7 +340,10 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
     /**
      * Semeia Carteira (juros 1%/multa 2%, honorários sobre base composta, carência 30) → Objeto → Caso
      * (snapshot AcrescidoDivida no percentual dado) → Pessoa + uma Obrigação AUTOMÁTICA vencida há muito
-     * (2020-01-01, R$ 1.000,00), tudo no MESMO tenant. Devolve [Caso, Obrigação] reais.
+     * (2020-01-01, R$ 1.000,00) com o EXIGÍVEL já MATERIALIZADO (juros/multa > 0, NÃO congelada), tudo no
+     * MESMO tenant. O exigível materializado é essencial para provar que editar a config de honorários NÃO
+     * o move (o bug bloqueante que a auditoria pegou: o recálculo recompunha juros/multa e podia reduzi-los).
+     * Devolve [Caso, Obrigação] reais.
      *
      * @return array{0: CasoCobranca, 1: Obrigacao}
      */
@@ -259,8 +375,13 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
             'valorOriginal' => 100000,
             'vencimentoOriginal' => new \DateTimeImmutable('2020-01-01'),
             'encargosReconhecidos' => 0,
-        ]);
+        ])->_real();
+        // Materializa o exigível como o registro/cron fariam: juros R$ 500 · multa R$ 20 · correção 0, e um
+        // honorário coerente com o percentual do caso (não importa o valor exato — o que o teste checa é que
+        // juros/multa NÃO se movem ao editar a config e que o honorário É recalculado). NÃO congela.
+        $obrigacao->definirEncargos(50000, 2000, 0, 5000, new \DateTimeImmutable('today'));
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
 
-        return [$caso->_real(), $obrigacao->_real()];
+        return [$caso->_real(), $obrigacao];
     }
 }

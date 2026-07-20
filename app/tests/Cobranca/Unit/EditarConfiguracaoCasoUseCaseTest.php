@@ -171,6 +171,34 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
     }
 
     #[Test]
+    #[TestDox('Preserva o exigível: editar honorários NÃO recompõe juros/multa/correção (bomba F2 fechada)')]
+    public function preservaOExigivelAoEditarHonorarios(): void
+    {
+        // Cenário da F2: a taxa de juros/multa da carteira foi BAIXADA A ZERO, mas a obrigação já tem o
+        // exigível MATERIALIZADO (juros 500 · multa 100) de uma taxa antiga. Editar os honorários NÃO pode
+        // recompor juros/multa para a taxa nova (0) — isso apagaria dinheiro reconhecido, a bomba que a
+        // auditoria pegou. O fix recalcula SÓ o honorário; o exigível (INV-E1) fica intacto.
+        $caso = $this->casoComHonorarios('10.00');
+        $caso->getObjeto()->getCarteira()->setTaxaJurosMensalBp(0)->setTaxaMultaBp(0);
+        $obrigacao = $this->obrigacaoAutomatica($caso, 100000, '2020-01-01');
+        $obrigacao->definirEncargos(50000, 10000, 0, 15000, new \DateTimeImmutable('2026-01-01'));
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('paraRecalculoDeEncargosDoCaso')->willReturn([$obrigacao]);
+        $this->eventoRepository->method('salvar');
+
+        $this->sut->executar($this->input('20.00'), $this->tenant, $this->usuario);
+
+        // Exigível INTACTO — não despencou para a taxa zerada.
+        self::assertSame(50000, $obrigacao->getJuros(), 'juros (exigível) preservado');
+        self::assertSame(10000, $obrigacao->getMulta(), 'multa (exigível) preservada');
+        self::assertSame(0, $obrigacao->getCorrecao());
+        // Só o honorário mudou: 20% da base composta (100000+50000+10000+0 = 160000) = 32000.
+        self::assertSame(32000, $obrigacao->getHonorarios(), 'só o honorário foi recalculado, a 20%');
+        self::assertFalse($obrigacao->encargosCongelados(), 'segue automática (INV-E4)');
+    }
+
+    #[Test]
     #[TestDox('Guarda multi-tenant: caso de outro escritório → exceção, sem salvar nem recalcular')]
     public function rejeitaCasoDeOutroTenant(): void
     {

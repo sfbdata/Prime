@@ -8,7 +8,6 @@ use App\Cobranca\DTO\EditarConfiguracaoCasoInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
-use App\Cobranca\Exception\EncargosInexequiveisException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
@@ -28,12 +27,19 @@ use App\Entity\Tenant\Tenant;
  *
  * Recálculo imediato (D-A2-3, é dinheiro): mudar o percentual aqui não pode esperar o cron. Para cada
  * obrigação AUTOMÁTICA (não congelada) e VIVA do caso — MESMO predicado do cron F3, escopado ao caso
- * (`ObrigacaoRepository::paraRecalculoDeEncargosDoCaso`) —, resolve a config já com o caso novo e
- * materializa os quatro encargos para HOJE (`definirEncargos`, SEM congelar). Congeladas ficam
- * intactas (INV-E4). SEM freio de redução: baixar o percentual é decisão deliberada do gestor, então
- * reduzir honorário aqui é esperado (o freio segue vivo só no cron, não neste laço). Estouro de
- * precisão (`EncargosInexequiveisException`) pula AQUELA obrigação e conta — um caso patológico não
- * derruba a edição inteira.
+ * (`ObrigacaoRepository::paraRecalculoDeEncargosDoCaso`) —, recalcula SOMENTE o HONORÁRIO para HOJE,
+ * sobre a base ATUAL (`valorOriginal + juros + multa + correção` já materializados). Congeladas ficam
+ * intactas (INV-E4).
+ *
+ * ⚠️ O EXIGÍVEL (juros/multa/correção, INV-E1 — alimenta saldo/FIFO/acordo) fica INTACTO de propósito.
+ * Editar a config de HONORÁRIOS não pode mexer no exigível. A versão inicial recompunha os QUATRO
+ * encargos com `calcular()`, e uma auditoria adversarial pegou a bomba: juros/multa/correção descem da
+ * CARTEIRA (o caso só snapshota a taxa de honorário), então se a taxa da carteira tivesse sido baixada,
+ * este laço reduziria o exigível de TODAS as automáticas do caso num POST, sem o FREIO DE REDUÇÃO do
+ * cron (`ReducaoDeEncargosBloqueadaException`) e sem o guard de alocado — reabrindo o cenário da F2
+ * (R$ 155 mil represados pelo freio). Recalcular só o honorário fecha isso POR CONSTRUÇÃO: quem mexe no
+ * exigível, com freio, é exclusivamente o cron. O honorário fica fora do exigível (INV-E2), logo pode
+ * subir OU descer livremente aqui — que era a intenção de D-A2-3.
  *
  * Persistência em flush ÚNICO: o evento de auditoria entra sem flush e o `salvar($caso, true)` fecha a
  * transação (o caso, as obrigações managed do laço e o evento numa unidade só).
@@ -73,7 +79,6 @@ final class EditarConfiguracaoCasoUseCase
         // Recálculo imediato (D-A2-3): a config já reflete o caso novo (o resolvedor lê os getters).
         $hoje = new \DateTimeImmutable('today');
         $recalculadas = 0;
-        $puladas = 0;
 
         foreach ($this->obrigacaoRepository->paraRecalculoDeEncargosDoCaso($caso) as $obrigacao) {
             // Belt-and-suspenders do INV-E4: o predicado já exclui congeladas, mas se uma escapar o
@@ -83,23 +88,30 @@ final class EditarConfiguracaoCasoUseCase
             }
 
             $config = $this->resolvedor->resolver($obrigacao);
+            $dias = $this->calculadora->diasDeAtraso($obrigacao->getVencimentoOriginal(), $hoje);
 
-            try {
-                $novos = $this->calculadora->calcular(
-                    $obrigacao->getValorOriginal(),
-                    $obrigacao->getVencimentoOriginal(),
-                    $config,
-                    $hoje,
-                );
-            } catch (EncargosInexequiveisException) {
-                // Estouro de precisão (regime composto + atraso longo): pula esta e segue.
-                ++$puladas;
+            // SÓ O HONORÁRIO é recalculado, sobre o exigível ATUAL (juros/multa/correção já
+            // materializados). Nada de `calcular()` aqui: recompor os quatro reduziria o exigível se a
+            // taxa da carteira caísse, sem freio — a bomba da F2 (ver docblock). `honorarios()` é
+            // aritmética pura (não estoura como o regime composto), então não há caso a pular.
+            $novoHonorario = $this->calculadora->honorarios(
+                $obrigacao->getValorOriginal(),
+                $obrigacao->getJuros(),
+                $obrigacao->getMulta(),
+                $obrigacao->getCorrecao(),
+                $config,
+                $dias,
+            );
 
-                continue;
-            }
-
-            // SEM freio de redução e SEM congelar: automática recalculada para hoje (INV-E4 preservado).
-            $obrigacao->definirEncargos($novos['juros'], $novos['multa'], $novos['correcao'], $novos['honorarios'], $hoje);
+            // Grava mantendo juros/multa/correção INTACTOS (o exigível não se move); só o honorário muda.
+            // Não congela: a obrigação segue automática (INV-E4 — o cron continua a atualizando).
+            $obrigacao->definirEncargos(
+                $obrigacao->getJuros(),
+                $obrigacao->getMulta(),
+                $obrigacao->getCorrecao(),
+                $novoHonorario,
+                $hoje,
+            );
             ++$recalculadas;
         }
 
@@ -123,8 +135,8 @@ final class EditarConfiguracaoCasoUseCase
                 'baseDepois' => $caso->getBaseHonorarios()?->value,
                 'carenciaAntes' => $carenciaAntes,
                 'carenciaDepois' => $caso->getCarenciaHonorariosDias(),
-                'obrigacoesRecalculadas' => $recalculadas,
-                'obrigacoesPuladas' => $puladas,
+                // Só o honorário destas foi recalculado; o exigível (juros/multa/correção) não se moveu.
+                'obrigacoesComHonorarioRecalculado' => $recalculadas,
             ],
         );
 
