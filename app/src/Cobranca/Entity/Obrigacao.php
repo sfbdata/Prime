@@ -98,6 +98,16 @@ class Obrigacao implements TenantAware, Auditavel
     #[ORM\Column(type: 'datetime_immutable', nullable: true)]
     private ?\DateTimeImmutable $encargosAtualizadosEm = null;
 
+    /**
+     * Quando preenchido, a obrigação foi LIQUIDADA (quitada) nesta data (modelo "encargos ao vivo",
+     * spec §4/§5): o relógio parou aqui — os encargos viram snapshot definitivo e não recalculam mais.
+     * É o marcador do estado Liquidada, distinto de `encargosCongeladosEm` (que também vale para
+     * Substituída): serve para a correção de pagamento REABRIR a obrigação (voltar a Viva) quando a
+     * quitação é desfeita.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $liquidadaEm = null;
+
     // ------------------------------------------------------------------------------------------
     // Configuração de encargos — NÍVEL 3 (último) da cascata. TODOS nullable: null = "herda o
     // Caso" (que por sua vez herda a Carteira). Resolução campo a campo pelo
@@ -243,6 +253,44 @@ class Obrigacao implements TenantAware, Auditavel
     public function encargosCongelados(): bool
     {
         return $this->encargosCongeladosEm !== null;
+    }
+
+    /**
+     * LIQUIDA a obrigação (spec "ao vivo" §4/§6.3): materializa os encargos calculados na data da
+     * liquidação, congela (o relógio para) e marca `liquidadaEm`. É a transição atômica Viva → Liquidada
+     * disparada quando um pagamento quita o exigível. Após isto, nenhum leitor recalcula: os quatro
+     * valores são o snapshot definitivo.
+     */
+    public function liquidar(int $juros, int $multa, int $correcao, int $honorarios, \DateTimeImmutable $em): self
+    {
+        $this->definirEncargos($juros, $multa, $correcao, $honorarios, $em);
+        $this->congelarEncargos($em);
+        $this->liquidadaEm = $em;
+
+        return $this;
+    }
+
+    /**
+     * REABRE uma obrigação Liquidada (spec §6.3): a correção de um pagamento desfez a quitação
+     * (`alocado < exigível`). Limpa `liquidadaEm` e descongela — a obrigação volta a Viva e cresce de
+     * novo. Os valores materializados ficam como estão; a hidratação os reescreve na próxima leitura.
+     */
+    public function reabrir(): self
+    {
+        $this->liquidadaEm = null;
+        $this->descongelarEncargos();
+
+        return $this;
+    }
+
+    public function estaLiquidada(): bool
+    {
+        return $this->liquidadaEm !== null;
+    }
+
+    public function getLiquidadaEm(): ?\DateTimeImmutable
+    {
+        return $this->liquidadaEm;
     }
 
     /**

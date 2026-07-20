@@ -53,13 +53,12 @@ final class AutoAlocadorFifo
 
         $exigiveis = $this->obrigacaoRepository->doCasoExigiveis($caso);
 
-        // Encargos AO VIVO (spec §6.2/INV-V5): hidrata EM MEMÓRIA as obrigacoes VIVAS para HOJE antes
-        // de derivar saldo/salas — a alocacao FIFO opera sobre o MESMO exigivel vivo que o saldo e a
-        // tela. Congeladas (Liquidada/Substituida) mantem o snapshot. Config resolvida 1x por caso.
-        // Nota (§6.5): `derivar` alimenta tambem o caminho de ESCRITA (RegistrarPagamento/CorrigirPagamento
-        // dao flush depois); as colunas de encargo de uma Viva hidratada podem ir ao banco como CACHE, e
-        // sao sempre reescritas em memoria na proxima leitura — a fonte de verdade da Viva e sempre o vivo.
-        $this->encargosVivos->hidratar($this->resolvedorConfig->resolverDoCaso($caso), $exigiveis);
+        // Encargos AO VIVO (spec §6.2/INV-V5): a alocacao FIFO opera sobre o MESMO exigivel vivo que o
+        // saldo e a tela. `derivar` alimenta o caminho de ESCRITA (RegistrarPagamento/CorrigirPagamento
+        // dao flush depois), entao aqui NAO se muta a entidade Viva (INV-V1: nada de Viva persistido):
+        // le-se o exigivel vivo via `exigivelVivo` (nao chama definirEncargos) em vez de hidratar. Config
+        // resolvida 1x por caso; congeladas (Liquidada/Substituida) devolvem o snapshot.
+        $config = $this->resolvedorConfig->resolverDoCaso($caso);
 
         $casoId = $caso->getId();
         $alocado = $casoId === null ? [] : $this->alocacaoRepository->somasPorObrigacaoDosCasos([$casoId], $tenant);
@@ -89,7 +88,7 @@ final class AutoAlocadorFifo
         foreach ($exigiveis as $obrigacao) {
             $id = $obrigacao->getId();
             $jaAlocado = $id !== null ? ($alocado[$id] ?? 0) : 0;
-            $valorExigivel = $obrigacao->valorExigivel();
+            $valorExigivel = $this->encargosVivos->exigivelVivo($config, $obrigacao);
 
             $saldoBruto += $valorExigivel - $jaAlocado;
             $sala = max(0, min($valorExigivel, $valorExigivel - $jaAlocado));

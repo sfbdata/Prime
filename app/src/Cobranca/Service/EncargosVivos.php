@@ -36,6 +36,29 @@ final class EncargosVivos
         return $this->clock->now();
     }
 
+    /**
+     * Exigível vivo de UMA obrigação para HOJE, em centavos, SEM mutar a entidade (não chama
+     * `definirEncargos`, não deixa a instância managed suja). É o caminho para contextos de CÁLCULO
+     * dentro de fluxos de ESCRITA (ex.: alocação FIFO num pagamento): ali as obrigações Vivas NÃO
+     * podem ser persistidas (INV-V1), então lê-se o vivo sem tocar as colunas. Congelada
+     * (Liquidada/Substituída) devolve o snapshot persistido — não recalcula.
+     */
+    public function exigivelVivo(ConfigEncargos $config, Obrigacao $obrigacao): int
+    {
+        if ($obrigacao->encargosCongelados()) {
+            return $obrigacao->valorExigivel();
+        }
+
+        $e = $this->calculadora->calcular(
+            $obrigacao->getValorOriginal(),
+            $obrigacao->getVencimentoOriginal(),
+            $config,
+            $this->clock->now(),
+        );
+
+        return $obrigacao->getValorOriginal() + $e['juros'] + $e['multa'] + $e['correcao'];
+    }
+
     /** @param iterable<Obrigacao> $obrigacoes */
     public function hidratar(ConfigEncargos $config, iterable $obrigacoes): void
     {

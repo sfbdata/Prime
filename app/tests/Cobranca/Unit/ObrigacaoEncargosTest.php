@@ -155,6 +155,52 @@ final class ObrigacaoEncargosTest extends TestCase
     }
 
     #[Test]
+    public function obrigacaoNovaNaoEstaLiquidada(): void
+    {
+        $obrigacao = $this->obrigacao(10000);
+
+        self::assertFalse($obrigacao->estaLiquidada());
+        self::assertNull($obrigacao->getLiquidadaEm());
+    }
+
+    #[Test]
+    public function liquidarMaterializaEncargosCongelaEMarcaAData(): void
+    {
+        // Liquidação total (spec "ao vivo" §4/§6.3): o relógio para na data do pagamento — materializa
+        // o snapshot, congela (não recalcula mais) e marca `liquidadaEm`.
+        $em = new \DateTimeImmutable('2026-07-20 09:30:00');
+
+        $obrigacao = $this->obrigacao(17000)->liquidar(1360, 340, 0, 3740, $em);
+
+        self::assertTrue($obrigacao->estaLiquidada());
+        self::assertSame($em, $obrigacao->getLiquidadaEm());
+        self::assertTrue($obrigacao->encargosCongelados(), 'liquidada é congelada');
+        self::assertSame($em, $obrigacao->getEncargosCongeladosEm());
+        self::assertSame($em, $obrigacao->getEncargosAtualizadosEm());
+        self::assertSame(1360, $obrigacao->getJuros());
+        self::assertSame(340, $obrigacao->getMulta());
+        self::assertSame(0, $obrigacao->getCorrecao());
+        self::assertSame(3740, $obrigacao->getHonorarios());
+        self::assertSame(18700, $obrigacao->valorExigivel());
+    }
+
+    #[Test]
+    public function reabrirLimpaALiquidacaoEDescongela(): void
+    {
+        // Corrigir pagamento que desfaz a quitação (spec §6.3): volta a Viva — deixa de estar liquidada
+        // e volta ao recálculo ao vivo. Os valores materializados ficam como estavam (serão reescritos
+        // pela hidratação na próxima leitura).
+        $obrigacao = $this->obrigacao(17000)
+            ->liquidar(1360, 340, 0, 3740, new \DateTimeImmutable('2026-07-20'))
+            ->reabrir();
+
+        self::assertFalse($obrigacao->estaLiquidada());
+        self::assertNull($obrigacao->getLiquidadaEm());
+        self::assertFalse($obrigacao->encargosCongelados(), 'reaberta volta ao vivo');
+        self::assertNull($obrigacao->getEncargosCongeladosEm());
+    }
+
+    #[Test]
     public function osSettersIndividuaisTambemAlimentamOAgregado(): void
     {
         $obrigacao = $this->obrigacao(10000)
