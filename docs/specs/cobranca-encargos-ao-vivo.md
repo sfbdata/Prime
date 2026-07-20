@@ -71,23 +71,25 @@ Half-down do juros e half-up de multa/correção/honorários seguem como estão.
 
 ### 6.1 Serviço de hidratação (`EncargosVivos`)
 
-Novo serviço de domínio, puro-ish (sem persistir):
+Serviço de domínio APLICADOR PURO (sem persistir, sem repositório). **A config chega RESOLVIDA** — quem
+resolve é o chamador (1× por caso, onde o caso já está), evitando N+1 e mantendo o serviço trivial de testar.
+Assinatura real (F1 implementada, commit `fd7ae79`):
 
 ```
 EncargosVivos(
     ClockInterface $clock,
-    ResolvedorConfigEncargos $resolvedor,
     CalculadoraEncargos $calculadora,
 )
 
-// Preenche EM MEMÓRIA os encargos de cada obrigação para a data de referência do seu estado.
-// NÃO faz flush. Config resolvida 1× por caso (evita N+1 — override é por-caso hoje).
-hidratarCaso(CasoCobranca $caso, iterable<Obrigacao> $obrigacoes): void
+// Preenche EM MEMÓRIA os encargos de cada obrigação VIVA para HOJE. NÃO faz flush.
+hidratar(ConfigEncargos $config, iterable<Obrigacao> $obrigacoes): void
 ```
 
-- Para cada obrigação **Viva**: `calcular(P, vencimento, config, clock.now())` → `definirEncargos(...)` **em memória**.
-- **Liquidada / Substituída**: não toca (os valores já estão no snapshot persistido).
-- Config: `resolverDoCaso(caso)` uma vez; overrides por-obrigação (honorário, taxa digitada — ver §7) aplicados por cima.
+- Para cada obrigação **Viva** (`!encargosCongelados()`): `calcular(P, vencimento, config, clock.now())` →
+  `definirEncargos(...)` **em memória**.
+- **Liquidada / Substituída** (`encargosCongelados()`): não toca (os valores já estão no snapshot persistido).
+- **Config (responsabilidade do chamador):** `ResolvedorConfigEncargos::resolverDoCaso($caso)` uma vez por caso,
+  passada ao `hidratar(...)`. Override por-obrigação (§7) fica como follow-up.
 
 ### 6.2 Ponto único de carregamento (`CarregadorObrigacoesVivas`)
 

@@ -273,9 +273,14 @@ git commit -m "F1: prova ao centavo do caminho vivo (linha real TOPLIFE II)"
 > **Regra da fase (INV-V5 / risco):** exibição e saldo têm de virar **juntos** — nunca exibição viva com saldo
 > guardado. Cada task abaixo é um leitor; ao final, rodar a suíte inteira antes de F3.
 
+> **Nota F1 (implementada, `fd7ae79`/`aa03a30`):** o serviço ficou como aplicador puro
+> `EncargosVivos::hidratar(ConfigEncargos $config, iterable $obrigacoes)` — a config é resolvida pelo CHAMADOR
+> (não pelo serviço). `tests/Cobranca` 799/799.
+
 Padrão de transformação (aplicado a cada leitor, contra o arquivo real): **onde hoje se carrega obrigações de um caso
-e se lê `valorExigivel()`/getters, injetar `EncargosVivos` e chamar `hidratarCaso($caso, $obrigacoes)` logo após o
-carregamento, antes de somar/mapear.** Injeção via construtor (autowire).
+e se lê `valorExigivel()`/getters, injetar `EncargosVivos` + `ResolvedorConfigEncargos`, resolver a config 1× por
+caso (`$config = $resolvedor->resolverDoCaso($caso)`) e chamar `$encargosVivos->hidratar($config, $obrigacoes)` logo
+após o carregamento, antes de somar/mapear.** Injeção via construtor (autowire).
 
 ### Task 3: `CalculadoraSaldo` soma sobre o vivo
 
