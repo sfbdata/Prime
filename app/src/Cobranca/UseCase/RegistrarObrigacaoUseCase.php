@@ -74,17 +74,15 @@ final class RegistrarObrigacaoUseCase
         $hoje = new \DateTimeImmutable('today');
         $config = $this->resolvedor->resolver($obrigacao);
 
-        // "Digitou" inclui o honorário (Ajuste 2, D-A2-5): `honorarios !== null` é digitação (mesmo `0`,
-        // zero explícito), enquanto `null` é "não informado" e mantém a obrigação automática. Basta digitar
-        // QUALQUER encargo — juros/multa/correção > 0 OU um honorário — para a obrigação nascer travada.
+        // Encargos AO VIVO (D6): a obrigação nasce VIVA e NUNCA congela ao registrar — o encargo é sempre
+        // recalculado (vencimento → hoje × taxa) na leitura, via hidratação. Um valor de encargo digitado
+        // no cadastro é apenas um ponto de partida (cache), não um override que fixe a obrigação: no modelo
+        // ao vivo, para mudar a taxa edita-se a config do caso/carteira (override por-obrigação é
+        // follow-up, §11). O honorário, quando não informado (`null`), é completado pelo motor sobre a
+        // base digitada; quando digitado, é usado como está no cache inicial.
         $digitou = $input->juros > 0 || $input->multa > 0 || $input->correcao > 0 || $input->honorarios !== null;
 
         if ($digitou) {
-            // O gestor DIGITOU encargos: os três são a verdade e FIXAM (congela). O honorário, quando vazio
-            // (`null`), é COMPLETADO pelo motor sobre a base digitada (senão travaria em zero, o bug
-            // bloqueante da F4); quando digitado, é usado como está (override — o motor não o sobrescreve).
-            // Com os encargos materializados, congelar é seguro: número digitado por gente não é
-            // sobrescrito pelo cron na madrugada seguinte (INV-E4).
             $dias = $this->calculadora->diasDeAtraso($input->vencimentoOriginal, $hoje);
             $honorarios = $input->honorarios ?? $this->calculadora->honorarios(
                 (int) $input->valorOriginal,
@@ -95,10 +93,7 @@ final class RegistrarObrigacaoUseCase
                 $dias,
             );
             $obrigacao->definirEncargos($input->juros, $input->multa, $input->correcao, $honorarios, $hoje);
-            $obrigacao->congelarEncargos($hoje);
         } else {
-            // Sem digitação: obrigação AUTOMÁTICA. Materializa os encargos calculados para hoje e SEGUE
-            // recalculável (não congela) — o cron a faz crescer. Nasce com os juros do dia, não em zero.
             $novos = $this->calculadora->calcular((int) $input->valorOriginal, $input->vencimentoOriginal, $config, $hoje);
             $obrigacao->definirEncargos($novos['juros'], $novos['multa'], $novos['correcao'], $novos['honorarios'], $hoje);
         }

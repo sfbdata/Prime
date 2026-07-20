@@ -175,8 +175,8 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(17000 + 2089 + 5000, $comClasseEspecial->totalComHonorarios());
     }
 
-    #[TestDox('Obrigação importada nasce congelada, inclusive com encargos zero')]
-    public function testObrigacaoImportadaNasceCongelada(): void
+    #[TestDox('Obrigação importada nasce VIVA (ao vivo): materializa o split do relatório, mas NÃO congela')]
+    public function testObrigacaoImportadaNasceViva(): void
     {
         $tenant = $this->criarTenant();
         $user = $this->criarUser();
@@ -185,24 +185,25 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         $this->importar->confirmar($carteira, $this->adapter->ler(self::FIXTURE), $tenant, $user);
         $repo = $this->em->getRepository(Obrigacao::class);
 
+        // Ao vivo (D6): a importação materializa os números do relatório como valor INICIAL, mas a
+        // obrigação nasce VIVA — a leitura recalcula (vencimento → hoje × taxa), que reproduz o relatório
+        // ao centavo quando a carteira está configurada (spec §2). Nada mais congela.
         foreach ($repo->findBy(['tenant' => $tenant]) as $obrigacao) {
-            self::assertTrue(
+            self::assertFalse(
                 $obrigacao->encargosCongelados(),
-                "obrigação {$obrigacao->getReferenciaExterna()} deveria nascer congelada (o relatório é a verdade)",
+                "obrigação {$obrigacao->getReferenciaExterna()} deve nascer Viva (encargo ao vivo)",
             );
         }
 
-        // NN=1003 tem I=J=K=0: mesmo SEM encargo nenhum, precisa estar congelada — senão o cron
-        // passaria a calcular encargos por cima de um boleto que a contabilidade disse valer só o
-        // principal (INV-E4).
+        // NN=1003 tem I=J=K=0: nasce Viva como as demais (não há mais cron a "proteger").
         $semEncargos = $repo->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '1003']);
         self::assertNotNull($semEncargos);
         self::assertSame(0, $semEncargos->getEncargosReconhecidos(), 'boleto sem encargo nenhum');
-        self::assertTrue($semEncargos->encargosCongelados(), 'congelada mesmo com encargos zero');
+        self::assertFalse($semEncargos->encargosCongelados(), 'Viva mesmo com encargos zero');
     }
 
-    #[TestDox('Reimportação re-congela os encargos na referência nova')]
-    public function testReimportacaoReCongelaOsEncargos(): void
+    #[TestDox('Reimportação restaura os números do relatório (cache) e mantém a obrigação VIVA')]
+    public function testReimportacaoRestauraOsNumerosMantendoViva(): void
     {
         $tenant = $this->criarTenant();
         $user = $this->criarUser();
@@ -211,13 +212,13 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         $this->importar->confirmar($carteira, $this->adapter->ler(self::FIXTURE), $tenant, $user);
         $repo = $this->em->getRepository(Obrigacao::class);
 
-        // Simula uma obrigação que foi descongelada entre os dois relatórios: a reimportação tem de
-        // devolvê-la ao estado congelado, com os números do relatório novo.
+        // A obrigação nasce Viva; altera-se o cache entre os dois relatórios para provar que a
+        // reimportação restaura os números do relatório novo — sem congelar.
         $obrigacao = $repo->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '1001']);
         self::assertNotNull($obrigacao);
-        $obrigacao->descongelarEncargos()->definirEncargos(1, 2, 3, 4, new \DateTimeImmutable('2020-01-01'));
+        self::assertFalse($obrigacao->encargosCongelados(), 'importada nasce Viva');
+        $obrigacao->definirEncargos(1, 2, 3, 4, new \DateTimeImmutable('2020-01-01'));
         $this->em->flush();
-        self::assertFalse($obrigacao->encargosCongelados());
 
         $segunda = $this->importar->confirmar($carteira, $this->adapter->ler(self::FIXTURE), $tenant, $user);
 
@@ -226,7 +227,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(6, $repo->count(['tenant' => $tenant]), 'sem duplicação');
 
         $this->em->refresh($obrigacao);
-        self::assertTrue($obrigacao->encargosCongelados(), 'a reimportação re-congela');
+        self::assertFalse($obrigacao->encargosCongelados(), 'a reimportação NÃO congela — segue Viva');
         self::assertSame(937, $obrigacao->getJuros(), 'e restaura os números do relatório');
         self::assertSame(380, $obrigacao->getMulta());
         self::assertSame(0, $obrigacao->getCorrecao());

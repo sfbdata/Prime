@@ -183,12 +183,12 @@ final class ImportarRelatorioCarteiraUseCase
     }
 
     /**
-     * Grava os encargos do relatório SEPARADOS (juros/multa/correção/honorários) e CONGELA a obrigação:
-     * os números da contabilidade são a verdade, o cron de materialização não pode sobrescrevê-los
-     * (spec §9, INV-E4). Congela SEMPRE, inclusive com encargos zero — um boleto que a contabilidade
-     * diz valer só o principal precisa continuar valendo só o principal, e não virar base de cálculo
-     * automático. Honorários passam a ser persistidos (§4.2): NÃO afetam o saldo, porque
-     * `Obrigacao::valorExigivel()` soma apenas valorOriginal + juros + multa + correção (INV-E2).
+     * Grava os encargos do relatório SEPARADOS (juros/multa/correção/honorários) como o valor INICIAL da
+     * obrigação (cache). Encargos AO VIVO (D6): NÃO congela mais — a obrigação nasce VIVA e a leitura
+     * recalcula (vencimento → hoje × taxa). A fórmula reproduz ao centavo os números da contabilidade
+     * (spec §2), então, com a carteira configurada, o vivo bate com o importado; sem isso, os valores
+     * importados servem de partida até a primeira hidratação. Honorários são persistidos (§4.2): NÃO
+     * afetam o saldo (`valorExigivel()` = valorOriginal + juros + multa + correção, INV-E2).
      */
     private function materializarEncargosImportados(Obrigacao $obrigacao, BoletoImportavel $boleto, \DateTimeImmutable $referencia): void
     {
@@ -199,7 +199,6 @@ final class ImportarRelatorioCarteiraUseCase
             $boleto->honorariosInformadosCentavos,
             $referencia,
         );
-        $obrigacao->congelarEncargos($referencia);
         $this->obrigacaoRepository->salvar($obrigacao, true);
     }
 

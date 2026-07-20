@@ -208,8 +208,8 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertFalse($fresh->encargosCongelados(), 'não mexeu em encargos → não congela');
     }
 
-    #[TestDox('Editar obrigação: recompor encargos congela, separa o split e recompõe os honorários pelo motor')]
-    public function testEditarObrigacaoRecomporEncargosCongelaERecomputaHonorarios(): void
+    #[TestDox('Editar obrigação: recompor encargos separa o split e recompõe os honorários pelo motor, SEM congelar')]
+    public function testEditarObrigacaoRecomporEncargosSeparaSplitSemCongelar(): void
     {
         // Regressão do achado I5 da F2 (a ponte deprecada achatava o agregado em `juros` e zerava multa/
         // correção) + comportamento F6: ao recompor à mão, cada componente vai para o seu campo, a
@@ -257,11 +257,11 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(1000, $fresh->getCorrecao());
         // Honorários RECOMPOSTOS pelo motor: base composta 100000 + 20000 + 14000 + 1000 = 135000 · 20% = 27000.
         self::assertSame(27000, $fresh->getHonorarios(), 'a UI não edita honorários — o motor os recompõe sobre a base digitada');
-        self::assertTrue($fresh->encargosCongelados(), 'mexer em dinheiro à mão tira a obrigação do cron (INV-E4)');
+        self::assertFalse($fresh->encargosCongelados(), 'ao vivo (D6): editar à mão NÃO congela — a obrigação segue Viva');
     }
 
-    #[TestDox('Registrar obrigação com encargos digitados: nasce com o split e TRAVADA (congela)')]
-    public function testRegistrarObrigacaoComEncargosDigitadosCongela(): void
+    #[TestDox('Registrar obrigação com encargos digitados: nasce com o split como cache, SEM congelar (ao vivo)')]
+    public function testRegistrarObrigacaoComEncargosDigitadosNaoCongela(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -293,13 +293,13 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(2000, $criada->getMulta());
         self::assertSame(500, $criada->getCorrecao());
         self::assertSame(107500, $criada->valorExigivel());
-        // F6: digitar encargos à mão TRAVA a obrigação (INV-E4). A carteira de teste é NEUTRA (0% de
-        // honorários) → aqui os honorários dão 0; a COMPLETUDE dos honorários pelo motor é provada no
-        // unit (carteira TOPLIFE). O que este teste prova ponta a ponta é o congelamento.
+        // Ao vivo (D6): digitar encargos materializa o split como CACHE inicial (lido direto do banco
+        // aqui), mas NÃO congela — a obrigação nasce Viva. A carteira de teste é NEUTRA (0% honorários),
+        // então os honorários dão 0; a completude pelo motor é provada no unit (carteira TOPLIFE).
         self::assertSame(0, $criada->getHonorarios());
-        self::assertTrue(
+        self::assertFalse(
             $criada->encargosCongelados(),
-            'digitar encargos à mão trava a obrigação (o cron não a sobrescreve)',
+            'ao vivo: digitar encargos não congela — a obrigação nasce Viva',
         );
     }
 
@@ -334,12 +334,12 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         );
     }
 
-    #[TestDox('Registrar obrigação com honorário digitado: usa o valor, fica fora do exigível e TRAVA')]
-    public function testRegistrarObrigacaoComHonorarioDigitadoCongela(): void
+    #[TestDox('Registrar obrigação com honorário digitado: usa o valor (cache), fica fora do exigível, SEM congelar')]
+    public function testRegistrarObrigacaoComHonorarioDigitadoNaoCongela(): void
     {
-        // Ajuste 2: o honorário é o 4º encargo do modal. Digitá-lo trava a obrigação (INV-E4) e o valor
-        // fica FORA do exigível (INV-E2). A carteira de teste é neutra, mas aqui o honorário é DIGITADO
-        // (6000), então independe da config — prova que o campo chega ao UseCase e é usado.
+        // O honorário é o 4º encargo do modal. Digitá-lo aplica o valor (cache) e fica FORA do exigível
+        // (INV-E2). Ao vivo (D6), NÃO congela. A carteira de teste é neutra, mas aqui o honorário é
+        // DIGITADO (6000), então independe da config — prova que o campo chega ao UseCase e é usado.
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
@@ -366,11 +366,11 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertNotNull($criada);
         self::assertSame(6000, $criada->getHonorarios(), 'usa o honorário digitado');
         self::assertSame(100000, $criada->valorExigivel(), 'honorário fora do exigível (INV-E2)');
-        self::assertTrue($criada->encargosCongelados(), 'digitar honorário à mão trava a obrigação');
+        self::assertFalse($criada->encargosCongelados(), 'ao vivo: digitar honorário não congela — nasce Viva');
     }
 
-    #[TestDox('Editar obrigação com honorário digitado: usa o valor, congela e fica fora do exigível')]
-    public function testEditarObrigacaoComHonorarioDigitadoCongela(): void
+    #[TestDox('Editar obrigação com honorário digitado: usa o valor, fica fora do exigível, SEM congelar')]
+    public function testEditarObrigacaoComHonorarioDigitadoNaoCongela(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -384,7 +384,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
 
         // SÓ o honorário é digitado (juros/multa/correção ficam vazios = 0, iguais aos atuais): a digitação
-        // do honorário sozinho já é mexida manual e congela.
+        // do honorário sozinho já é mexida manual (usa o valor), mas ao vivo (D6) NÃO congela.
         $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
             'editar_obrigacao' => [
                 'descricao' => 'Honorario ajustado',
@@ -403,7 +403,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $fresh = $em->find(Obrigacao::class, $obrigacaoId);
         self::assertSame(7500, $fresh->getHonorarios(), 'o honorário digitado é aplicado');
         self::assertSame(100000, $fresh->valorExigivel(), 'honorário fora do exigível (INV-E2)');
-        self::assertTrue($fresh->encargosCongelados(), 'digitar honorário à mão congela');
+        self::assertFalse($fresh->encargosCongelados(), 'ao vivo: digitar honorário não congela — segue Viva');
     }
 
     #[TestDox('Editar obrigação sem a capacidade: negado (redirect, não caso)')]

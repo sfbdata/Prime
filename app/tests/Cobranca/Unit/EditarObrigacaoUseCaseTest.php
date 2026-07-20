@@ -239,12 +239,12 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function editarCongelaOsEncargosParaQueOCronNaoDesfacaACorrecao(): void
+    public function editarAMaoNaoCongelaMaisMantemAObrigacaoViva(): void
     {
-        // Sem o congelamento (spec §5/§8, INV-E4), o cron `app:cobranca:atualizar-encargos` passaria
-        // de madrugada e sobrescreveria o valor que o gestor acabou de corrigir à mão.
+        // Encargos AO VIVO (D6): editar à mão NÃO congela mais — a obrigação segue Viva e a leitura
+        // recalcula (o valor digitado é só cache). Não há mais cron para "desfazer a correção".
         $obrigacao = $this->obrigacaoAtiva();
-        self::assertFalse($obrigacao->encargosCongelados(), 'pré-condição: a obrigação nasce recalculável');
+        self::assertFalse($obrigacao->encargosCongelados(), 'pré-condição: a obrigação é Viva');
 
         $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
@@ -257,26 +257,14 @@ final class EditarObrigacaoUseCaseTest extends TestCase
 
         $resultado = $this->sut->executar($this->inputValido(), $this->tenant, $this->usuario);
 
-        self::assertTrue($resultado->encargosCongelados(), 'editar à mão congela: a obrigação para de crescer');
-        $congeladoEm = $resultado->getEncargosCongeladosEm();
-        self::assertNotNull($congeladoEm);
-        // O congelamento é datado em HOJE (referência do dia, hora zerada — coerente com o cron).
-        self::assertSame(
-            (new \DateTimeImmutable('today'))->format('Y-m-d'),
-            $congeladoEm->format('Y-m-d'),
-            'o congelamento é do dia da edição',
-        );
+        self::assertFalse($resultado->encargosCongelados(), 'editar à mão NÃO congela: a obrigação segue Viva');
+        self::assertNull($resultado->getEncargosCongeladosEm());
 
-        // O histórico tem de registrar a transição: sem isso ninguém explica depois por que aquela
-        // obrigação parou de acompanhar os juros.
+        // O histórico ainda registra a edição; o congelamento fica null antes e depois.
         self::assertInstanceOf(EventoHistorico::class, $capturado);
         $dados = $capturado->getDados();
-        self::assertNull($dados['antes']['encargosCongeladosEm'], 'antes da edição não havia congelamento');
-        self::assertSame(
-            $congeladoEm->format('Y-m-d H:i:s'),
-            $dados['depois']['encargosCongeladosEm'],
-            'o snapshot "depois" tem de trazer o congelamento gravado',
-        );
+        self::assertNull($dados['antes']['encargosCongeladosEm']);
+        self::assertNull($dados['depois']['encargosCongeladosEm'], 'editar não congela no modelo ao vivo');
     }
 
     /**
@@ -333,7 +321,7 @@ final class EditarObrigacaoUseCaseTest extends TestCase
      * detectaria a mudança (compara pelo agregado) nem gravaria o split.
      */
     #[Test]
-    public function recomporOsEncargosMantendoOAgregadoAindaAssimGravaECongela(): void
+    public function recomporOsEncargosMantendoOAgregadoGravaOSplitSemCongelar(): void
     {
         $obrigacao = $this->obrigacaoAtiva();
         $obrigacao->definirEncargos(100, 200, 50, 900, new \DateTimeImmutable('2026-02-01'));
@@ -354,7 +342,7 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertSame(100, $resultado->getMulta());
         self::assertSame(50, $resultado->getCorrecao());
         self::assertSame(350, $resultado->getEncargosReconhecidos(), 'o agregado não mudou — a composição sim');
-        self::assertTrue($resultado->encargosCongelados(), 'recompor à mão é editar dinheiro: congela');
+        self::assertFalse($resultado->encargosCongelados(), 'ao vivo: recompor à mão NÃO congela — segue Viva');
     }
 
     /**
@@ -391,7 +379,7 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertNotSame(4321, $resultado->getHonorarios(), 'não é o valor velho preservado');
         // E os honorários seguem FORA do exigível (INV-E2): 25000 + 300 + 150 + 50.
         self::assertSame(25500, $resultado->valorExigivel());
-        self::assertTrue($resultado->encargosCongelados(), 'editar dinheiro à mão congela');
+        self::assertFalse($resultado->encargosCongelados(), 'ao vivo: editar dinheiro à mão NÃO congela');
     }
 
     /**
@@ -583,12 +571,12 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * Ajuste 2 (D-A2-5): editar com honorário DIGITADO é override — o motor não o sobrescreve — e congela,
-     * mesmo quando juros/multa/correção continuam iguais aos atuais (a digitação do honorário sozinho já é
-     * mexida manual, via `honorarios !== null`). Com TOPLIFE (20%) o motor daria 20000; o gestor fixou 7777.
+     * Editar com honorário DIGITADO usa o valor como cache inicial (o motor não o sobrescreve na edição),
+     * mesmo quando juros/multa/correção continuam iguais (a digitação do honorário sozinho já conta como
+     * mexida, via `honorarios !== null`). Ao vivo (D6), porém, NÃO congela — a obrigação segue Viva.
      */
     #[Test]
-    public function editarComHonorarioDigitadoEhOverrideECongela(): void
+    public function editarComHonorarioDigitadoViraCacheSemCongelar(): void
     {
         $caso = $this->casoTopLife();
         $obrigacao = (new Obrigacao())
@@ -614,9 +602,9 @@ final class EditarObrigacaoUseCaseTest extends TestCase
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
-        self::assertSame(7777, $resultado->getHonorarios(), 'honorário digitado é override: o motor não o sobrescreve');
+        self::assertSame(7777, $resultado->getHonorarios(), 'honorário digitado vira o cache: o motor não o sobrescreve na edição');
         self::assertSame(100000, $resultado->valorExigivel(), 'honorário fora do exigível (INV-E2)');
-        self::assertTrue($resultado->encargosCongelados(), 'digitar o honorário sozinho já congela');
+        self::assertFalse($resultado->encargosCongelados(), 'ao vivo: digitar o honorário não congela — segue Viva');
     }
 
     /**

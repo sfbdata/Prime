@@ -109,13 +109,13 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * F6: uma dívida trazida de outro sistema já vem com os encargos calculados lá fora. O gestor os
-     * DIGITA no lançamento; a partir daí eles são a verdade e a obrigação nasce TRAVADA (o cron não passa
-     * por cima — INV-E4). Os honorários, que não têm campo no form, são COMPLETADOS pelo motor sobre a
-     * base digitada — antes travavam em zero (o bug bloqueante da F4), agora congelar é seguro.
+     * Encargos AO VIVO (D6): o gestor pode DIGITAR encargos no lançamento e eles viram o valor inicial
+     * (cache), com os honorários COMPLETADOS pelo motor sobre a base digitada. Mas a obrigação NÃO
+     * congela mais — nasce VIVA e a leitura recalcula ao vivo (o digitado é ponto de partida, não
+     * override; para fixar taxa, edita-se a config do caso/carteira, §11).
      */
     #[Test]
-    public function encargosDigitadosNoLancamentoCongelamEGanhamHonorariosPeloMotor(): void
+    public function encargosDigitadosNoLancamentoViramCacheInicialSemCongelar(): void
     {
         // Carteira TOPLIFE (20% sobre base composta) e vencimento antigo → o motor completa os honorários
         // de forma determinística.
@@ -147,8 +147,8 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         self::assertSame(107500, $obrigacao->valorExigivel());
         // Honorários COMPLETADOS pelo motor: base composta 100000 + 5000 + 2000 + 500 = 107500 · 20% = 21500.
         self::assertSame(21500, $obrigacao->getHonorarios(), 'honorários completados sobre a base digitada, não travados em zero');
-        // E agora CONGELA: o valor digitado é a verdade e o cron não passa por cima (INV-E4).
-        self::assertTrue($obrigacao->encargosCongelados(), 'digitar encargos à mão trava a obrigação');
+        // Encargos AO VIVO (D6): digitar NÃO congela mais — a obrigação nasce Viva (o digitado é cache).
+        self::assertFalse($obrigacao->encargosCongelados(), 'ao vivo: digitar encargos não congela a obrigação');
 
         // O histórico precisa explicar de onde veio esse dinheiro.
         self::assertInstanceOf(EventoHistorico::class, $capturado);
@@ -187,12 +187,12 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * Ajuste 2 (D-A2-5): honorário DIGITADO é override — o motor NÃO o sobrescreve — e a obrigação nasce
-     * TRAVADA. Com carteira TOPLIFE (20% sobre base composta) o motor produziria 21500; o gestor fixou
-     * 9999 e é isso que fica. Digitar o honorário sozinho já é digitação (mesmo com juros/multa/correção).
+     * Ao vivo (D6): honorário DIGITADO vira o cache inicial (o motor não o sobrescreve no registro), mas a
+     * obrigação NÃO congela mais — nasce Viva. Com carteira TOPLIFE o motor daria 21500; o gestor digitou
+     * 9999 e é o que fica materializado de imediato (até a leitura recomputar ao vivo).
      */
     #[Test]
-    public function honorarioDigitadoNoLancamentoEhOverrideECongela(): void
+    public function honorarioDigitadoNoLancamentoViraCacheInicialSemCongelar(): void
     {
         $caso = $this->casoTopLife();
         $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
@@ -211,10 +211,10 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
 
         $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
 
-        self::assertSame(9999, $obrigacao->getHonorarios(), 'honorário digitado é override: o motor não o sobrescreve');
+        self::assertSame(9999, $obrigacao->getHonorarios(), 'honorário digitado é o cache inicial: o motor não o sobrescreve no registro');
         self::assertNotSame(21500, $obrigacao->getHonorarios(), 'não é o valor que o motor calcularia');
         self::assertSame(107500, $obrigacao->valorExigivel(), 'honorário fora do exigível (INV-E2)');
-        self::assertTrue($obrigacao->encargosCongelados(), 'digitar honorário à mão trava a obrigação');
+        self::assertFalse($obrigacao->encargosCongelados(), 'ao vivo: digitar honorário não congela a obrigação');
     }
 
     /**
@@ -244,12 +244,12 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * Ajuste 2 (risco 3): `0` NÃO é `null`. Zero explícito é uma decisão (honorário zero fixo) e CONGELA,
-     * distinto do vazio (automático). Sem essa distinção, o motor de 20% recomporia um honorário que o
-     * gestor zerou de propósito.
+     * `0` NÃO é `null`. Zero explícito é uma decisão (honorário zero fixo) e é respeitado no cache inicial
+     * (o motor de 20% não o recompõe no registro), distinto do vazio (que o motor completa). Ao vivo (D6),
+     * porém, NÃO congela — a obrigação nasce Viva.
      */
     #[Test]
-    public function honorarioZeroExplicitoEhRespeitadoECongela(): void
+    public function honorarioZeroExplicitoEhRespeitadoNoCacheSemCongelar(): void
     {
         $caso = $this->casoTopLife();
         $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
@@ -265,7 +265,7 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
 
         self::assertSame(0, $obrigacao->getHonorarios(), 'honorário zero explícito é respeitado, não recomposto pelo motor');
-        self::assertTrue($obrigacao->encargosCongelados(), 'zero explícito é digitação: congela');
+        self::assertFalse($obrigacao->encargosCongelados(), 'ao vivo: nem o zero explícito congela — fica Viva');
     }
 
     #[Test]
