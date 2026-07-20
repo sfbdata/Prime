@@ -9,6 +9,8 @@ use App\Cobranca\DTO\ObrigacaoSubstituidaResumoOutput;
 use App\Cobranca\DTO\ParcelaAcordoResumoOutput;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
+use App\Cobranca\Service\EncargosVivos;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Entity\Tenant\Tenant;
 
 /**
@@ -27,6 +29,8 @@ final class MontarDetalheAcordoUseCase
 {
     public function __construct(
         private readonly AlocacaoPagamentoRepository $alocacaoRepository,
+        private readonly EncargosVivos $encargosVivos,
+        private readonly ResolvedorConfigEncargos $resolvedorConfig,
     ) {
     }
 
@@ -34,6 +38,17 @@ final class MontarDetalheAcordoUseCase
     {
         $caso = $acordo->getCaso();
         $casoId = (int) $caso?->getId();
+
+        // Encargos AO VIVO (spec §3 D4): a PARCELA de um acordo VIGENTE é obrigação viva — cresce se
+        // atrasar. Hidrata-as para HOJE (config resolvida do caso, 1×). Acordo não-vigente (rompido/
+        // cancelado) tem parcelas históricas → não hidrata. As SUBSTITUÍDAS ficam de fora: seu valor é
+        // o snapshot da data do acordo (não crescem) — congeladas na F3, aqui nunca são recalculadas.
+        if ($caso !== null && $acordo->getStatus()->ehVigente()) {
+            $this->encargosVivos->hidratar(
+                $this->resolvedorConfig->resolverDoCaso($caso),
+                $acordo->getParcelas(),
+            );
+        }
 
         // Uma query para todas as parcelas do caso: mapa obrigacaoId → total alocado.
         $alocadoPorObrigacao = $this->alocacaoRepository->somasPorObrigacaoDosCasos([$casoId], $tenant);

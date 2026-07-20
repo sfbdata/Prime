@@ -9,12 +9,16 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
+use App\Cobranca\Service\CalculadoraEncargos;
+use App\Cobranca\Service\EncargosVivos;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\MontarDetalheAcordoUseCase;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Symfony\Component\Clock\MockClock;
 
 /**
  * Detalhe do Acordo (Ajuste 7, Fatia 3): leitura derivada — total/entrada saem do snapshot (com
@@ -31,7 +35,13 @@ final class MontarDetalheAcordoUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
-        $this->sut = new MontarDetalheAcordoUseCase($this->alocacaoRepository);
+        // EncargosVivos/ResolvedorConfigEncargos reais (puros): as parcelas do teste vencem no futuro
+        // (ago–out/2026) → hidratação para 20/07/2026 é no-op; substituídas não são hidratadas.
+        $this->sut = new MontarDetalheAcordoUseCase(
+            $this->alocacaoRepository,
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new ResolvedorConfigEncargos(),
+        );
         $this->tenant = new Tenant();
     }
 
