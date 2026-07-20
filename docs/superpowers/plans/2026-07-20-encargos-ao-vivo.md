@@ -5,22 +5,43 @@
 
 ## 🔖 STATUS & COMO RETOMAR (execução autônoma até o fim)
 
-**Feito:** **F1 COMPLETA** (`fd7ae79`+`aa03a30`). **F2 COMPLETA** (leitura ao vivo religada em TODOS os leitores):
-`7f8f2ab` saldo+detalhe do caso · `24c456a` FIFO · `a28b102` detalhe do acordo · `6185c29` dashboard ·
-`182565b` form acordo/pagamento. Revisão adversarial F2 feita; achados fechados em commit próprio
-(relógio único via `EncargosVivos::agora()`, flake de teste, 2ª prova ao centavo do caminho vivo, plano).
-`tests/Cobranca` **801/801**, suíte global **2165/2165**. Motor `CalculadoraEncargos` **byte-idêntico**
-(paridade ao centavo da F1/F6 herdada + caminho vivo provado em `EncargosVivosTest`).
+**Feito:** **F1→F5 COMPLETAS** (encargos ao vivo, ponta a ponta). Pronto para o humano publicar (nada
+pushado/mergeado/deployado). Commits em `cobranca-encargos-cascata`:
+- **F1** `fd7ae79`+`aa03a30`. **F2** (leitura ao vivo em TODOS os leitores) `7f8f2ab` `24c456a` `a28b102`
+  `6185c29` `182565b`; revisão + fixes `39339af`.
+- **F3** (snapshot na liquidação) `fe648ed` (liquidadaEm + liquidar/reabrir + exigivelVivo/M1) ·
+  `c5ca2a0` (ReconciliadorLiquidacao + Registrar/Corrigir) · `6a2e35d` (substituídas no acordo);
+  verificação adversarial multi-agente (5 lentes) → 3 bugs de dinheiro corrigidos `b46dba0`
+  (divergência data-base FIFO×reconciliador, INV-V2 re-liquidação, guard da substituída).
+- **F4** (remover o velho) `a5583f7` (cron+freio+predicados órfãos) · `5035dc4` (congelamento manual em
+  editar/registrar/importar); revisão + fixes `ee70bda` (editar Liquidada RECONCILIA/reabre em vez de
+  corromper; docs/comentários; guard de config).
 
-**➡️ RETOMAR EM: Fase F3, Task 10 (`liquidadaEm` + migração).** Executar F3 → F4 → F5 **em ordem**.
+**Verde:** `tests/Cobranca` **804/804**, suíte global **2168/2168**. Motor `CalculadoraEncargos` e
+`ConfigEncargos` **byte-idênticos** em toda a feature (paridade ao centavo da F1/F6 de 4.317 linhas
+herdada) + caminho vivo provado ao centavo (`EncargosVivosTest` linhas reais 188d/240d; tela via
+`ObjetoShowControllerTest`). Migração `liquidada_em` (`Version20260720221116`, só ADD COLUMN nullable)
+aplicada em **dev** e **saas_test**; **prod = humano**.
 
-**🚩 DECISÃO DE DEPLOY PENDENTE (A1, do humano):** no dump de prod, **3262/3295** obrigações ABERTAS estão
-`encargos_congelados_em` != null pelo modelo ANTIGO (import/edição/cron/migração). No modelo ao vivo, avulsa
-aberta deve CRESCER — mas a hidratação pula congelada. Sem uma migração que LIMPE a flag legada das obrigações
-que devem ficar vivas (≠ da §11, que só zera o cache de juros), a feature nasce INERTE em prod. É operação em
-dados de PROD ⇒ **do humano** (montar+revisar+rodar). Para o smoke da F5, usar um caso CONTROLADO (carteira
-configurada + obrigação nova/descongelada). NÃO confundir com o override-de-taxa por-obrigação (§11), que
-segue fora do escopo F1–F5.
+**Smoke real (F5, 2026-07-20, caso controlado no dev):** objeto aberto **cresce ao vivo** (juros R$ 13,60
+p/ 240 dias, não-congelado) e pago **congela na data** (snapshot R$ 9,99 ≠ recálculo, indicador de
+congelado), em **claro e escuro**. Dados de smoke removidos após a captura.
+
+**➡️ RETOMAR EM: nada pendente do escopo F1–F5.** Restam decisões/operações do HUMANO abaixo.
+
+**🚩 DECISÕES/OPERAÇÕES DO HUMANO (fora do código F1–F5):**
+1. **Publicação:** push/merge/deploy da branch (rebuild prod via script; aplicar `Version20260720221116`).
+2. **A1 — migração de dados legados (deploy, dinheiro):** no dump de prod, **~3262/3295** obrigações
+   ABERTAS têm `encargos_congelados_em` != null pelo modelo ANTIGO. No ao vivo elas devem CRESCER, mas a
+   hidratação pula congelada → **feature nasce inerte** até LIMPAR a flag legada das que devem ficar vivas
+   (≠ da §11, que só zera cache de juros). Predicado seguro: limpar `encargos_congelados_em` das obrigações
+   NÃO liquidadas (`liquidada_em IS NULL`) e NÃO substituídas por acordo vigente. É operação em dados de
+   PROD ⇒ do humano (montar+revisar+rodar), idealmente junto com o deploy.
+3. **Config load-bearing:** conferir carteiras SEM taxa antes do go-live (SQL no `SMOKE_ENCARGOS.md`).
+4. **A2 / override de taxa por-obrigação (§7/§11 — "confirmar na revisão"):** editar/registrar encargo à
+   mão NÃO persiste no ao vivo (é recomputado na leitura); os campos de encargo nos modais ficaram
+   vestigiais. Decisão do dono: (a) restringir edição de encargo à taxa do caso/carteira e esconder esses
+   campos, ou (b) implementar o override por-obrigação (campo de taxa na obrigação) como follow-up.
 
 **Mandato do dono (2026-07-20):** seguir **autônomo até o final**. Por fase: implementar (TDD) → `/review`
 (`feature-review-agent` contra a spec) → corrigir → testes direcionados no container → estabilizar → **commit local**.
