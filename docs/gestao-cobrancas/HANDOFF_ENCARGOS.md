@@ -46,15 +46,30 @@ CONGELA, com honorários completados — mais coerente.)*
 a correção fica **manual por obrigação** (o gestor pesquisa e digita no campo que já existe). **Manter a
 "Correção (%)" da carteira em 0** (taxa fixa não é correção monetária). Não construir busca de índice.
 
-### ⏳ Ajuste 2 — Honorários editáveis no OBJETO/CASO e na OBRIGAÇÃO (PRÓXIMO)
-Hoje só se edita honorário na carteira. O dono quer editar no caso e na obrigação individual, e ter o campo
-de honorário junto dos encargos nos forms. Extensão da cascata para honorários (spec §11 previa "por obrigação").
+### ✅ Ajuste 2 — Honorários editáveis no CASO e na OBRIGAÇÃO (FEITO, 2026-07-20)
+Spec: `docs/specs/cobranca-encargos-ajuste2-honorarios-cascata.md`. Duas fatias, cada uma
+implementer/worktree → revisão adversarial → cherry-pick → testes → SMOKE.
+
+- **Fatia A (`30ec898`+`930bcea`):** editar honorários do **caso âncora** (forma/%/base/carência) via modal
+  "Editar honorários"; ao salvar, **recalcula na hora** as obrigações automáticas vivas do caso (mesmo
+  predicado do cron, sem freio de redução), congeladas intactas (INV-E4); evento de auditoria com autor.
+  Revisão fechou 2 achados: validação forma×percentual (não zera honorários em branco) e autor do evento.
+- **Fatia B (`e86140f`):** campo de **honorário na obrigação** (registrar/editar) com par %↔R$ sobre a
+  **base composta** (valor+juros+multa+correção). **Vazio = automático** (motor completa/recalcula, como
+  hoje); **digitado = override + congela**. Honorário FORA do exigível (INV-E2). Ajuste 1 intacto.
+- **Decisão de escopo:** "editar no objeto/caso" = editar o caso âncora (objeto não tem config própria); só
+  honorários no caso (juros/multa/correção por caso = follow-up). `tests/Cobranca` **793/793**, global
+  **2157/2157**.
+
+**Sharp-edge a confirmar com o dono (não é bug):** ao editar uma obrigação **congelada** mexendo em
+juros/multa/correção com o **honorário em branco**, o motor **recompõe** o honorário sobre a nova base
+(descarta o honorário fixo anterior). O campo abre vazio; para manter o honorário antigo, o gestor redigita.
 
 ### ⏳ Ajuste 3 — Redesign do card da obrigação (PRÓXIMO)
 A linha em colunas ficou apertada. O dono quer card com labels/cores/bom UX. ⚠️ 150+ obrigações por objeto →
-densidade importa (candidato: card expansível — compacto por padrão, expande no clique).
-
-**Ordem no próximo chat:** smoke do Ajuste 1 → Ajuste 2 (dinheiro: investigar+spec+implementar) → Ajuste 3 (card).
+densidade importa (candidato: card expansível — compacto por padrão, expande no clique). **Perguntar o
+estilo ao dono antes de implementar** (compacto / detalhado / expansível, com previews). Só Twig/CSS/JS;
+preservar os ganchos de teste (`data-*`, `ObjetoShowContratoJsTest`) e o B5; SMOKE em 3 larguras.
 
 ### Duas pendências humanas antes do deploy (checklist §4)
 1. **Confirmar o corte da carência de honorários** (`d > 30`) com a contabilidade — reproduz 100% dos
