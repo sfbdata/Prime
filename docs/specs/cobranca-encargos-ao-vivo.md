@@ -127,6 +127,15 @@ exibição, saldo e alocação leem os **mesmos** números vivos dentro da requi
 - **Liquidada/Substituída:** as colunas guardam o **snapshot** definitivo. `encargosCongeladosEm` é **reaproveitado**
   como marcador do estado congelado (setado só automaticamente na liquidação/substituição).
 
+> **Nota de implementação (F3, commits `6a2e35d`/`c5ca2a0`):** a **Liquidada** É congelada
+> (`Obrigacao::liquidar` seta `liquidadaEm` + `encargosCongeladosEm`). A **Substituída**, porém, é
+> **materializada na `dataAcordo` SEM congelar** (`definirEncargos` sem `congelarEncargos`): ela sai de
+> `doCasoExigiveis` (não entra em saldo/FIFO) e os leitores não a hidratam, então já exibe o snapshot
+> **sem** precisar do freeze — e, se o acordo **romper/cancelar**, ela volta ao exigível e recomeça a
+> crescer ao vivo automaticamente (não fosse assim, precisaria de um "descongelar" no romper). O
+> `ReconciliadorLiquidacao` reconhece a substituída-por-vigente pelo `acordoSubstituto` vigente, não por
+> `encargosCongelados()`. Isso substitui, para a Substituída, o mecanismo de "freeze" descrito acima.
+
 ## 7. Override manual (D3) — "editar muda a taxa, não congela"
 
 O caminho de edição de encargo deixa de **congelar** e passa a **ajustar a taxa** da obrigação, mantendo o cálculo vivo:

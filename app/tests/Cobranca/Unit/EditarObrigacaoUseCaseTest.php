@@ -211,6 +211,46 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     #[Test]
+    public function editarObrigacaoLiquidadaQueElevaOExigivelAReabre(): void
+    {
+        // Reajuste retroativo de dívida PAGA (spec §12/§6.3): a obrigação foi quitada (paga 100,00) e
+        // agora é reajustada para valer 250,00. Como o exigível vivo (25000) passa do pago (10000), ela
+        // REABRE — volta a Viva, o snapshot da liquidação é descartado e o saldo sobe pela diferença.
+        $obrigacao = $this->obrigacaoAtiva()->liquidar(0, 0, 0, 0, new \DateTimeImmutable('2026-07-15'));
+        self::assertTrue($obrigacao->estaLiquidada(), 'pré-condição: liquidada');
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(10000); // pagou o original
+        $this->eventoRepository->expects($this->once())->method('salvar');
+
+        $resultado = $this->sut->executar($this->inputValido(), $this->tenant, $this->usuario);
+
+        self::assertFalse($resultado->estaLiquidada(), 'reajuste acima do pago REABRE a obrigação (volta a Viva)');
+        self::assertNull($resultado->getLiquidadaEm());
+        self::assertFalse($resultado->encargosCongelados(), 'reaberta recalcula ao vivo');
+        self::assertSame(25000, $resultado->getValorOriginal());
+    }
+
+    #[Test]
+    public function editarObrigacaoLiquidadaSemElevarOExigivelRespeitaOSnapshot(): void
+    {
+        // Editar só a descrição de uma dívida PAGA (sem elevar o exigível acima do pago) NÃO a reabre nem
+        // recalcula: o snapshot da liquidação é respeitado (INV-V2), mesmo que o form traga encargos.
+        $obrigacao = $this->obrigacaoAtiva()->liquidar(1360, 340, 0, 3740, new \DateTimeImmutable('2026-07-15'));
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        // Pago o exigível cheio (10000 + 1360 + 340 = 11700); a edição mantém o valor original.
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(11700);
+        $this->eventoRepository->method('salvar');
+
+        $input = $this->inputValido();
+        $input->valorOriginal = 10000; // mesmo valor → exigível vivo não sobe acima do pago
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertTrue($resultado->estaLiquidada(), 'segue liquidada (não reabriu)');
+        self::assertSame(1360, $resultado->getJuros(), 'snapshot da liquidação preservado (INV-V2)');
+        self::assertSame(340, $resultado->getMulta());
+    }
+
+    #[Test]
     public function permiteEdicaoQuandoOAcordoFoiCancelado(): void
     {
         // A original voltou ao saldo (acordo substituto CANCELADO) → travava antes do fix, editável agora.

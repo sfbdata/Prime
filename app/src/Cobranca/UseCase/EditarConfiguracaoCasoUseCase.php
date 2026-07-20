@@ -103,7 +103,8 @@ final class EditarConfiguracaoCasoUseCase
             );
 
             // Grava mantendo juros/multa/correção INTACTOS (o exigível não se move); só o honorário muda.
-            // Não congela: a obrigação segue automática (INV-E4 — o cron continua a atualizando).
+            // Não congela: a obrigação segue Viva e a leitura recalcula ao vivo (este recálculo só mantém
+            // o cache do honorário coerente de imediato).
             $obrigacao->definirEncargos(
                 $obrigacao->getJuros(),
                 $obrigacao->getMulta(),

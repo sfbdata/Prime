@@ -1,5 +1,12 @@
 # Guia de smoke — Encargos separados e configuráveis em cascata
 
+> ⚠️ **SUPERADO pelo modelo "ENCARGOS AO VIVO" (2026-07-20).** A **Seção 5 (cron de crescimento)** está
+> OBSOLETA — o cron `app:cobranca:atualizar-encargos` foi **REMOVIDO** (F4); no modelo ao vivo o
+> crescimento vem da **hidratação na leitura** (abrir o objeto/dashboard já mostra o valor de hoje), não
+> de um comando. As seções de cálculo/UI seguem válidas. Smoke novo (ao vivo): objeto aberto cresce ao
+> vivo → pagar congela na data → acordo (parcela cresce, substituída no snapshot), em claro/escuro.
+> Pré-requisito reforçado: **carteiras com taxa configurada** (sem isso o cálculo ao vivo dá 0).
+
 > Roteiro manual para validar a feature no **dev** antes de mergear/deployar. ~10 min.
 > Dado do dev é de TESTE (dump de prod). Feature na branch `cobranca-encargos-cascata`.
 
@@ -19,6 +26,17 @@ docker exec jusprime_php_dev bash -c 'cd app && php bin/console cache:clear'
 - URL: **http://localhost:8080** · login **farlei.rocha@gmail.com** / **Prime123!**
 - ⚠️ **Gotcha:** o modal `#modalAlertaPonto` ("registrou sua entrada hoje?") intercepta cliques. É só
   fechá-lo (X) ao entrar; ele não atrapalha a leitura das telas.
+
+- 🚨 **Config load-bearing (modelo ao vivo, §10.1):** sem taxa na carteira, o cálculo ao vivo recomputa
+  **0** e os encargos "somem" na tela e no saldo. **Guard/smoke pré-deploy** — liste as carteiras SEM
+  taxa de juros/multa antes de confiar nos números:
+  ```bash
+  docker exec jusprime_db_dev psql -U symfony -d saas -c \
+    "SELECT id, nome, taxa_juros_mensal_bp, taxa_multa_bp, forma_honorarios, percentual_honorarios \
+     FROM cobranca_carteira WHERE taxa_juros_mensal_bp = 0 AND taxa_multa_bp = 0;"
+  ```
+  Qualquer carteira listada precisa ter as taxas configuradas (TOPLIFE: juros 1%=100bp, multa 2%=200bp,
+  honorários 20%/15%, carência 30) — senão as obrigações daquelas carteiras aparecem sem encargo.
 
 Dados bons já prontos no dev:
 - **Objeto 117** — 161 obrigações da carteira TOPLIFE I (a melhor tela para ver as colunas).

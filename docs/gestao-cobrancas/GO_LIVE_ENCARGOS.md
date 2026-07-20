@@ -1,5 +1,16 @@
 # Checklist de go-live — Encargos separados e configuráveis em cascata
 
+> ⚠️ **SUPERADO pelo modelo "ENCARGOS AO VIVO" (2026-07-20).** Este checklist descreve o modelo antigo
+> (encargos **materializados + cron** de crescimento). A feature pivotou: o encargo agora é **calculado ao
+> vivo** na leitura (vencimento → hoje × taxa), **sem cron** e **sem congelamento manual**. O cron
+> `app:cobranca:atualizar-encargos` foi **REMOVIDO** (F4) — **NÃO agende o crontab** descrito na seção 3
+> (o comando não existe mais e a linha noturna falharia). Fonte de verdade atual do *o quê/porquê*:
+> `docs/specs/cobranca-encargos-ao-vivo.md`; execução: `docs/superpowers/plans/2026-07-20-encargos-ao-vivo.md`.
+> Pré-requisito de go-live que PERMANECE (e fica mais crítico): **configurar as taxas das carteiras** —
+> sem taxa, o cálculo ao vivo recomputa 0 e os valores "somem" (config load-bearing, §10.1 da spec nova).
+> **Pendência de dados (do humano):** migrar os `encargos_congelados_em` legados das obrigações ABERTAS
+> (o modelo antigo congelou ~3.262 dívidas em aberto; no modelo ao vivo elas devem voltar a crescer).
+
 > Feature **completa e provada** na branch local `cobranca-encargos-cascata` (F1→F6). Risco **ALTO** (dinheiro).
 > **Nada publicado.** push/merge/deploy = **humano**. Este documento é a lista do que conferir e executar.
 > Fonte de verdade do *o quê/porquê*: `docs/specs/cobranca-encargos-configuraveis-cascata.md`.

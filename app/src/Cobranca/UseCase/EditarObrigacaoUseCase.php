@@ -30,11 +30,14 @@ use App\Entity\Tenant\Tenant;
  * acordo (parcela/substituída — gerida pelo acordo), e valor exigível que cairia abaixo do já pago.
  *
  * Encargos AO VIVO: editar NUNCA congela (D6). Uma obrigação Viva segue recalculando na leitura
- * (vencimento → hoje × taxa); o valor materializado na edição é apenas cache. Se o gestor digita
- * juros/multa/correção, viram o cache inicial e os honorários são recompostos sobre a base digitada,
- * mas NÃO fixam a obrigação — para mudar a taxa, edita-se a config do caso/carteira (override por
- * obrigação é follow-up, §11). Uma obrigação CONGELADA (Liquidada/Substituída) tem o snapshot
- * respeitado (não recalcula). O único registro é o evento ObrigacaoEditada (antes/depois no payload).
+ * (vencimento → hoje × taxa); o valor materializado na edição é apenas cache. Encargos digitados viram
+ * o cache inicial (honorários recompostos sobre a base), mas NÃO fixam a obrigação — para mudar a taxa,
+ * edita-se a config do caso/carteira (override por obrigação é follow-up, §11).
+ *
+ * Reconciliação da LIQUIDADA (reajuste retroativo, spec §12/§6.3): editar uma obrigação PAGA que eleve o
+ * exigível vivo acima do já pago a REABRE (volta a Viva, o pagamento fica intacto, o saldo sobe pela
+ * diferença). Se continuar coberta, permanece Liquidada e o snapshot é respeitado (não recalcula por
+ * cima — INV-V2). O único registro é o evento ObrigacaoEditada (antes/depois no payload).
  */
 final class EditarObrigacaoUseCase
 {
@@ -70,64 +73,65 @@ final class EditarObrigacaoUseCase
             throw new ObrigacaoDeAcordoException((int) $obrigacao->getId());
         }
 
-        // Detecta ANTES de mutar se o gestor mexeu à mão em algum componente (juros/multa/correção OU
-        // honorário): isso decide se o cache inicial usa os valores DIGITADOS ou os RECALCULADOS do motor.
-        // (No modelo ao vivo nenhuma edição congela — a leitura recalcula de qualquer modo.) Comparação
-        // COMPONENTE A COMPONENTE: trocar R$ 10 de multa por R$ 10 de juros muda dinheiro de categoria.
-        //
-        // O honorário é `?int`: `honorarios !== null` é digitação (inclusive `0`), enquanto `null` é "não
-        // informado" e NÃO conta como mexida — editar só o vencimento de uma Viva, com honorário vazio,
-        // recalcula na hora pelo motor.
+        // Config e "hoje" da cascata — resolvidos antes de mutar; valor/vencimento NOVOS entram só no
+        // cálculo. `totalAlocado` (o já pago nesta obrigação) rege tanto a reabertura quanto o guard abaixo.
+        $hoje = new \DateTimeImmutable('today');
+        $config = $this->resolvedor->resolver($obrigacao);
+        $totalAlocado = $this->alocacaoRepository->totalAlocadoEmObrigacoes([(int) $obrigacao->getId()], $tenant);
+
+        // Reajuste de dívida LIQUIDADA (reconciliação, spec §12/§6.3): se a edição eleva o exigível VIVO
+        // acima do que já foi pago, a obrigação REABRE (volta a Viva) — fluxo "reajuste retroativo do valor
+        // devido": o pagamento fica intacto e o saldo sobe pela diferença. Se continuar coberta, permanece
+        // Liquidada e o snapshot é RESPEITADO (o ramo "congelada" abaixo não materializa por cima — INV-V2).
+        if ($obrigacao->estaLiquidada()) {
+            $vivo = $this->calculadora->calcular((int) $input->valorOriginal, $input->vencimentoOriginal, $config, $hoje);
+            $exigivelSeViva = (int) $input->valorOriginal + $vivo['juros'] + $vivo['multa'] + $vivo['correcao'];
+            if ($exigivelSeViva > $totalAlocado) {
+                $obrigacao->reabrir(); // volta a Viva → cai no ramo de recálculo ao vivo abaixo
+            }
+        }
+
+        // Mexida manual em componente (só relevante para uma obrigação VIVA — decide cache digitado vs
+        // recalculado). `honorarios !== null` conta como mexida (inclusive 0); componente a componente.
         $mexeuManual = $input->juros !== $obrigacao->getJuros()
             || $input->multa !== $obrigacao->getMulta()
             || $input->correcao !== $obrigacao->getCorrecao()
             || $input->honorarios !== null;
 
-        // A config da cascata (Carteira→Caso→Obrigação) NÃO depende do vencimento/valor — pode ser
-        // resolvida agora, antes de mutar. O vencimento/valor NOVOS (do input) entram só no cálculo.
-        $hoje = new \DateTimeImmutable('today');
-        $config = $this->resolvedor->resolver($obrigacao);
-
-        // Encargos FINAIS em variáveis locais, SEM tocar a entidade ainda (o guard do exigível roda com
-        // eles e precisa poder rejeitar sem deixar a obrigação suja em memória).
-        if ($mexeuManual) {
-            // Gestor digitou encargos: os valores do input viram o cache inicial (o honorário vazio é
-            // recomposto pelo motor sobre a base digitada). Encargos AO VIVO (D6): NÃO congela mais — a
-            // obrigação segue Viva e a leitura recalcula (vencimento → hoje × taxa); o digitado é ponto
-            // de partida, não override (para fixar a taxa, edita-se a config do caso/carteira, §11).
+        // Ramo por ESTADO (congelada verificada PRIMEIRO): uma Liquidada-ainda-coberta / Substituída
+        // respeita o snapshot MESMO que o form traga encargos — nunca materializa por cima (protege o
+        // snapshot da liquidação, INV-V2). Encargos FINAIS em locais, sem tocar a entidade ainda (o guard
+        // roda com eles e precisa poder rejeitar sem deixar a obrigação suja em memória).
+        if ($obrigacao->encargosCongelados()) {
+            $jFinal = $obrigacao->getJuros();
+            $mFinal = $obrigacao->getMulta();
+            $cFinal = $obrigacao->getCorrecao();
+            $hFinal = $obrigacao->getHonorarios();
+            $vaiMaterializar = false;
+        } elseif ($mexeuManual) {
+            // Viva + digitou: os valores do input viram o cache inicial (honorário vazio recomposto pelo
+            // motor sobre a base digitada). Ao vivo (D6): NÃO congela — a leitura recalcula; o digitado é
+            // ponto de partida, não override (para fixar a taxa, edita-se a config do caso/carteira, §11).
             $dias = $this->calculadora->diasDeAtraso($input->vencimentoOriginal, $hoje);
             $jFinal = $input->juros;
             $mFinal = $input->multa;
             $cFinal = $input->correcao;
             $hFinal = $input->honorarios ?? $this->calculadora->honorarios((int) $input->valorOriginal, $jFinal, $mFinal, $cFinal, $config, $dias);
             $vaiMaterializar = true;
-        } elseif (!$obrigacao->encargosCongelados()) {
-            // Viva e sem mexida manual: recalcula "estilo planilha" para HOJE — mudar o vencimento reflete
-            // os juros na hora. Segue Viva (a leitura recalcula ao vivo).
+        } else {
+            // Viva sem mexida: recalcula "estilo planilha" para HOJE — mudar o vencimento reflete os juros
+            // na hora. Segue Viva (a leitura recalcula ao vivo).
             $novos = $this->calculadora->calcular((int) $input->valorOriginal, $input->vencimentoOriginal, $config, $hoje);
             $jFinal = $novos['juros'];
             $mFinal = $novos['multa'];
             $cFinal = $novos['correcao'];
             $hFinal = $novos['honorarios'];
             $vaiMaterializar = true;
-        } else {
-            // Congelada (Liquidada/Substituída) e sem mexida manual: respeita o snapshot. Mantém os
-            // encargos atuais e NÃO recalcula — corrigir a descrição de uma congelada não a ressuscita.
-            $jFinal = $obrigacao->getJuros();
-            $mFinal = $obrigacao->getMulta();
-            $cFinal = $obrigacao->getCorrecao();
-            $hFinal = $obrigacao->getHonorarios();
-            $vaiMaterializar = false;
         }
 
-        // O novo valor exigível não pode cair abaixo do que já foi pago/alocado nesta obrigação.
-        //
-        // Encargos separados (F4): a soma dos TRÊS FINAIS com o valor original é exatamente o
-        // `valorExigivel()` do estado NOVO (INV-E1), ao centavo. Honorários ficam de fora de propósito
-        // (INV-E2) — não são dívida do credor. O guard roda ANTES de mutar a entidade: mutar e só depois
-        // lançar deixaria a obrigação suja em memória, à mercê de um flush alheio na mesma request.
+        // O novo valor exigível não pode cair abaixo do que já foi pago/alocado nesta obrigação (INV-E1;
+        // honorários fora, INV-E2). O guard roda ANTES de mutar a entidade.
         $novoExigivel = (int) $input->valorOriginal + $jFinal + $mFinal + $cFinal;
-        $totalAlocado = $this->alocacaoRepository->totalAlocadoEmObrigacoes([(int) $obrigacao->getId()], $tenant);
         if ($novoExigivel < $totalAlocado) {
             throw new ValorAbaixoDoAlocadoException((int) $obrigacao->getId(), $novoExigivel, $totalAlocado);
         }
@@ -187,12 +191,11 @@ final class EditarObrigacaoUseCase
             'juros' => $obrigacao->getJuros(),
             'multa' => $obrigacao->getMulta(),
             'correcao' => $obrigacao->getCorrecao(),
-            // Honorário (Ajuste 2): fora do exigível (INV-E2), mas agora editável — o snapshot registra o
-            // antes/depois para explicar override e congelamento na auditoria.
+            // Honorário: fora do exigível (INV-E2). O snapshot registra o antes/depois para a auditoria.
             'honorarios' => $obrigacao->getHonorarios(),
             'referenciaExterna' => $obrigacao->getReferenciaExterna(),
-            // O histórico tem de registrar o congelamento: é ele que explica por que aquela
-            // obrigação parou de crescer a partir desta edição (antes null → depois preenchido).
+            // Congelamento no snapshot só para leitura do histórico: numa Viva editada é null antes e
+            // depois (editar não congela, ao vivo); numa Liquidada/Substituída explica a data de corte.
             'encargosCongeladosEm' => $obrigacao->getEncargosCongeladosEm()?->format('Y-m-d H:i:s'),
         ];
     }

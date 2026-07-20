@@ -28,9 +28,11 @@ use Doctrine\ORM\Mapping as ORM;
  * Honorários ficam FORA do `valorExigivel()` (INV-E2/SPEC §18.5): honorário não é dívida do credor.
  * Quem quiser o total exibido na linha do relatório usa `totalComHonorarios()`.
  *
- * O crescimento no tempo é MATERIALIZADO, não derivado (spec §6-B): os quatro campos são
- * persistidos e recalculados por um cron; `valorExigivel()` continua puro e sem `$hoje` (INV-E3).
- * Uma obrigação com `encargosCongeladosEm` preenchido nunca é tocada pelo cron (INV-E4).
+ * Crescimento AO VIVO (spec "encargos ao vivo"): para uma obrigação VIVA os quatro campos são um CACHE
+ * — o serviço `EncargosVivos` os recalcula EM MEMÓRIA na leitura (vencimento → hoje × taxa), sem flush.
+ * `valorExigivel()` segue puro e sem `$hoje`: lê o que foi hidratado. `encargosCongeladosEm`/`liquidadaEm`
+ * marcam os estados que PARAM o relógio — Liquidada (quitada) e Substituída (por acordo) —, cujos campos
+ * guardam o SNAPSHOT definitivo na data de corte e não são recalculados.
  */
 #[ORM\Entity(repositoryClass: ObrigacaoRepository::class)]
 #[ORM\Table(name: 'cobranca_obrigacao')]
@@ -234,7 +236,11 @@ class Obrigacao implements TenantAware, Auditavel
         return $this;
     }
 
-    /** Congela os encargos: a partir daqui o cron não recalcula mais esta obrigação (INV-E4). */
+    /**
+     * Congela os encargos (marca a data de corte): a partir daqui a hidratação ao vivo NÃO recalcula
+     * mais esta obrigação — ela lê o snapshot. Usado na liquidação/substituição (via `liquidar()` e o
+     * snapshot do acordo). No modelo "ao vivo" nenhuma edição/registro/importação congela.
+     */
     public function congelarEncargos(\DateTimeImmutable $em): self
     {
         $this->encargosCongeladosEm = $em;
@@ -242,7 +248,7 @@ class Obrigacao implements TenantAware, Auditavel
         return $this;
     }
 
-    /** Volta a obrigação para o recálculo automático pelo cron. */
+    /** Volta a obrigação para o recálculo ao vivo (a hidratação passa a recalculá-la de novo). */
     public function descongelarEncargos(): self
     {
         $this->encargosCongeladosEm = null;
