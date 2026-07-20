@@ -51,6 +51,8 @@ final class MontadorModaisCaso
         private readonly PastaRepository $pastaRepository,
         private readonly CobrancaSecaoRepository $secaoRepository,
         private readonly CobrancaDocumentoRepository $documentoRepository,
+        private readonly EncargosVivos $encargosVivos,
+        private readonly ResolvedorConfigEncargos $resolvedorConfig,
     ) {
     }
 
@@ -71,6 +73,11 @@ final class MontadorModaisCaso
         // lista do saldo nem a do pagamento (essa, em `financeiros()`, segue usando `doCasoExigiveis`:
         // pagar parcela de acordo vigente é o fluxo normal).
         $substituiveis = $this->obrigacaoRepository->doCasoSubstituiveis($caso);
+
+        // Encargos AO VIVO (spec §6.2): o gerador de acordo oferece o REMANESCENTE sobre o exigível
+        // vivo — as mesmas obrigações da linha da dívida. Hidrata para HOJE antes de montar as opções,
+        // para o valor do modal bater com o `restante` exibido (INV-V5). Config resolvida 1× por caso.
+        $this->encargosVivos->hidratar($this->resolvedorConfig->resolverDoCaso($caso), $substituiveis);
 
         // Ajuste 10 (spec §5.3): o gerador precisa do REMANESCENTE, não do valor cheio — senão sugere
         // renegociar o que já foi pago. Uma query em lote, mesmo mapa do detalhe do caso.
@@ -164,7 +171,10 @@ final class MontadorModaisCaso
      */
     public function financeiros(CasoCobranca $caso, ?array $erroModal = null): array
     {
-        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($this->obrigacaoRepository->doCasoExigiveis($caso));
+        // Encargos AO VIVO: o modal de pagamento lista as obrigações exigíveis pelo valor vivo (INV-V5).
+        $exigiveis = $this->obrigacaoRepository->doCasoExigiveis($caso);
+        $this->encargosVivos->hidratar($this->resolvedorConfig->resolverDoCaso($caso), $exigiveis);
+        $opcoesObrigacoes = AcordoCriarType::opcoesObrigacoes($exigiveis);
 
         // Ajuste 10 (B1): o pagamento abre com a data de HOJE — o caso comum é registrar o que entrou no
         // dia, e o gestor só corrige a exceção. Espelha o modal de contato (`deMutacao`, acima). Só o
