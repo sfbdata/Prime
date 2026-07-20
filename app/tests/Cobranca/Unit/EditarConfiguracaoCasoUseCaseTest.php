@@ -20,6 +20,7 @@ use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\EditarConfiguracaoCasoUseCase;
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -35,6 +36,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
     private EventoHistoricoRepository&MockObject $eventoRepository;
     private EditarConfiguracaoCasoUseCase $sut;
     private Tenant $tenant;
+    private User $usuario;
 
     protected function setUp(): void
     {
@@ -52,8 +54,10 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
             new CalculadoraEncargos(),
             new RegistrarEventoHistorico($this->eventoRepository),
         );
-        // Tenant não é abstração do domínio: instância real, não mock.
+        // Tenant/User não são abstrações do domínio: instâncias reais, não mocks. O User é o autor do
+        // evento de auditoria (mudança de config financeira precisa de ator — achado da revisão).
         $this->tenant = new Tenant();
+        $this->usuario = new User();
     }
 
     #[Test]
@@ -83,7 +87,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
         $input->baseHonorarios = BaseEncargo::Principal;
         $input->carenciaHonorariosDias = 45;
 
-        $resultado = $this->sut->executar($input, $this->tenant);
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
         self::assertSame($caso, $resultado);
         self::assertSame(FormaHonorarios::AcrescidoDivida, $resultado->getFormaHonorarios());
@@ -107,7 +111,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
         $this->obrigacaoRepository->method('paraRecalculoDeEncargosDoCaso')->with($caso)->willReturn([$obrigacao]);
         $this->eventoRepository->method('salvar');
 
-        $this->sut->executar($this->input('20.00'), $this->tenant);
+        $this->sut->executar($this->input('20.00'), $this->tenant, $this->usuario);
 
         $honDepois = $obrigacao->getHonorarios();
         self::assertGreaterThan($honAntes, $honDepois, 'subir o percentual sobe o honorário na hora');
@@ -135,7 +139,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
         $this->obrigacaoRepository->method('paraRecalculoDeEncargosDoCaso')->willReturn([$congelada]);
         $this->eventoRepository->method('salvar');
 
-        $this->sut->executar($this->input('20.00'), $this->tenant);
+        $this->sut->executar($this->input('20.00'), $this->tenant, $this->usuario);
 
         self::assertSame(111, $congelada->getJuros());
         self::assertSame(222, $congelada->getMulta());
@@ -158,7 +162,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
         $this->obrigacaoRepository->method('paraRecalculoDeEncargosDoCaso')->willReturn([$obrigacao]);
         $this->eventoRepository->method('salvar');
 
-        $this->sut->executar($this->input('10.00'), $this->tenant);
+        $this->sut->executar($this->input('10.00'), $this->tenant, $this->usuario);
 
         $honDepois = $obrigacao->getHonorarios();
         self::assertLessThan($honAntes, $honDepois, 'baixar o percentual é decisão deliberada — reduzir é esperado (sem freio)');
@@ -178,7 +182,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
 
         $this->expectException(CasoNaoEncontradoException::class);
 
-        $this->sut->executar($this->input('20.00'), $this->tenant);
+        $this->sut->executar($this->input('20.00'), $this->tenant, $this->usuario);
     }
 
     #[Test]
@@ -195,7 +199,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
         // UM único evento (não um por obrigação — seria ruído no histórico).
         $this->eventoRepository->expects($this->once())->method('salvar');
 
-        $this->sut->executar($this->input('20.00'), $this->tenant);
+        $this->sut->executar($this->input('20.00'), $this->tenant, $this->usuario);
 
         self::assertGreaterThan(0, $o1->getHonorarios());
         self::assertGreaterThan(0, $o2->getHonorarios());

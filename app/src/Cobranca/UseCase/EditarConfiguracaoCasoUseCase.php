@@ -14,6 +14,7 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 
 /**
@@ -48,7 +49,7 @@ final class EditarConfiguracaoCasoUseCase
     ) {
     }
 
-    public function executar(EditarConfiguracaoCasoInput $input, Tenant $tenant): CasoCobranca
+    public function executar(EditarConfiguracaoCasoInput $input, Tenant $tenant, User $usuario): CasoCobranca
     {
         // Guarda multi-tenant: só um caso do próprio escritório pode ser configurado.
         $caso = $this->casoRepository->findOneByIdDoTenant((int) $input->casoId, $tenant);
@@ -103,12 +104,12 @@ final class EditarConfiguracaoCasoUseCase
         }
 
         // Auditoria: UM evento no histórico do caso (não um por obrigação — seria ruído). Sem flush
-        // aqui; o salvar do caso fecha a transação. Usuário null: o contrato deste UseCase não recebe
-        // User (espelha EditarConfiguracaoCarteiraUseCase).
+        // aqui; o salvar do caso fecha a transação. Mudança de config FINANCEIRA precisa de autor: o
+        // evento registra QUEM alterou os honorários (achado da revisão da Fatia A).
         $this->registrarEvento->registrar(
             $caso,
             TipoEventoHistorico::ValorAtualizadoReconhecido,
-            null,
+            $usuario,
             sprintf(
                 'Honorários do caso atualizados; %d obrigação(ões) automática(s) recalculada(s).',
                 $recalculadas,

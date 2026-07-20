@@ -295,7 +295,7 @@ final class CasoController extends AbstractController
 
         if ($form->isSubmitted() && $form->isValid()) {
             try {
-                $this->editarConfiguracaoCaso->executar($input, $tenant);
+                $this->editarConfiguracaoCaso->executar($input, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Honorários do caso atualizados.');
             } catch (CasoNaoEncontradoException $e) {
                 $this->addFlash('danger', $e->getMessage());

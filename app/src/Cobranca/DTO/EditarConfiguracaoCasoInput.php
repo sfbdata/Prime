@@ -7,6 +7,7 @@ namespace App\Cobranca\DTO;
 use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Component\Validator\Context\ExecutionContextInterface;
 
 /**
  * Entrada do formulário de edição dos HONORÁRIOS de um Caso de Cobrança já existente (Ajuste 2,
@@ -39,4 +40,25 @@ final class EditarConfiguracaoCasoInput
     #[Assert\PositiveOrZero(message: 'A carência dos honorários não pode ser negativa.')]
     #[Assert\LessThanOrEqual(value: 3650, message: 'A carência dos honorários pode ter no máximo {{ compared_value }} dias.')]
     public ?int $carenciaHonorariosDias = null;
+
+    /**
+     * Footgun de dinheiro (achado da revisão da Fatia A): uma forma percentual (ex.: acréscimo à dívida)
+     * com o percentual EM BRANCO faz a alíquota resolver para 0 e o recálculo imediato ZERAR os honorários
+     * de todas as automáticas vivas do caso, na hora e em silêncio. Ao contrário da carteira (onde o
+     * efeito só atinge cobranças novas), aqui o dinheiro já materializado muda no mesmo POST. Então: forma
+     * que EXIGE percentual obriga percentual preenchido. `SemPercentual` (zerar de propósito) segue livre.
+     */
+    #[Assert\Callback]
+    public function validarPercentualQuandoExigido(ExecutionContextInterface $context): void
+    {
+        if (!$this->formaHonorarios->exigePercentual()) {
+            return;
+        }
+
+        if ($this->percentualHonorarios === null || trim($this->percentualHonorarios) === '') {
+            $context->buildViolation('Esta forma de honorários exige um percentual.')
+                ->atPath('percentualHonorarios')
+                ->addViolation();
+        }
+    }
 }

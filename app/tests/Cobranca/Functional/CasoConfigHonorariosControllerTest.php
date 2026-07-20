@@ -145,6 +145,43 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         self::assertSelectorExists('[data-modal-erro="modalEditarConfigCaso"]');
     }
 
+    #[TestDox('Footgun: forma percentual com percentual EM BRANCO é rejeitada (não zera honorários)')]
+    public function testFormaPercentualComPercentualEmBrancoRejeita(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [$caso, $obrigacao] = $this->semearParaRecalculo($tenant, '10.00');
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        // Materializa o honorário atual (a 10%) para provar depois que NÃO foi zerado.
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
+            'editar_configuracao_caso' => [
+                'formaHonorarios' => FormaHonorarios::AcrescidoDivida->value, // exige percentual
+                'percentualHonorarios' => '', // em branco → alíquota 0 → zeraria honorários. A validação barra.
+                'baseHonorarios' => '',
+                'carenciaHonorariosDias' => '',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+
+        $em->clear();
+        // Config intacta (não chegou ao UseCase) e, principalmente, o honorário NÃO foi zerado.
+        self::assertSame('10.00', $em->find(CasoCobranca::class, $casoId)->getPercentualHonorarios());
+
+        $client->followRedirect();
+        self::assertResponseIsSuccessful();
+        self::assertSelectorExists('[data-modal-erro="modalEditarConfigCaso"]');
+    }
+
     #[TestDox('Sem a capacidade: negado (redirect para fora do caso), config intacta')]
     public function testSemCapacidadeNegado(): void
     {
