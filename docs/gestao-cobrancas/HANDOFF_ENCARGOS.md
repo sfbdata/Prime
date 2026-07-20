@@ -65,11 +65,26 @@ implementer/worktree → revisão adversarial → cherry-pick → testes → SMO
 juros/multa/correção com o **honorário em branco**, o motor **recompõe** o honorário sobre a nova base
 (descarta o honorário fixo anterior). O campo abre vazio; para manter o honorário antigo, o gestor redigita.
 
-### ⏳ Ajuste 3 — Redesign do card da obrigação (PRÓXIMO)
-A linha em colunas ficou apertada. O dono quer card com labels/cores/bom UX. ⚠️ 150+ obrigações por objeto →
-densidade importa (candidato: card expansível — compacto por padrão, expande no clique). **Perguntar o
-estilo ao dono antes de implementar** (compacto / detalhado / expansível, com previews). Só Twig/CSS/JS;
-preservar os ganchos de teste (`data-*`, `ObjetoShowContratoJsTest`) e o B5; SMOKE em 3 larguras.
+### ✅ Ajuste 3 — Card expansível da obrigação (FEITO, 2026-07-20)
+O dono escolheu **Expansível** (previews compacto/detalhado/expansível). Commits `6db4c3c` + `5ca935f`.
+A linha da dívida virou **card compacto** (data · descrição · Total · chevron · ações) + **painel
+expansível** com os encargos rotulados/coloridos (Original/Juros/Multa/Correção/Honorários/Total,
+tema-aware, % por encargo, selo de congelado). Toggle JS acessível. `col-*` migraram para o painel;
+substituída fica simples. **Bug pego no smoke** (descrição quebrando letra a letra a 1024px, pela coluna
+estreita do cockpit) corrigido com **container query** (mede a largura da coluna, não do viewport) + piso na
+descrição. `tests/Cobranca` **793/793**, global **2157/2157**. Smoke em 1600/1024/390 sem rolagem horizontal
+do card (a rolagem a 390px é da navbar do topo — pré-existente, fora do escopo). Ganchos de teste e `data-*`
+dos modais preservados.
+
+### 🎯 Rodada pós-go-live: COMPLETA (Ajustes 1–3)
+Branch `cobranca-encargos-cascata`, HEAD `5ca935f`, à frente de origin — **push/merge/deploy = humano** (nada
+publicado). Todos os 3 ajustes do teste do dono entregues, testados (793/793 · 2157/2157) e smoked.
+
+**Pendência do dono (produto, NÃO bug):** ao editar uma obrigação **congelada** mexendo à mão em
+juros/multa/correção com o **honorário deixado em branco**, o motor **recompõe** o honorário sobre a nova
+base (descarta o honorário fixo anterior). O campo de honorário abre vazio no editar, então isso pode passar
+despercebido. É o comportamento da spec (ramo manual do `EditarObrigacaoUseCase`: `honorarios ?? motor`).
+Para preservar o honorário antigo, o gestor redigita. Confirmar se é a UX desejada.
 
 ### Duas pendências humanas antes do deploy (checklist §4)
 1. **Confirmar o corte da carência de honorários** (`d > 30`) com a contabilidade — reproduz 100% dos
