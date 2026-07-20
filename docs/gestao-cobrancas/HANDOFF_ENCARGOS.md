@@ -50,16 +50,17 @@ a correção fica **manual por obrigação** (o gestor pesquisa e digita no camp
 Spec: `docs/specs/cobranca-encargos-ajuste2-honorarios-cascata.md`. Duas fatias, cada uma
 implementer/worktree → revisão adversarial → cherry-pick → testes → SMOKE.
 
-- **Fatia A (`30ec898`+`930bcea`):** editar honorários do **caso âncora** (forma/%/base/carência) via modal
-  "Editar honorários"; ao salvar, **recalcula na hora** as obrigações automáticas vivas do caso (mesmo
-  predicado do cron, sem freio de redução), congeladas intactas (INV-E4); evento de auditoria com autor.
-  Revisão fechou 2 achados: validação forma×percentual (não zera honorários em branco) e autor do evento.
+- **Fatia A (`30ec898`+`930bcea`, + fix `ded28bb`):** editar honorários do **caso âncora** (forma/%/base/
+  carência) via modal "Editar honorários"; ao salvar, **recalcula na hora SÓ o honorário** das obrigações
+  automáticas vivas do caso, deixando o **exigível (juros/multa/correção) INTACTO** — congeladas intactas
+  (INV-E4). Revisão fechou 2 achados (validação forma×percentual, autor do evento).
 - **Fatia B (`e86140f`):** campo de **honorário na obrigação** (registrar/editar) com par %↔R$ sobre a
-  **base composta** (valor+juros+multa+correção). **Vazio = automático** (motor completa/recalcula, como
-  hoje); **digitado = override + congela**. Honorário FORA do exigível (INV-E2). Ajuste 1 intacto.
+  **base resolvida** (composta = valor+juros+multa+correção; ou principal). **Vazio = automático** (motor
+  completa/recalcula, como hoje); **digitado = override + congela**. Honorário FORA do exigível (INV-E2).
+  Ajuste 1 intacto.
 - **Decisão de escopo:** "editar no objeto/caso" = editar o caso âncora (objeto não tem config própria); só
-  honorários no caso (juros/multa/correção por caso = follow-up). `tests/Cobranca` **793/793**, global
-  **2157/2157**.
+  honorários no caso (juros/multa/correção por caso = follow-up). `tests/Cobranca` **796/796**, global
+  **2160/2160**.
 
 **Sharp-edge a confirmar com o dono (não é bug):** ao editar uma obrigação **congelada** mexendo em
 juros/multa/correção com o **honorário em branco**, o motor **recompõe** o honorário sobre a nova base
@@ -76,15 +77,41 @@ descrição. `tests/Cobranca` **793/793**, global **2157/2157**. Smoke em 1600/1
 do card (a rolagem a 390px é da navbar do topo — pré-existente, fora do escopo). Ganchos de teste e `data-*`
 dos modais preservados.
 
-### 🎯 Rodada pós-go-live: COMPLETA (Ajustes 1–3)
-Branch `cobranca-encargos-cascata`, HEAD `5ca935f`, à frente de origin — **push/merge/deploy = humano** (nada
-publicado). Todos os 3 ajustes do teste do dono entregues, testados (793/793 · 2157/2157) e smoked.
+### 🎯 Rodada pós-go-live: COMPLETA (Ajustes 1–3) + auditoria adversarial final
+Branch `cobranca-encargos-cascata`, HEAD à frente de origin — **push/merge/deploy = humano** (nada publicado).
+Todos os 3 ajustes entregues, testados e smoked. `tests/Cobranca` **796/796**, global **2160/2160**.
 
-**Pendência do dono (produto, NÃO bug):** ao editar uma obrigação **congelada** mexendo à mão em
-juros/multa/correção com o **honorário deixado em branco**, o motor **recompõe** o honorário sobre a nova
-base (descarta o honorário fixo anterior). O campo de honorário abre vazio no editar, então isso pode passar
-despercebido. É o comportamento da spec (ramo manual do `EditarObrigacaoUseCase`: `honorarios ?? motor`).
-Para preservar o honorário antigo, o gestor redigita. Confirmar se é a UX desejada.
+**Auditoria adversarial final (workflow multi-agente, 32 agentes) do diff inteiro da rodada** — achou e
+**corrigiu** o que a revisão por-fatia não pegou:
+
+- 🔴 **BLOQUEANTE corrigido (`ded28bb`) — a Fatia A reabria a bomba da F2.** O recálculo ao editar honorários
+  do caso recompunha os QUATRO encargos com `calcular()`; como juros/multa/correção descem da CARTEIRA (o caso
+  só snapshota a taxa de honorário), se a taxa da carteira tivesse sido baixada, editar honorários reduziria o
+  **exigível** de todas as automáticas do caso num POST, **sem o freio de redução do cron** e **sem guard de
+  alocado** (podia ir abaixo do já pago → saldo negativo). **Fix:** o recálculo materializa **só o honorário**,
+  deixando juros/multa/correção intactos (quem mexe no exigível, com freio, é só o cron). Provado por 2 testes
+  novos (bomba F2 fechada; parcela de acordo/substituída não tocadas).
+- 🟠 **IMPORTANTE corrigido (`ec90063`) — card e espelho mentiam para base Principal.** O card derivava o `%`
+  de honorário e a nota "sobre a base composta" fixos, e o espelho %↔R$ do honorário convertia sempre sobre a
+  composta. Para uma carteira/caso com `baseHonorarios = Principal`, o `%` exibido e a nota ficavam factualmente
+  errados, e o espelho convertia um `%` digitado sobre a base errada (entrada de dinheiro incorreta). **Fix:**
+  a base resolvida foi exposta (`ObrigacaoOutput`/`CasoDetalheOutput`) e o card + o espelho passam a respeitar
+  Principal|Composta. Provado no smoke (caso Principal → "10% · sobre o principal").
+- 🟡 **MENOR corrigido (`ec90063`):** o `%` do honorário no espelho ficava stale ao mudar juros/multa/correção
+  pelo campo de **%** (atribuição `.value` não dispara `input`) — agora re-sincroniza os demais pares.
+
+**Decisões de PRODUTO pendentes do dono (NÃO são bugs — comportamento da spec):**
+1. **Editar obrigação CONGELADA mexendo em j/m/c com o honorário em branco recompõe o honorário** (descarta o
+   fixo anterior; o campo abre vazio). Ramo manual do `EditarObrigacaoUseCase` (`honorarios ?? motor`). Para
+   manter o honorário antigo, o gestor redigita. Confirmar se é a UX desejada.
+2. **Digitar SÓ honorário = 0 (com j/m/c em branco) no registro congela a obrigação inteira em juros zero** —
+   não há como pedir "honorário zero, juros automático". É a semântica D-A2-5 ("0 = congela"). Raro; confirmar.
+3. **[PRÉ-EXISTENTE, Ajuste 1] `EditarObrigacaoUseCase`, ramo automático:** editar uma automática recompõe
+   juros/multa/correção para hoje **sem freio de redução** (só o guard de alocado protege o já pago). Se a taxa
+   da carteira caiu, editar (ex.: só a descrição) reduz o exigível daquela obrigação em silêncio. Blast radius
+   = 1 obrigação/ação (a Fatia A, em lote, foi o que se corrigiu acima). Decisão unificada do freio no exigível
+   dos caminhos manuais fica para o humano — mudar o ramo automático afetaria a feature "editar vencimento
+   recalcula" do Ajuste 1, então não se mexeu sem a sua decisão.
 
 ### Duas pendências humanas antes do deploy (checklist §4)
 1. **Confirmar o corte da carência de honorários** (`d > 30`) com a contabilidade — reproduz 100% dos
