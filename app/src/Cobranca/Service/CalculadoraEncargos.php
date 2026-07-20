@@ -90,15 +90,9 @@ final class CalculadoraEncargos
             $correcao = self::valorDeTaxa($baseCorrecao, $config->taxaCorrecaoBp);
         }
 
-        $honorarios = 0;
-
-        // Carência de honorários, corte ESTRITO: carência 30 ⇒ honorário só a partir do 31º dia.
-        if ($dias > $config->carenciaHonorariosDias) {
-            $baseHonorarios = $config->baseHonorarios === BaseEncargo::Composta
-                ? $principal + $juros + $multa + $correcao
-                : $principal;
-            $honorarios = self::valorDeTaxa($baseHonorarios, $config->taxaHonorariosBp);
-        }
+        // Honorários sobre a base já calculada; a regra (carência, base composta/principal, half-up)
+        // mora em `honorarios()`, reutilizada por quem trava um encargo digitado à mão (F6).
+        $honorarios = $this->honorarios($principal, $juros, $multa, $correcao, $config, $dias);
 
         return [
             'juros' => $juros,
@@ -106,6 +100,36 @@ final class CalculadoraEncargos
             'correcao' => $correcao,
             'honorarios' => $honorarios,
         ];
+    }
+
+    /**
+     * Honorários em centavos sobre uma base de juros/multa/correção JÁ CONHECIDOS — NÃO recalcula os
+     * juros. É o mesmo cálculo interno de `calcular()` (que agora chama este método), isolado para o
+     * caminho em que o gestor DIGITA juros/multa/correção à mão e trava a obrigação (F6): os honorários
+     * não têm campo no formulário, então são completados aqui sobre a base digitada — senão travariam em
+     * zero (o bug bloqueante que a F4 encontrou).
+     *
+     * Corte ESTRITO da carência: `dias <= carência` ⇒ 0 (carência 30 ⇒ honorário só a partir do 31º
+     * dia). Base COMPOSTA soma principal + juros + multa + correção; base PRINCIPAL usa só o principal.
+     * Arredondamento meio-para-cima, via `valorDeTaxa` (que degrada para 0 em base ou taxa não positiva).
+     */
+    public function honorarios(
+        int $principalCentavos,
+        int $jurosCentavos,
+        int $multaCentavos,
+        int $correcaoCentavos,
+        ConfigEncargos $config,
+        int $dias,
+    ): int {
+        if ($dias <= $config->carenciaHonorariosDias) {
+            return 0;
+        }
+
+        $base = $config->baseHonorarios === BaseEncargo::Composta
+            ? $principalCentavos + $jurosCentavos + $multaCentavos + $correcaoCentavos
+            : $principalCentavos;
+
+        return self::valorDeTaxa($base, $config->taxaHonorariosBp);
     }
 
     /**

@@ -32,9 +32,11 @@ use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Service\AlocadorPagamento;
 use App\Cobranca\Service\AutoAlocadorFifo;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CorrigirPagamentoUseCase;
 use App\Cobranca\UseCase\RegistrarLiquidacaoUseCase;
@@ -106,7 +108,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $autoAlocador = new AutoAlocadorFifo($obrigacaoRepo, $alocacaoRepo, $liquidacaoRepo, $calculadora);
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
-        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento);
+        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
         $this->registrarPagamento = new RegistrarPagamentoUseCase($pagamentoRepo, $casoRepo, $alocador, $autoAlocador, $registrarEvento);
         $this->corrigirPagamento = new CorrigirPagamentoUseCase($pagamentoRepo, $alocador, $autoAlocador, $registrarEvento);
         $this->registrarLiquidacao = new RegistrarLiquidacaoUseCase($liquidacaoRepo, $casoRepo, $registrarEvento);

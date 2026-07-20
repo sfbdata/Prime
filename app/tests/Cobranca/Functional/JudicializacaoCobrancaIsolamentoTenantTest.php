@@ -35,8 +35,10 @@ use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\DefinirProximaAcaoUseCase;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
@@ -110,7 +112,7 @@ final class JudicializacaoCobrancaIsolamentoTenantTest extends KernelTestCase
         $calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
-        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento);
+        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
         $this->judicializar = new JudicializarCasoUseCase($casoRepo, $pastaRepo, $registrarEvento);
         $this->encerrar = new EncerrarCasoUseCase($casoRepo, $calculadoraSaldo, $registrarEvento);
         $this->definirProximaAcao = new DefinirProximaAcaoUseCase($casoRepo, $proximaAcaoRepo);

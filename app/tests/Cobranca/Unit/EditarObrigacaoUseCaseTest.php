@@ -6,9 +6,12 @@ namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\DTO\EditarObrigacaoInput;
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoEventoHistorico;
@@ -19,7 +22,9 @@ use App\Cobranca\Exception\ValorAbaixoDoAlocadoException;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\EditarObrigacaoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -43,9 +48,16 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
         $this->eventoRepository = $this->createMock(EventoHistoricoRepository::class);
-        // O serviço é final (não mockável): usa-se o REAL com o repositório de eventos mockado.
+        // O serviço é final (não mockável): usa-se o REAL com o repositório de eventos mockado. O motor
+        // de encargos e o resolver da cascata também são finais mas PUROS → instâncias reais.
         $registrarEvento = new RegistrarEventoHistorico($this->eventoRepository);
-        $this->sut = new EditarObrigacaoUseCase($this->obrigacaoRepository, $this->alocacaoRepository, $registrarEvento);
+        $this->sut = new EditarObrigacaoUseCase(
+            $this->obrigacaoRepository,
+            $this->alocacaoRepository,
+            $registrarEvento,
+            new CalculadoraEncargos(),
+            new ResolvedorConfigEncargos(),
+        );
         $this->tenant = new Tenant();
         $this->usuario = new User();
     }
@@ -79,6 +91,27 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $input->motivo = '  valor digitado errado  ';
 
         return $input;
+    }
+
+    /**
+     * Caso com carteira "TOPLIFE" (juros 1% a.m., multa 2%, carência 30, honorários 20% sobre base
+     * composta), para os cenários em que o recálculo precisa produzir encargos > 0 de forma
+     * determinística. Grafo em memória — o resolver lê só os getters de config, sem persistência.
+     */
+    private function casoTopLife(): CasoCobranca
+    {
+        $carteira = (new Carteira())
+            ->setTaxaJurosMensalBp(100)
+            ->setTaxaMultaBp(200)
+            ->setCarenciaHonorariosDias(30);
+
+        $objeto = (new ObjetoCobranca())->setCarteira($carteira);
+
+        return (new CasoCobranca())
+            ->setTenant($this->tenant)
+            ->setObjeto($objeto)
+            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
+            ->setPercentualHonorarios('20.00');
     }
 
     #[Test]
@@ -222,13 +255,17 @@ final class EditarObrigacaoUseCaseTest extends TestCase
                 $capturado = $e;
             });
 
-        $antesDaEdicao = new \DateTimeImmutable();
         $resultado = $this->sut->executar($this->inputValido(), $this->tenant, $this->usuario);
 
         self::assertTrue($resultado->encargosCongelados(), 'editar à mão congela: a obrigação para de crescer');
         $congeladoEm = $resultado->getEncargosCongeladosEm();
         self::assertNotNull($congeladoEm);
-        self::assertGreaterThanOrEqual($antesDaEdicao, $congeladoEm, 'o congelamento é do momento da edição');
+        // O congelamento é datado em HOJE (referência do dia, hora zerada — coerente com o cron).
+        self::assertSame(
+            (new \DateTimeImmutable('today'))->format('Y-m-d'),
+            $congeladoEm->format('Y-m-d'),
+            'o congelamento é do dia da edição',
+        );
 
         // O histórico tem de registrar a transição: sem isso ninguém explica depois por que aquela
         // obrigação parou de acompanhar os juros.
@@ -243,42 +280,50 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * Editar SEM mexer nos encargos não pode congelar nem achatar o split.
-     *
-     * Este form manda descrição, valor, vencimento, referência e encargos juntos, e reenvia tudo
-     * sempre. Se os encargos fossem gravados incondicionalmente, o congelamento tiraria a obrigação
-     * do cron PARA SEMPRE por causa de um typo corrigido na descrição, já que não há UI de
-     * descongelar. A spec §8 condiciona o congelamento a editar VALORES à mão, não a qualquer edição.
+     * F6: editar uma obrigação AUTOMÁTICA sem mexer nos encargos RECALCULA o split para hoje (estilo
+     * planilha, TODAY()) — sem congelar e sem achatar. O ponto histórico que este teste guarda ("a multa
+     * não vira lixo espúrio via ponte deprecada") continua valendo: cada componente vai para o seu campo,
+     * e a multa fixa (2% do principal) aparece inteira, nunca somada dentro de `juros`.
      */
     #[Test]
-    public function editarSemMexerNosEncargosNaoCongelaNemAchataOSplit(): void
+    public function editarObrigacaoAutomaticaRecalculaOSplitSemCongelarNemAchatar(): void
     {
-        $obrigacao = $this->obrigacaoAtiva();
-        $obrigacao->definirEncargos(100, 200, 50, 900, new \DateTimeImmutable('2026-02-01'));
+        // Carteira TOPLIFE + vencimento MUITO antigo → recálculo determinístico e positivo. A multa é
+        // fixa (independe do atraso), então é o caso ideal para provar que o split não foi achatado.
+        $caso = $this->casoTopLife();
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setDescricao('Boleto automático')
+            ->setValorOriginal(100000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2020-01-01'));
+        self::assertFalse($obrigacao->encargosCongelados(), 'pré-condição: automática');
+        self::assertSame(0, $obrigacao->getMulta(), 'pré-condição: ainda não materializada');
 
         $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
         $this->eventoRepository->method('salvar');
 
-        // Só a descrição muda; os encargos reenviados são EXATAMENTE os que já estão lá (é o que o
-        // modal faz: pré-preenche os três a partir da linha e o gestor não os toca).
+        // Só a descrição muda; os encargos reenviados são os MESMOS de agora (0/0/0) → não é mexida manual.
         $input = $this->inputValido();
         $input->descricao = 'Descrição corrigida';
-        $input->juros = 100;
-        $input->multa = 200;
-        $input->correcao = 50;
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
         self::assertSame('Descrição corrigida', $resultado->getDescricao());
-        self::assertFalse($resultado->encargosCongelados(), 'edição que não toca dinheiro não congela');
+        // Automática: recalcula na hora, NÃO congela.
+        self::assertFalse($resultado->encargosCongelados(), 'editar obrigação automática não congela');
         self::assertNull($resultado->getEncargosCongeladosEm());
-
-        // O split sobrevive intacto — nada foi achatado em `juros`.
-        self::assertSame(100, $resultado->getJuros());
-        self::assertSame(200, $resultado->getMulta(), 'a multa não pode ser zerada por uma edição de texto');
-        self::assertSame(50, $resultado->getCorrecao());
-        self::assertSame(900, $resultado->getHonorarios());
+        // O split é REAL e não foi achatado: cada componente no seu campo.
+        self::assertGreaterThan(0, $resultado->getJuros(), 'os juros de mora crescem com o atraso longo');
+        self::assertSame(2000, $resultado->getMulta(), 'a multa fixa (2%) aparece inteira, não achatada em zero nem somada em juros');
+        self::assertSame(0, $resultado->getCorrecao());
+        self::assertGreaterThan(0, $resultado->getHonorarios());
     }
 
     /**
@@ -313,25 +358,116 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * Honorários são materializados pelo motor de cálculo e a UI de edição NÃO os edita. Se o UseCase
-     * passasse 0 para `definirEncargos`, cada correção de encargo apagaria a dívida de honorários do
-     * escritório — dinheiro sumindo por efeito colateral de outra tela.
+     * F6: os honorários não têm campo na UI de edição. Ao digitar juros/multa/correção à mão, o motor
+     * RECOMPÕE os honorários sobre a base digitada — não preserva o valor velho (que ficaria defasado da
+     * base nova) nem os zera (o que apagaria a dívida). Com config de 20% e atraso longo, o resultado é
+     * determinístico sobre a base composta.
      */
     #[Test]
-    public function editarEncargosPreservaOsHonorariosMaterializados(): void
+    public function editarEncargosManuaisRecomputaOsHonorariosPeloMotor(): void
     {
-        $obrigacao = $this->obrigacaoAtiva();
-        $obrigacao->definirEncargos(100, 200, 50, 4321, new \DateTimeImmutable('2026-02-01'));
+        $caso = $this->casoTopLife();
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setDescricao('Boleto errado')
+            ->setValorOriginal(10000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2020-01-01'));
+        // Honorários VELHOS (4321), para provar que são SUBSTITUÍDOS pelo recálculo, não preservados.
+        $obrigacao->definirEncargos(100, 200, 50, 4321, new \DateTimeImmutable('2020-06-01'));
 
         $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
         $this->eventoRepository->method('salvar');
 
-        $resultado = $this->sut->executar($this->inputValido(), $this->tenant, $this->usuario);
+        // inputValido: juros 300, multa 150, correção 50, valorOriginal 25000. Vencimento antigo p/ atraso longo.
+        $input = $this->inputValido();
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
 
-        self::assertSame(4321, $resultado->getHonorarios(), 'a edição de encargos não pode zerar os honorários');
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        // Base composta digitada = 25000 + 300 + 150 + 50 = 25500 · 20% = 5100 (independe do atraso além da carência).
+        self::assertSame(5100, $resultado->getHonorarios(), 'honorários recompostos pelo motor sobre a base digitada');
+        self::assertNotSame(4321, $resultado->getHonorarios(), 'não é o valor velho preservado');
         // E os honorários seguem FORA do exigível (INV-E2): 25000 + 300 + 150 + 50.
         self::assertSame(25500, $resultado->valorExigivel());
+        self::assertTrue($resultado->encargosCongelados(), 'editar dinheiro à mão congela');
+    }
+
+    /**
+     * O coração do pedido do dono (F6): criar com vencimento futuro, editar para o passado → os juros
+     * recalculam NA HORA (estilo planilha), sem esperar o cron. Obrigação automática ⇒ não congela.
+     */
+    #[Test]
+    public function editarVencimentoParaOPassadoRecalculaOsJurosNaHora(): void
+    {
+        $caso = $this->casoTopLife();
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setDescricao('Boleto recente')
+            ->setValorOriginal(100000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2099-01-01')); // futuro: nasce sem atraso
+        self::assertSame(0, $obrigacao->getJuros(), 'pré-condição: sem atraso, sem juros');
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+        $this->eventoRepository->method('salvar');
+
+        // Edita SÓ o vencimento (para muito no passado); não toca nos encargos (0/0/0 = os atuais).
+        $input = $this->inputValido();
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        $input->juros = 0;
+        $input->multa = 0;
+        $input->correcao = 0;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertGreaterThan(0, $resultado->getJuros(), 'mudar o vencimento para o passado recalcula os juros na hora');
+        self::assertSame(2000, $resultado->getMulta(), 'a multa (2%) entra com o atraso');
+        self::assertFalse($resultado->encargosCongelados(), 'automática segue recalculável (o cron a faz crescer)');
+    }
+
+    /**
+     * F6/INV-E4: uma obrigação TRAVADA (encargos digitados à mão) não recalcula, nem quando o gestor
+     * muda o vencimento sem tocar nos valores. Só uma nova digitação manual mudaria os encargos.
+     */
+    #[Test]
+    public function obrigacaoTravadaNaoRecalculaAoEditarOVencimento(): void
+    {
+        $caso = $this->casoTopLife();
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setDescricao('Boleto travado')
+            ->setValorOriginal(100000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2026-01-10'));
+        $obrigacao->definirEncargos(100, 200, 50, 900, new \DateTimeImmutable('2026-02-01'));
+        $obrigacao->congelarEncargos(new \DateTimeImmutable('2026-02-01'));
+        self::assertTrue($obrigacao->encargosCongelados(), 'pré-condição: travada');
+
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+        $this->eventoRepository->method('salvar');
+
+        // Muda o vencimento para muito no passado, mas REENVIA os encargos iguais aos atuais (não é mexida).
+        $input = $this->inputValido();
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        $input->juros = 100;
+        $input->multa = 200;
+        $input->correcao = 50;
+
+        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        // O vencimento mudou, mas os encargos NÃO: a obrigação está travada.
+        self::assertSame('2020-01-01', $resultado->getVencimentoOriginal()->format('Y-m-d'));
+        self::assertSame(100, $resultado->getJuros(), 'travada: mudar o vencimento não recalcula os juros');
+        self::assertSame(200, $resultado->getMulta());
+        self::assertSame(50, $resultado->getCorrecao());
+        self::assertSame(900, $resultado->getHonorarios(), 'honorários travados intactos');
+        self::assertTrue($resultado->encargosCongelados(), 'continua travada');
     }
 
     /**

@@ -5,16 +5,21 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\DTO\RegistrarObrigacaoInput;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\RegistrarObrigacaoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -41,10 +46,14 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         // validando o flush único via a chamada salvar(EventoHistorico, true).
         $this->eventoRepository = $this->createMock(EventoHistoricoRepository::class);
         $registrarEvento = new RegistrarEventoHistorico($this->eventoRepository);
+        // CalculadoraEncargos e ResolvedorConfigEncargos são `final` mas PUROS (sem I/O): usa-se o REAL,
+        // como o RegistrarEventoHistorico — mockar um motor de dinheiro esconderia justamente o cálculo.
         $this->sut = new RegistrarObrigacaoUseCase(
             $this->obrigacaoRepository,
             $this->casoRepository,
             $registrarEvento,
+            new CalculadoraEncargos(),
+            new ResolvedorConfigEncargos(),
         );
         // Tenant/User não são abstrações do domínio: instâncias reais, não mocks.
         $this->tenant = new Tenant();
@@ -100,14 +109,17 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * Uma dívida trazida de outro sistema já vem com os encargos calculados lá fora. O gestor os digita
-     * no lançamento; a partir daí eles são a verdade e o cron não pode passar por cima na madrugada
-     * seguinte (spec §8, INV-E4) — mesma regra da edição manual.
+     * F6: uma dívida trazida de outro sistema já vem com os encargos calculados lá fora. O gestor os
+     * DIGITA no lançamento; a partir daí eles são a verdade e a obrigação nasce TRAVADA (o cron não passa
+     * por cima — INV-E4). Os honorários, que não têm campo no form, são COMPLETADOS pelo motor sobre a
+     * base digitada — antes travavam em zero (o bug bloqueante da F4), agora congelar é seguro.
      */
     #[Test]
-    public function encargosInformadosNoLancamentoNascemSeparadosERecalculaveis(): void
+    public function encargosDigitadosNoLancamentoCongelamEGanhamHonorariosPeloMotor(): void
     {
-        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        // Carteira TOPLIFE (20% sobre base composta) e vencimento antigo → o motor completa os honorários
+        // de forma determinística.
+        $caso = $this->casoTopLife();
         $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
 
         $capturado = null;
@@ -120,31 +132,23 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         $input->casoId = 30;
         $input->descricao = 'Dívida antiga importada à mão';
         $input->valorOriginal = 100000;
-        $input->vencimentoOriginal = new \DateTimeImmutable('2025-03-10');
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
         $input->juros = 5000;
         $input->multa = 2000;
         $input->correcao = 500;
 
         $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
 
-        // Cada componente no seu campo (nada de agregar tudo em `juros`).
+        // Cada componente digitado no seu campo (nada de agregar tudo em `juros`).
         self::assertSame(5000, $obrigacao->getJuros());
         self::assertSame(2000, $obrigacao->getMulta());
         self::assertSame(500, $obrigacao->getCorrecao());
         self::assertSame(7500, $obrigacao->getEncargosReconhecidos(), 'o agregado é o derivado (INV-E1)');
         self::assertSame(107500, $obrigacao->valorExigivel());
-        // Honorários NÃO são digitados neste form: nascem zerados, materializados pelo motor depois.
-        self::assertSame(0, $obrigacao->getHonorarios());
-
-        // E é exatamente por isso que o lançamento NÃO congela. Congelar aqui deixaria os honorários
-        // presos em zero para sempre — a obrigação sairia do cron sem UI de descongelar, e numa carteira
-        // de 20% seriam ~R$ 21.500 de honorário que nunca se materializam. A spec §8 manda congelar ao
-        // EDITAR valores à mão; criar não é editar. O que foi digitado está protegido de encolher pelo
-        // freio de redução do cron, que só grava para cima.
-        self::assertFalse(
-            $obrigacao->encargosCongelados(),
-            'lançar com encargos não pode congelar: os honorários ainda não foram calculados',
-        );
+        // Honorários COMPLETADOS pelo motor: base composta 100000 + 5000 + 2000 + 500 = 107500 · 20% = 21500.
+        self::assertSame(21500, $obrigacao->getHonorarios(), 'honorários completados sobre a base digitada, não travados em zero');
+        // E agora CONGELA: o valor digitado é a verdade e o cron não passa por cima (INV-E4).
+        self::assertTrue($obrigacao->encargosCongelados(), 'digitar encargos à mão trava a obrigação');
 
         // O histórico precisa explicar de onde veio esse dinheiro.
         self::assertInstanceOf(EventoHistorico::class, $capturado);
@@ -154,9 +158,38 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         self::assertSame(500, $dados['correcao']);
     }
 
+    /**
+     * F6: sem digitar encargos, a obrigação é AUTOMÁTICA. Com carteira TOPLIFE e vencimento antigo, ela
+     * já NASCE com os juros/multa/honorários do dia (estilo planilha), em vez de zero esperando o cron —
+     * e segue recalculável (não congela). Valor exato é provado no CalculadoraEncargosTest; aqui só o efeito.
+     */
+    #[Test]
+    public function obrigacaoNasceComEncargosCalculadosQuandoNaoDigitou(): void
+    {
+        $caso = $this->casoTopLife();
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->eventoRepository->method('salvar');
+
+        $input = new RegistrarObrigacaoInput();
+        $input->casoId = 30;
+        $input->descricao = 'Boleto muito atrasado';
+        $input->valorOriginal = 100000;
+        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
+        // Sem digitar nada nos encargos.
+
+        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertGreaterThan(0, $obrigacao->getJuros(), 'nasce com os juros do dia, não em zero');
+        self::assertSame(2000, $obrigacao->getMulta(), 'multa fixa 2% de R$ 1.000,00');
+        self::assertGreaterThan(0, $obrigacao->getHonorarios(), 'honorários materializados já na criação');
+        self::assertFalse($obrigacao->encargosCongelados(), 'automática: segue recalculável (o cron a faz crescer)');
+        self::assertNotNull($obrigacao->getEncargosAtualizadosEm(), 'materializou: tem data de referência');
+    }
+
     #[Test]
     public function encargosZeradosNaoCongelamAObrigacao(): void
     {
+        // Carteira NEUTRA (sem objeto/carteira no caso): o cálculo automático dá 0 e nada é digitado.
         $caso = (new CasoCobranca())->setTenant($this->tenant);
         $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
 
@@ -172,11 +205,14 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
 
         $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
 
+        self::assertSame(0, $obrigacao->getEncargosReconhecidos(), 'carteira neutra → nenhum encargo');
         self::assertFalse(
             $obrigacao->encargosCongelados(),
             'zero não é "valor digitado": a obrigação nova tem de continuar sendo calculada pelo cron',
         );
-        self::assertNull($obrigacao->getEncargosAtualizadosEm(), 'sem encargos informados não há materialização a datar');
+        // Novo modelo (estilo planilha): mesmo com encargos zero a obrigação NASCE materializada para
+        // hoje — a data de referência é gravada (o cálculo automático rodou, só deu 0).
+        self::assertNotNull($obrigacao->getEncargosAtualizadosEm(), 'a materialização do dia é datada mesmo quando dá 0');
     }
 
     #[Test]
@@ -235,5 +271,26 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
 
         self::assertNull($obrigacao->getReferenciaExterna());
+    }
+
+    /**
+     * Caso com carteira "TOPLIFE" (juros 1% a.m., multa 2%, carência 30, honorários 20% sobre base
+     * composta), para os cenários em que o cálculo automático precisa produzir encargos > 0 de forma
+     * determinística. Grafo em memória — o resolver lê só os getters de config, sem persistência.
+     */
+    private function casoTopLife(): CasoCobranca
+    {
+        $carteira = (new Carteira())
+            ->setTaxaJurosMensalBp(100)
+            ->setTaxaMultaBp(200)
+            ->setCarenciaHonorariosDias(30);
+
+        $objeto = (new ObjetoCobranca())->setCarteira($carteira);
+
+        return (new CasoCobranca())
+            ->setTenant($this->tenant)
+            ->setObjeto($objeto)
+            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
+            ->setPercentualHonorarios('20.00');
     }
 }

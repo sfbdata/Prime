@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\Controller\ObrigacaoController;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusCaso;
 use App\Tests\Factory\Cobranca\AlocacaoPagamentoFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
@@ -207,23 +208,30 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertFalse($fresh->encargosCongelados(), 'não mexeu em encargos → não congela');
     }
 
-    #[TestDox('Editar obrigação: trocar a composição dos encargos congela e preserva os honorários')]
-    public function testEditarObrigacaoRecomporEncargosCongelaEPreservaHonorarios(): void
+    #[TestDox('Editar obrigação: recompor encargos congela, separa o split e recompõe os honorários pelo motor')]
+    public function testEditarObrigacaoRecomporEncargosCongelaERecomputaHonorarios(): void
     {
-        // Regressão do achado I5 da F2: a ponte deprecada `setEncargosReconhecidos()` jogava o agregado
-        // inteiro em `juros` e ZERAVA multa/correção. Aqui o agregado é o MESMO antes e depois
-        // (R$ 350,00) e só a composição muda — o único jeito de o teste ficar verde é cada componente
-        // ter ido para o seu campo.
+        // Regressão do achado I5 da F2 (a ponte deprecada achatava o agregado em `juros` e zerava multa/
+        // correção) + comportamento F6: ao recompor à mão, cada componente vai para o seu campo, a
+        // obrigação TRAVA e os honorários são RECOMPOSTOS pelo motor sobre a base digitada (a UI não os edita).
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant);
+        [$carteira, $caso] = $this->semearGrafo($tenant);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        // Carteira/caso TOPLIFE (multa 2%, honorários 20% sobre base composta, carência 30) → o recálculo
+        // dos honorários é determinístico e positivo, em vez de 0 (a carteira do semearGrafo é neutra).
+        $carteira->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200)->setCarenciaHonorariosDias(30);
+        $caso->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('20.00');
+
         $obrigacao = ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0,
         ])->_real();
-        // O split de partida (com honorários materializados) não sai da factory: ela só conhece o
-        // agregado. Grava-se aqui, antes do POST.
-        $obrigacao->definirEncargos(30000, 4000, 1000, 9000, new \DateTimeImmutable('2026-02-01'));
-        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        // Split de partida (com honorários velhos), gravado direto: a factory só conhece o agregado. O
+        // vencimento vai bem no passado para o atraso ultrapassar a carência de honorários.
+        $obrigacao->definirEncargos(30000, 4000, 1000, 9000, new \DateTimeImmutable('2020-01-01'));
+        $obrigacao->setVencimentoOriginal(new \DateTimeImmutable('2020-01-01'));
+        $em->flush();
         $obrigacaoId = (int) $obrigacao->getId();
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
@@ -233,8 +241,7 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'editar_obrigacao' => [
                 'descricao' => 'Recomposicao',
                 'valorOriginal' => '1.000,00',
-                'vencimentoOriginal' => '2026-09-01',
-                // Agregado idêntico (35000), composição diferente.
+                'vencimentoOriginal' => '2020-01-01',
                 'juros' => '200,00',
                 'multa' => '140,00',
                 'correcao' => '10,00',
@@ -243,18 +250,18 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             ],
         ]);
 
-        $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         $fresh = $em->find(Obrigacao::class, $obrigacaoId);
         self::assertSame(20000, $fresh->getJuros());
         self::assertSame(14000, $fresh->getMulta());
         self::assertSame(1000, $fresh->getCorrecao());
-        self::assertSame(9000, $fresh->getHonorarios(), 'a UI não edita honorários — eles não podem ser zerados por uma correção');
+        // Honorários RECOMPOSTOS pelo motor: base composta 100000 + 20000 + 14000 + 1000 = 135000 · 20% = 27000.
+        self::assertSame(27000, $fresh->getHonorarios(), 'a UI não edita honorários — o motor os recompõe sobre a base digitada');
         self::assertTrue($fresh->encargosCongelados(), 'mexer em dinheiro à mão tira a obrigação do cron (INV-E4)');
     }
 
-    #[TestDox('Registrar obrigação com encargos: nasce com o split e RECALCULÁVEL (não congela)')]
-    public function testRegistrarObrigacaoComEncargosNaoCongela(): void
+    #[TestDox('Registrar obrigação com encargos digitados: nasce com o split e TRAVADA (congela)')]
+    public function testRegistrarObrigacaoComEncargosDigitadosCongela(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -286,13 +293,13 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertSame(2000, $criada->getMulta());
         self::assertSame(500, $criada->getCorrecao());
         self::assertSame(107500, $criada->valorExigivel());
-        // Honorários não são digitados neste form; congelar no lançamento os deixaria em zero PARA
-        // SEMPRE (a obrigação sairia do cron e não há UI de descongelar). Quem quiser travar, edita
-        // depois — a edição congela. O digitado não corre risco de encolher: o cron só grava para cima.
+        // F6: digitar encargos à mão TRAVA a obrigação (INV-E4). A carteira de teste é NEUTRA (0% de
+        // honorários) → aqui os honorários dão 0; a COMPLETUDE dos honorários pelo motor é provada no
+        // unit (carteira TOPLIFE). O que este teste prova ponta a ponta é o congelamento.
         self::assertSame(0, $criada->getHonorarios());
-        self::assertFalse(
+        self::assertTrue(
             $criada->encargosCongelados(),
-            'lançar não é editar: a obrigação segue recalculável para os honorários serem materializados',
+            'digitar encargos à mão trava a obrigação (o cron não a sobrescreve)',
         );
     }
 

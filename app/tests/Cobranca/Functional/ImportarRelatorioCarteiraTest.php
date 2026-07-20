@@ -13,8 +13,10 @@ use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\Importacao\TopLifeInadimplenciaAdapter;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CriarObjetoUseCase;
 use App\Cobranca\UseCase\CriarPessoaUseCase;
@@ -73,7 +75,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
             new CriarPessoaUseCase($pessoaRepo),
             new VincularPessoaAObjetoUseCase($vinculoRepo, $pessoaRepo, $objetoRepo),
             new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento),
-            new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento),
+            new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             $this->em,
         );
         $this->adapter = new TopLifeInadimplenciaAdapter();

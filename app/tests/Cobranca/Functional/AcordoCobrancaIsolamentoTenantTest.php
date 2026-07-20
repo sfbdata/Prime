@@ -29,8 +29,10 @@ use App\Cobranca\Repository\LiquidacaoRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PessoaRepository;
+use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Cobranca\UseCase\CriarAcordoUseCase;
 use App\Cobranca\UseCase\RegistrarObrigacaoUseCase;
@@ -93,7 +95,7 @@ final class AcordoCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
-        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento);
+        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
         $this->criarAcordo = new CriarAcordoUseCase($acordoRepo, $obrigacaoRepo, $casoRepo, $registrarEvento);
         $this->romperAcordo = new RomperAcordoUseCase($acordoRepo, $obrigacaoRepo, $registrarEvento);
         $this->calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo);

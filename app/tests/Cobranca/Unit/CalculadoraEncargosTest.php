@@ -316,6 +316,62 @@ final class CalculadoraEncargosTest extends TestCase
     }
 
     // ---------------------------------------------------------------------------------------
+    // honorarios() isolado — a regra reaproveitada por quem trava um encargo digitado à mão (F6)
+    // ---------------------------------------------------------------------------------------
+
+    #[Test]
+    public function honorariosIsoladosSobreBaseCompostaBatemComAProvaReal(): void
+    {
+        // Mesma linha real TOPLIFE II (56 dias): base composta 17000 + 317 + 340 + 0 = 17657 · 15% =
+        // 2648,55 → 2649. O método recebe juros/multa/correção PRONTOS e não recalcula os juros.
+        $config = new ConfigEncargos(taxaHonorariosBp: 1500, baseHonorarios: BaseEncargo::Composta, carenciaHonorariosDias: 30);
+
+        self::assertSame(2649, $this->sut->honorarios(17000, 317, 340, 0, $config, 56));
+    }
+
+    #[Test]
+    public function honorariosIsoladosDentroDaCarenciaSaoZero(): void
+    {
+        // 25 dias ≤ carência 30 ⇒ 0, mesmo com base positiva (o corte é ESTRITO).
+        $config = new ConfigEncargos(taxaHonorariosBp: 1500, baseHonorarios: BaseEncargo::Composta, carenciaHonorariosDias: 30);
+
+        self::assertSame(0, $this->sut->honorarios(17000, 142, 340, 0, $config, 25));
+    }
+
+    #[Test]
+    public function honorariosIsoladosNoDiaDaCarenciaAindaSaoZeroENoSeguinteAparecem(): void
+    {
+        $config = new ConfigEncargos(taxaHonorariosBp: 1500, baseHonorarios: BaseEncargo::Composta, carenciaHonorariosDias: 30);
+
+        self::assertSame(0, $this->sut->honorarios(17000, 176, 340, 0, $config, 30), 'carência 30 ⇒ o 30º dia ainda é isento');
+        // base composta = 17000 + 176 + 340 = 17516 · 15% = 2627,4 → 2627 (idêntico a calcular() no 31º dia).
+        self::assertSame(2627, $this->sut->honorarios(17000, 176, 340, 0, $config, 31));
+    }
+
+    #[Test]
+    public function honorariosIsoladosComBasePrincipalIgnoramJurosMultaCorrecao(): void
+    {
+        // Base PRINCIPAL: juros/multa/correção passados são ignorados — 17000 · 20% = 3400.
+        $config = new ConfigEncargos(taxaHonorariosBp: 2000, baseHonorarios: BaseEncargo::Principal, carenciaHonorariosDias: 30);
+
+        self::assertSame(3400, $this->sut->honorarios(17000, 999, 999, 999, $config, 56));
+    }
+
+    #[Test]
+    public function calcularUsaExatamenteOMesmoHonorarioQueOMetodoIsolado(): void
+    {
+        // Garante que o refactor não divergiu: o honorário de calcular() é o de honorarios() chamado com
+        // os juros/multa/correção que o próprio calcular() produziu (base composta, 56 dias, 15%).
+        $config = ConfigEncargos::padraoTopLife(1500);
+        $encargos = $this->sut->calcular(17000, $this->vencimento(), $config, $this->apos(56));
+
+        self::assertSame(
+            $encargos['honorarios'],
+            $this->sut->honorarios(17000, $encargos['juros'], $encargos['multa'], $encargos['correcao'], $config, 56),
+        );
+    }
+
+    // ---------------------------------------------------------------------------------------
     // Regime composto (configurável, NÃO provado contra dados reais)
     // ---------------------------------------------------------------------------------------
 
