@@ -66,16 +66,17 @@ implementer/worktree → revisão adversarial → cherry-pick → testes → SMO
 juros/multa/correção com o **honorário em branco**, o motor **recompõe** o honorário sobre a nova base
 (descarta o honorário fixo anterior). O campo abre vazio; para manter o honorário antigo, o gestor redigita.
 
-### ✅ Ajuste 3 — Card expansível da obrigação (FEITO, 2026-07-20)
-O dono escolheu **Expansível** (previews compacto/detalhado/expansível). Commits `6db4c3c` + `5ca935f`.
-A linha da dívida virou **card compacto** (data · descrição · Total · chevron · ações) + **painel
-expansível** com os encargos rotulados/coloridos (Original/Juros/Multa/Correção/Honorários/Total,
-tema-aware, % por encargo, selo de congelado). Toggle JS acessível. `col-*` migraram para o painel;
-substituída fica simples. **Bug pego no smoke** (descrição quebrando letra a letra a 1024px, pela coluna
-estreita do cockpit) corrigido com **container query** (mede a largura da coluna, não do viewport) + piso na
-descrição. `tests/Cobranca` **793/793**, global **2157/2157**. Smoke em 1600/1024/390 sem rolagem horizontal
-do card (a rolagem a 390px é da navbar do topo — pré-existente, fora do escopo). Ganchos de teste e `data-*`
-dos modais preservados.
+### ✅ Ajuste 3 — Card expansível da obrigação (FEITO, 2026-07-20) + faixa de encargos na linha
+O dono escolheu **Expansível**. Commits `6db4c3c` + `5ca935f` (redesign) + **`5a3928c`** (correção do dono:
+mostrar cada encargo NA LINHA). A linha da dívida virou **card compacto** (data · descrição · Total ·
+chevron · ações). O redesign inicial escondia os encargos atrás do chevron; **o dono pediu para VER cada
+encargo na linha**, então acrescentei uma **faixa de pílulas coloridas sempre visível** logo abaixo da
+descrição: `ORIGINAL · JUROS · MULTA · CORREÇÃO · HONORÁRIOS` (rótulo + R$, cor por encargo, tema-aware,
+flui e quebra sozinha — sem colunas apertadas, sem rolagem horizontal em 1600/1024/390). O **chevron/painel**
+continua para o "extra" (o **%** de cada encargo, a base de incidência, o selo de congelado/atualizado).
+Bug do smoke da 1024px (descrição quebrando letra a letra pela coluna estreita do cockpit) corrigido com
+**container query**. `tests/Cobranca` **796/796**, global **2160/2160**. Ganchos de teste e `data-*` dos
+modais preservados (a faixa usa `.jp-enc-*`, não `.col-*`, para não colidir com os testes que leem o painel).
 
 ### 🎯 Rodada pós-go-live: COMPLETA (Ajustes 1–3) + auditoria adversarial final
 Branch `cobranca-encargos-cascata`, HEAD à frente de origin — **push/merge/deploy = humano** (nada publicado).
@@ -112,6 +113,33 @@ Todos os 3 ajustes entregues, testados e smoked. `tests/Cobranca` **796/796**, g
    = 1 obrigação/ação (a Fatia A, em lote, foi o que se corrigiu acima). Decisão unificada do freio no exigível
    dos caminhos manuais fica para o humano — mudar o ramo automático afetaria a feature "editar vencimento
    recalcula" do Ajuste 1, então não se mexeu sem a sua decisão.
+
+### ⏭️ PRÓXIMO CHAT — ajustes visuais do card ainda em aberto (o dono quer continuar afinando)
+Estado: HEAD **`5a3928c`** na branch `cobranca-encargos-cascata` (16 commits à frente de origin, **nada
+pushado/mergeado/deployado**). `tests/Cobranca` **796/796**, global **2160/2160**, árvore limpa, dev limpo.
+
+O dono aprovou "ver cada encargo na linha" (feito em `5a3928c`), mas o VISUAL ainda é gosto dele — perguntei
+e ele quer continuar num chat novo. Itens abertos (só Twig/CSS, risco BAIXO; arquivos:
+`app/templates/cobranca/objeto/_partials/_divida.html.twig` = macro `resumoEncargos` + faixa; e
+`app/public/css/cobrancas.css` = `.jp-obr-encargos`/`.jp-obr-enc`/`.jp-enc-*` + grid-area `resumo`):
+
+1. **Encargos zerados na faixa:** hoje mostra `MULTA R$ 0,00 · CORREÇÃO R$ 0,00 · HONORÁRIOS R$ 0,00` mesmo
+   quando são zero (ruído nas obrigações de condomínio). Opção: mostrar só os encargos > 0 (mantendo Original
+   e Total sempre). Perguntar ao dono.
+2. **Chevron/painel expansível (`.jp-obr-detalhe` + `.jp-obr-toggle`):** agora que os VALORES estão na linha,
+   o painel virou meio redundante (repete valores + mostra o %). Opções: (a) manter como está; (b) remover o
+   chevron e jogar o `%` pra dentro de cada pílula da faixa; (c) manter o chevron mas o painel passa a mostrar
+   SÓ o extra (% + base + selo), sem repetir os valores. Decisão do dono.
+3. **Densidade:** a faixa em toda linha, com 150+ obrigações/objeto, aumenta a altura por linha. Se ficar
+   alto demais, deixar a faixa mais compacta (fonte/padding menores) ou opcional. Smoke em 3 larguras
+   (1600/1024/390) já OK, sem rolagem horizontal do card.
+
+**Como retomar:** carregar a skill `workflow`, ler esta seção + a memória `project_cobranca_encargos.md` +
+o ledger `.superpowers/sdd/progress-encargos.md`; confirmar git (HEAD `5a3928c`, branch limpa); dev em
+http://localhost:8080 (login farlei.rocha@gmail.com / Prime123!; gotcha `#modalAlertaPonto` intercepta
+cliques — remover via browser_evaluate; **cache do navegador engana** — navegar com `?nocache=N` e forçar
+reload do `cobrancas.css`; **cache do Twig no dev** — rodar `cache:clear --env=dev` após editar template).
+Objeto de teste do dono: carteira TOPLIFE I, objeto **117** (caso âncora **116**, 161 obrigações congeladas).
 
 ### Duas pendências humanas antes do deploy (checklist §4)
 1. **Confirmar o corte da carência de honorários** (`d > 30`) com a contabilidade — reproduz 100% dos
