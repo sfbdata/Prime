@@ -19,6 +19,7 @@ use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraHonorarios;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Entity\Tenant\Tenant;
@@ -99,6 +100,8 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $this->alertasCobranca,
             $this->alocacaoRepository,
             $this->calculadoraHonorarios,
+            // ResolvedorConfigEncargos é `final` e PURO (navega o grafo em memória, sem I/O): instância real.
+            new ResolvedorConfigEncargos(),
         );
 
         $this->tenant = new Tenant();

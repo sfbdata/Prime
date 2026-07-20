@@ -14,6 +14,7 @@ use App\Cobranca\DTO\PagamentoOutput;
 use App\Cobranca\DTO\ProximaAcaoOutput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -25,6 +26,7 @@ use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 
 /**
  * Leitura: monta o detalhe completo do Caso — a tela central (SPEC §9/§26, Etapa 8). Agrega o
@@ -50,6 +52,7 @@ final class MontarDetalheCasoUseCase
         private readonly AlertasCobranca $alertasCobranca,
         private readonly AlocacaoPagamentoRepository $alocacaoRepository,
         private readonly CalculadoraHonorarios $calculadoraHonorarios,
+        private readonly ResolvedorConfigEncargos $resolvedorConfig,
     ) {
     }
 
@@ -86,6 +89,9 @@ final class MontarDetalheCasoUseCase
                     $alocado,
                     // O prefill do "Receber": o bruto cuja parte-dívida é exatamente o restante (spec §5.1).
                     $this->calculadoraHonorarios->brutoParaRecuperar($caso, $restante),
+                    // Config resolvida (cascata) só para a UI saber a BASE de multa/honorários e exibir o
+                    // "%" sobre a base certa. Grafo caso→objeto→carteira já carregado — sem query nova.
+                    $this->resolvedorConfig->resolver($o),
                 );
             },
             $this->obrigacaoRepository->doCaso($caso),
@@ -124,6 +130,9 @@ final class MontarDetalheCasoUseCase
             liquidacoes: array_map(LiquidacaoOutput::fromEntity(...), $this->liquidacaoRepository->doCaso($caso)),
             acordos: $acordos,
             historico: array_map(EventoHistoricoOutput::fromEntity(...), $this->eventoRepository->doCaso($caso)),
+            // Base resolvida do honorário do CASO (para o espelho %↔R$ do honorário nos modais converter
+            // sobre a base certa — composta soma valor+juros+multa+correção; principal usa só o valor).
+            baseHonorariosComposta: $this->resolvedorConfig->resolverDoCaso($caso)->baseHonorarios === BaseEncargo::Composta,
         );
     }
 

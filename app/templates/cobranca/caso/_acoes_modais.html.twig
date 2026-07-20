@@ -9,26 +9,29 @@
    que é submetido, validado e reidratado pelo B5. O "%" é auxiliar: NÃO tem `name`, nunca chega ao
    servidor, e o JS o deriva do R$ sobre o valor original ao abrir o modal. Duas fontes de verdade sobre
    dinheiro divergiriam por arredondamento; aqui só existe uma. #}
-{% macro camposEncargos(formEncargos, prefixoEncargos) %}
+{% macro camposEncargos(formEncargos, prefixoEncargos, honorarioComposta = true) %}
 <hr class="my-3">
 <h6 class="fw-semibold mb-1">Encargos reconhecidos</h6>
 <div class="form-text mb-3">
     Informe o percentual <em>ou</em> o valor em reais — um preenche o outro. Juros, multa e correção
-    incidem sobre o <strong>valor original</strong>; o <strong>honorário</strong> incide sobre a base
-    composta (valor + juros + multa + correção). Ao gravar juros, multa ou correção a obrigação fica
-    <strong>congelada</strong>: o cálculo automático diário para de atualizá-la. Deixe o honorário
-    <strong>vazio</strong> para calculá-lo automaticamente; ao digitar, a obrigação congela.
+    incidem sobre o <strong>valor original</strong>; o <strong>honorário</strong> incide sobre
+    {{ honorarioComposta ? 'a base composta (valor + juros + multa + correção)' : 'o valor original (principal)' }}.
+    Ao gravar juros, multa ou correção a obrigação fica <strong>congelada</strong>: o cálculo automático
+    diário para de atualizá-la. Deixe o honorário <strong>vazio</strong> para calculá-lo automaticamente;
+    ao digitar, a obrigação congela.
 </div>
 
-{# Cada encargo carrega a PRÓPRIA base do espelho %↔R$: juros/multa/correção sobre o valor original;
-   honorário sobre a base COMPOSTA (Ajuste 2) — o JS de `initEspelhoEncargos` soma valor+juros+multa+
-   correção quando `data-encargo-base="composta"`. O `?int $honorarios` (Form sem `empty_data`) mapeia
-   campo vazio para `null` = automático; qualquer valor digitado = override + congela. #}
+{# Cada encargo carrega a PRÓPRIA base do espelho %↔R$: juros/multa/correção sobre o valor original; o
+   honorário sobre a base RESOLVIDA do caso (Ajuste 2) — composta (`valor+juros+multa+correção`, o JS de
+   `initEspelhoEncargos` soma os quatro) ou principal (`valorOriginal`, campo único). Sem isto, um % de
+   honorário digitado numa carteira de base Principal viraria R$ sobre a base errada (achado da auditoria).
+   O `?int $honorarios` (Form sem `empty_data`) mapeia campo vazio para `null` = automático; qualquer valor
+   digitado = override + congela. #}
 {% for encargo in [
     {'campo': 'juros', 'rotulo': 'Juros', 'base': 'valorOriginal'},
     {'campo': 'multa', 'rotulo': 'Multa', 'base': 'valorOriginal'},
     {'campo': 'correcao', 'rotulo': 'Correção', 'base': 'valorOriginal'},
-    {'campo': 'honorarios', 'rotulo': 'Honorários', 'base': 'composta'}
+    {'campo': 'honorarios', 'rotulo': 'Honorários', 'base': honorarioComposta ? 'composta' : 'valorOriginal'}
 ] %}
     <div class="row g-2 mb-3">
         <div class="col-5">
@@ -70,7 +73,7 @@
                 {{ form_row(forms.registrarObrigacao.valorOriginal) }}
                 {{ form_row(forms.registrarObrigacao.vencimentoOriginal) }}
                 {{ form_row(forms.registrarObrigacao.referenciaExterna) }}
-                {{ blocoEncargos.camposEncargos(forms.registrarObrigacao, 'registrarObrigacao') }}
+                {{ blocoEncargos.camposEncargos(forms.registrarObrigacao, 'registrarObrigacao', caso.baseHonorariosComposta) }}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -110,7 +113,7 @@
                 {{ form_row(forms.editarObrigacao.valorOriginal) }}
                 {{ form_row(forms.editarObrigacao.vencimentoOriginal) }}
                 {{ form_row(forms.editarObrigacao.referenciaExterna) }}
-                {{ blocoEncargos.camposEncargos(forms.editarObrigacao, 'editarObrigacao') }}
+                {{ blocoEncargos.camposEncargos(forms.editarObrigacao, 'editarObrigacao', caso.baseHonorariosComposta) }}
                 <hr class="my-3">
                 {{ form_row(forms.editarObrigacao.motivo) }}
             </div>

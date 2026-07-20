@@ -438,9 +438,12 @@ document.addEventListener('DOMContentLoaded', function () {
             return !indisponivel;
         }
         /* Recalcula os "%" a partir dos R$ — nunca o contrário. Usado ao abrir o modal e quando o valor
-           original muda: mexer no principal não pode alterar o dinheiro já reconhecido. */
-        function sincronizarPercentuais() {
+           original muda: mexer no principal não pode alterar o dinheiro já reconhecido. `exceto` pula um par
+           (o que o gestor está digitando), para não sobrescrever o "%" que ele acabou de digitar. Chamado
+           como listener (recebe um Event, que nunca === um par → sincroniza todos) ou com um par explícito. */
+        function sincronizarPercentuais(exceto) {
             pares.forEach(function (par) {
+                if (par === exceto) { return; }
                 if (!aplicarDisponibilidade(par)) { return; }
                 var cent = parseCentavos(par.reais.value);
                 par.pct.value = cent === 0 && String(par.reais.value).trim() === '' ? '' : centavosParaPercentual(baseCentavos(par), cent);
@@ -453,6 +456,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (baseCent <= 0) { return; }
                 var pct = parsePercentual(par.pct.value);
                 par.reais.value = pct === null ? '' : reaisInput(percentualParaCentavos(baseCent, pct));
+                /* Setar o R$ por atribuição (.value) NÃO dispara 'input', então os `basesObservadas` não
+                   re-sincronizam sozinhos. Este par pode ser BASE de outro (juros/multa/correção compõem a
+                   base do honorário): re-sincroniza os "%" dos DEMAIS pares à mão, exceto o próprio. */
+                sincronizarPercentuais(par);
             });
             par.reais.addEventListener('input', function () {
                 var baseCent = baseCentavos(par);

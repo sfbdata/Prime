@@ -57,6 +57,12 @@ final class CasoDetalheOutput
         public readonly array $liquidacoes,
         public readonly array $acordos,
         public readonly array $historico,
+        /**
+         * Base RESOLVIDA dos honorários do caso é COMPOSTA (true) ou Principal (false). A UI usa isto para o
+         * espelho %↔R$ do honorário nos modais de obrigação converter sobre a base certa (parâmetro opcional
+         * no fim para não quebrar chamadores antigos por posição; default composta = o do domínio).
+         */
+        public readonly bool $baseHonorariosComposta = true,
     ) {
     }
 }

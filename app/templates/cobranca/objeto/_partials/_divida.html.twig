@@ -64,7 +64,13 @@
        Ocupa a largura toda da linha (`grid-column: 1 / -1`) e nasce `hidden`. Os "%" são SÓ apresentação,
        derivados na hora, com guarda contra divisão por zero. Nada aqui recalcula regra: os valores vêm
        materializados do domínio. Somar as células fecha com o Total (spec §1.3 e Apêndice A). #}
-    {% set baseHonorarios = o.valorOriginal + o.juros + o.multa + o.correcao %}
+    {# Base de incidência de cada encargo — RESOLVIDA da cascata (o.baseMulta/o.baseHonorarios), não fixa.
+       Multa e honorários podem operar sobre o PRINCIPAL puro ou a base COMPOSTA (valor + juros + multa +
+       correção); exibir o "%" sobre a base errada mostra um número e um rótulo factualmente falsos para
+       quem configura Principal (achado da auditoria). Juros incidem sempre sobre o principal. #}
+    {% set baseComposta = o.valorOriginal + o.juros + o.multa + o.correcao %}
+    {% set baseMultaVal = o.baseMulta.value == 'composta' ? baseComposta : o.valorOriginal %}
+    {% set baseHonVal = o.baseHonorarios.value == 'composta' ? baseComposta : o.valorOriginal %}
     <div class="jp-obr-detalhe" id="detalhe-obr-{{ o.id }}" hidden>
         {# As classes `col-original/col-juros/col-multa/col-correcao/col-honorarios` MIGRARAM das antigas
            colunas para os valores do painel (é onde os números do relatório vivem agora). Preservadas de
@@ -79,7 +85,7 @@
                 <span class="jp-encargo-val col-juros">{{ o.juros|centavos }}</span>
             </div>
             <div class="jp-encargo jp-encargo-multa">
-                <span class="jp-encargo-rot">Multa{% if o.valorOriginal > 0 and o.multa > 0 %} <span class="jp-encargo-pct">{{ (o.multa * 100 / o.valorOriginal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
+                <span class="jp-encargo-rot">Multa{% if baseMultaVal > 0 and o.multa > 0 %} <span class="jp-encargo-pct">{{ (o.multa * 100 / baseMultaVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
                 <span class="jp-encargo-val col-multa">{{ o.multa|centavos }}</span>
             </div>
             <div class="jp-encargo jp-encargo-correcao">
@@ -87,9 +93,9 @@
                 <span class="jp-encargo-val col-correcao">{{ o.correcao|centavos }}</span>
             </div>
             <div class="jp-encargo jp-encargo-honorarios">
-                <span class="jp-encargo-rot">Honorários{% if baseHonorarios > 0 and o.honorarios > 0 %} <span class="jp-encargo-pct">{{ (o.honorarios * 100 / baseHonorarios)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
+                <span class="jp-encargo-rot">Honorários{% if baseHonVal > 0 and o.honorarios > 0 %} <span class="jp-encargo-pct">{{ (o.honorarios * 100 / baseHonVal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
                 <span class="jp-encargo-val col-honorarios">{{ o.honorarios|centavos }}</span>
-                <span class="jp-encargo-nota">sobre a base composta (original + encargos)</span>
+                <span class="jp-encargo-nota">{{ o.baseHonorarios.value == 'composta' ? 'sobre a base composta (original + encargos)' : 'sobre o principal (valor original)' }}</span>
             </div>
             <div class="jp-encargo jp-encargo-total">
                 <span class="jp-encargo-rot">Total</span>

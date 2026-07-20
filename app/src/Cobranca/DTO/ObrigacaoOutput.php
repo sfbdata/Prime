@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\DTO;
 
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\BaseEncargo;
 
 /**
  * Leitura de uma Obrigação para a seção "Dívida em aberto" da página do objeto (Etapa 8; a partir do
@@ -55,6 +56,15 @@ final class ObrigacaoOutput
         public readonly int $multa = 0,
         public readonly int $correcao = 0,
         public readonly int $honorarios = 0,
+        /**
+         * Base de incidência RESOLVIDA (cascata) da multa e dos honorários — Principal (só o valor original)
+         * ou Composta (valor + juros + multa + correção). A tela usa isto para exibir o "%" de cada encargo
+         * sobre a base CERTA e rotular corretamente: com base configurável, assumir composta fixa mostraria
+         * um percentual e uma nota factualmente errados para quem opera na base Principal (achado da auditoria).
+         * Defaults = os do domínio (multa Principal, honorários Composta) para os chamadores antigos.
+         */
+        public readonly BaseEncargo $baseMulta = BaseEncargo::Principal,
+        public readonly BaseEncargo $baseHonorarios = BaseEncargo::Composta,
         /** Preenchido = encargos congelados, param de crescer (INV-E4); a UI marca isso. */
         public readonly ?\DateTimeImmutable $encargosCongeladosEm = null,
         /** Data de referência da última materialização — o "atualizado em" da tela. */
@@ -83,7 +93,7 @@ final class ObrigacaoOutput
         return $this->alocado >= $this->valorAtual;
     }
 
-    public static function fromEntity(Obrigacao $o, int $alocado = 0, int $brutoSugerido = 0): self
+    public static function fromEntity(Obrigacao $o, int $alocado = 0, int $brutoSugerido = 0, ?ConfigEncargos $config = null): self
     {
         $substituto = $o->getAcordoSubstituto();
         $origem = $o->getAcordoOrigem();
@@ -111,6 +121,10 @@ final class ObrigacaoOutput
             multa: $o->getMulta(),
             correcao: $o->getCorrecao(),
             honorarios: $o->getHonorarios(),
+            // Base resolvida da cascata (Obrigação → Caso → Carteira). Sem a config resolvida, cai nos
+            // defaults do domínio — não inventa base, e mantém os chamadores antigos intactos.
+            baseMulta: $config?->baseMulta ?? BaseEncargo::Principal,
+            baseHonorarios: $config?->baseHonorarios ?? BaseEncargo::Composta,
             encargosCongeladosEm: $o->getEncargosCongeladosEm(),
             encargosAtualizadosEm: $o->getEncargosAtualizadosEm(),
         );
