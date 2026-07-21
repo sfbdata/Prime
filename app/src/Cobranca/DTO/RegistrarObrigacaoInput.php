@@ -38,24 +38,49 @@ final class RegistrarObrigacaoInput
     public ?string $referenciaExterna = null;
 
     /**
-     * Encargos já reconhecidos no lançamento, em CENTAVOS. Opcionais (default 0) — nenhum pode virar
-     * obrigatório: o importador e todo chamador programático montam este DTO sem eles.
+     * Taxas por-obrigação (spec taxa-por-obrigacao). Por encargo: `modo` ('herda'|'percent'|'reais'),
+     * o bp (quando %) e o R$ em centavos (quando R$). O UseCase chama `entradaTaxas()` e o
+     * ConversorTaxaEncargo grava o override. Default 'herda' = usa a taxa do caso. Nada é obrigatório.
      */
+    public string $modoJuros = 'herda';
+    #[Assert\PositiveOrZero(message: 'A taxa de juros não pode ser negativa.')]
+    public ?int $jurosBp = null;
     #[Assert\PositiveOrZero(message: 'Os juros não podem ser negativos.')]
-    public int $juros = 0;
+    public ?int $jurosReais = null;
 
+    public string $modoMulta = 'herda';
+    #[Assert\PositiveOrZero(message: 'A taxa de multa não pode ser negativa.')]
+    public ?int $multaBp = null;
     #[Assert\PositiveOrZero(message: 'A multa não pode ser negativa.')]
-    public int $multa = 0;
+    public ?int $multaReais = null;
 
+    public string $modoCorrecao = 'herda';
+    #[Assert\PositiveOrZero(message: 'A taxa de correção não pode ser negativa.')]
+    public ?int $correcaoBp = null;
     #[Assert\PositiveOrZero(message: 'A correção não pode ser negativa.')]
-    public int $correcao = 0;
+    public ?int $correcaoReais = null;
 
-    /**
-     * Honorário reconhecido no lançamento, em CENTAVOS — o único encargo `?int` de propósito (Ajuste 2,
-     * D-A2-5): `null` = NÃO informado (o motor COMPLETA/recalcula sobre a base composta, o comportamento
-     * automático de hoje) ≠ `0` = zero explícito (o gestor fixou honorário zero e a obrigação congela).
-     * Colapsar os dois num `0` apagaria a distinção "vazio vs zero". Fica FORA do valor exigível (INV-E2).
-     */
+    public string $modoHonorarios = 'herda';
+    #[Assert\PositiveOrZero(message: 'A taxa de honorários não pode ser negativa.')]
+    public ?int $honorariosBp = null;
     #[Assert\PositiveOrZero(message: 'O honorário não pode ser negativo.')]
-    public ?int $honorarios = null;
+    public ?int $honorariosReais = null;
+
+    public function entradaTaxas(): EntradaTaxaEncargos
+    {
+        return new EntradaTaxaEncargos(
+            modoJuros: $this->modoJuros,
+            jurosBp: $this->jurosBp,
+            jurosReais: $this->jurosReais,
+            modoMulta: $this->modoMulta,
+            multaBp: $this->multaBp,
+            multaReais: $this->multaReais,
+            modoCorrecao: $this->modoCorrecao,
+            correcaoBp: $this->correcaoBp,
+            correcaoReais: $this->correcaoReais,
+            modoHonorarios: $this->modoHonorarios,
+            honorariosBp: $this->honorariosBp,
+            honorariosReais: $this->honorariosReais,
+        );
+    }
 }
