@@ -57,6 +57,19 @@ final class ObrigacaoOutput
         public readonly int $correcao = 0,
         public readonly int $honorarios = 0,
         /**
+         * Taxa por-obrigação (FIX crítico, Task 9): as quatro colunas CRUAS de override (bp; `null` =
+         * herda a cascata Carteira→Caso→Obrigação) — NÃO o valor calculado (`juros`/`multa`/... acima).
+         * A linha (`_divida.html.twig`) publica isto via `data-taxa-*-bp` para o modal de "Editar"
+         * reidratar o override ATUAL ao abrir; sem isso, reabrir "Editar" nasce sempre "herda" e
+         * qualquer submissão (mesmo só corrigir a descrição) apaga silenciosamente o override existente
+         * (`EditarObrigacaoUseCase` sempre deriva os 4 overrides do que o Form submete). Defaults `null`
+         * preservam os chamadores antigos.
+         */
+        public readonly ?int $taxaJurosMensalBp = null,
+        public readonly ?int $taxaMultaBp = null,
+        public readonly ?int $taxaCorrecaoBp = null,
+        public readonly ?int $taxaHonorariosBp = null,
+        /**
          * Base de incidência RESOLVIDA (cascata) da multa e dos honorários — Principal (só o valor original)
          * ou Composta (valor + juros + multa + correção). A tela usa isto para exibir o "%" de cada encargo
          * sobre a base CERTA e rotular corretamente: com base configurável, assumir composta fixa mostraria
@@ -121,6 +134,11 @@ final class ObrigacaoOutput
             multa: $o->getMulta(),
             correcao: $o->getCorrecao(),
             honorarios: $o->getHonorarios(),
+            // Override CRU (bp), não o calculado acima — ver doc do construtor (FIX crítico Task 9).
+            taxaJurosMensalBp: $o->getTaxaJurosMensalBp(),
+            taxaMultaBp: $o->getTaxaMultaBp(),
+            taxaCorrecaoBp: $o->getTaxaCorrecaoBp(),
+            taxaHonorariosBp: $o->getTaxaHonorariosBp(),
             // Base resolvida da cascata (Obrigação → Caso → Carteira). Sem a config resolvida, cai nos
             // defaults do domínio — não inventa base, e mantém os chamadores antigos intactos.
             baseMulta: $config?->baseMulta ?? BaseEncargo::Principal,

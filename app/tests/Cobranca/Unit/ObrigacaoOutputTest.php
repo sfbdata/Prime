@@ -135,4 +135,37 @@ final class ObrigacaoOutputTest extends TestCase
         self::assertSame(0, $output->alocado);
         self::assertSame(100000, $output->restante());
     }
+
+    #[Test]
+    public function fromEntityCopiaOsQuatroOverridesCrusDeTaxa(): void
+    {
+        // FIX crítico (Task 9): sem estes 4 campos crus (bp), o modal de Editar não consegue reidratar o
+        // override ATUAL da obrigação — reabrir sempre nasceria "herda" e qualquer submissão apagaria a
+        // taxa própria em silêncio.
+        $obrigacao = $this->obrigacao()
+            ->setTaxaJurosMensalBp(150)
+            ->setTaxaMultaBp(200)
+            ->setTaxaCorrecaoBp(50)
+            ->setTaxaHonorariosBp(1000);
+
+        $output = ObrigacaoOutput::fromEntity($obrigacao);
+
+        self::assertSame(150, $output->taxaJurosMensalBp);
+        self::assertSame(200, $output->taxaMultaBp);
+        self::assertSame(50, $output->taxaCorrecaoBp);
+        self::assertSame(1000, $output->taxaHonorariosBp);
+    }
+
+    #[Test]
+    public function fromEntitySemOverrideDeixaOsQuatroCamposNulos(): void
+    {
+        // Obrigação que herda tudo do caso (nunca teve override próprio) — os 4 campos crus têm de sair
+        // `null`, não 0: 0bp seria uma taxa própria de 0%, algo bem diferente de "herda".
+        $output = ObrigacaoOutput::fromEntity($this->obrigacao());
+
+        self::assertNull($output->taxaJurosMensalBp);
+        self::assertNull($output->taxaMultaBp);
+        self::assertNull($output->taxaCorrecaoBp);
+        self::assertNull($output->taxaHonorariosBp);
+    }
 }

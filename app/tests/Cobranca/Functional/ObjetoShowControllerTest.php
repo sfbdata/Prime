@@ -852,4 +852,96 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         // carteira neutra) = 197,20.
         self::assertStringContainsString('197,20', $crawlerDepois->filter('.cob-hero-total')->text());
     }
+
+    // ── FIX crítico (Task 9): rehidratação do override de taxa no modal de Editar ──
+    // Bug: abrir "Editar" sempre nascia com os 4 encargos em "herda", mesmo quando a obrigação já tinha
+    // um override próprio — o JS não conhecia a taxa crua atual. Qualquer submissão (mesmo só corrigir a
+    // descrição) reenviava `modo=herda`, e o `EditarObrigacaoUseCase` (que sempre DERIVA os 4 overrides
+    // do que o Form recebeu, sem um 4º modo "não mexi") apagava o override em silêncio — dinheiro
+    // revertendo pra herança sem o gestor pedir. O fix: `ObrigacaoOutput` expõe a taxa crua, a linha
+    // publica em `data-taxa-*-bp`, e o JS do modal a rehidrata (seta `%` + dispara `input`, que seta
+    // `modo=percent` e deriva o R$ de preview) — os dois testes abaixo provam o CONTRATO do lado do
+    // servidor (o que o JS envia de volta), não o JS em si (PHPUnit não roda JS — ver relatório).
+
+    #[TestDox('FIX Task 9: editar só a descrição, reenviando o override de multa como o JS rehidratado enviaria, preserva a taxa própria')]
+    public function testEditarReenviandoOOverrideRehidratadoPreservaATaxaPropria(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $vencimento = (new \DateTimeImmutable('today'))->modify('-30 days');
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Boleto com multa própria', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => $vencimento,
+            'taxaMultaBp' => 200, // override próprio de 2% de multa, já gravado ANTES desta edição
+        ])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
+
+        // Corrige SÓ a descrição — mas reenvia `modoMulta=percent`/`multaBp=2,00`, exatamente como o JS
+        // rehidratado (FIX) enviaria ao abrir o modal e ler `data-taxa-multa-bp="200"` da linha.
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'Boleto com multa própria (corrigido)',
+                'valorOriginal' => '170,00',
+                'vencimentoOriginal' => $vencimento->format('Y-m-d'),
+                'modoMulta' => 'percent',
+                'multaBp' => '2,00',
+                'motivo' => 'Corrige só a descrição (FIX Task 9)',
+                '_token' => $token,
+            ],
+        ]);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->getRepository(Obrigacao::class)->find($obrigacaoId);
+        self::assertNotNull($fresh);
+        self::assertSame('Boleto com multa própria (corrigido)', $fresh->getDescricao());
+        self::assertSame(200, $fresh->getTaxaMultaBp(), 'o override de multa (2%) sobreviveu à correção de descrição — não reverteu a "herda"');
+    }
+
+    #[TestDox('FIX Task 9: editar com o override explicitamente limpo (modo=herda) volta a taxa a null')]
+    public function testEditarComOverrideLimpoVoltaATaxaParaHerda(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $vencimento = (new \DateTimeImmutable('today'))->modify('-30 days');
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Boleto com multa própria', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => $vencimento,
+            'taxaMultaBp' => 200, // override próprio — o gestor vai CLICAR em "limpar" (voltar a herdar)
+        ])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
+
+        // `.jp-taxa-limpar` seta `%`/`R$` vazios e `modo='herda'` explicitamente — é o que este POST espelha.
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'Boleto com multa própria',
+                'valorOriginal' => '170,00',
+                'vencimentoOriginal' => $vencimento->format('Y-m-d'),
+                'modoMulta' => 'herda',
+                'multaBp' => '',
+                'motivo' => 'Volta a herdar a multa do caso (FIX Task 9)',
+                '_token' => $token,
+            ],
+        ]);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->getRepository(Obrigacao::class)->find($obrigacaoId);
+        self::assertNotNull($fresh);
+        self::assertNull($fresh->getTaxaMultaBp(), 'o override foi limpo de propósito — volta a herdar do caso');
+    }
 }

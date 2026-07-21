@@ -238,7 +238,17 @@
                                                revelar o aviso de "reconciliar em Corrigir pagamento". `o.alocado` já vem
                                                materializado no ObrigacaoOutput (não recalcula nada aqui). #}
                                             data-tem-pagamento="{{ o.alocado > 0 ? '1' : '0' }}"
-                                            data-dias="{{ diasAteHoje }}">
+                                            data-dias="{{ diasAteHoje }}"
+                                            {# FIX crítico (Task 9): a taxa CRUA de override (bp; vazio = herda do caso),
+                                               não o valor calculado acima — é o que o JS usa para reidratar o override
+                                               ATUAL desta obrigação ao abrir "Editar". Sem isto, reabrir sempre nascia
+                                               "herda" e qualquer submissão (mesmo só a descrição) apagava silenciosamente
+                                               a taxa própria (`EditarObrigacaoUseCase` sempre deriva os 4 overrides do que
+                                               o Form submete — não existe "não mexi, mantenha"). #}
+                                            data-taxa-juros-bp="{{ o.taxaJurosMensalBp is not null ? o.taxaJurosMensalBp : '' }}"
+                                            data-taxa-multa-bp="{{ o.taxaMultaBp is not null ? o.taxaMultaBp : '' }}"
+                                            data-taxa-correcao-bp="{{ o.taxaCorrecaoBp is not null ? o.taxaCorrecaoBp : '' }}"
+                                            data-taxa-honorarios-bp="{{ o.taxaHonorariosBp is not null ? o.taxaHonorariosBp : '' }}">
                                         <i class="bi bi-pencil me-2"></i>Editar (corrigir)
                                     </button>
                                 </li>

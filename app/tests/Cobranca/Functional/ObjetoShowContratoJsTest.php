@@ -130,6 +130,31 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
         self::assertSelectorExists('input[type="hidden"].jp-taxa-modo', 'o modo do encargo tem de ser hidden');
         self::assertSelectorNotExists('.jp-taxa-modo:not([type="hidden"])', 'o modo do encargo não pode ser um campo visível');
 
+        // FIX crítico (Task 9): a linha publica a taxa CRUA de override de cada encargo (bp; vazio =
+        // herda) no gatilho de "Editar" — sem isto, o modal não tem como reidratar o override ATUAL da
+        // obrigação ao abrir, e qualquer submissão (mesmo só corrigir a descrição) apaga o override em
+        // silêncio (o servidor sempre DERIVA os 4 overrides do que o Form recebe, nunca preserva por
+        // omissão). DOM parseado, mesmo padrão do resto do arquivo — nunca substring do HTML bruto.
+        foreach (['juros', 'multa', 'correcao', 'honorarios'] as $encargo) {
+            self::assertSelectorExists(
+                '#secao-divida [data-bs-target="#modalEditarObrigacao"][data-taxa-' . $encargo . '-bp]',
+                "Sumiu o gancho data-taxa-{$encargo}-bp no gatilho de Editar da linha",
+            );
+        }
+
+        // O handler de abertura do modal (`show.bs.modal` de `#modalEditarObrigacao`) precisa LER esses
+        // ganchos para rehidratar — aqui SIM checamos o texto do `<script>` (não há seletor CSS para
+        // "referenciado dentro de uma função JS"): o literal abaixo é o `getAttribute` que lê o data-*
+        // acima, ao vivo, um por encargo (`'data-taxa-' + campo + '-bp'`). Se o handler for reescrito sem
+        // este acesso, o gancho markup continua existindo mas morto — este teste é o único que pegaria
+        // essa regressão (PHPUnit não executa JS; ver relatório da Task 9, seção FIX).
+        $html = (string) $client->getResponse()->getContent();
+        self::assertStringContainsString(
+            "botao.getAttribute('data-taxa-' + campo + '-bp')",
+            $html,
+            'O handler de abertura do modal de Editar parou de ler o data-taxa-*-bp por encargo (rehidratação morta)',
+        );
+
         // Ajuste 11 (T3): a "Próxima ação" migrou da coluna principal para o cartão de destaque
         // do trilho (`.cob-proxima`) — o gancho visual, não só o modal que ela abre.
         self::assertSelectorExists('.cob-proxima', 'Sumiu o cartão Próxima ação do trilho');

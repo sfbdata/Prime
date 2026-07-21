@@ -327,6 +327,23 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    /* bp (inteiro, 100 = 1%) ⇄ texto pt-BR — espelha `TaxaBpParaTextoTransformer` (sem thousand
+       separator: irrelevante para taxas de encargo, e o parser do servidor aceita os dois formatos).
+       HOISTED para fora de `initEspelhoEncargos` (FIX crítico, Task 9): o prefill do modal de Editar
+       (abaixo) também precisa converter o bp cru vindo de `data-taxa-*-bp` para o texto do campo `%`. */
+    function bpParaTexto(bp) {
+        var sinal = bp < 0 ? '-' : '';
+
+        return sinal + (Math.abs(bp) / 100).toFixed(2).replace('.', ',');
+    }
+    function textoParaBp(texto) {
+        var s = String(texto === null || texto === undefined ? '' : texto).trim().replace('%', '').replace(',', '.');
+        if (s === '') { return null; }
+        var f = parseFloat(s);
+
+        return isNaN(f) ? null : Math.round(f * 100);
+    }
+
     /* Modal reutilizável de "editar obrigação": o botão da linha injeta a URL e pré-preenche os campos.
        Centavos → valor de CAMPO em pt-BR (vírgula), via `reaisInput`: o CentavosType aceita os dois
        formatos, mas o `parseCentavos` daqui trata PONTO como separador de MILHAR — preencher
@@ -352,26 +369,38 @@ document.addEventListener('DOMContentLoaded', function () {
             setVal('referenciaExterna', botao.getAttribute('data-referencia') || '');
             setVal('vencimentoOriginal', botao.getAttribute('data-vencimento') || '');
             setVal('valorOriginal', reais(botao.getAttribute('data-valor-centavos')));
-            /* Taxa por-obrigação (Task 9, spec §6): o modal de Editar é reutilizável (1 por página) — cada
-               abertura tem de partir de "herda do caso" nos 4 encargos, pelo MESMO motivo que o honorário
-               já seguia antes desta feature (Ajuste 2, D-A2-5): sem reset aqui, o `%`/`R$` digitados numa
-               obrigação vazariam para a próxima que o gestor abrir. Corrigir a obrigação (ex.: descrição)
-               sem TOCAR nos encargos aqui também devolve os 4 à herança do caso nesta submissão — mudança
-               de comportamento vs. juros/multa/correção pré-Task 9 (que resubmetiam o valor congelado
-               anterior); documentado no relatório da Task 9 como ponto para o orquestrador avaliar (só a
-               linha expondo a taxa-override crua permitiria reidratar o override existente aqui). No B5
-               (reidratação) `relatedTarget` é undefined e cai no early-return acima — o que o gestor
-               submeteu sobrevive, como antes. */
-            ['juros', 'multa', 'correcao', 'honorarios'].forEach(function (campo) {
-                var Nome = campo.charAt(0).toUpperCase() + campo.slice(1);
-                setVal(campo + 'Bp', '');
-                setVal(campo + 'Reais', '');
-                setVal('modo' + Nome, 'herda');
-            });
             /* §5: `dias` (vencimento → hoje) da OBRIGAÇÃO clicada, injetado pela linha (`_divida.html.twig`)
-               — o espelho de `show.html.twig` usa isto para desabilitar o R$ de juros quando `dias==0`. */
+               — o espelho de `show.html.twig` usa isto para desabilitar o R$ de juros quando `dias==0`.
+               Setado ANTES do loop de encargos abaixo: a rehidratação dispara `input` no `%`, e o listener
+               (initEspelhoEncargos) deriva o R$ de preview com `reaisDeBp`, que lê `data-dias` do wrapper —
+               precisa já estar correto quando o `input` disparar. */
             var wrapEncargosEditar = modalEditar.querySelector('.jp-encargos-wrap');
             if (wrapEncargosEditar) { wrapEncargosEditar.setAttribute('data-dias', botao.getAttribute('data-dias') || '0'); }
+            /* FIX crítico (Task 9): o modal de Editar é reutilizável (1 por página) — cada abertura reseta
+               os 4 encargos e então REIDRATA o override ATUAL da obrigação a partir de `data-taxa-*-bp`
+               (a taxa CRUA, publicada por `ObrigacaoOutput`/`_divida.html.twig`), não o valor calculado.
+               Sem isto, reabrir "Editar" sempre nascia "herda" e QUALQUER submissão (mesmo só corrigir a
+               descrição) apagava silenciosamente um override existente — `EditarObrigacaoUseCase` sempre
+               deriva os 4 overrides a partir do que o Form submete, não existe um 4º modo "não mexi,
+               mantenha o que já tinha" no `ConversorTaxaEncargo`. Preencher o `%` e disparar `input` reusa
+               o MESMO caminho que o gestor dispara ao digitar (seta `modo` e deriva o `R$` de preview via
+               `initEspelhoEncargos`, já registrado nos campos antes de qualquer modal abrir). No B5
+               (reabertura por erro de validação) `relatedTarget` é undefined e cai no early-return acima —
+               o que o gestor submetiu sobrevive, como antes (B5 não passa por este bloco). */
+            ['juros', 'multa', 'correcao', 'honorarios'].forEach(function (campo) {
+                var Nome = campo.charAt(0).toUpperCase() + campo.slice(1);
+                var overrideBp = botao.getAttribute('data-taxa-' + campo + '-bp');
+                setVal(campo + 'Reais', '');
+                if (overrideBp) {
+                    var bp = parseInt(overrideBp, 10);
+                    setVal(campo + 'Bp', isNaN(bp) ? '' : bpParaTexto(bp));
+                    var pctEl = modalEditar.querySelector('[name="editar_obrigacao[' + campo + 'Bp]"]');
+                    if (pctEl && !isNaN(bp)) { pctEl.dispatchEvent(new Event('input', { bubbles: true })); }
+                } else {
+                    setVal(campo + 'Bp', '');
+                    setVal('modo' + Nome, 'herda');
+                }
+            });
             setVal('motivo', '');
             /* F5 (spec §12): revela o aviso de reconciliação só quando a linha carrega pagamento
                (`data-tem-pagamento="1"`). Como o modal é reutilizável, o estado é reposto a cada
@@ -429,20 +458,8 @@ document.addEventListener('DOMContentLoaded', function () {
             return soma;
         }
 
-        /* bp (inteiro, 100 = 1%) ⇄ texto pt-BR — espelha `TaxaBpParaTextoTransformer` (sem thousand
-           separator: irrelevante para taxas de encargo, e o parser do servidor aceita os dois formatos). */
-        function bpParaTexto(bp) {
-            var sinal = bp < 0 ? '-' : '';
-
-            return sinal + (Math.abs(bp) / 100).toFixed(2).replace('.', ',');
-        }
-        function textoParaBp(texto) {
-            var s = String(texto === null || texto === undefined ? '' : texto).trim().replace('%', '').replace(',', '.');
-            if (s === '') { return null; }
-            var f = parseFloat(s);
-
-            return isNaN(f) ? null : Math.round(f * 100);
-        }
+        /* bpParaTexto/textoParaBp: HOISTED para fora deste closure (ver acima, perto do prefill do
+           modalEditar) — usadas aqui e na rehidratação do override. */
 
         /* Juros considera `dias` (pró-rata mensal); os demais são proporção flat sobre a base (spec §5).
            Sem `dias`/base não há "%" derivável de um R$ — devolve null (o chamador decide o que fazer). */
