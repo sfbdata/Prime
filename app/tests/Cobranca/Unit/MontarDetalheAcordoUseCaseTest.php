@@ -39,7 +39,7 @@ final class MontarDetalheAcordoUseCaseTest extends TestCase
         // (ago–out/2026) → hidratação para 20/07/2026 é no-op; substituídas não são hidratadas.
         $this->sut = new MontarDetalheAcordoUseCase(
             $this->alocacaoRepository,
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
         $this->tenant = new Tenant();

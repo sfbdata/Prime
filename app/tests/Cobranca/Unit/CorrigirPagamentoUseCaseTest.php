@@ -60,7 +60,7 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
             $this->alocacaoRepository,
             $this->createMock(LiquidacaoRepository::class),
             $calculadora,
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
         // RegistrarEventoHistorico é final: usa-se o REAL com o repositório de eventos mockado.

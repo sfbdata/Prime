@@ -54,7 +54,7 @@ final class AutoAlocadorFifoTest extends TestCase
             $this->alocacaoRepository,
             $this->liquidacaoRepository,
             new CalculadoraHonorarios(),
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
         $this->tenant = new Tenant();

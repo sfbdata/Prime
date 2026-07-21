@@ -13,15 +13,20 @@ use Psr\Clock\ClockInterface;
  * motor puro `CalculadoraEncargos` (fórmula inalterada, provada ao centavo). Obrigação congelada
  * (Liquidada/Substituída) mantém o snapshot — não é tocada.
  *
- * Aplicador puro: a `ConfigEncargos` já chega RESOLVIDA (o chamador resolve 1× por caso, evitando N+1),
- * então o serviço não depende de repositório nem navega a cascata. `hoje` vem do relógio injetado
- * (`ClockInterface`) — determinístico e testável; nunca `new \DateTimeImmutable()` no caminho do dinheiro.
+ * A `ConfigEncargos` recebida já chega RESOLVIDA como BASE DO CASO (o chamador resolve 1× por caso via
+ * `resolverDoCaso`, evitando N+1), mas o serviço deixou de ser um aplicador puro de config única: por
+ * OBRIGAÇÃO, aplica o overlay do 3º nível da cascata (`ResolvedorConfigEncargos::aplicarObrigacao`,
+ * spec "taxa por-obrigação") sobre essa base ANTES de calcular — a taxa própria da obrigação (se houver)
+ * vence; campo ausente herda da base do caso. Sem I/O novo: `aplicarObrigacao` só lê campos já
+ * carregados na entidade. `hoje` vem do relógio injetado (`ClockInterface`) — determinístico e
+ * testável; nunca `new \DateTimeImmutable()` no caminho do dinheiro.
  */
 final class EncargosVivos
 {
     public function __construct(
         private readonly ClockInterface $clock,
         private readonly CalculadoraEncargos $calculadora,
+        private readonly ResolvedorConfigEncargos $resolvedor,
     ) {
     }
 
@@ -47,12 +52,17 @@ final class EncargosVivos
      * snapshot (base "data do pagamento") divergem e um pagamento retroativo/futuro quita errado. Para
      * a leitura ao vivo comum (prévia, "hoje"), o chamador passa `agora()`. Congelada
      * (Liquidada/Substituída) devolve o snapshot persistido — não recalcula.
+     *
+     * `$baseCaso` é a config resolvida do CASO (`resolverDoCaso`, 1× por caso — sem N+1); aqui aplicamos
+     * por cima o overlay da própria obrigação (spec "taxa por-obrigação") antes de calcular.
      */
-    public function exigivelVivo(ConfigEncargos $config, Obrigacao $obrigacao, \DateTimeImmutable $dataReferencia): int
+    public function exigivelVivo(ConfigEncargos $baseCaso, Obrigacao $obrigacao, \DateTimeImmutable $dataReferencia): int
     {
         if ($obrigacao->encargosCongelados()) {
             return $obrigacao->valorExigivel();
         }
+
+        $config = $this->resolvedor->aplicarObrigacao($baseCaso, $obrigacao);
 
         $e = $this->calculadora->calcular(
             $obrigacao->getValorOriginal(),
@@ -64,8 +74,13 @@ final class EncargosVivos
         return $obrigacao->getValorOriginal() + $e['juros'] + $e['multa'] + $e['correcao'];
     }
 
-    /** @param iterable<Obrigacao> $obrigacoes */
-    public function hidratar(ConfigEncargos $config, iterable $obrigacoes): void
+    /**
+     * `$baseCaso` é a config resolvida do CASO (`resolverDoCaso`, 1× por caso — sem N+1); por obrigação,
+     * aplicamos por cima o overlay da própria obrigação (spec "taxa por-obrigação") antes de calcular.
+     *
+     * @param iterable<Obrigacao> $obrigacoes
+     */
+    public function hidratar(ConfigEncargos $baseCaso, iterable $obrigacoes): void
     {
         $hoje = $this->clock->now();
 
@@ -73,6 +88,8 @@ final class EncargosVivos
             if ($obrigacao->encargosCongelados()) {
                 continue; // Liquidada/Substituída: o snapshot persistido é a verdade.
             }
+
+            $config = $this->resolvedor->aplicarObrigacao($baseCaso, $obrigacao);
 
             $encargos = $this->calculadora->calcular(
                 $obrigacao->getValorOriginal(),

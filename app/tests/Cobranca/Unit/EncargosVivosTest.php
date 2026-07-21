@@ -8,6 +8,7 @@ use App\Cobranca\DTO\ConfigEncargos;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\EncargosVivos;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -28,7 +29,7 @@ final class EncargosVivosTest extends TestCase
     public function testHidrataObrigacaoVivaParaHoje(): void
     {
         $clock = new MockClock(new \DateTimeImmutable('2026-07-20'));
-        $sut = new EncargosVivos($clock, new CalculadoraEncargos());
+        $sut = new EncargosVivos($clock, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
 
         // Linha real: P=170,00, venc 13/01/2026 → 188 dias de atraso em 20/07/2026.
         $obrigacao = (new Obrigacao())
@@ -51,7 +52,7 @@ final class EncargosVivosTest extends TestCase
     public function testNaoTocaCongelada(): void
     {
         $clock = new MockClock(new \DateTimeImmutable('2026-07-20'));
-        $sut = new EncargosVivos($clock, new CalculadoraEncargos());
+        $sut = new EncargosVivos($clock, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
 
         $congelada = (new Obrigacao())
             ->setDescricao('Congelada')
@@ -70,7 +71,7 @@ final class EncargosVivosTest extends TestCase
     public function testParidadeComPlanilhaReal(): void
     {
         $clock = new MockClock(new \DateTimeImmutable('2026-07-20'));
-        $sut = new EncargosVivos($clock, new CalculadoraEncargos());
+        $sut = new EncargosVivos($clock, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
 
         // NN:60006 (TOPLIFE II, honorários 15%): P=170,00, venc 13/01/2026 → 188 dias →
         // juros 10,65 · multa 3,40 · correção 0 · honorários 27,61 · total 211,66. Valores LITERAIS
@@ -93,7 +94,7 @@ final class EncargosVivosTest extends TestCase
     public function testParidadeApendiceATopLifeI240Dias(): void
     {
         $clock = new MockClock(new \DateTimeImmutable('2026-07-20'));
-        $sut = new EncargosVivos($clock, new CalculadoraEncargos());
+        $sut = new EncargosVivos($clock, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
 
         // Apêndice A (spec cascata) reproduzido pelo caminho VIVO: P=170,00, venc 22/11/2025 → 240 dias
         // de atraso em 20/07/2026, carteira TOPLIFE I (honorários 20%). Valores LITERAIS da prova real:

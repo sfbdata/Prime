@@ -87,7 +87,7 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             $casoRepo,
             $alocacaoRepo,
             $liquidacaoRepo,
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
         $calcHon = new CalculadoraHonorarios();
@@ -101,7 +101,7 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             $acaoRepo,
             $calcSaldo,
             $calcHon,
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
 
@@ -407,7 +407,7 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             $this->em->getRepository(CasoCobranca::class),
             $this->em->getRepository(AlocacaoPagamento::class),
             $this->em->getRepository(Liquidacao::class),
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
         $alertas = new AlertasCobranca(

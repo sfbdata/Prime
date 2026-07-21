@@ -107,7 +107,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             new ResolvedorConfigEncargos(),
             // EncargosVivos com relógio fixo (aplicador puro): as obrigações do teste têm vencimento/config
             // que não geram encargo, então a hidratação é no-op — o foco do teste é a agregação/DTOs.
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
         );
 
         $this->tenant = new Tenant();

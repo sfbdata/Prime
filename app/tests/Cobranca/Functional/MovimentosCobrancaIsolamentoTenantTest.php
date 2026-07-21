@@ -113,7 +113,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
             $alocacaoRepo,
             $liquidacaoRepo,
             $calculadora,
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
 
@@ -128,7 +128,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
             $casoRepo,
             $alocacaoRepo,
             $liquidacaoRepo,
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
     }

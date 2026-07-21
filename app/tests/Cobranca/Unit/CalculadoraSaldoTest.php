@@ -52,7 +52,7 @@ final class CalculadoraSaldoTest extends TestCase
             $this->casoRepository,
             $this->alocacaoRepository,
             $this->liquidacaoRepository,
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
     }
