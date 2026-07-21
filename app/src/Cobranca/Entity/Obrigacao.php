@@ -113,8 +113,8 @@ class Obrigacao implements TenantAware, Auditavel
     // ------------------------------------------------------------------------------------------
     // Configuração de encargos — NÍVEL 3 (último) da cascata. TODOS nullable: null = "herda o
     // Caso" (que por sua vez herda a Carteira). Resolução campo a campo pelo
-    // `ResolvedorConfigEncargos`. Não há coluna de TAXA de honorários aqui (decisão D2): a
-    // alíquota vem do snapshot de honorários do Caso.
+    // `ResolvedorConfigEncargos`. `taxaHonorariosBp` supersede a decisão D2: agora existe
+    // override de alíquota de honorários por-obrigação; null continua herdando o Caso.
     // ------------------------------------------------------------------------------------------
 
     #[ORM\Column(type: 'integer', nullable: true)]
@@ -140,6 +140,10 @@ class Obrigacao implements TenantAware, Auditavel
 
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $carenciaHonorariosDias = null;
+
+    /** Override da alíquota de honorários DESTA obrigação, em bp (nível 3, supersede D2). null = herda o caso. */
+    #[ORM\Column(type: 'integer', nullable: true)]
+    private ?int $taxaHonorariosBp = null;
 
     #[ORM\Column(type: 'integer', nullable: true)]
     private ?int $toleranciaJurosMultaDias = null;
@@ -551,6 +555,18 @@ class Obrigacao implements TenantAware, Auditavel
     public function setCarenciaHonorariosDias(?int $carenciaHonorariosDias): self
     {
         $this->carenciaHonorariosDias = $carenciaHonorariosDias;
+
+        return $this;
+    }
+
+    public function getTaxaHonorariosBp(): ?int
+    {
+        return $this->taxaHonorariosBp;
+    }
+
+    public function setTaxaHonorariosBp(?int $taxaHonorariosBp): self
+    {
+        $this->taxaHonorariosBp = $taxaHonorariosBp;
 
         return $this;
     }
