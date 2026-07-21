@@ -38,17 +38,12 @@ congelado), em **claro e escuro**. Dados de smoke removidos após a captura.
    NÃO liquidadas (`liquidada_em IS NULL`) e NÃO substituídas por acordo vigente. É operação em dados de
    PROD ⇒ do humano (montar+revisar+rodar), idealmente junto com o deploy.
 3. **Config load-bearing:** conferir carteiras SEM taxa antes do go-live (SQL no `SMOKE_ENCARGOS.md`).
-4. **A2 / override de taxa por-obrigação (§7/§11 — "confirmar na revisão") — ⏳ DECISÃO ABERTA DO DONO:**
-   editar/registrar encargo à mão NÃO persiste no ao vivo (é recomputado na leitura da taxa do caso/
-   carteira); os campos juros/multa/correção/honorários nos modais de criar/editar obrigação ficaram
-   **vestigiais** (o valor digitado "volta" ao recarregar). **➡️ COMEÇAR O NOVO CHAT apresentando esta
-   decisão ao dono** (3 opções):
-   - **(a) Restringir à taxa do caso/carteira** — esconder/desabilitar os campos de encargo nos modais;
-     encargo só via taxa do caso/carteira. É a "1ª entrega" do §11. Só Twig/Form + testes (risco BAIXO).
-     *Recomendada* (alinha ao modelo ao vivo; evita o input descartado confuso).
-   - **(b) Override por-obrigação (§7 completo)** — campo de TAXA na obrigação: digitar deriva a % mensal
-     e a obrigação segue ao vivo com taxa própria. Feature nova (coluna + migração + resolver + UI + testes).
-   - **(c) Deixar como está** — campos visíveis, digitado descartado na leitura; decidir depois.
+4. **A2 / override de taxa por-obrigação (§7/§11) — ✅ DECIDIDO PELO DONO (2026-07-21): opção (b) — override
+   por-obrigação, COM honorários (supersede D2).** As 4 taxas editáveis por % ou por R$ naquela obrigação, ao
+   vivo (editar R$ = fixa a % equivalente ao dia; quantização aceita). **Spec e plano próprios já escritos e
+   commitados** (não reimplementar aqui): spec `docs/specs/cobranca-encargos-taxa-por-obrigacao.md` (`473f33f`),
+   plano `docs/superpowers/plans/2026-07-21-encargos-taxa-por-obrigacao.md` (`ecc40d2`, tem bloco STATUS próprio).
+   A implementação dessa feature é uma frente **separada** deste plano ao vivo — segue por aquele plano.
 
 **COMO RETOMAR (novo chat):** ler este bloco STATUS; a feature F1–F5 está PRONTA e verde (não reimplementar).
 Fazer só: (1) apresentar a decisão §7/§11 acima ao dono e executar a opção escolhida; (2) lembrar o dono das

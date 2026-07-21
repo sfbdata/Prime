@@ -3,6 +3,40 @@
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recomendado) ou
 > superpowers:executing-plans para implementar tarefa-a-tarefa. Steps usam checkbox (`- [ ]`).
 
+## 🔖 STATUS & COMO RETOMAR (novo chat, execução por subagentes)
+
+**Estado (2026-07-21):** spec + este plano **PRONTOS e commitados localmente**; **ZERO código da feature** ainda.
+Pronto para executar. Base esperada: branch `cobranca-encargos-cascata`, topo `ecc40d2`, árvore limpa
+(cadeia: `f661495` STATUS §7/§11 → `473f33f` spec → `ecc40d2` plano). Se não bater, PARAR e alinhar com o humano.
+
+**Decisão do dono que originou este plano (2026-07-21):** override de taxa **por-obrigação** — as 4 taxas
+(juros/multa/correção/**honorários**) editáveis por **% ou por R$** naquela obrigação, seguindo **ao vivo**.
+Regras confirmadas: (a) honorários **também** por-obrigação → **supersede a D2** (coluna nova `taxa_honorarios_bp`);
+(b) editar o **R$** = "fixei a **%** equivalente **à data de hoje**", e daí cresce a partir dela; (c) **quantização
+ACEITA** (o R$ salvo é o mais próximo que a % em bp produz — pode diferir alguns centavos); (d) importação
+**inalterada** (traz valor original/vencimento/unidade/devedor; taxa é calculada pelo sistema, herda o caso).
+
+**COMO RETOMAR:** confirmar a base (acima) → carregar skills `workflow` + `subagent-driven-development` (ou
+`executing-plans`) → ler a spec `docs/specs/cobranca-encargos-taxa-por-obrigacao.md` → executar **Task 1→10** deste
+plano em ordem (TDD; um subagente implementador por task em worktree, ou inline). Por task: implementar → testes
+direcionados no container → `/review` (`feature-review-agent`, ALTO risco) → corrigir → commit local. Ao fim: rodar
+`tests/Cobranca` + suíte global + smoke (claro/escuro) e **parar em "pronto pra o humano publicar"**.
+
+**Gotchas (não repetir):** todo teste no container `docker exec jusprime_php_dev bash -c 'cd app && php -d
+memory_limit=512M bin/phpunit ...'`; `MockClock` de `new \DateTimeImmutable('YYYY-MM-DD')` (nunca string);
+`saas_test` = schema:create (ALTER cirúrgico, não a cadeia); o **motor `CalculadoraEncargos` NÃO muda** (só
+acrescenta o inverso do juros, Task 2); **INV-V1**: obrigação Viva persiste **só a taxa**, nunca o valor.
+
+**Escopo YAGNI (registrado com o dono):** o modal expõe só as **4 taxas com %↔R$**; base/regime/carência/tolerância
+por-obrigação seguem **herdando do caso** (colunas existem, sem UI nova nesta entrega).
+
+**Operações do HUMANO ao final (NÃO fazer — nunca push/merge/deploy):** aplicar a migração `taxa_honorarios_bp` em
+prod (+ as migrations da cascata de nível-3 se ainda não estiverem em prod); rebuild/deploy; e as pendências já
+herdadas do modelo ao vivo (migração A1 do `encargos_congelados_em` legado; conferir carteiras sem taxa) — ver
+`docs/superpowers/plans/2026-07-20-encargos-ao-vivo.md` e `docs/gestao-cobrancas/SMOKE_ENCARGOS.md`.
+
+---
+
 **Goal:** Permitir que cada obrigação tenha taxa própria (juros/multa/correção/honorários) editável por % **ou**
 por R$ (que deriva a % à data de hoje), com o valor seguindo **ao vivo** — reusando o motor e as colunas já existentes.
 
