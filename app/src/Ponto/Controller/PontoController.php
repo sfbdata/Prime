@@ -114,7 +114,10 @@ final class PontoController extends AbstractController
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant);
+        $userTenant = $this->userTenantRepository->findAtivoPorUserETenant($user, $tenant);
+        $dataAdmissao = $userTenant?->getDataAdmissao();
+        $inicioVinculo = $dataAdmissao ?? $user->getCreatedAt();
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioVinculo);
 
         $hojeStr = $agora->format('Y-m-d');
         $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
@@ -134,7 +137,7 @@ final class PontoController extends AbstractController
         }
 
         $anoAtual = (int) $agora->format('Y');
-        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant);
+        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $dataAdmissao);
 
         $jornadaInfo = $this->resolverJornadaInfo($user, $jornadaTenant);
         $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($user, $agora, $jornadaTenant);
@@ -759,7 +762,8 @@ final class PontoController extends AbstractController
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantPdf);
+        $inicioVinculoPdf = $this->userTenantRepository->findAtivoPorUserETenant($targetUser, $tenant)?->getDataAdmissao() ?? $targetUser->getCreatedAt();
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioVinculoPdf);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -842,7 +846,8 @@ final class PontoController extends AbstractController
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantXlsx);
+        $inicioVinculoXlsx = $this->userTenantRepository->findAtivoPorUserETenant($targetUser, $tenant)?->getDataAdmissao() ?? $targetUser->getCreatedAt();
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioVinculoXlsx);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -958,7 +963,7 @@ final class PontoController extends AbstractController
             $anoAnterior--;
         }
         $saldoBancoAnteriorMinutos = $jornada !== null
-            ? $builder->calcularSaldoAteMes($targetUser, $anoAnterior, $mesAnterior, $feriados, $jornadaTenant)
+            ? $builder->calcularSaldoAteMes($targetUser, $anoAnterior, $mesAnterior, $feriados, $jornadaTenant, $userTenant?->getDataAdmissao())
             : 0;
 
         $enderecoPartes = array_filter([
