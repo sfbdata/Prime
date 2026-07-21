@@ -37,20 +37,30 @@ final class ResolvedorConfigEncargos
     public function resolver(Obrigacao $obrigacao): ConfigEncargos
     {
         $caso = $obrigacao->getCaso();
-        $herdada = $caso === null ? ConfigEncargos::neutra() : $this->resolverDoCaso($caso);
+        $base = $caso === null ? ConfigEncargos::neutra() : $this->resolverDoCaso($caso);
 
+        return $this->aplicarObrigacao($base, $obrigacao);
+    }
+
+    /**
+     * Overlay do NÍVEL 3 (obrigação) sobre uma config-base JÁ resolvida (caso). Campo a campo: um override
+     * preenchido vence, `null` herda. É o que o `EncargosVivos` aplica por obrigação, sem re-navegar a
+     * cascata (a base do caso é resolvida 1× pelo chamador). Honorários agora têm override próprio
+     * (`taxa_honorarios_bp`, supersede D2): antes esta linha era fixa em `$base->taxaHonorariosBp`.
+     */
+    public function aplicarObrigacao(ConfigEncargos $base, Obrigacao $obrigacao): ConfigEncargos
+    {
         return new ConfigEncargos(
-            taxaJurosMensalBp: $obrigacao->getTaxaJurosMensalBp() ?? $herdada->taxaJurosMensalBp,
-            regimeJuros: $obrigacao->getRegimeJuros() ?? $herdada->regimeJuros,
-            taxaMultaBp: $obrigacao->getTaxaMultaBp() ?? $herdada->taxaMultaBp,
-            baseMulta: $obrigacao->getBaseMulta() ?? $herdada->baseMulta,
-            taxaCorrecaoBp: $obrigacao->getTaxaCorrecaoBp() ?? $herdada->taxaCorrecaoBp,
-            baseCorrecao: $obrigacao->getBaseCorrecao() ?? $herdada->baseCorrecao,
-            // Sem coluna de taxa de honorários na obrigação (D2): sempre a do snapshot do caso.
-            taxaHonorariosBp: $herdada->taxaHonorariosBp,
-            baseHonorarios: $obrigacao->getBaseHonorarios() ?? $herdada->baseHonorarios,
-            carenciaHonorariosDias: $obrigacao->getCarenciaHonorariosDias() ?? $herdada->carenciaHonorariosDias,
-            toleranciaJurosMultaDias: $obrigacao->getToleranciaJurosMultaDias() ?? $herdada->toleranciaJurosMultaDias,
+            taxaJurosMensalBp: $obrigacao->getTaxaJurosMensalBp() ?? $base->taxaJurosMensalBp,
+            regimeJuros: $obrigacao->getRegimeJuros() ?? $base->regimeJuros,
+            taxaMultaBp: $obrigacao->getTaxaMultaBp() ?? $base->taxaMultaBp,
+            baseMulta: $obrigacao->getBaseMulta() ?? $base->baseMulta,
+            taxaCorrecaoBp: $obrigacao->getTaxaCorrecaoBp() ?? $base->taxaCorrecaoBp,
+            baseCorrecao: $obrigacao->getBaseCorrecao() ?? $base->baseCorrecao,
+            taxaHonorariosBp: $obrigacao->getTaxaHonorariosBp() ?? $base->taxaHonorariosBp,
+            baseHonorarios: $obrigacao->getBaseHonorarios() ?? $base->baseHonorarios,
+            carenciaHonorariosDias: $obrigacao->getCarenciaHonorariosDias() ?? $base->carenciaHonorariosDias,
+            toleranciaJurosMultaDias: $obrigacao->getToleranciaJurosMultaDias() ?? $base->toleranciaJurosMultaDias,
         );
     }
 
