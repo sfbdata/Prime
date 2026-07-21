@@ -18,6 +18,7 @@ use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
+use App\Cobranca\Service\ConversorTaxaEncargo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\RegistrarObrigacaoUseCase;
@@ -54,6 +55,9 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
             $registrarEvento,
             new CalculadoraEncargos(),
             new ResolvedorConfigEncargos(),
+            // Task 7 (spec taxa-por-obrigacao): ConversorTaxaEncargo também é PURO (sem I/O) — real, igual
+            // aos outros dois serviços do motor.
+            new ConversorTaxaEncargo(new CalculadoraEncargos()),
         );
         // Tenant/User não são abstrações do domínio: instâncias reais, não mocks.
         $this->tenant = new Tenant();
@@ -109,56 +113,6 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * Encargos AO VIVO (D6): o gestor pode DIGITAR encargos no lançamento e eles viram o valor inicial
-     * (cache), com os honorários COMPLETADOS pelo motor sobre a base digitada. Mas a obrigação NÃO
-     * congela mais — nasce VIVA e a leitura recalcula ao vivo (o digitado é ponto de partida, não
-     * override; para fixar taxa, edita-se a config do caso/carteira, §11).
-     */
-    #[Test]
-    public function encargosDigitadosNoLancamentoViramCacheInicialSemCongelar(): void
-    {
-        // Carteira TOPLIFE (20% sobre base composta) e vencimento antigo → o motor completa os honorários
-        // de forma determinística.
-        $caso = $this->casoTopLife();
-        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
-
-        $capturado = null;
-        $this->eventoRepository->method('salvar')
-            ->willReturnCallback(function (EventoHistorico $e, bool $flush) use (&$capturado): void {
-                $capturado = $e;
-            });
-
-        $input = new RegistrarObrigacaoInput();
-        $input->casoId = 30;
-        $input->descricao = 'Dívida antiga importada à mão';
-        $input->valorOriginal = 100000;
-        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        $input->juros = 5000;
-        $input->multa = 2000;
-        $input->correcao = 500;
-
-        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
-
-        // Cada componente digitado no seu campo (nada de agregar tudo em `juros`).
-        self::assertSame(5000, $obrigacao->getJuros());
-        self::assertSame(2000, $obrigacao->getMulta());
-        self::assertSame(500, $obrigacao->getCorrecao());
-        self::assertSame(7500, $obrigacao->getEncargosReconhecidos(), 'o agregado é o derivado (INV-E1)');
-        self::assertSame(107500, $obrigacao->valorExigivel());
-        // Honorários COMPLETADOS pelo motor: base composta 100000 + 5000 + 2000 + 500 = 107500 · 20% = 21500.
-        self::assertSame(21500, $obrigacao->getHonorarios(), 'honorários completados sobre a base digitada, não travados em zero');
-        // Encargos AO VIVO (D6): digitar NÃO congela mais — a obrigação nasce Viva (o digitado é cache).
-        self::assertFalse($obrigacao->encargosCongelados(), 'ao vivo: digitar encargos não congela a obrigação');
-
-        // O histórico precisa explicar de onde veio esse dinheiro.
-        self::assertInstanceOf(EventoHistorico::class, $capturado);
-        $dados = $capturado->getDados();
-        self::assertSame(5000, $dados['juros']);
-        self::assertSame(2000, $dados['multa']);
-        self::assertSame(500, $dados['correcao']);
-    }
-
-    /**
      * F6: sem digitar encargos, a obrigação é AUTOMÁTICA. Com carteira TOPLIFE e vencimento antigo, ela
      * já NASCE com os juros/multa/honorários do dia (estilo planilha), em vez de zero esperando o cron —
      * e segue recalculável (não congela). Valor exato é provado no CalculadoraEncargosTest; aqui só o efeito.
@@ -184,117 +138,6 @@ final class RegistrarObrigacaoUseCaseTest extends TestCase
         self::assertGreaterThan(0, $obrigacao->getHonorarios(), 'honorários materializados já na criação');
         self::assertFalse($obrigacao->encargosCongelados(), 'automática: segue recalculável (o cron a faz crescer)');
         self::assertNotNull($obrigacao->getEncargosAtualizadosEm(), 'materializou: tem data de referência');
-    }
-
-    /**
-     * Ao vivo (D6): honorário DIGITADO vira o cache inicial (o motor não o sobrescreve no registro), mas a
-     * obrigação NÃO congela mais — nasce Viva. Com carteira TOPLIFE o motor daria 21500; o gestor digitou
-     * 9999 e é o que fica materializado de imediato (até a leitura recomputar ao vivo).
-     */
-    #[Test]
-    public function honorarioDigitadoNoLancamentoViraCacheInicialSemCongelar(): void
-    {
-        $caso = $this->casoTopLife();
-        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
-        $this->eventoRepository->method('salvar');
-
-        $input = new RegistrarObrigacaoInput();
-        $input->casoId = 30;
-        $input->descricao = 'Dívida com honorário fixado à mão';
-        $input->valorOriginal = 100000;
-        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        $input->juros = 5000;
-        $input->multa = 2000;
-        $input->correcao = 500;
-        // O motor daria 21500 (20% de 107500); o gestor fixou 9999 — é o que tem de prevalecer.
-        $input->honorarios = 9999;
-
-        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
-
-        self::assertSame(9999, $obrigacao->getHonorarios(), 'honorário digitado é o cache inicial: o motor não o sobrescreve no registro');
-        self::assertNotSame(21500, $obrigacao->getHonorarios(), 'não é o valor que o motor calcularia');
-        self::assertSame(107500, $obrigacao->valorExigivel(), 'honorário fora do exigível (INV-E2)');
-        self::assertFalse($obrigacao->encargosCongelados(), 'ao vivo: digitar honorário não congela a obrigação');
-    }
-
-    /**
-     * Ajuste 2 (D-A2-5, risco 3): honorário VAZIO (`null`) NÃO é digitação. Com os outros três também
-     * vazios, a obrigação é AUTOMÁTICA (o motor calcula os 4 e ela segue recalculável). Prova por mutação:
-     * se `honorarios !== null` fosse afrouxado para tratar o vazio como digitado, ela congelaria e este
-     * teste ficaria vermelho.
-     */
-    #[Test]
-    public function honorarioVazioMantemAObrigacaoAutomatica(): void
-    {
-        $caso = $this->casoTopLife();
-        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
-        $this->eventoRepository->method('salvar');
-
-        $input = new RegistrarObrigacaoInput();
-        $input->casoId = 30;
-        $input->descricao = 'Boleto automático';
-        $input->valorOriginal = 100000;
-        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        $input->honorarios = null; // explícito: vazio = automático
-
-        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
-
-        self::assertFalse($obrigacao->encargosCongelados(), 'honorário vazio não congela: segue automática');
-        self::assertGreaterThan(0, $obrigacao->getHonorarios(), 'o motor completa o honorário do dia (não fica em zero)');
-    }
-
-    /**
-     * `0` NÃO é `null`. Zero explícito é uma decisão (honorário zero fixo) e é respeitado no cache inicial
-     * (o motor de 20% não o recompõe no registro), distinto do vazio (que o motor completa). Ao vivo (D6),
-     * porém, NÃO congela — a obrigação nasce Viva.
-     */
-    #[Test]
-    public function honorarioZeroExplicitoEhRespeitadoNoCacheSemCongelar(): void
-    {
-        $caso = $this->casoTopLife();
-        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
-        $this->eventoRepository->method('salvar');
-
-        $input = new RegistrarObrigacaoInput();
-        $input->casoId = 30;
-        $input->descricao = 'Sem honorário, fixo em zero';
-        $input->valorOriginal = 100000;
-        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        $input->honorarios = 0;
-
-        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
-
-        self::assertSame(0, $obrigacao->getHonorarios(), 'honorário zero explícito é respeitado, não recomposto pelo motor');
-        self::assertFalse($obrigacao->encargosCongelados(), 'ao vivo: nem o zero explícito congela — fica Viva');
-    }
-
-    #[Test]
-    public function encargosZeradosNaoCongelamAObrigacao(): void
-    {
-        // Carteira NEUTRA (sem objeto/carteira no caso): o cálculo automático dá 0 e nada é digitado.
-        $caso = (new CasoCobranca())->setTenant($this->tenant);
-        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
-
-        $input = new RegistrarObrigacaoInput();
-        $input->casoId = 30;
-        $input->descricao = 'Boleto novo';
-        $input->valorOriginal = 100000;
-        $input->vencimentoOriginal = new \DateTimeImmutable('2026-03-10');
-        // Os três explicitamente em zero: é o default do form quando o gestor não preenche nada.
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
-
-        $obrigacao = $this->sut->executar($input, $this->tenant, $this->criadoPor);
-
-        self::assertSame(0, $obrigacao->getEncargosReconhecidos(), 'carteira neutra → nenhum encargo');
-        self::assertFalse(
-            $obrigacao->encargosCongelados(),
-            'zero não é "valor digitado": a obrigação nova tem de continuar sendo calculada pelo cron',
-        );
-        // Novo modelo (estilo planilha): mesmo com encargos zero a obrigação NASCE materializada para
-        // hoje — a data de referência é gravada (o cálculo automático rodou, só deu 0).
-        self::assertNotNull($obrigacao->getEncargosAtualizadosEm(), 'a materialização do dia é datada mesmo quando dá 0');
     }
 
     #[Test]

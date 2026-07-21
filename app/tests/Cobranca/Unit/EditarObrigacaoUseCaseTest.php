@@ -23,6 +23,7 @@ use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
+use App\Cobranca\Service\ConversorTaxaEncargo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\EditarObrigacaoUseCase;
@@ -57,6 +58,8 @@ final class EditarObrigacaoUseCaseTest extends TestCase
             $registrarEvento,
             new CalculadoraEncargos(),
             new ResolvedorConfigEncargos(),
+            // Task 7 (spec taxa-por-obrigacao): ConversorTaxaEncargo também é PURO (sem I/O) — real.
+            new ConversorTaxaEncargo(new CalculadoraEncargos()),
         );
         $this->tenant = new Tenant();
         $this->usuario = new User();
@@ -84,10 +87,9 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $input->valorOriginal = 25000;
         $input->vencimentoOriginal = new \DateTimeImmutable('2026-03-15');
         $input->referenciaExterna = '  REF-NEW  ';
-        // F4: os encargos entram separados (soma 500 — o mesmo agregado do contrato anterior).
-        $input->juros = 300;
-        $input->multa = 150;
-        $input->correcao = 50;
+        // Task 7 (spec taxa-por-obrigacao): sem taxa informada, os quatro modos ficam no default
+        // 'herda' (`EntradaTaxaEncargos`) — a obrigação herda a config do caso (aqui neutra, sem
+        // carteira: `obrigacaoAtiva()`/`inputValido()` não usam `casoTopLife()`).
         $input->motivo = '  valor digitado errado  ';
 
         return $input;
@@ -134,13 +136,17 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertSame('Boleto correto', $resultado->getDescricao());
         self::assertSame(25000, $resultado->getValorOriginal());
         self::assertSame('2026-03-15', $resultado->getVencimentoOriginal()->format('Y-m-d'));
-        // Cada componente no seu campo; o agregado é o derivado (INV-E1).
-        self::assertSame(300, $resultado->getJuros());
-        self::assertSame(150, $resultado->getMulta());
-        self::assertSame(50, $resultado->getCorrecao());
-        self::assertSame(500, $resultado->getEncargosReconhecidos());
+        // Sem taxa própria (input->modoJuros/... = 'herda' por padrão) e caso sem carteira (neutra): o
+        // cache materializado é zero — cada componente no seu campo, o agregado é o derivado (INV-E1).
+        self::assertSame(0, $resultado->getJuros());
+        self::assertSame(0, $resultado->getMulta());
+        self::assertSame(0, $resultado->getCorrecao());
+        self::assertSame(0, $resultado->getEncargosReconhecidos());
         self::assertSame('REF-NEW', $resultado->getReferenciaExterna());
-        self::assertSame(25500, $resultado->valorExigivel());
+        self::assertSame(25000, $resultado->valorExigivel());
+        // Task 7: sem taxa informada, as quatro colunas de override continuam null (herda).
+        self::assertNull($resultado->getTaxaJurosMensalBp());
+        self::assertNull($resultado->getTaxaMultaBp());
 
         // Evento com antes/depois e motivo.
         self::assertInstanceOf(EventoHistorico::class, $capturado);
@@ -152,14 +158,21 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertSame('REF-OLD', $dados['antes']['referenciaExterna']);
         self::assertSame('valor digitado errado', $dados['motivo']);
 
-        // O snapshot passa a registrar os TRÊS componentes: sem eles o histórico diz que "os encargos
-        // mudaram" mas não qual deles, que é exatamente a pergunta que se faz depois.
+        // O snapshot registra os TRÊS componentes: sem eles o histórico diz que "os encargos mudaram"
+        // mas não qual deles, que é exatamente a pergunta que se faz depois.
         self::assertSame(0, $dados['antes']['juros']);
-        self::assertSame(300, $dados['depois']['juros']);
-        self::assertSame(150, $dados['depois']['multa']);
-        self::assertSame(50, $dados['depois']['correcao']);
+        self::assertSame(0, $dados['depois']['juros']);
+        self::assertSame(0, $dados['depois']['multa']);
+        self::assertSame(0, $dados['depois']['correcao']);
         // O agregado continua no snapshot para o histórico antigo seguir legível.
-        self::assertSame(500, $dados['depois']['encargosReconhecidos']);
+        self::assertSame(0, $dados['depois']['encargosReconhecidos']);
+        // Task 7 (spec taxa-por-obrigacao): o snapshot agora também explica a TAXA (antes/depois) — aqui
+        // sem override em nenhum dos dois lados (herda o caso nos dois momentos).
+        self::assertArrayHasKey('taxaJurosMensalBp', $dados['antes']);
+        self::assertNull($dados['antes']['taxaJurosMensalBp']);
+        self::assertNull($dados['depois']['taxaJurosMensalBp']);
+        self::assertNull($dados['antes']['taxaMultaBp']);
+        self::assertNull($dados['depois']['taxaMultaBp']);
     }
 
     #[Test]
@@ -332,14 +345,11 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
         $this->eventoRepository->method('salvar');
 
-        // Só a descrição muda; os encargos reenviados são os MESMOS de agora (0/0/0) → não é mexida manual.
+        // Só a descrição muda; sem taxa própria informada (herda), o motor recalcula do zero.
         $input = $this->inputValido();
         $input->descricao = 'Descrição corrigida';
         $input->valorOriginal = 100000;
         $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
@@ -352,74 +362,6 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         self::assertSame(2000, $resultado->getMulta(), 'a multa fixa (2%) aparece inteira, não achatada em zero nem somada em juros');
         self::assertSame(0, $resultado->getCorrecao());
         self::assertGreaterThan(0, $resultado->getHonorarios());
-    }
-
-    /**
-     * Regressão do achado I5 da revisão da F2: a ponte deprecada `setEncargosReconhecidos()` jogava o
-     * agregado inteiro em `juros` e ZERAVA multa/correção. Aqui o agregado é o MESMO antes e depois
-     * (350) e só a COMPOSIÇÃO muda — com a ponte no caminho, este teste fica vermelho duas vezes: nem
-     * detectaria a mudança (compara pelo agregado) nem gravaria o split.
-     */
-    #[Test]
-    public function recomporOsEncargosMantendoOAgregadoGravaOSplitSemCongelar(): void
-    {
-        $obrigacao = $this->obrigacaoAtiva();
-        $obrigacao->definirEncargos(100, 200, 50, 900, new \DateTimeImmutable('2026-02-01'));
-
-        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
-        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
-        $this->eventoRepository->method('salvar');
-
-        $input = $this->inputValido();
-        // Mesma soma (350), outra composição: dinheiro trocou de categoria.
-        $input->juros = 200;
-        $input->multa = 100;
-        $input->correcao = 50;
-
-        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
-
-        self::assertSame(200, $resultado->getJuros());
-        self::assertSame(100, $resultado->getMulta());
-        self::assertSame(50, $resultado->getCorrecao());
-        self::assertSame(350, $resultado->getEncargosReconhecidos(), 'o agregado não mudou — a composição sim');
-        self::assertFalse($resultado->encargosCongelados(), 'ao vivo: recompor à mão NÃO congela — segue Viva');
-    }
-
-    /**
-     * F6: os honorários não têm campo na UI de edição. Ao digitar juros/multa/correção à mão, o motor
-     * RECOMPÕE os honorários sobre a base digitada — não preserva o valor velho (que ficaria defasado da
-     * base nova) nem os zera (o que apagaria a dívida). Com config de 20% e atraso longo, o resultado é
-     * determinístico sobre a base composta.
-     */
-    #[Test]
-    public function editarEncargosManuaisRecomputaOsHonorariosPeloMotor(): void
-    {
-        $caso = $this->casoTopLife();
-        $obrigacao = (new Obrigacao())
-            ->setTenant($this->tenant)
-            ->setCaso($caso)
-            ->setDescricao('Boleto errado')
-            ->setValorOriginal(10000)
-            ->setVencimentoOriginal(new \DateTimeImmutable('2020-01-01'));
-        // Honorários VELHOS (4321), para provar que são SUBSTITUÍDOS pelo recálculo, não preservados.
-        $obrigacao->definirEncargos(100, 200, 50, 4321, new \DateTimeImmutable('2020-06-01'));
-
-        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
-        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
-        $this->eventoRepository->method('salvar');
-
-        // inputValido: juros 300, multa 150, correção 50, valorOriginal 25000. Vencimento antigo p/ atraso longo.
-        $input = $this->inputValido();
-        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-
-        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
-
-        // Base composta digitada = 25000 + 300 + 150 + 50 = 25500 · 20% = 5100 (independe do atraso além da carência).
-        self::assertSame(5100, $resultado->getHonorarios(), 'honorários recompostos pelo motor sobre a base digitada');
-        self::assertNotSame(4321, $resultado->getHonorarios(), 'não é o valor velho preservado');
-        // E os honorários seguem FORA do exigível (INV-E2): 25000 + 300 + 150 + 50.
-        self::assertSame(25500, $resultado->valorExigivel());
-        self::assertFalse($resultado->encargosCongelados(), 'ao vivo: editar dinheiro à mão NÃO congela');
     }
 
     /**
@@ -442,13 +384,10 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
         $this->eventoRepository->method('salvar');
 
-        // Edita SÓ o vencimento (para muito no passado); não toca nos encargos (0/0/0 = os atuais).
+        // Edita SÓ o vencimento (para muito no passado); sem taxa própria informada (herda).
         $input = $this->inputValido();
         $input->valorOriginal = 100000;
         $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
@@ -458,8 +397,9 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * F6/INV-E4: uma obrigação TRAVADA (encargos digitados à mão) não recalcula, nem quando o gestor
-     * muda o vencimento sem tocar nos valores. Só uma nova digitação manual mudaria os encargos.
+     * INV-V2: uma obrigação CONGELADA (Liquidada-coberta/Substituída) não recalcula o cache ao editar,
+     * nem quando o gestor muda o vencimento — mesmo que a taxa própria seja gravada (o override fica
+     * registrado, mas o snapshot já materializado é respeitado). Só a reabertura desfaz o congelamento.
      */
     #[Test]
     public function obrigacaoTravadaNaoRecalculaAoEditarOVencimento(): void
@@ -479,13 +419,10 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
         $this->eventoRepository->method('salvar');
 
-        // Muda o vencimento para muito no passado, mas REENVIA os encargos iguais aos atuais (não é mexida).
+        // Muda o vencimento para muito no passado; sem taxa própria informada (herda).
         $input = $this->inputValido();
         $input->valorOriginal = 100000;
         $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        $input->juros = 100;
-        $input->multa = 200;
-        $input->correcao = 50;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
@@ -499,15 +436,17 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * O guard do exigível roda ANTES de mutar: se ele falhasse depois, a obrigação ficaria suja em
-     * memória à mercê de um flush alheio na mesma request. A soma dos TRÊS é o exigível novo (INV-E1).
+     * O guard do exigível roda ANTES de mutar os campos de cadastro: se ele falhasse depois, a obrigação
+     * ficaria suja em memória à mercê de um flush alheio na mesma request. A soma dos TRÊS é o exigível
+     * novo (INV-E1). Task 7: a TAXA (override) já foi gravada antes do guard — só descrição/valor/
+     * vencimento/referência/cache continuam preservados quando o guard rejeita (ver asserts abaixo).
      */
     #[Test]
     public function guardDoExigivelSomaOsTresEncargosENaoMutaAoRejeitar(): void
     {
         $obrigacao = $this->obrigacaoAtiva();
         $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
-        // Alocado R$ 260,00; o novo exigível seria 25000 + 300 + 150 + 50 = 25500 (< 26000) → rejeita.
+        // Alocado R$ 260,00; o novo exigível seria 25000 + 0 + 0 + 0 = 25000 (< 26000) → rejeita.
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(26000);
         $this->eventoRepository->expects($this->never())->method('salvar');
 
@@ -545,9 +484,6 @@ final class EditarObrigacaoUseCaseTest extends TestCase
 
         $input = $this->inputValido();
         $input->valorOriginal = 15000;
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
@@ -570,9 +506,6 @@ final class EditarObrigacaoUseCaseTest extends TestCase
 
         $input = $this->inputValido();
         $input->valorOriginal = 10000; // exigível novo == alocado (10000): limite exato
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
@@ -594,9 +527,6 @@ final class EditarObrigacaoUseCaseTest extends TestCase
 
         $input = $this->inputValido();
         $input->valorOriginal = 9900; // exigível novo 9900 < 10000 alocado → bloqueia
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
 
         $this->expectException(ValorAbaixoDoAlocadoException::class);
         $this->expectExceptionMessage('ficaria abaixo do total já pago/alocado (10000 centavos)');
@@ -611,47 +541,8 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * Editar com honorário DIGITADO usa o valor como cache inicial (o motor não o sobrescreve na edição),
-     * mesmo quando juros/multa/correção continuam iguais (a digitação do honorário sozinho já conta como
-     * mexida, via `honorarios !== null`). Ao vivo (D6), porém, NÃO congela — a obrigação segue Viva.
-     */
-    #[Test]
-    public function editarComHonorarioDigitadoViraCacheSemCongelar(): void
-    {
-        $caso = $this->casoTopLife();
-        $obrigacao = (new Obrigacao())
-            ->setTenant($this->tenant)
-            ->setCaso($caso)
-            ->setDescricao('Boleto automático')
-            ->setValorOriginal(100000)
-            ->setVencimentoOriginal(new \DateTimeImmutable('2020-01-01'));
-        self::assertFalse($obrigacao->encargosCongelados(), 'pré-condição: automática');
-
-        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
-        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
-        $this->eventoRepository->method('salvar');
-
-        $input = $this->inputValido();
-        $input->valorOriginal = 100000;
-        $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        // Juros/multa/correção iguais aos atuais (0/0/0): SÓ o honorário é digitado.
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
-        $input->honorarios = 7777;
-
-        $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
-
-        self::assertSame(7777, $resultado->getHonorarios(), 'honorário digitado vira o cache: o motor não o sobrescreve na edição');
-        self::assertSame(100000, $resultado->valorExigivel(), 'honorário fora do exigível (INV-E2)');
-        self::assertFalse($resultado->encargosCongelados(), 'ao vivo: digitar o honorário não congela — segue Viva');
-    }
-
-    /**
-     * Ajuste 1 INTACTO (prova por mutação): editar SÓ o vencimento de uma automática, com o honorário
-     * VAZIO (`null`), recalcula os 4 na hora e NÃO congela. Se `honorarios !== null` fosse afrouxado a
-     * ponto de o vazio contar como mexida manual, a obrigação congelaria e o Ajuste 1 quebraria — este
-     * teste pega isso.
+     * Ajuste 1 INTACTO (prova por mutação): editar SÓ o vencimento de uma automática, sem taxa própria
+     * informada (herda), recalcula os 4 na hora e NÃO congela.
      */
     #[Test]
     public function editarSoOVencimentoComHonorarioVazioRecalculaENaoCongela(): void
@@ -669,28 +560,24 @@ final class EditarObrigacaoUseCaseTest extends TestCase
         $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
         $this->eventoRepository->method('salvar');
 
-        // Edita SÓ o vencimento (para o passado); reenvia os encargos atuais (0/0/0) e o honorário VAZIO.
+        // Edita SÓ o vencimento (para o passado); sem taxa própria informada (herda).
         $input = $this->inputValido();
         $input->valorOriginal = 100000;
         $input->vencimentoOriginal = new \DateTimeImmutable('2020-01-01');
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
-        $input->honorarios = null;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
         self::assertGreaterThan(0, $resultado->getJuros(), 'mudar o vencimento recalcula os juros na hora (Ajuste 1)');
         self::assertSame(2000, $resultado->getMulta(), 'a multa (2%) entra com o atraso');
         self::assertGreaterThan(0, $resultado->getHonorarios(), 'o motor recalcula o honorário do dia');
-        self::assertFalse($resultado->encargosCongelados(), 'honorário vazio não congela: Ajuste 1 intacto');
+        self::assertFalse($resultado->encargosCongelados(), 'sem override: continua Viva (D6)');
     }
 
     /**
      * INV-E2 (prova por mutação): o guard `< totalAlocado` olha SÓ valorOriginal + juros + multa + correção.
-     * Um honorário GIGANTE não pode fazer o guard "passar" um exigível que caiu abaixo do já pago — honorário
-     * não é dívida do credor. Aqui o exigível real (só j+m+c) é R$100,00 e já há R$200,00 alocados: tem de
-     * bloquear. Se o guard somasse o honorário (510000), a redução passaria indevidamente.
+     * Uma taxa de honorários GIGANTE não pode fazer o guard "passar" um exigível que caiu abaixo do já
+     * pago — honorário não é dívida do credor. Aqui o exigível real (só j+m+c, herdados = 0) é R$100,00
+     * e já há R$200,00 alocados: tem de bloquear, mesmo com um honorário enorme materializado no cache.
      */
     #[Test]
     public function honorarioNaoEntraNoGuardDoExigivel(): void
@@ -702,11 +589,9 @@ final class EditarObrigacaoUseCaseTest extends TestCase
 
         $input = $this->inputValido();
         $input->valorOriginal = 10000;
-        $input->juros = 0;
-        $input->multa = 0;
-        $input->correcao = 0;
-        // Honorário gigante: se ENTRASSE no exigível, o guard passaria. Não pode.
-        $input->honorarios = 500000;
+        // Taxa de honorários gigante (9999,99%): se ENTRASSE no exigível, o guard passaria. Não pode.
+        $input->modoHonorarios = 'percent';
+        $input->honorariosBp = 500000;
 
         $this->expectException(ValorAbaixoDoAlocadoException::class);
 
@@ -714,8 +599,8 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
-     * INV-E2: o honorário fica FORA do `valorExigivel()`. Mesmo digitando um honorário alto, o exigível é
-     * só valorOriginal + juros + multa + correção — o honorário não infla o saldo.
+     * INV-E2: o honorário fica FORA do `valorExigivel()`. Mesmo com uma taxa de honorários alta, o
+     * exigível é só valorOriginal + juros + multa + correção — o honorário não infla o saldo.
      */
     #[Test]
     public function honorarioAltoNaoInflaOExigivel(): void
@@ -727,14 +612,15 @@ final class EditarObrigacaoUseCaseTest extends TestCase
 
         $input = $this->inputValido();
         $input->valorOriginal = 10000;
-        $input->juros = 300;
-        $input->multa = 150;
-        $input->correcao = 50;
-        $input->honorarios = 999999;
+        // Taxa de honorários de 9999,99% sobre a base composta (10000, já que j/m/c herdados = 0):
+        // valorDeTaxa(10000, 999999) = 999999 exato (10000/10000 = 1) — reproduz o mesmo dinheiro do
+        // teste legado, agora expresso como TAXA em vez de valor digitado.
+        $input->modoHonorarios = 'percent';
+        $input->honorariosBp = 999999;
 
         $resultado = $this->sut->executar($input, $this->tenant, $this->usuario);
 
         self::assertSame(999999, $resultado->getHonorarios());
-        self::assertSame(10500, $resultado->valorExigivel(), 'exigível = original + j + m + c; honorário fora (INV-E2)');
+        self::assertSame(10000, $resultado->valorExigivel(), 'exigível = original + j + m + c (herdados = 0); honorário fora (INV-E2)');
     }
 }

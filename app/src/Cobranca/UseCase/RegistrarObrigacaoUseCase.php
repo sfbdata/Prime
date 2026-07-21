@@ -12,6 +12,7 @@ use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
+use App\Cobranca\Service\ConversorTaxaEncargo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Entity\Auth\User;
@@ -25,13 +26,14 @@ use App\Entity\Tenant\Tenant;
  * encerrado NÃO recebe novas obrigações (SPEC §17): uma nova inadimplência gera um novo caso. O valor
  * e o vencimento entram como ORIGINAIS e são preservados (invariável 20).
  *
- * Encargos "estilo planilha" (F6, TODAY()): a obrigação já NASCE com os encargos calculados para HOJE
- * pela cascata Carteira→Caso→Obrigação, em vez de zero esperando o cron. Se o gestor DIGITA juros/multa/
- * correção (dívida vinda de outro sistema, boleto já calculado), esses três são a verdade e a obrigação
- * nasce CONGELADA — o motor apenas COMPLETA os honorários sobre a base digitada (não há campo p/ eles),
- * e a partir daí número digitado por gente não é sobrescrito por robô (INV-E4). Sem digitação, a
- * obrigação é AUTOMÁTICA: nasce com os juros do dia e segue recalculável pelo cron. A obrigação e o
- * evento "obrigação criada" são commitados juntos (flush único no registro do evento).
+ * Taxa por-obrigação (spec taxa-por-obrigacao): o gestor não digita mais um VALOR de encargo — ele
+ * define uma TAXA própria desta obrigação (override por %/R$, `EntradaTaxaEncargos`), traduzida em bp
+ * pelo `ConversorTaxaEncargo` e gravada nas quatro colunas de override (`null` = herda a cascata
+ * Carteira→Caso→Obrigação). O cache inicial (`juros/multa/correcao/honorarios`) é só a MATERIALIZAÇÃO
+ * do motor com a config já resolvida (base do caso + override desta obrigação) para HOJE — nunca a
+ * fonte da verdade. Ao vivo (D6): registrar NUNCA congela — a obrigação nasce Viva e a leitura
+ * recalcula (vencimento → hoje × taxa) via hidratação; a taxa gravada é o que fixa o comportamento, não
+ * o cache. A obrigação e o evento "obrigação criada" são commitados juntos (flush único no evento).
  */
 final class RegistrarObrigacaoUseCase
 {
@@ -41,6 +43,7 @@ final class RegistrarObrigacaoUseCase
         private readonly RegistrarEventoHistorico $registrarEvento,
         private readonly CalculadoraEncargos $calculadora,
         private readonly ResolvedorConfigEncargos $resolvedor,
+        private readonly ConversorTaxaEncargo $conversor,
     ) {
     }
 
@@ -69,34 +72,22 @@ final class RegistrarObrigacaoUseCase
         $obrigacao->setReferenciaExterna($this->normalizar($input->referenciaExterna));
         $obrigacao->setCriadoPor($criadoPor);
 
-        // Encargos "estilo planilha" (F6): a obrigação nasce com os encargos do DIA. A cascata
-        // Carteira→Caso→Obrigação define as taxas (o caso já está setado); a referência é HOJE.
         $hoje = new \DateTimeImmutable('today');
-        $config = $this->resolvedor->resolver($obrigacao);
+        $baseCaso = $this->resolvedor->resolverDoCaso($caso);
 
-        // Encargos AO VIVO (D6): a obrigação nasce VIVA e NUNCA congela ao registrar — o encargo é sempre
-        // recalculado (vencimento → hoje × taxa) na leitura, via hidratação. Um valor de encargo digitado
-        // no cadastro é apenas um ponto de partida (cache), não um override que fixe a obrigação: no modelo
-        // ao vivo, para mudar a taxa edita-se a config do caso/carteira (override por-obrigação é
-        // follow-up, §11). O honorário, quando não informado (`null`), é completado pelo motor sobre a
-        // base digitada; quando digitado, é usado como está no cache inicial.
-        $digitou = $input->juros > 0 || $input->multa > 0 || $input->correcao > 0 || $input->honorarios !== null;
+        // Grava os overrides de taxa desta obrigação (null = herda o caso). D6: nunca congela.
+        $ov = $this->conversor->overrides(
+            $input->entradaTaxas(), $baseCaso, (int) $input->valorOriginal, $input->vencimentoOriginal, $hoje);
+        $obrigacao
+            ->setTaxaJurosMensalBp($ov['taxaJurosMensalBp'])
+            ->setTaxaMultaBp($ov['taxaMultaBp'])
+            ->setTaxaCorrecaoBp($ov['taxaCorrecaoBp'])
+            ->setTaxaHonorariosBp($ov['taxaHonorariosBp']);
 
-        if ($digitou) {
-            $dias = $this->calculadora->diasDeAtraso($input->vencimentoOriginal, $hoje);
-            $honorarios = $input->honorarios ?? $this->calculadora->honorarios(
-                (int) $input->valorOriginal,
-                $input->juros,
-                $input->multa,
-                $input->correcao,
-                $config,
-                $dias,
-            );
-            $obrigacao->definirEncargos($input->juros, $input->multa, $input->correcao, $honorarios, $hoje);
-        } else {
-            $novos = $this->calculadora->calcular((int) $input->valorOriginal, $input->vencimentoOriginal, $config, $hoje);
-            $obrigacao->definirEncargos($novos['juros'], $novos['multa'], $novos['correcao'], $novos['honorarios'], $hoje);
-        }
+        // Cache inicial materializado pelo motor JÁ com o override (a hidratação recalcula na leitura).
+        $config = $this->resolvedor->aplicarObrigacao($baseCaso, $obrigacao);
+        $novos = $this->calculadora->calcular((int) $input->valorOriginal, $input->vencimentoOriginal, $config, $hoje);
+        $obrigacao->definirEncargos($novos['juros'], $novos['multa'], $novos['correcao'], $novos['honorarios'], $hoje);
 
         // Persiste sem flush; o registro do evento fecha a transação (persiste os dois de uma vez).
         $this->obrigacaoRepository->salvar($obrigacao);
@@ -110,13 +101,12 @@ final class RegistrarObrigacaoUseCase
                 'valorOriginal' => $obrigacao->getValorOriginal(),
                 'vencimento' => $input->vencimentoOriginal->format('Y-m-d'),
                 // Os encargos MATERIALIZADOS na criação entram no histórico (derivam dos getters, que já
-                // refletem o cálculo do dia). Quando o gestor digitou, é dinheiro que nasceu com a
-                // obrigação e o congelamento que ele dispara precisa ficar explicável depois.
+                // refletem o cálculo do dia, com o override desta obrigação já aplicado).
                 'juros' => $obrigacao->getJuros(),
                 'multa' => $obrigacao->getMulta(),
                 'correcao' => $obrigacao->getCorrecao(),
                 // Honorário materializado (Ajuste 2): fica FORA do exigível, mas é dinheiro editável — o
-                // histórico registra com o que a obrigação nasceu para explicar override/congelamento depois.
+                // histórico registra com o que a obrigação nasceu para explicar a taxa aplicada depois.
                 'honorarios' => $obrigacao->getHonorarios(),
             ],
             flush: true,
