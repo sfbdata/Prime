@@ -73,7 +73,7 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
             $registrarEvento,
             $this->alocacaoRepository,
             new ResolvedorConfigEncargos(),
-            new ReconciliadorLiquidacao(new CalculadoraEncargos()),
+            new ReconciliadorLiquidacao(new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
         );
         $this->tenant = new Tenant();
         $this->usuario = new User();

@@ -81,7 +81,7 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
             $registrarEvento,
             $this->alocacaoRepository,
             new ResolvedorConfigEncargos(),
-            new ReconciliadorLiquidacao(new CalculadoraEncargos()),
+            new ReconciliadorLiquidacao(new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
         );
         $this->tenant = new Tenant();
         $this->criadoPor = new User();
@@ -267,6 +267,44 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
         self::assertCount(1, $pagamento->getAlocacoes());
         self::assertSame(5000, $pagamento->getAlocacoes()->first()->getValor());
         self::assertSame($obrigacao, $pagamento->getAlocacoes()->first()->getObrigacao());
+    }
+
+    #[Test]
+    #[TestDox('Ponta-a-ponta: taxa PRÓPRIA da obrigação (maior que a do caso) impede a liquidação prematura ao registrar o pagamento')]
+    public function registrarPagamentoRespeitaTaxaPropriaDaObrigacaoNaLiquidacao(): void
+    {
+        // Caso com taxa de juros 1% a.m. (base); a obrigação tem OVERRIDE de 3% a.m. — o exigível-
+        // OVERLAY (105,00) é maior que o exigível-BASE do caso (103,00). Vencimento 30 dias antes da
+        // data do pagamento. Pagando exatamente o exigível-BASE (103,00), a obrigação NÃO pode liquidar
+        // (a taxa que rege ela é a própria, mais alta) — prova o caminho completo (Controller-less)
+        // Registrar → Reconciliador, não só o Reconciliador isolado.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $caso->setTaxaJurosMensalBp(100);
+        $caso->setTaxaMultaBp(200);
+        (new \ReflectionProperty(CasoCobranca::class, 'id'))->setValue($caso, 60);
+        $obrigacao = (new Obrigacao())
+            ->setTenant($this->tenant)->setCaso($caso)
+            ->setDescricao('Parcela')->setValorOriginal(10000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2026-06-20'))
+            ->setTaxaJurosMensalBp(300); // override: 3% a.m., acima do 1% do caso.
+        (new \ReflectionProperty(Obrigacao::class, 'id'))->setValue($obrigacao, 9);
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->pagamentoRepository->expects($this->once())->method('salvar');
+        $this->eventoRepository->expects($this->once())->method('salvar')
+            ->with(self::isInstanceOf(EventoHistorico::class), true);
+
+        $input = new RegistrarPagamentoInput();
+        $input->casoId = 60;
+        $input->data = new \DateTimeImmutable('2026-07-20'); // 30 dias após o vencimento.
+        $input->valorPago = 10300; // exigível-BASE exato; exigível-OVERLAY é 10500.
+        $input->alocarManualmente = true;
+        $input->alocacoes = [$this->alocacao(9, 10300)];
+
+        $this->sut->executar($input, $this->tenant, $this->criadoPor);
+
+        self::assertFalse($obrigacao->estaLiquidada(), 'exigível com a taxa PRÓPRIA (105,00) ainda não foi coberto pelos 103,00 pagos');
     }
 
     #[Test]

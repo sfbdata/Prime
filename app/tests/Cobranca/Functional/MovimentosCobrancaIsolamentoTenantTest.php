@@ -120,7 +120,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
         $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos(), new ConversorTaxaEncargo(new CalculadoraEncargos()));
-        $reconciliador = new ReconciliadorLiquidacao(new CalculadoraEncargos());
+        $reconciliador = new ReconciliadorLiquidacao(new CalculadoraEncargos(), new ResolvedorConfigEncargos());
         $this->registrarPagamento = new RegistrarPagamentoUseCase($pagamentoRepo, $casoRepo, $alocador, $autoAlocador, $registrarEvento, $alocacaoRepo, new ResolvedorConfigEncargos(), $reconciliador);
         $this->corrigirPagamento = new CorrigirPagamentoUseCase($pagamentoRepo, $alocador, $autoAlocador, $registrarEvento, $alocacaoRepo, new ResolvedorConfigEncargos(), $reconciliador);
         $this->registrarLiquidacao = new RegistrarLiquidacaoUseCase($liquidacaoRepo, $casoRepo, $registrarEvento);

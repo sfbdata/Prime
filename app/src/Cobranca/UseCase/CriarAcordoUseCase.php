@@ -123,11 +123,16 @@ final class CriarAcordoUseCase
             // (`doCasoExigiveis` a exclui) e não é hidratada, então o snapshot é o que a tela exibe; se o
             // acordo for rompido, ela volta ao exigível e recomeça a crescer ao vivo (sem precisar
             // descongelar, pois não foi congelada — só materializada).
+            //
+            // Por OBRIGAÇÃO, aplica-se o overlay do 3º nível da cascata (taxa por-obrigação) sobre a
+            // base do caso ANTES de calcular — mesmo padrão do `EncargosVivos`/hidratação ao vivo: senão
+            // o snapshot congelado divergiria da taxa que a tela mostrava até a véspera.
             if (!$obrigacao->encargosCongelados()) {
+                $config = $this->resolvedorConfig->aplicarObrigacao($configCaso, $obrigacao);
                 $e = $this->calculadora->calcular(
                     $obrigacao->getValorOriginal(),
                     $obrigacao->getVencimentoOriginal(),
-                    $configCaso,
+                    $config,
                     $input->dataAcordo,
                 );
                 $obrigacao->definirEncargos($e['juros'], $e['multa'], $e['correcao'], $e['honorarios'], $input->dataAcordo);

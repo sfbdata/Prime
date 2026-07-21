@@ -188,6 +188,38 @@ final class CriarAcordoUseCaseTest extends TestCase
     }
 
     #[Test]
+    #[TestDox('Substituída COM override próprio: o snapshot congelado usa a taxa da obrigação, não a do caso')]
+    public function substituidaComTaxaPropriaRecebeSnapshotDaTaxaPropriaNaoDaDoCaso(): void
+    {
+        // Mesma base do teste acima (caso 1% a.m./2%, 30 dias de atraso até a data do acordo), mas a
+        // obrigação tem override PRÓPRIO de juros (3% a.m.) — o snapshot tem de refletir 3,00, não o
+        // 1,00 que a taxa do caso daria.
+        $caso = (new CasoCobranca())->setTenant($this->tenant);
+        $caso->setTaxaJurosMensalBp(100);
+        $caso->setTaxaMultaBp(200);
+        $obrigSubstituida = (new Obrigacao())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setValorOriginal(10000)
+            ->setVencimentoOriginal(new \DateTimeImmutable('2026-03-21'))
+            ->setTaxaJurosMensalBp(300); // override: 3% a.m., acima do 1% do caso.
+
+        $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigSubstituida);
+        $this->obrigacaoRepository->method('salvar');
+
+        $this->sut->executar(
+            $this->novoInput(70, [100], [$this->parcela('Parcela 1/1', 10500, '2026-05-20')]),
+            $this->tenant,
+            $this->criadoPor,
+        );
+
+        self::assertSame(300, $obrigSubstituida->getJuros(), 'snapshot com a taxa PRÓPRIA (3% a.m.), não a do caso (1%)');
+        self::assertSame(200, $obrigSubstituida->getMulta(), 'multa segue herdada do caso (sem override próprio)');
+        self::assertEquals(new \DateTimeImmutable('2026-04-20'), $obrigSubstituida->getEncargosAtualizadosEm());
+    }
+
+    #[Test]
     public function gravaSnapshotComTotalNegociadoEEntradaComoPrimeiraObrigacao(): void
     {
         $caso = (new CasoCobranca())->setTenant($this->tenant);

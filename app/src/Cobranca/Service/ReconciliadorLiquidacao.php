@@ -14,7 +14,13 @@ use App\Cobranca\Entity\Obrigacao;
  *
  * Compartilhado por `RegistrarPagamentoUseCase` (quita ao pagar) e `CorrigirPagamentoUseCase` (pode
  * quitar OU reabrir, conforme a correção sobe ou desce o alocado). Aplicador puro: a `ConfigEncargos`
- * chega RESOLVIDA (o chamador resolve 1× por caso), sem I/O, testável isoladamente.
+ * chega RESOLVIDA como BASE DO CASO (o chamador resolve 1× por caso, via `resolverDoCaso`), sem I/O.
+ *
+ * Por OBRIGAÇÃO, aplica por cima o overlay do 3º nível da cascata
+ * (`ResolvedorConfigEncargos::aplicarObrigacao`, spec "taxa por-obrigação") antes de calcular o
+ * exigível — a taxa própria da obrigação (se houver) vence; campo ausente herda da base do caso. É o
+ * MESMO padrão do `EncargosVivos`: sem isso, a quitação/snapshot da liquidação divergiria do saldo/
+ * FIFO/tela, que já aplicam o overlay — corrompendo o valor congelado assim que houver override.
  *
  * Regra por obrigação:
  *  - Substituída por acordo VIGENTE: valor PACTUADO (snapshot da data do acordo) — fica INTACTA, não é
@@ -32,15 +38,20 @@ final class ReconciliadorLiquidacao
 {
     public function __construct(
         private readonly CalculadoraEncargos $calculadora,
+        private readonly ResolvedorConfigEncargos $resolvedor,
     ) {
     }
 
     /**
+     * `$configCaso` é a config resolvida do CASO (`resolverDoCaso`, 1× por caso — sem N+1); por
+     * obrigação, aplicamos por cima o overlay da própria obrigação (spec "taxa por-obrigação") antes
+     * de calcular o exigível — a mesma base que o chamador já passava, sem dupla aplicação.
+     *
      * @param iterable<Obrigacao> $obrigacoes          obrigações tocadas pelo pagamento (id ∈ alocado)
      * @param array<int, int>     $alocadoPorObrigacao obrigacaoId => Σ alocado FINAL (centavos)
      */
     public function reconciliar(
-        ConfigEncargos $config,
+        ConfigEncargos $configCaso,
         iterable $obrigacoes,
         array $alocadoPorObrigacao,
         \DateTimeImmutable $dataPagamento,
@@ -60,6 +71,8 @@ final class ReconciliadorLiquidacao
 
             $id = $obrigacao->getId();
             $alocado = $id !== null ? ($alocadoPorObrigacao[$id] ?? 0) : 0;
+
+            $config = $this->resolvedor->aplicarObrigacao($configCaso, $obrigacao);
 
             $encargos = $this->calculadora->calcular(
                 $obrigacao->getValorOriginal(),

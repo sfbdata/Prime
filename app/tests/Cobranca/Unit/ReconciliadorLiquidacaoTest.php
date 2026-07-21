@@ -9,6 +9,7 @@ use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\ReconciliadorLiquidacao;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
@@ -130,9 +131,56 @@ final class ReconciliadorLiquidacaoTest extends TestCase
         self::assertSame(111, $o->getMulta());
     }
 
+    #[TestDox('Taxa própria MAIOR que a do caso: alocado cobre o exigível-BASE mas NÃO o exigível-OVERLAY → não liquida')]
+    public function testTaxaPropriaMaiorImpedeLiquidacaoPrematura(): void
+    {
+        // P=100,00, venc 30 dias antes da REF. Caso (TOPLIFE): juros 1% a.m. + multa 2% → exigível-BASE
+        // = 100,00 + 1,00 + 2,00 = 103,00. Obrigação com taxa PRÓPRIA de juros 3% a.m. (override) →
+        // exigível-OVERLAY = 100,00 + 3,00 + 2,00 = 105,00. Alocado = 103,00 cobre o BASE mas não o
+        // OVERLAY: com o overlay aplicado, a obrigação tem de permanecer VIVA (não pode liquidar com a
+        // taxa do caso, que é menor que a dela).
+        $o = $this->obrigacao(10000, '2026-06-20')->setTaxaJurosMensalBp(300);
+
+        $this->sut()->reconciliar($this->config(), [$o], [$this->idDe($o) => 10300], $this->ref());
+
+        self::assertFalse($o->estaLiquidada(), 'não pode liquidar com o exigível da taxa do CASO (103,00): a taxa própria (105,00) ainda não foi coberta');
+        self::assertFalse($o->encargosCongelados());
+    }
+
+    #[TestDox('Taxa própria MAIOR: quando o alocado cobre o exigível-OVERLAY, liquida com o snapshot na taxa própria')]
+    public function testTaxaPropriaMaiorLiquidaComSnapshotDaTaxaPropria(): void
+    {
+        // Mesmo cenário acima, mas alocado = 105,00 (exigível-OVERLAY completo) → liquida, e o snapshot
+        // grava os encargos calculados com a taxa PRÓPRIA (juros 3,00), não a do caso (1,00).
+        $o = $this->obrigacao(10000, '2026-06-20')->setTaxaJurosMensalBp(300);
+
+        $this->sut()->reconciliar($this->config(), [$o], [$this->idDe($o) => 10500], $this->ref());
+
+        self::assertTrue($o->estaLiquidada());
+        self::assertSame(300, $o->getJuros(), 'snapshot com a taxa PRÓPRIA (3% a.m.), não a do caso (1%)');
+        self::assertSame(200, $o->getMulta());
+        self::assertSame(10500, $o->valorExigivel());
+    }
+
+    #[TestDox('Taxa própria MENOR que a do caso: alocado insuficiente para o exigível-BASE mas suficiente para o exigível-OVERLAY → liquida')]
+    public function testTaxaPropriaMenorLiquidaAntesDoExigivelDoCaso(): void
+    {
+        // Obrigação com taxa PRÓPRIA de juros 0,5% a.m. (menor que o 1% do caso) → exigível-OVERLAY =
+        // 100,00 + 0,50 + 2,00 = 102,50. Exigível-BASE (taxa do caso) seria 103,00. Alocado = 102,80:
+        // cobre o OVERLAY mas não o BASE — com o overlay aplicado corretamente, tem de liquidar (a taxa
+        // que rege esta obrigação é a dela, mais branda).
+        $o = $this->obrigacao(10000, '2026-06-20')->setTaxaJurosMensalBp(50);
+
+        $this->sut()->reconciliar($this->config(), [$o], [$this->idDe($o) => 10280], $this->ref());
+
+        self::assertTrue($o->estaLiquidada(), 'exigível-OVERLAY (102,50) já foi coberto pelo alocado (102,80)');
+        self::assertSame(50, $o->getJuros(), 'snapshot com a taxa PRÓPRIA (0,5% a.m.)');
+        self::assertSame(200, $o->getMulta());
+    }
+
     private function sut(): ReconciliadorLiquidacao
     {
-        return new ReconciliadorLiquidacao(new CalculadoraEncargos());
+        return new ReconciliadorLiquidacao(new CalculadoraEncargos(), new ResolvedorConfigEncargos());
     }
 
     private function config(): ConfigEncargos
