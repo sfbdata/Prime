@@ -90,7 +90,9 @@ final class ConversorTaxaEncargo
 
     /**
      * Resolve o bp de um encargo pelo modo: 'herda' → null; 'percent' → bp submetido; 'reais' → deriva via
-     * o callback (só chamado no modo reais, para não computar base à toa).
+     * o callback (só chamado no modo reais, para não computar base à toa). Modo desconhecido ESTOURA alto
+     * em vez de virar 'herda' silenciosamente: `modo` vem de campo hidden, e um valor inesperado não pode
+     * descartar a taxa que o usuário digitou.
      *
      * @param callable(): int $derivarDeReais
      */
@@ -99,7 +101,8 @@ final class ConversorTaxaEncargo
         return match ($modo) {
             'percent' => $bpSubmetido,
             'reais' => $derivarDeReais(),
-            default => null, // 'herda'
+            'herda' => null,
+            default => throw new \InvalidArgumentException(sprintf('Modo de taxa desconhecido: "%s".', $modo)),
         };
     }
 }
