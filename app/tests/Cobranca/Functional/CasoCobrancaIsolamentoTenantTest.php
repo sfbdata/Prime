@@ -29,6 +29,7 @@ use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Cobranca\Service\ConversorTaxaEncargo;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
@@ -90,7 +91,7 @@ final class CasoCobrancaIsolamentoTenantTest extends KernelTestCase
 
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
-        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
+        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos(), new ConversorTaxaEncargo(new CalculadoraEncargos()));
         $this->alterarPessoaCobrada = new AlterarPessoaCobradaUseCase($casoRepo, $pessoaRepo, $registrarEvento);
         $this->calculadoraSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo, new \App\Cobranca\Service\EncargosVivos(new \Symfony\Component\Clock\MockClock(new \DateTimeImmutable('2026-07-20')), new \App\Cobranca\Service\CalculadoraEncargos(), new \App\Cobranca\Service\ResolvedorConfigEncargos()), new \App\Cobranca\Service\ResolvedorConfigEncargos());
     }

@@ -464,6 +464,75 @@ final class EditarObrigacaoUseCaseTest extends TestCase
     }
 
     /**
+     * Fix pós-revisão (Task 7): a taxa (override) é gravada na obrigação ANTES do guard do exigível
+     * (necessário — o cálculo do exigível novo depende da taxa nova). Isso significa que, quando o guard
+     * REJEITA a edição, a obrigação já está mutada EM MEMÓRIA — mas nada disso pode chegar ao banco. Este
+     * teste trava o invariante "rejeição não persiste": mesmo com um override de taxa presente (multa 10%
+     * elevando o exigível de 25000 para 27500, ainda abaixo dos 50000 já alocados), o `eventoRepository`
+     * (único ponto de flush do UseCase — não há `obrigacaoRepository->salvar` em editar) NUNCA é chamado.
+     */
+    #[Test]
+    public function editarComOverrideDeTaxaQueRejeitaNoGuardNaoPersisteATaxaNova(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        // R$ 500,00 já alocados; o novo exigível com o override (25000 + 2500 de multa = 27500) ainda
+        // fica abaixo — o guard tem de barrar mesmo com a taxa nova em jogo.
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(50000);
+        $this->eventoRepository->expects($this->never())->method('salvar');
+
+        $input = $this->inputValido();
+        $input->modoMulta = 'percent';
+        $input->multaBp = 1000; // 10% de 25000 = 2500 (base Principal, herdada — caso neutro)
+
+        try {
+            $this->sut->executar($input, $this->tenant, $this->usuario);
+            self::fail('o guard do exigível deveria ter barrado a edição mesmo com override de taxa');
+        } catch (ValorAbaixoDoAlocadoException) {
+            // esperado
+        }
+
+        // A taxa FOI mutada em memória (dependência taxa→exigível, documentada no UseCase) — mas o
+        // eventoRepository->salvar (única porta de flush do editar) nunca foi chamado (assert acima),
+        // então nada foi persistido: a mutação em memória morre com a exceção, sem alcançar o banco.
+        self::assertSame(1000, $obrigacao->getTaxaMultaBp(), 'a taxa é mutada em memória antes do guard, por necessidade de cálculo');
+        // O resto do cadastro (fora da taxa) segue intocado até o guard passar.
+        self::assertSame('Boleto errado', $obrigacao->getDescricao());
+        self::assertSame(10000, $obrigacao->getValorOriginal());
+    }
+
+    /**
+     * Fix pós-revisão (Task 7, Menor 1): a auditoria da mudança de TAXA ponta-a-ponta. Editar COM um
+     * override de multa grava o antes (herdava, null) e o depois (override novo, 200 bp) no snapshot do
+     * evento — sem isso o histórico mostra "o exigível mudou" mas não explica que foi uma taxa nova.
+     */
+    #[Test]
+    public function editarComOverrideDeTaxaAuditaODepoisDiferenteDoAntesNasChavesDeTaxa(): void
+    {
+        $obrigacao = $this->obrigacaoAtiva();
+        $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);
+        $this->alocacaoRepository->method('totalAlocadoEmObrigacoes')->willReturn(0);
+
+        $capturado = null;
+        $this->eventoRepository->expects($this->once())->method('salvar')
+            ->willReturnCallback(function (EventoHistorico $e) use (&$capturado): void {
+                $capturado = $e;
+            });
+
+        $input = $this->inputValido();
+        $input->modoMulta = 'percent';
+        $input->multaBp = 200; // override explícito (2%): antes null (herdava), depois 200
+
+        $this->sut->executar($input, $this->tenant, $this->usuario);
+
+        self::assertInstanceOf(EventoHistorico::class, $capturado);
+        $dados = $capturado->getDados();
+        self::assertNull($dados['antes']['taxaMultaBp'], 'antes da edição a obrigação herdava (sem override próprio)');
+        self::assertSame(200, $dados['depois']['taxaMultaBp'], 'depois grava o override novo gravado nesta edição');
+        self::assertNotSame($dados['antes']['taxaMultaBp'], $dados['depois']['taxaMultaBp'], 'auditoria prova depois != antes na chave de taxa');
+    }
+
+    /**
      * F5 (spec §5/§12): editar uma obrigação PAGA é permitido — "quitada" é conceito de LEITURA
      * (`alocado >= exigível`), não estado persistido, e o único limite é o guard `< totalAlocado`.
      * Aqui o valor de uma obrigação com R$100,00 já recebidos SOBE para R$150,00: passa folgado, os

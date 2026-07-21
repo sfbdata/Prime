@@ -35,6 +35,7 @@ use App\Cobranca\Service\AutoAlocadorFifo;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Cobranca\Service\ConversorTaxaEncargo;
 use App\Cobranca\Service\EncargosVivos;
 use App\Cobranca\Service\ReconciliadorLiquidacao;
 use App\Cobranca\Service\RegistrarEventoHistorico;
@@ -118,7 +119,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         );
 
         $this->abrirCaso = new AbrirCasoUseCase($casoRepo, $objetoRepo, $pessoaRepo, $registrarEvento);
-        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos());
+        $this->registrarObrigacao = new RegistrarObrigacaoUseCase($obrigacaoRepo, $casoRepo, $registrarEvento, new CalculadoraEncargos(), new ResolvedorConfigEncargos(), new ConversorTaxaEncargo(new CalculadoraEncargos()));
         $reconciliador = new ReconciliadorLiquidacao(new CalculadoraEncargos());
         $this->registrarPagamento = new RegistrarPagamentoUseCase($pagamentoRepo, $casoRepo, $alocador, $autoAlocador, $registrarEvento, $alocacaoRepo, new ResolvedorConfigEncargos(), $reconciliador);
         $this->corrigirPagamento = new CorrigirPagamentoUseCase($pagamentoRepo, $alocador, $autoAlocador, $registrarEvento, $alocacaoRepo, new ResolvedorConfigEncargos(), $reconciliador);
