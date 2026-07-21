@@ -38,10 +38,24 @@ congelado), em **claro e escuro**. Dados de smoke removidos após a captura.
    NÃO liquidadas (`liquidada_em IS NULL`) e NÃO substituídas por acordo vigente. É operação em dados de
    PROD ⇒ do humano (montar+revisar+rodar), idealmente junto com o deploy.
 3. **Config load-bearing:** conferir carteiras SEM taxa antes do go-live (SQL no `SMOKE_ENCARGOS.md`).
-4. **A2 / override de taxa por-obrigação (§7/§11 — "confirmar na revisão"):** editar/registrar encargo à
-   mão NÃO persiste no ao vivo (é recomputado na leitura); os campos de encargo nos modais ficaram
-   vestigiais. Decisão do dono: (a) restringir edição de encargo à taxa do caso/carteira e esconder esses
-   campos, ou (b) implementar o override por-obrigação (campo de taxa na obrigação) como follow-up.
+4. **A2 / override de taxa por-obrigação (§7/§11 — "confirmar na revisão") — ⏳ DECISÃO ABERTA DO DONO:**
+   editar/registrar encargo à mão NÃO persiste no ao vivo (é recomputado na leitura da taxa do caso/
+   carteira); os campos juros/multa/correção/honorários nos modais de criar/editar obrigação ficaram
+   **vestigiais** (o valor digitado "volta" ao recarregar). **➡️ COMEÇAR O NOVO CHAT apresentando esta
+   decisão ao dono** (3 opções):
+   - **(a) Restringir à taxa do caso/carteira** — esconder/desabilitar os campos de encargo nos modais;
+     encargo só via taxa do caso/carteira. É a "1ª entrega" do §11. Só Twig/Form + testes (risco BAIXO).
+     *Recomendada* (alinha ao modelo ao vivo; evita o input descartado confuso).
+   - **(b) Override por-obrigação (§7 completo)** — campo de TAXA na obrigação: digitar deriva a % mensal
+     e a obrigação segue ao vivo com taxa própria. Feature nova (coluna + migração + resolver + UI + testes).
+   - **(c) Deixar como está** — campos visíveis, digitado descartado na leitura; decidir depois.
+
+**COMO RETOMAR (novo chat):** ler este bloco STATUS; a feature F1–F5 está PRONTA e verde (não reimplementar).
+Fazer só: (1) apresentar a decisão §7/§11 acima ao dono e executar a opção escolhida; (2) lembrar o dono das
+operações de deploy/dados (itens 1–3 acima: publicar, migração A1, config das carteiras) — que são do HUMANO.
+Nunca push/merge/deploy. Carregar skills `workflow` + `executing-plans`. Gotchas: teste no container
+(`-d memory_limit=512M`); `MockClock` de `new \DateTimeImmutable('YYYY-MM-DD')`; saas_test=schema:create
+(ALTER cirúrgico, não a cadeia); FIFO e ReconciliadorLiquidacao usam a MESMA data (a do pagamento).
 
 **Mandato do dono (2026-07-20):** seguir **autônomo até o final**. Por fase: implementar (TDD) → `/review`
 (`feature-review-agent` contra a spec) → corrigir → testes direcionados no container → estabilizar → **commit local**.
