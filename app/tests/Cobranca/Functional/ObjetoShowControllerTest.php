@@ -7,6 +7,7 @@ namespace App\Tests\Cobranca\Functional;
 use App\Cobranca\Controller\CasoController;
 use App\Cobranca\Controller\ObjetoController;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\StatusCaso;
@@ -787,5 +788,68 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertSame('1360', $item->attr('data-juros-centavos'));
         self::assertSame('340', $item->attr('data-multa-centavos'));
         self::assertSame('0', $item->attr('data-correcao-centavos'));
+    }
+
+    // ── Taxa por-obrigação (Task 9): editar submete %/R$, o servidor grava a taxa e o saldo/linha ──
+    // refletem AO VIVO (Task 4 overlay + Task 5/7 conversor). Vencimento RELATIVO a hoje (-240 dias):
+    // `EditarObrigacaoUseCase` grava `hoje` como `new \DateTimeImmutable('today')` direto (sem relógio
+    // injetável nesse UseCase) — fixar a DIFERENÇA de dias, e não a data absoluta, é o que sustenta o
+    // determinismo independente do dia em que a suíte roda (mesmo padrão já usado no teste F4 acima).
+
+    #[TestDox('Task 9: editar com modoJuros=percent grava a taxa própria e o saldo cresce proporcionalmente')]
+    public function testEditarComOverrideDeJurosPercentualRefleteNoSaldoDoCaso(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        // Caso herda 1% a.m. (100 bp) de juros — só juros configurado (multa/correção seguem 0,
+        // herdadas da carteira neutra do semearGrafo).
+        [, $caso] = $this->semearGrafo($tenant, ['taxaJurosMensalBp' => 100]);
+        $vencimento = (new \DateTimeImmutable('today'))->modify('-240 days');
+        $obrigacao = ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Boleto com taxa própria', 'valorOriginal' => 17000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => $vencimento,
+        ])->_real();
+        $obrigacaoId = (int) $obrigacao->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+        // Baseline herdado (P=170,00, 1% a.m., 240 dias) = R$13,60 — o MESMO número já provado no
+        // Apêndice A por `testALinhaMostraAsColunasDeEncargosSeparados` acima (paridade ao centavo).
+        self::assertStringContainsString('13,60', $crawler->filter('#secao-divida .jp-obr .col-juros')->text());
+        $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
+
+        // `jurosBp` é o campo TaxaBpType — texto do PERCENTUAL em pt-BR ("2,00"), NÃO bp cru; o
+        // `TaxaBpParaTextoTransformer` converte para 200 bp no servidor (2,00% = 200 bp).
+        $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
+            'editar_obrigacao' => [
+                'descricao' => 'Boleto com taxa própria',
+                'valorOriginal' => '170,00',
+                'vencimentoOriginal' => $vencimento->format('Y-m-d'),
+                'modoJuros' => 'percent',
+                'jurosBp' => '2,00',
+                'motivo' => 'Ajuste de taxa própria (Task 9)',
+                '_token' => $token,
+            ],
+        ]);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId() . '#secao-divida');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $fresh = $em->getRepository(Obrigacao::class)->find($obrigacaoId);
+        self::assertNotNull($fresh);
+        self::assertSame(200, $fresh->getTaxaJurosMensalBp(), 'a taxa própria (2%) foi gravada na obrigação — override, não mais herdando');
+        self::assertFalse($fresh->encargosCongelados(), 'ao vivo (D6): editar não congela a obrigação');
+        // 2% é o DOBRO EXATO de 1% (linear em bp, mesmos P/dias): R$13,60 × 2 = R$27,20.
+        self::assertSame(2720, $fresh->getJuros(), 'o juros materializado no servidor dobrou com a taxa própria');
+
+        // Ponta-a-ponta: uma NOVA leitura da página (o saldo é recalculado AO VIVO, Task 4) mostra a
+        // taxa própria refletida — não só no banco, mas no que o gestor vê.
+        $crawlerDepois = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('27,20', $crawlerDepois->filter('#secao-divida .jp-obr .col-juros')->text());
+        // Saldo do caso (header): 170,00 + 27,20 de juros (multa/correção seguem 0, herdadas da
+        // carteira neutra) = 197,20.
+        self::assertStringContainsString('197,20', $crawlerDepois->filter('.cob-hero-total')->text());
     }
 }

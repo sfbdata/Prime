@@ -67,41 +67,68 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
             self::assertSelectorExists($gancho, "Sumiu o gancho: {$gancho}");
         }
 
-        // F4 (encargos separados): o espelho % ↔ R$ casa cada input de percentual (`data-encargo-pct`,
-        // auxiliar e SEM `name`) com o campo do Form em reais (`data-encargo`), e lê a base no campo
-        // apontado por `data-encargo-base`. Se qualquer ponta sumir, o par se desfaz em silêncio: o
-        // gestor digitaria um percentual que não vira dinheiro nenhum. Vale nos DOIS modais.
+        // Taxa por-obrigação (Task 9, espelho R$↔%): cada encargo é um bloco `.jp-encargo[data-encargo=…]`
+        // com um TRIO de campos do Form (Task 8) — "%" (`jp-taxa-pct`), "R$" (`jp-taxa-reais`) e o modo
+        // hidden (`jp-taxa-modo`) que diz ao servidor qual dos dois foi editado por último. Diferente do
+        // F4/Ajuste-11 antigo, os DOIS (% e R$) são campos reais SUBMETIDOS — não há mais um "% auxiliar
+        // sem name" (o servidor recalcula a %/taxa a partir de qualquer um deles, Task 5/7). Se qualquer
+        // gancho sumir, o par se desfaz em silêncio: o gestor digitaria algo que não vira taxa nenhuma.
+        // Vale nos DOIS modais.
         foreach (['#modalEditarObrigacao', '#modalRegistrarObrigacao'] as $modal) {
+            self::assertSelectorExists($modal . ' .jp-encargos-wrap', "Sumiu o wrapper de encargos em {$modal}");
+
             foreach (['juros', 'multa', 'correcao'] as $encargo) {
                 self::assertSelectorExists(
-                    $modal . ' [data-encargo-pct="' . $encargo . '"][data-encargo-base="valorOriginal"]',
+                    $modal . ' .jp-encargo[data-encargo="' . $encargo . '"][data-base="valorOriginal"]',
+                    "Sumiu o bloco de {$encargo} em {$modal}",
+                );
+                self::assertSelectorExists(
+                    $modal . ' .jp-encargo[data-encargo="' . $encargo . '"] .jp-taxa-pct',
                     "Sumiu o input de % de {$encargo} em {$modal}",
                 );
                 self::assertSelectorExists(
-                    $modal . ' [data-encargo="' . $encargo . '"]',
+                    $modal . ' .jp-encargo[data-encargo="' . $encargo . '"] .jp-taxa-reais',
                     "Sumiu o campo em R$ de {$encargo} em {$modal}",
                 );
+                self::assertSelectorExists(
+                    $modal . ' .jp-encargo[data-encargo="' . $encargo . '"] .jp-taxa-modo',
+                    "Sumiu o modo (hidden) de {$encargo} em {$modal}",
+                );
+                self::assertSelectorExists(
+                    $modal . ' .jp-encargo[data-encargo="' . $encargo . '"] .jp-taxa-herda',
+                    "Sumiu o indicador \"herda do caso\" de {$encargo} em {$modal}",
+                );
+                self::assertSelectorExists(
+                    $modal . ' .jp-encargo[data-encargo="' . $encargo . '"] .jp-taxa-limpar',
+                    "Sumiu a ação de limpar (voltar a herdar) de {$encargo} em {$modal}",
+                );
             }
-            // A base do espelho: sem ela o JS desabilita os % (não há por que dividir).
+            // A base do espelho: sem ela o JS não deriva o R$ de juros/multa/correção a partir do %.
             self::assertSelectorExists($modal . ' input[name$="[valorOriginal]"]', "Sumiu a base do % em {$modal}");
 
-            // Ajuste 2 (Fatia B): o honorário é o 4º par, mas com base COMPOSTA
-            // (`data-encargo-base="composta"`) — o JS soma valorOriginal + juros + multa + correção.
-            // Se o marcador `composta` sumir, o espelho leria o honorário sobre a base errada, em silêncio
-            // e sobre dinheiro (risco 2 da spec). O R$ é o campo do Form (submetido); o % é auxiliar.
+            // Ajuste 2 (Fatia B), preservado na taxa por-obrigação: o honorário é o 4º bloco, mas com base
+            // COMPOSTA (`data-base="composta"`) — o JS soma valorOriginal + as R$ dos outros três. Se o
+            // marcador `composta` sumir, o espelho leria o honorário sobre a base errada, em silêncio e
+            // sobre dinheiro (risco 2 da spec).
             self::assertSelectorExists(
-                $modal . ' [data-encargo-pct="honorarios"][data-encargo-base="composta"]',
-                "Sumiu o input de % de honorários com base composta em {$modal}",
+                $modal . ' .jp-encargo[data-encargo="honorarios"][data-base="composta"]',
+                "Sumiu o bloco de honorários com base composta em {$modal}",
             );
             self::assertSelectorExists(
-                $modal . ' [data-encargo="honorarios"]',
+                $modal . ' .jp-encargo[data-encargo="honorarios"] .jp-taxa-pct',
+                "Sumiu o input de % de honorários em {$modal}",
+            );
+            self::assertSelectorExists(
+                $modal . ' .jp-encargo[data-encargo="honorarios"] .jp-taxa-reais',
                 "Sumiu o campo em R$ de honorários em {$modal}",
             );
         }
 
-        // O % é DERIVADO do R$ e nunca é submetido: se ganhar `name`, vira uma segunda fonte de verdade
-        // sobre dinheiro, que o B5 teria de reidratar e que divergiria do R$ por arredondamento.
-        self::assertSelectorNotExists('[data-encargo-pct][name]', 'o input de % não pode ser submetido ao servidor');
+        // O `modo` é o discriminador de qual campo venceu (herda|percent|reais) — tem de ser hidden, nunca
+        // um campo visível/editável direto: quem o seta é o JS (ou o default 'herda' do Form), nunca a
+        // digitação do usuário.
+        self::assertSelectorExists('input[type="hidden"].jp-taxa-modo', 'o modo do encargo tem de ser hidden');
+        self::assertSelectorNotExists('.jp-taxa-modo:not([type="hidden"])', 'o modo do encargo não pode ser um campo visível');
 
         // Ajuste 11 (T3): a "Próxima ação" migrou da coluna principal para o cartão de destaque
         // do trilho (`.cob-proxima`) — o gancho visual, não só o modal que ela abre.

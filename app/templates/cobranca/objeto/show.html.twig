@@ -352,18 +352,26 @@ document.addEventListener('DOMContentLoaded', function () {
             setVal('referenciaExterna', botao.getAttribute('data-referencia') || '');
             setVal('vencimentoOriginal', botao.getAttribute('data-vencimento') || '');
             setVal('valorOriginal', reais(botao.getAttribute('data-valor-centavos')));
-            /* F4: os encargos deixaram de ser um número só. TODO campo do modal precisa de um `setVal`
-               aqui — os modais de obrigação não têm `hidden.bs.modal`, o reset deles é este preenchimento;
-               um campo esquecido vaza o valor da obrigação aberta antes. */
-            setVal('juros', reais(botao.getAttribute('data-juros-centavos')));
-            setVal('multa', reais(botao.getAttribute('data-multa-centavos')));
-            setVal('correcao', reais(botao.getAttribute('data-correcao-centavos')));
-            /* Honorário (Ajuste 2, D-A2-5): NÃO é pré-preenchido a partir dos `data-*` da linha — fica
-               VAZIO = automático (o motor recalcula/completa). Limpar aqui é obrigatório: o modal é
-               reutilizável, e sem este reset um honorário digitado numa obrigação vazaria para a próxima.
-               No B5 (reidratação) `relatedTarget` é undefined e cai no early-return acima, então o valor
-               que o gestor submeteu sobrevive — como os demais encargos. */
-            setVal('honorarios', '');
+            /* Taxa por-obrigação (Task 9, spec §6): o modal de Editar é reutilizável (1 por página) — cada
+               abertura tem de partir de "herda do caso" nos 4 encargos, pelo MESMO motivo que o honorário
+               já seguia antes desta feature (Ajuste 2, D-A2-5): sem reset aqui, o `%`/`R$` digitados numa
+               obrigação vazariam para a próxima que o gestor abrir. Corrigir a obrigação (ex.: descrição)
+               sem TOCAR nos encargos aqui também devolve os 4 à herança do caso nesta submissão — mudança
+               de comportamento vs. juros/multa/correção pré-Task 9 (que resubmetiam o valor congelado
+               anterior); documentado no relatório da Task 9 como ponto para o orquestrador avaliar (só a
+               linha expondo a taxa-override crua permitiria reidratar o override existente aqui). No B5
+               (reidratação) `relatedTarget` é undefined e cai no early-return acima — o que o gestor
+               submeteu sobrevive, como antes. */
+            ['juros', 'multa', 'correcao', 'honorarios'].forEach(function (campo) {
+                var Nome = campo.charAt(0).toUpperCase() + campo.slice(1);
+                setVal(campo + 'Bp', '');
+                setVal(campo + 'Reais', '');
+                setVal('modo' + Nome, 'herda');
+            });
+            /* §5: `dias` (vencimento → hoje) da OBRIGAÇÃO clicada, injetado pela linha (`_divida.html.twig`)
+               — o espelho de `show.html.twig` usa isto para desabilitar o R$ de juros quando `dias==0`. */
+            var wrapEncargosEditar = modalEditar.querySelector('.jp-encargos-wrap');
+            if (wrapEncargosEditar) { wrapEncargosEditar.setAttribute('data-dias', botao.getAttribute('data-dias') || '0'); }
             setVal('motivo', '');
             /* F5 (spec §12): revela o aviso de reconciliação só quando a linha carrega pagamento
                (`data-tem-pagamento="1"`). Como o modal é reutilizável, o estado é reposto a cada
@@ -374,134 +382,182 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* Espelho % ↔ R$ dos encargos (F4, spec §11), nos modais de registrar e editar obrigação.
-       O R$ é a FONTE DE VERDADE: é o campo do Form, é o que vai ao servidor e o que o B5 reidrata.
-       O "%" não tem `name` — é conveniência de digitação, derivada do R$ sobre o valor original. */
+    /* Espelho % ↔ R$ dos encargos (Task 9, taxa por-obrigação, spec §5/§6), nos modais de registrar e
+       editar obrigação. Cada encargo (juros/multa/correção/honorários) é um TRIO de campos do Form
+       (Task 8): "%" (`jp-taxa-pct`, TaxaBpType), "R$" (`jp-taxa-reais`, CentavosType) e o `modo` hidden
+       (`jp-taxa-modo`, herda|percent|reais) — os DOIS primeiros SÃO campos reais, submetidos; o `modo`
+       diz ao servidor qual dos dois o gestor efetivamente editou por último. Editar um deriva o outro
+       AQUI só como PREVIEW (fórmulas simplificadas — sem a composição de bases entre encargos que o
+       `ConversorTaxaEncargo` faz no servidor, Task 5); quem grava a taxa de verdade é o servidor,
+       recomputando à data de HOJE dele, não do relógio do navegador (Task 5/7 são a autoridade). */
+    function diasDoValorDeData(valorYmd) {
+        if (!valorYmd) { return 0; }
+        var partes = String(valorYmd).split('-');
+        if (partes.length !== 3) { return 0; }
+        var venc = new Date(parseInt(partes[0], 10), parseInt(partes[1], 10) - 1, parseInt(partes[2], 10));
+        var hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        venc.setHours(0, 0, 0, 0);
+
+        return Math.max(0, Math.round((hoje - venc) / 86400000));
+    }
     function initEspelhoEncargos(modal) {
         if (!modal) { return; }
-        /* Cada par guarda a PRÓPRIA base, como uma LISTA de inputs a somar. Juros/multa/correção têm base
-           simples (um input: o valor original); o honorário (Ajuste 2) tem base COMPOSTA — valor + juros +
-           multa + correção. Sem isso o espelho calcularia o % do honorário sobre a base errada, em silêncio
-           e sobre dinheiro (risco 2 da spec). */
-        var pares = [];
-        modal.querySelectorAll('[data-encargo-pct]').forEach(function (pctInput) {
-            var nome = pctInput.getAttribute('data-encargo-pct');
-            var campoBase = pctInput.getAttribute('data-encargo-base') || 'valorOriginal';
-            var reaisInputEl = modal.querySelector('[data-encargo="' + nome + '"]');
-            if (!reaisInputEl) { return; }
-            var baseEls;
-            if (campoBase === 'composta') {
-                // Base composta: os quatro inputs em R$; um ausente simplesmente soma 0 (não quebra).
-                baseEls = ['valorOriginal', 'juros', 'multa', 'correcao']
-                    .map(function (campo) { return modal.querySelector('input[name$="[' + campo + ']"]'); })
-                    .filter(function (el) { return el !== null; });
-            } else {
-                var baseEl = modal.querySelector('input[name$="[' + campoBase + ']"]');
-                baseEls = baseEl ? [baseEl] : [];
-            }
-            if (baseEls.length > 0) { pares.push({ pct: pctInput, reais: reaisInputEl, baseEls: baseEls }); }
-        });
-        if (pares.length === 0) { return; }
+        var wrap = modal.querySelector('.jp-encargos-wrap');
+        var blocos = Array.prototype.slice.call(modal.querySelectorAll('.jp-encargo'));
+        if (blocos.length === 0) { return; }
+        var principalInput = modal.querySelector('input[name$="[valorOriginal]"]');
+        var vencimentoInput = modal.querySelector('input[name$="[vencimentoOriginal]"]');
 
-        /* Percentual digitado → número. Aceita vírgula (pt-BR) e ponto; string vazia vira null, para
-           distinguir "não informado" de "zero por cento". */
-        function parsePercentual(texto) {
-            var s = String(texto === null || texto === undefined ? '' : texto).trim().replace(/\s/g, '').replace('%', '');
+        function principalCentavos() { return principalInput ? parseCentavos(principalInput.value) : 0; }
+        function diasAtuais() { return parseInt((wrap && wrap.getAttribute('data-dias')) || '0', 10); }
+        function carenciaAtual() { return parseInt((wrap && wrap.getAttribute('data-carencia')) || '0', 10); }
+
+        /* Base do "%" de cada encargo: juros/multa/correção incidem sobre o valor original; o honorário
+           (quando a base do caso é composta) soma o que os OUTROS três mostram agora no próprio "R$" —
+           um encargo herdado (campo vazio) entra como 0 neste PREVIEW local, porque o valor herdado de
+           verdade só o servidor conhece (mesma ressalva do `ConversorTaxaEncargo`, Task 5). */
+        function baseCentavos(bloco) {
+            if (bloco.getAttribute('data-base') !== 'composta') { return principalCentavos(); }
+            var soma = principalCentavos();
+            blocos.forEach(function (outro) {
+                if (outro === bloco) { return; }
+                var r = outro.querySelector('.jp-taxa-reais');
+                if (r) { soma += parseCentavos(r.value); }
+            });
+
+            return soma;
+        }
+
+        /* bp (inteiro, 100 = 1%) ⇄ texto pt-BR — espelha `TaxaBpParaTextoTransformer` (sem thousand
+           separator: irrelevante para taxas de encargo, e o parser do servidor aceita os dois formatos). */
+        function bpParaTexto(bp) {
+            var sinal = bp < 0 ? '-' : '';
+
+            return sinal + (Math.abs(bp) / 100).toFixed(2).replace('.', ',');
+        }
+        function textoParaBp(texto) {
+            var s = String(texto === null || texto === undefined ? '' : texto).trim().replace('%', '').replace(',', '.');
             if (s === '') { return null; }
-            var f = parseFloat(s.replace(',', '.'));
-            return isNaN(f) ? null : f;
-        }
-        /* Base em centavos = soma dos inputs da base do par (um só para base simples; os quatro para a
-           base composta do honorário). É recalculada a cada leitura, então acompanha o que o gestor digita. */
-        function baseCentavos(par) {
-            return par.baseEls.reduce(function (soma, el) { return soma + parseCentavos(el.value); }, 0);
+            var f = parseFloat(s);
+
+            return isNaN(f) ? null : Math.round(f * 100);
         }
 
-        /* % → R$ em CENTAVOS INTEIROS. O percentual vira inteiro em décimos de milésimo de ponto
-           (4 casas) e há UMA única divisão no fim, arredondada half-up (`Math.round`, valores nunca
-           negativos aqui). É dinheiro: nada de acumular erro de float em cascata. */
-        function percentualParaCentavos(baseCent, pct) {
-            var escala = Math.round(pct * 10000);
-            return Math.round(baseCent * escala / 1000000);
+        /* Juros considera `dias` (pró-rata mensal); os demais são proporção flat sobre a base (spec §5).
+           Sem `dias`/base não há "%" derivável de um R$ — devolve null (o chamador decide o que fazer). */
+        function bpDeReais(bloco, centavos) {
+            if (bloco.getAttribute('data-encargo') === 'juros') {
+                var p = principalCentavos();
+                var dias = diasAtuais();
+
+                return (p > 0 && dias > 0) ? Math.round(centavos * 300000 / (p * dias)) : null;
+            }
+            var base = baseCentavos(bloco);
+
+            return base > 0 ? Math.round(centavos * 10000 / base) : null;
         }
-        function centavosParaPercentual(baseCent, cent) {
-            return (cent * 100 / baseCent).toFixed(2).replace('.', ',');
+        function reaisDeBp(bloco, bp) {
+            if (bloco.getAttribute('data-encargo') === 'juros') {
+                var p = principalCentavos();
+                var dias = diasAtuais();
+
+                return (p > 0 && dias > 0) ? Math.round(bp * p * dias / 300000) : 0;
+            }
+            var base = baseCentavos(bloco);
+
+            return base > 0 ? Math.round(bp * base / 10000) : 0;
         }
 
-        /* Sem base (valor original vazio ou zero) não há percentual possível: dividir por zero daria
-           Infinity/NaN no campo. Desabilita e esvazia o "%", deixando o R$ livre para ser digitado. */
-        function aplicarDisponibilidade(par) {
-            var indisponivel = baseCentavos(par) <= 0;
-            par.pct.disabled = indisponivel;
-            if (indisponivel) { par.pct.value = ''; }
-
-            return !indisponivel;
+        /* §5: sem dias de atraso não há juros a converter (a obrigação ainda não venceu, ou vence hoje);
+           dentro da carência não há honorário. `readOnly`, NÃO `disabled` — um campo `disabled` SOME do
+           POST; se o estado mudasse entre o preview e o submit, um valor já digitado sumiria em silêncio
+           (dinheiro). `readOnly` bloqueia a digitação e ainda viaja no formulário.
+           NÃO estende a bloqueio a multa/correção nem à janela de tolerância — extensão proposta, ainda
+           não ratificada pelo humano (ver o TODO no Twig, ao lado do `data-carencia`). */
+        function aplicarBorda(bloco) {
+            var reaisEl = bloco.querySelector('.jp-taxa-reais');
+            if (!reaisEl) { return; }
+            var encargo = bloco.getAttribute('data-encargo');
+            var indisponivel = (encargo === 'juros' && diasAtuais() <= 0)
+                || (encargo === 'honorarios' && diasAtuais() <= carenciaAtual());
+            reaisEl.readOnly = indisponivel;
+            bloco.classList.toggle('jp-taxa-indisponivel', indisponivel);
         }
-        /* Recalcula os "%" a partir dos R$ — nunca o contrário. Usado ao abrir o modal e quando o valor
-           original muda: mexer no principal não pode alterar o dinheiro já reconhecido. `exceto` pula um par
-           (o que o gestor está digitando), para não sobrescrever o "%" que ele acabou de digitar. Chamado
-           como listener (recebe um Event, que nunca === um par → sincroniza todos) ou com um par explícito. */
-        function sincronizarPercentuais(exceto) {
-            pares.forEach(function (par) {
-                if (par === exceto) { return; }
-                if (!aplicarDisponibilidade(par)) { return; }
-                var cent = parseCentavos(par.reais.value);
-                par.pct.value = cent === 0 && String(par.reais.value).trim() === '' ? '' : centavosParaPercentual(baseCentavos(par), cent);
+
+        /* "Herda do caso": o indicador aparece enquanto `modo` for '' (ainda intocado) ou 'herda' (default
+           do Form, Task 6) — ou seja, sempre que nenhum dos dois campos tem valor próprio. */
+        function atualizarHerda(bloco) {
+            var herdaEl = bloco.querySelector('.jp-taxa-herda');
+            var modo = bloco.querySelector('.jp-taxa-modo');
+            if (herdaEl && modo) { herdaEl.classList.toggle('d-none', !!modo.value && modo.value !== 'herda'); }
+        }
+
+        function sincronizarEncargos() {
+            blocos.forEach(function (bloco) { aplicarBorda(bloco); atualizarHerda(bloco); });
+        }
+
+        blocos.forEach(function (bloco) {
+            var pct = bloco.querySelector('.jp-taxa-pct');
+            var reaisEl = bloco.querySelector('.jp-taxa-reais');
+            var modo = bloco.querySelector('.jp-taxa-modo');
+            var limpar = bloco.querySelector('.jp-taxa-limpar');
+            if (!pct || !reaisEl || !modo) { return; }
+
+            pct.addEventListener('input', function () {
+                var bp = textoParaBp(pct.value);
+                modo.value = bp === null ? 'herda' : 'percent';
+                if (bp === null) { reaisEl.value = ''; } else { reaisEl.value = reaisInput(reaisDeBp(bloco, bp)); }
+                atualizarHerda(bloco);
             });
-        }
-
-        pares.forEach(function (par) {
-            par.pct.addEventListener('input', function () {
-                var baseCent = baseCentavos(par);
-                if (baseCent <= 0) { return; }
-                var pct = parsePercentual(par.pct.value);
-                par.reais.value = pct === null ? '' : reaisInput(percentualParaCentavos(baseCent, pct));
-                /* Setar o R$ por atribuição (.value) NÃO dispara 'input', então os `basesObservadas` não
-                   re-sincronizam sozinhos. Este par pode ser BASE de outro (juros/multa/correção compõem a
-                   base do honorário): re-sincroniza os "%" dos DEMAIS pares à mão, exceto o próprio. */
-                sincronizarPercentuais(par);
-            });
-            par.reais.addEventListener('input', function () {
-                var baseCent = baseCentavos(par);
-                if (baseCent <= 0) { return; }
-                var texto = String(par.reais.value).trim();
-                par.pct.value = texto === '' ? '' : centavosParaPercentual(baseCent, parseCentavos(texto));
-            });
-        });
-        /* Re-sincroniza os % sempre que QUALQUER base muda. Antes só o valor original disparava; agora o
-           honorário depende também de juros/multa/correção (base composta), então cada um desses inputs
-           re-sincroniza o espelho. Dedup por referência: o valor original é base de todos os pares, mas
-           o listener é registrado uma única vez. */
-        var basesObservadas = [];
-        pares.forEach(function (par) {
-            par.baseEls.forEach(function (el) {
-                if (basesObservadas.indexOf(el) === -1) {
-                    basesObservadas.push(el);
-                    el.addEventListener('input', sincronizarPercentuais);
+            reaisEl.addEventListener('input', function () {
+                if (reaisEl.readOnly) { return; }
+                var texto = String(reaisEl.value).trim();
+                modo.value = texto === '' ? 'herda' : 'reais';
+                if (texto === '') {
+                    pct.value = '';
+                } else {
+                    var bp = bpDeReais(bloco, parseCentavos(texto));
+                    pct.value = bp === null ? '' : bpParaTexto(bp);
                 }
+                atualizarHerda(bloco);
             });
+            if (limpar) {
+                limpar.addEventListener('click', function () {
+                    pct.value = '';
+                    reaisEl.value = '';
+                    modo.value = 'herda';
+                    atualizarHerda(bloco);
+                });
+            }
         });
 
-        /* Registrado DEPOIS do preenchimento do modal de editar (acima): quando este roda, os R$ da
-           linha já estão nos campos, e o % sai deles. No B5 (reidratação) o `relatedTarget` é undefined,
-           o preenchimento cai fora pelo early-return e aqui os % saem do que o servidor devolveu — por
-           isso o % não precisa ser reidratado: ele é sempre derivado, nunca guardado. */
-        modal.addEventListener('show.bs.modal', sincronizarPercentuais);
-        sincronizarPercentuais();
-
-        /* Limpa os encargos ao FECHAR, quando o modal não é repreenchido na abertura.
-           O de editar recebe todos os campos dos `data-*` da linha a cada `show` — nada vaza. O de
-           "Nova obrigação" não recebe nada: o que ficou digitado continua lá na próxima vez. Para
-           descrição/valor isso é visível e será sobrescrito; para os encargos, não — eles vivem abaixo
-           de um `<hr>`, num bloco que o caso comum nem abre. Um "2%" de multa digitado e abandonado
-           voltaria silencioso no lançamento seguinte, virando dinheiro que ninguém pediu numa obrigação
-           que nem venceu. Só os encargos são limpos: o resíduo dos demais campos é comportamento antigo
-           desta tela e não é desta fatia mexer nele. */
-        if (!modal.hasAttribute('data-preenche-ao-abrir')) {
-            modal.addEventListener('hidden.bs.modal', function () {
-                pares.forEach(function (par) { par.pct.value = ''; par.reais.value = ''; });
+        /* A "Registrar" não tem obrigação ainda: `dias` vem do próprio campo de vencimento (ao vivo,
+           client-side, só preview). A "Editar" recebe `data-dias` pronto da linha, injetado no
+           `show.bs.modal` de preenchimento (acima) — que roda ANTES deste listener (registrado depois). */
+        if (!modal.hasAttribute('data-preenche-ao-abrir') && vencimentoInput) {
+            vencimentoInput.addEventListener('input', function () {
+                if (wrap) { wrap.setAttribute('data-dias', String(diasDoValorDeData(vencimentoInput.value))); }
+                sincronizarEncargos();
             });
         }
+        modal.addEventListener('show.bs.modal', sincronizarEncargos);
+
+        /* Reset ao FECHAR (mesmo padrão do resto do modal): a "Editar" já é sempre repreenchida (limpa)
+           no `show.bs.modal` de preenchimento, então repetir aqui é redundante mas inofensivo; a
+           "Registrar" depende deste reset — sem ele um "%"/"R$" digitado e abandonado (Esc) sobreviveria
+           ao próximo lançamento. */
+        modal.addEventListener('hidden.bs.modal', function () {
+            blocos.forEach(function (bloco) {
+                var pct = bloco.querySelector('.jp-taxa-pct');
+                var reaisEl = bloco.querySelector('.jp-taxa-reais');
+                var modo = bloco.querySelector('.jp-taxa-modo');
+                if (pct) { pct.value = ''; }
+                if (reaisEl) { reaisEl.value = ''; }
+                if (modo) { modo.value = 'herda'; }
+            });
+            sincronizarEncargos();
+        });
     }
     initEspelhoEncargos(document.getElementById('modalEditarObrigacao'));
     initEspelhoEncargos(document.getElementById('modalRegistrarObrigacao'));

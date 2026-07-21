@@ -1,59 +1,68 @@
 {# Modais de mutação do Caso (Onda 8B). Só renderizados para quem tem a capacidade de gerenciar
    cobranças; o gate real é no controller. Cada fatia da 8B acrescenta seus modais aqui. #}
 
-{# Bloco de encargos separados (F4, spec §11), compartilhado pelos modais de REGISTRAR e EDITAR
-   obrigação. Espera no contexto: `formEncargos` (a view do form) e `prefixoEncargos` (o prefixo dos
-   ids, só para dar um id único ao input de % de cada modal — os dois modais coexistem na página).
+{# Bloco de encargos por-obrigação (taxa por-obrigação, espelho R$↔%), compartilhado pelos modais de
+   REGISTRAR e EDITAR obrigação. Espera no contexto: `formEncargos` (a view do form, Task 8: por encargo
+   um trio `modo{Encargo}`/`{encargo}Bp`/`{encargo}Reais`), `honorarioComposta` (base resolvida do caso —
+   Ajuste 2) e `carenciaHonorariosCaso` (carência do caso, em dias — herdada; não há UI de override de
+   carência por-obrigação nesta entrega, YAGNI da spec §11).
 
-   Cada encargo é um par lado a lado: o "%" à esquerda e o R$ à direita. O R$ é o campo do Form — é ele
-   que é submetido, validado e reidratado pelo B5. O "%" é auxiliar: NÃO tem `name`, nunca chega ao
-   servidor, e o JS o deriva do R$ sobre o valor original ao abrir o modal. Duas fontes de verdade sobre
-   dinheiro divergiriam por arredondamento; aqui só existe uma. #}
-{% macro camposEncargos(formEncargos, prefixoEncargos, honorarioComposta = true) %}
+   Cada encargo é um TRIO: "%" (`jp-taxa-pct`) e "R$" (`jp-taxa-reais`) são os DOIS campos reais do Form —
+   qualquer um dos dois pode ser digitado, o outro é preview (JS em `show.html.twig`); o hidden `modo`
+   (`jp-taxa-modo`) diz ao servidor qual foi editado por último ('herda'|'percent'|'reais',
+   `ConversorTaxaEncargo`, Task 5/7). Deixar os dois vazios = herdar a taxa do caso; a obrigação NUNCA
+   congela ao registrar/editar (D6, ao-vivo). #}
+{% macro camposEncargos(formEncargos, honorarioComposta = true, carenciaHonorariosCaso = 0) %}
 <hr class="my-3">
 <h6 class="fw-semibold mb-1">Encargos reconhecidos</h6>
 <div class="form-text mb-3">
-    Informe o percentual <em>ou</em> o valor em reais — um preenche o outro. Juros, multa e correção
-    incidem sobre o <strong>valor original</strong>; o <strong>honorário</strong> incide sobre
+    Informe o percentual <em>ou</em> o valor em reais — um espelha o outro enquanto você digita; quem
+    grava a taxa final (à data de hoje) é o servidor. Juros, multa e correção incidem sobre o
+    <strong>valor original</strong>; o <strong>honorário</strong> incide sobre
     {{ honorarioComposta ? 'a base composta (valor + juros + multa + correção)' : 'o valor original (principal)' }}.
-    Ao gravar juros, multa ou correção a obrigação fica <strong>congelada</strong>: o cálculo automático
-    diário para de atualizá-la. Deixe o honorário <strong>vazio</strong> para calculá-lo automaticamente;
-    ao digitar, a obrigação congela.
+    Deixe os dois campos <strong>vazios</strong> para <strong>herdar</strong> a configuração do caso —
+    a obrigação nunca congela ao registrar ou editar.
 </div>
-
-{# Cada encargo carrega a PRÓPRIA base do espelho %↔R$: juros/multa/correção sobre o valor original; o
-   honorário sobre a base RESOLVIDA do caso (Ajuste 2) — composta (`valor+juros+multa+correção`, o JS de
-   `initEspelhoEncargos` soma os quatro) ou principal (`valorOriginal`, campo único). Sem isto, um % de
-   honorário digitado numa carteira de base Principal viraria R$ sobre a base errada (achado da auditoria).
-   O `?int $honorarios` (Form sem `empty_data`) mapeia campo vazio para `null` = automático; qualquer valor
-   digitado = override + congela. #}
+{# TODO(humano): a spec de encargos ao-vivo propõe estender o bloqueio do campo R$ também a multa/correção
+   e à janela de tolerância (juros/multa) — extensão PROPOSTA, ainda NÃO ratificada. Hoje só juros
+   (`dias==0`, não vencida) e honorários (dentro da carência) ficam com o R$ bloqueado (spec §5). Se
+   aprovado, replicar o mesmo padrão (`data-encargo` + `aplicarBorda` em show.html.twig). #}
+<div class="jp-encargos-wrap" data-dias="0" data-carencia="{{ carenciaHonorariosCaso ?? 0 }}">
 {% for encargo in [
     {'campo': 'juros', 'rotulo': 'Juros', 'base': 'valorOriginal'},
     {'campo': 'multa', 'rotulo': 'Multa', 'base': 'valorOriginal'},
     {'campo': 'correcao', 'rotulo': 'Correção', 'base': 'valorOriginal'},
     {'campo': 'honorarios', 'rotulo': 'Honorários', 'base': honorarioComposta ? 'composta' : 'valorOriginal'}
 ] %}
-    <div class="row g-2 mb-3">
+    {% set bpCampo = encargo.campo ~ 'Bp' %}
+    {% set reaisCampo = encargo.campo ~ 'Reais' %}
+    {% set modoCampo = 'modo' ~ (encargo.campo|capitalize) %}
+    <div class="row g-2 mb-3 jp-encargo" data-encargo="{{ encargo.campo }}" data-base="{{ encargo.base }}">
+        {{ form_widget(attribute(formEncargos, modoCampo), {'attr': {'class': 'jp-taxa-modo'}}) }}
         <div class="col-5">
-            <label class="form-label" for="{{ prefixoEncargos }}_{{ encargo.campo }}_pct">{{ encargo.rotulo }} (%)</label>
+            <label class="form-label" for="{{ attribute(formEncargos, bpCampo).vars.id }}">{{ encargo.rotulo }} (%)</label>
             <div class="input-group">
-                <input type="text" class="form-control" inputmode="decimal"
-                       id="{{ prefixoEncargos }}_{{ encargo.campo }}_pct"
-                       data-encargo-pct="{{ encargo.campo }}" data-encargo-base="{{ encargo.base }}"
-                       autocomplete="off">
+                {{ form_widget(attribute(formEncargos, bpCampo), {'attr': {'class': 'form-control jp-taxa-pct'}}) }}
                 <span class="input-group-text">%</span>
             </div>
+            {{ form_errors(attribute(formEncargos, bpCampo)) }}
         </div>
         <div class="col-7">
-            <label class="form-label" for="{{ attribute(formEncargos, encargo.campo).vars.id }}">{{ encargo.rotulo }} (R$)</label>
+            <label class="form-label" for="{{ attribute(formEncargos, reaisCampo).vars.id }}">{{ encargo.rotulo }} (R$)</label>
             <div class="input-group">
-                {{ form_widget(attribute(formEncargos, encargo.campo)) }}
+                {{ form_widget(attribute(formEncargos, reaisCampo), {'attr': {'class': 'form-control jp-taxa-reais'}}) }}
                 <span class="input-group-text">R$</span>
             </div>
-            {{ form_errors(attribute(formEncargos, encargo.campo)) }}
+            {{ form_errors(attribute(formEncargos, reaisCampo)) }}
+            <div class="d-flex align-items-center justify-content-between mt-1">
+                <small class="text-muted jp-taxa-herda">herda do caso</small>
+                <button type="button" class="btn btn-link btn-sm p-0 jp-taxa-limpar"
+                        aria-label="Limpar {{ encargo.rotulo }} e voltar a herdar do caso">Limpar (herdar)</button>
+            </div>
         </div>
     </div>
 {% endfor %}
+</div>
 {% endmacro %}
 
 {# Macro do próprio template: no Twig 3 chamar via `_self` exige o import explícito. #}
@@ -73,7 +82,7 @@
                 {{ form_row(forms.registrarObrigacao.valorOriginal) }}
                 {{ form_row(forms.registrarObrigacao.vencimentoOriginal) }}
                 {{ form_row(forms.registrarObrigacao.referenciaExterna) }}
-                {{ blocoEncargos.camposEncargos(forms.registrarObrigacao, 'registrarObrigacao', caso.baseHonorariosComposta) }}
+                {{ blocoEncargos.camposEncargos(forms.registrarObrigacao, caso.baseHonorariosComposta, forms.editarConfigCaso.carenciaHonorariosDias.vars.value) }}
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -113,7 +122,7 @@
                 {{ form_row(forms.editarObrigacao.valorOriginal) }}
                 {{ form_row(forms.editarObrigacao.vencimentoOriginal) }}
                 {{ form_row(forms.editarObrigacao.referenciaExterna) }}
-                {{ blocoEncargos.camposEncargos(forms.editarObrigacao, 'editarObrigacao', caso.baseHonorariosComposta) }}
+                {{ blocoEncargos.camposEncargos(forms.editarObrigacao, caso.baseHonorariosComposta, forms.editarConfigCaso.carenciaHonorariosDias.vars.value) }}
                 <hr class="my-3">
                 {{ form_row(forms.editarObrigacao.motivo) }}
             </div>
