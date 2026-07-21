@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Entity\Obrigacao;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(Obrigacao::class)]
 final class ObrigacaoTaxaHonorariosTest extends TestCase
 {
     #[Test]

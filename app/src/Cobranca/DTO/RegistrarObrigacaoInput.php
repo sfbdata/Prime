@@ -12,9 +12,14 @@ use Symfony\Component\Validator\Constraints as Assert;
  * inteiros e, junto do vencimento, preserva-se como ORIGINAL (invariável 20). A normalização final
  * da referência externa (trim; null se vazio) ocorre no UseCase.
  *
- * Encargos separados (F4, spec §11): a obrigação lançada à mão pode já NASCER com encargos reconhecidos
- * (dívida antiga trazida de outro sistema, boleto já com juros calculados). São opcionais e default 0 —
- * o caso comum continua sendo nascer zerada e deixar o cron calcular.
+ * Taxa por-obrigação (spec taxa-por-obrigacao): o gestor não digita mais um VALOR de encargo — para
+ * cada um dos quatro encargos (juros/multa/correção/honorários) ele pode definir uma TAXA própria
+ * desta obrigação, por `modo` ('herda'|'percent'|'reais'). Em 'percent' o `xBp` (basis points) é
+ * gravado direto; em 'reais' o `xReais` (centavos) é convertido em bp À DATA DE HOJE pelo
+ * `ConversorTaxaEncargo` (o espelho %↔R$ na tela é só JS de preview). `modo === 'herda'` (default)
+ * grava `null` — a obrigação nasce sem override próprio, usando a taxa efetiva da cascata
+ * Carteira→Caso. Todas as taxas são opcionais; o caso comum continua sendo nascer sem nenhum
+ * override e deixar o motor calcular a partir da configuração herdada.
  */
 final class RegistrarObrigacaoInput
 {

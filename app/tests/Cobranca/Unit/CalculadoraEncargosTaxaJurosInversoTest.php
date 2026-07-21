@@ -6,9 +6,11 @@ namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\DTO\ConfigEncargos;
 use App\Cobranca\Service\CalculadoraEncargos;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(CalculadoraEncargos::class)]
 final class CalculadoraEncargosTaxaJurosInversoTest extends TestCase
 {
     #[Test]
@@ -49,5 +51,15 @@ final class CalculadoraEncargosTaxaJurosInversoTest extends TestCase
         self::assertSame(0, CalculadoraEncargos::taxaJurosBpDeValor(0, 240, 1360));
         self::assertSame(0, CalculadoraEncargos::taxaJurosBpDeValor(17000, 0, 1360));
         self::assertSame(0, CalculadoraEncargos::taxaJurosBpDeValor(17000, 240, 0));
+    }
+
+    #[Test]
+    public function degradaParaZeroQuandoPrincipalEDiasSaoAmbosNegativosMesmoComProdutoPositivo(): void
+    {
+        // O guard é uma cadeia de OU (`principal<=0 || dias<=0 || valor<=0`): com os dois primeiros
+        // termos negativos o PRODUTO `principal · dias` vira positivo (dois negativos), então uma
+        // implementação que checasse só o produto (em vez de cada termo isoladamente) deixaria passar.
+        // É o guard de ENTRADA — não a aritmética — que segura este caso.
+        self::assertSame(0, CalculadoraEncargos::taxaJurosBpDeValor(-17000, -240, 1360));
     }
 }

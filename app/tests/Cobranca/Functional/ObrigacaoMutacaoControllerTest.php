@@ -145,12 +145,9 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
                 'valorOriginal' => '1.200,00',
                 'vencimentoOriginal' => '2026-09-01',
                 'referenciaExterna' => 'REF-9',
-                // F4: os encargos deixaram de ser um campo só. Valores DISTINTOS de propósito — se o
-                // form achatasse tudo num componente (era o que a ponte deprecada fazia), três valores
-                // iguais ou um agregado só não denunciariam nada.
-                'juros' => '200,00',
-                'multa' => '40,00',
-                'correcao' => '10,00',
+                // Taxa por-obrigação (spec taxa-por-obrigacao): os quatro encargos deixaram de ser um
+                // VALOR digitado — as taxas ficam OMITIDAS de propósito (herdam a taxa neutra do caso,
+                // 0 bp), provando que a edição de cadastro não exige mexer em taxa nenhuma.
                 'motivo' => 'Valor digitado errado na importação',
                 '_token' => $token,
             ],
@@ -163,13 +160,15 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $fresh = $em->find(Obrigacao::class, $obrigacaoId);
         self::assertSame('Boleto corrigido ABC', $fresh->getDescricao());
         self::assertSame(120000, $fresh->getValorOriginal(), 'valor original corrigido para R$1.200,00');
-        self::assertSame(20000, $fresh->getJuros(), 'juros corrigidos para R$200,00');
-        self::assertSame(4000, $fresh->getMulta(), 'multa corrigida para R$40,00');
-        self::assertSame(1000, $fresh->getCorrecao(), 'correção corrigida para R$10,00');
-        // O agregado é DERIVADO (INV-E1): continua valendo R$250,00, como no contrato antigo.
-        self::assertSame(25000, $fresh->getEncargosReconhecidos(), 'o agregado é a soma dos três');
-        self::assertSame(145000, $fresh->valorExigivel(), 'exigível = original + os três encargos');
         self::assertSame('2026-09-01', $fresh->getVencimentoOriginal()->format('Y-m-d'));
+        // Nenhuma taxa foi submetida (herda): a carteira do semearGrafo é neutra (0 bp em tudo), então
+        // o motor recompõe os quatro encargos como 0 — prova que "herda" não inventa taxa nenhuma.
+        self::assertSame(0, $fresh->getJuros());
+        self::assertSame(0, $fresh->getMulta());
+        self::assertSame(0, $fresh->getCorrecao());
+        self::assertSame(0, $fresh->getHonorarios());
+        self::assertSame(0, $fresh->getEncargosReconhecidos(), 'o agregado é DERIVADO (INV-E1), continua 0');
+        self::assertSame(120000, $fresh->valorExigivel(), 'exigível = só o original, sem taxa própria');
     }
 
     #[TestDox('Editar obrigação: os encargos separados NÃO são obrigatórios — o form sem eles é válido')]
@@ -208,20 +207,24 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertFalse($fresh->encargosCongelados(), 'não mexeu em encargos → não congela');
     }
 
-    #[TestDox('Editar obrigação: recompor encargos separa o split e recompõe os honorários pelo motor, SEM congelar')]
+    #[TestDox('Editar obrigação: override de taxa separa o split e recompõe os honorários pelo motor, SEM congelar')]
     public function testEditarObrigacaoRecomporEncargosSeparaSplitSemCongelar(): void
     {
-        // Regressão do achado I5 da F2 (a ponte deprecada achatava o agregado em `juros` e zerava multa/
-        // correção) + comportamento F6: ao recompor à mão, cada componente vai para o seu campo, a
-        // obrigação TRAVA e os honorários são RECOMPOSTOS pelo motor sobre a base digitada (a UI não os edita).
+        // Regressão do achado I5 da F2 (a ponte deprecada achatava o agregado em `juros` e zerava
+        // multa/correção): no modelo de taxa por-obrigação (spec taxa-por-obrigacao) cada override vai
+        // para o SEU campo (jurosBp/multaBp/correcaoBp), nunca achatado — e os honorários são SEMPRE
+        // RECOMPOSTOS pelo motor sobre a base nova (a UI não os edita direto). Este teste prova que
+        // editar SUBSTITUI por completo um cache "legado" (split gravado direto, simulando dado
+        // anterior à feature), com cada componente indo para o campo certo.
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [$carteira, $caso] = $this->semearGrafo($tenant);
+        [, $caso] = $this->semearGrafo($tenant);
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
-        // Carteira/caso TOPLIFE (multa 2%, honorários 20% sobre base composta, carência 30) → o recálculo
-        // dos honorários é determinístico e positivo, em vez de 0 (a carteira do semearGrafo é neutra).
-        $carteira->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200)->setCarenciaHonorariosDias(30);
+        // Honorários acrescidos à dívida (20% sobre a base composta) — sem isso a taxa de honorários
+        // fica em 0 e o recálculo não prova nada. Juros fica de fora do override de propósito (herda
+        // 0 bp da carteira neutra do semearGrafo): assim o resultado é determinístico, independente de
+        // quantos dias se passaram entre o vencimento (fixo, no passado) e "hoje" (relógio real).
         $caso->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('20.00');
 
         $obrigacao = ObrigacaoFactory::createOne([
@@ -242,9 +245,10 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
                 'descricao' => 'Recomposicao',
                 'valorOriginal' => '1.000,00',
                 'vencimentoOriginal' => '2020-01-01',
-                'juros' => '200,00',
-                'multa' => '140,00',
-                'correcao' => '10,00',
+                'modoMulta' => 'percent',
+                'multaBp' => '2,00',
+                'modoCorrecao' => 'percent',
+                'correcaoBp' => '1,50',
                 'motivo' => 'juros lançados como multa',
                 '_token' => $token,
             ],
@@ -252,16 +256,18 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
 
         $em->clear();
         $fresh = $em->find(Obrigacao::class, $obrigacaoId);
-        self::assertSame(20000, $fresh->getJuros());
-        self::assertSame(14000, $fresh->getMulta());
-        self::assertSame(1000, $fresh->getCorrecao());
-        // Honorários RECOMPOSTOS pelo motor: base composta 100000 + 20000 + 14000 + 1000 = 135000 · 20% = 27000.
-        self::assertSame(27000, $fresh->getHonorarios(), 'a UI não edita honorários — o motor os recompõe sobre a base digitada');
+        self::assertSame(0, $fresh->getJuros(), 'juros herdado da carteira neutra do semearGrafo (0 bp)');
+        self::assertSame(2000, $fresh->getMulta(), 'multa = 2% de R$1.000,00, no SEU campo (não achatada com juros)');
+        self::assertSame(1500, $fresh->getCorrecao(), 'correção = 1,5% de R$1.000,00, no SEU campo');
+        // Honorários RECOMPOSTOS pelo motor: base composta 100000 + 0 (juros) + 2000 (multa) + 1500
+        // (correção) = 103500 · 20% = 20700. Bem diferente do 9000 do cache "legado": prova que o
+        // cache antigo foi SUBSTITUÍDO, não mesclado.
+        self::assertSame(20700, $fresh->getHonorarios(), 'a UI não edita honorários — o motor os recompõe sobre a base nova');
         self::assertFalse($fresh->encargosCongelados(), 'ao vivo (D6): editar à mão NÃO congela — a obrigação segue Viva');
     }
 
-    #[TestDox('Registrar obrigação com encargos digitados: nasce com o split como cache, SEM congelar (ao vivo)')]
-    public function testRegistrarObrigacaoComEncargosDigitadosNaoCongela(): void
+    #[TestDox('Registrar obrigação com override de taxa: a taxa própria é gravada e aplicada pelo motor, SEM congelar (ao vivo)')]
+    public function testRegistrarObrigacaoComOverrideDeTaxaNaoCongela(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -275,10 +281,13 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'registrar_obrigacao' => [
                 'descricao' => 'Divida vinda de outro sistema',
                 'valorOriginal' => '1.000,00',
-                'vencimentoOriginal' => '2026-08-10',
-                'juros' => '50,00',
-                'multa' => '20,00',
-                'correcao' => '5,00',
+                // Vencimento no passado (padrão do arquivo): sem atraso o motor sempre devolve 0
+                // (`dias === 0`), e o override não teria nada a provar.
+                'vencimentoOriginal' => '2020-01-01',
+                'modoMulta' => 'percent',
+                'multaBp' => '2,00',
+                'modoCorrecao' => 'percent',
+                'correcaoBp' => '0,50',
                 '_token' => $token,
             ],
         ]);
@@ -289,17 +298,18 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $em->clear();
         $criada = $em->getRepository(Obrigacao::class)->findOneBy(['descricao' => 'Divida vinda de outro sistema']);
         self::assertNotNull($criada);
-        self::assertSame(5000, $criada->getJuros());
-        self::assertSame(2000, $criada->getMulta());
-        self::assertSame(500, $criada->getCorrecao());
-        self::assertSame(107500, $criada->valorExigivel());
-        // Ao vivo (D6): digitar encargos materializa o split como CACHE inicial (lido direto do banco
-        // aqui), mas NÃO congela — a obrigação nasce Viva. A carteira de teste é NEUTRA (0% honorários),
-        // então os honorários dão 0; a completude pelo motor é provada no unit (carteira TOPLIFE).
+        self::assertSame(200, $criada->getTaxaMultaBp(), 'a taxa própria (override) foi gravada, não herdada');
+        self::assertSame(50, $criada->getTaxaCorrecaoBp(), 'a taxa própria (override) foi gravada, não herdada');
+        self::assertSame(0, $criada->getJuros(), 'juros herdado da carteira neutra do semearGrafo (0 bp)');
+        self::assertSame(2000, $criada->getMulta(), 'multa = 2% de R$1.000,00, aplicada pelo motor com a taxa própria');
+        self::assertSame(500, $criada->getCorrecao(), 'correção = 0,5% de R$1.000,00');
+        self::assertSame(102500, $criada->valorExigivel());
+        // Ao vivo (D6): a carteira de teste é NEUTRA (0% honorários) e nenhum override de honorário foi
+        // submetido, então os honorários dão 0; a completude pelo motor é provada no unit (carteira TOPLIFE).
         self::assertSame(0, $criada->getHonorarios());
         self::assertFalse(
             $criada->encargosCongelados(),
-            'ao vivo: digitar encargos não congela — a obrigação nasce Viva',
+            'ao vivo: registrar com taxa própria não congela — a obrigação nasce Viva',
         );
     }
 
@@ -334,12 +344,14 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         );
     }
 
-    #[TestDox('Registrar obrigação com honorário digitado: usa o valor (cache), fica fora do exigível, SEM congelar')]
-    public function testRegistrarObrigacaoComHonorarioDigitadoNaoCongela(): void
+    #[TestDox('Registrar obrigação com override de honorário (%): a taxa é gravada e aplicada pelo motor, fica fora do exigível, SEM congelar')]
+    public function testRegistrarObrigacaoComOverrideDeHonorarioNaoCongela(): void
     {
-        // O honorário é o 4º encargo do modal. Digitá-lo aplica o valor (cache) e fica FORA do exigível
-        // (INV-E2). Ao vivo (D6), NÃO congela. A carteira de teste é neutra, mas aqui o honorário é
-        // DIGITADO (6000), então independe da config — prova que o campo chega ao UseCase e é usado.
+        // O honorário é o 4º encargo do modal. Com o modelo de taxa (spec taxa-por-obrigacao), não se
+        // digita mais o VALOR — a UI grava a TAXA própria (%), aplicada pelo motor sobre a base
+        // composta. Fica FORA do exigível (INV-E2). Ao vivo (D6), NÃO congela. Vencimento no passado
+        // (padrão do arquivo) para o atraso ultrapassar a carência de honorários — sem isso o override
+        // não teria nada a provar.
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
@@ -352,8 +364,9 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
             'registrar_obrigacao' => [
                 'descricao' => 'Obrigacao com honorario fixo',
                 'valorOriginal' => '1.000,00',
-                'vencimentoOriginal' => '2026-08-10',
-                'honorarios' => '60,00',
+                'vencimentoOriginal' => '2020-01-01',
+                'modoHonorarios' => 'percent',
+                'honorariosBp' => '6,00',
                 '_token' => $token,
             ],
         ]);
@@ -364,13 +377,14 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $em->clear();
         $criada = $em->getRepository(Obrigacao::class)->findOneBy(['descricao' => 'Obrigacao com honorario fixo']);
         self::assertNotNull($criada);
-        self::assertSame(6000, $criada->getHonorarios(), 'usa o honorário digitado');
+        self::assertSame(600, $criada->getTaxaHonorariosBp(), 'a taxa própria (override) foi gravada, não herdada');
+        self::assertSame(6000, $criada->getHonorarios(), 'o motor aplica a taxa própria: 6% de R$1.000,00');
         self::assertSame(100000, $criada->valorExigivel(), 'honorário fora do exigível (INV-E2)');
-        self::assertFalse($criada->encargosCongelados(), 'ao vivo: digitar honorário não congela — nasce Viva');
+        self::assertFalse($criada->encargosCongelados(), 'ao vivo: override de honorário não congela — nasce Viva');
     }
 
-    #[TestDox('Editar obrigação com honorário digitado: usa o valor, fica fora do exigível, SEM congelar')]
-    public function testEditarObrigacaoComHonorarioDigitadoNaoCongela(): void
+    #[TestDox('Editar obrigação com override de honorário (%): a taxa é gravada e aplicada pelo motor, fica fora do exigível, SEM congelar')]
+    public function testEditarObrigacaoComOverrideDeHonorarioNaoCongela(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -383,15 +397,17 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
 
-        // SÓ o honorário é digitado (juros/multa/correção ficam vazios = 0, iguais aos atuais): a digitação
-        // do honorário sozinho já é mexida manual (usa o valor), mas ao vivo (D6) NÃO congela.
+        // SÓ o override de honorário é submetido (juros/multa/correção ficam 'herda' — a carteira do
+        // semearGrafo é neutra, dão 0). Vencimento no passado (padrão do arquivo) para o atraso
+        // ultrapassar a carência de honorários — sem isso o override não teria nada a provar.
         $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
             'editar_obrigacao' => [
                 'descricao' => 'Honorario ajustado',
                 'valorOriginal' => '1.000,00',
-                'vencimentoOriginal' => '2026-09-01',
-                'honorarios' => '75,00',
-                'motivo' => 'fixar honorário da obrigação',
+                'vencimentoOriginal' => '2020-01-01',
+                'modoHonorarios' => 'percent',
+                'honorariosBp' => '7,50',
+                'motivo' => 'fixar a taxa de honorário da obrigação',
                 '_token' => $token,
             ],
         ]);
@@ -401,9 +417,10 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         $fresh = $em->find(Obrigacao::class, $obrigacaoId);
-        self::assertSame(7500, $fresh->getHonorarios(), 'o honorário digitado é aplicado');
+        self::assertSame(750, $fresh->getTaxaHonorariosBp(), 'o override de honorário é gravado');
+        self::assertSame(7500, $fresh->getHonorarios(), 'o motor aplica a taxa: 7,5% de R$1.000,00');
         self::assertSame(100000, $fresh->valorExigivel(), 'honorário fora do exigível (INV-E2)');
-        self::assertFalse($fresh->encargosCongelados(), 'ao vivo: digitar honorário não congela — segue Viva');
+        self::assertFalse($fresh->encargosCongelados(), 'ao vivo: override de honorário não congela — segue Viva');
     }
 
     #[TestDox('Editar obrigação sem a capacidade: negado (redirect, não caso)')]
@@ -659,15 +676,19 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
         $token = $this->tokenDoFormulario($crawler, 'editar_obrigacao');
 
-        // Corrige a descrição mas esquece o motivo (NotBlank) — validação de campo falha.
+        // Corrige a descrição mas esquece o motivo (NotBlank) — validação de campo falha. As taxas
+        // usam os DOIS modos de propósito (percent + reais), para provar que o B5 reidrata qualquer um.
         $client->request('POST', '/cobrancas/obrigacoes/' . $obrigacaoId . '/editar', [
             'editar_obrigacao' => [
                 'descricao' => 'Descrição corrigida XYZ',
                 'valorOriginal' => '1.200,00',
                 'vencimentoOriginal' => '2026-09-01',
-                'juros' => '12,00',
-                'multa' => '3,00',
-                'correcao' => '7,50',
+                'modoJuros' => 'percent',
+                'jurosBp' => '1,20',
+                'modoMulta' => 'percent',
+                'multaBp' => '0,30',
+                'modoCorrecao' => 'reais',
+                'correcaoReais' => '7,50',
                 'motivo' => '',
                 '_token' => $token,
             ],
@@ -684,26 +705,26 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('Informe o motivo da correção.', $modalHtml);
         self::assertStringContainsString('Descrição corrigida XYZ', $modalHtml, 'o digitado tem de sobreviver ao redirect');
 
-        // F4: os encargos separados são campos do Form, então o B5 os reidrata como qualquer outro —
-        // o gestor não redigita dinheiro por causa de um motivo esquecido. (O "%" ao lado não precisa
-        // reidratar: não é submetido, o JS o deriva destes valores quando o modal reabre.)
+        // Taxa por-obrigação (spec taxa-por-obrigacao): o trio modo/%/R$ de cada encargo é campo do
+        // Form como qualquer outro, então o B5 os reidrata igual — o gestor não redigita a taxa por
+        // causa de um motivo esquecido.
         self::assertSame(
-            '12,00',
-            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[juros]"]')->attr('value'),
-            'os juros digitados sobrevivem ao redirect',
+            '1,20',
+            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[jurosBp]"]')->attr('value'),
+            'a taxa de juros digitada (%) sobrevive ao redirect',
         );
         self::assertSame(
-            '3,00',
-            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[multa]"]')->attr('value'),
-            'a multa digitada sobrevive ao redirect',
+            '0,30',
+            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[multaBp]"]')->attr('value'),
+            'a taxa de multa digitada (%) sobrevive ao redirect',
         );
-        // A correção entra com valor DIFERENTE de zero de propósito: com '0,00' o teste passaria mesmo
+        // A correção entra pelo campo R$ (modo 'reais') de propósito: com '0,00' o teste passaria mesmo
         // se o campo não reidratasse nada (zero é o default), e uma regressão que perdesse só a
         // correção seguiria verde.
         self::assertSame(
             '7,50',
-            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[correcao]"]')->attr('value'),
-            'a correção digitada sobrevive ao redirect',
+            $crawler->filter('#modalEditarObrigacao input[name="editar_obrigacao[correcaoReais]"]')->attr('value'),
+            'o valor de correção digitado (R$) sobrevive ao redirect',
         );
     }
 }
