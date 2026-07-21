@@ -7,6 +7,7 @@ namespace App\Cobranca\Form;
 use App\Cobranca\DTO\RegistrarObrigacaoInput;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
@@ -15,9 +16,11 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
  * Registrar uma obrigação (dívida) no Caso. `casoId` NÃO é campo — vem da rota e é preenchido pelo
  * controller. Dinheiro em CentavosType (int centavos no DTO); validação via #[Assert] do DTO.
  *
- * Encargos separados (F4, spec §11): juros/multa/correção OPCIONAIS já no lançamento, cada um com um "%"
- * auxiliar ao lado no Twig (sem `name`, só JS — o R$ é a fonte de verdade submetida). Deixar os três
- * vazios é o caso comum: a obrigação nasce zerada e o cron passa a calcular.
+ * Taxa por-obrigação (spec taxa-por-obrigacao): cada encargo (juros/multa/correção/honorários) tem um
+ * trio `modo` (HiddenType, setado pelo JS ao editar % ou R$) + `Bp` (TaxaBpType, o %) + `Reais`
+ * (CentavosType, o R$) — o espelho %↔R$ é só JS (preview); o servidor recebe os três e o
+ * ConversorTaxaEncargo decide o override a partir do `modo`. `empty_data => 'herda'` no modo: a
+ * obrigação nasce sem override (usa a taxa do caso) quando o JS não altera o hidden.
  */
 final class RegistrarObrigacaoType extends AbstractType
 {
@@ -43,31 +46,49 @@ final class RegistrarObrigacaoType extends AbstractType
                 'required' => false,
                 'attr' => ['class' => 'form-control', 'placeholder' => 'Ex.: nº do boleto', 'maxlength' => 255],
             ])
-            ->add('juros', CentavosType::class, [
+            ->add('modoJuros', HiddenType::class, ['empty_data' => 'herda'])
+            ->add('jurosBp', TaxaBpType::class, [
+                'label' => 'Juros ao mês (%)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-taxa' => 'juros', 'data-modo-target' => 'modoJuros'],
+            ])
+            ->add('jurosReais', CentavosType::class, [
                 'label' => 'Juros (R$)',
                 'required' => false,
-                'empty_data' => '0',
-                'attr' => ['class' => 'form-control', 'data-encargo' => 'juros'],
+                'attr' => ['class' => 'form-control', 'data-taxa-reais' => 'juros'],
             ])
-            ->add('multa', CentavosType::class, [
+            ->add('modoMulta', HiddenType::class, ['empty_data' => 'herda'])
+            ->add('multaBp', TaxaBpType::class, [
+                'label' => 'Multa (%)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-taxa' => 'multa', 'data-modo-target' => 'modoMulta'],
+            ])
+            ->add('multaReais', CentavosType::class, [
                 'label' => 'Multa (R$)',
                 'required' => false,
-                'empty_data' => '0',
-                'attr' => ['class' => 'form-control', 'data-encargo' => 'multa'],
+                'attr' => ['class' => 'form-control', 'data-taxa-reais' => 'multa'],
             ])
-            ->add('correcao', CentavosType::class, [
+            ->add('modoCorrecao', HiddenType::class, ['empty_data' => 'herda'])
+            ->add('correcaoBp', TaxaBpType::class, [
+                'label' => 'Correção monetária (%)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-taxa' => 'correcao', 'data-modo-target' => 'modoCorrecao'],
+            ])
+            ->add('correcaoReais', CentavosType::class, [
                 'label' => 'Correção (R$)',
                 'required' => false,
-                'empty_data' => '0',
-                'attr' => ['class' => 'form-control', 'data-encargo' => 'correcao'],
+                'attr' => ['class' => 'form-control', 'data-taxa-reais' => 'correcao'],
             ])
-            // Honorário (Ajuste 2): SEM `empty_data` de propósito — o transformer mapeia campo vazio para
-            // `null` (não `0`), e `null` = automático (o motor completa/recalcula), `0` = zero explícito
-            // (congela). Incide sobre a base COMPOSTA no espelho %↔R$ (data-encargo-base="composta" no Twig).
-            ->add('honorarios', CentavosType::class, [
+            ->add('modoHonorarios', HiddenType::class, ['empty_data' => 'herda'])
+            ->add('honorariosBp', TaxaBpType::class, [
+                'label' => 'Honorários (%)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-taxa' => 'honorarios', 'data-modo-target' => 'modoHonorarios'],
+            ])
+            ->add('honorariosReais', CentavosType::class, [
                 'label' => 'Honorários (R$)',
                 'required' => false,
-                'attr' => ['class' => 'form-control', 'data-encargo' => 'honorarios'],
+                'attr' => ['class' => 'form-control', 'data-taxa-reais' => 'honorarios'],
             ]);
     }
 

@@ -7,23 +7,24 @@ namespace App\Cobranca\Form;
 use App\Cobranca\DTO\EditarObrigacaoInput;
 use Symfony\Component\Form\AbstractType;
 use Symfony\Component\Form\Extension\Core\Type\DateType;
+use Symfony\Component\Form\Extension\Core\Type\HiddenType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * Editar (corrigir) uma obrigação. `obrigacaoId` NÃO é campo — vem da rota. Espelha o form de registro +
- * os encargos SEPARADOS (juros/multa/correção — F4; antes era o agregado `encargosReconhecidos`, da
- * unificação do "Reconhecer valor" do ajuste 5) + `motivo` obrigatório. O modal é reutilizável (1 por
- * página) e pré-preenchido por JS via os `data-*` da linha da obrigação.
+ * `motivo` obrigatório. O modal é reutilizável (1 por página) e pré-preenchido por JS via os `data-*` da
+ * linha da obrigação.
  *
- * Os campos de encargo são em R$ (CentavosType) e são a ÚNICA fonte de verdade submetida. O "%" ao lado
- * de cada um, no Twig, é auxiliar: não tem `name`, não chega ao servidor e por isso não precisa de
- * validação nem de reidratação no B5 — o JS o recalcula a partir do R$ quando o modal abre.
+ * Taxa por-obrigação (spec taxa-por-obrigacao): cada encargo (juros/multa/correção/honorários) tem um
+ * trio `modo` (HiddenType, setado pelo JS ao editar % ou R$) + `Bp` (TaxaBpType, o %) + `Reais`
+ * (CentavosType, o R$) — o espelho %↔R$ é só JS (preview); o servidor recebe os três e o
+ * ConversorTaxaEncargo decide o override a partir do `modo`. `empty_data => 'herda'` no modo: reabrir o
+ * modal sem tocar em nenhum campo preserva o override existente (ou a herança, se nunca houve override).
  *
- * `data-encargo` é o gancho que o JS usa para casar cada R$ com o seu % (travado por
- * ObjetoShowContratoJsTest). `empty_data => '0'` é string porque o transformer roda ANTES da conversão
- * para centavos; campo vazio vira 0, não null — nenhum encargo é obrigatório.
+ * `data-taxa`/`data-taxa-reais`/`data-modo-target` são os ganchos que o JS usa para casar % ↔ R$ ↔ modo
+ * de cada encargo (mesma convenção do RegistrarObrigacaoType).
  */
 final class EditarObrigacaoType extends AbstractType
 {
@@ -49,32 +50,49 @@ final class EditarObrigacaoType extends AbstractType
                 'required' => false,
                 'attr' => ['class' => 'form-control', 'maxlength' => 255],
             ])
-            ->add('juros', CentavosType::class, [
+            ->add('modoJuros', HiddenType::class, ['empty_data' => 'herda'])
+            ->add('jurosBp', TaxaBpType::class, [
+                'label' => 'Juros ao mês (%)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-taxa' => 'juros', 'data-modo-target' => 'modoJuros'],
+            ])
+            ->add('jurosReais', CentavosType::class, [
                 'label' => 'Juros (R$)',
                 'required' => false,
-                'empty_data' => '0',
-                'attr' => ['class' => 'form-control', 'data-encargo' => 'juros'],
+                'attr' => ['class' => 'form-control', 'data-taxa-reais' => 'juros'],
             ])
-            ->add('multa', CentavosType::class, [
+            ->add('modoMulta', HiddenType::class, ['empty_data' => 'herda'])
+            ->add('multaBp', TaxaBpType::class, [
+                'label' => 'Multa (%)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-taxa' => 'multa', 'data-modo-target' => 'modoMulta'],
+            ])
+            ->add('multaReais', CentavosType::class, [
                 'label' => 'Multa (R$)',
                 'required' => false,
-                'empty_data' => '0',
-                'attr' => ['class' => 'form-control', 'data-encargo' => 'multa'],
+                'attr' => ['class' => 'form-control', 'data-taxa-reais' => 'multa'],
             ])
-            ->add('correcao', CentavosType::class, [
+            ->add('modoCorrecao', HiddenType::class, ['empty_data' => 'herda'])
+            ->add('correcaoBp', TaxaBpType::class, [
+                'label' => 'Correção monetária (%)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-taxa' => 'correcao', 'data-modo-target' => 'modoCorrecao'],
+            ])
+            ->add('correcaoReais', CentavosType::class, [
                 'label' => 'Correção (R$)',
                 'required' => false,
-                'empty_data' => '0',
-                'attr' => ['class' => 'form-control', 'data-encargo' => 'correcao'],
+                'attr' => ['class' => 'form-control', 'data-taxa-reais' => 'correcao'],
             ])
-            // Honorário (Ajuste 2): SEM `empty_data` — o transformer mapeia vazio para `null` (não `0`), e
-            // `null` = automático (o motor recalcula), `0` = zero explícito (congela). O campo NÃO é
-            // pré-preenchido pelo JS ao abrir (fica vazio = automático); incide sobre a base COMPOSTA no
-            // espelho %↔R$ (data-encargo-base="composta" no Twig).
-            ->add('honorarios', CentavosType::class, [
+            ->add('modoHonorarios', HiddenType::class, ['empty_data' => 'herda'])
+            ->add('honorariosBp', TaxaBpType::class, [
+                'label' => 'Honorários (%)',
+                'required' => false,
+                'attr' => ['class' => 'form-control', 'data-taxa' => 'honorarios', 'data-modo-target' => 'modoHonorarios'],
+            ])
+            ->add('honorariosReais', CentavosType::class, [
                 'label' => 'Honorários (R$)',
                 'required' => false,
-                'attr' => ['class' => 'form-control', 'data-encargo' => 'honorarios'],
+                'attr' => ['class' => 'form-control', 'data-taxa-reais' => 'honorarios'],
             ])
             ->add('motivo', TextType::class, [
                 'label' => 'Motivo da correção',
