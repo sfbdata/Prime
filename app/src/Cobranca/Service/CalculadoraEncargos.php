@@ -179,6 +179,25 @@ final class CalculadoraEncargos
     }
 
     /**
+     * INVERSO do juros: a taxa mensal (bp) que reproduz `valorCentavos` de juros para `dias` de atraso,
+     * arredondando meio-para-cima. Espelho de `taxaDeValor` considerando o pró-rata `dias/30`
+     * (spec ao-vivo §7). Serve à edição "digitei o R$ de juros → guarda a % equivalente à data de hoje".
+     * Degrada para 0 quando não há base sobre a qual derivar (principal/dias/valor não positivos).
+     */
+    public static function taxaJurosBpDeValor(int $principalCentavos, int $dias, int $valorCentavos): int
+    {
+        if ($principalCentavos <= 0 || $dias <= 0 || $valorCentavos <= 0) {
+            return 0;
+        }
+
+        // bp = valor · (30·10000) / (P · dias), meio-para-cima. Numerador ~ valor·3e5: cabe em int64.
+        return self::arredondarMeioParaCima(
+            $valorCentavos * self::DIAS_DO_MES * self::BASIS_POINTS,
+            $principalCentavos * $dias,
+        );
+    }
+
+    /**
      * Juros de mora em centavos.
      *
      * SIMPLES (default, único regime provado contra dados reais): pró-rata diária sobre o
