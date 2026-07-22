@@ -72,7 +72,8 @@ Clicar numa linha abre, abaixo dela, o detalhe daquela pessoa no período:
 - **desfechos em pastilhas**: Atendido 27 · Não atendido 21 · Caixa postal 6 · Número errado 4 ·
   Pediu retorno 2 · Informou outro número 1 · Outro 0;
 - **lista dos eventos** (hora · tipo · objeto · resumo), do mais recente para o mais antigo, limitada a
-  200 itens com aviso quando truncar.
+  200 itens com aviso quando truncar — mostrando por padrão só trabalho de cobrança, com o restante
+  resumido numa linha expansível (§5.1).
 
 **Quem não trabalhou aparece zerado, não some da lista.** É a informação que o gestor foi procurar;
 uma lista que esconde os zerados esconde justamente o que ele quer ver. Entram na listagem todos os
@@ -89,7 +90,7 @@ pela faixa de `ocorrido_em`.
 | **Falou com o devedor** | `tipo = 'contato_realizado'` **e** `dados->>'resultado' = 'atendido'` |
 | **Acordos fechados** | `tipo = 'acordo_criado'` |
 | **Baixas registradas** | `tipo IN ('pagamento_registrado', 'liquidacao_registrada')` |
-| **Última ação** | `MAX(ocorrido_em)` de qualquer tipo, no período |
+| **Última ação** | `MAX(ocorrido_em)` **restrito aos tipos de trabalho de cobrança** (ver §5.1), no período |
 | **Detalhe: desfechos** | `tipo = 'contato_realizado'`, agrupado por `dados->>'resultado'`, rotulado por `ResultadoContato::label()` |
 
 Notas obrigatórias para quem implementar:
@@ -104,6 +105,37 @@ Notas obrigatórias para quem implementar:
 4. **"Baixas registradas" não é mérito de negociação** — quem registra o pagamento nem sempre é quem
    negociou. Por isso a coluna conta o ato, e **valor recuperado não entra nesta aba** (fica na aba
    Resultado, por carteira). Não adicionar coluna de R$ por pessoa nesta fatia.
+
+## 5.1 Trabalho de cobrança × lançamento de cadastro (correção de 2026-07-22)
+
+A primeira versão desta spec mandava o detalhe listar **todos** os eventos e a "Última ação" ser o
+`MAX` de qualquer tipo. Isso contradizia o próprio §12: rejeitamos o `audit_log` porque uma importação
+inflaria os números, mas deixamos a mesma distorção entrar pela fonte escolhida. Medição no dev:
+**537 `obrigacao_criada` + 121 `caso_aberto`** vindos de uma importação contra **3 contatos** reais —
+o trabalho de cobrança afundava, e quem só importou planilha aparecia com "ação recente" sem ter
+falado com ninguém. Decisão do dono em 2026-07-22: **separar**.
+
+**Tipos que contam como trabalho de cobrança:**
+`contato_realizado` · `boleto_enviado` · `novo_prazo` · `negociacao` · `acordo_criado` ·
+`acordo_editado` · `acordo_rompido` · `acordo_cancelado` · `acordo_cumprido` ·
+`pagamento_registrado` · `pagamento_corrigido` · `liquidacao_registrada` ·
+`pessoa_cobrada_alterada` · `judicializacao` · `vinculo_pasta` · `encerramento` · `anotacao`
+
+**Tipos de cadastro/importação (fora):**
+`caso_aberto` · `obrigacao_criada` · `obrigacao_editada` · `obrigacao_excluida` ·
+`valor_atualizado_reconhecido` · `revisao_vinculo`
+
+Aplicação:
+
+1. **"Última ação"** considera apenas a primeira lista. Quem só importou aparece com `—`, que é a
+   informação correta: importar planilha não é cobrar ninguém.
+2. **Detalhe da pessoa** mostra por padrão apenas trabalho de cobrança, e **resume o restante numa
+   única linha** — "+ 537 lançamentos de cadastro/importação" — que o usuário pode expandir. Não
+   esconder em silêncio: o §12 proíbe truncar sem avisar, e isto é truncagem por tipo.
+3. As **colunas da tabela** não mudam: nenhuma delas contava evento de cadastro.
+4. O corte é por **tipo**, não por origem. Uma obrigação criada à mão continua fora da "última ação" —
+   é trabalho de cadastro, e distinguir importação de digitação exigiria marcar a origem no evento,
+   o que é escrita nova (fora da abordagem A).
 
 ## 6. Filtros
 
