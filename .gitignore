@@ -85,3 +85,6 @@ docs/gestao-cobrancas/*.pdf
 
 # Credenciais OAuth do cron de sincronização Drive (segredos) — só o .example é versionado
 /.sync-oauth.env
+
+# Superpowers (ledgers de execucao e mockups do brainstorm) — nao versionar
+.superpowers/
