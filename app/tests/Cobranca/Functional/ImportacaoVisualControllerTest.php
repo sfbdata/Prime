@@ -26,6 +26,9 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
 {
     private const FIXTURE = __DIR__ . '/../../Fixtures/Cobranca/importacao/toplife_amostra.xlsx';
 
+    /** Mesmo conteúdo da amostra, gravado em Zip64/store: o libmagic devolve `application/octet-stream`. */
+    private const FIXTURE_MIME_INDETECTAVEL = __DIR__ . '/../../Fixtures/Cobranca/importacao/toplife_amostra_zip64.xlsx';
+
     #[TestDox('Fluxo completo: upload não persiste na prévia; confirmar importa os boletos')]
     public function testFluxoUploadPreviewConfirmar(): void
     {
@@ -118,6 +121,56 @@ final class ImportacaoVisualControllerTest extends CobrancaWebTestCase
 
         self::assertResponseRedirects("/cobrancas/carteiras/{$carteiraId}/importar");
         self::assertSame(0, $obrigacaoRepo->count(['tenant' => $tenant]));
+    }
+
+    #[TestDox('Planilha cujo mime o libmagic não sabe nomear (Zip64/streaming) é aceita mesmo assim')]
+    public function testPlanilhaComMimeIndetectavelEhAceita(): void
+    {
+        // REGRESSÃO (relatório real de 22/07): o libmagic reconhece "Microsoft OOXML" mas não consegue
+        // nomear o subtipo quando o gerador grava em Zip64/streaming — devolve application/octet-stream.
+        // A whitelist de mime recusava, com "Envie uma planilha do Excel", um arquivo que o PhpSpreadsheet
+        // lê sem qualquer problema. Quem manda é a assinatura + a leitura, não o palpite do libmagic.
+        self::assertSame(
+            'application/octet-stream',
+            (new \finfo(\FILEINFO_MIME_TYPE))->file(self::FIXTURE_MIME_INDETECTAVEL),
+            'a fixture precisa continuar reproduzindo o mime indetectável, senão o teste não prova nada',
+        );
+
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteiraId = $this->semearCarteira($tenant);
+
+        $crawler = $client->request('GET', "/cobrancas/carteiras/{$carteiraId}/importar");
+        $form = $crawler->filter('form[action*="prever"]')->form();
+        $form['importar_relatorio[arquivo]']->upload(self::FIXTURE_MIME_INDETECTAVEL);
+        $client->submit($form);
+
+        self::assertResponseIsSuccessful();
+        self::assertStringContainsString('Prévia da importação', (string) $client->getResponse()->getContent());
+    }
+
+    #[TestDox('HTML renomeado para .xlsx continua rejeitado sem persistir')]
+    public function testHtmlRenomeadoParaXlsxRejeitado(): void
+    {
+        // O contraponto do teste acima: afrouxar a validação não pode abrir a porta para o "xls" que
+        // vários sistemas exportam como tabela HTML — sem assinatura de planilha, não entra.
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $carteiraId = $this->semearCarteira($tenant);
+        $obrigacaoRepo = static::getContainer()->get(EntityManagerInterface::class)->getRepository(Obrigacao::class);
+
+        $falso = tempnam(sys_get_temp_dir(), 'imp') . '.xlsx';
+        file_put_contents($falso, "<html><body><table><tr><td>170,00</td></tr></table></body></html>");
+
+        $crawler = $client->request('GET', "/cobrancas/carteiras/{$carteiraId}/importar");
+        $form = $crawler->filter('form[action*="prever"]')->form();
+        $form['importar_relatorio[arquivo]']->upload($falso);
+        $client->submit($form);
+
+        self::assertResponseRedirects();
+        self::assertSame(0, $obrigacaoRepo->count(['tenant' => $tenant]));
+
+        @unlink($falso);
     }
 
     #[TestDox('Arquivo de tipo inválido é rejeitado sem persistir')]
