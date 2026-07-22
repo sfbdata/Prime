@@ -54,6 +54,13 @@ class AcordoRepository extends ServiceEntityRepository
      * `cobranca-importar-linhas-acordo.md` §3.2/§4, tarefa #7-B). A carteira do acordo é derivada
      * via `caso → objeto → carteira` (não há coluna direta). Sempre filtrado por tenant — nunca
      * cruza escritórios.
+     *
+     * Invariante de domínio: `numero_externo` é sequencial POR CARTEIRA (único ali). O índice
+     * `idx_cobranca_acordo_tenant_numero_externo` NÃO é único (não dá pra declarar unicidade sem a
+     * carteira, que não está desnormalizada no acordo — fora de escopo adicionar constraint aqui).
+     * Leitura tolerante e determinística por defesa: se dado sujo produzir 2 acordos com a mesma
+     * (carteira + número), NÃO lança `NonUniqueResultException` (que abortaria o lote de import
+     * inteiro) — pega o mais recente (`id DESC`) e segue.
      */
     public function findOnePorNumeroExternoNaCarteira(int $numeroExterno, Carteira $carteira, Tenant $tenant): ?Acordo
     {
@@ -66,6 +73,8 @@ class AcordoRepository extends ServiceEntityRepository
             ->setParameter('numeroExterno', $numeroExterno)
             ->setParameter('carteira', $carteira)
             ->setParameter('tenant', $tenant)
+            ->orderBy('a.id', 'DESC')
+            ->setMaxResults(1)
             ->getQuery()
             ->getOneOrNullResult();
     }

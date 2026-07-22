@@ -41,9 +41,11 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Por boleto, na ordem: resolve/cria Objeto (dedup por identificação na Carteira) → resolve/cria Pessoa
  * cobrada (por nome no Objeto — decisão A) e Caso ativo → resolve/cria/atualiza Obrigação (dedup por NN).
- * Encargos entram SEPARADOS (juros/multa/correção) e a obrigação nasce CONGELADA — o relatório da
- * contabilidade é a verdade e o cron de materialização não a sobrescreve (spec §9). Honorários do
- * relatório passam a ser persistidos, fora do valor exigível (§4.2/INV-E2). NUNCA cruza tenants.
+ * Encargos entram SEPARADOS (juros/multa/correção) e a obrigação nasce VIVA (ao vivo, sem congelar) —
+ * ver `materializarEncargosImportados()`: o snapshot do relatório é só o valor INICIAL/cache, e a leitura
+ * recalcula (vencimento → hoje × taxa), reproduzindo os números da contabilidade ao centavo quando a
+ * carteira está configurada (spec §2/§9-revisado). Honorários do relatório passam a ser persistidos,
+ * fora do valor exigível (§4.2/INV-E2). NUNCA cruza tenants.
  *
  * Linhas de acordo (spec `cobranca-importar-linhas-acordo.md` §3.2, tarefa #7-B): quando o adapter
  * reconhece "Acordo N - Parc. p/t" na coluna do relatório (`BoletoImportavel::$acordo`), o NN vira uma
@@ -237,6 +239,14 @@ final class ImportarRelatorioCarteiraUseCase
      * Idempotência (§3.2.4): reimportar reusa o mesmo Acordo (achado pela dedup); se ele nasceu antes
      * de se saber o total de parcelas (ou a 1ª leitura não trouxe `parcelaTotal`), completa quando um
      * total aparece.
+     *
+     * `valorTotalNegociado` (correção pós-taxa #7-3): só é DERIVÁVEL quando `parcelaTotal === 1` — o
+     * relatório traz o acordo INTEIRO nessa única linha, então o total negociado é a soma da coluna
+     * Valor dela (`somaColunaValorCentavos`, mesma fonte do `valorOriginal` da parcela). Multi-parcela
+     * (`parcelaTotal > 1`) fica `null`: as parcelas 2..N não estão neste relatório — inventar o total
+     * seria "chutar" um dado que a fonte não fornece (`MontarDetalheAcordoUseCase` já faz o fallback
+     * derivado de Σ parcelas quando `null`). Idempotente: reimportar um 1/1 não regrava se o valor não
+     * mudou.
      */
     private function resolverOuCriarAcordo(Carteira $carteira, CasoCobranca $caso, BoletoImportavel $boleto, Tenant $tenant, User $user): Acordo
     {
@@ -256,13 +266,24 @@ final class ImportarRelatorioCarteiraUseCase
             $acordo->setNumeroExterno($doRelatorio->numero);
             $acordo->setNumeroParcelasTotal($doRelatorio->parcelaTotal);
             $acordo->setCriadoPor($user);
+            if ($doRelatorio->parcelaTotal === 1) {
+                $acordo->setValorTotalNegociado($boleto->somaColunaValorCentavos);
+            }
             $this->acordoRepository->salvar($acordo, true);
 
             return $acordo;
         }
 
+        $sujo = false;
         if ($acordo->getNumeroParcelasTotal() === null && $doRelatorio->parcelaTotal > 0) {
             $acordo->setNumeroParcelasTotal($doRelatorio->parcelaTotal);
+            $sujo = true;
+        }
+        if ($doRelatorio->parcelaTotal === 1 && $acordo->getValorTotalNegociado() !== $boleto->somaColunaValorCentavos) {
+            $acordo->setValorTotalNegociado($boleto->somaColunaValorCentavos);
+            $sujo = true;
+        }
+        if ($sujo) {
             $this->acordoRepository->salvar($acordo, true);
         }
 

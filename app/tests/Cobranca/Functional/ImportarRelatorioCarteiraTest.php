@@ -392,6 +392,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertFalse($acordo->estaIncompleto(), '1/1 é completo');
         self::assertSame(0, $acordo->parcelasFaltantes());
         self::assertCount(1, $acordo->getParcelas());
+        self::assertSame(15000, $acordo->getValorTotalNegociado(), '1/1: total negociado é derivável = soma da coluna Valor da única parcela');
 
         $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '9301']);
         self::assertNotNull($parcela);
@@ -423,6 +424,8 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 28]);
         $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '9301']);
         self::assertSame($acordo?->getId(), $parcela?->getAcordoOrigem()?->getId());
+        // Idempotência do total negociado derivado (1/1): reimportar o MESMO valor não regrava (nem quebra).
+        self::assertSame(15000, $acordo?->getValorTotalNegociado());
     }
 
     #[TestDox('NN com "Acordo 31 - Parc. 1/3" cria acordo incompleto (faltam 2 parcelas)')]
@@ -442,6 +445,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertCount(1, $acordo->getParcelas());
         self::assertTrue($acordo->estaIncompleto());
         self::assertSame(2, $acordo->parcelasFaltantes());
+        self::assertNull($acordo->getValorTotalNegociado(), 'multi-parcela: total NÃO é derivável (parcelas 2..N não estão no relatório)');
     }
 
     #[TestDox('NN sem acordo segue como obrigação comum (regressão): sem acordoOrigem, valorOriginal = principal')]
@@ -503,6 +507,43 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(8000, $parcelaB?->getValorOriginal());
     }
 
+    #[TestDox('Override de honorários zero do acordo vence AO VIVO na hidratação real (não só no cache do import)')]
+    public function testHonorarioDoAcordoFicaZeroNaHidratacaoAoVivoReal(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        // Relatório com honorário INFORMADO > 0 na linha do acordo (decisão do dono: o override
+        // taxaHonorariosBp=0 tem de vencer mesmo assim — acordo não cobra honorário sobre honorário).
+        $boleto = $this->boletoComAcordo('9601', '50-01', 'DEVEDOR HONORARIO ACORDO', numeroAcordo: 90, parcelaIndice: 1, parcelaTotal: 1, somaColunaValorCentavos: 20000, honorariosInformadosCentavos: 6000);
+        $this->importar->confirmar($carteira, new ResultadoLeitura([$boleto], [], 0), $tenant, $user);
+
+        // Lê como uma nova requisição leria (mesmo padrão dos outros testes de acordo desta classe): a
+        // coleção inversa `Acordo::parcelas` não é auto-sincronizada em memória ao setar só o lado dono,
+        // então sem o `clear()` a hidratação abaixo não acharia a parcela pra hidratar.
+        $this->em->clear();
+
+        $repo = $this->em->getRepository(Obrigacao::class);
+        $parcela = $repo->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '9601']);
+        self::assertNotNull($parcela);
+        self::assertSame(0, $parcela->getTaxaHonorariosBp(), 'override zero gravado na parcela');
+        // Cache CRU do import: `materializarEncargosImportados` grava o honorário INFORMADO como veio
+        // do relatório (não aplica o override na hora de cachear) — é exatamente esse cache que uma
+        // leitura ingênua exibiria errado se não passasse pela hidratação ao vivo.
+        self::assertSame(6000, $parcela->getHonorarios(), 'cache cru = valor informado no relatório (ainda sem o override aplicado)');
+
+        $acordo = $parcela->getAcordoOrigem();
+        self::assertNotNull($acordo);
+
+        /** @var \App\Cobranca\UseCase\MontarDetalheAcordoUseCase $montarDetalheAcordo */
+        $montarDetalheAcordo = static::getContainer()->get(\App\Cobranca\UseCase\MontarDetalheAcordoUseCase::class);
+        $montarDetalheAcordo->executar($acordo, $tenant);
+
+        // Mesma instância managed (identity map do Doctrine): a hidratação em memória reescreveu o cache.
+        self::assertSame(0, $parcela->getHonorarios(), 'ao vivo: override taxaHonorariosBp=0 vence, honorário cru é sobrescrito para 0');
+    }
+
     // ----------------------------------------------------------------- helpers
 
     /** Boleto sintético com acordo reconhecido — usado pelos testes de #7-B (sem depender do xlsx). */
@@ -514,6 +555,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         int $parcelaIndice,
         int $parcelaTotal,
         int $somaColunaValorCentavos,
+        int $honorariosInformadosCentavos = 0,
     ): BoletoImportavel {
         return new BoletoImportavel(
             nn: $nn,
@@ -526,7 +568,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
             jurosCentavos: 0,
             multaCentavos: 0,
             correcaoCentavos: 0,
-            honorariosInformadosCentavos: 0,
+            honorariosInformadosCentavos: $honorariosInformadosCentavos,
             vencimento: new \DateTimeImmutable('2026-03-10'),
             competencia: '03/2026',
             acordoTexto: "Acordo {$numeroAcordo} - Parc. {$parcelaIndice}/{$parcelaTotal}",
