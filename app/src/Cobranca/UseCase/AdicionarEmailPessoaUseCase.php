@@ -21,6 +21,9 @@ use App\Entity\Tenant\Tenant;
  * histórico (`atual = false`) — marcar um item existente como atual é uma ação separada
  * (MarcarEmailAtualUseCase). A pessoa é resolvida por id + tenant (guarda multi-tenant,
  * invariável 24); inexistente ou de outro escritório interrompe a operação.
+ *
+ * SPEC §5.4: quando o novo item nasce atual (é o primeiro da lista), a coluna-sombra da Pessoa é
+ * sincronizada com ele no mesmo flush — mantém Pessoa::getEmail() escalar (sem N+1) e coerente.
  */
 final class AdicionarEmailPessoaUseCase
 {
@@ -50,6 +53,10 @@ final class AdicionarEmailPessoaUseCase
         $email->setCriadoPor($criadoPor);
 
         $pessoa->adicionarEmail($email);
+
+        if ($primeiroDaLista) {
+            $pessoa->sincronizarEmailSombra($email->getEmail());
+        }
 
         $this->emailRepository->salvar($email, true);
 

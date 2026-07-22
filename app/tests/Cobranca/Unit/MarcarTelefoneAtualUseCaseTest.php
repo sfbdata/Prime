@@ -38,11 +38,13 @@ final class MarcarTelefoneAtualUseCaseTest extends TestCase
     #[Test]
     public function marcarOutroTrocaAFlagEPreservaOAntigoEmUmUnicoFlush(): void
     {
-        $anterior = (new PessoaTelefone())->setTenant($this->tenant)->setAtual(true);
-        $novo = (new PessoaTelefone())->setTenant($this->tenant)->setAtual(false);
+        $anterior = (new PessoaTelefone())->setTenant($this->tenant)->setNumero('(41) 91111-1111')->setAtual(true);
+        $novo = (new PessoaTelefone())->setTenant($this->tenant)->setNumero('(41) 92222-2222')->setAtual(false);
         // adicionarTelefone() coloca os itens NA COLEÇÃO da pessoa (identidade compartilhada com
         // o que o repositório "encontra" abaixo) — é sobre essa coleção que o self-heal itera.
         $pessoa = $this->pessoaComId(1, $anterior, $novo);
+        // Sombra pré-existente, sincronizada com o ANTIGO atual (estado antes da troca).
+        $pessoa->sincronizarTelefoneSombra('(41) 91111-1111');
 
         $this->pessoaRepository->method('findOneByIdDoTenant')->with(1, $this->tenant)->willReturn($pessoa);
         $this->telefoneRepository->method('findOneByIdDoTenant')->with(20, $this->tenant)->willReturn($novo);
@@ -55,6 +57,8 @@ final class MarcarTelefoneAtualUseCaseTest extends TestCase
         self::assertSame($novo, $resultado);
         self::assertTrue($novo->isAtual());
         self::assertFalse($anterior->isAtual());
+        // SPEC §5.4: a sombra da pessoa segue o NOVO atual, não o antigo.
+        self::assertSame('(41) 92222-2222', $pessoa->getTelefone());
     }
 
     #[Test]

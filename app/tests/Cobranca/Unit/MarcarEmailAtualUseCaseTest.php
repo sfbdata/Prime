@@ -38,11 +38,13 @@ final class MarcarEmailAtualUseCaseTest extends TestCase
     #[Test]
     public function marcarOutroTrocaAFlagEPreservaOAntigoEmUmUnicoFlush(): void
     {
-        $anterior = (new PessoaEmail())->setTenant($this->tenant)->setAtual(true);
-        $novo = (new PessoaEmail())->setTenant($this->tenant)->setAtual(false);
+        $anterior = (new PessoaEmail())->setTenant($this->tenant)->setEmail('antigo@example.com')->setAtual(true);
+        $novo = (new PessoaEmail())->setTenant($this->tenant)->setEmail('novo@example.com')->setAtual(false);
         // adicionarEmail() coloca os itens NA COLEÇÃO da pessoa (identidade compartilhada com o
         // que o repositório "encontra" abaixo) — é sobre essa coleção que o self-heal itera.
         $pessoa = $this->pessoaComId(1, $anterior, $novo);
+        // Sombra pré-existente, sincronizada com o ANTIGO atual (estado antes da troca).
+        $pessoa->sincronizarEmailSombra('antigo@example.com');
 
         $this->pessoaRepository->method('findOneByIdDoTenant')->with(1, $this->tenant)->willReturn($pessoa);
         $this->emailRepository->method('findOneByIdDoTenant')->with(20, $this->tenant)->willReturn($novo);
@@ -55,6 +57,8 @@ final class MarcarEmailAtualUseCaseTest extends TestCase
         self::assertSame($novo, $resultado);
         self::assertTrue($novo->isAtual());
         self::assertFalse($anterior->isAtual());
+        // SPEC §5.4: a sombra da pessoa segue o NOVO atual, não o antigo.
+        self::assertSame('novo@example.com', $pessoa->getEmail());
     }
 
     #[Test]

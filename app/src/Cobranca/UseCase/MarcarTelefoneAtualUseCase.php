@@ -29,6 +29,9 @@ use App\Entity\Tenant\Tenant;
  * é `false` e `setAtual(true)` em quem já é `true` geram changeset vazio no Doctrine, então
  * repetir a normalização em cima do item que já é o atual continua idempotente (sem UPDATE
  * desnecessário), mesmo chamando `salvar(..., true)` sempre.
+ *
+ * SPEC §5.4: ao trocar o atual, a coluna-sombra da Pessoa é sincronizada com o telefone do NOVO
+ * atual no mesmo flush — mantém Pessoa::getTelefone() escalar (sem N+1) e coerente com a troca.
  */
 final class MarcarTelefoneAtualUseCase
 {
@@ -63,6 +66,7 @@ final class MarcarTelefoneAtualUseCase
         }
 
         $telefone->setAtual(true);
+        $pessoa->sincronizarTelefoneSombra($telefone->getNumero());
 
         // Todas as entidades já estão managed; um único flush troca todas as flags atomicamente.
         $this->telefoneRepository->salvar($telefone, true);

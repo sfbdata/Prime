@@ -182,6 +182,96 @@ final class PessoaFichaControllerTest extends CobrancaWebTestCase
         self::assertNotNull($em->find(PessoaEndereco::class, $primeiro->getId()));
     }
 
+    #[TestDox('Marcar telefone como atual: troca a flag e preserva o anterior na lista')]
+    public function testMarcarTelefoneAtualHappy(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+
+        $primeiro = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 91111-1111', true);
+        $segundo = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 92222-2222', false);
+        $pessoaId = (int) $pessoa->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/pessoas/' . $pessoaId);
+        $acaoUrl = '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $segundo->getId() . '/atual';
+        $token = (string) $crawler->filter('form[action="' . $acaoUrl . '"] input[name="_token"]')->attr('value');
+
+        $client->request('POST', $acaoUrl, ['_token' => $token]);
+
+        self::assertResponseRedirects('/cobrancas/pessoas/' . $pessoaId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $primeiroFresh = $em->find(PessoaTelefone::class, $primeiro->getId());
+        $segundoFresh = $em->find(PessoaTelefone::class, $segundo->getId());
+        self::assertFalse($primeiroFresh->isAtual(), 'o anterior deixa de ser atual');
+        self::assertTrue($segundoFresh->isAtual(), 'o novo passa a ser atual');
+        // Nunca perde histórico: o item antigo continua existindo.
+        self::assertNotNull($em->find(PessoaTelefone::class, $primeiro->getId()));
+        // SPEC §5.4: a sombra da pessoa acompanha o NOVO atual (achado da revisão da branch).
+        $pessoaFresh = $em->find(Pessoa::class, $pessoaId);
+        self::assertSame('(41) 92222-2222', $pessoaFresh->getTelefone());
+    }
+
+    #[TestDox('Marcar telefone atual com CSRF inválido: NÃO troca o atual e mostra erro')]
+    public function testMarcarTelefoneAtualCsrfInvalidoNaoTroca(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+
+        $primeiro = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 91111-1111', true);
+        $segundo = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 92222-2222', false);
+        $pessoaId = (int) $pessoa->getId();
+        $acaoUrl = '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $segundo->getId() . '/atual';
+
+        $client->request('POST', $acaoUrl, ['_token' => 'token-invalido']);
+
+        self::assertResponseRedirects('/cobrancas/pessoas/' . $pessoaId);
+        $client->followRedirect();
+        self::assertStringContainsString('Token de segurança inválido.', (string) $client->getResponse()->getContent());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $primeiroFresh = $em->find(PessoaTelefone::class, $primeiro->getId());
+        $segundoFresh = $em->find(PessoaTelefone::class, $segundo->getId());
+        self::assertTrue($primeiroFresh->isAtual(), 'CSRF inválido: nada muda, o antigo continua atual');
+        self::assertFalse($segundoFresh->isAtual(), 'CSRF inválido: o novo NÃO vira atual');
+    }
+
+    #[TestDox('Marcar e-mail como atual: troca a flag e preserva o anterior na lista')]
+    public function testMarcarEmailAtualHappy(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+
+        $primeiro = $this->criarEmail($tenant, $pessoa, $usuario, 'antigo@example.com', true);
+        $segundo = $this->criarEmail($tenant, $pessoa, $usuario, 'novo@example.com', false);
+        $pessoaId = (int) $pessoa->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/pessoas/' . $pessoaId);
+        $acaoUrl = '/cobrancas/pessoas/' . $pessoaId . '/emails/' . $segundo->getId() . '/atual';
+        $token = (string) $crawler->filter('form[action="' . $acaoUrl . '"] input[name="_token"]')->attr('value');
+
+        $client->request('POST', $acaoUrl, ['_token' => $token]);
+
+        self::assertResponseRedirects('/cobrancas/pessoas/' . $pessoaId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $primeiroFresh = $em->find(PessoaEmail::class, $primeiro->getId());
+        $segundoFresh = $em->find(PessoaEmail::class, $segundo->getId());
+        self::assertFalse($primeiroFresh->isAtual(), 'o anterior deixa de ser atual');
+        self::assertTrue($segundoFresh->isAtual(), 'o novo passa a ser atual');
+        // Nunca perde histórico: o item antigo continua existindo.
+        self::assertNotNull($em->find(PessoaEmail::class, $primeiro->getId()));
+        // SPEC §5.4: a sombra da pessoa acompanha o NOVO atual (achado da revisão da branch).
+        $pessoaFresh = $em->find(Pessoa::class, $pessoaId);
+        self::assertSame('novo@example.com', $pessoaFresh->getEmail());
+    }
+
     #[TestDox('Editar qualificação: persiste os campos únicos e NÃO altera email/telefone')]
     public function testEditarQualificacaoHappyNaoAlteraEmailTelefone(): void
     {
@@ -319,5 +409,45 @@ final class PessoaFichaControllerTest extends CobrancaWebTestCase
         $em->flush();
 
         return $endereco;
+    }
+
+    /**
+     * Semeia um telefone direto no banco (fora do UseCase — só apoio de teste), pra testar a
+     * marcação de "atual" sem depender do fluxo de "adicionar" no mesmo teste.
+     */
+    private function criarTelefone(Tenant $tenant, Pessoa $pessoa, User $criadoPor, string $numero, bool $atual): PessoaTelefone
+    {
+        $telefone = new PessoaTelefone();
+        $telefone->setTenant($tenant);
+        $telefone->setPessoa($pessoa);
+        $telefone->setNumero($numero);
+        $telefone->setAtual($atual);
+        $telefone->setCriadoPor($criadoPor);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->persist($telefone);
+        $em->flush();
+
+        return $telefone;
+    }
+
+    /**
+     * Semeia um e-mail direto no banco (fora do UseCase — só apoio de teste), pra testar a
+     * marcação de "atual" sem depender do fluxo de "adicionar" no mesmo teste.
+     */
+    private function criarEmail(Tenant $tenant, Pessoa $pessoa, User $criadoPor, string $email, bool $atual): PessoaEmail
+    {
+        $pessoaEmail = new PessoaEmail();
+        $pessoaEmail->setTenant($tenant);
+        $pessoaEmail->setPessoa($pessoa);
+        $pessoaEmail->setEmail($email);
+        $pessoaEmail->setAtual($atual);
+        $pessoaEmail->setCriadoPor($criadoPor);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->persist($pessoaEmail);
+        $em->flush();
+
+        return $pessoaEmail;
     }
 }

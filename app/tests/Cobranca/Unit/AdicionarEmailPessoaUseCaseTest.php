@@ -55,6 +55,8 @@ final class AdicionarEmailPessoaUseCaseTest extends TestCase
         self::assertSame($pessoa, $email->getPessoa());
         self::assertTrue($pessoa->getEmails()->contains($email));
         self::assertSame('fulano@example.com', $email->getEmail());
+        // SPEC §5.4: o primeiro item nasce atual, então a sombra da pessoa fica sincronizada com ele.
+        self::assertSame('fulano@example.com', $pessoa->getEmail());
     }
 
     #[Test]
@@ -68,6 +70,8 @@ final class AdicionarEmailPessoaUseCaseTest extends TestCase
         $email = $this->sut->executar($this->input(7, 'segundo@example.com'), $this->tenant, $this->criadoPor);
 
         self::assertFalse($email->isAtual());
+        // Não é o primeiro item: a sombra da pessoa não é tocada por este UseCase.
+        self::assertNull($pessoa->getEmail());
     }
 
     #[Test]

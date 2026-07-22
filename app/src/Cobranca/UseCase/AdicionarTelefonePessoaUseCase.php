@@ -21,6 +21,9 @@ use App\Entity\Tenant\Tenant;
  * histórico (`atual = false`) — marcar um item existente como atual é uma ação separada
  * (MarcarTelefoneAtualUseCase). A pessoa é resolvida por id + tenant (guarda multi-tenant,
  * invariável 24); inexistente ou de outro escritório interrompe a operação.
+ *
+ * SPEC §5.4: quando o novo item nasce atual (é o primeiro da lista), a coluna-sombra da Pessoa é
+ * sincronizada com ele no mesmo flush — mantém Pessoa::getTelefone() escalar (sem N+1) e coerente.
  */
 final class AdicionarTelefonePessoaUseCase
 {
@@ -50,6 +53,10 @@ final class AdicionarTelefonePessoaUseCase
         $telefone->setCriadoPor($criadoPor);
 
         $pessoa->adicionarTelefone($telefone);
+
+        if ($primeiroDaLista) {
+            $pessoa->sincronizarTelefoneSombra($telefone->getNumero());
+        }
 
         $this->telefoneRepository->salvar($telefone, true);
 

@@ -24,9 +24,11 @@ use Doctrine\ORM\Mapping as ORM;
  * Qualificação (spec de qualificação §3/§4/§6): campos únicos (dataNascimento, estadoCivil,
  * profissao, rg, orgaoEmissorRg) + três LISTAS (enderecos/telefones/emails) com um item `atual`
  * cada — nada é apagado ao atualizar, só adicionado. `email`/`telefone` continuam existindo como
- * colunas-sombra (compat de 1 release, SPEC §6): getEmail()/getTelefone() passam a DERIVAR do
- * item atual da respectiva lista (fallback para a coluna-sombra com a lista vazia);
- * setEmail()/setTelefone() viram ponte que cria/atualiza o item atual, mantendo a sombra em dia.
+ * colunas-sombra (compat de 1 release, SPEC §5.4/§6), SEMPRE sincronizadas com o item atual pelos
+ * UseCases Adicionar/MarcarAtual (via sincronizarEmailSombra()/sincronizarTelefoneSombra()) e
+ * pelo bridge setEmail()/setTelefone(): getEmail()/getTelefone() passam a PREFERIR a sombra
+ * (leitura escalar, sem iterar a lista — evita N+1) e só derivam do item atual da lista quando a
+ * sombra é null (dado legado pré-transição).
  */
 #[ORM\Entity(repositoryClass: PessoaRepository::class)]
 #[ORM\Table(name: 'cobranca_pessoa')]
@@ -187,14 +189,14 @@ class Pessoa implements TenantAware, Auditavel
     }
 
     /**
-     * Compat (SPEC §6): deriva do item `atual` da lista de e-mails; cai para a coluna-sombra
-     * quando a lista está vazia (dado legado ainda não migrado por um Adicionar/MarcarAtual).
+     * SPEC §5.4/§6: prefere a coluna-sombra (mantida sincronizada com o item atual pelos
+     * UseCases Adicionar/MarcarAtual e pelo bridge setEmail()) — leitura escalar, sem iterar a
+     * coleção `emails` (evita N+1 nos read-paths quentes). Só deriva da lista quando a sombra
+     * é null (dado legado pré-transição que ainda não passou por um Adicionar/MarcarAtual).
      */
     public function getEmail(): ?string
     {
-        $atual = $this->emailAtual();
-
-        return $atual?->getEmail() ?? $this->email;
+        return $this->email ?? $this->emailAtual()?->getEmail();
     }
 
     /**
@@ -232,14 +234,14 @@ class Pessoa implements TenantAware, Auditavel
     }
 
     /**
-     * Compat (SPEC §6): deriva do item `atual` da lista de telefones; cai para a coluna-sombra
-     * quando a lista está vazia (dado legado ainda não migrado por um Adicionar/MarcarAtual).
+     * SPEC §5.4/§6: prefere a coluna-sombra (mantida sincronizada com o item atual pelos
+     * UseCases Adicionar/MarcarAtual e pelo bridge setTelefone()) — leitura escalar, sem iterar
+     * a coleção `telefones` (evita N+1 nos read-paths quentes). Só deriva da lista quando a
+     * sombra é null (dado legado pré-transição que ainda não passou por um Adicionar/MarcarAtual).
      */
     public function getTelefone(): ?string
     {
-        $atual = $this->telefoneAtual();
-
-        return $atual?->getNumero() ?? $this->telefone;
+        return $this->telefone ?? $this->telefoneAtual()?->getNumero();
     }
 
     /**
@@ -274,6 +276,28 @@ class Pessoa implements TenantAware, Auditavel
         $this->adicionarTelefone($novo);
 
         return $this;
+    }
+
+    /**
+     * Baixo nível (SPEC §5.4): grava SOMENTE a coluna-sombra, sem tocar a lista de e-mails —
+     * usada pelos UseCases Adicionar/MarcarAtual para manter a sombra "sincronizada com o item
+     * atual" depois de mexerem na lista diretamente (evita a dupla-escrita do bridge setEmail(),
+     * que criaria/atualizaria um item por conta própria).
+     */
+    public function sincronizarEmailSombra(?string $email): void
+    {
+        $this->email = $email;
+    }
+
+    /**
+     * Baixo nível (SPEC §5.4): grava SOMENTE a coluna-sombra, sem tocar a lista de telefones —
+     * usada pelos UseCases Adicionar/MarcarAtual para manter a sombra "sincronizada com o item
+     * atual" depois de mexerem na lista diretamente (evita a dupla-escrita do bridge
+     * setTelefone(), que criaria/atualizaria um item por conta própria).
+     */
+    public function sincronizarTelefoneSombra(?string $telefone): void
+    {
+        $this->telefone = $telefone;
     }
 
     /**

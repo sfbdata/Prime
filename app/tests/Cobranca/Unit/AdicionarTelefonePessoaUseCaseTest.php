@@ -55,6 +55,8 @@ final class AdicionarTelefonePessoaUseCaseTest extends TestCase
         self::assertSame($pessoa, $telefone->getPessoa());
         self::assertTrue($pessoa->getTelefones()->contains($telefone));
         self::assertSame('(41) 99999-0000', $telefone->getNumero());
+        // SPEC §5.4: o primeiro item nasce atual, então a sombra da pessoa fica sincronizada com ele.
+        self::assertSame('(41) 99999-0000', $pessoa->getTelefone());
     }
 
     #[Test]
@@ -68,6 +70,8 @@ final class AdicionarTelefonePessoaUseCaseTest extends TestCase
         $telefone = $this->sut->executar($this->input(7, '(41) 98888-1111'), $this->tenant, $this->criadoPor);
 
         self::assertFalse($telefone->isAtual());
+        // Não é o primeiro item: a sombra da pessoa não é tocada por este UseCase.
+        self::assertNull($pessoa->getTelefone());
     }
 
     #[Test]
