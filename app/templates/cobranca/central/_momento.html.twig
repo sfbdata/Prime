@@ -1,0 +1,12 @@
+{#
+   Instante de uma ação na Central. Hoje mostra só a hora (é o recorte padrão da tela, onde a data seria
+   ruído repetido); fora de hoje, data e hora. Timestamp concreto em vez de "há 4 min": não muda de
+   leitura entre um F5 e outro, e o gestor consegue casar com o histórico do caso.
+
+   Parâmetro: `momento` (DateTimeInterface).
+#}
+{%- if momento|date('Y-m-d') == 'now'|date('Y-m-d') -%}
+    {{ momento|date('H:i') }}
+{%- else -%}
+    {{ momento|date('d/m/Y H:i') }}
+{%- endif -%}

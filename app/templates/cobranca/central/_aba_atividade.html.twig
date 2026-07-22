@@ -1,0 +1,85 @@
+{#
+   Aba Atividade da Central (spec §4/§5). Uma linha por pessoa, total do setor no topo.
+
+   Volume e efetividade LADO A LADO, sem nota única e sem ranking (decisão do dono): "Contatos" é toda
+   tentativa, "Falou com o devedor" é o subconjunto atendido. Sem R$ por pessoa — "Baixas registradas"
+   conta o ato, não o mérito da negociação.
+
+   Quem não trabalhou aparece ZERADO: a ausência é a informação que o gestor veio buscar.
+
+   Contexto herdado do index: `atividade`, `periodo`, `carteiraId`.
+#}
+{% set filtrosDetalhe = { periodo: periodo.atalho, inicio: periodo.inicioTexto, fim: periodo.fimTexto } %}
+{% if carteiraId %}{% set filtrosDetalhe = filtrosDetalhe|merge({ carteira: carteiraId }) %}{% endif %}
+
+{% if atividade.pessoas is empty %}
+    <div class="cobranca-empty">
+        <div class="empty-ico"><i class="bi bi-people"></i></div>
+        <div class="empty-title">Nenhuma pessoa com acesso ao módulo de Cobranças</div>
+        <div class="text-muted">Libere o módulo para a equipe e a atividade dela aparece aqui.</div>
+    </div>
+{% else %}
+    {% if atividade.vazia %}
+        <p class="cobranca-central-aviso text-muted small mb-2">
+            <i class="bi bi-info-circle me-1"></i>Nenhum registro no período selecionado — a tela mostra o
+            que a equipe registra, então a linha zerada pode ser trabalho não registrado.
+        </p>
+    {% endif %}
+
+    <div class="card cobranca-card cobranca-central-tabela">
+        <table class="table table-sm align-middle mb-0" id="tabelaAtividade">
+            <thead>
+                <tr>
+                    <th scope="col">Quem</th>
+                    <th scope="col" class="text-end">Contatos</th>
+                    <th scope="col" class="text-end">Falou com o devedor</th>
+                    <th scope="col" class="text-end">Acordos fechados</th>
+                    <th scope="col" class="text-end">Baixas registradas</th>
+                    <th scope="col" class="text-end d-none d-md-table-cell">Última ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="cobranca-central-total">
+                    <th scope="row">Total do setor</th>
+                    <td class="text-end">{{ atividade.totalContatos }}</td>
+                    <td class="text-end">{{ atividade.totalAtendidos }}</td>
+                    <td class="text-end">{{ atividade.totalAcordos }}</td>
+                    <td class="text-end">{{ atividade.totalBaixas }}</td>
+                    <td class="text-end d-none d-md-table-cell">
+                        {{ atividade.ultimaAcaoDoSetor ? include('cobranca/central/_momento.html.twig', { momento: atividade.ultimaAcaoDoSetor }) : '—' }}
+                    </td>
+                </tr>
+
+                {% for pessoa in atividade.pessoas %}
+                {% set chave = pessoa.chaveDetalhe %}
+                <tr class="js-linha-pessoa cobranca-central-linha {{ pessoa.semResponsavel ? 'is-sem-responsavel' : '' }}"
+                    data-chave="{{ chave }}"
+                    data-url="{{ path('cobranca_central_atividade_detalhe', filtrosDetalhe|merge({ chave: chave })) }}"
+                    role="button" tabindex="0" aria-expanded="false" aria-controls="detalhe-{{ chave }}">
+                    <th scope="row" class="fw-normal">
+                        <i class="bi bi-chevron-right cobranca-central-chevron"></i>
+                        {% if pessoa.semResponsavel %}
+                            <span class="text-muted fst-italic">{{ pessoa.nome }}</span>
+                            <i class="bi bi-question-circle text-muted ms-1"
+                               data-bs-toggle="tooltip"
+                               title="Eventos cujo autor não está mais registrado. Nunca são atribuídos a alguém."></i>
+                        {% else %}
+                            {{ pessoa.nome }}
+                        {% endif %}
+                    </th>
+                    <td class="text-end">{{ pessoa.contatos }}</td>
+                    <td class="text-end">{{ pessoa.atendidos }}</td>
+                    <td class="text-end">{{ pessoa.acordos }}</td>
+                    <td class="text-end">{{ pessoa.baixas }}</td>
+                    <td class="text-end d-none d-md-table-cell">
+                        {{ pessoa.ultimaAcao ? include('cobranca/central/_momento.html.twig', { momento: pessoa.ultimaAcao }) : '—' }}
+                    </td>
+                </tr>
+                <tr class="js-linha-detalhe cobranca-central-detalhe" id="detalhe-{{ chave }}" hidden>
+                    <td colspan="6" class="js-detalhe-conteudo"></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}

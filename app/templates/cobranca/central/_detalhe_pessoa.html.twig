@@ -1,0 +1,63 @@
+{#
+   Detalhe de uma pessoa na aba Atividade (spec §4). FRAGMENTO — sem layout: é servido pela rota própria
+   `cobranca_central_atividade_detalhe` e injetado abaixo da linha clicada.
+
+   Duas partes: as pastilhas de desfecho (como se distribuíram os contatos) e a lista dos eventos, do
+   mais recente para o mais antigo, com aviso honesto quando trunca.
+#}
+<div class="cobranca-central-detalhe-corpo">
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+        <span class="fw-semibold">{{ detalhe.nome }}</span>
+        <span class="text-muted small">· desfecho dos contatos no período</span>
+    </div>
+
+    <div class="cobranca-pastilhas mb-3">
+        {% for desfecho in detalhe.desfechos %}
+        <span class="cobranca-pastilha {{ desfecho.quantidade == 0 ? 'is-zerada' : '' }}">
+            {{ desfecho.label }}<strong class="ms-1">{{ desfecho.quantidade }}</strong>
+        </span>
+        {% else %}
+        <span class="text-muted small">Nenhum contato registrado no período.</span>
+        {% endfor %}
+    </div>
+
+    {% if detalhe.eventos is empty %}
+        <p class="text-muted small mb-0">Nenhum evento registrado por esta pessoa no período.</p>
+    {% else %}
+        {% if detalhe.truncado %}
+        <p class="text-muted small mb-2">
+            <i class="bi bi-exclamation-triangle me-1"></i>Mostrando os {{ detalhe.limite }} eventos mais
+            recentes do período — há mais além destes.
+        </p>
+        {% endif %}
+
+        <div class="cobranca-central-eventos">
+            <table class="table table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Quando</th>
+                        <th scope="col">O que</th>
+                        <th scope="col">Objeto</th>
+                        <th scope="col">Resumo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for evento in detalhe.eventos %}
+                    <tr>
+                        <td class="text-nowrap">{{ evento.ocorridoEm|date('d/m/Y H:i') }}</td>
+                        <td class="text-nowrap">{{ evento.tipoLabel }}</td>
+                        <td>
+                            {% if evento.objetoId %}
+                            <a href="{{ path('cobranca_objeto_show', { id: evento.objetoId }) }}">{{ evento.objetoIdentificacao }}</a>
+                            {% else %}
+                            {{ evento.objetoIdentificacao }}
+                            {% endif %}
+                        </td>
+                        <td>{{ evento.descricao }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+</div>

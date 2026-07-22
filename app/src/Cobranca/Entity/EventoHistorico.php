@@ -20,6 +20,9 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: EventoHistoricoRepository::class)]
 #[ORM\Table(name: 'cobranca_evento_historico')]
 #[ORM\Index(name: 'idx_cobranca_evento_tenant_caso', columns: ['tenant_id', 'caso_id'])]
+// Eixo da Central de Acompanhamento: "o que a equipe fez NO PERÍODO". Os índices por caso/usuário não
+// servem para filtrar por faixa de data, que é o filtro de toda consulta daquela tela.
+#[ORM\Index(name: 'idx_cobranca_evento_tenant_ocorrido', columns: ['tenant_id', 'ocorrido_em'])]
 class EventoHistorico implements TenantAware
 {
     #[ORM\Id]
