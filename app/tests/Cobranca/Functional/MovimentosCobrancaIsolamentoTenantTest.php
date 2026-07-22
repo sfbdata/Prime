@@ -107,7 +107,7 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
         $liquidacaoRepo = $this->em->getRepository(Liquidacao::class);
 
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
-        $calculadora = new CalculadoraHonorarios();
+        $calculadora = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
         $alocador = new AlocadorPagamento($obrigacaoRepo, $calculadora);
         $autoAlocador = new AutoAlocadorFifo(
             $obrigacaoRepo,

@@ -53,7 +53,7 @@ final class CorrigirPagamentoUseCaseTest extends TestCase
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
         // AlocadorPagamento, AutoAlocadorFifo e CalculadoraHonorarios são finais e puros: usa-se os REAIS.
-        $calculadora = new CalculadoraHonorarios();
+        $calculadora = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
         $alocador = new AlocadorPagamento($this->obrigacaoRepository, $calculadora);
         $autoAlocador = new AutoAlocadorFifo(
             $this->obrigacaoRepository,

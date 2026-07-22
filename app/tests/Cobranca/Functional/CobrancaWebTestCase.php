@@ -234,13 +234,13 @@ abstract class CobrancaWebTestCase extends JusPrimeWebTestCase
      * Semeia Carteira→Objeto→Caso (+ Pessoa cobrada) no tenant. Aceita overrides do Caso e,
      * opcionalmente, da Carteira.
      *
-     * T1 (cascata de encargos ao vivo sem snapshot, #9): o `ResolvedorConfigEncargos` não lê mais as
-     * colunas de config do Caso (`taxaJurosMensalBp`/`taxaMultaBp`/`formaHonorarios`/
-     * `percentualHonorarios`/etc.) — a fonte AO VIVO passou a ser a Carteira (via Objeto). Testes que
-     * precisam de encargos NÃO-ZERO na tela (F4 "colunas separadas", split de encargos) devem usar
-     * `$overridesCarteira` para essas chaves; `$overridesCaso` continua valendo para o que ainda é
-     * lido diretamente do Caso (ex.: `formaHonorarios`/`percentualHonorarios` no rateio de pagamento
-     * via `CalculadoraHonorarios`, que segue intocado) e para campos só do Caso (`status`, etc.).
+     * T1+T2 (cascata de encargos ao vivo sem snapshot, #9): NEM o `ResolvedorConfigEncargos` (T1) NEM
+     * o `CalculadoraHonorarios` (T2, split do pagamento/gross-up) leem mais as colunas de config do
+     * Caso (`taxaJurosMensalBp`/`taxaMultaBp`/`formaHonorarios`/`percentualHonorarios`/etc.) — a fonte
+     * AO VIVO é sempre a Carteira (via Objeto). Testes que precisam de encargos NÃO-ZERO na tela (F4
+     * "colunas separadas", split de encargos, gross-up do "Receber") devem usar `$overridesCarteira`
+     * para essas chaves; `$overridesCaso` só vale para campos que ainda são do PRÓPRIO Caso
+     * (`status`, etc.) — as colunas de config que sobram nele são sombra morta (T2).
      *
      * @param array<string, mixed> $overridesCaso
      * @param array<string, mixed> $overridesCarteira

@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\DTO\AlocacaoPagamentoInput;
 use App\Cobranca\DTO\RegistrarPagamentoInput;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Entity\ObjetoCobranca;
@@ -61,7 +62,7 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
         $this->alocacaoRepository = $this->createMock(AlocacaoPagamentoRepository::class);
         // AlocadorPagamento, AutoAlocadorFifo, CalculadoraHonorarios e o Reconciliador são finais/puros:
         // usa-se os REAIS. Sem carteira/config nos casos de teste → encargo 0 (exigível = valor original).
-        $calculadora = new CalculadoraHonorarios();
+        $calculadora = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
         $alocador = new AlocadorPagamento($this->obrigacaoRepository, $calculadora);
         $autoAlocador = new AutoAlocadorFifo(
             $this->obrigacaoRepository,
@@ -91,11 +92,11 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
     #[Test]
     public function registraPagamentoAcrescidoDividaRateandoHonorarios(): void
     {
-        // Caso 10% acrescido_divida: bruto 1100 → dívida 1000 + honorários 100.
-        $caso = (new CasoCobranca())
-            ->setTenant($this->tenant)
-            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
-            ->setPercentualHonorarios('10.00');
+        // Caso 10% acrescido_divida (política vem da carteira via objeto, #9-T2): bruto 1100 →
+        // dívida 1000 + honorários 100.
+        $carteira = (new Carteira())->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
+        $objeto = (new ObjetoCobranca())->setCarteira($carteira);
+        $caso = (new CasoCobranca())->setTenant($this->tenant)->setObjeto($objeto);
         $obrigacao = (new Obrigacao())->setTenant($this->tenant)->setCaso($caso);
 
         $this->casoRepository

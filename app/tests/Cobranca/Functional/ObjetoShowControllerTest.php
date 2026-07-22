@@ -565,10 +565,13 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertNull($botao->attr('disabled'));
     }
 
-    /** Caso do tenant com o snapshot de honorários fixado (a forma decide se há gross-up no prefill). */
+    /**
+     * Caso do tenant com a política de honorários da CARTEIRA fixada (a forma decide se há gross-up
+     * no prefill). #9-T2: a fonte AO VIVO é a carteira via objeto — não mais o snapshot do caso.
+     */
     private function casoComHonorarios(Tenant $tenant, FormaHonorarios $forma, ?string $percentual): CasoCobranca
     {
-        [, $caso] = $this->semearGrafo($tenant, [
+        [, $caso] = $this->semearGrafo($tenant, [], [
             'formaHonorarios' => $forma,
             'percentualHonorarios' => $percentual,
         ]);

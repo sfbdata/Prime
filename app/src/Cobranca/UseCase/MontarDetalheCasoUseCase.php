@@ -15,6 +15,7 @@ use App\Cobranca\DTO\ProximaAcaoOutput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\BaseEncargo;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -37,8 +38,13 @@ use App\Cobranca\Service\ResolvedorConfigEncargos;
  * nada aqui recalcula regra de negócio — só lê e formata via Output DTOs. Documentos entram na 8C.
  *
  * Ajuste 10 (T5): é aqui que o prefill do "Receber" é derivado (`ObrigacaoOutput::brutoSugerido`),
- * delegando a `CalculadoraHonorarios` — este UseCase é quem tem, ao mesmo tempo, o snapshot de
- * honorários do caso e o alocado por obrigação. A regra continua a morar na calculadora.
+ * delegando a `CalculadoraHonorarios` — este UseCase é quem tem, ao mesmo tempo, o alocado por
+ * obrigação e o caso (do qual a calculadora resolve a política de honorários). A regra continua a
+ * morar na calculadora.
+ *
+ * #9-T2: `formaHonorariosLabel`/`percentualHonorarios` do hero NÃO leem mais o snapshot do caso —
+ * a FORMA vem da carteira e a ALÍQUOTA da cascata do objeto (`ResolvedorConfigEncargos::resolverDoObjeto`),
+ * a mesma fonte que `CalculadoraHonorarios` usa no split (fecha a divergência I-1).
  */
 final class MontarDetalheCasoUseCase
 {
@@ -64,16 +70,17 @@ final class MontarDetalheCasoUseCase
         // encargo não podem divergir, e nada de `new \DateTimeImmutable()` no caminho do dinheiro.
         $hoje = $this->encargosVivos->agora();
 
+        // Config efetiva do CASO (cascata Carteira → Objeto, T1) resolvida UMA vez e reusada abaixo
+        // na hidratação, no rótulo/alíquota de honorários do hero (T2) e na base do espelho %↔R$.
+        $configCaso = $this->resolvedorConfig->resolverDoCaso($caso);
+
         // Encargos AO VIVO (spec §6.2/INV-V5): hidrata EM MEMÓRIA as obrigações EXIGÍVEIS (vivas) do
-        // caso para HOJE, resolvendo a config 1× — assim exibição e saldo leem o MESMO exigível vivo.
-        // Congeladas (Liquidada/Substituída) e não-exigíveis (substituídas por acordo vigente, parcelas
-        // de acordo rompido) ficam fora de `doCasoExigiveis` e mantêm o snapshot. As instâncias managed
+        // caso para HOJE — assim exibição e saldo leem o MESMO exigível vivo. Congeladas
+        // (Liquidada/Substituída) e não-exigíveis (substituídas por acordo vigente, parcelas de
+        // acordo rompido) ficam fora de `doCasoExigiveis` e mantêm o snapshot. As instâncias managed
         // são as mesmas que `doCaso` devolve abaixo (identity map do Doctrine): a hidratação aqui não
         // depende do efeito colateral do `saldoExigivel`.
-        $this->encargosVivos->hidratar(
-            $this->resolvedorConfig->resolverDoCaso($caso),
-            $this->obrigacaoRepository->doCasoExigiveis($caso),
-        );
+        $this->encargosVivos->hidratar($configCaso, $this->obrigacaoRepository->doCasoExigiveis($caso));
 
         $objeto = $caso->getObjeto();
         $carteira = $objeto?->getCarteira();
@@ -114,6 +121,14 @@ final class MontarDetalheCasoUseCase
         $acordos = array_map(AcordoOutput::fromEntity(...), $this->acordoRepository->doCaso($caso));
         [$gruposAcordo, $obrigacoesAvulsas] = $this->agruparPorAcordo($obrigacoes, $acordos);
 
+        // #9-T2: FORMA sempre da carteira (não sobreponível); ALÍQUOTA já resolvida em `$configCaso`
+        // (cascata do objeto) — a mesma fonte que `CalculadoraHonorarios` usa no split. O snapshot do
+        // caso (`getFormaHonorarios`/`getPercentualHonorarios`) não é mais lido aqui.
+        $formaHonorarios = $carteira?->getFormaHonorarios() ?? FormaHonorarios::SemPercentual;
+        $percentualHonorarios = $formaHonorarios->exigePercentual()
+            ? $this->formatarPercentualDeBp($configCaso->taxaHonorariosBp)
+            : null;
+
         return new CasoDetalheOutput(
             id: $caso->getId() ?? 0,
             objetoIdentificacao: $objeto?->getIdentificacao() ?? '—',
@@ -131,8 +146,8 @@ final class MontarDetalheCasoUseCase
             prontoParaEncerrar: $status !== StatusCaso::Encerrado && $saldoExigivel === 0,
             saldoExigivel: $saldoExigivel,
             saldoVencido: $this->calculadoraSaldo->saldoVencido($caso, $hoje),
-            formaHonorariosLabel: $caso->getFormaHonorarios()->label(),
-            percentualHonorarios: $caso->getPercentualHonorarios(),
+            formaHonorariosLabel: $formaHonorarios->label(),
+            percentualHonorarios: $percentualHonorarios,
             pastaJudicialId: $caso->getPastaJudicial()?->getId(),
             proximaAcao: $acaoAtiva !== null ? ProximaAcaoOutput::fromEntity($acaoAtiva, $hoje) : null,
             // Dedupe: reusa o saldoExigivel e a ação ativa já computados acima (evita o recálculo interno
@@ -147,7 +162,7 @@ final class MontarDetalheCasoUseCase
             historico: array_map(EventoHistoricoOutput::fromEntity(...), $this->eventoRepository->doCaso($caso)),
             // Base resolvida do honorário do CASO (para o espelho %↔R$ do honorário nos modais converter
             // sobre a base certa — composta soma valor+juros+multa+correção; principal usa só o valor).
-            baseHonorariosComposta: $this->resolvedorConfig->resolverDoCaso($caso)->baseHonorarios === BaseEncargo::Composta,
+            baseHonorariosComposta: $configCaso->baseHonorarios === BaseEncargo::Composta,
         );
     }
 
@@ -238,5 +253,19 @@ final class MontarDetalheCasoUseCase
         }
 
         return [$grupos, $avulsas];
+    }
+
+    /**
+     * Basis points (2000) → decimal string ("20.00") para o hero, sem float no caminho do dinheiro
+     * (aritmética inteira, mesmo padrão de `TaxaBpParaTextoTransformer`, só com '.' em vez de ',').
+     */
+    private function formatarPercentualDeBp(int $bp): string
+    {
+        $sinal = $bp < 0 ? '-' : '';
+        $absoluto = abs($bp);
+        $inteiro = intdiv($absoluto, 100);
+        $centesimos = $absoluto % 100;
+
+        return $sinal . $inteiro . '.' . str_pad((string) $centesimos, 2, '0', STR_PAD_LEFT);
     }
 }

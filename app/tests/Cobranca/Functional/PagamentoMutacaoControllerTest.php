@@ -65,7 +65,9 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
         // honorários (10,00) e aloca a dívida (100,00) por FIFO — sem nenhuma linha de alocação manual.
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant, [
+        // #9-T2: a política de honorários que o rateio do pagamento lê vem da CARTEIRA (via objeto),
+        // não mais do snapshot do caso — o override entra em `$overridesCarteira`.
+        [, $caso] = $this->semearGrafo($tenant, [], [
             'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
             'percentualHonorarios' => '10.00',
         ]);
@@ -134,7 +136,9 @@ final class PagamentoMutacaoControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant, [
+        // #9-T2: a política de honorários que o rateio do pagamento lê vem da CARTEIRA (via objeto),
+        // não mais do snapshot do caso — o override entra em `$overridesCarteira`.
+        [, $caso] = $this->semearGrafo($tenant, [], [
             'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
             'percentualHonorarios' => '10.00',
         ]);
