@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\Repository;
 
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
@@ -46,6 +47,27 @@ class AcordoRepository extends ServiceEntityRepository
     public function findOneByIdDoTenant(int $id, Tenant $tenant): ?Acordo
     {
         return $this->findOneBy(['id' => $id, 'tenant' => $tenant]);
+    }
+
+    /**
+     * Dedup por (carteira + número externo) na (re)importação do relatório TOPLIFE (spec
+     * `cobranca-importar-linhas-acordo.md` §3.2/§4, tarefa #7-B). A carteira do acordo é derivada
+     * via `caso → objeto → carteira` (não há coluna direta). Sempre filtrado por tenant — nunca
+     * cruza escritórios.
+     */
+    public function findOnePorNumeroExternoNaCarteira(int $numeroExterno, Carteira $carteira, Tenant $tenant): ?Acordo
+    {
+        return $this->createQueryBuilder('a')
+            ->innerJoin('a.caso', 'c')
+            ->innerJoin('c.objeto', 'o')
+            ->andWhere('a.numeroExterno = :numeroExterno')
+            ->andWhere('o.carteira = :carteira')
+            ->andWhere('a.tenant = :tenant')
+            ->setParameter('numeroExterno', $numeroExterno)
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 
     /**

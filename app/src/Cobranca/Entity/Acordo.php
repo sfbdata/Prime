@@ -26,6 +26,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: AcordoRepository::class)]
 #[ORM\Table(name: 'cobranca_acordo')]
 #[ORM\Index(name: 'idx_cobranca_acordo_tenant_caso', columns: ['tenant_id', 'caso_id'])]
+#[ORM\Index(name: 'idx_cobranca_acordo_tenant_numero_externo', columns: ['tenant_id', 'numero_externo'])]
 #[ORM\HasLifecycleCallbacks]
 class Acordo implements TenantAware, Auditavel
 {
@@ -64,6 +65,24 @@ class Acordo implements TenantAware, Auditavel
     /** Snapshot da entrada do acordo (Ajuste 7), em CENTAVOS; 0 = sem entrada. Descritivo (ver acima). */
     #[ORM\Column(name: 'valor_entrada', type: 'integer', options: ['default' => 0])]
     private int $valorEntrada = 0;
+
+    /**
+     * Identidade externa (spec `cobranca-importar-linhas-acordo.md` §4): número do acordo na origem
+     * (relatório TOPLIFE). Dedup por (carteira + número) na (re)importação — a carteira é derivada
+     * via `caso → objeto → carteira`, não há coluna direta. Nulo para acordos criados manualmente.
+     */
+    #[ORM\Column(name: 'numero_externo', type: 'integer', nullable: true)]
+    private ?int $numeroExterno = null;
+
+    /**
+     * Total de parcelas esperado, lido do relatório de origem ("Acordo N - Parc. p/t", §3.3). Nulo
+     * para acordos manuais. Quando presente e maior que `count(parcelas)`, o acordo está incompleto —
+     * as parcelas faltantes entram por importação futura (quando vencerem) ou à mão (§3.3). NOTA de
+     * implementação (tarefa #7-A): a spec §4 nomeia só `numero_externo`; esta coluna foi acrescentada
+     * porque §3.3 exige indicar "faltam parcelas" e não há onde derivar o total esperado sem persistir.
+     */
+    #[ORM\Column(name: 'numero_parcelas_total', type: 'integer', nullable: true)]
+    private ?int $numeroParcelasTotal = null;
 
     /**
      * Obrigações originais que este acordo substituiu (inverso; nunca apagadas — invariável 14).
@@ -141,6 +160,25 @@ class Acordo implements TenantAware, Auditavel
         $this->status = StatusAcordo::Cumprido;
 
         return $this;
+    }
+
+    /**
+     * Total esperado (relatório de origem) maior que as parcelas já cadastradas — faltam parcelas
+     * (§3.3). Acordo manual (sem `numeroParcelasTotal`) nunca está incompleto.
+     */
+    public function estaIncompleto(): bool
+    {
+        return $this->numeroParcelasTotal !== null && $this->parcelas->count() < $this->numeroParcelasTotal;
+    }
+
+    /** Quantas parcelas faltam para completar o total esperado; 0 se completo ou acordo manual. */
+    public function parcelasFaltantes(): int
+    {
+        if ($this->numeroParcelasTotal === null) {
+            return 0;
+        }
+
+        return max(0, $this->numeroParcelasTotal - $this->parcelas->count());
     }
 
     public function getId(): ?int
@@ -256,6 +294,30 @@ class Acordo implements TenantAware, Auditavel
     public function setValorEntrada(int $valorEntrada): self
     {
         $this->valorEntrada = $valorEntrada;
+
+        return $this;
+    }
+
+    public function getNumeroExterno(): ?int
+    {
+        return $this->numeroExterno;
+    }
+
+    public function setNumeroExterno(?int $numeroExterno): self
+    {
+        $this->numeroExterno = $numeroExterno;
+
+        return $this;
+    }
+
+    public function getNumeroParcelasTotal(): ?int
+    {
+        return $this->numeroParcelasTotal;
+    }
+
+    public function setNumeroParcelasTotal(?int $numeroParcelasTotal): self
+    {
+        $this->numeroParcelasTotal = $numeroParcelasTotal;
 
         return $this;
     }
