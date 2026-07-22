@@ -67,10 +67,19 @@ entre colegas. Restringir depois é um filtro, não uma refatoração.
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
+**Faixa de canais, acima da tabela** (respeitando os filtros de período e carteira) — resposta direta à
+pergunta do dono "quantos contatos e por qual meio" (levantada em 2026-07-22):
+
+```
+Contatos no período: 142   ·   Telefone 71 · WhatsApp 54 · E-mail 12 · SMS 5
+```
+
 Clicar numa linha abre, abaixo dela, o detalhe daquela pessoa no período:
 
 - **desfechos em pastilhas**: Atendido 27 · Não atendido 21 · Caixa postal 6 · Número errado 4 ·
   Pediu retorno 2 · Informou outro número 1 · Outro 0;
+- **canais em pastilhas**, na mesma linha visual dos desfechos: Telefone 34 · WhatsApp 21 · E-mail 5 ·
+  SMS 1 — mesma consulta, trocando `resultado` por `canal` no payload;
 - **lista dos eventos** (hora · tipo · objeto · resumo), do mais recente para o mais antigo, limitada a
   200 itens com aviso quando truncar — mostrando por padrão só trabalho de cobrança, com o restante
   resumido numa linha expansível (§5.1).
@@ -92,6 +101,7 @@ pela faixa de `ocorrido_em`.
 | **Baixas registradas** | `tipo IN ('pagamento_registrado', 'liquidacao_registrada')` |
 | **Última ação** | `MAX(ocorrido_em)` **restrito aos tipos de trabalho de cobrança** (ver §5.1), no período |
 | **Detalhe: desfechos** | `tipo = 'contato_realizado'`, agrupado por `dados->>'resultado'`, rotulado por `ResultadoContato::label()` |
+| **Contatos por canal** | `tipo = 'contato_realizado'`, agrupado por `dados->>'canal'`, rotulado por `CanalContato::label()` — Telefone · WhatsApp · E-mail · SMS |
 
 Notas obrigatórias para quem implementar:
 
@@ -217,16 +227,21 @@ Suíte inteira verde antes de commitar (`tests/Cobranca` e global).
 
 ## 11. Riscos e pendências
 
-1. **As respostas do dono ainda não chegaram** (questionário em
-   `docs/gestao-cobrancas/PERGUNTAS_CENTRAL_COBRANCAS.md`). As colunas desta fatia são a melhor aposta
-   a partir do que existe registrado. Trocar uma coluna é barato; o que não é barato é descobrir que
-   ele queria acompanhar **promessa de pagamento**.
-2. **Promessa de pagamento não é registrável hoje.** O desfecho `PrometeuPagar` saiu do formulário e os
-   tipos `NovoPrazo` e `Negociacao` existem no enum mas **nenhum código os grava**. Se a resposta 3.4
-   do questionário for "quero a lista de promessas vencidas", isso é feature de escrita e entra na
-   frente das abas 2–4.
-3. **A central só mostra o que a equipe registra.** Se as ligações não forem registradas, a tela nasce
-   vazia com todo mundo trabalhando. É questão de processo, não de software (pergunta 3.1).
+1. ✅ **Respondido em 2026-07-22** (pelo intermediário do dono, questionário em
+   `docs/gestao-cobrancas/PERGUNTAS_CENTRAL_COBRANCAS.md`): **o que o dono quer ver é** quantos
+   contatos foram realizados, **por qual meio**, quantos acordos fechados e quantos pagamentos. Os
+   quatro estão cobertos — os três últimos já eram colunas; o "por qual meio" entrou como faixa de
+   canais (§4) e pastilhas no detalhe (§5).
+2. ✅ **RESOLVIDO — promessa de pagamento NÃO existe no negócio.** Perguntado em 2026-07-22: no fluxo
+   real o devedor não "promete pagar" — ou se **gera um novo boleto**, ou se **fecha um acordo**, ou
+   ele **pede para retornar depois**. Os três já são registráveis hoje (`boleto_enviado`,
+   `acordo_criado` e o desfecho `Pediu retorno`). **Nenhuma feature de escrita é necessária**, e os
+   tipos órfãos `NovoPrazo`/`Negociacao` seguem sem uso — candidatos a remoção em limpeza futura.
+3. ✅ **A equipe registra toda tentativa de contato** (confirmado em 2026-07-22), inclusive quando
+   ninguém atende. A central nasce com lastro — o risco de "tela vazia com todo mundo trabalhando"
+   não se aplica.
+3.1. **Parâmetro para a Fatia 3 (Pendências):** devedor **sem contato há mais de 60 dias** é o corte
+   de "esquecido", definido pelo dono em 2026-07-22.
 4. `MontarDashboardCobrancaUseCase` documenta um teto conhecido de bind params com dezenas de milhares
    de casos. A central **não** deve repetir o padrão de carregar ids em `IN (...)`: agregue no banco.
 
