@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Entity;
 
+use App\Cobranca\Enum\EstadoCivil;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Shared\Contract\Auditavel;
 use App\Shared\Contract\TenantAware;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -17,6 +20,13 @@ use Doctrine\ORM\Mapping as ORM;
  * cobrança (invariável 3). CPF/CNPJ são opcionais; quando informados, ajudam a evitar
  * duplicidades APENAS dentro do mesmo tenant (invariável 24). Pessoa, vínculo e pessoa cobrada
  * atual são conceitos diferentes (invariável 23).
+ *
+ * Qualificação (spec de qualificação §3/§4/§6): campos únicos (dataNascimento, estadoCivil,
+ * profissao, rg, orgaoEmissorRg) + três LISTAS (enderecos/telefones/emails) com um item `atual`
+ * cada — nada é apagado ao atualizar, só adicionado. `email`/`telefone` continuam existindo como
+ * colunas-sombra (compat de 1 release, SPEC §6): getEmail()/getTelefone() passam a DERIVAR do
+ * item atual da respectiva lista (fallback para a coluna-sombra com a lista vazia);
+ * setEmail()/setTelefone() viram ponte que cria/atualiza o item atual, mantendo a sombra em dia.
  */
 #[ORM\Entity(repositoryClass: PessoaRepository::class)]
 #[ORM\Table(name: 'cobranca_pessoa')]
@@ -54,6 +64,24 @@ class Pessoa implements TenantAware, Auditavel
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $observacao = null;
 
+    /** Qualificação (spec §3): data de nascimento, opcional. */
+    #[ORM\Column(type: 'date_immutable', nullable: true)]
+    private ?\DateTimeImmutable $dataNascimento = null;
+
+    /** Qualificação (spec §3): campo ÚNICO — não é lista, ao contrário de endereço/telefone/e-mail. */
+    #[ORM\Column(enumType: EstadoCivil::class, nullable: true)]
+    private ?EstadoCivil $estadoCivil = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $profissao = null;
+
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $rg = null;
+
+    /** Ex.: "SSP/CE". */
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $orgaoEmissorRg = null;
+
     #[ORM\Column(type: 'datetime_immutable')]
     private \DateTimeImmutable $criadoEm;
 
@@ -64,9 +92,39 @@ class Pessoa implements TenantAware, Auditavel
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?User $criadoPor = null;
 
+    /**
+     * Lista de endereços (spec §4), ordem de linha do tempo `criadoEm ASC`.
+     *
+     * @var Collection<int, PessoaEndereco>
+     */
+    #[ORM\OneToMany(targetEntity: PessoaEndereco::class, mappedBy: 'pessoa', cascade: ['persist'])]
+    #[ORM\OrderBy(['criadoEm' => 'ASC'])]
+    private Collection $enderecos;
+
+    /**
+     * Lista de telefones (spec §4), ordem de linha do tempo `criadoEm ASC`.
+     *
+     * @var Collection<int, PessoaTelefone>
+     */
+    #[ORM\OneToMany(targetEntity: PessoaTelefone::class, mappedBy: 'pessoa', cascade: ['persist'])]
+    #[ORM\OrderBy(['criadoEm' => 'ASC'])]
+    private Collection $telefones;
+
+    /**
+     * Lista de e-mails (spec §4), ordem de linha do tempo `criadoEm ASC`.
+     *
+     * @var Collection<int, PessoaEmail>
+     */
+    #[ORM\OneToMany(targetEntity: PessoaEmail::class, mappedBy: 'pessoa', cascade: ['persist'])]
+    #[ORM\OrderBy(['criadoEm' => 'ASC'])]
+    private Collection $emails;
+
     public function __construct()
     {
         $this->criadoEm = new \DateTimeImmutable();
+        $this->enderecos = new ArrayCollection();
+        $this->telefones = new ArrayCollection();
+        $this->emails = new ArrayCollection();
     }
 
     #[ORM\PreUpdate]
@@ -128,28 +186,116 @@ class Pessoa implements TenantAware, Auditavel
         return $this;
     }
 
+    /**
+     * Compat (SPEC §6): deriva do item `atual` da lista de e-mails; cai para a coluna-sombra
+     * quando a lista está vazia (dado legado ainda não migrado por um Adicionar/MarcarAtual).
+     */
     public function getEmail(): ?string
     {
-        return $this->email;
+        $atual = $this->emailAtual();
+
+        return $atual?->getEmail() ?? $this->email;
     }
 
+    /**
+     * Compat (SPEC §6): ponte para código legado (importação, telas antigas). Mantém a
+     * coluna-sombra sincronizada e cria/atualiza o item `atual` da lista de e-mails — sem
+     * tenant atribuído ainda (pessoa recém-instanciada), só a sombra é gravada; a lista é
+     * populada quando um Adicionar/MarcarAtual explícito ocorrer.
+     */
     public function setEmail(?string $email): self
     {
         $this->email = $email;
 
+        if ($email === null) {
+            return $this;
+        }
+
+        $atual = $this->emailAtual();
+        if ($atual !== null) {
+            $atual->setEmail($email);
+
+            return $this;
+        }
+
+        if ($this->tenant === null) {
+            return $this;
+        }
+
+        $novo = new PessoaEmail();
+        $novo->setTenant($this->tenant);
+        $novo->setEmail($email);
+        $novo->setAtual(true);
+        $this->adicionarEmail($novo);
+
         return $this;
     }
 
+    /**
+     * Compat (SPEC §6): deriva do item `atual` da lista de telefones; cai para a coluna-sombra
+     * quando a lista está vazia (dado legado ainda não migrado por um Adicionar/MarcarAtual).
+     */
     public function getTelefone(): ?string
     {
-        return $this->telefone;
+        $atual = $this->telefoneAtual();
+
+        return $atual?->getNumero() ?? $this->telefone;
     }
 
+    /**
+     * Compat (SPEC §6): ponte para código legado (importação, telas antigas). Mantém a
+     * coluna-sombra sincronizada e cria/atualiza o item `atual` da lista de telefones — sem
+     * tenant atribuído ainda (pessoa recém-instanciada), só a sombra é gravada; a lista é
+     * populada quando um Adicionar/MarcarAtual explícito ocorrer.
+     */
     public function setTelefone(?string $telefone): self
     {
         $this->telefone = $telefone;
 
+        if ($telefone === null) {
+            return $this;
+        }
+
+        $atual = $this->telefoneAtual();
+        if ($atual !== null) {
+            $atual->setNumero($telefone);
+
+            return $this;
+        }
+
+        if ($this->tenant === null) {
+            return $this;
+        }
+
+        $novo = new PessoaTelefone();
+        $novo->setTenant($this->tenant);
+        $novo->setNumero($telefone);
+        $novo->setAtual(true);
+        $this->adicionarTelefone($novo);
+
         return $this;
+    }
+
+    private function emailAtual(): ?PessoaEmail
+    {
+        foreach ($this->emails as $item) {
+            if ($item->isAtual()) {
+                return $item;
+            }
+        }
+
+        return null;
+    }
+
+    private function telefoneAtual(): ?PessoaTelefone
+    {
+        foreach ($this->telefones as $item) {
+            if ($item->isAtual()) {
+                return $item;
+            }
+        }
+
+        return null;
     }
 
     public function getObservacao(): ?string
@@ -160,6 +306,114 @@ class Pessoa implements TenantAware, Auditavel
     public function setObservacao(?string $observacao): self
     {
         $this->observacao = $observacao;
+
+        return $this;
+    }
+
+    public function getDataNascimento(): ?\DateTimeImmutable
+    {
+        return $this->dataNascimento;
+    }
+
+    public function setDataNascimento(?\DateTimeImmutable $dataNascimento): self
+    {
+        $this->dataNascimento = $dataNascimento;
+
+        return $this;
+    }
+
+    public function getEstadoCivil(): ?EstadoCivil
+    {
+        return $this->estadoCivil;
+    }
+
+    public function setEstadoCivil(?EstadoCivil $estadoCivil): self
+    {
+        $this->estadoCivil = $estadoCivil;
+
+        return $this;
+    }
+
+    public function getProfissao(): ?string
+    {
+        return $this->profissao;
+    }
+
+    public function setProfissao(?string $profissao): self
+    {
+        $this->profissao = $profissao;
+
+        return $this;
+    }
+
+    public function getRg(): ?string
+    {
+        return $this->rg;
+    }
+
+    public function setRg(?string $rg): self
+    {
+        $this->rg = $rg;
+
+        return $this;
+    }
+
+    public function getOrgaoEmissorRg(): ?string
+    {
+        return $this->orgaoEmissorRg;
+    }
+
+    public function setOrgaoEmissorRg(?string $orgaoEmissorRg): self
+    {
+        $this->orgaoEmissorRg = $orgaoEmissorRg;
+
+        return $this;
+    }
+
+    /** @return Collection<int, PessoaEndereco> */
+    public function getEnderecos(): Collection
+    {
+        return $this->enderecos;
+    }
+
+    public function adicionarEndereco(PessoaEndereco $endereco): self
+    {
+        if (!$this->enderecos->contains($endereco)) {
+            $this->enderecos->add($endereco);
+            $endereco->setPessoa($this);
+        }
+
+        return $this;
+    }
+
+    /** @return Collection<int, PessoaTelefone> */
+    public function getTelefones(): Collection
+    {
+        return $this->telefones;
+    }
+
+    public function adicionarTelefone(PessoaTelefone $telefone): self
+    {
+        if (!$this->telefones->contains($telefone)) {
+            $this->telefones->add($telefone);
+            $telefone->setPessoa($this);
+        }
+
+        return $this;
+    }
+
+    /** @return Collection<int, PessoaEmail> */
+    public function getEmails(): Collection
+    {
+        return $this->emails;
+    }
+
+    public function adicionarEmail(PessoaEmail $email): self
+    {
+        if (!$this->emails->contains($email)) {
+            $this->emails->add($email);
+            $email->setPessoa($this);
+        }
 
         return $this;
     }
