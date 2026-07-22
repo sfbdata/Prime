@@ -20,6 +20,7 @@ use App\Cobranca\Form\JudicializarCasoType;
 use App\Cobranca\Form\RegistrarLiquidacaoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Form\RegistrarPagamentoType;
+use App\Cobranca\Form\RegistrarAnotacaoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -109,6 +110,9 @@ final class MontadorModaisCaso
             'definirProximaAcao' => $this->reidratarSeErro($this->formFactory->create(DefinirProximaAcaoType::class), 'definirProximaAcao', $erroModal),
             'concluirAcao' => $this->reidratarSeErro($this->formFactory->create(ConcluirAcaoType::class), 'concluirAcao', $erroModal),
             'registrarTentativa' => $this->reidratarSeErro($this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora), 'registrarTentativa', $erroModal),
+            // Anotação livre da aba Histórico (ajuste 2026-07). Não é modal — é um campo inline —, então
+            // não entra no jogo de reidratação por erro: o controller devolve o erro como flash.
+            'registrarAnotacao' => $this->formFactory->create(RegistrarAnotacaoType::class)->createView(),
             'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, $acordoHoje, [
                 'obrigacoes' => $opcoesObrigacoes,
                 'valores' => $valoresObrigacoes,

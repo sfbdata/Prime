@@ -130,6 +130,24 @@
 
             {# Histórico (timeline — SPEC §13) #}
             <div class="tab-pane fade" id="tab-historico">
+                {# Anotação livre (ajuste 2026-07), no espírito do campo de mensagem da timeline da Pasta:
+                   o que foi combinado/ouvido e não cabe em formulário estruturado entra aqui e passa a
+                   conviver com os eventos automáticos. Append-only de propósito — sem editar nem apagar
+                   (é registro operacional, não rascunho). O que É classificável continua tendo o seu
+                   próprio formulário: relatório conta etiqueta, não lê texto corrido. #}
+                {% if podeGerenciar and not caso.encerrado and forms.registrarAnotacao is defined %}
+                <div class="mb-3 pb-3 border-bottom">
+                    {{ form_start(forms.registrarAnotacao, {action: path('cobranca_anotacao_registrar', {id: caso.id})}) }}
+                    <div class="d-flex gap-2 align-items-end">
+                        <div class="flex-grow-1">{{ form_widget(forms.registrarAnotacao.texto) }}</div>
+                        <button type="submit" class="btn btn-sm jp-btn-accent flex-shrink-0">
+                            <i class="bi bi-send me-1"></i>Anotar
+                        </button>
+                    </div>
+                    {{ form_end(forms.registrarAnotacao) }}
+                </div>
+                {% endif %}
+
                 {% if caso.historico|length > 0 %}
                 <ul class="caso-timeline">
                     {% for e in caso.historico|reverse %}

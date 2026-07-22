@@ -12,6 +12,13 @@ namespace App\Cobranca\Enum;
  */
 enum TipoEventoHistorico: string
 {
+    /**
+     * Anotação escrita à mão na linha do tempo (ajuste 2026-07): o que a equipe combinou, ouviu ou
+     * decidiu e não cabe em nenhum evento estruturado. É registro, não rascunho — como todo evento
+     * daqui, nasce append-only e não é editável nem apagável.
+     */
+    case Anotacao = 'anotacao';
+
     case CasoAberto = 'caso_aberto';
     case ObrigacaoCriada = 'obrigacao_criada';
     case ObrigacaoEditada = 'obrigacao_editada';
@@ -62,6 +69,7 @@ enum TipoEventoHistorico: string
             self::Judicializacao => 'Judicialização',
             self::VinculoPasta => 'Vínculo com pasta',
             self::Encerramento => 'Encerramento',
+            self::Anotacao => 'Anotação',
         };
     }
 }
