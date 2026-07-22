@@ -206,6 +206,109 @@ final class FolhaPontoBuilderTest extends TestCase
     }
 
     // ──────────────────────────────────────────────────────────────────
+    // Início do vínculo (admissão): dias anteriores não contam
+    // ──────────────────────────────────────────────────────────────────
+
+    public function testBuildRowsIgnoraDiasAntesDoInicioDoVinculo(): void
+    {
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01'); // qua
+        $fimMes    = new \DateTimeImmutable('2026-04-03'); // sex
+        $vinculo   = new \DateTimeImmutable('2026-04-03'); // admissão na sexta
+
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $vinculo);
+
+        // 01 e 02/04 (antes do vínculo): tratados como fora do vínculo
+        self::assertTrue($rows[0]['antesAdmissao']);
+        self::assertNull($rows[0]['saldoDia']);
+        self::assertNull($rows[0]['saldoAcumulado']);
+        self::assertTrue($rows[1]['antesAdmissao']);
+        self::assertNull($rows[1]['saldoDia']);
+
+        // 03/04 (dia da admissão, dia útil sem batidas): conta normalmente
+        self::assertFalse($rows[2]['antesAdmissao']);
+        self::assertSame(-480, $rows[2]['saldoDia']);
+    }
+
+    public function testBuildRowsNaoAcumulaDiasAntesDoVinculoNoBanco(): void
+    {
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01');
+        $fimMes    = new \DateTimeImmutable('2026-04-03');
+        $vinculo   = new \DateTimeImmutable('2026-04-03');
+
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $vinculo);
+
+        // O banco do 1º dia válido é só o próprio dia (-480), não arrasta 01 e 02
+        self::assertSame(-480, $rows[2]['saldoAcumulado']);
+    }
+
+    public function testBuildRowsSemInicioVinculoContaTodosOsDias(): void
+    {
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01');
+        $fimMes    = new \DateTimeImmutable('2026-04-03');
+
+        // Sem passar o vínculo (assinatura atual) → comportamento preservado
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], []);
+
+        self::assertFalse($rows[0]['antesAdmissao']);
+        self::assertSame(-480, $rows[0]['saldoDia']);
+    }
+
+    public function testBuildRowsInicioVinculoAntesDoMesNaoTemEfeito(): void
+    {
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01');
+        $fimMes    = new \DateTimeImmutable('2026-04-03');
+        $vinculo   = new \DateTimeImmutable('2026-03-15');
+
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $vinculo);
+
+        self::assertFalse($rows[0]['antesAdmissao']);
+        self::assertSame(-480, $rows[0]['saldoDia']);
+    }
+
+    public function testBuildRowsInicioVinculoDepoisDoMesZeraTudo(): void
+    {
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01');
+        $fimMes    = new \DateTimeImmutable('2026-04-03');
+        $vinculo   = new \DateTimeImmutable('2026-05-01');
+
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $vinculo);
+
+        foreach ($rows as $row) {
+            self::assertTrue($row['antesAdmissao']);
+            self::assertNull($row['saldoDia']);
+        }
+    }
+
+    public function testCalcularSaldoAteMesUsaDataAdmissaoComoInicioDoVinculo(): void
+    {
+        $user = $this->usuarioComJornada(); // createdAt = hoje (2026)
+
+        // Sem admissão: createdAt (hoje) é posterior a março/2026 → nada anterior a contar
+        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2026, 3, []));
+
+        // Com admissão em fev/2026: fev e março (dias úteis sem batida) passam a contar → débito
+        $comAdmissao = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, new \DateTimeImmutable('2026-02-01'));
+        self::assertLessThan(0, $comAdmissao);
+    }
+
+    public function testCalcularSaldoAnualUsaDataAdmissaoComoInicioDoVinculo(): void
+    {
+        $user = $this->usuarioComJornada(); // createdAt = hoje (2026)
+
+        // Sem admissão: createdAt (hoje, 2026) é posterior a 2025 → ano de 2025 zera
+        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, []));
+
+        // Com admissão em nov/2025: nov e dez de 2025 passam a contar → débito
+        $comAdmissao = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'));
+        self::assertLessThan(0, $comAdmissao);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────
 
@@ -224,6 +327,15 @@ final class FolhaPontoBuilderTest extends TestCase
         $jornada->setSaida2('18:00');
 
         return $jornada;
+    }
+
+    private function usuarioComJornada(): User
+    {
+        $jornada = $this->jornadaSimples();
+        $user    = $jornada->getUser();
+        $user->setJornadaColaborador($jornada); // linka os dois lados: getJornadaColaborador() != null
+
+        return $user;
     }
 
     private function justificativaAbonada(
