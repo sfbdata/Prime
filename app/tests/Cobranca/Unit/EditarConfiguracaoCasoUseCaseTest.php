@@ -97,13 +97,17 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
     }
 
     #[Test]
-    #[TestDox('Recalcula o honorário de automática viva na hora: subir 10% → 20% sobe o honorário')]
-    public function recalculaHonorarioDeAutomaticaVivaAoSubirOPercentual(): void
+    #[TestDox('T1: o input do caso NÃO move mais o honorário — recálculo lê a taxa VIVA da carteira/objeto')]
+    public function recalculoIgnoraOInputDoCasoEUsaATaxaVivaDaCarteira(): void
     {
+        // T1 (cascata ao vivo sem snapshot): `ResolvedorConfigEncargos::resolverDoCaso` passou a
+        // delegar ao OBJETO/CARTEIRA e não lê mais `formaHonorarios`/`percentualHonorarios` do caso.
+        // Este UseCase (fora do escopo de T1 — não foi aposentado) continua gravando essas colunas,
+        // mas elas viraram sombra/mortas: o "20.00" pedido aqui não chega a influenciar o cálculo. A
+        // taxa efetiva (10%, fixa na carteira de `casoComHonorarios`) é a mesma antes e depois.
         $caso = $this->casoComHonorarios('10.00');
         $obrigacao = $this->obrigacaoAutomatica($caso, 100000, '2020-01-01');
 
-        // Estado "antes": materializa a 10% pela MESMA cascata do cron, para hoje.
         $honAntes = $this->materializarParaHoje($obrigacao);
         self::assertGreaterThan(0, $honAntes, 'com 240+ dias de atraso a 10% já há honorário');
 
@@ -114,10 +118,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
         $this->sut->executar($this->input('20.00'), $this->tenant, $this->usuario);
 
         $honDepois = $obrigacao->getHonorarios();
-        self::assertGreaterThan($honAntes, $honDepois, 'subir o percentual sobe o honorário na hora');
-        // Honorário = taxa × base composta; a base (P+juros+multa+correção) não muda com a alíquota,
-        // então de 10% para 20% o honorário praticamente dobra (± 1 centavo de arredondamento).
-        self::assertLessThanOrEqual(1, abs($honDepois - 2 * $honAntes));
+        self::assertSame($honAntes, $honDepois, 'T1: a taxa efetiva vem da carteira (10%), intocada pelo input do caso (20%)');
         // Recálculo automático NÃO congela (INV-E4): a obrigação segue sob o cron.
         self::assertFalse($obrigacao->encargosCongelados());
     }
@@ -149,13 +150,13 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
     }
 
     #[Test]
-    #[TestDox('Redução é aplicada (sem freio): baixar 20% → 10% desce o honorário na hora')]
-    public function aplicaReducaoSemFreio(): void
+    #[TestDox('T1: pedir REDUÇÃO no input do caso também não move o honorário — a taxa vem da carteira')]
+    public function inputDeReducaoNoCasoTambemNaoMoveOHonorario(): void
     {
         $caso = $this->casoComHonorarios('20.00');
         $obrigacao = $this->obrigacaoAutomatica($caso, 100000, '2020-01-01');
 
-        $honAntes = $this->materializarParaHoje($obrigacao); // a 20%
+        $honAntes = $this->materializarParaHoje($obrigacao); // a 20% (carteira)
         self::assertGreaterThan(0, $honAntes);
 
         $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
@@ -165,9 +166,7 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
         $this->sut->executar($this->input('10.00'), $this->tenant, $this->usuario);
 
         $honDepois = $obrigacao->getHonorarios();
-        self::assertLessThan($honAntes, $honDepois, 'baixar o percentual é decisão deliberada — reduzir é esperado (sem freio)');
-        // De 20% para 10% o honorário cai praticamente à metade (± 1 centavo).
-        self::assertLessThanOrEqual(1, abs(2 * $honDepois - $honAntes));
+        self::assertSame($honAntes, $honDepois, 'T1: input do caso (10%) morto — a taxa efetiva segue a da carteira (20%)');
     }
 
     #[Test]
@@ -193,8 +192,9 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
         self::assertSame(50000, $obrigacao->getJuros(), 'juros (exigível) preservado');
         self::assertSame(10000, $obrigacao->getMulta(), 'multa (exigível) preservada');
         self::assertSame(0, $obrigacao->getCorrecao());
-        // Só o honorário mudou: 20% da base composta (100000+50000+10000+0 = 160000) = 32000.
-        self::assertSame(32000, $obrigacao->getHonorarios(), 'só o honorário foi recalculado, a 20%');
+        // Só o honorário mudou — recalculado pela taxa VIVA da carteira (10%, fixa; T1: o "20.00" do
+        // input do caso não é mais lido): 10% da base composta (100000+50000+10000+0 = 160000) = 16000.
+        self::assertSame(16000, $obrigacao->getHonorarios(), 'só o honorário foi recalculado, pela taxa da carteira (10%)');
         self::assertFalse($obrigacao->encargosCongelados(), 'segue automática (INV-E4)');
     }
 
@@ -251,8 +251,13 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
 
     /**
      * Caso com carteira "TOPLIFE" (juros 1% a.m., multa 2%, honorários sobre base composta com carência
-     * de 30 dias) e snapshot de honorários `AcrescidoDivida` no percentual dado. Grafo em memória — o
-     * resolver lê só os getters de config, sem persistência.
+     * de 30 dias e alíquota `AcrescidoDivida` no percentual dado). Grafo em memória — o resolver lê só
+     * os getters de config, sem persistência.
+     *
+     * T1 (cascata ao vivo sem snapshot): a alíquota de honorários mora na CARTEIRA (herdada pelo
+     * objeto/caso sem override, T1 §3.1) — o snapshot do CASO (`formaHonorarios`/`percentualHonorarios`,
+     * que `EditarConfiguracaoCasoUseCase` continua escrevendo) virou coluna-sombra morta: não é mais
+     * lido por `ResolvedorConfigEncargos::resolverDoCaso`.
      */
     private function casoComHonorarios(string $percentual): CasoCobranca
     {
@@ -260,15 +265,15 @@ final class EditarConfiguracaoCasoUseCaseTest extends TestCase
             ->setTaxaJurosMensalBp(100)
             ->setTaxaMultaBp(200)
             ->setBaseHonorarios(BaseEncargo::Composta)
-            ->setCarenciaHonorariosDias(30);
+            ->setCarenciaHonorariosDias(30)
+            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
+            ->setPercentualHonorarios($percentual);
 
         $objeto = (new ObjetoCobranca())->setCarteira($carteira);
 
         return (new CasoCobranca())
             ->setTenant($this->tenant)
-            ->setObjeto($objeto)
-            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
-            ->setPercentualHonorarios($percentual);
+            ->setObjeto($objeto);
     }
 
     private function obrigacaoAutomatica(CasoCobranca $caso, int $valorOriginal, string $vencimento): Obrigacao

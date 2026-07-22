@@ -164,11 +164,12 @@ final class MovimentosCobrancaIsolamentoTenantTest extends KernelTestCase
     #[TestDox('Pagamento RETROATIVO quita pelo exigível da DATA do pagamento (FIFO e reconciliação na mesma base)')]
     public function testPagamentoRetroativoQuitaPelaDataDoPagamentoEFechaSaldoEmZero(): void
     {
-        // Relógio dos serviços = 20/07/2026 (setUp). Config TOPLIFE no caso (juros 1% a.m., multa 2%).
+        // Relógio dos serviços = 20/07/2026 (setUp). Config TOPLIFE no OBJETO (juros 1% a.m., multa
+        // 2%) — T1: o caso deixou de participar da cascata, o override mora no objeto.
         $tenant = $this->criarTenant();
         $user = $this->criarUser();
         $caso = $this->abrirCasoDe($tenant, $user, ModoCarteira::Multiplo);
-        $caso->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $caso->getObjeto()->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
         $this->em->flush();
 
         // Duas obrigações P=100,00, venc 10/06/2026. Exigível em 10/07 (30 dias) = 103,00 CADA (juros

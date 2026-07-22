@@ -7,12 +7,13 @@ namespace App\Cobranca\Service;
 use App\Cobranca\DTO\ConfigEncargos;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\FormaHonorarios;
 
 /**
  * Resolve a configuração EFETIVA de encargos percorrendo a cascata de três níveis
- * Carteira → Objeto/Caso → Obrigação (spec "encargos configuráveis em cascata" §4.1).
+ * Carteira → Objeto → Obrigação (spec "cascata de encargos ao vivo sem snapshot" §3.1).
  *
  * A resolução é CAMPO A CAMPO, não bloco a bloco: um override que preenche apenas a taxa de juros
  * herda todo o resto do nível de cima. Bloco a bloco seria uma armadilha — sobrepor a taxa de juros
@@ -20,12 +21,14 @@ use App\Cobranca\Enum\FormaHonorarios;
  *
  * Serviço puro e stateless (sem I/O): recebe entidades já carregadas e devolve um DTO imutável.
  *
- * Duas amarrações com o que já existia, para não criar modelo paralelo:
- *  - a TAXA de honorários não é coluna nova (decisão D2): deriva de `formaHonorarios` +
- *    `percentualHonorarios`, exatamente como `CalculadoraHonorarios::basisPoints()` já fazia;
- *  - `carenciaHonorariosDias` nulo cai para o `toleranciaAtrasoDias` da carteira (decisão D3),
- *    porque os dados reais mostram que aquela tolerância de ~30 dias já configurada é, na prática,
- *    carência de honorários.
+ * O NÍVEL 2 (o "meio") da cascata é o OBJETO, não mais o Caso (spec #9-T1 — reverte parcialmente a
+ * decisão D2/§18.2/§18.3 da feature de encargos): `resolverDoCaso` DELEGA integralmente para
+ * `resolverDoObjeto` e não lê mais nenhuma coluna de config do `CasoCobranca` — nem os overrides de
+ * taxa/base/carência/tolerância, nem o antigo snapshot de honorários (`formaHonorarios`/
+ * `percentualHonorarios`). Essas colunas do Caso continuam existindo (coluna-sombra por 1 release,
+ * rollback seguro — spec §5), mas viram MORTAS para fins de cálculo. Honorários agora cascateiam
+ * como qualquer outro campo: `taxaHonorariosBp` é override direto do Objeto (bp, espelhando a
+ * Obrigação — decisão D2 supersedida), e null herda a carteira — AO VIVO, sem congelar.
  */
 final class ResolvedorConfigEncargos
 {
@@ -65,29 +68,42 @@ final class ResolvedorConfigEncargos
     }
 
     /**
-     * Configuração efetiva de um caso: parte da Carteira e aplica os overrides do caso. A taxa de
-     * honorários vem do SNAPSHOT do próprio caso (§18.2/§18.3) — nunca da carteira atual, senão
-     * mudar o padrão da carteira recalcularia casos antigos.
+     * Configuração efetiva de um caso: DELEGA integralmente ao objeto (spec #9-T1 §3.1/§3.2) — o
+     * caso deixou de participar da cascata. Sem objeto (órfão), degrada para `neutra()`, o mesmo
+     * fallback seguro de sempre. Mantido como método próprio (em vez de inlinar nos chamadores)
+     * porque toda a produção já chama `resolverDoCaso` — o ponto de entrada não muda, só o que ele
+     * lê por baixo.
      */
     public function resolverDoCaso(CasoCobranca $caso): ConfigEncargos
     {
-        $carteira = $caso->getObjeto()?->getCarteira();
+        return $caso->getObjeto() !== null
+            ? $this->resolverDoObjeto($caso->getObjeto())
+            : ConfigEncargos::neutra();
+    }
+
+    /**
+     * Configuração efetiva de um objeto: parte da Carteira e aplica os overrides do PRÓPRIO objeto
+     * (spec #9-T1 §3.1) — o NÍVEL 2 (o "meio") da cascata `Carteira → Objeto → Obrigação`. Objeto
+     * sem carteira (órfão) degrada para `neutra()`. Honorários cascateiam AO VIVO como qualquer
+     * outro campo: `taxaHonorariosBp` do objeto vence; nulo herda o bp já resolvido da carteira
+     * (`resolverDaCarteira`, que converte forma+percentual uma única vez).
+     */
+    public function resolverDoObjeto(ObjetoCobranca $objeto): ConfigEncargos
+    {
+        $carteira = $objeto->getCarteira();
         $herdada = $carteira === null ? ConfigEncargos::neutra() : $this->resolverDaCarteira($carteira);
 
         return new ConfigEncargos(
-            taxaJurosMensalBp: $caso->getTaxaJurosMensalBp() ?? $herdada->taxaJurosMensalBp,
-            regimeJuros: $caso->getRegimeJuros() ?? $herdada->regimeJuros,
-            taxaMultaBp: $caso->getTaxaMultaBp() ?? $herdada->taxaMultaBp,
-            baseMulta: $caso->getBaseMulta() ?? $herdada->baseMulta,
-            taxaCorrecaoBp: $caso->getTaxaCorrecaoBp() ?? $herdada->taxaCorrecaoBp,
-            baseCorrecao: $caso->getBaseCorrecao() ?? $herdada->baseCorrecao,
-            taxaHonorariosBp: $this->basisPointsDeHonorarios(
-                $caso->getFormaHonorarios(),
-                $caso->getPercentualHonorarios(),
-            ),
-            baseHonorarios: $caso->getBaseHonorarios() ?? $herdada->baseHonorarios,
-            carenciaHonorariosDias: $caso->getCarenciaHonorariosDias() ?? $herdada->carenciaHonorariosDias,
-            toleranciaJurosMultaDias: $caso->getToleranciaJurosMultaDias() ?? $herdada->toleranciaJurosMultaDias,
+            taxaJurosMensalBp: $objeto->getTaxaJurosMensalBp() ?? $herdada->taxaJurosMensalBp,
+            regimeJuros: $objeto->getRegimeJuros() ?? $herdada->regimeJuros,
+            taxaMultaBp: $objeto->getTaxaMultaBp() ?? $herdada->taxaMultaBp,
+            baseMulta: $objeto->getBaseMulta() ?? $herdada->baseMulta,
+            taxaCorrecaoBp: $objeto->getTaxaCorrecaoBp() ?? $herdada->taxaCorrecaoBp,
+            baseCorrecao: $objeto->getBaseCorrecao() ?? $herdada->baseCorrecao,
+            taxaHonorariosBp: $objeto->getTaxaHonorariosBp() ?? $herdada->taxaHonorariosBp,
+            baseHonorarios: $objeto->getBaseHonorarios() ?? $herdada->baseHonorarios,
+            carenciaHonorariosDias: $objeto->getCarenciaHonorariosDias() ?? $herdada->carenciaHonorariosDias,
+            toleranciaJurosMultaDias: $objeto->getToleranciaJurosMultaDias() ?? $herdada->toleranciaJurosMultaDias,
         );
     }
 

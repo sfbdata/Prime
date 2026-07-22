@@ -231,16 +231,29 @@ abstract class CobrancaWebTestCase extends JusPrimeWebTestCase
     }
 
     /**
-     * Semeia Carteira→Objeto→Caso (+ Pessoa cobrada) no tenant. Aceita overrides do Caso.
+     * Semeia Carteira→Objeto→Caso (+ Pessoa cobrada) no tenant. Aceita overrides do Caso e,
+     * opcionalmente, da Carteira.
+     *
+     * T1 (cascata de encargos ao vivo sem snapshot, #9): o `ResolvedorConfigEncargos` não lê mais as
+     * colunas de config do Caso (`taxaJurosMensalBp`/`taxaMultaBp`/`formaHonorarios`/
+     * `percentualHonorarios`/etc.) — a fonte AO VIVO passou a ser a Carteira (via Objeto). Testes que
+     * precisam de encargos NÃO-ZERO na tela (F4 "colunas separadas", split de encargos) devem usar
+     * `$overridesCarteira` para essas chaves; `$overridesCaso` continua valendo para o que ainda é
+     * lido diretamente do Caso (ex.: `formaHonorarios`/`percentualHonorarios` no rateio de pagamento
+     * via `CalculadoraHonorarios`, que segue intocado) e para campos só do Caso (`status`, etc.).
      *
      * @param array<string, mixed> $overridesCaso
+     * @param array<string, mixed> $overridesCarteira
      *
      * @return array{0: Carteira, 1: CasoCobranca}
      */
-    protected function semearGrafo(Tenant $tenant, array $overridesCaso = []): array
+    protected function semearGrafo(Tenant $tenant, array $overridesCaso = [], array $overridesCarteira = []): array
     {
         $cliente = ClientePFFactory::createOne(['tenant' => $tenant]);
-        $carteira = CarteiraFactory::createOne(['tenant' => $tenant, 'cliente' => $cliente]);
+        $carteira = CarteiraFactory::createOne(array_merge([
+            'tenant' => $tenant,
+            'cliente' => $cliente,
+        ], $overridesCarteira));
         $objeto = ObjetoCobrancaFactory::createOne(['tenant' => $tenant, 'carteira' => $carteira]);
         $pessoa = PessoaFactory::createOne(['tenant' => $tenant]);
         $caso = CasoCobrancaFactory::createOne(array_merge([

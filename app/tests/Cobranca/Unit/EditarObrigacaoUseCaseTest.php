@@ -99,21 +99,25 @@ final class EditarObrigacaoUseCaseTest extends TestCase
      * Caso com carteira "TOPLIFE" (juros 1% a.m., multa 2%, carência 30, honorários 20% sobre base
      * composta), para os cenários em que o recálculo precisa produzir encargos > 0 de forma
      * determinística. Grafo em memória — o resolver lê só os getters de config, sem persistência.
+     *
+     * T1 (cascata ao vivo sem snapshot): a alíquota de honorários mora na CARTEIRA (herdada pelo
+     * objeto/caso sem override) — o snapshot do CASO (`formaHonorarios`/`percentualHonorarios`) virou
+     * coluna-sombra morta e não é mais lida pelo resolvedor.
      */
     private function casoTopLife(): CasoCobranca
     {
         $carteira = (new Carteira())
             ->setTaxaJurosMensalBp(100)
             ->setTaxaMultaBp(200)
-            ->setCarenciaHonorariosDias(30);
+            ->setCarenciaHonorariosDias(30)
+            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
+            ->setPercentualHonorarios('20.00');
 
         $objeto = (new ObjetoCobranca())->setCarteira($carteira);
 
         return (new CasoCobranca())
             ->setTenant($this->tenant)
-            ->setObjeto($objeto)
-            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
-            ->setPercentualHonorarios('20.00');
+            ->setObjeto($objeto);
     }
 
     #[Test]

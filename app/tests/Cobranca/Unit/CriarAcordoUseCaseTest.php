@@ -9,6 +9,7 @@ use App\Cobranca\DTO\ParcelaAcordoInput;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Exception\CasoEncerradoException;
@@ -158,9 +159,10 @@ final class CriarAcordoUseCaseTest extends TestCase
     {
         // Caso TOPLIFE (juros 1% a.m., multa 2%): a substituída P=100,00 vence 30 dias antes da data
         // do acordo (20/04/2026) → snapshot juros 1,00 + multa 2,00, materializado em 20/04 (não hoje).
+        // T1: o override mora no OBJETO — o caso deixou de participar da cascata.
         $caso = (new CasoCobranca())->setTenant($this->tenant);
-        $caso->setTaxaJurosMensalBp(100);
-        $caso->setTaxaMultaBp(200);
+        $objeto = (new ObjetoCobranca())->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $caso->setObjeto($objeto);
         $obrigSubstituida = (new Obrigacao())
             ->setTenant($this->tenant)
             ->setCaso($caso)
@@ -193,16 +195,16 @@ final class CriarAcordoUseCaseTest extends TestCase
     {
         // Mesma base do teste acima (caso 1% a.m./2%, 30 dias de atraso até a data do acordo), mas a
         // obrigação tem override PRÓPRIO de juros (3% a.m.) — o snapshot tem de refletir 3,00, não o
-        // 1,00 que a taxa do caso daria.
+        // 1,00 que a taxa herdada daria. T1: o override base mora no OBJETO.
         $caso = (new CasoCobranca())->setTenant($this->tenant);
-        $caso->setTaxaJurosMensalBp(100);
-        $caso->setTaxaMultaBp(200);
+        $objeto = (new ObjetoCobranca())->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $caso->setObjeto($objeto);
         $obrigSubstituida = (new Obrigacao())
             ->setTenant($this->tenant)
             ->setCaso($caso)
             ->setValorOriginal(10000)
             ->setVencimentoOriginal(new \DateTimeImmutable('2026-03-21'))
-            ->setTaxaJurosMensalBp(300); // override: 3% a.m., acima do 1% do caso.
+            ->setTaxaJurosMensalBp(300); // override: 3% a.m., acima do 1% do objeto.
 
         $this->casoRepository->method('findOneByIdDoTenant')->willReturn($caso);
         $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigSubstituida);
@@ -214,8 +216,8 @@ final class CriarAcordoUseCaseTest extends TestCase
             $this->criadoPor,
         );
 
-        self::assertSame(300, $obrigSubstituida->getJuros(), 'snapshot com a taxa PRÓPRIA (3% a.m.), não a do caso (1%)');
-        self::assertSame(200, $obrigSubstituida->getMulta(), 'multa segue herdada do caso (sem override próprio)');
+        self::assertSame(300, $obrigSubstituida->getJuros(), 'snapshot com a taxa PRÓPRIA (3% a.m.), não a do objeto (1%)');
+        self::assertSame(200, $obrigSubstituida->getMulta(), 'multa segue herdada do objeto (sem override próprio)');
         self::assertEquals(new \DateTimeImmutable('2026-04-20'), $obrigSubstituida->getEncargosAtualizadosEm());
     }
 

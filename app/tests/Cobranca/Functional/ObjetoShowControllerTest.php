@@ -642,12 +642,13 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        // Config TOPLIFE I no caso (juros 1% a.m., multa 2%, honorários 20%, carência 30). No modelo AO
-        // VIVO os encargos NÃO são materializados na fixture: a tela os calcula de (vencimento → hoje).
-        // Principal R$ 170,00 com 240 dias de atraso reproduz, AO CENTAVO, a linha real do Apêndice A da
-        // spec: juros 13,60 · multa 3,40 · correção 0,00 · honorários 37,40. Vencimento relativo a hoje
-        // (−240 dias) para o cálculo ser determinístico em qualquer dia de execução.
-        [, $caso] = $this->semearGrafo($tenant, [
+        // Config TOPLIFE I na CARTEIRA (T1: fonte ao vivo do meio da cascata via Objeto — juros 1%
+        // a.m., multa 2%, honorários 20%, carência 30). No modelo AO VIVO os encargos NÃO são
+        // materializados na fixture: a tela os calcula de (vencimento → hoje). Principal R$ 170,00
+        // com 240 dias de atraso reproduz, AO CENTAVO, a linha real do Apêndice A da spec: juros
+        // 13,60 · multa 3,40 · correção 0,00 · honorários 37,40. Vencimento relativo a hoje (−240
+        // dias) para o cálculo ser determinístico em qualquer dia de execução.
+        [, $caso] = $this->semearGrafo($tenant, [], [
             'taxaJurosMensalBp' => 100,
             'taxaMultaBp' => 200,
             'carenciaHonorariosDias' => 30,
@@ -805,9 +806,9 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        // Config TOPLIFE I no caso: no modelo AO VIVO os encargos vêm de (vencimento → hoje). P=170,00
-        // com 240 dias de atraso → juros 1360 · multa 340 · correção 0 (soma 1700), reproduzidos ao vivo.
-        [, $caso] = $this->semearGrafo($tenant, [
+        // Config TOPLIFE I na CARTEIRA (T1): no modelo AO VIVO os encargos vêm de (vencimento → hoje).
+        // P=170,00 com 240 dias de atraso → juros 1360 · multa 340 · correção 0 (soma 1700), ao vivo.
+        [, $caso] = $this->semearGrafo($tenant, [], [
             'taxaJurosMensalBp' => 100,
             'taxaMultaBp' => 200,
             'carenciaHonorariosDias' => 30,
@@ -846,9 +847,9 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        // Caso herda 1% a.m. (100 bp) de juros — só juros configurado (multa/correção seguem 0,
-        // herdadas da carteira neutra do semearGrafo).
-        [, $caso] = $this->semearGrafo($tenant, ['taxaJurosMensalBp' => 100]);
+        // Caso herda 1% a.m. (100 bp) de juros da CARTEIRA (T1) — só juros configurado (multa/
+        // correção seguem 0, herdadas da carteira neutra do semearGrafo nos demais campos).
+        [, $caso] = $this->semearGrafo($tenant, [], ['taxaJurosMensalBp' => 100]);
         $vencimento = (new \DateTimeImmutable('today'))->modify('-240 days');
         $obrigacao = ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso,

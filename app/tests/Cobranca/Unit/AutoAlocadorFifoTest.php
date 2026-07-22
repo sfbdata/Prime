@@ -6,6 +6,7 @@ namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Entity\AlocacaoPagamento;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Enum\FormaHonorarios;
@@ -255,9 +256,11 @@ final class AutoAlocadorFifoTest extends TestCase
     #[Test]
     public function derivarMedeOExigivelNaDataDoPagamentoNaoEmHoje(): void
     {
-        // Caso TOPLIFE (juros 1% a.m., multa 2%): obrigação P=100,00, venc 10/06/2026.
+        // Caso TOPLIFE (juros 1% a.m., multa 2%): obrigação P=100,00, venc 10/06/2026. T1: o override
+        // mora no OBJETO — o caso deixou de participar da cascata.
         $caso = $this->casoComId(1);
-        $caso->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $objeto = (new ObjetoCobranca())->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $caso->setObjeto($objeto);
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([
             $this->obrigacaoComId(10, 10000, 0, '2026-06-10'),
         ]);

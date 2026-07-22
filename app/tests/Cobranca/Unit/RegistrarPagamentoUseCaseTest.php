@@ -8,6 +8,7 @@ use App\Cobranca\DTO\AlocacaoPagamentoInput;
 use App\Cobranca\DTO\RegistrarPagamentoInput;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Enum\FormaHonorarios;
@@ -273,14 +274,15 @@ final class RegistrarPagamentoUseCaseTest extends TestCase
     #[TestDox('Ponta-a-ponta: taxa PRÓPRIA da obrigação (maior que a do caso) impede a liquidação prematura ao registrar o pagamento')]
     public function registrarPagamentoRespeitaTaxaPropriaDaObrigacaoNaLiquidacao(): void
     {
-        // Caso com taxa de juros 1% a.m. (base); a obrigação tem OVERRIDE de 3% a.m. — o exigível-
-        // OVERLAY (105,00) é maior que o exigível-BASE do caso (103,00). Vencimento 30 dias antes da
-        // data do pagamento. Pagando exatamente o exigível-BASE (103,00), a obrigação NÃO pode liquidar
-        // (a taxa que rege ela é a própria, mais alta) — prova o caminho completo (Controller-less)
-        // Registrar → Reconciliador, não só o Reconciliador isolado.
+        // Caso com taxa de juros 1% a.m. (base, T1: override mora no OBJETO — o caso deixou de
+        // participar da cascata); a obrigação tem OVERRIDE de 3% a.m. — o exigível-OVERLAY (105,00) é
+        // maior que o exigível-BASE do caso (103,00). Vencimento 30 dias antes da data do pagamento.
+        // Pagando exatamente o exigível-BASE (103,00), a obrigação NÃO pode liquidar (a taxa que rege
+        // ela é a própria, mais alta) — prova o caminho completo (Controller-less) Registrar →
+        // Reconciliador, não só o Reconciliador isolado.
         $caso = (new CasoCobranca())->setTenant($this->tenant);
-        $caso->setTaxaJurosMensalBp(100);
-        $caso->setTaxaMultaBp(200);
+        $objeto = (new ObjetoCobranca())->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $caso->setObjeto($objeto);
         (new \ReflectionProperty(CasoCobranca::class, 'id'))->setValue($caso, 60);
         $obrigacao = (new Obrigacao())
             ->setTenant($this->tenant)->setCaso($caso)
