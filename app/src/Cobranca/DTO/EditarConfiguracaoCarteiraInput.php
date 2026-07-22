@@ -43,8 +43,10 @@ final class EditarConfiguracaoCarteiraInput
     public ?string $rotuloObjeto = null;
 
     // --- Encargos por atraso (spec "encargos configuráveis em cascata" §4.1) -------------------
-    // Estes 9 campos são o NÍVEL 1 da cascata (Carteira → Objeto → Obrigação): valem como padrão
-    // para as NOVAS cobranças; mudá-los aqui não recalcula caso/obrigação já existente (spec §5).
+    // Estes 9 campos são o NÍVEL 1 da cascata (Carteira → Objeto → Obrigação), resolvida NA LEITURA
+    // (spec #9 "cascata ao vivo sem snapshot"): mudá-los aqui move na hora toda obrigação VIVA que
+    // herde deste nível. Ficam de fora as congeladas (liquidadas/substituídas, que guardam snapshot)
+    // e as que têm override no objeto ou na própria obrigação — nesses casos o nível de baixo vence.
     // Taxas em BASIS POINTS (100 bp = 1%). O teto de 100000 bp (1000% a.m.) é freio de SANIDADE DE
     // ENTRADA — impede digitar uma taxa absurda, e só isso. Ele NÃO é garantia contra estouro do
     // motor, e não deve ser lido como tal: no regime composto, 1000% a.m. multiplica o montante por
