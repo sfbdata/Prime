@@ -30,12 +30,18 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(ObjetoController::class)]
 final class ObjetoConfigEncargosControllerTest extends CobrancaWebTestCase
 {
-    #[TestDox('Configurar: os 10 overrides são gravados no objeto (POST completo)')]
+    #[TestDox('Configurar: os 10 overrides são gravados no objeto (POST completo) — DOBRA como controle do I-1: carteira COM percentual grava o override de honorários')]
     public function testConfigurarGravaOsDezOverrides(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        [, $caso] = $this->semearGrafo($tenant);
+        // Carteira COM forma percentual (não SemPercentual, default da factory): o override de
+        // honorários do objeto é gravado normalmente — controle do I-1 (guarda de servidor só anula
+        // quando a carteira não cobra percentual).
+        [, $caso] = $this->semearGrafo($tenant, [], [
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
         $objetoId = (int) $caso->getObjeto()->getId();
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
@@ -72,6 +78,44 @@ final class ObjetoConfigEncargosControllerTest extends CobrancaWebTestCase
         self::assertSame(BaseEncargo::Principal, $recarregado->getBaseHonorarios());
         self::assertSame(15, $recarregado->getCarenciaHonorariosDias());
         self::assertSame(5, $recarregado->getToleranciaJurosMultaDias());
+    }
+
+    #[TestDox('I-1: POST forjado com override de honorários é anulado no SERVIDOR quando a carteira é SemPercentual (disabled do HTML não é a rede real)')]
+    public function testGuardaServidorAnulaHonorarioDoObjetoQuandoCarteiraSemPercentual(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        // Carteira SemPercentual (default da factory) — no HTML o campo de honorários vem `disabled`,
+        // mas o teste monta o POST manualmente (não via form da crawler), simulando um POST forjado
+        // que ignora o `disabled` do cliente.
+        [, $caso] = $this->semearGrafo($tenant, [], [
+            'formaHonorarios' => FormaHonorarios::SemPercentual,
+        ]);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_objeto');
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/configuracao-encargos', [
+            'editar_configuracao_objeto' => self::payload([
+                // Override de honorários FORJADO — a carteira não cobra percentual, o servidor deve anular.
+                'taxaHonorariosBp' => '25,00',
+                'baseHonorarios' => 'principal',
+                // Outro override (juros), no MESMO POST — prova que a guarda é cirúrgica: só o
+                // honorário é anulado, o resto do POST grava normalmente.
+                'taxaJurosMensalBp' => '1,50',
+                '_token' => $token,
+            ]),
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $recarregado = $em->find(ObjetoCobranca::class, $objetoId);
+        self::assertNull($recarregado->getTaxaHonorariosBp(), 'servidor anula o override forjado de honorários');
+        self::assertNull($recarregado->getBaseHonorarios(), 'servidor anula a base do honorário junto');
+        self::assertSame(150, $recarregado->getTaxaJurosMensalBp(), 'os OUTROS overrides do mesmo POST gravam normalmente');
     }
 
     #[TestDox('Configurar: campos vazios voltam a herdar a carteira (null), mesmo com override anterior')]
