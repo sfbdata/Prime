@@ -13,6 +13,12 @@ namespace App\Cobranca\Service\Importacao;
  * (spec §9): a fonte já distingue as três parcelas e o domínio passou a materializá-las separadas —
  * colapsá-las de novo num número só perderia informação que a contabilidade forneceu. Honorários
  * informados são a leitura da fonte (o domínio também sabe derivá-los da Carteira, §18/§19).
+ *
+ * `acordo`/`somaColunaValorCentavos` (spec `cobranca-importar-linhas-acordo.md` §3.1/§3.2, tarefa
+ * #7-A): quando a coluna "Informações do acordo" casa `Acordo <N> - Parc. <p>/<t>`, `acordo` traz
+ * o reconhecimento e `somaColunaValorCentavos` é a soma da coluna Valor de TODAS as linhas do NN
+ * (independente de classe) — o "principal negociado" da parcela, usado pelo UseCase de importação
+ * (tarefa #7-B) em vez de `principalCentavos` (que só soma classes específicas).
  */
 final class BoletoImportavel
 {
@@ -32,6 +38,8 @@ final class BoletoImportavel
         public readonly \DateTimeImmutable $vencimento,
         public readonly string $competencia,
         public readonly ?string $acordoTexto,
+        public readonly ?AcordoDoRelatorio $acordo,
+        public readonly int $somaColunaValorCentavos,
         public readonly array $linhas,
     ) {
     }
