@@ -169,7 +169,8 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
             'registrar_tentativa_cobranca' => [
                 'dataContato' => '2026-05-10T14:30',
                 'canal' => 'telefone',
-                'resultado' => 'prometeu_pagar',
+                // "Prometeu pagar" saiu da lista selecionável (ajuste 2026-07) — usa "Atendido".
+                'resultado' => 'atendido',
                 'observacao' => 'Prometeu pagar',
                 '_token' => $token,
             ],
@@ -181,8 +182,51 @@ final class AcaoMutacaoControllerTest extends CobrancaWebTestCase
         $eventos = static::getContainer()->get(EventoHistoricoRepository::class)->doCaso($casoFresh);
         $contato = array_values(array_filter($eventos, fn ($e) => $e->getTipo() === TipoEventoHistorico::ContatoRealizado));
         self::assertCount(1, $contato, 'grava exatamente um evento de contato');
-        self::assertStringContainsString('Contato por Telefone em 10/05/2026 14:30 — Prometeu pagar. Prometeu pagar', $contato[0]->getDescricao());
+        self::assertStringContainsString('Contato por Telefone em 10/05/2026 14:30 — Atendido. Prometeu pagar', $contato[0]->getDescricao());
         self::assertSame('2026-05-10 14:30', $contato[0]->getOcorridoEm()->format('Y-m-d H:i'), 'a data do contato vira o ocorridoEm do evento');
+    }
+
+    #[TestDox('Registrar tentativa: "Prometeu pagar" não é mais selecionável no formulário')]
+    public function testTentativaNaoOferecePrometeuPagar(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        $opcoes = $crawler->filter('#modalRegistrarTentativa select[name="registrar_tentativa_cobranca[resultado]"] option')
+            ->each(static fn ($node) => $node->text());
+        self::assertNotContains('Prometeu pagar', $opcoes, 'contato novo não pode escolher "Prometeu pagar"');
+    }
+
+    #[TestDox('Registrar tentativa com resultado fora das opções selecionáveis: form inválido, não grava')]
+    public function testTentativaComResultadoNaoSelecionavelNaoRegistra(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'registrar_tentativa_cobranca');
+
+        // "prometeu_pagar" continua existindo no enum (legado), mas não é mais uma escolha válida.
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/tentativas', [
+            'registrar_tentativa_cobranca' => [
+                'dataContato' => '2026-05-10T14:30',
+                'canal' => 'telefone',
+                'resultado' => 'prometeu_pagar',
+                '_token' => $token,
+            ],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $this->em()->clear();
+        $casoFresh = $this->em()->find(CasoCobranca::class, $casoId);
+        $eventos = static::getContainer()->get(EventoHistoricoRepository::class)->doCaso($casoFresh);
+        $contato = array_filter($eventos, fn ($e) => $e->getTipo() === TipoEventoHistorico::ContatoRealizado);
+        self::assertCount(0, $contato, 'resultado fora das opções selecionáveis não grava contato');
     }
 
     #[TestDox('Registrar contato sem canal (obrigatório): form inválido, não grava contato')]

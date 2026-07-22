@@ -38,12 +38,16 @@ final class RegistrarTentativaCobrancaType extends AbstractType
             ])
             ->add('resultado', EnumType::class, [
                 'class' => ResultadoContato::class,
+                // Só as opções selecionáveis (sem "Prometeu pagar" — ajuste 2026-07): ninguém escolhe
+                // esse resultado em contato novo, mas contatos antigos gravados com ele continuam
+                // renderizando via label() no histórico.
+                'choices' => ResultadoContato::selecionaveis(),
                 'label' => 'Resultado',
                 'choice_label' => fn (ResultadoContato $r) => $r->label(),
                 'attr' => ['class' => 'form-select'],
             ])
             ->add('observacao', TextareaType::class, [
-                'label' => 'Observação (opcional)',
+                'label' => 'Relato do Atendimento (opcional)',
                 'required' => false,
                 'attr' => ['class' => 'form-control', 'rows' => 2],
             ]);
