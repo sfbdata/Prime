@@ -111,7 +111,7 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">
+                <button class="nav-link" id="historico-tab" data-bs-toggle="tab" data-bs-target="#tab-historico" type="button">
                     <i class="bi bi-clock-history me-1"></i>Histórico <span class="badge text-bg-secondary">{{ caso.historico|length }}</span>
                 </button>
             </li>
@@ -419,6 +419,26 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.cobrancas-page [data-bs-toggle="tooltip"]').forEach(function (el) {
         new bootstrap.Tooltip(el);
     });
+
+    /* Volta do POST de anotação (registrar/corrigir/excluir) cai na aba Histórico, e não na Cobrança:
+       o servidor manda `?aba=historico` e aqui ativamos a aba correspondente.
+
+       O parâmetro é CONSUMIDO (replaceState) logo em seguida — de propósito. Assim a volta do POST
+       mostra o Histórico, mas F5 ou reabrir o objeto voltam para a Cobrança, que é a aba de trabalho.
+       Um `#hash` não serviria: o Bootstrap ignora o hash ao escolher a aba ativa, e ele sobreviveria
+       ao F5, prendendo a pessoa no Histórico. */
+    var paramsUrl = new URLSearchParams(window.location.search);
+    var abaPedida = paramsUrl.get('aba');
+    if (abaPedida) {
+        /* Vem da URL: só letras e hífen entram no seletor, nada de injeção. */
+        if (/^[a-z-]+$/.test(abaPedida)) {
+            var botaoAba = document.querySelector('#objetoTabs [data-bs-target="#tab-' + abaPedida + '"]');
+            if (botaoAba) { new bootstrap.Tab(botaoAba).show(); }
+        }
+        paramsUrl.delete('aba');
+        var queryLimpa = paramsUrl.toString();
+        window.history.replaceState({}, '', window.location.pathname + (queryLimpa ? '?' + queryLimpa : ''));
+    }
 
     /* Correção de anotação (2026-07-22): o modal é UM só, compartilhado por todas as linhas. Ao clicar
        no lápis, injetamos a action da anotação e o texto atual — mesmo padrão dos demais modais

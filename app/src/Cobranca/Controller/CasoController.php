@@ -323,7 +323,7 @@ final class CasoController extends AbstractController
 
         return $this->redirectToRoute(
             'cobranca_objeto_show',
-            ['id' => $this->objetoIdDoCaso($caso), '_fragment' => 'tab-historico'],
+            ['id' => $this->objetoIdDoCaso($caso), 'aba' => 'historico'],
         );
     }
 
@@ -369,7 +369,7 @@ final class CasoController extends AbstractController
             return $this->redirectToRoute('cobranca_caso_index');
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, '_fragment' => 'tab-historico']);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, 'aba' => 'historico']);
     }
 
     /**
@@ -411,7 +411,7 @@ final class CasoController extends AbstractController
             return $this->redirectToRoute('cobranca_caso_index');
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, '_fragment' => 'tab-historico']);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, 'aba' => 'historico']);
     }
 
     /** Resolve o objeto de destino do redirect a partir do evento, sempre tenant-safe. */

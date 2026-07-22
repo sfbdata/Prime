@@ -136,6 +136,38 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
         self::assertSame('Contato por Telefone', $this->recarregar($id)->getDescricao());
     }
 
+    #[TestDox('Registrar, corrigir e excluir voltam para a aba Histórico, não para a Cobrança')]
+    public function testVoltaParaAbaHistorico(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $objetoId = $caso->getObjeto()->getId();
+        $evento = $this->semearAnotacao($caso, $tenant, $usuario, 'para mexer');
+        $id = (int) $evento->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+
+        // 1) Registrar
+        $form = $crawler->filter('form[action*="/anotacoes"]')->form();
+        $form['registrar_anotacao[texto]'] = 'nova anotacao';
+        $client->submit($form);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=historico');
+
+        // 2) Corrigir
+        $crawler = $client->followRedirect();
+        $formEdicao = $crawler->filter('#formEditarAnotacao')->form();
+        $formEdicao->getNode()->setAttribute('action', '/cobrancas/casos/anotacoes/' . $id . '/editar');
+        $formEdicao['editar_anotacao[texto]'] = 'texto corrigido';
+        $client->submit($formEdicao);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=historico');
+
+        // 3) Excluir
+        $crawler = $client->followRedirect();
+        $client->submit($crawler->filter('form[action*="/anotacoes/' . $id . '/excluir"]')->form());
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=historico');
+    }
+
     #[TestDox('Anotação de outro escritório responde 404 (anti-IDOR)')]
     public function testAnotacaoDeOutroTenant(): void
     {
