@@ -38,13 +38,16 @@ final class MarcarEmailAtualUseCaseTest extends TestCase
     #[Test]
     public function marcarOutroTrocaAFlagEPreservaOAntigoEmUmUnicoFlush(): void
     {
-        $pessoa = $this->pessoaComId(1);
-        $anterior = (new PessoaEmail())->setTenant($this->tenant)->setPessoa($pessoa)->setAtual(true);
-        $novo = (new PessoaEmail())->setTenant($this->tenant)->setPessoa($pessoa)->setAtual(false);
+        $anterior = (new PessoaEmail())->setTenant($this->tenant)->setAtual(true);
+        $novo = (new PessoaEmail())->setTenant($this->tenant)->setAtual(false);
+        // adicionarEmail() coloca os itens NA COLEÇÃO da pessoa (identidade compartilhada com o
+        // que o repositório "encontra" abaixo) — é sobre essa coleção que o self-heal itera.
+        $pessoa = $this->pessoaComId(1, $anterior, $novo);
 
         $this->pessoaRepository->method('findOneByIdDoTenant')->with(1, $this->tenant)->willReturn($pessoa);
         $this->emailRepository->method('findOneByIdDoTenant')->with(20, $this->tenant)->willReturn($novo);
-        $this->emailRepository->method('buscarAtualDaPessoa')->with($pessoa)->willReturn($anterior);
+        // Self-healing: buscarAtualDaPessoa não é mais consultado pelo UseCase.
+        $this->emailRepository->expects($this->never())->method('buscarAtualDaPessoa');
         $this->emailRepository->expects($this->once())->method('salvar')->with($novo, true);
 
         $resultado = $this->sut->executar($this->input(1, 20), $this->tenant);
@@ -55,19 +58,45 @@ final class MarcarEmailAtualUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function marcarOItemQueJaEAtualEhIdempotente(): void
+    public function marcarOItemQueJaEAtualPermaneceIdempotente(): void
     {
-        $pessoa = $this->pessoaComId(1);
-        $jaAtual = (new PessoaEmail())->setTenant($this->tenant)->setPessoa($pessoa)->setAtual(true);
+        $jaAtual = (new PessoaEmail())->setTenant($this->tenant)->setAtual(true);
+        $pessoa = $this->pessoaComId(1, $jaAtual);
 
         $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn($pessoa);
         $this->emailRepository->method('findOneByIdDoTenant')->willReturn($jaAtual);
         $this->emailRepository->expects($this->never())->method('buscarAtualDaPessoa');
-        $this->emailRepository->expects($this->never())->method('salvar');
+        // A normalização sempre flusha (changeset vazio quando nada muda), preservando a
+        // transação única mesmo no caso idempotente.
+        $this->emailRepository->expects($this->once())->method('salvar')->with($jaAtual, true);
 
         $resultado = $this->sut->executar($this->input(1, 20), $this->tenant);
 
         self::assertSame($jaAtual, $resultado);
+    }
+
+    #[Test]
+    public function marcarSelfHealCorrigeDuplicidadePreExistenteDeAtual(): void
+    {
+        // Estado corrompido (janela de concorrência / duplo-submit): DOIS e-mails já atuais.
+        $duplicado1 = (new PessoaEmail())->setTenant($this->tenant)->setAtual(true);
+        $duplicado2 = (new PessoaEmail())->setTenant($this->tenant)->setAtual(true);
+        $alvo = (new PessoaEmail())->setTenant($this->tenant)->setAtual(false);
+        $pessoa = $this->pessoaComId(1, $duplicado1, $duplicado2, $alvo);
+
+        $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn($pessoa);
+        $this->emailRepository->method('findOneByIdDoTenant')->willReturn($alvo);
+        $this->emailRepository->expects($this->once())->method('salvar')->with($alvo, true);
+
+        $resultado = $this->sut->executar($this->input(1, 20), $this->tenant);
+
+        self::assertSame($alvo, $resultado);
+        self::assertTrue($alvo->isAtual());
+        self::assertFalse($duplicado1->isAtual());
+        self::assertFalse($duplicado2->isAtual());
+        // Exatamente um atual na lista inteira após a normalização.
+        $atuais = array_filter($pessoa->getEmails()->toArray(), static fn (PessoaEmail $e) => $e->isAtual());
+        self::assertCount(1, $atuais);
     }
 
     #[Test]
@@ -99,7 +128,8 @@ final class MarcarEmailAtualUseCaseTest extends TestCase
     {
         $pessoa = $this->pessoaComId(1);
         $outraPessoa = $this->pessoaComId(2);
-        $emailDeOutraPessoa = (new PessoaEmail())->setTenant($this->tenant)->setPessoa($outraPessoa);
+        $emailDeOutraPessoa = (new PessoaEmail())->setTenant($this->tenant);
+        $outraPessoa->adicionarEmail($emailDeOutraPessoa);
 
         $this->pessoaRepository->method('findOneByIdDoTenant')->willReturn($pessoa);
         $this->emailRepository->method('findOneByIdDoTenant')->willReturn($emailDeOutraPessoa);
@@ -119,11 +149,16 @@ final class MarcarEmailAtualUseCaseTest extends TestCase
         return $input;
     }
 
-    private function pessoaComId(int $id): Pessoa
+    /** Monta a Pessoa e adiciona os e-mails informados à SUA coleção (mesma instância). */
+    private function pessoaComId(int $id, PessoaEmail ...$emails): Pessoa
     {
         $pessoa = (new Pessoa())->setTenant($this->tenant);
         $reflexao = new \ReflectionProperty(Pessoa::class, 'id');
         $reflexao->setValue($pessoa, $id);
+
+        foreach ($emails as $email) {
+            $pessoa->adicionarEmail($email);
+        }
 
         return $pessoa;
     }

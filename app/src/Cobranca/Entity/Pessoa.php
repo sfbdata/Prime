@@ -276,26 +276,40 @@ class Pessoa implements TenantAware, Auditavel
         return $this;
     }
 
+    /**
+     * Determinístico: se por algum motivo houver mais de um `atual = true` na coleção (não
+     * deveria, mas MarcarEmailAtualUseCase se auto-corrige), o último encontrado vence — a
+     * coleção é ordenada `criadoEm ASC` (linha do tempo), então o último é o mais recente.
+     */
     private function emailAtual(): ?PessoaEmail
     {
+        $atual = null;
+
         foreach ($this->emails as $item) {
             if ($item->isAtual()) {
-                return $item;
+                $atual = $item;
             }
         }
 
-        return null;
+        return $atual;
     }
 
+    /**
+     * Determinístico: se por algum motivo houver mais de um `atual = true` na coleção (não
+     * deveria, mas MarcarTelefoneAtualUseCase se auto-corrige), o último encontrado vence — a
+     * coleção é ordenada `criadoEm ASC` (linha do tempo), então o último é o mais recente.
+     */
     private function telefoneAtual(): ?PessoaTelefone
     {
+        $atual = null;
+
         foreach ($this->telefones as $item) {
             if ($item->isAtual()) {
-                return $item;
+                $atual = $item;
             }
         }
 
-        return null;
+        return $atual;
     }
 
     public function getObservacao(): ?string

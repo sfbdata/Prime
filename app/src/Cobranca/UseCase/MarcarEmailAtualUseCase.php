@@ -20,8 +20,15 @@ use App\Entity\Tenant\Tenant;
  * deixa de ser o atual; a troca de flags ocorre em transação única (um único flush). Pessoa e
  * e-mail são resolvidos por id + tenant (guarda multi-tenant, invariável 24); o e-mail também
  * precisa pertencer à MESMA pessoa informada — item de outra pessoa é tratado como não
- * encontrado (evita vazamento de existência entre pessoas). Marcar o item que já é o atual é
- * idempotente (não gera erro nem toque desnecessário no banco).
+ * encontrado (evita vazamento de existência entre pessoas).
+ *
+ * Self-healing (achado da revisão adversarial): a normalização não desmarca só o "antigo atual"
+ * apontado pela leitura — percorre TODOS os itens da lista da pessoa e desmarca quem não é o
+ * alvo. Isso corrige sozinho qualquer duplicidade pré-existente (janela de concorrência,
+ * duplo-submit) sem precisar de uma operação de correção separada. `setAtual(false)` em quem já
+ * é `false` e `setAtual(true)` em quem já é `true` geram changeset vazio no Doctrine, então
+ * repetir a normalização em cima do item que já é o atual continua idempotente (sem UPDATE
+ * desnecessário), mesmo chamando `salvar(..., true)` sempre.
  */
 final class MarcarEmailAtualUseCase
 {
@@ -47,17 +54,17 @@ final class MarcarEmailAtualUseCase
             throw new PessoaEmailNaoEncontradoException((int) $input->emailId);
         }
 
-        if ($email->isAtual()) {
-            return $email;
+        // Normaliza a lista inteira: qualquer item que não seja o alvo vira não-atual, mesmo que
+        // já houvesse mais de um `atual = true` por corrupção pré-existente.
+        foreach ($pessoa->getEmails() as $item) {
+            if ($item !== $email) {
+                $item->setAtual(false);
+            }
         }
-
-        // O antigo atual permanece na lista — só deixa de ser o atual (histórico preservado).
-        $anterior = $this->emailRepository->buscarAtualDaPessoa($pessoa);
-        $anterior?->setAtual(false);
 
         $email->setAtual(true);
 
-        // Ambas as entidades já estão managed; um único flush troca as duas flags atomicamente.
+        // Todas as entidades já estão managed; um único flush troca todas as flags atomicamente.
         $this->emailRepository->salvar($email, true);
 
         return $email;

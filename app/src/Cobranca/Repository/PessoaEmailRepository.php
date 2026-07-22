@@ -50,10 +50,14 @@ class PessoaEmailRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    /** O e-mail marcado como `atual` da pessoa (no máximo um, pela invariante do UseCase). */
+    /**
+     * O e-mail marcado como `atual` da pessoa. Determinístico: se por algum motivo houver mais de
+     * um `atual = true` (não deveria, mas os UseCases de marcação se auto-corrigem), o mais
+     * recente (`criadoEm` maior) vence.
+     */
     public function buscarAtualDaPessoa(Pessoa $pessoa): ?PessoaEmail
     {
-        return $this->findOneBy(['pessoa' => $pessoa, 'atual' => true]);
+        return $this->findOneBy(['pessoa' => $pessoa, 'atual' => true], ['criadoEm' => 'DESC']);
     }
 
     /** Verdadeiro se a pessoa já tem pelo menos um e-mail cadastrado. */
