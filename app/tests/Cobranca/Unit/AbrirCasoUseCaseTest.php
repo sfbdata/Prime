@@ -22,6 +22,7 @@ use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\AbrirCasoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -62,7 +63,7 @@ final class AbrirCasoUseCaseTest extends TestCase
     }
 
     #[Test]
-    public function abreCasoAtivoComSnapshotDeHonorariosERegistraEvento(): void
+    public function abreCasoAtivoSemSnapshotDeHonorariosERegistraEvento(): void
     {
         $carteira = (new Carteira())
             ->setModo(ModoCarteira::Multiplo)
@@ -107,61 +108,60 @@ final class AbrirCasoUseCaseTest extends TestCase
         self::assertSame($pessoa, $caso->getPessoaCobradaAtual());
         self::assertSame($this->tenant, $caso->getTenant());
         self::assertSame($this->criadoPor, $caso->getCriadoPor());
-        // Snapshot da regra de honorários copiado da carteira (SPEC §18.2).
-        self::assertSame(FormaHonorarios::AcrescidoDivida, $caso->getFormaHonorarios());
-        self::assertSame('10.00', $caso->getPercentualHonorarios());
+        // #9-T2: SEM snapshot — o caso nasce com as colunas de honorários no default MORTO, mesmo a
+        // carteira tendo forma/percentual configurados. A alíquota efetiva cascateia ao vivo por fora
+        // (ResolvedorConfigEncargos/CalculadoraHonorarios), não por cópia aqui.
+        self::assertSame(FormaHonorarios::SemPercentual, $caso->getFormaHonorarios());
+        self::assertNull($caso->getPercentualHonorarios());
         // Caso nasce ativo (status default).
         self::assertTrue($caso->estaAtivo());
     }
 
     #[Test]
-    public function copiaOsNoveCamposDeEncargosDaCarteiraParaOCaso(): void
+    public function naoCopiaMaisOsNoveCamposDeEncargosDaCarteiraParaOCaso(): void
     {
         $carteira = $this->carteiraComEncargos();
         $caso = $this->abrirCasoPara($carteira);
 
-        // Snapshot dos encargos (nível 2 da cascata): o caso nasce com a config vigente na carteira.
-        // Todos os valores são não-default no CasoCobranca (que nasce com os 9 em null): se um
-        // setter faltar, a asserção acusa null.
-        self::assertSame(100, $caso->getTaxaJurosMensalBp());
-        self::assertSame(RegimeJuros::Composto, $caso->getRegimeJuros());
-        self::assertSame(200, $caso->getTaxaMultaBp());
-        self::assertSame(BaseEncargo::Composta, $caso->getBaseMulta());
-        self::assertSame(50, $caso->getTaxaCorrecaoBp());
-        self::assertSame(BaseEncargo::Composta, $caso->getBaseCorrecao());
-        self::assertSame(BaseEncargo::Principal, $caso->getBaseHonorarios());
-        self::assertSame(30, $caso->getCarenciaHonorariosDias());
-        self::assertSame(5, $caso->getToleranciaJurosMultaDias());
+        // #9-T2 (reverte a decisão §18.2/§18.3 da feature de encargos, spec §3.2): o caso NÃO copia
+        // mais os 9 campos da carteira — nascem no default MORTO do CasoCobranca (todos null), mesmo
+        // a carteira estando totalmente configurada. A config efetiva cascateia ao vivo via objeto.
+        self::assertNull($caso->getTaxaJurosMensalBp());
+        self::assertNull($caso->getRegimeJuros());
+        self::assertNull($caso->getTaxaMultaBp());
+        self::assertNull($caso->getBaseMulta());
+        self::assertNull($caso->getTaxaCorrecaoBp());
+        self::assertNull($caso->getBaseCorrecao());
+        self::assertNull($caso->getBaseHonorarios());
+        self::assertNull($caso->getCarenciaHonorariosDias());
+        self::assertNull($caso->getToleranciaJurosMultaDias());
     }
 
     #[Test]
-    public function encargosSaoCopiaNoNascimentoEMudarACarteiraDepoisNaoAfetaOCasoAberto(): void
+    public function semSnapshotACascataAoVivoContinuaResolvendoAConfigDaCarteiraViaObjeto(): void
     {
+        // A ausência do snapshot (T2) não é perda de comportamento: `ResolvedorConfigEncargos` (T1)
+        // resolve a MESMA config, ao vivo, navegando caso→objeto→carteira — é o que substitui a cópia.
         $carteira = $this->carteiraComEncargos();
         $caso = $this->abrirCasoPara($carteira);
 
-        // O gestor reconfigura a carteira DEPOIS de o caso já estar aberto (spec §5).
-        $carteira
-            ->setTaxaJurosMensalBp(900)
-            ->setRegimeJuros(RegimeJuros::Simples)
-            ->setTaxaMultaBp(1000)
-            ->setBaseMulta(BaseEncargo::Principal)
-            ->setTaxaCorrecaoBp(700)
-            ->setBaseCorrecao(BaseEncargo::Principal)
-            ->setBaseHonorarios(BaseEncargo::Composta)
-            ->setCarenciaHonorariosDias(90)
-            ->setToleranciaJurosMultaDias(60);
+        $config = (new ResolvedorConfigEncargos())->resolverDoCaso($caso);
 
-        // O caso já aberto continua com o que copiou: a nova config só vale para os PRÓXIMOS casos.
-        self::assertSame(100, $caso->getTaxaJurosMensalBp());
-        self::assertSame(RegimeJuros::Composto, $caso->getRegimeJuros());
-        self::assertSame(200, $caso->getTaxaMultaBp());
-        self::assertSame(BaseEncargo::Composta, $caso->getBaseMulta());
-        self::assertSame(50, $caso->getTaxaCorrecaoBp());
-        self::assertSame(BaseEncargo::Composta, $caso->getBaseCorrecao());
-        self::assertSame(BaseEncargo::Principal, $caso->getBaseHonorarios());
-        self::assertSame(30, $caso->getCarenciaHonorariosDias());
-        self::assertSame(5, $caso->getToleranciaJurosMultaDias());
+        self::assertSame(100, $config->taxaJurosMensalBp);
+        self::assertSame(RegimeJuros::Composto, $config->regimeJuros);
+        self::assertSame(200, $config->taxaMultaBp);
+        self::assertSame(BaseEncargo::Composta, $config->baseMulta);
+        self::assertSame(50, $config->taxaCorrecaoBp);
+        self::assertSame(BaseEncargo::Composta, $config->baseCorrecao);
+        self::assertSame(2000, $config->taxaHonorariosBp, 'honorários (20% na carteira) herdados ao vivo, não copiados');
+        self::assertSame(BaseEncargo::Principal, $config->baseHonorarios);
+        self::assertSame(30, $config->carenciaHonorariosDias);
+        self::assertSame(5, $config->toleranciaJurosMultaDias);
+
+        // E, sem UPDATE nenhum no caso: reconfigurar a carteira DEPOIS reflete imediatamente — é o
+        // ganho da T1/T2 sobre o snapshot antigo (que travava o caso na config do nascimento).
+        $carteira->setTaxaJurosMensalBp(900);
+        self::assertSame(900, (new ResolvedorConfigEncargos())->resolverDoCaso($caso)->taxaJurosMensalBp);
     }
 
     #[Test]
