@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Cobranca\Controller;
 
 use App\Cobranca\DTO\CriarPessoaVinculadaInput;
+use App\Cobranca\DTO\EditarConfiguracaoObjetoInput;
+use App\Cobranca\Entity\ObjetoCobranca;
+use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Form\CriarPessoaVinculadaType;
+use App\Cobranca\Form\EditarConfiguracaoObjetoType;
 use App\Cobranca\Form\EncerrarVinculoType;
 use App\Cobranca\Form\VincularPessoaAObjetoType;
 use App\Cobranca\Repository\CasoCobrancaRepository;
@@ -15,6 +19,7 @@ use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Service\MontadorModaisCaso;
 use App\Cobranca\UseCase\CriarPessoaVinculadaAoObjetoUseCase;
+use App\Cobranca\UseCase\EditarConfiguracaoObjetoUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -49,6 +54,7 @@ final class ObjetoController extends AbstractController
         private readonly MontadorModaisCaso $montadorModais,
         private readonly CriarPessoaVinculadaAoObjetoUseCase $criarPessoaVinculada,
         private readonly PessoaRepository $pessoaRepository,
+        private readonly EditarConfiguracaoObjetoUseCase $editarConfiguracaoObjeto,
     ) {
     }
 
@@ -110,7 +116,47 @@ final class ObjetoController extends AbstractController
                 ? $this->createForm(VincularPessoaAObjetoType::class, null, ['pessoas' => $this->pessoaRepository->opcoesDoTenant($tenant)])->createView()
                 : null,
             'formEncerrarVinculo' => $podeGerenciar ? $this->createForm(EncerrarVinculoType::class)->createView() : null,
+            // #9-T3: config de encargos do OBJETO (nível 2 da cascata) — aposenta o editor de
+            // honorários do CASO na tela (o backend dele segue dormente, ver MontadorModaisCaso).
+            'formConfigEncargos' => $podeGerenciar ? $this->configEncargosObjetoView($objeto, $erroModal) : null,
+            // Guarda "Menor da revisão T2": a carteira sem forma percentual de honorários desabilita o
+            // override de honorários do objeto no modal (evita "exigível cobra honorário, split zera").
+            'carteiraSemHonorarios' => $objeto->getCarteira()?->getFormaHonorarios() === FormaHonorarios::SemPercentual,
         ]);
+    }
+
+    #[Route('/{id}/configuracao-encargos', name: 'cobranca_objeto_configurar_encargos', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function configurarEncargos(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        // Anti-IDOR: o objeto tem de ser do próprio escritório.
+        $objeto = $this->objetoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($objeto === null) {
+            throw $this->createNotFoundException('Objeto de cobrança não encontrado.');
+        }
+
+        $input = new EditarConfiguracaoObjetoInput();
+        $input->objetoId = $id;
+        $form = $this->createForm(EditarConfiguracaoObjetoType::class, $input);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->editarConfiguracaoObjeto->executar($input, $tenant);
+                $this->addFlash('success', 'Configuração de encargos do objeto atualizada.');
+            } catch (ObjetoNaoEncontradoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        } else {
+            // B5: erro de campo reabre o modal com o digitado; CSRF (erro de raiz) segue com flash.
+            $this->tratarFormInvalido($request, $form, $id, 'configEncargosObjeto', 'modalConfigEncargosObjeto', 'editar_configuracao_objeto');
+        }
+
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $id]);
     }
 
     #[Route('/{id}/pessoas', name: 'cobranca_objeto_pessoa_criar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -156,6 +202,36 @@ final class ObjetoController extends AbstractController
     {
         $form = $this->createForm(CriarPessoaVinculadaType::class);
         if ($erroModal !== null && $erroModal['form'] === 'novaPessoa') {
+            $form->submit($erroModal['payload']);
+        }
+
+        return $form->createView();
+    }
+
+    /**
+     * #9-T3: o modal "Editar configuração de encargos" (nível 2 da cascata) é criado inline (mesmo
+     * padrão de `novaPessoaView`), pré-carregado com os 10 overrides ATUAIS do objeto — como o modal de
+     * config da carteira faz. B5: se a última mutação falhou na validação, reidrata com o payload cru.
+     *
+     * @param array{form: string, modalId: string, payload: array<string, mixed>, acao: ?string}|null $erroModal
+     */
+    private function configEncargosObjetoView(ObjetoCobranca $objeto, ?array $erroModal): FormView
+    {
+        $input = new EditarConfiguracaoObjetoInput();
+        $input->objetoId = $objeto->getId();
+        $input->taxaJurosMensalBp = $objeto->getTaxaJurosMensalBp();
+        $input->regimeJuros = $objeto->getRegimeJuros();
+        $input->taxaMultaBp = $objeto->getTaxaMultaBp();
+        $input->baseMulta = $objeto->getBaseMulta();
+        $input->taxaCorrecaoBp = $objeto->getTaxaCorrecaoBp();
+        $input->baseCorrecao = $objeto->getBaseCorrecao();
+        $input->taxaHonorariosBp = $objeto->getTaxaHonorariosBp();
+        $input->baseHonorarios = $objeto->getBaseHonorarios();
+        $input->carenciaHonorariosDias = $objeto->getCarenciaHonorariosDias();
+        $input->toleranciaJurosMultaDias = $objeto->getToleranciaJurosMultaDias();
+
+        $form = $this->createForm(EditarConfiguracaoObjetoType::class, $input);
+        if ($erroModal !== null && $erroModal['form'] === 'configEncargosObjeto') {
             $form->submit($erroModal['payload']);
         }
 
