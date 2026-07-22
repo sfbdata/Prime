@@ -588,6 +588,51 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
     }
 
+    // ── Ajuste pós-taxa #3 (dono): esconder os gatilhos de "Registrar pagamento"/"Registrar liquidação",
+    // mantendo "Receber". Só UI — spec `docs/specs/cobranca-esconder-botoes-pagamento-liquidacao.md`.
+    // #modalRegistrarPagamento é o MESMO modal que "Receber" abre (event.relatedTarget decide FIFO×manual
+    // em show.html.twig), por isso continua no DOM; #modalRegistrarLiquidacao também continua — é o alvo
+    // do reabrir-com-erro (`data-modal-erro`) da rota, que a spec mantém acessível (ver
+    // `LiquidacaoMutacaoControllerTest::testRegistrarLiquidacaoInvalidaReabreModalComErroEPreservaODigitado`).
+    // Por isso a asserção mira o BOTÃO-gatilho, não o texto bruto da página (que o título/submit do modal
+    // reaproveitado ainda carregam, de propósito).
+
+    #[TestDox('Ajuste pós-taxa #3: os gatilhos de Registrar pagamento/liquidação somem; Receber continua')]
+    public function testEsconderGatilhosDeRegistrarPagamentoELiquidacaoMasReceberContinua(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Março/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // O bloco de ações da seção "O que já entrou" ficou vazio: os dois botões genéricos saíram.
+        self::assertCount(
+            0,
+            $crawler->filter('#secao-movimentos .jp-secao-acoes button'),
+            'os botões "Registrar pagamento"/"Registrar liquidação" têm de sumir da seção de movimentos',
+        );
+        // Nenhum gatilho clicável aponta mais para o modal de liquidação em NENHUMA parte da página.
+        self::assertCount(
+            0,
+            $crawler->filter('[data-bs-toggle="modal"][data-bs-target="#modalRegistrarLiquidacao"]'),
+            'não pode sobrar gatilho para o modal de liquidação',
+        );
+        // "Receber" (por obrigação) continua — mesmo modal de pagamento, disparado com data-acao=receber.
+        $receber = $crawler->filter('[data-acao="receber"][data-bs-target="#modalRegistrarPagamento"]');
+        self::assertGreaterThan(0, $receber->count(), '"Receber" por obrigação continua oferecendo o pagamento');
+        self::assertStringContainsString('Receber', $receber->text());
+        // Os MODAIS seguem no DOM (motor intacto, revertível): o de pagamento por ser reaproveitado pelo
+        // "Receber"; o de liquidação por ainda ser o alvo do reabrir-com-erro da rota, que segue acessível.
+        self::assertSelectorExists('#modalRegistrarPagamento');
+        self::assertSelectorExists('#modalRegistrarLiquidacao');
+    }
+
     // ── Encargos separados (spec "encargos configuráveis em cascata" §11) ──────────────────────────
     // A linha da obrigação deixou de ter uma coluna "Valor" e passou a ter as do relatório da
     // contabilidade: Original · Juros · Multa · Correção · Honorários · Total.

@@ -31,12 +31,18 @@
         </span>
         {% if podeMovimentar %}
         <div class="jp-secao-acoes">
+            {# Ajuste pós-taxa #3 (dono): esconder os gatilhos "Registrar liquidação"/"Registrar pagamento" —
+               "Receber" (por obrigação, em _divida.html.twig) é o único caminho agora. Só UI: os modais
+               (#modalRegistrarLiquidacao e #modalRegistrarPagamento), controllers, rotas e UseCases seguem
+               intactos e acessíveis — #modalRegistrarPagamento inclusive é reaproveitado pelo próprio
+               "Receber". Reversível: descomentar devolve os dois botões.
             <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalRegistrarLiquidacao">
                 <i class="bi bi-box-seam me-1"></i>Registrar liquidação
             </button>
             <button type="button" class="btn btn-sm jp-btn-accent" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagamento">
                 <i class="bi bi-cash-coin me-1"></i>Registrar pagamento
             </button>
+            #}
         </div>
         {% endif %}
     </div>
