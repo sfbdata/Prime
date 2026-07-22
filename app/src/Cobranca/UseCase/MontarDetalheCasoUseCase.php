@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\UseCase;
 
+use App\Entity\Auth\User;
 use App\Cobranca\DTO\AcordoOutput;
 use App\Cobranca\DTO\GrupoAcordoObrigacoesOutput;
 use App\Cobranca\DTO\CasoDetalheOutput;
@@ -64,7 +65,12 @@ final class MontarDetalheCasoUseCase
     ) {
     }
 
-    public function executar(CasoCobranca $caso): CasoDetalheOutput
+    /**
+     * `$usuarioAtual` só serve para decidir, POR LINHA do histórico, se aquele leitor pode corrigir a
+     * própria anotação (ajuste 2026-07-22). Opcional: quem não passa (ex.: a Central) recebe tudo com
+     * `editavel: false`, que é o correto — lá ninguém edita nada.
+     */
+    public function executar(CasoCobranca $caso, ?User $usuarioAtual = null): CasoDetalheOutput
     {
         // Fonte de tempo ÚNICA: o mesmo relógio da hidratação (spec §5) — a data do "vencido" e do
         // encargo não podem divergir, e nada de `new \DateTimeImmutable()` no caminho do dinheiro.
@@ -159,7 +165,12 @@ final class MontarDetalheCasoUseCase
             pagamentos: array_map(PagamentoOutput::fromEntity(...), $this->pagamentoRepository->doCaso($caso)),
             liquidacoes: array_map(LiquidacaoOutput::fromEntity(...), $this->liquidacaoRepository->doCaso($caso)),
             acordos: $acordos,
-            historico: array_map(EventoHistoricoOutput::fromEntity(...), $this->eventoRepository->doCaso($caso)),
+            // `$hoje` é o mesmo relógio injetado usado no resto do método — a janela de edição da
+            // anotação não pode medir o tempo por uma fonte diferente da que rege a tela.
+            historico: array_map(
+                static fn ($e) => EventoHistoricoOutput::fromEntity($e, $usuarioAtual, $hoje),
+                $this->eventoRepository->doCaso($caso),
+            ),
             // Base resolvida do honorário do CASO (para o espelho %↔R$ do honorário nos modais converter
             // sobre a base certa — composta soma valor+juros+multa+correção; principal usa só o valor).
             baseHonorariosComposta: $configCaso->baseHonorarios === BaseEncargo::Composta,

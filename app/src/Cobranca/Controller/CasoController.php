@@ -8,9 +8,12 @@ use App\Cobranca\DTO\AlterarPessoaCobradaInput;
 use App\Cobranca\DTO\EditarConfiguracaoCasoInput;
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\JudicializarCasoInput;
+use App\Cobranca\DTO\EditarAnotacaoInput;
 use App\Cobranca\DTO\RegistrarAnotacaoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
+use App\Cobranca\Exception\AnotacaoNaoEditavelException;
 use App\Cobranca\Exception\CasoEncerradoException;
+use App\Cobranca\Exception\EventoNaoEncontradoException;
 use App\Cobranca\Exception\CasoJaJudicializadoException;
 use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Exception\PastaNaoEncontradaException;
@@ -20,18 +23,23 @@ use App\Cobranca\Form\AlterarPessoaCobradaType;
 use App\Cobranca\Form\EditarConfiguracaoCasoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\JudicializarCasoType;
+use App\Cobranca\Form\EditarAnotacaoType;
 use App\Cobranca\Form\RegistrarAnotacaoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
+use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\UseCase\AlterarPessoaCobradaUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoCasoUseCase;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
 use App\Cobranca\UseCase\ListarCasosUseCase;
+use App\Cobranca\UseCase\EditarAnotacaoUseCase;
+use App\Cobranca\UseCase\ExcluirAnotacaoUseCase;
 use App\Cobranca\UseCase\RegistrarAnotacaoUseCase;
 use App\Cobranca\UseCase\RegistrarTentativaCobrancaUseCase;
+use App\Entity\Tenant\Tenant;
 use App\Pasta\Repository\PastaRepository;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
@@ -69,6 +77,9 @@ final class CasoController extends AbstractController
         private readonly PessoaRepository $pessoaRepository,
         private readonly EditarConfiguracaoCasoUseCase $editarConfiguracaoCaso,
         private readonly RegistrarAnotacaoUseCase $registrarAnotacao,
+        private readonly EditarAnotacaoUseCase $editarAnotacao,
+        private readonly ExcluirAnotacaoUseCase $excluirAnotacao,
+        private readonly EventoHistoricoRepository $eventoRepository,
     ) {
     }
 
@@ -314,6 +325,99 @@ final class CasoController extends AbstractController
             'cobranca_objeto_show',
             ['id' => $this->objetoIdDoCaso($caso), '_fragment' => 'tab-historico'],
         );
+    }
+
+    /**
+     * Corrige o texto de uma anotação (48h, só o autor — ajuste 2026-07-22). As três guardas vivem no
+     * UseCase/entidade; aqui só o gate de módulo e a tradução das exceções em flash.
+     */
+    #[Route('/anotacoes/{eventoId}/editar', name: 'cobranca_anotacao_editar', methods: ['POST'], requirements: ['eventoId' => '\d+'])]
+    public function editarAnotacao(int $eventoId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        // A guarda de tenant vem ANTES de qualquer validação de formulário: anotação de outro
+        // escritório tem de responder 404 mesmo com CSRF ruim ou campo vazio. Validar primeiro faria
+        // um POST forjado voltar com "sessão expirada" e esconder o anti-IDOR atrás de um redirect.
+        $objetoId = $this->objetoIdDoEvento($eventoId, $tenant);
+        if ($objetoId === null && $this->eventoRepository->findOneByIdDoTenant($eventoId, $tenant) === null) {
+            throw $this->createNotFoundException('Anotação não encontrada.');
+        }
+
+        $input = new EditarAnotacaoInput();
+        $input->eventoId = $eventoId;
+        $form = $this->createForm(EditarAnotacaoType::class, $input);
+        $form->handleRequest($request);
+
+        try {
+            if (!$form->isSubmitted() || !$form->isValid()) {
+                $this->flashErrosDoForm($form);
+            } else {
+                $this->editarAnotacao->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Anotação corrigida.');
+            }
+        } catch (EventoNaoEncontradoException) {
+            throw $this->createNotFoundException('Anotação não encontrada.');
+        } catch (AnotacaoNaoEditavelException|CasoEncerradoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        if ($objetoId === null) {
+            return $this->redirectToRoute('cobranca_caso_index');
+        }
+
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, '_fragment' => 'tab-historico']);
+    }
+
+    /**
+     * Apaga uma anotação (48h, só o autor — ajuste 2026-07-22). Exclusão DEFINITIVA, como na timeline
+     * da Pasta: some da linha do tempo, sem deixar marca de "removida" (decisão do dono).
+     */
+    #[Route('/anotacoes/{eventoId}/excluir', name: 'cobranca_anotacao_excluir', methods: ['POST'], requirements: ['eventoId' => '\d+'])]
+    public function excluirAnotacao(int $eventoId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        // Guarda de tenant primeiro, pela mesma razão do editar: anotação de outro escritório é 404,
+        // não "sessão expirada". Também guardamos para onde voltar — depois do remove, o caso já não
+        // é alcançável pelo evento.
+        $objetoId = $this->objetoIdDoEvento($eventoId, $tenant);
+        if ($objetoId === null && $this->eventoRepository->findOneByIdDoTenant($eventoId, $tenant) === null) {
+            throw $this->createNotFoundException('Anotação não encontrada.');
+        }
+
+        if (!$this->isCsrfTokenValid('excluir_anotacao_' . $eventoId, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Sessão expirada. Tente novamente.');
+
+            return $this->redirectToRoute('cobranca_caso_index');
+        }
+
+        try {
+            $this->excluirAnotacao->executar($eventoId, $tenant, $this->usuarioLogado());
+            $this->addFlash('success', 'Anotação excluída.');
+        } catch (EventoNaoEncontradoException) {
+            throw $this->createNotFoundException('Anotação não encontrada.');
+        } catch (AnotacaoNaoEditavelException|CasoEncerradoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        if ($objetoId === null) {
+            return $this->redirectToRoute('cobranca_caso_index');
+        }
+
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, '_fragment' => 'tab-historico']);
+    }
+
+    /** Resolve o objeto de destino do redirect a partir do evento, sempre tenant-safe. */
+    private function objetoIdDoEvento(int $eventoId, Tenant $tenant): ?int
+    {
+        return $this->eventoRepository->findOneByIdDoTenant($eventoId, $tenant)?->getCaso()?->getObjeto()?->getId();
     }
 
     /**

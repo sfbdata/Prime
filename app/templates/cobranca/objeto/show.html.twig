@@ -152,8 +152,32 @@
                 <ul class="caso-timeline">
                     {% for e in caso.historico|reverse %}
                     <li class="caso-timeline-item">
-                        <div class="caso-timeline-tipo">{{ e.tipoLabel }}</div>
-                        <div>{{ e.descricao }}</div>
+                        <div class="caso-timeline-tipo d-flex align-items-center gap-2">
+                            <span>{{ e.tipoLabel }}</span>
+                            {% if e.editadoEm %}<span class="text-muted fst-italic fw-normal">(editado)</span>{% endif %}
+                            {# `editavel` vem decidido do SERVIDOR (anotação própria, dentro das 48h) — o
+                               template não recalcula prazo nem compara autoria, senão tela e servidor
+                               poderiam discordar. Passada a janela, os botões somem sozinhos. #}
+                            {% if e.editavel %}
+                            <span class="ms-auto d-flex gap-1">
+                                <button type="button" class="btn btn-link btn-sm p-0 text-secondary js-editar-anotacao"
+                                        title="Corrigir esta anotação (até 48h)"
+                                        data-url="{{ path('cobranca_anotacao_editar', {eventoId: e.id}) }}"
+                                        data-texto="{{ e.descricao|e('html_attr') }}">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <form method="post" action="{{ path('cobranca_anotacao_excluir', {eventoId: e.id}) }}"
+                                      onsubmit="return confirm('Excluir esta anotação? Ela some do histórico e não dá para desfazer.');"
+                                      class="d-inline">
+                                    <input type="hidden" name="_token" value="{{ csrf_token('excluir_anotacao_' ~ e.id) }}">
+                                    <button type="submit" class="btn btn-link btn-sm p-0 text-danger" title="Excluir esta anotação (até 48h)">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div>{{ e.descricao|nl2br }}</div>
                         <div class="caso-timeline-meta">{{ e.ocorridoEm|date('d/m/Y H:i') }}{% if e.usuarioNome %} · {{ e.usuarioNome }}{% endif %}</div>
                     </li>
                     {% endfor %}
@@ -233,6 +257,35 @@
 {# B5: marcador (one-shot no servidor) que reabre o modal cujo submit falhou na validação. A ação só vem
    nos modais REUTILIZÁVEIS (URL da linha), para o auto-open repor o `action` que o clique teria injetado. #}
 {% if modalErroId %}<span data-modal-erro="{{ modalErroId }}"{% if modalErroAcao %} data-modal-erro-acao="{{ modalErroAcao }}"{% endif %} hidden></span>{% endif %}
+
+{# Correção de anotação (2026-07-22): modal ÚNICO para todas as linhas — o JS injeta a action da
+   anotação clicada e o texto atual. Um modal por linha inflaria o HTML sem ganho. #}
+{% if podeGerenciar and not caso.encerrado and forms.editarAnotacao is defined %}
+<div class="modal fade" id="modalEditarAnotacao" tabindex="-1" aria-labelledby="tituloEditarAnotacao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(forms.editarAnotacao, {attr: {id: 'formEditarAnotacao'}}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloEditarAnotacao"><i class="bi bi-pencil me-1"></i>Corrigir anotação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-text mb-2">
+                    A correção pode ser feita nas primeiras 48 horas, só pelo autor. A linha do tempo
+                    passa a mostrar <strong>(editado)</strong>.
+                </div>
+                {{ form_widget(forms.editarAnotacao.texto) }}
+                {{ form_errors(forms.editarAnotacao.texto) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar correção</button>
+            </div>
+            {{ form_end(forms.editarAnotacao) }}
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {# Nova pessoa (cadastra + vincula ao objeto — gatilho no card da pessoa) #}
 {% if formNovaPessoa %}
@@ -366,6 +419,25 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.cobrancas-page [data-bs-toggle="tooltip"]').forEach(function (el) {
         new bootstrap.Tooltip(el);
     });
+
+    /* Correção de anotação (2026-07-22): o modal é UM só, compartilhado por todas as linhas. Ao clicar
+       no lápis, injetamos a action da anotação e o texto atual — mesmo padrão dos demais modais
+       reutilizáveis desta tela. Nada de regra aqui: quem pode corrigir já foi decidido no servidor
+       (`editavel`), e o servidor revalida no POST. */
+    var modalEditarAnotacao = document.getElementById('modalEditarAnotacao');
+    if (modalEditarAnotacao) {
+        var formEditarAnotacao = document.getElementById('formEditarAnotacao');
+        var campoAnotacao = formEditarAnotacao ? formEditarAnotacao.querySelector('textarea') : null;
+
+        document.querySelectorAll('.js-editar-anotacao').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                if (!formEditarAnotacao) { return; }
+                formEditarAnotacao.setAttribute('action', botao.dataset.url);
+                if (campoAnotacao) { campoAnotacao.value = botao.dataset.texto || ''; }
+                new bootstrap.Modal(modalEditarAnotacao).show();
+            });
+        });
+    }
 
     /* B5: a última mutação falhou na validação → reabre o modal com o digitado e o erro inline (o
        conteúdo já vem do form_row reidratado; aqui só damos o show). O marcador é consumido no servidor. */

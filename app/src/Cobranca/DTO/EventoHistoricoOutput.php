@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\DTO;
 
 use App\Cobranca\Entity\EventoHistorico;
+use App\Entity\Auth\User;
 
 /**
  * Leitura de um evento do Histórico operacional do Caso (SPEC §13) para a timeline do detalhe
@@ -20,10 +21,19 @@ final class EventoHistoricoOutput
         public readonly \DateTimeImmutable $ocorridoEm,
         public readonly ?string $usuarioNome,
         public readonly string $descricao,
+        /** Preenchido quando o autor reescreveu o texto — a timeline exibe "(editado)". */
+        public readonly ?\DateTimeImmutable $editadoEm = null,
+        /**
+         * Se ESTE usuário pode corrigir/apagar esta linha agora (anotação própria, dentro das 48h).
+         * Vem decidido do servidor pela MESMA regra que o UseCase aplica
+         * (`EventoHistorico::podeSerEditadaPor`) — o template não recalcula prazo nem compara autoria,
+         * senão a tela e o servidor poderiam discordar.
+         */
+        public readonly bool $editavel = false,
     ) {
     }
 
-    public static function fromEntity(EventoHistorico $e): self
+    public static function fromEntity(EventoHistorico $e, ?User $usuarioAtual = null, ?\DateTimeImmutable $agora = null): self
     {
         $usuario = $e->getUsuario();
 
@@ -34,6 +44,8 @@ final class EventoHistoricoOutput
             ocorridoEm: $e->getOcorridoEm(),
             usuarioNome: $usuario?->getFullName() ?? $usuario?->getEmail(),
             descricao: $e->getDescricao(),
+            editadoEm: $e->getEditadoEm(),
+            editavel: $agora !== null && $e->podeSerEditadaPor($usuarioAtual, $agora),
         );
     }
 }

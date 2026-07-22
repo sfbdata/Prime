@@ -100,7 +100,9 @@ final class ObjetoController extends AbstractController
         $documentos = $this->montadorModais->documentosParaFm($caso);
 
         return $this->render('cobranca/objeto/show.html.twig', [
-            'objeto' => $this->montarDetalheObjeto->executar($objeto, $caso),
+            // O usuário logado vai junto só para o histórico saber quais anotações ELE pode corrigir
+            // nas 48h (2026-07-22) — a decisão é do servidor, nunca do template.
+            'objeto' => $this->montarDetalheObjeto->executar($objeto, $caso, $this->usuarioLogado()),
             'forms' => $forms,
             'modalErroId' => $erroModal['modalId'] ?? null,
             'modalErroAcao' => $erroModal['acao'] ?? null,

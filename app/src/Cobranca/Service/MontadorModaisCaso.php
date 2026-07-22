@@ -20,6 +20,7 @@ use App\Cobranca\Form\JudicializarCasoType;
 use App\Cobranca\Form\RegistrarLiquidacaoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Form\RegistrarPagamentoType;
+use App\Cobranca\Form\EditarAnotacaoType;
 use App\Cobranca\Form\RegistrarAnotacaoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Form\RomperAcordoType;
@@ -113,6 +114,9 @@ final class MontadorModaisCaso
             // Anotação livre da aba Histórico (ajuste 2026-07). Não é modal — é um campo inline —, então
             // não entra no jogo de reidratação por erro: o controller devolve o erro como flash.
             'registrarAnotacao' => $this->formFactory->create(RegistrarAnotacaoType::class)->createView(),
+            // Modal COMPARTILHADO de correção (2026-07-22): um só para todas as anotações — o JS injeta
+            // a action da linha clicada e o texto atual. Um modal por linha inflaria o HTML à toa.
+            'editarAnotacao' => $this->formFactory->create(EditarAnotacaoType::class)->createView(),
             'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, $acordoHoje, [
                 'obrigacoes' => $opcoesObrigacoes,
                 'valores' => $valoresObrigacoes,

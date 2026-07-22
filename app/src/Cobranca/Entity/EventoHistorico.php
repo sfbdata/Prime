@@ -55,9 +55,42 @@ class EventoHistorico implements TenantAware
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $dados = null;
 
+    /**
+     * Quando o texto foi reescrito pelo autor (ajuste 2026-07). Só ANOTAÇÃO é editável, e só na janela
+     * de `JANELA_EDICAO`; null = nunca editada. A timeline mostra "(editado)" quando preenchido — o
+     * leitor precisa saber que o texto de hoje não é o que foi escrito na hora.
+     */
+    #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+    private ?\DateTimeImmutable $editadoEm = null;
+
+    /**
+     * Janela em que o AUTOR pode corrigir ou apagar a própria anotação (decisão do dono, 2026-07-22).
+     * Passado esse prazo o registro fica firme: histórico de cobrança pode ser levado a juízo, e um
+     * texto reescrito meses depois não vale como prova do que foi feito.
+     */
+    public const JANELA_EDICAO = 'PT48H';
+
     public function __construct()
     {
         $this->ocorridoEm = new \DateTimeImmutable();
+    }
+
+    /**
+     * Só ANOTAÇÃO é editável/apagável, e só pelo próprio autor dentro da janela. Contato, acordo,
+     * pagamento e os demais NÃO são texto de alguém — são o que o sistema registrou quando o fato
+     * aconteceu; reescrevê-los falsificaria o histórico.
+     */
+    public function podeSerEditadaPor(?User $usuario, \DateTimeImmutable $agora): bool
+    {
+        if ($this->tipo !== TipoEventoHistorico::Anotacao || $usuario === null || $this->usuario === null) {
+            return false;
+        }
+
+        if ($this->usuario->getId() !== $usuario->getId()) {
+            return false;
+        }
+
+        return $agora <= $this->ocorridoEm->add(new \DateInterval(self::JANELA_EDICAO));
     }
 
     public function getId(): ?int
@@ -145,6 +178,23 @@ class EventoHistorico implements TenantAware
     public function setDados(?array $dados): self
     {
         $this->dados = $dados;
+
+        return $this;
+    }
+
+    public function getEditadoEm(): ?\DateTimeImmutable
+    {
+        return $this->editadoEm;
+    }
+
+    /**
+     * Reescreve o texto e carimba a edição. Não mexe em `ocorridoEm`: a janela de 48h continua contando
+     * do registro original, senão editar de hora em hora renovaria o prazo para sempre.
+     */
+    public function reescrever(string $descricao, \DateTimeImmutable $em): self
+    {
+        $this->descricao = $descricao;
+        $this->editadoEm = $em;
 
         return $this;
     }

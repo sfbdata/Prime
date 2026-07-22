@@ -10,6 +10,7 @@ use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
 use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
+use App\Entity\Auth\User;
 
 /**
  * Leitura: monta o detalhe da página unificada do Objeto (ajuste 2). O caso âncora já vem resolvido e
@@ -25,9 +26,10 @@ final class MontarDetalheObjetoUseCase
     ) {
     }
 
-    public function executar(ObjetoCobranca $objeto, CasoCobranca $caso): ObjetoDetalheOutput
+    /** `$usuarioAtual` só decide quais anotações do histórico este leitor pode corrigir (2026-07-22). */
+    public function executar(ObjetoCobranca $objeto, CasoCobranca $caso, ?User $usuarioAtual = null): ObjetoDetalheOutput
     {
-        $casoDetalhe = $this->montarDetalheCaso->executar($caso);
+        $casoDetalhe = $this->montarDetalheCaso->executar($caso, $usuarioAtual);
         $pessoaCobradaId = $caso->getPessoaCobradaAtual()?->getId();
 
         $vinculos = array_map(
