@@ -25,9 +25,16 @@ use App\Entity\Tenant\Tenant;
  * será cobrado. Objeto e pessoa vivem DENTRO do escritório: ambos são resolvidos por id + tenant
  * (guarda multi-tenant, invariável 24) — inexistente/de outro escritório é erro de entrada. No modo A
  * (uma cobrança ativa por objeto, SPEC §6) um segundo caso ativo é rejeitado; enquanto houver caso
- * ativo, novas pendências entram nele. O caso guarda um SNAPSHOT da regra de honorários da carteira
- * (SPEC §18.2): mudanças futuras na carteira não recalculam casos antigos (SPEC §18.3). A abertura e
- * o evento "caso aberto" são commitados juntos (flush único no registro do evento).
+ * ativo, novas pendências entram nele. A abertura e o evento "caso aberto" são commitados juntos
+ * (flush único no registro do evento).
+ *
+ * #9-T2 (cascata de encargos ao vivo sem snapshot): o caso NÃO fotografa mais a config de encargos da
+ * carteira ao nascer (spec §3.2 — reverte a decisão §18.2/§18.3 da feature de encargos). As colunas de
+ * config no `CasoCobranca` (forma/percentual de honorários, taxas, bases, carência, tolerância) ficam
+ * no default/null — coluna-sombra morta, mantida por 1 release para rollback seguro (spec §5), mas
+ * nunca mais lida: `ResolvedorConfigEncargos::resolverDoCaso` delega ao objeto (T1), e
+ * `CalculadoraHonorarios` resolve a política de honorários do objeto/carteira (T2). O caso continua
+ * herdando AO VIVO tudo o que a carteira/objeto tiverem configurado, sem UPDATE nenhum nele.
  */
 final class AbrirCasoUseCase
 {
@@ -62,27 +69,12 @@ final class AbrirCasoUseCase
             throw new CasoAtivoJaExisteException((int) $objeto->getId());
         }
 
-        // Snapshot da regra de honorários da carteira (SPEC §18.2) — não recalcula depois (SPEC §18.3).
+        // #9-T2: SEM snapshot — o caso nasce sem cópia da config da carteira (spec §3.2). A config de
+        // encargos (honorários, taxas, bases, carência, tolerância) cascateia AO VIVO via objeto/carteira.
         $caso = new CasoCobranca();
         $caso->setTenant($tenant);
         $caso->setObjeto($objeto);
         $caso->setPessoaCobradaAtual($pessoa);
-        $caso->setFormaHonorarios($carteira->getFormaHonorarios());
-        $caso->setPercentualHonorarios($carteira->getPercentualHonorarios());
-
-        // Snapshot dos encargos por atraso (nível 2 da cascata, spec §4.1/§5): CÓPIA NO NASCIMENTO.
-        // O caso passa a carregar a config vigente na carteira agora; mudar a carteira depois NÃO
-        // altera este caso — só vale para os casos abertos daí em diante (mesma regra dos honorários).
-        $caso->setTaxaJurosMensalBp($carteira->getTaxaJurosMensalBp());
-        $caso->setRegimeJuros($carteira->getRegimeJuros());
-        $caso->setTaxaMultaBp($carteira->getTaxaMultaBp());
-        $caso->setBaseMulta($carteira->getBaseMulta());
-        $caso->setTaxaCorrecaoBp($carteira->getTaxaCorrecaoBp());
-        $caso->setBaseCorrecao($carteira->getBaseCorrecao());
-        $caso->setBaseHonorarios($carteira->getBaseHonorarios());
-        $caso->setCarenciaHonorariosDias($carteira->getCarenciaHonorariosDias());
-        $caso->setToleranciaJurosMultaDias($carteira->getToleranciaJurosMultaDias());
-
         $caso->setCriadoPor($criadoPor);
 
         // Persiste sem flush; o registro do evento fecha a transação (persiste os dois de uma vez).

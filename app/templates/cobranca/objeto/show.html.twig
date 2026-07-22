@@ -58,10 +58,12 @@
                 <div class="text-end cob-hero-sub">
                     <div class="cob-hero-label">Honorários</div>
                     <div class="fw-semibold text-white">{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} ({{ caso.percentualHonorarios }}%){% endif %}</div>
-                    {# Ajuste 2, Fatia A: editar os honorários do caso âncora (recalcula as automáticas). #}
-                    {% if podeGerenciar %}
-                    <button type="button" class="btn btn-sm jp-btn-outline py-0 mt-1" data-bs-toggle="modal" data-bs-target="#modalEditarConfigCaso">
-                        <i class="bi bi-pencil me-1"></i>Editar honorários
+                    {# #9-T3: o "meio" da cascata de encargos é o OBJETO (não mais o caso — o editor de
+                       honorários do caso aposentou aqui, segue vivo no backend por reversibilidade). Abre a
+                       config de encargos do objeto (as 4 taxas + bases + carência/tolerância, spec §4). #}
+                    {% if podeGerenciar and formConfigEncargos %}
+                    <button type="button" class="btn btn-sm jp-btn-outline py-0 mt-1" data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto">
+                        <i class="bi bi-pencil me-1"></i>Editar configuração de encargos
                     </button>
                     {% endif %}
                 </div>
@@ -128,6 +130,24 @@
 
             {# Histórico (timeline — SPEC §13) #}
             <div class="tab-pane fade" id="tab-historico">
+                {# Anotação livre (ajuste 2026-07), no espírito do campo de mensagem da timeline da Pasta:
+                   o que foi combinado/ouvido e não cabe em formulário estruturado entra aqui e passa a
+                   conviver com os eventos automáticos. Append-only de propósito — sem editar nem apagar
+                   (é registro operacional, não rascunho). O que É classificável continua tendo o seu
+                   próprio formulário: relatório conta etiqueta, não lê texto corrido. #}
+                {% if podeGerenciar and not caso.encerrado and forms.registrarAnotacao is defined %}
+                <div class="mb-3 pb-3 border-bottom">
+                    {{ form_start(forms.registrarAnotacao, {action: path('cobranca_anotacao_registrar', {id: caso.id})}) }}
+                    <div class="d-flex gap-2 align-items-end">
+                        <div class="flex-grow-1">{{ form_widget(forms.registrarAnotacao.texto) }}</div>
+                        <button type="submit" class="btn btn-sm jp-btn-accent flex-shrink-0">
+                            <i class="bi bi-send me-1"></i>Anotar
+                        </button>
+                    </div>
+                    {{ form_end(forms.registrarAnotacao) }}
+                </div>
+                {% endif %}
+
                 {% if caso.historico|length > 0 %}
                 <ul class="caso-timeline">
                     {% for e in caso.historico|reverse %}
@@ -289,6 +309,42 @@
                 <button type="submit" class="btn btn-danger"><i class="bi bi-person-dash me-1"></i>Encerrar</button>
             </div>
             {{ form_end(formEncerrarVinculo) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Config de encargos do OBJETO (#9-T3): nível 2 da cascata Carteira → Objeto → Obrigação (spec §4).
+   TODOS os 10 campos são opcionais — vazio = herda a carteira. Só %/bp aqui, DESVIO da spec §4 (que
+   pedia %↔R$ via ConversorTaxaEncargo): o objeto agrega várias obrigações, sem um principal/vencimento
+   únicos para o conversor operar. #}
+{% if formConfigEncargos %}
+<div class="modal fade" id="modalConfigEncargosObjeto" tabindex="-1" aria-labelledby="tituloConfigEncargosObjeto" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            {{ form_start(formConfigEncargos, {action: path('cobranca_objeto_configurar_encargos', {id: objeto.objetoId})}) }}
+            <div class="modal-header">
+                <h5 class="modal-title" id="tituloConfigEncargosObjeto"><i class="bi bi-percent me-1"></i>Editar configuração de encargos</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info small d-flex align-items-start gap-2 mb-3">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <div>Vale para <strong>todas as obrigações de todos os casos</strong> deste objeto, ao vivo (sem
+                        congelar nada). Deixe um campo <strong>vazio</strong> para herdar o que está configurado na
+                        carteira.</div>
+                </div>
+                {{ form_errors(formConfigEncargos) }}
+                {{ include('cobranca/objeto/_partials/_campos_config_encargos.html.twig', {
+                    form: formConfigEncargos,
+                    carteiraSemHonorarios: carteiraSemHonorarios,
+                }) }}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar configuração</button>
+            </div>
+            {{ form_end(formConfigEncargos) }}
         </div>
     </div>
 </div>

@@ -171,8 +171,10 @@ final class MontarDashboardCobrancaUseCase
                 }
             }
 
-            // Honorários realizados no período, conforme a forma do snapshot do caso (§18).
-            if ($caso->getFormaHonorarios() === FormaHonorarios::AcrescidoDivida) {
+            // Honorários realizados no período, conforme a forma EFETIVA da carteira/objeto do caso
+            // (§18; #9-T2 — não mais o snapshot do caso; `CalculadoraHonorarios::forma` é a MESMA
+            // fonte que o split de pagamento usa, para as duas nunca divergirem).
+            if ($this->calculadoraHonorarios->forma($caso) === FormaHonorarios::AcrescidoDivida) {
                 $honorariosRealizadosNoPeriodo += $honorariosPagamentoPeriodo;
             } else {
                 $honorariosRealizadosNoPeriodo += $this->calculadoraHonorarios->realizadosSobreRecuperacao(

@@ -1,0 +1,35 @@
+{#
+   Lista de eventos do detalhe (hora · tipo · objeto · resumo). Partial próprio porque o §5.1 pede a
+   MESMA tabela em dois lugares: o trabalho de cobrança e, quando expandido, os lançamentos de
+   cadastro/importação. Duas cópias divergiriam.
+
+   Parâmetro: `eventos` (list<EventoAtividadeOutput>).
+#}
+<div class="cobranca-central-eventos">
+    <table class="table table-sm mb-0">
+        <thead>
+            <tr>
+                <th scope="col">Quando</th>
+                <th scope="col">O que</th>
+                <th scope="col">Objeto</th>
+                <th scope="col">Resumo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for evento in eventos %}
+            <tr>
+                <td class="text-nowrap">{{ evento.ocorridoEm|date('d/m/Y H:i') }}</td>
+                <td class="text-nowrap">{{ evento.tipoLabel }}</td>
+                <td>
+                    {% if evento.objetoId %}
+                    <a href="{{ path('cobranca_objeto_show', { id: evento.objetoId }) }}">{{ evento.objetoIdentificacao }}</a>
+                    {% else %}
+                    {{ evento.objetoIdentificacao }}
+                    {% endif %}
+                </td>
+                <td>{{ evento.descricao }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>

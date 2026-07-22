@@ -11,7 +11,9 @@ use App\Cobranca\Enum\StatusCaso;
  * Leitura resumida de um Caso para a lista de casos e para a visão da carteira (Etapa 8).
  * Saldo exigível/vencido é DERIVADO (`CalculadoraSaldo`, invariável 20) e passado pronto (centavos int)
  * — a lista não recalcula. `prontoParaEncerrar` é indicador derivado (saldo exigível 0 e não encerrado),
- * NÃO um 4º estado (SPEC §17). `temVencido` dá o realce de linha no Twig.
+ * NÃO um 4º estado (SPEC §17). `temVencido` dá o realce de linha no Twig. `temDocumentos` é o "grampo"
+ * (Ajuste #6): verdadeiro se o OBJETO do caso tem algum documento (num caso ou num acordo); resolvido
+ * fora (agregação em lote, como os saldos) — default `false` para chamadores que não o calculam.
  */
 final class CasoResumoOutput
 {
@@ -30,11 +32,16 @@ final class CasoResumoOutput
         public readonly int $saldoVencido,
         public readonly bool $temVencido,
         public readonly ?\DateTimeImmutable $atualizadoEm,
+        public readonly bool $temDocumentos = false,
     ) {
     }
 
-    public static function fromEntity(CasoCobranca $c, int $saldoExigivel, int $saldoVencido): self
-    {
+    public static function fromEntity(
+        CasoCobranca $c,
+        int $saldoExigivel,
+        int $saldoVencido,
+        bool $temDocumentos = false,
+    ): self {
         $objeto = $c->getObjeto();
         $carteira = $objeto?->getCarteira();
         $pessoa = $c->getPessoaCobradaAtual();
@@ -55,6 +62,7 @@ final class CasoResumoOutput
             saldoVencido: $saldoVencido,
             temVencido: $saldoVencido > 0,
             atualizadoEm: $c->getAtualizadoEm() ?? $c->getCriadoEm(),
+            temDocumentos: $temDocumentos,
         );
     }
 }

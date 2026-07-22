@@ -1,0 +1,63 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Lista de endereços da pessoa (spec §4/§7): linha do tempo `criadoEm ASC`, nunca perde histórico —
+   "adicionar" só acrescenta, "marcar atual" só troca a flag (o item anterior permanece na lista).
+   Contexto herdado do show: `pessoa` (PessoaFichaOutput) e `formEndereco` (AdicionarEnderecoType).
+─────────────────────────────────────────────────────────────────────────── #}
+<div class="card cobranca-card mb-3">
+    <div class="card-header fw-semibold d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-geo-alt me-1"></i>Endereços <span class="badge text-bg-secondary">{{ pessoa.enderecos|length }}</span></span>
+        <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="collapse" data-bs-target="#formAdicionarEndereco" aria-expanded="false" aria-controls="formAdicionarEndereco">
+            <i class="bi bi-plus-lg me-1"></i>Adicionar
+        </button>
+    </div>
+    <div class="card-body">
+        {% if pessoa.enderecos|length > 0 %}
+        <ul class="list-unstyled mb-0">
+            {% for e in pessoa.enderecos %}
+            <li class="d-flex align-items-start gap-2 flex-wrap py-2{{ not loop.first ? ' border-top' : '' }}">
+                <i class="bi {{ e.atual ? 'bi-geo-alt-fill text-success' : 'bi-geo-alt text-secondary' }} mt-1" aria-hidden="true"></i>
+                <div class="flex-grow-1" style="min-width: 0;">
+                    <div>{{ e.logradouro }}, {{ e.numero }}{% if e.complemento %} — {{ e.complemento }}{% endif %}</div>
+                    <div class="small text-secondary">{{ e.bairro }} · {{ e.cidade }}/{{ e.uf }} · CEP {{ e.cep }} · desde {{ e.criadoEm|date('d/m/Y') }}</div>
+                </div>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
+                    {% if e.atual %}
+                        <span class="badge text-bg-success">Atual</span>
+                    {% else %}
+                        <form method="POST" action="{{ path('cobranca_pessoa_endereco_atual', {id: pessoa.id, itemId: e.id}) }}" data-disable-on-submit="true">
+                            <input type="hidden" name="_token" value="{{ csrf_token('marcar_endereco_atual_' ~ e.id) }}">
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Marcar como atual</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="jp-vazio py-3">
+            <i class="bi bi-geo-alt"></i>
+            <div class="jp-vazio-titulo">Nenhum endereço cadastrado</div>
+        </div>
+        {% endif %}
+
+        <div class="collapse{{ pessoa.enderecos|length == 0 ? ' show' : '' }} mt-3" id="formAdicionarEndereco">
+            {{ form_start(formEndereco, {
+                action: path('cobranca_pessoa_endereco_adicionar', {id: pessoa.id}),
+                attr: {'data-disable-on-submit': 'true'},
+            }) }}
+            <div class="row g-2">
+                <div class="col-md-8">{{ form_row(formEndereco.logradouro) }}</div>
+                <div class="col-md-4">{{ form_row(formEndereco.numero) }}</div>
+                <div class="col-md-6">{{ form_row(formEndereco.complemento) }}</div>
+                <div class="col-md-6">{{ form_row(formEndereco.bairro) }}</div>
+                <div class="col-md-5">{{ form_row(formEndereco.cidade) }}</div>
+                <div class="col-md-3">{{ form_row(formEndereco.uf) }}</div>
+                <div class="col-md-4">{{ form_row(formEndereco.cep) }}</div>
+            </div>
+            <div class="mt-2">
+                <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar endereço</button>
+            </div>
+            {{ form_end(formEndereco) }}
+        </div>
+    </div>
+</div>

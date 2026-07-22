@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\DTO\AlocacaoPagamentoInput;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Exception\ObrigacaoDeOutroCasoException;
@@ -14,6 +16,7 @@ use App\Cobranca\Exception\PagamentoInconsistenteException;
 use App\Cobranca\Repository\ObrigacaoRepository;
 use App\Cobranca\Service\AlocadorPagamento;
 use App\Cobranca\Service\CalculadoraHonorarios;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -31,18 +34,18 @@ final class AlocadorPagamentoTest extends TestCase
     {
         $this->obrigacaoRepository = $this->createMock(ObrigacaoRepository::class);
         // CalculadoraHonorarios é final e pura: usa-se a REAL dentro do alocador REAL.
-        $this->sut = new AlocadorPagamento($this->obrigacaoRepository, new CalculadoraHonorarios());
+        $this->sut = new AlocadorPagamento($this->obrigacaoRepository, new CalculadoraHonorarios(new ResolvedorConfigEncargos()));
         $this->tenant = new Tenant();
     }
 
     #[Test]
     public function rateiaAcrescidoDividaSeparandoHonorariosEFechando(): void
     {
-        // Caso 10% na forma acrescido_divida: bruto 1100 → dívida 1000 + honorários 100.
-        $caso = (new CasoCobranca())
-            ->setTenant($this->tenant)
-            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
-            ->setPercentualHonorarios('10.00');
+        // Caso 10% na forma acrescido_divida (política vem da carteira via objeto, #9-T2): bruto 1100
+        // → dívida 1000 + honorários 100.
+        $carteira = (new Carteira())->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
+        $objeto = (new ObjetoCobranca())->setCarteira($carteira);
+        $caso = (new CasoCobranca())->setTenant($this->tenant)->setObjeto($objeto);
 
         $obrigacao = (new Obrigacao())->setTenant($this->tenant)->setCaso($caso);
         $this->obrigacaoRepository->method('findOneByIdDoTenant')->willReturn($obrigacao);

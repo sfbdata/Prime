@@ -4,14 +4,25 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Unit;
 
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Service\CalculadoraHonorarios;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * #9-T2 (cascata de encargos ao vivo sem snapshot): a calculadora resolve a política de honorários do
+ * caso via `caso→objeto→carteira` (a FORMA sempre da carteira; a ALÍQUOTA da cascata do objeto), não
+ * mais do snapshot do caso. O helper `caso()` monta um grafo Carteira→Objeto→Caso em memória —
+ * qualquer teste que passar por ele fica automaticamente sob a nova fonte, sem mudar comportamento
+ * para dados "frescos" (sem override no objeto): é exatamente o cenário legado que a T2 corrige.
+ */
 #[CoversClass(CalculadoraHonorarios::class)]
 final class CalculadoraHonorariosTest extends TestCase
 {
@@ -19,7 +30,7 @@ final class CalculadoraHonorariosTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->sut = new CalculadoraHonorarios();
+        $this->sut = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
     }
 
     // ---- projetados -------------------------------------------------------
@@ -241,12 +252,50 @@ final class CalculadoraHonorariosTest extends TestCase
         self::assertSame(-5, $this->sut->brutoParaRecuperar($caso, -5));
     }
 
+    /**
+     * I-1 (T2): prova a consistência SPLIT-vs-EXIGÍVEL para um caso SEM override no objeto — o
+     * cenário dos 194 casos legados (spec §2/§9). O "caso" carrega um snapshot DIVERGENTE (10%) nas
+     * suas próprias colunas mortas; a alíquota efetiva, tanto no exigível quanto no split, é a da
+     * CARTEIRA (20%) — nunca o snapshot morto do caso.
+     */
+    #[Test]
+    #[TestDox('I-1: split (ratearPagamento) e EXIGÍVEL (resolverDoObjeto) usam a MESMA alíquota da carteira — ignoram snapshot divergente do caso')]
+    public function splitEExigivelUsamAMesmaAliquotaDaCarteiraIgnorandoOSnapshotDivergenteDoCaso(): void
+    {
+        $carteira = (new Carteira())
+            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
+            ->setPercentualHonorarios('20.00');
+        // Objeto SEM override — legado: herda a carteira integralmente.
+        $objeto = (new ObjetoCobranca())->setCarteira($carteira);
+        $caso = (new CasoCobranca())->setObjeto($objeto);
+
+        // Snapshot MORTO do caso, DIVERGENTE (10%) — simula os 194 casos legados fotografados a 10%
+        // enquanto a carteira já está a 20%. Se qualquer um dos dois caminhos ainda lesse isto, o
+        // teste tem de acusar.
+        $caso->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
+
+        $resolvedor = new ResolvedorConfigEncargos();
+
+        // EXIGÍVEL: a alíquota efetiva do objeto/carteira é 2000 bp (20%), não os 1000 bp (10%) do
+        // snapshot morto do caso.
+        self::assertSame(2000, $resolvedor->resolverDoObjeto($objeto)->taxaHonorariosBp);
+
+        // SPLIT: R$1.200,00 (120000) a 20% acrescido fecha EXATO em dívida 100000 + honorários 20000.
+        // A 10% (o snapshot do caso) o resultado seria [109091, 10909] — bem diferente.
+        [$divida, $honorarios] = $this->sut->ratearPagamento($caso, 120000);
+
+        self::assertSame(100000, $divida, 'o split usa a alíquota da CARTEIRA (20%), não o snapshot do caso');
+        self::assertSame(20000, $honorarios);
+        self::assertSame(120000, $divida + $honorarios);
+    }
+
     private function caso(FormaHonorarios $forma, ?string $percentual): CasoCobranca
     {
-        $caso = new CasoCobranca();
-        $caso->setFormaHonorarios($forma);
-        $caso->setPercentualHonorarios($percentual);
+        $carteira = (new Carteira())
+            ->setFormaHonorarios($forma)
+            ->setPercentualHonorarios($percentual);
+        $objeto = (new ObjetoCobranca())->setCarteira($carteira);
 
-        return $caso;
+        return (new CasoCobranca())->setObjeto($objeto);
     }
 }

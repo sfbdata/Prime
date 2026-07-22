@@ -1,0 +1,84 @@
+{#
+   Detalhe de uma pessoa na aba Atividade (spec §4/§5.1). FRAGMENTO — sem layout: é servido pela rota
+   própria `cobranca_central_atividade_detalhe` e injetado abaixo da linha clicada.
+
+   Três partes: as pastilhas de desfecho e de canal (como se distribuíram os contatos), a lista do
+   TRABALHO de cobrança — do mais recente para o mais antigo, com aviso honesto quando trunca — e o
+   resumo dos lançamentos de cadastro/importação, que ficam fora da lista mas nunca somem calados.
+#}
+<div class="cobranca-central-detalhe-corpo">
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+        <span class="fw-semibold">{{ detalhe.nome }}</span>
+        <span class="text-muted small">· contatos do período</span>
+    </div>
+
+    {#
+       As duas réguas são SEMPRE renderizadas inteiras (7 desfechos + 4 canais), inclusive zeradas — é
+       delas que vem a noção de proporção. Por isso "sem nenhum contato" não é lista vazia: é uma fileira
+       de zeros, que sem uma frase ao lado parece defeito da tela.
+    #}
+    {% set totalDeContatos = 0 %}
+    {% for desfecho in detalhe.desfechos %}{% set totalDeContatos = totalDeContatos + desfecho.quantidade %}{% endfor %}
+
+    {% if totalDeContatos == 0 %}
+        <p class="text-muted small mb-3">Nenhum contato registrado no período.</p>
+    {% else %}
+        <div class="cobranca-central-grupo-pastilhas mb-3">
+            <div class="cobranca-central-pastilhas-linha">
+                <span class="cobranca-central-pastilhas-titulo">Desfecho</span>
+                <span class="cobranca-pastilhas">
+                    {% for desfecho in detalhe.desfechos %}
+                    <span class="cobranca-pastilha {{ desfecho.quantidade == 0 ? 'is-zerada' : '' }}">
+                        {{ desfecho.label }}<strong class="ms-1">{{ desfecho.quantidade }}</strong>
+                    </span>
+                    {% endfor %}
+                </span>
+            </div>
+
+            <div class="cobranca-central-pastilhas-linha">
+                <span class="cobranca-central-pastilhas-titulo">Canal</span>
+                <span class="cobranca-pastilhas">
+                    {% for canal in detalhe.canais %}
+                    <span class="cobranca-pastilha {{ canal.quantidade == 0 ? 'is-zerada' : '' }}">
+                        {{ canal.label }}<strong class="ms-1">{{ canal.quantidade }}</strong>
+                    </span>
+                    {% endfor %}
+                </span>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if detalhe.eventos is empty %}
+        <p class="text-muted small mb-0">Nenhum trabalho de cobrança registrado por esta pessoa no período.</p>
+    {% else %}
+        {% if detalhe.truncado %}
+        <p class="text-muted small mb-2">
+            <i class="bi bi-exclamation-triangle me-1"></i>Mostrando os {{ detalhe.limite }} eventos mais
+            recentes do período — há mais além destes.
+        </p>
+        {% endif %}
+
+        {{ include('cobranca/central/_lista_eventos.html.twig', { eventos: detalhe.eventos }) }}
+    {% endif %}
+
+    {# §5.1: o restante não é escondido — é resumido, e o gestor decide se quer ver. #}
+    {% if detalhe.temLancamentosDeCadastro %}
+        <div class="cobranca-central-cadastro mt-3">
+            {% if detalhe.cadastroExpandido %}
+                <p class="text-muted small mb-2">
+                    <i class="bi bi-box-seam me-1"></i>{{ detalhe.totalCadastro }}
+                    {{ detalhe.totalCadastro == 1 ? 'lançamento' : 'lançamentos' }} de cadastro/importação —
+                    não contam como trabalho de cobrança.
+                    {% if detalhe.truncadoCadastro %}Mostrando os {{ detalhe.limite }} mais recentes.{% endif %}
+                </p>
+                {{ include('cobranca/central/_lista_eventos.html.twig', { eventos: detalhe.eventosCadastro }) }}
+            {% else %}
+                <button type="button" class="btn btn-sm btn-link p-0 js-expandir-cadastro"
+                        data-url="{{ urlExpandirCadastro }}">
+                    <i class="bi bi-plus-square me-1"></i>{{ detalhe.totalCadastro }}
+                    {{ detalhe.totalCadastro == 1 ? 'lançamento' : 'lançamentos' }} de cadastro/importação
+                </button>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>

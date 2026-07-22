@@ -10,6 +10,9 @@ use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Service\CalculadoraSaldo;
+use App\Entity\Tenant\Tenant;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Connection;
 
 /**
  * Leitura: monta a visão da Carteira (Etapa 8) — cabeçalho de configuração + agregados (nº de
@@ -23,6 +26,7 @@ final class MontarVisaoCarteiraUseCase
         private readonly ObjetoCobrancaRepository $objetoRepository,
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly CalculadoraSaldo $calculadoraSaldo,
+        private readonly Connection $connection,
     ) {
     }
 
@@ -37,12 +41,29 @@ final class MontarVisaoCarteiraUseCase
         // por caso. Mesma regra dos métodos por-caso (via `CalculadoraSaldo::saldosDosCasos`).
         $saldos = $this->calculadoraSaldo->saldosDosCasos($casos, $carteira->getTenant());
 
+        // Grampo (Ajuste #6): quais objetos da carteira têm documento — UMA agregação em lote
+        // (nada de N+1 por objeto).
+        $objetoIds = [];
+        foreach ($casos as $caso) {
+            $objetoId = $caso->getObjeto()?->getId();
+            if ($objetoId !== null) {
+                $objetoIds[$objetoId] = true;
+            }
+        }
+        $objetosComDocumento = $this->objetosComDocumento(array_keys($objetoIds), $carteira->getTenant());
+
         $saldoConsolidado = 0;
         $casosOutput = [];
         foreach ($casos as $caso) {
             $saldo = $saldos[$caso->getId() ?? 0] ?? ['exigivel' => 0, 'vencido' => 0];
             $saldoConsolidado += $saldo['exigivel'];
-            $casosOutput[] = CasoResumoOutput::fromEntity($caso, $saldo['exigivel'], $saldo['vencido']);
+            $objetoId = $caso->getObjeto()?->getId() ?? 0;
+            $casosOutput[] = CasoResumoOutput::fromEntity(
+                $caso,
+                $saldo['exigivel'],
+                $saldo['vencido'],
+                isset($objetosComDocumento[$objetoId]),
+            );
         }
 
         return [
@@ -54,5 +75,54 @@ final class MontarVisaoCarteiraUseCase
             ),
             'casos' => $casosOutput,
         ];
+    }
+
+    /**
+     * Grampo (Ajuste #6): IDs de objeto (dentre os informados) que têm ao menos um documento —
+     * num CASO (`cobranca_documento`) ou num ACORDO de um caso do objeto (`cobranca_acordo_documento`
+     * → `cobranca_acordo` → `cobranca_caso.objeto_id`). UMA única agregação nativa (DBAL) para toda a
+     * carteira — sem N+1 por objeto. Escopo por tenant SEMPRE (defesa em profundidade).
+     *
+     * @param list<int> $objetoIds
+     *
+     * @return array<int, true> objetoId => true (presença; sem contagem, SPEC §9 YAGNI)
+     */
+    private function objetosComDocumento(array $objetoIds, Tenant $tenant): array
+    {
+        if ($objetoIds === []) {
+            return [];
+        }
+
+        $sql = <<<'SQL'
+            SELECT DISTINCT c.objeto_id
+            FROM cobranca_caso c
+            WHERE c.tenant_id = :tenant
+              AND c.objeto_id IN (:objetos)
+              AND (
+                EXISTS (
+                  SELECT 1 FROM cobranca_documento d
+                  WHERE d.caso_id = c.id AND d.tenant_id = :tenant
+                )
+                OR EXISTS (
+                  SELECT 1
+                  FROM cobranca_acordo a
+                  JOIN cobranca_acordo_documento ad ON ad.acordo_id = a.id AND ad.tenant_id = :tenant
+                  WHERE a.caso_id = c.id AND a.tenant_id = :tenant
+                )
+              )
+            SQL;
+
+        $ids = $this->connection->fetchFirstColumn(
+            $sql,
+            ['tenant' => $tenant->getId(), 'objetos' => $objetoIds],
+            ['objetos' => ArrayParameterType::INTEGER],
+        );
+
+        $mapa = [];
+        foreach ($ids as $id) {
+            $mapa[(int) $id] = true;
+        }
+
+        return $mapa;
     }
 }

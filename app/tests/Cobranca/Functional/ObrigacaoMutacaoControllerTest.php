@@ -222,10 +222,14 @@ final class ObrigacaoMutacaoControllerTest extends CobrancaWebTestCase
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         // Honorários acrescidos à dívida (20% sobre a base composta) — sem isso a taxa de honorários
-        // fica em 0 e o recálculo não prova nada. Juros fica de fora do override de propósito (herda
-        // 0 bp da carteira neutra do semearGrafo): assim o resultado é determinístico, independente de
-        // quantos dias se passaram entre o vencimento (fixo, no passado) e "hoje" (relógio real).
-        $caso->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('20.00');
+        // fica em 0 e o recálculo não prova nada. T1 (cascata ao vivo sem snapshot): a fonte AO VIVO
+        // é a CARTEIRA (via objeto) — o snapshot do caso virou coluna-sombra morta, não é mais lido
+        // pelo resolvedor. Juros fica de fora do override de propósito (herda 0 bp da carteira neutra
+        // do semearGrafo): assim o resultado é determinístico, independente de quantos dias se
+        // passaram entre o vencimento (fixo, no passado) e "hoje" (relógio real).
+        $caso->getObjeto()->getCarteira()
+            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
+            ->setPercentualHonorarios('20.00');
 
         $obrigacao = ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso, 'valorOriginal' => 100000, 'encargosReconhecidos' => 0,

@@ -21,7 +21,9 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
@@ -231,16 +233,29 @@ abstract class CobrancaWebTestCase extends JusPrimeWebTestCase
     }
 
     /**
-     * Semeia Carteira→Objeto→Caso (+ Pessoa cobrada) no tenant. Aceita overrides do Caso.
+     * Semeia Carteira→Objeto→Caso (+ Pessoa cobrada) no tenant. Aceita overrides do Caso e,
+     * opcionalmente, da Carteira.
+     *
+     * T1+T2 (cascata de encargos ao vivo sem snapshot, #9): NEM o `ResolvedorConfigEncargos` (T1) NEM
+     * o `CalculadoraHonorarios` (T2, split do pagamento/gross-up) leem mais as colunas de config do
+     * Caso (`taxaJurosMensalBp`/`taxaMultaBp`/`formaHonorarios`/`percentualHonorarios`/etc.) — a fonte
+     * AO VIVO é sempre a Carteira (via Objeto). Testes que precisam de encargos NÃO-ZERO na tela (F4
+     * "colunas separadas", split de encargos, gross-up do "Receber") devem usar `$overridesCarteira`
+     * para essas chaves; `$overridesCaso` só vale para campos que ainda são do PRÓPRIO Caso
+     * (`status`, etc.) — as colunas de config que sobram nele são sombra morta (T2).
      *
      * @param array<string, mixed> $overridesCaso
+     * @param array<string, mixed> $overridesCarteira
      *
      * @return array{0: Carteira, 1: CasoCobranca}
      */
-    protected function semearGrafo(Tenant $tenant, array $overridesCaso = []): array
+    protected function semearGrafo(Tenant $tenant, array $overridesCaso = [], array $overridesCarteira = []): array
     {
         $cliente = ClientePFFactory::createOne(['tenant' => $tenant]);
-        $carteira = CarteiraFactory::createOne(['tenant' => $tenant, 'cliente' => $cliente]);
+        $carteira = CarteiraFactory::createOne(array_merge([
+            'tenant' => $tenant,
+            'cliente' => $cliente,
+        ], $overridesCarteira));
         $objeto = ObjetoCobrancaFactory::createOne(['tenant' => $tenant, 'carteira' => $carteira]);
         $pessoa = PessoaFactory::createOne(['tenant' => $tenant]);
         $caso = CasoCobrancaFactory::createOne(array_merge([
@@ -269,5 +284,25 @@ abstract class CobrancaWebTestCase extends JusPrimeWebTestCase
     protected function tokenDoFormulario(Crawler $crawler, string $nomeForm): string
     {
         return (string) $crawler->filter('input[name="' . $nomeForm . '[_token]"]')->first()->attr('value');
+    }
+
+    /**
+     * Token CSRF por INTENÇÃO, direto do gerenciador — para endpoints cujo form saiu da UI (dormente
+     * no backend, #9-T3) mas cuja rota continua ativa: sem markup na página, não há `<input>` para
+     * `tokenDoFormulario` raspar. Precisa de UMA requisição já servida pelo `$client` (sessão iniciada)
+     * antes de chamar — o token é empurrado/desempurrado na `RequestStack` só para o `SessionTokenStorage`
+     * achar a sessão da request corrente; `framework.test: true` (ambiente de teste) mantém essa mesma
+     * sessão viva entre requisições do MESMO client, sem depender de cookie roundtrip.
+     */
+    protected function tokenCsrf(KernelBrowser $client, string $intencao): string
+    {
+        $requestStack = static::getContainer()->get(RequestStack::class);
+        $requestStack->push($client->getRequest());
+
+        try {
+            return (string) static::getContainer()->get(CsrfTokenManagerInterface::class)->getToken($intencao);
+        } finally {
+            $requestStack->pop();
+        }
     }
 }

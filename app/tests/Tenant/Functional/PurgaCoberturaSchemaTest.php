@@ -32,6 +32,9 @@ final class PurgaCoberturaSchemaTest extends KernelTestCase
         'pasta_observacao_detalhes',     // ← pasta
         'pasta_observacao_financeira',   // ← pasta
         'tarefa_mensagem',               // ← tarefa
+        'cobranca_pessoa_endereco',      // ← cobranca_pessoa
+        'cobranca_pessoa_telefone',      // ← cobranca_pessoa
+        'cobranca_pessoa_email',         // ← cobranca_pessoa
     ];
 
     #[TestDox('Toda tabela com tenant_id é coberta pela purga (ordem, retenção ou cascata)')]

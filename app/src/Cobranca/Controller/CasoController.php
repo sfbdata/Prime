@@ -8,6 +8,7 @@ use App\Cobranca\DTO\AlterarPessoaCobradaInput;
 use App\Cobranca\DTO\EditarConfiguracaoCasoInput;
 use App\Cobranca\DTO\EncerrarCasoInput;
 use App\Cobranca\DTO\JudicializarCasoInput;
+use App\Cobranca\DTO\RegistrarAnotacaoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\CasoJaJudicializadoException;
@@ -19,6 +20,7 @@ use App\Cobranca\Form\AlterarPessoaCobradaType;
 use App\Cobranca\Form\EditarConfiguracaoCasoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\JudicializarCasoType;
+use App\Cobranca\Form\RegistrarAnotacaoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
@@ -28,6 +30,7 @@ use App\Cobranca\UseCase\EditarConfiguracaoCasoUseCase;
 use App\Cobranca\UseCase\EncerrarCasoUseCase;
 use App\Cobranca\UseCase\JudicializarCasoUseCase;
 use App\Cobranca\UseCase\ListarCasosUseCase;
+use App\Cobranca\UseCase\RegistrarAnotacaoUseCase;
 use App\Cobranca\UseCase\RegistrarTentativaCobrancaUseCase;
 use App\Pasta\Repository\PastaRepository;
 use App\Service\PermissionChecker;
@@ -65,6 +68,7 @@ final class CasoController extends AbstractController
         private readonly AlterarPessoaCobradaUseCase $alterarPessoaCobrada,
         private readonly PessoaRepository $pessoaRepository,
         private readonly EditarConfiguracaoCasoUseCase $editarConfiguracaoCaso,
+        private readonly RegistrarAnotacaoUseCase $registrarAnotacao,
     ) {
     }
 
@@ -267,6 +271,49 @@ final class CasoController extends AbstractController
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $this->objetoIdDoCaso($caso)]);
+    }
+
+    /**
+     * Anotação livre na linha do tempo (ajuste 2026-07). Mesmo gate e mesma resolução tenant-safe do
+     * contato — o que muda é que aqui não há campo classificado: é texto e só. Volta para a aba
+     * Histórico do objeto (âncora `#tab-historico`) para o autor ver a anotação já na lista.
+     */
+    #[Route('/{id}/anotacoes', name: 'cobranca_anotacao_registrar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function registrarAnotacao(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $caso = $this->casoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($caso === null) {
+            throw $this->createNotFoundException('Caso de cobrança não encontrado.');
+        }
+
+        $input = new RegistrarAnotacaoInput();
+        $input->casoId = $id;
+        $form = $this->createForm(RegistrarAnotacaoType::class, $input);
+        $form->handleRequest($request);
+
+        if ($form->isSubmitted() && $form->isValid()) {
+            try {
+                $this->registrarAnotacao->executar($input, $tenant, $this->usuarioLogado());
+                $this->addFlash('success', 'Anotação registrada.');
+            } catch (CasoEncerradoException $e) {
+                $this->addFlash('danger', $e->getMessage());
+            }
+        } else {
+            // Sem modal para reabrir: o campo é inline, então o erro vira flash e a tela volta inteira.
+            foreach ($form->getErrors(true) as $erro) {
+                $this->addFlash('danger', $erro->getMessage());
+            }
+        }
+
+        return $this->redirectToRoute(
+            'cobranca_objeto_show',
+            ['id' => $this->objetoIdDoCaso($caso), '_fragment' => 'tab-historico'],
+        );
     }
 
     /**

@@ -314,6 +314,12 @@ final class PurgarEscritorioUseCaseTest extends KernelTestCase
         $acordo = $this->ins('cobranca_acordo', ['status' => 'ativo', 'data_acordo' => $d, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);
         $this->ins('cobranca_obrigacao', ['descricao' => 'Parcela de acordo', 'valor_original' => 5000, 'vencimento_original' => $d, 'encargos_reconhecidos' => 0, 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso, 'acordo_origem_id' => $acordo]);
 
+        // Documentos da Carteira e do Acordo (Ajustes #4/#5): exercita a ordem FK-safe adicionada
+        // à ORDEM_DELECAO (documento apagado ANTES do dono) e a limpeza do mesmo diretório flat
+        // de disco (sem subdiretório novo).
+        $this->ins('cobranca_carteira_documento', ['titulo' => 'Ata', 'categoria' => 'outro', 'caminho_arquivo' => $hex(), 'nome_original' => 'ata.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => 1, 'uploaded_at' => $ts, 'tenant_id' => $t, 'carteira_id' => $carteira]);
+        $this->ins('cobranca_acordo_documento', ['titulo' => 'Termo', 'categoria' => 'outro', 'caminho_arquivo' => $hex(), 'nome_original' => 'termo.pdf', 'mime_type' => 'application/pdf', 'tamanho_bytes' => 1, 'uploaded_at' => $ts, 'tenant_id' => $t, 'acordo_id' => $acordo]);
+
         // Cobranças (Etapa 5): próxima ação aponta o caso (NO ACTION). Exercita a ordem FK-safe
         // (apagada antes do caso).
         $this->ins('cobranca_proxima_acao', ['descricao' => 'Verificar pagamento', 'status' => 'pendente', 'criado_em' => $ts, 'tenant_id' => $t, 'caso_id' => $caso]);

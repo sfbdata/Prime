@@ -48,6 +48,16 @@
                 </div>
             </div>
             <div class="d-flex gap-2 flex-shrink-0">
+                {# Ponto #1-B (qualificação da pessoa): acesso à ficha completa — qualificação +
+                   listas de endereço/telefone/e-mail. Só quando o vínculo da cobrada atual foi
+                   resolvido (sempre verdadeiro aqui dentro de `objeto.temCobradaAtual`) e o usuário
+                   tem a mesma capacidade que a rota exige (`resources.cobranca.gerenciar`). #}
+                {% if vinculoCobrado and has_permission('resources.cobranca.gerenciar') %}
+                <a href="{{ path('cobranca_pessoa_show', {id: vinculoCobrado.pessoaId}) }}" class="btn btn-sm btn-outline-secondary"
+                   title="Ver ficha completa da pessoa">
+                    <i class="bi bi-person-lines-fill me-1"></i>Ficha completa
+                </a>
+                {% endif %}
                 {% if podeTrocarPessoa %}
                 <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"
                         title="Alterar a pessoa cobrada">

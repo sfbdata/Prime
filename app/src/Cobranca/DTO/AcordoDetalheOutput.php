@@ -12,6 +12,11 @@ namespace App\Cobranca\DTO;
  * acordos anteriores ao Ajuste 7 têm snapshot nulo e caem no total DERIVADO (Σ parcelas).
  * `valorDesconto` é SEMPRE derivado (Σ substituídas − total): positivo = desconto, negativo = juros
  * (`temJuros`). O saldo do caso continua derivado pelos serviços — esta tela não o recalcula.
+ *
+ * `estaIncompleto`/`parcelasFaltantes` (spec `cobranca-importar-linhas-acordo.md` §3.3, tarefa #7-B):
+ * acordo importado de um relatório com "Parc. p/t" e t > 1 só traz a(s) parcela(s) presente(s) — as
+ * faltantes entram por importação futura (quando vencerem) ou à mão. Sempre `false`/`0` para acordo
+ * manual (sem `numeroParcelasTotal`).
  */
 final class AcordoDetalheOutput
 {
@@ -39,6 +44,8 @@ final class AcordoDetalheOutput
         public readonly int $valorDesconto,
         public readonly bool $temJuros,
         public readonly int $totalAlocado,
+        public readonly bool $estaIncompleto,
+        public readonly int $parcelasFaltantes,
         public readonly array $parcelas,
         public readonly array $substituidas,
     ) {

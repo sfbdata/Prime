@@ -13,6 +13,7 @@ use App\Cobranca\Enum\TipoVinculo;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\CriarObjetoComCobrancaUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -98,9 +99,11 @@ final class CriarObjetoComCobrancaUseCaseTest extends KernelTestCase
         self::assertNotNull($caso);
         self::assertSame(StatusCaso::Ativo, $caso->getStatus());
         self::assertSame('Fulano da Silva', $caso->getPessoaCobradaAtual()?->getNome());
-        // Honorários herdados da carteira (snapshot).
-        self::assertSame(FormaHonorarios::AcrescidoDivida, $caso->getFormaHonorarios());
-        self::assertSame('10.00', $caso->getPercentualHonorarios());
+        // #9-T2: o caso NÃO fotografa mais a config da carteira — a coluna nasce no default morto.
+        self::assertSame(FormaHonorarios::SemPercentual, $caso->getFormaHonorarios(), 'snapshot morto: o caso nasce sem cópia da config da carteira');
+        self::assertNull($caso->getPercentualHonorarios());
+        // A alíquota efetiva cascateia AO VIVO via objeto/carteira (T1), sem UPDATE nenhum no caso.
+        self::assertSame(1000, (new ResolvedorConfigEncargos())->resolverDoCaso($caso)->taxaHonorariosBp, 'honorários herdados da carteira via objeto (ao vivo)');
 
         $vinculos = $this->vinculoRepo->todosDoObjetoComPessoa($objeto);
         self::assertCount(1, $vinculos);

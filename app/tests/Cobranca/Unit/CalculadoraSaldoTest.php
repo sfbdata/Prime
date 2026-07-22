@@ -248,14 +248,17 @@ final class CalculadoraSaldoTest extends TestCase
         self::assertSame(0, $saldos['vencido']);       // vencido com piso 0
     }
 
-    /** Caso com config TOPLIFE (juros 1% a.m., multa 2% sobre o principal) resolvida do próprio caso. */
+    /**
+     * Caso com config TOPLIFE (juros 1% a.m., multa 2% sobre o principal). T1 (cascata ao vivo sem
+     * snapshot): o override mora no OBJETO — o caso deixou de participar da resolução.
+     */
     private function casoTopLife(): CasoCobranca
     {
-        $caso = new CasoCobranca();
-        $caso->setTaxaJurosMensalBp(100);
-        $caso->setTaxaMultaBp(200);
+        $objeto = (new ObjetoCobranca())
+            ->setTaxaJurosMensalBp(100)
+            ->setTaxaMultaBp(200);
 
-        return $caso;
+        return (new CasoCobranca())->setObjeto($objeto);
     }
 
     private function casoTopLifeComId(int $id): CasoCobranca

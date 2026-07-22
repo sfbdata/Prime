@@ -1,0 +1,66 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Cobranças · {{ pessoa.nome }}{% endblock %}
+
+{% block body %}
+{# ───────────────────────────────────────────────────────────────────────────
+   Ficha completa da pessoa (spec de qualificação §7, Ponto #1-B): qualificação (campos únicos) +
+   as três listas com histórico (endereços/telefones/e-mails), cada uma com um item `atual`. `email` e
+   `telefone` de Pessoa NÃO aparecem aqui como campos editáveis — são derivados do item atual da lista
+   respectiva (SPEC §6); editá-los é "adicionar" ou "marcar atual" numa lista, nunca sobrescrever.
+
+   Contexto vindo do controller: `pessoa` (PessoaFichaOutput), `formQualificacao`
+   (EditarQualificacaoPessoaType), `formEndereco`/`formTelefone`/`formEmail` (Adicionar*Type, vazios,
+   prontos para o mini-form "adicionar").
+─────────────────────────────────────────────────────────────────────────── #}
+<div class="cobrancas-page">
+<section class="content-header">
+    <div class="container-fluid">
+        {{ include('cobranca/_partials/_subnav.html.twig', {ativo: 'carteiras'}) }}
+
+        <div class="d-flex align-items-center gap-2 mb-1 mt-3 flex-wrap">
+            <a href="javascript:history.back()" class="btn btn-sm btn-outline-secondary" aria-label="Voltar"><i class="bi bi-arrow-left"></i></a>
+            <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-person-vcard"></i>{{ pessoa.nome }}</h1>
+        </div>
+        <div class="text-secondary small">Ficha completa da pessoa — qualificação e histórico de endereços, telefones e e-mails.</div>
+    </div>
+</section>
+
+<section class="content mt-3">
+    <div class="container-fluid">
+        <div class="row g-3">
+            <div class="col-lg-5">
+                {{ include('cobranca/pessoa/_partials/_qualificacao.html.twig') }}
+            </div>
+            <div class="col-lg-7">
+                {{ include('cobranca/pessoa/_partials/_lista_enderecos.html.twig') }}
+                {{ include('cobranca/pessoa/_partials/_lista_telefones.html.twig') }}
+                {{ include('cobranca/pessoa/_partials/_lista_emails.html.twig') }}
+            </div>
+        </div>
+    </div>
+</section>
+</div>
+{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<link rel="stylesheet" href="{{ asset('css/cobrancas.css') }}">
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    /* Ponto #1-B: evita duplo-submit (janela de corrida do "um atual" por lista) desabilitando o
+       botão de submit assim que o form é enviado — cobre tanto os mini-forms "adicionar" quanto os
+       botões "marcar como atual". */
+    document.querySelectorAll('.cobrancas-page form[data-disable-on-submit]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            var btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; }
+        });
+    });
+});
+</script>
+{% endblock %}

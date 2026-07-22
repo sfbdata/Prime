@@ -14,9 +14,11 @@ use App\Entity\Tenant\Tenant;
  * Edita a configuração (regras/padrões de operação) de uma Carteira de Cobrança já existente (SPEC §18).
  *
  * História: um gestor ajusta o modo (SPEC §6), a regra padrão de honorários (SPEC §18), a tolerância de
- * atraso, o tipo de vínculo preferido e o rótulo do objeto de uma carteira já aberta. Esses padrões valem
- * para NOVAS cobranças; mudar a configuração aqui NÃO recalcula casos antigos, porque cada caso guarda o
- * snapshot da regra aplicada no momento (SPEC §18.3). Nome e cliente credor não são tocados (invariável 4).
+ * atraso, o tipo de vínculo preferido e o rótulo do objeto de uma carteira já aberta. Modo, tipo de vínculo
+ * e rótulo só orientam o que vier depois; já as TAXAS DE ENCARGOS (e o percentual de honorários) valem AO
+ * VIVO: desde a spec #9 o caso não fotografa mais a config, então editar aqui move na hora toda obrigação
+ * viva que herde deste nível — exceto as congeladas (liquidadas/substituídas, que guardam snapshot) e as
+ * que têm override no objeto ou na obrigação. Nome e cliente credor não são tocados (invariável 4).
  * A carteira é resolvida por id + tenant (guarda multi-tenant): carteira inexistente/de outro escritório é
  * erro de entrada (CarteiraNaoEncontradaException), tratado no controller. O atualizadoEm é setado
  * automaticamente pela entidade (PreUpdate).
@@ -44,8 +46,9 @@ final class EditarConfiguracaoCarteiraUseCase
         $carteira->setTipoVinculoPreferido($input->tipoVinculoPreferido);
         $carteira->setRotuloObjeto($input->rotuloObjeto);
 
-        // Encargos por atraso (nível 1 da cascata, spec §4.1): valem para as NOVAS cobranças. Caso e
-        // obrigação já existentes guardam o próprio snapshot e não são recalculados (spec §5).
+        // Encargos por atraso (nível 1 da cascata, spec §4.1), resolvidos na LEITURA (spec #9): gravar
+        // aqui já muda o exigível das obrigações vivas que herdam deste nível — as congeladas mantêm o
+        // snapshot e os overrides de objeto/obrigação continuam vencendo.
         $carteira->setTaxaJurosMensalBp($input->taxaJurosMensalBp);
         $carteira->setRegimeJuros($input->regimeJuros);
         $carteira->setTaxaMultaBp($input->taxaMultaBp);

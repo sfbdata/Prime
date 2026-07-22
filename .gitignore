@@ -85,3 +85,11 @@ docs/gestao-cobrancas/*.pdf
 
 # Credenciais OAuth do cron de sincronização Drive (segredos) — só o .example é versionado
 /.sync-oauth.env
+
+# Superpowers (ledgers de execucao e mockups do brainstorm) — nao versionar
+.superpowers/
+
+# Artefatos temporários de smoke manual (Playwright fora da suíte e2e). Contêm credencial de dev
+# e capturas de tela com dado real — nunca podem entrar na história.
+/e2e/tmp-smoke/
+/e2e/pw.smoke.tmp.config.js

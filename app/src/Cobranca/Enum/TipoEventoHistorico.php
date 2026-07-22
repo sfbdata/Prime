@@ -12,6 +12,13 @@ namespace App\Cobranca\Enum;
  */
 enum TipoEventoHistorico: string
 {
+    /**
+     * Anotação escrita à mão na linha do tempo (ajuste 2026-07): o que a equipe combinou, ouviu ou
+     * decidiu e não cabe em nenhum evento estruturado. É registro, não rascunho — como todo evento
+     * daqui, nasce append-only e não é editável nem apagável.
+     */
+    case Anotacao = 'anotacao';
+
     case CasoAberto = 'caso_aberto';
     case ObrigacaoCriada = 'obrigacao_criada';
     case ObrigacaoEditada = 'obrigacao_editada';
@@ -62,6 +69,81 @@ enum TipoEventoHistorico: string
             self::Judicializacao => 'Judicialização',
             self::VinculoPasta => 'Vínculo com pasta',
             self::Encerramento => 'Encerramento',
+            self::Anotacao => 'Anotação',
         };
+    }
+
+    /**
+     * O evento é TRABALHO DE COBRANÇA (falar com devedor, negociar, receber, encaminhar) e não
+     * lançamento de cadastro/importação? (Central de Acompanhamento, spec §5.1.)
+     *
+     * O corte existe porque a Central rejeitou o `audit_log` justamente por uma importação inflar os
+     * números — e a mesma distorção entrava pela fonte escolhida: no dev, 537 `obrigacao_criada` +
+     * 121 `caso_aberto` de uma importação contra 3 contatos reais. Sem esta separação, quem só subiu
+     * planilha aparece com "ação recente" sem ter cobrado ninguém.
+     *
+     * `match` SEM `default` de propósito: um tipo novo no enum quebra aqui (`UnhandledMatchError`) em
+     * vez de escorregar silenciosamente para um dos lados. É a classificação que a spec §5.1 exige,
+     * feita na hora de criar o tipo — não descoberta depois num relatório errado.
+     *
+     * O corte é por TIPO, não por origem: obrigação criada à mão continua fora, porque distinguir
+     * importação de digitação exigiria marcar a origem no evento (escrita nova, fora da abordagem A).
+     */
+    public function ehTrabalhoDeCobranca(): bool
+    {
+        return match ($this) {
+            self::ContatoRealizado,
+            self::BoletoEnviado,
+            self::NovoPrazo,
+            self::Negociacao,
+            self::AcordoCriado,
+            self::AcordoEditado,
+            self::AcordoRompido,
+            self::AcordoCancelado,
+            self::AcordoCumprido,
+            self::PagamentoRegistrado,
+            self::PagamentoCorrigido,
+            self::LiquidacaoRegistrada,
+            self::PessoaCobradaAlterada,
+            self::Judicializacao,
+            self::VinculoPasta,
+            self::Encerramento,
+            self::Anotacao => true,
+
+            self::CasoAberto,
+            self::ObrigacaoCriada,
+            self::ObrigacaoEditada,
+            self::ObrigacaoExcluida,
+            self::ValorAtualizadoReconhecido,
+            self::RevisaoVinculo => false,
+        };
+    }
+
+    /**
+     * @return list<self>
+     */
+    public static function trabalhoDeCobranca(): array
+    {
+        return array_values(array_filter(self::cases(), static fn (self $t): bool => $t->ehTrabalhoDeCobranca()));
+    }
+
+    /**
+     * @return list<self>
+     */
+    public static function lancamentoDeCadastro(): array
+    {
+        return array_values(array_filter(self::cases(), static fn (self $t): bool => !$t->ehTrabalhoDeCobranca()));
+    }
+
+    /**
+     * Valores crus dos tipos, para bind em consulta (`IN (:tipos)`).
+     *
+     * @param list<self> $tipos
+     *
+     * @return list<string>
+     */
+    public static function valoresDe(array $tipos): array
+    {
+        return array_map(static fn (self $t): string => $t->value, $tipos);
     }
 }

@@ -79,6 +79,11 @@ final class PurgarEscritorioUseCase
         ['cobranca_proxima_acao', 'tenant_id = :tenant'],
         // Acordo (Etapa 4): a obrigação referencia o acordo (SET NULL) e o acordo referencia o caso
         // (NO ACTION). Apagado APÓS a obrigação e ANTES do caso.
+        // Documentos do Acordo (Ajuste #4): FK onDelete CASCADE, mas deleção EXPLÍCITA (padrão do
+        // módulo) ANTES do acordo. Arquivos físicos ficam no MESMO diretório flat de
+        // cobrancas/<tenantId>/ (decisão deliberada — sem subdiretório novo) e já são cobertos por
+        // removerDiretorioDeTenant.
+        ['cobranca_acordo_documento', 'tenant_id = :tenant'],
         ['cobranca_acordo', 'tenant_id = :tenant'],
         // Documentos/seções (Etapa 6): documento referencia seção e caso; seção referencia o caso
         // (ambos onDelete CASCADE). Apagados EXPLICITAMENTE (padrão do módulo) ANTES do caso —
@@ -93,6 +98,10 @@ final class PurgarEscritorioUseCase
         // vem ANTES de apagar cliente na Fase 2.
         ['cobranca_vinculo_pessoa_objeto', 'tenant_id = :tenant'],
         ['cobranca_objeto', 'tenant_id = :tenant'],
+        // Documentos da Carteira (Ajuste #5): FK onDelete CASCADE, mas deleção EXPLÍCITA (padrão do
+        // módulo) ANTES da carteira. Mesmo diretório flat de cobrancas/<tenantId>/ (sem
+        // subdiretório novo) — já coberto por removerDiretorioDeTenant.
+        ['cobranca_carteira_documento', 'tenant_id = :tenant'],
         ['cobranca_carteira', 'tenant_id = :tenant'],
         ['cobranca_pessoa', 'tenant_id = :tenant'],
         // Fase 2 — raízes de subsistema (a CASCADE do banco derruba os filhos estruturais).

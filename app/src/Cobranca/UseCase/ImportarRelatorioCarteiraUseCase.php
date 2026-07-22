@@ -9,12 +9,15 @@ use App\Cobranca\DTO\CriarObjetoInput;
 use App\Cobranca\DTO\CriarPessoaInput;
 use App\Cobranca\DTO\RegistrarObrigacaoInput;
 use App\Cobranca\DTO\VincularPessoaAObjetoInput;
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
+use App\Cobranca\Enum\StatusAcordo;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
+use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
@@ -38,9 +41,15 @@ use Doctrine\ORM\EntityManagerInterface;
  *
  * Por boleto, na ordem: resolve/cria Objeto (dedup por identificação na Carteira) → resolve/cria Pessoa
  * cobrada (por nome no Objeto — decisão A) e Caso ativo → resolve/cria/atualiza Obrigação (dedup por NN).
- * Encargos entram SEPARADOS (juros/multa/correção) e a obrigação nasce CONGELADA — o relatório da
- * contabilidade é a verdade e o cron de materialização não a sobrescreve (spec §9). Honorários do
- * relatório passam a ser persistidos, fora do valor exigível (§4.2/INV-E2). NUNCA cruza tenants.
+ * Encargos entram SEPARADOS (juros/multa/correção) e a obrigação nasce VIVA (ao vivo, sem congelar) —
+ * ver `materializarEncargosImportados()`: o snapshot do relatório é só o valor INICIAL/cache, e a leitura
+ * recalcula (vencimento → hoje × taxa), reproduzindo os números da contabilidade ao centavo quando a
+ * carteira está configurada (spec §2/§9-revisado). Honorários do relatório passam a ser persistidos,
+ * fora do valor exigível (§4.2/INV-E2). NUNCA cruza tenants.
+ *
+ * Linhas de acordo (spec `cobranca-importar-linhas-acordo.md` §3.2, tarefa #7-B): quando o adapter
+ * reconhece "Acordo N - Parc. p/t" na coluna do relatório (`BoletoImportavel::$acordo`), o NN vira uma
+ * PARCELA de um Acordo de verdade, não uma obrigação solta — ver `resolverOuCriarAcordo()`.
  */
 final class ImportarRelatorioCarteiraUseCase
 {
@@ -50,6 +59,7 @@ final class ImportarRelatorioCarteiraUseCase
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly VinculoPessoaObjetoRepository $vinculoRepository,
+        private readonly AcordoRepository $acordoRepository,
         private readonly CriarObjetoUseCase $criarObjeto,
         private readonly CriarPessoaUseCase $criarPessoa,
         private readonly VincularPessoaAObjetoUseCase $vincular,
@@ -163,13 +173,31 @@ final class ImportarRelatorioCarteiraUseCase
                     $divergentes[] = $boleto->objetoIdentificacao;
                 }
 
+                // Linha de acordo (§3.2): acha/cria o Acordo por (carteira + número) ANTES de resolver a
+                // obrigação — a parcela precisa apontar pra ele nos dois ramos (nova ou reimportação).
+                $acordo = $boleto->acordo !== null
+                    ? $this->resolverOuCriarAcordo($carteira, $caso, $boleto, $tenant, $user)
+                    : null;
+
                 $obrigacao = $this->obrigacaoRepository->findOnePorReferenciaExternaNoCaso($caso, $boleto->nn);
                 if ($obrigacao === null) {
                     $obrigacao = $this->registrarObrigacao->executar($this->obrigacaoInput($caso->getId(), $boleto), $tenant, $user);
+                    if ($acordo !== null) {
+                        $obrigacao->setAcordoOrigem($acordo);
+                        $this->obrigacaoRepository->salvar($obrigacao, true);
+                    }
                     $this->materializarEncargosImportados($obrigacao, $boleto, $referencia);
                     $criadas[] = $boleto->nn;
 
                     continue;
+                }
+
+                // Idempotência (§3.2.4): a parcela já existe (dedup por NN) — garante que ela aponta pro
+                // acordo achado/criado acima (cobre a obrigação legada de uma 1ª importação anterior a
+                // este ajuste, que nasceu sem acordoOrigem).
+                if ($acordo !== null && $obrigacao->getAcordoOrigem() !== $acordo) {
+                    $obrigacao->setAcordoOrigem($acordo);
+                    $this->obrigacaoRepository->salvar($obrigacao, true);
                 }
 
                 // Reimportação idempotente: atualiza SÓ os encargos ao snapshot novo e RE-CONGELA na data
@@ -200,6 +228,83 @@ final class ImportarRelatorioCarteiraUseCase
             $referencia,
         );
         $this->obrigacaoRepository->salvar($obrigacao, true);
+    }
+
+    /**
+     * Acha o Acordo por (carteira + número externo) ou cria um novo (§3.2.2). NÃO usa
+     * `CriarAcordoUseCase`: aquele valida fechamento (INV-B) e obrigações substituídas — regras da
+     * criação MANUAL, que não fazem sentido aqui (o import não substitui nada, só materializa a
+     * parcela que o relatório já traz pronta). O acordo pertence ao CASO do objeto.
+     *
+     * Idempotência (§3.2.4): reimportar reusa o mesmo Acordo (achado pela dedup); se ele nasceu antes
+     * de se saber o total de parcelas (ou a 1ª leitura não trouxe `parcelaTotal`), completa quando um
+     * total aparece.
+     *
+     * `valorTotalNegociado` (correção pós-taxa #7-3): só é DERIVÁVEL quando `parcelaTotal === 1` — o
+     * relatório traz o acordo INTEIRO nessa única linha, então o total negociado é a soma da coluna
+     * Valor dela (`somaColunaValorCentavos`, mesma fonte do `valorOriginal` da parcela). Multi-parcela
+     * (`parcelaTotal > 1`) fica `null`: as parcelas 2..N não estão neste relatório — inventar o total
+     * seria "chutar" um dado que a fonte não fornece (`MontarDetalheAcordoUseCase` já faz o fallback
+     * derivado de Σ parcelas quando `null`). Idempotente: reimportar um 1/1 não regrava se o valor não
+     * mudou.
+     */
+    private function resolverOuCriarAcordo(Carteira $carteira, CasoCobranca $caso, BoletoImportavel $boleto, Tenant $tenant, User $user): Acordo
+    {
+        $doRelatorio = $boleto->acordo;
+        if ($doRelatorio === null) {
+            // Defesa: só é chamado quando o chamador já checou `$boleto->acordo !== null`.
+            throw new \LogicException('resolverOuCriarAcordo chamado sem acordo reconhecido no boleto.');
+        }
+
+        $acordo = $this->acordoRepository->findOnePorNumeroExternoNaCarteira($doRelatorio->numero, $carteira, $tenant);
+        if ($acordo === null) {
+            $acordo = new Acordo();
+            $acordo->setTenant($tenant);
+            $acordo->setCaso($caso);
+            $acordo->setStatus(StatusAcordo::Ativo);
+            $acordo->setDataAcordo($this->dataAcordoPadrao($boleto));
+            $acordo->setNumeroExterno($doRelatorio->numero);
+            $acordo->setNumeroParcelasTotal($doRelatorio->parcelaTotal);
+            $acordo->setCriadoPor($user);
+            if ($doRelatorio->parcelaTotal === 1) {
+                $acordo->setValorTotalNegociado($boleto->somaColunaValorCentavos);
+            }
+            $this->acordoRepository->salvar($acordo, true);
+
+            return $acordo;
+        }
+
+        $sujo = false;
+        if ($acordo->getNumeroParcelasTotal() === null && $doRelatorio->parcelaTotal > 0) {
+            $acordo->setNumeroParcelasTotal($doRelatorio->parcelaTotal);
+            $sujo = true;
+        }
+        if ($doRelatorio->parcelaTotal === 1 && $acordo->getValorTotalNegociado() !== $boleto->somaColunaValorCentavos) {
+            $acordo->setValorTotalNegociado($boleto->somaColunaValorCentavos);
+            $sujo = true;
+        }
+        if ($sujo) {
+            $this->acordoRepository->salvar($acordo, true);
+        }
+
+        return $acordo;
+    }
+
+    /**
+     * Default de `dataAcordo` (§3.2.2, nota de implementação #7-B): o relatório de inadimplência NÃO
+     * traz a data do acordo. Preferência: 1º dia da COMPETÊNCIA do boleto — mais estável do que o
+     * vencimento de UMA parcela quando o acordo tem várias (a competência tende a ser a mesma faixa
+     * para as parcelas vizinhas). Fallback ao vencimento da parcela (defensivo: o adapter atual só
+     * entrega boletos com competência MM/AAAA válida — `montarBoleto()` rejeita o resto —, então este
+     * ramo não deveria disparar na prática, mas nada garante isso de um adapter futuro).
+     */
+    private function dataAcordoPadrao(BoletoImportavel $boleto): \DateTimeImmutable
+    {
+        if (preg_match('#^(\d{2})/(\d{4})$#', $boleto->competencia, $m) === 1) {
+            return new \DateTimeImmutable(sprintf('%s-%s-01', $m[2], $m[1]));
+        }
+
+        return $boleto->vencimento;
     }
 
     /**
@@ -299,9 +404,24 @@ final class ImportarRelatorioCarteiraUseCase
         $input = new RegistrarObrigacaoInput();
         $input->casoId = $casoId;
         $input->descricao = mb_substr($descricao, 0, 255);
-        $input->valorOriginal = $boleto->principalCentavos;
         $input->vencimentoOriginal = $boleto->vencimento;
         $input->referenciaExterna = $boleto->nn;
+
+        if ($boleto->acordo !== null) {
+            // Parcela de acordo (§3.2.3): valorOriginal É o principal NEGOCIADO — soma da coluna Valor
+            // de TODAS as linhas do NN (o honorário do relatório já está embutido nela, decisão do
+            // dono). NUNCA `principalCentavos` (que só soma classes 1.1/1.14/1.6): usar o principal
+            // "comum" aqui subestimaria o valor negociado quando o relatório lista juros/multa/honorário
+            // como linhas próprias dentro do NN. Honorários = 0 (decisão #8: acordo não cobra
+            // honorário sobre honorário) via override de taxa — ao vivo, sem congelar. Juros/multa/
+            // correção continuam herdando a cascata Carteira→Caso (crescem ao vivo a partir do
+            // vencimento da parcela).
+            $input->valorOriginal = $boleto->somaColunaValorCentavos;
+            $input->modoHonorarios = 'percent';
+            $input->honorariosBp = 0;
+        } else {
+            $input->valorOriginal = $boleto->principalCentavos;
+        }
 
         return $input;
     }

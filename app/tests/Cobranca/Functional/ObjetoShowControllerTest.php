@@ -565,10 +565,13 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertNull($botao->attr('disabled'));
     }
 
-    /** Caso do tenant com o snapshot de honorários fixado (a forma decide se há gross-up no prefill). */
+    /**
+     * Caso do tenant com a política de honorários da CARTEIRA fixada (a forma decide se há gross-up
+     * no prefill). #9-T2: a fonte AO VIVO é a carteira via objeto — não mais o snapshot do caso.
+     */
     private function casoComHonorarios(Tenant $tenant, FormaHonorarios $forma, ?string $percentual): CasoCobranca
     {
-        [, $caso] = $this->semearGrafo($tenant, [
+        [, $caso] = $this->semearGrafo($tenant, [], [
             'formaHonorarios' => $forma,
             'percentualHonorarios' => $percentual,
         ]);
@@ -588,6 +591,51 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertResponseRedirects('/cobrancas/objetos/' . $caso->getObjeto()->getId());
     }
 
+    // ── Ajuste pós-taxa #3 (dono): esconder os gatilhos de "Registrar pagamento"/"Registrar liquidação",
+    // mantendo "Receber". Só UI — spec `docs/specs/cobranca-esconder-botoes-pagamento-liquidacao.md`.
+    // #modalRegistrarPagamento é o MESMO modal que "Receber" abre (event.relatedTarget decide FIFO×manual
+    // em show.html.twig), por isso continua no DOM; #modalRegistrarLiquidacao também continua — é o alvo
+    // do reabrir-com-erro (`data-modal-erro`) da rota, que a spec mantém acessível (ver
+    // `LiquidacaoMutacaoControllerTest::testRegistrarLiquidacaoInvalidaReabreModalComErroEPreservaODigitado`).
+    // Por isso a asserção mira o BOTÃO-gatilho, não o texto bruto da página (que o título/submit do modal
+    // reaproveitado ainda carregam, de propósito).
+
+    #[TestDox('Ajuste pós-taxa #3: os gatilhos de Registrar pagamento/liquidação somem; Receber continua')]
+    public function testEsconderGatilhosDeRegistrarPagamentoELiquidacaoMasReceberContinua(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Março/2026', 'valorOriginal' => 120000, 'encargosReconhecidos' => 0,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        self::assertResponseIsSuccessful();
+        // O bloco de ações da seção "O que já entrou" ficou vazio: os dois botões genéricos saíram.
+        self::assertCount(
+            0,
+            $crawler->filter('#secao-movimentos .jp-secao-acoes button'),
+            'os botões "Registrar pagamento"/"Registrar liquidação" têm de sumir da seção de movimentos',
+        );
+        // Nenhum gatilho clicável aponta mais para o modal de liquidação em NENHUMA parte da página.
+        self::assertCount(
+            0,
+            $crawler->filter('[data-bs-toggle="modal"][data-bs-target="#modalRegistrarLiquidacao"]'),
+            'não pode sobrar gatilho para o modal de liquidação',
+        );
+        // "Receber" (por obrigação) continua — mesmo modal de pagamento, disparado com data-acao=receber.
+        $receber = $crawler->filter('[data-acao="receber"][data-bs-target="#modalRegistrarPagamento"]');
+        self::assertGreaterThan(0, $receber->count(), '"Receber" por obrigação continua oferecendo o pagamento');
+        self::assertStringContainsString('Receber', $receber->text());
+        // Os MODAIS seguem no DOM (motor intacto, revertível): o de pagamento por ser reaproveitado pelo
+        // "Receber"; o de liquidação por ainda ser o alvo do reabrir-com-erro da rota, que segue acessível.
+        self::assertSelectorExists('#modalRegistrarPagamento');
+        self::assertSelectorExists('#modalRegistrarLiquidacao');
+    }
+
     // ── Encargos separados (spec "encargos configuráveis em cascata" §11) ──────────────────────────
     // A linha da obrigação deixou de ter uma coluna "Valor" e passou a ter as do relatório da
     // contabilidade: Original · Juros · Multa · Correção · Honorários · Total.
@@ -597,12 +645,13 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        // Config TOPLIFE I no caso (juros 1% a.m., multa 2%, honorários 20%, carência 30). No modelo AO
-        // VIVO os encargos NÃO são materializados na fixture: a tela os calcula de (vencimento → hoje).
-        // Principal R$ 170,00 com 240 dias de atraso reproduz, AO CENTAVO, a linha real do Apêndice A da
-        // spec: juros 13,60 · multa 3,40 · correção 0,00 · honorários 37,40. Vencimento relativo a hoje
-        // (−240 dias) para o cálculo ser determinístico em qualquer dia de execução.
-        [, $caso] = $this->semearGrafo($tenant, [
+        // Config TOPLIFE I na CARTEIRA (T1: fonte ao vivo do meio da cascata via Objeto — juros 1%
+        // a.m., multa 2%, honorários 20%, carência 30). No modelo AO VIVO os encargos NÃO são
+        // materializados na fixture: a tela os calcula de (vencimento → hoje). Principal R$ 170,00
+        // com 240 dias de atraso reproduz, AO CENTAVO, a linha real do Apêndice A da spec: juros
+        // 13,60 · multa 3,40 · correção 0,00 · honorários 37,40. Vencimento relativo a hoje (−240
+        // dias) para o cálculo ser determinístico em qualquer dia de execução.
+        [, $caso] = $this->semearGrafo($tenant, [], [
             'taxaJurosMensalBp' => 100,
             'taxaMultaBp' => 200,
             'carenciaHonorariosDias' => 30,
@@ -760,9 +809,9 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        // Config TOPLIFE I no caso: no modelo AO VIVO os encargos vêm de (vencimento → hoje). P=170,00
-        // com 240 dias de atraso → juros 1360 · multa 340 · correção 0 (soma 1700), reproduzidos ao vivo.
-        [, $caso] = $this->semearGrafo($tenant, [
+        // Config TOPLIFE I na CARTEIRA (T1): no modelo AO VIVO os encargos vêm de (vencimento → hoje).
+        // P=170,00 com 240 dias de atraso → juros 1360 · multa 340 · correção 0 (soma 1700), ao vivo.
+        [, $caso] = $this->semearGrafo($tenant, [], [
             'taxaJurosMensalBp' => 100,
             'taxaMultaBp' => 200,
             'carenciaHonorariosDias' => 30,
@@ -801,9 +850,9 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
-        // Caso herda 1% a.m. (100 bp) de juros — só juros configurado (multa/correção seguem 0,
-        // herdadas da carteira neutra do semearGrafo).
-        [, $caso] = $this->semearGrafo($tenant, ['taxaJurosMensalBp' => 100]);
+        // Caso herda 1% a.m. (100 bp) de juros da CARTEIRA (T1) — só juros configurado (multa/
+        // correção seguem 0, herdadas da carteira neutra do semearGrafo nos demais campos).
+        [, $caso] = $this->semearGrafo($tenant, [], ['taxaJurosMensalBp' => 100]);
         $vencimento = (new \DateTimeImmutable('today'))->modify('-240 days');
         $obrigacao = ObrigacaoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso,

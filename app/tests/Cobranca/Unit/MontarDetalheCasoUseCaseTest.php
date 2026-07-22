@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
@@ -88,9 +89,10 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             $this->calculadoraSaldo,
         );
 
-        // CalculadoraHonorarios também é `final` — e é uma calculadora PURA (sem dependências, sem I/O):
-        // a instância real é a fonte única do gross-up, e mocká-la só esconderia a regra sob teste.
-        $this->calculadoraHonorarios = new CalculadoraHonorarios();
+        // CalculadoraHonorarios também é `final` — e é uma calculadora PURA (sem I/O, só depende do
+        // ResolvedorConfigEncargos, também puro): a instância real é a fonte única do gross-up, e
+        // mocká-la só esconderia a regra sob teste.
+        $this->calculadoraHonorarios = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
 
         $this->useCase = new MontarDetalheCasoUseCase(
             $this->obrigacaoRepository,
@@ -174,9 +176,9 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     #[Test]
     public function oBrutoSugeridoFazGrossUpSobreORestanteDaObrigacao(): void
     {
-        $caso = $this->casoPersistido()
-            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
-            ->setPercentualHonorarios('10.00');
+        // #9-T2: a política de honorários vem do objeto/carteira, não mais do snapshot do caso.
+        $carteira = (new Carteira())->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
+        $caso = $this->casoPersistido($carteira);
 
         $semPagamento = $this->novaObrigacao($caso, 101, 120000);
         $parcialmentePaga = $this->novaObrigacao($caso, 102, 120000);
@@ -199,7 +201,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
 
         // O round-trip é a garantia (provada em CalculadoraHonorariosTest): o bruto sugerido rateia de
         // volta EXATAMENTE no restante. Sem isto, o prefill mente.
-        $calculadora = new CalculadoraHonorarios();
+        $calculadora = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
         self::assertSame(
             $porId[102]->restante(),
             $calculadora->ratearPagamento($caso, $porId[102]->brutoSugerido)[0],
@@ -307,9 +309,13 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         return $o;
     }
 
-    private function casoPersistido(): CasoCobranca
+    /** @param Carteira|null $carteira Sem carteira, o objeto degrada para config neutra (SemPercentual). */
+    private function casoPersistido(?Carteira $carteira = null): CasoCobranca
     {
         $objeto = new ObjetoCobranca();
+        if ($carteira !== null) {
+            $objeto->setCarteira($carteira);
+        }
         (new \ReflectionProperty(ObjetoCobranca::class, 'id'))->setValue($objeto, 77);
 
         $caso = (new CasoCobranca())->setTenant($this->tenant)->setObjeto($objeto);

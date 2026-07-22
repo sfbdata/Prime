@@ -49,6 +49,9 @@ final class TopLifeInadimplenciaAdapter
     private const CODIGO_MULTA_LINHA = '1.5';
     private const CODIGO_HONORARIO_LINHA = '1.15';
 
+    /** Formato da coluna "Informações do acordo" (spec §2): "Acordo 28 - Parc. 1/1". */
+    private const REGEX_ACORDO = '/^Acordo\s+(\d+)\s*-\s*Parc\.\s*(\d+)\/(\d+)$/i';
+
     public function ler(string $caminhoArquivo): ResultadoLeitura
     {
         $reader = IOFactory::createReaderForFile($caminhoArquivo);
@@ -134,6 +137,11 @@ final class TopLifeInadimplenciaAdapter
         $detalhe = [];
         $vencimento = null;
         $acordo = null;
+        $acordoReconhecido = null;
+        // Soma da coluna Valor de TODAS as linhas do NN, independente de classe (spec §3.2) — o
+        // "principal negociado" quando o NN é parcela de acordo. Diferente de $principal, que só
+        // soma classes específicas (1.1/1.14/1.6).
+        $somaColunaValor = 0;
 
         foreach ($linhas as $linha) {
             $codigo = $this->codigoClasse((string) ($linha[self::COL_CLASSE] ?? ''));
@@ -149,6 +157,7 @@ final class TopLifeInadimplenciaAdapter
             if (in_array($codigo, self::CODIGOS_PRINCIPAL, true) || $codigo === self::CODIGO_DESCONTO) {
                 $principal += $valor;
             }
+            $somaColunaValor += $valor;
             // Colunas I/J/K de TODA linha entram nos acumuladores correspondentes (antes I e J caíam
             // juntas em `$encargos` e K era descartada).
             $jurosTotal += $juros;
@@ -166,6 +175,7 @@ final class TopLifeInadimplenciaAdapter
 
             $vencimento ??= $this->parseVencimento((string) ($linha[self::COL_VENCIMENTO] ?? ''));
             $acordo ??= $this->textoAcordo((string) ($linha[self::COL_ACORDO] ?? ''));
+            $acordoReconhecido ??= $this->acordoDoRelatorio((string) ($linha[self::COL_ACORDO] ?? ''));
             $detalhe[] = [
                 'classe' => trim((string) ($linha[self::COL_CLASSE] ?? '')),
                 'valor' => $valor,
@@ -198,6 +208,8 @@ final class TopLifeInadimplenciaAdapter
             vencimento: $vencimento,
             competencia: $competencia,
             acordoTexto: $acordo,
+            acordo: $acordoReconhecido,
+            somaColunaValorCentavos: $somaColunaValor,
             linhas: $detalhe,
         );
     }
@@ -256,6 +268,21 @@ final class TopLifeInadimplenciaAdapter
         $valor = trim($valor);
 
         return ($valor === '' || $valor === '-') ? null : $valor;
+    }
+
+    /**
+     * Reconhece "Acordo <N> - Parc. <p>/<t>" (spec §3.1); qualquer outra coisa (vazio, "-", texto
+     * livre que não casa) volta `null` — obrigação comum, comportamento atual preservado. O texto
+     * cru continua indo para `observacao()` via `textoAcordo()`, casando ou não a regex.
+     */
+    private function acordoDoRelatorio(string $valor): ?AcordoDoRelatorio
+    {
+        $valor = trim($valor);
+        if (preg_match(self::REGEX_ACORDO, $valor, $m) !== 1) {
+            return null;
+        }
+
+        return new AcordoDoRelatorio((int) $m[1], (int) $m[2], (int) $m[3]);
     }
 
     private function parseVencimento(string $valor): ?\DateTimeImmutable

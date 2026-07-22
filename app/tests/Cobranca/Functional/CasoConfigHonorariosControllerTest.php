@@ -26,11 +26,28 @@ use PHPUnit\Framework\Attributes\TestDox;
  * Editar os honorários do caso âncora (Ajuste 2, Fatia A). Cobre gate módulo + capacidade, CSRF,
  * anti-IDOR (404), o recálculo imediato das automáticas vivas (D-A2-3), o INV-E4 (congelada intacta)
  * e o fluxo de erro B5 (reabre o modal sem 500).
+ *
+ * ⚠️ T1 (cascata de encargos ao vivo sem snapshot, #9): `ResolvedorConfigEncargos::resolverDoCaso`
+ * passou a delegar ao OBJETO/CARTEIRA e não lê mais `formaHonorarios`/`percentualHonorarios` do
+ * CASO. Este UseCase/endpoint continua gravando essas colunas do caso, mas elas viraram sombra/mortas
+ * para fins de CÁLCULO: o percentual submetido aqui não influencia mais o honorário recalculado — a
+ * alíquota efetiva é a da CARTEIRA (fixa em 10% nos seeds abaixo). Os testes foram ajustados para
+ * refletir essa taxa viva (15200 em vez de 30400) em vez do percentual do formulário.
+ *
+ * ⚠️ #9-T3 RESOLVEU a regressão anotada acima pela T1: o modal `#modalEditarConfigCaso` (e o botão que
+ * o abria) SAIU da tela (`cobranca/objeto/show.html.twig` e `cobranca/caso/_acoes_modais.html.twig`) —
+ * o "meio" da cascata agora tem UI própria no OBJETO (`ObjetoConfigEncargosControllerTest`,
+ * `#modalConfigEncargosObjeto`). Este endpoint (`CasoController::editarConfiguracaoHonorarios`, rota
+ * `cobranca_caso_editar_config`) e o Form/UseCase/DTO seguem DORMENTES de propósito (reversível, spec
+ * §5/§9) — a suíte abaixo prova que o backend continua funcionando por baixo, mesmo sem UI. Como o
+ * `<input>` do form não existe mais na página, o token CSRF já não pode ser raspado do DOM
+ * (`tokenDoFormulario`) — usa `tokenCsrf()` (gerado direto pelo `CsrfTokenManagerInterface` da mesma
+ * intenção `editar_configuracao_caso`, ver `CobrancaWebTestCase`).
  */
 #[CoversClass(CasoController::class)]
 final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
 {
-    #[TestDox('POST válido: recalcula SÓ o honorário da automática; o exigível (juros/multa) fica intacto')]
+    #[TestDox('POST válido: recalcula o cache do honorário pela taxa VIVA da carteira; o exigível (juros/multa) fica intacto')]
     public function testEditarHonorariosValidoRecalculaSoOHonorario(): void
     {
         $client = static::createClient();
@@ -41,8 +58,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $objetoId = (int) $caso->getObjeto()->getId();
         $obrigacaoId = (int) $obrigacao->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -62,8 +79,9 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         self::assertSame('20.00', $em->find(CasoCobranca::class, $casoId)->getPercentualHonorarios());
 
         $recarregada = $em->find(Obrigacao::class, $obrigacaoId);
-        // Honorário RECALCULADO a 20% da base composta (100000 + 50000 + 2000 + 0 = 152000) = 30400.
-        self::assertSame(30400, $recarregada->getHonorarios(), 'o honorário foi recalculado ao novo percentual');
+        // T1: a alíquota efetiva vem da CARTEIRA (10%, fixa — o "20,00" submetido só grava o
+        // snapshot morto do caso). Base composta (100000 + 50000 + 2000 + 0 = 152000) × 10% = 15200.
+        self::assertSame(15200, $recarregada->getHonorarios(), 'o honorário foi recalculado pela taxa viva da carteira (10%)');
         // EXIGÍVEL INTACTO (o fix do bloqueante): editar honorários NÃO move juros/multa/correção.
         self::assertSame(50000, $recarregada->getJuros(), 'juros (exigível, INV-E1) preservado — não recomputado');
         self::assertSame(2000, $recarregada->getMulta(), 'multa (exigível) preservada');
@@ -90,8 +108,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $carteira->setTaxaMultaBp(0);
         $em->flush();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -110,8 +128,9 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         // O exigível NÃO despencou para a taxa zerada — juros/multa continuam os R$ 500/R$ 20 reconhecidos.
         self::assertSame(50000, $recarregada->getJuros(), 'INV-E1: exigível não reduzido pela taxa zerada (bomba F2 fechada)');
         self::assertSame(2000, $recarregada->getMulta(), 'INV-E1: multa preservada');
-        // O honorário foi recalculado normalmente (fora do exigível, INV-E2, pode mudar).
-        self::assertSame(30400, $recarregada->getHonorarios(), 'só o honorário mudou');
+        // O honorário foi recalculado normalmente (fora do exigível, INV-E2, pode mudar), pela taxa
+        // viva da carteira (10%, intocada por este teste) — T1: mesma base composta do teste acima.
+        self::assertSame(15200, $recarregada->getHonorarios(), 'só o honorário mudou, pela taxa da carteira');
     }
 
     #[TestDox('Recálculo NÃO toca parcela de acordo vigente nem obrigação substituída (valor pactuado)')]
@@ -149,8 +168,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $substituidaId = (int) $substituida->getId();
         $automaticaId = (int) $automatica->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -172,9 +191,9 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         // Substituída por acordo vigente: INTACTA (histórico fora do saldo).
         $substituidaRec = $em->find(Obrigacao::class, $substituidaId);
         self::assertSame(888, $substituidaRec->getHonorarios(), 'substituída por acordo vigente não é tocada');
-        // A automática viva, sim: honorário recalculado (30400 a 20% de 152000).
+        // A automática viva, sim: honorário recalculado (T1: 15200 a 10% — taxa viva da carteira — de 152000).
         $automaticaRec = $em->find(Obrigacao::class, $automaticaId);
-        self::assertSame(30400, $automaticaRec->getHonorarios(), 'a automática viva teve o honorário recalculado');
+        self::assertSame(15200, $automaticaRec->getHonorarios(), 'a automática viva teve o honorário recalculado');
     }
 
     #[TestDox('INV-E4: a congelada do caso não é recalculada; a automática ao lado é')]
@@ -200,8 +219,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $em->flush();
         $congeladaId = (int) $congelada->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -233,8 +252,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $casoId = (int) $caso->getId();
         $objetoId = (int) $caso->getObjeto()->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -271,8 +290,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $obrigacaoId = (int) $obrigacao->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [

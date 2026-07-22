@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Entity\AlocacaoPagamento;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Entity\Pagamento;
 use App\Cobranca\Enum\FormaHonorarios;
@@ -53,7 +55,7 @@ final class AutoAlocadorFifoTest extends TestCase
             $this->obrigacaoRepository,
             $this->alocacaoRepository,
             $this->liquidacaoRepository,
-            new CalculadoraHonorarios(),
+            new CalculadoraHonorarios(new ResolvedorConfigEncargos()),
             new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
@@ -87,9 +89,9 @@ final class AutoAlocadorFifoTest extends TestCase
     public function acrescidoDividaSeparaHonorariosAntesDeAlocar(): void
     {
         // acrescido 10%: bruto 110000 → dívida 100000 + honorários 10000. Só a DÍVIDA é distribuída.
-        $caso = $this->casoComId(1)
-            ->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)
-            ->setPercentualHonorarios('10.00');
+        // Política vem da carteira via objeto (#9-T2), não mais do snapshot do caso.
+        $carteira = (new Carteira())->setFormaHonorarios(FormaHonorarios::AcrescidoDivida)->setPercentualHonorarios('10.00');
+        $caso = $this->casoComId(1)->setObjeto((new ObjetoCobranca())->setCarteira($carteira));
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([
             $this->obrigacaoComId(10, 60000, 0, '-2 day'),
             $this->obrigacaoComId(11, 60000, 0, '-1 day'),
@@ -255,9 +257,11 @@ final class AutoAlocadorFifoTest extends TestCase
     #[Test]
     public function derivarMedeOExigivelNaDataDoPagamentoNaoEmHoje(): void
     {
-        // Caso TOPLIFE (juros 1% a.m., multa 2%): obrigação P=100,00, venc 10/06/2026.
+        // Caso TOPLIFE (juros 1% a.m., multa 2%): obrigação P=100,00, venc 10/06/2026. T1: o override
+        // mora no OBJETO — o caso deixou de participar da cascata.
         $caso = $this->casoComId(1);
-        $caso->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $objeto = (new ObjetoCobranca())->setTaxaJurosMensalBp(100)->setTaxaMultaBp(200);
+        $caso->setObjeto($objeto);
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([
             $this->obrigacaoComId(10, 10000, 0, '2026-06-10'),
         ]);

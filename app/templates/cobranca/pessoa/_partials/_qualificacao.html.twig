@@ -1,0 +1,36 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Qualificação da pessoa (spec §3/§7): campos ÚNICOS — nome/cpf/cnpj/observação/dataNascimento/
+   estadoCivil/profissao/rg/orgaoEmissorRg. `email`/`telefone` NÃO aparecem aqui de propósito — são
+   geridos pelas listas (SPEC §6). Contexto herdado do show: `pessoa` (PessoaFichaOutput) e
+   `formQualificacao` (EditarQualificacaoPessoaType).
+─────────────────────────────────────────────────────────────────────────── #}
+<div class="card cobranca-card mb-3">
+    <div class="card-header fw-semibold">
+        <i class="bi bi-person-badge me-1"></i>Qualificação
+    </div>
+    <div class="card-body">
+        {{ form_start(formQualificacao, {
+            action: path('cobranca_pessoa_qualificacao_editar', {id: pessoa.id}),
+            attr: {'data-disable-on-submit': 'true'},
+        }) }}
+        {{ form_row(formQualificacao.nome) }}
+        <div class="row g-2">
+            <div class="col-md-6">{{ form_row(formQualificacao.cpf) }}</div>
+            <div class="col-md-6">{{ form_row(formQualificacao.cnpj) }}</div>
+        </div>
+        <div class="row g-2">
+            <div class="col-md-6">{{ form_row(formQualificacao.dataNascimento) }}</div>
+            <div class="col-md-6">{{ form_row(formQualificacao.estadoCivil) }}</div>
+        </div>
+        {{ form_row(formQualificacao.profissao) }}
+        <div class="row g-2">
+            <div class="col-md-6">{{ form_row(formQualificacao.rg) }}</div>
+            <div class="col-md-6">{{ form_row(formQualificacao.orgaoEmissorRg) }}</div>
+        </div>
+        {{ form_row(formQualificacao.observacao) }}
+        <div class="mt-2">
+            <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar qualificação</button>
+        </div>
+        {{ form_end(formQualificacao) }}
+    </div>
+</div>

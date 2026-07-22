@@ -48,17 +48,19 @@
 {{ form_row(form.rotuloObjeto) }}
 
 {# Encargos por atraso (spec "encargos configuráveis em cascata" §4.1) — presentes nos DOIS forms que
-   incluem este partial (criar e editar configuração). Já valiam no editar; passaram a valer também no
-   criar porque o caso snapshota a config da carteira ao nascer: carteira criada sem taxa gera casos
-   pinados em 0% que configurar depois não conserta. Por isso não há mais guarda `is defined` aqui —
-   campo faltando vira erro de template, que é o que se quer, em vez de sumir calado da tela. #}
+   incluem este partial (criar e editar configuração). São o NÍVEL 1 da cascata Carteira → Objeto →
+   Obrigação, resolvido NA LEITURA (spec #9): não há mais snapshot no caso, então editar aqui move ao
+   vivo tudo que herda e não está congelado. Por isso não há guarda `is defined` aqui — campo faltando
+   vira erro de template, que é o que se quer, em vez de sumir calado da tela. #}
 <hr class="my-4">
 
 <h6 class="fw-semibold mb-1">Encargos por atraso</h6>
 <div class="form-text mb-3">
-    Padrões desta carteira para <strong>novas</strong> obrigações — alterar aqui não recalcula
-    o que já existe. Deixe a carência dos honorários <strong>vazia</strong> para usar a tolerância
-    de atraso configurada acima.
+    Estas taxas valem <strong>ao vivo</strong>: alterar aqui <strong>recalcula na hora</strong> os
+    encargos de toda obrigação <strong>em aberto</strong> que herda desta carteira. Não muda o que já
+    está congelado (obrigação paga/liquidada ou substituída por acordo) nem o que tem taxa própria
+    no objeto ou na obrigação. Deixe a carência dos honorários <strong>vazia</strong> para usar a
+    tolerância de atraso configurada acima.
 </div>
 
 <div class="row g-3">

@@ -90,7 +90,7 @@ final class MontarDashboardCobrancaUseCaseTest extends KernelTestCase
             new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
             new ResolvedorConfigEncargos(),
         );
-        $calcHon = new CalculadoraHonorarios();
+        $calcHon = new CalculadoraHonorarios(new ResolvedorConfigEncargos());
 
         $this->sut = new MontarDashboardCobrancaUseCase(
             $casoRepo,

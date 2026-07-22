@@ -19,9 +19,12 @@ use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\UseCase\MontarVisaoCarteiraUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cliente\ClientePFFactory;
+use App\Tests\Factory\Cobranca\AcordoDocumentoFactory;
+use App\Tests\Factory\Cobranca\AcordoFactory;
 use App\Tests\Factory\Cobranca\AlocacaoPagamentoFactory;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
 use App\Tests\Factory\Cobranca\CasoCobrancaFactory;
+use App\Tests\Factory\Cobranca\CobrancaDocumentoFactory;
 use App\Tests\Factory\Cobranca\LiquidacaoFactory;
 use App\Tests\Factory\Cobranca\ObjetoCobrancaFactory;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
@@ -66,7 +69,7 @@ final class MontarVisaoCarteiraUseCaseTest extends KernelTestCase
         $objetoRepo = $this->em->getRepository(\App\Cobranca\Entity\ObjetoCobranca::class);
 
         $this->calcSaldo = new CalculadoraSaldo($obrigacaoRepo, $casoRepo, $alocacaoRepo, $liquidacaoRepo, new \App\Cobranca\Service\EncargosVivos(new \Symfony\Component\Clock\MockClock(new \DateTimeImmutable('2026-07-20')), new \App\Cobranca\Service\CalculadoraEncargos(), new \App\Cobranca\Service\ResolvedorConfigEncargos()), new \App\Cobranca\Service\ResolvedorConfigEncargos());
-        $this->sut = new MontarVisaoCarteiraUseCase($objetoRepo, $casoRepo, $this->calcSaldo);
+        $this->sut = new MontarVisaoCarteiraUseCase($objetoRepo, $casoRepo, $this->calcSaldo, $this->em->getConnection());
     }
 
     private function tenant(): Tenant
@@ -191,5 +194,78 @@ final class MontarVisaoCarteiraUseCaseTest extends KernelTestCase
 
         self::assertCount(1, $resultado['casos']);
         self::assertSame(100000, $resultado['carteira']->saldoConsolidado);
+    }
+
+    #[TestDox('Grampo (#6): acende quando o objeto tem documento em algum CASO')]
+    public function testGrampoAcendeComDocumentoNoCaso(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+        $caso = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $caso, 1000, '2026-06-01');
+
+        CobrancaDocumentoFactory::createOne(['tenant' => $tenant, 'caso' => $caso]);
+
+        $this->em->clear();
+
+        $resultado = $this->sut->executar($carteira);
+
+        self::assertCount(1, $resultado['casos']);
+        self::assertTrue($resultado['casos'][0]->temDocumentos);
+    }
+
+    #[TestDox('Grampo (#6): acende quando o objeto tem documento só num ACORDO')]
+    public function testGrampoAcendeComDocumentoSoNoAcordo(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+        $caso = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $caso, 1000, '2026-06-01');
+
+        $acordo = AcordoFactory::createOne(['tenant' => $tenant, 'caso' => $caso])->_real();
+        AcordoDocumentoFactory::createOne(['tenant' => $tenant, 'acordo' => $acordo]);
+
+        $this->em->clear();
+
+        $resultado = $this->sut->executar($carteira);
+
+        self::assertCount(1, $resultado['casos']);
+        self::assertTrue($resultado['casos'][0]->temDocumentos);
+    }
+
+    #[TestDox('Grampo (#6): apagado quando o objeto não tem documento algum')]
+    public function testGrampoApagadoSemDocumentos(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+        $caso = $this->caso($tenant, $carteira);
+        $this->obrigacao($tenant, $caso, 1000, '2026-06-01');
+
+        $this->em->clear();
+
+        $resultado = $this->sut->executar($carteira);
+
+        self::assertCount(1, $resultado['casos']);
+        self::assertFalse($resultado['casos'][0]->temDocumentos);
+    }
+
+    #[TestDox('Grampo (#6): NÃO conta documento de objeto de OUTRO tenant')]
+    public function testGrampoNaoContaDocumentoDeOutroTenant(): void
+    {
+        $tenantA = $this->tenant();
+        $carteiraA = $this->carteira($tenantA);
+        $casoA = $this->caso($tenantA, $carteiraA);
+        $this->obrigacao($tenantA, $casoA, 1000, '2026-06-01');
+
+        // Documento de OUTRO tenant, sem relação alguma com o caso/objeto de A.
+        $tenantB = $this->tenant();
+        CobrancaDocumentoFactory::createOne(['tenant' => $tenantB]);
+
+        $this->em->clear();
+
+        $resultado = $this->sut->executar($carteiraA);
+
+        self::assertCount(1, $resultado['casos']);
+        self::assertFalse($resultado['casos'][0]->temDocumentos);
     }
 }

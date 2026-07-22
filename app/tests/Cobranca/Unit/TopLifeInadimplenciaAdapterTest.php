@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Unit;
 
+use App\Cobranca\Service\Importacao\AcordoDoRelatorio;
 use App\Cobranca\Service\Importacao\BoletoImportavel;
 use App\Cobranca\Service\Importacao\TopLifeInadimplenciaAdapter;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -119,6 +120,7 @@ final class TopLifeInadimplenciaAdapterTest extends TestCase
         self::assertSame(4063, $b->honorariosInformadosCentavos);
         self::assertNull($b->unidadeMetadata);
         self::assertNull($b->acordoTexto);
+        self::assertNull($b->acordo, 'coluna "Informações do acordo" vazia — obrigação comum');
     }
 
     #[Test]
@@ -143,6 +145,13 @@ final class TopLifeInadimplenciaAdapterTest extends TestCase
         self::assertSame('Acordo 396 - Parc. 2/11', $b->acordoTexto);
         self::assertStringContainsString('Unidades associadas: 05-03,06-01', (string) $b->observacao());
         self::assertStringContainsString('Acordo 396', (string) $b->observacao());
+
+        // O mesmo texto também é RECONHECIDO como acordo estruturado (spec §3.1) — a fixture real
+        // prova o reconhecimento sem depender só de planilhas sintéticas.
+        self::assertInstanceOf(AcordoDoRelatorio::class, $b->acordo);
+        self::assertSame(396, $b->acordo->numero);
+        self::assertSame(2, $b->acordo->parcelaIndice);
+        self::assertSame(11, $b->acordo->parcelaTotal);
     }
 
     #[Test]
@@ -276,5 +285,100 @@ final class TopLifeInadimplenciaAdapterTest extends TestCase
         self::assertStringContainsString('não numérico', $motivos['1008']);
         self::assertArrayHasKey('1010', $motivos);
         self::assertStringContainsString('sem principal', $motivos['1010']);
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────────────────
+    // Reconhecimento do acordo na coluna N (tarefa #7-A, spec cobranca-importar-linhas-acordo.md)
+    // ────────────────────────────────────────────────────────────────────────────────────────
+
+    #[Test]
+    public function reconheceAcordoDoRelatorioComParcelaUnica(): void
+    {
+        $mapa = $this->lerPlanilha([
+            ['10-01', 'DEVEDOR ACORDO 28', '9301', '1.1 - Taxa de condomínio', '02/2026', '10/02/2026', 148, 100.00, 0, 0, 0, 0, 100.00, 'Acordo 28 - Parc. 1/1', '-'],
+        ]);
+        $b = $mapa['9301'];
+
+        self::assertInstanceOf(AcordoDoRelatorio::class, $b->acordo);
+        self::assertSame(28, $b->acordo->numero);
+        self::assertSame(1, $b->acordo->parcelaIndice);
+        self::assertSame(1, $b->acordo->parcelaTotal);
+    }
+
+    #[Test]
+    public function reconheceAcordoDoRelatorioMultiParcela(): void
+    {
+        $mapa = $this->lerPlanilha([
+            ['10-02', 'DEVEDOR ACORDO 31', '9302', '1.1 - Taxa de condomínio', '02/2026', '10/02/2026', 148, 100.00, 0, 0, 0, 0, 100.00, 'Acordo 31 - Parc. 1/3', '-'],
+        ]);
+        $b = $mapa['9302'];
+
+        self::assertInstanceOf(AcordoDoRelatorio::class, $b->acordo);
+        self::assertSame(31, $b->acordo->numero);
+        self::assertSame(1, $b->acordo->parcelaIndice);
+        self::assertSame(3, $b->acordo->parcelaTotal);
+    }
+
+    #[Test]
+    public function colunaDeAcordoVaziaNaoReconheceNada(): void
+    {
+        // NN=1001 na fixture real: coluna "Informações do acordo" vazia ("-").
+        $b = $this->porNn()['1001'];
+
+        self::assertNull($b->acordo);
+    }
+
+    #[Test]
+    public function textoDeAcordoQueNaoCasaARegexNaoReconheceMasContinuaNaObservacao(): void
+    {
+        $mapa = $this->lerPlanilha([
+            ['10-03', 'DEVEDOR TEXTO LIVRE', '9303', '1.1 - Taxa de condomínio', '02/2026', '10/02/2026', 148, 100.00, 0, 0, 0, 0, 100.00, 'Negociação em análise', '-'],
+        ]);
+        $b = $mapa['9303'];
+
+        self::assertNull($b->acordo, 'texto livre não casa a regex do acordo');
+        self::assertSame('Negociação em análise', $b->acordoTexto, 'o texto cru continua indo para a observação');
+        self::assertStringContainsString('Negociação em análise', (string) $b->observacao());
+    }
+
+    #[Test]
+    public function reconhecimentoDeAcordoToleraEspacosEECaseInsensitive(): void
+    {
+        $mapa = $this->lerPlanilha([
+            ['10-05', 'DEVEDOR ACORDO CASE', '9305', '1.1 - Taxa de condomínio', '02/2026', '10/02/2026', 148, 100.00, 0, 0, 0, 0, 100.00, 'acordo  12 -  Parc.  3/5', '-'],
+        ]);
+        $b = $mapa['9305'];
+
+        self::assertInstanceOf(AcordoDoRelatorio::class, $b->acordo);
+        self::assertSame(12, $b->acordo->numero);
+        self::assertSame(3, $b->acordo->parcelaIndice);
+        self::assertSame(5, $b->acordo->parcelaTotal);
+    }
+
+    #[Test]
+    public function somaColunaValorCentavosSomaTodasAsLinhasDoNnIndependenteDaClasse(): void
+    {
+        // NN=9304: Taxa 100,00 (classe 1.1, entra no principal) + Juros 12,50 (classe 1.4, NÃO
+        // entra no principal). somaColunaValorCentavos abrange as DUAS linhas — diferente de
+        // principalCentavos, que só soma classes específicas (spec §3.2).
+        $mapa = $this->lerPlanilha([
+            ['10-04', 'DEVEDOR SOMA VALOR', '9304', '1.1 - Taxa de condomínio', '02/2026', '10/02/2026', 148, 100.00, 0, 0, 0, 0, 100.00, 'Acordo 40 - Parc. 1/1', '-'],
+            ['10-04', 'DEVEDOR SOMA VALOR', '9304', '1.4 - Juros', '02/2026', '10/02/2026', 148, 12.50, 0, 0, 0, 0, 12.50, 'Acordo 40 - Parc. 1/1', '-'],
+        ]);
+        $b = $mapa['9304'];
+
+        self::assertSame(10000, $b->principalCentavos, 'só a classe 1.1 entra no principal');
+        self::assertSame(11250, $b->somaColunaValorCentavos, 'soma da coluna Valor das DUAS linhas (100,00 + 12,50)');
+    }
+
+    #[Test]
+    public function somaColunaValorCentavosDeBoletoSemAcordoTambemSomaTodasAsLinhas(): void
+    {
+        // Regressão: a soma da coluna Valor não depende de haver acordo — NN=1002 (sem acordo)
+        // tem 2 linhas (Taxa 100 + Energia 45), soma 145,00.
+        $b = $this->porNn()['1002'];
+
+        self::assertNull($b->acordo);
+        self::assertSame(14500, $b->somaColunaValorCentavos);
     }
 }

@@ -112,6 +112,8 @@ final class MontarDetalheAcordoUseCase
             // substituídas o desconto seria -total e a tela anunciaria juros de uma dívida inexistente).
             temJuros: $valorSubstituidas > 0 && $desconto < 0,
             totalAlocado: $totalAlocado,
+            estaIncompleto: $acordo->estaIncompleto(),
+            parcelasFaltantes: $acordo->parcelasFaltantes(),
             parcelas: $parcelas,
             substituidas: $substituidas,
         );

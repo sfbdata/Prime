@@ -33,9 +33,11 @@ final class EnviarDocumentoUseCase
 {
     /**
      * Whitelist de MIME => limite de bytes. Espelha App\Pasta\UseCase\UploadPecaUseCase::MIME_LIMITS
-     * (mesmos tipos e limites aceitos no upload de peças da Pasta).
+     * (mesmos tipos e limites aceitos no upload de peças da Pasta). PÚBLICA (só a visibilidade — o
+     * comportamento é idêntico) para ser a fonte ÚNICA reusada pelos UseCases de documento de
+     * Carteira e Acordo (Ajustes #4/#5) — evita duplicar/desviar a lista.
      */
-    private const MIME_LIMITS = [
+    public const MIME_LIMITS = [
         'image/png'                                                                          => 3 * 1024 * 1024,
         'image/jpeg'                                                                         => 3 * 1024 * 1024,
         'application/pdf'                                                                    => 10 * 1024 * 1024,

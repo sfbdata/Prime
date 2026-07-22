@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Cobranca\Service;
 
 use App\Cobranca\DTO\CriarAcordoInput;
-use App\Cobranca\DTO\EditarConfiguracaoCasoInput;
 use App\Cobranca\DTO\RegistrarPagamentoInput;
 use App\Cobranca\DTO\RegistrarTentativaCobrancaInput;
 use App\Cobranca\Entity\CasoCobranca;
@@ -15,13 +14,13 @@ use App\Cobranca\Form\CancelarAcordoType;
 use App\Cobranca\Form\ConcluirAcaoType;
 use App\Cobranca\Form\CorrigirPagamentoType;
 use App\Cobranca\Form\DefinirProximaAcaoType;
-use App\Cobranca\Form\EditarConfiguracaoCasoType;
 use App\Cobranca\Form\EditarObrigacaoType;
 use App\Cobranca\Form\EncerrarCasoType;
 use App\Cobranca\Form\JudicializarCasoType;
 use App\Cobranca\Form\RegistrarLiquidacaoType;
 use App\Cobranca\Form\RegistrarObrigacaoType;
 use App\Cobranca\Form\RegistrarPagamentoType;
+use App\Cobranca\Form\RegistrarAnotacaoType;
 use App\Cobranca\Form\RegistrarTentativaCobrancaType;
 use App\Cobranca\Form\RomperAcordoType;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
@@ -99,16 +98,10 @@ final class MontadorModaisCaso
         $acordoHoje = new CriarAcordoInput();
         $acordoHoje->dataAcordo = new \DateTimeImmutable('today');
 
-        // Editar honorários do caso (Ajuste 2, Fatia A): o modal abre PRÉ-PREENCHIDO com o snapshot
-        // atual do caso (forma/%/base/carência), como o modal de config da carteira faz. Em erro de
-        // validação, o B5 (`reidratarSeErro`) re-submete o payload cru sobre este form, mostrando os
-        // valores digitados + erros no lugar do pré-preenchido.
-        $configHonorarios = new EditarConfiguracaoCasoInput();
-        $configHonorarios->casoId = $caso->getId();
-        $configHonorarios->formaHonorarios = $caso->getFormaHonorarios();
-        $configHonorarios->percentualHonorarios = $caso->getPercentualHonorarios();
-        $configHonorarios->baseHonorarios = $caso->getBaseHonorarios();
-        $configHonorarios->carenciaHonorariosDias = $caso->getCarenciaHonorariosDias();
+        // #9-T3: o editor de honorários do CASO saiu da tela (o meio da cascata é o OBJETO desde T1 —
+        // `ObjetoController::configEncargosObjetoView` monta o novo modal). O backend deste form
+        // (`EditarConfiguracaoCasoType`/`EditarConfiguracaoCasoUseCase`/rota `cobranca_caso_editar_config`)
+        // fica DORMENTE de propósito (spec §9, reversível) — só parou de ser MONTADO aqui.
 
         $views = [
             'registrarObrigacao' => $this->reidratarSeErro($this->formFactory->create(RegistrarObrigacaoType::class), 'registrarObrigacao', $erroModal),
@@ -117,6 +110,9 @@ final class MontadorModaisCaso
             'definirProximaAcao' => $this->reidratarSeErro($this->formFactory->create(DefinirProximaAcaoType::class), 'definirProximaAcao', $erroModal),
             'concluirAcao' => $this->reidratarSeErro($this->formFactory->create(ConcluirAcaoType::class), 'concluirAcao', $erroModal),
             'registrarTentativa' => $this->reidratarSeErro($this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora), 'registrarTentativa', $erroModal),
+            // Anotação livre da aba Histórico (ajuste 2026-07). Não é modal — é um campo inline —, então
+            // não entra no jogo de reidratação por erro: o controller devolve o erro como flash.
+            'registrarAnotacao' => $this->formFactory->create(RegistrarAnotacaoType::class)->createView(),
             'acordoCriar' => $this->formFactory->create(AcordoCriarType::class, $acordoHoje, [
                 'obrigacoes' => $opcoesObrigacoes,
                 'valores' => $valoresObrigacoes,
@@ -127,11 +123,6 @@ final class MontadorModaisCaso
             'alterarPessoa' => $this->reidratarSeErro($this->formFactory->create(AlterarPessoaCobradaType::class, null, [
                 'pessoas' => $this->pessoaRepository->opcoesDoTenant($caso->getTenant()),
             ]), 'alterarPessoa', $erroModal),
-            'editarConfigCaso' => $this->reidratarSeErro(
-                $this->formFactory->create(EditarConfiguracaoCasoType::class, $configHonorarios),
-                'editarConfigCaso',
-                $erroModal,
-            ),
         ];
 
         if ($incluirJudicializar) {
