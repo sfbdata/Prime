@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Functional;
 
+use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
@@ -13,8 +14,12 @@ use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
+use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\ConversorTaxaEncargo;
+use App\Cobranca\Service\Importacao\AcordoDoRelatorio;
+use App\Cobranca\Service\Importacao\BoletoImportavel;
+use App\Cobranca\Service\Importacao\ResultadoLeitura;
 use App\Cobranca\Service\Importacao\TopLifeInadimplenciaAdapter;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
@@ -64,6 +69,8 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         $pessoaRepo = $this->em->getRepository(Pessoa::class);
         $vinculoRepo = $this->em->getRepository(VinculoPessoaObjeto::class);
         $eventoRepo = $this->em->getRepository(EventoHistorico::class);
+        /** @var AcordoRepository $acordoRepo */
+        $acordoRepo = $this->em->getRepository(Acordo::class);
 
         $registrarEvento = new RegistrarEventoHistorico($eventoRepo);
         $this->importar = new ImportarRelatorioCarteiraUseCase(
@@ -72,6 +79,7 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
             $casoRepo,
             $obrigacaoRepo,
             $vinculoRepo,
+            $acordoRepo,
             new CriarObjetoUseCase($objetoRepo, $carteiraRepo),
             new CriarPessoaUseCase($pessoaRepo),
             new VincularPessoaAObjetoUseCase($vinculoRepo, $pessoaRepo, $objetoRepo),
@@ -331,6 +339,8 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
             vencimento: new \DateTimeImmutable('2026-02-10'),
             competencia: '02/2026',
             acordoTexto: null,
+            acordo: null,
+            somaColunaValorCentavos: 19000,
             linhas: [],
         );
         $leitura = new \App\Cobranca\Service\Importacao\ResultadoLeitura([$boleto], [], 0);
@@ -355,7 +365,176 @@ final class ImportarRelatorioCarteiraTest extends KernelTestCase
         self::assertSame(5, $this->em->getRepository(Pessoa::class)->count(['tenant' => $tenant]), 'sem acúmulo de duplicatas');
     }
 
+    // ────────────────────────────────────────────────────────────────────────────────────────
+    // Linhas de acordo (tarefa #7-B, spec cobranca-importar-linhas-acordo.md §3.2/§3.3)
+    // ────────────────────────────────────────────────────────────────────────────────────────
+
+    #[TestDox('NN com "Acordo 28 - Parc. 1/1" cria 1 Acordo + 1 parcela viva com honorários zero')]
+    public function testAcordoDeParcelaUnicaCriaAcordoEParcela(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $boleto = $this->boletoComAcordo('9301', '20-01', 'DEVEDOR ACORDO 28', numeroAcordo: 28, parcelaIndice: 1, parcelaTotal: 1, somaColunaValorCentavos: 15000);
+        $resultado = $this->importar->confirmar($carteira, new ResultadoLeitura([$boleto], [], 0), $tenant, $user);
+
+        self::assertSame(1, $resultado->totalImportadas());
+
+        // A transação da importação já fechou; lê como uma nova requisição leria (a coleção inversa
+        // `Acordo::parcelas` não é auto-sincronizada em memória ao setar só o lado dono — mesmo padrão
+        // do CriarAcordoUseCase, ver outros testes funcionais de Acordo).
+        $this->em->clear();
+        $acordoRepo = $this->em->getRepository(Acordo::class);
+        self::assertSame(1, $acordoRepo->count(['tenant' => $tenant]), '1 acordo só');
+        $acordo = $acordoRepo->findOneBy(['tenant' => $tenant, 'numeroExterno' => 28]);
+        self::assertNotNull($acordo);
+        self::assertFalse($acordo->estaIncompleto(), '1/1 é completo');
+        self::assertSame(0, $acordo->parcelasFaltantes());
+        self::assertCount(1, $acordo->getParcelas());
+
+        $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '9301']);
+        self::assertNotNull($parcela);
+        self::assertSame($acordo->getId(), $parcela->getAcordoOrigem()?->getId(), 'a obrigação é PARCELA do acordo');
+        self::assertSame(15000, $parcela->getValorOriginal(), 'valorOriginal = soma da coluna Valor (principal negociado)');
+        self::assertSame(0, $parcela->getTaxaHonorariosBp(), 'honorários zero (decisão #8: acordo não cobra honorário)');
+        self::assertFalse($parcela->encargosCongelados(), 'parcela nasce VIVA como as demais obrigações importadas');
+    }
+
+    #[TestDox('Reimportar o mesmo relatório com acordo NÃO cria acordo nem parcela novos (idempotência)')]
+    public function testReimportarAcordoNaoDuplica(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $boleto = $this->boletoComAcordo('9301', '20-01', 'DEVEDOR ACORDO 28', numeroAcordo: 28, parcelaIndice: 1, parcelaTotal: 1, somaColunaValorCentavos: 15000);
+        $leitura = new ResultadoLeitura([$boleto], [], 0);
+
+        $this->importar->confirmar($carteira, $leitura, $tenant, $user);
+        $segunda = $this->importar->confirmar($carteira, $leitura, $tenant, $user);
+
+        self::assertSame(0, $segunda->totalImportadas(), 'nada novo na reimportação');
+        self::assertSame(1, $segunda->totalAtualizadas());
+        self::assertSame(1, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]), 'acordo dedup por carteira+número');
+        self::assertSame(1, $this->em->getRepository(Obrigacao::class)->count(['tenant' => $tenant]), 'parcela dedup por NN');
+
+        // A parcela continua apontando pro MESMO acordo (idempotência §3.2.4).
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 28]);
+        $parcela = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '9301']);
+        self::assertSame($acordo?->getId(), $parcela?->getAcordoOrigem()?->getId());
+    }
+
+    #[TestDox('NN com "Acordo 31 - Parc. 1/3" cria acordo incompleto (faltam 2 parcelas)')]
+    public function testAcordoMultiParcelaFicaIncompleto(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        $boleto = $this->boletoComAcordo('9302', '20-02', 'DEVEDOR ACORDO 31', numeroAcordo: 31, parcelaIndice: 1, parcelaTotal: 3, somaColunaValorCentavos: 10000);
+        $this->importar->confirmar($carteira, new ResultadoLeitura([$boleto], [], 0), $tenant, $user);
+
+        $this->em->clear();
+        $acordo = $this->em->getRepository(Acordo::class)->findOneBy(['tenant' => $tenant, 'numeroExterno' => 31]);
+        self::assertNotNull($acordo);
+        self::assertSame(3, $acordo->getNumeroParcelasTotal());
+        self::assertCount(1, $acordo->getParcelas());
+        self::assertTrue($acordo->estaIncompleto());
+        self::assertSame(2, $acordo->parcelasFaltantes());
+    }
+
+    #[TestDox('NN sem acordo segue como obrigação comum (regressão): sem acordoOrigem, valorOriginal = principal')]
+    public function testNnSemAcordoSegueComoObrigacaoComum(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteira = $this->criarCarteira($tenant);
+
+        // Boleto SEM acordo (regressão): coluna "Informações do acordo" vazia. principalCentavos
+        // (14500) difere de propósito de somaColunaValorCentavos (14900) para provar que o UseCase usa
+        // o campo certo quando NÃO há acordo.
+        $boleto = new BoletoImportavel(
+            nn: '9501',
+            objetoIdentificacao: '40-01',
+            unidadeMetadata: null,
+            sacadoNome: 'DEVEDOR SEM ACORDO',
+            principalCentavos: 14500,
+            jurosCentavos: 500,
+            multaCentavos: 200,
+            correcaoCentavos: 0,
+            honorariosInformadosCentavos: 3100,
+            vencimento: new \DateTimeImmutable('2026-03-10'),
+            competencia: '03/2026',
+            acordoTexto: null,
+            acordo: null,
+            somaColunaValorCentavos: 14900,
+            linhas: [],
+        );
+        $this->importar->confirmar($carteira, new ResultadoLeitura([$boleto], [], 0), $tenant, $user);
+
+        $obrig = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '9501']);
+        self::assertNotNull($obrig);
+        self::assertNull($obrig->getAcordoOrigem(), 'sem acordoOrigem — regressão do comportamento sem acordo');
+        self::assertSame(14500, $obrig->getValorOriginal(), 'valorOriginal continua sendo o principal (não a soma da coluna Valor)');
+        self::assertSame(0, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]), 'nenhum acordo criado');
+    }
+
+    #[TestDox('"Acordo 31" em carteiras diferentes não se confunde (dedup escopado por carteira)')]
+    public function testAcordoDeCarteirasDiferentesNaoSeConfunde(): void
+    {
+        $tenant = $this->criarTenant();
+        $user = $this->criarUser();
+        $carteiraA = $this->criarCarteira($tenant);
+        $carteiraB = $this->criarCarteira($tenant);
+
+        $boletoA = $this->boletoComAcordo('9401', '30-01', 'DEVEDOR CARTEIRA A', numeroAcordo: 31, parcelaIndice: 1, parcelaTotal: 1, somaColunaValorCentavos: 12000);
+        $boletoB = $this->boletoComAcordo('9402', '30-01', 'DEVEDOR CARTEIRA B', numeroAcordo: 31, parcelaIndice: 1, parcelaTotal: 1, somaColunaValorCentavos: 8000);
+
+        $this->importar->confirmar($carteiraA, new ResultadoLeitura([$boletoA], [], 0), $tenant, $user);
+        $this->importar->confirmar($carteiraB, new ResultadoLeitura([$boletoB], [], 0), $tenant, $user);
+
+        self::assertSame(2, $this->em->getRepository(Acordo::class)->count(['tenant' => $tenant]), 'dois acordos DISTINTOS, um por carteira');
+
+        $parcelaA = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '9401']);
+        $parcelaB = $this->em->getRepository(Obrigacao::class)->findOneBy(['tenant' => $tenant, 'referenciaExterna' => '9402']);
+        self::assertNotSame($parcelaA?->getAcordoOrigem()?->getId(), $parcelaB?->getAcordoOrigem()?->getId(), 'acordos não se cruzam entre carteiras');
+        self::assertSame(12000, $parcelaA?->getValorOriginal());
+        self::assertSame(8000, $parcelaB?->getValorOriginal());
+    }
+
     // ----------------------------------------------------------------- helpers
+
+    /** Boleto sintético com acordo reconhecido — usado pelos testes de #7-B (sem depender do xlsx). */
+    private function boletoComAcordo(
+        string $nn,
+        string $objetoIdentificacao,
+        string $sacadoNome,
+        int $numeroAcordo,
+        int $parcelaIndice,
+        int $parcelaTotal,
+        int $somaColunaValorCentavos,
+    ): BoletoImportavel {
+        return new BoletoImportavel(
+            nn: $nn,
+            objetoIdentificacao: $objetoIdentificacao,
+            unidadeMetadata: null,
+            sacadoNome: $sacadoNome,
+            // Sem sentido de "principal" quando há acordo (o UseCase usa somaColunaValorCentavos), mas o
+            // adapter real sempre entrega principalCentavos > 0 — mantido coerente com a fonte.
+            principalCentavos: $somaColunaValorCentavos,
+            jurosCentavos: 0,
+            multaCentavos: 0,
+            correcaoCentavos: 0,
+            honorariosInformadosCentavos: 0,
+            vencimento: new \DateTimeImmutable('2026-03-10'),
+            competencia: '03/2026',
+            acordoTexto: "Acordo {$numeroAcordo} - Parc. {$parcelaIndice}/{$parcelaTotal}",
+            acordo: new AcordoDoRelatorio($numeroAcordo, $parcelaIndice, $parcelaTotal),
+            somaColunaValorCentavos: $somaColunaValorCentavos,
+            linhas: [],
+        );
+    }
 
     private function criarTenant(): Tenant
     {

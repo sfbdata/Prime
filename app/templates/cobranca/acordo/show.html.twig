@@ -12,6 +12,11 @@
             <a href="{{ path('cobranca_objeto_show', {id: acordo.objetoId}) }}" class="btn btn-sm btn-outline-secondary" title="Voltar à cobrança"><i class="bi bi-arrow-left"></i></a>
             <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-file-earmark-text"></i>Acordo de {{ acordo.dataAcordo|date('d/m/Y') }}</h1>
             <span class="badge {{ acordo.statusBadgeClass }}">{{ acordo.statusLabel }}</span>
+            {% if acordo.estaIncompleto %}
+            <span class="badge text-bg-warning" title="Parcelas ainda não presentes no relatório importado — entram por importação futura ou lançamento manual.">
+                <i class="bi bi-exclamation-triangle me-1"></i>Faltam {{ acordo.parcelasFaltantes }} parcela{{ acordo.parcelasFaltantes > 1 ? 's' : '' }}
+            </span>
+            {% endif %}
             {% if podeAgir %}
             {# Barra de ações (fatia 4): só acordo ativo, caso aberto e quem tem a capacidade. #}
             <div class="ms-auto d-flex gap-2 flex-wrap">
