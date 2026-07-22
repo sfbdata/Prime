@@ -20,7 +20,13 @@
 | **4/5/6** Documentos: acordo + carteira + grampo no objeto | `cobranca-documentos-acordo-carteira-grampo.md` | MÉDIO | independente | reusa `EnviarDocumentoUseCase` |
 | **7** Importar linhas de acordo como Acordo | `cobranca-importar-linhas-acordo.md` | MÉDIO/ALTO | **base de encargos** | importador mudou lá |
 | **3** Esconder botões pagamento/liquidação | `cobranca-esconder-botoes-pagamento-liquidacao.md` | BAIXO | **base de encargos** | ⚠️ colide c/ Twig do chat 2 |
-| **8** Honorários no acordo | *(sem spec — decidido)* | — | — | **acordo NÃO cobra honorários** (parcela nasce com honorários 0) |
+| **8** Honorários no acordo | *(sem spec — decidido)* | — | — | **acordo NÃO cobra honorários / sem honorário sobre honorário** (parcela nasce com valor total incl. honorário + taxa hon. 0) |
+| **9** Cascata de encargos 100% ao vivo (SEM snapshot), nível objeto | `cobranca-cascata-encargos-ao-vivo-sem-snapshot.md` | **ALTO** | **master atual `0ef1a8e`** (encargos já deployado) | corrige honorários dos 194 casos por herança |
+
+> **⚠️ ATUALIZAÇÃO 2026-07-21 (pós-deploy):** a feature de encargos/taxa foi **DEPLOYADA em prod** (master `0ef1a8e`).
+> Então a **base de implementação de TODOS os ajustes agora é a master atual `0ef1a8e`** (não mais `origin/master`
+> `86de512`) — ela já contém encargos+taxa+redesign. O `#9` (sem snapshot) foi acrescentado por decisão do dono e é
+> **ALTO risco** (muda dinheiro em produção): exige spec→TDD→revisão da branch inteira (opus)→deploy humano.
 
 ## Ordem sugerida de execução
 
