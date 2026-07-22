@@ -41,6 +41,21 @@
 
 <section class="content">
     <div class="container-fluid">
+        {# ── Abas: Resumo / Documentos (Ajuste #4) ─────────────────── #}
+        <ul class="nav nav-tabs" id="acordoTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-acordo-resumo" type="button">
+                    <i class="bi bi-info-circle me-1"></i>Resumo
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-acordo-documentos" type="button">
+                    <i class="bi bi-paperclip me-1"></i>Documentos <span class="badge text-bg-secondary">{{ documentos|length }}</span>
+                </button>
+            </li>
+        </ul>
+        <div class="tab-content border border-top-0 rounded-bottom p-3 bg-body">
+        <div class="tab-pane fade show active" id="tab-acordo-resumo">
         {# ── Resumo da negociação ── #}
         <div class="row g-2 mb-3">
             <div class="col-6 col-lg-3">
@@ -124,8 +139,88 @@
                 {% else %}<p class="text-muted mb-0 text-center py-3">Nenhuma obrigação substituída.</p>{% endif %}
             </div>
         </div>
+        </div>
+
+        {# ── Documentos do acordo (Ajuste #4) ─────────────────────── #}
+        <div class="tab-pane fade" id="tab-acordo-documentos">
+            <div class="d-flex justify-content-end mb-2">
+                {% if has_permission('resources.cobranca.gerenciar') %}
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#modalAdicionarDocumentoAcordo">
+                    <i class="bi bi-plus-lg me-1"></i>Adicionar documento
+                </button>
+                {% endif %}
+            </div>
+            {% if documentos|length > 0 %}
+            <div class="table-responsive"><table class="table table-sm mb-0 align-middle">
+                <thead><tr><th>Data</th><th>Nome</th><th>Categoria</th><th>Observação</th><th class="text-end" style="width:110px">Ações</th></tr></thead>
+                <tbody>
+                {% for doc in documentos %}
+                <tr>
+                    <td>{{ doc.carregadoEm|date('d/m/Y H:i') }}</td>
+                    <td>{{ doc.nomeOriginal }}</td>
+                    <td>{{ doc.categoria.rotulo }}</td>
+                    <td class="text-muted small">{{ doc.observacao ?: '—' }}</td>
+                    <td class="text-end">
+                        <a href="{{ path('cobranca_acordo_documento_download', {docId: doc.id}) }}" class="btn btn-sm btn-outline-secondary" title="Baixar">
+                            <i class="bi bi-download"></i>
+                        </a>
+                        {% if has_permission('resources.cobranca.gerenciar') %}
+                        <form method="post" action="{{ path('cobranca_acordo_documento_excluir', {docId: doc.id}) }}" class="d-inline" onsubmit="return confirm('Excluir este documento?');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('cobranca_acordo_documento_excluir_' ~ doc.id) }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table></div>
+            {% else %}<p class="text-muted mb-0 text-center py-3">Nenhum documento anexado.</p>{% endif %}
+        </div>
+        </div>
     </div>
 </section>
+
+{# ── Adicionar documento do acordo (Ajuste #4; form multipart puro, sem FormType) ── #}
+{% if has_permission('resources.cobranca.gerenciar') %}
+<div class="modal fade" id="modalAdicionarDocumentoAcordo" tabindex="-1" aria-labelledby="tituloAdicionarDocumentoAcordo" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{{ path('cobranca_acordo_documento_upload', {id: acordo.id}) }}" enctype="multipart/form-data">
+                <input type="hidden" name="_token" value="{{ csrf_token('cobranca_acordo_documento_upload_' ~ acordo.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloAdicionarDocumentoAcordo"><i class="bi bi-paperclip me-1"></i>Adicionar documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="acordoDocumentoArquivo">Arquivo</label>
+                        <input type="file" class="form-control" id="acordoDocumentoArquivo" name="arquivo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="acordoDocumentoCategoria">Categoria</label>
+                        <select class="form-select" id="acordoDocumentoCategoria" name="categoria">
+                            {% for c in categoriasAcordo %}
+                            <option value="{{ c.value }}">{{ c.rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="acordoDocumentoObservacao">Observação</label>
+                        <textarea class="form-control" id="acordoDocumentoObservacao" name="observacao" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>Enviar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% if podeAgir %}
 {# ── Editar acordo (fatia 4): reajusta as parcelas NÃO pagas; as pagas vêm travadas ── #}

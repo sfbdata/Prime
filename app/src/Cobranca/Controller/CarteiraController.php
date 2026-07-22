@@ -9,23 +9,32 @@ use App\Cobranca\DTO\CriarCarteiraInput;
 use App\Cobranca\DTO\CriarObjetoInput;
 use App\Cobranca\DTO\EditarConfiguracaoCarteiraInput;
 use App\Cobranca\Entity\Carteira;
+use App\Cobranca\Enum\CategoriaDocumentoCarteira;
+use App\Cobranca\Exception\ArquivoMuitoGrandeException;
 use App\Cobranca\Exception\CarteiraNaoEncontradaException;
 use App\Cobranca\Exception\ClienteCredorNaoEncontradoException;
+use App\Cobranca\Exception\TipoArquivoNaoPermitidoException;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\ModoCarteira;
 use App\Cobranca\Form\CriarCarteiraType;
 use App\Cobranca\Form\CriarObjetoType;
 use App\Cobranca\Form\EditarConfiguracaoCarteiraType;
+use App\Cobranca\Repository\CarteiraDocumentoRepository;
 use App\Cobranca\Repository\CarteiraRepository;
 use App\Cobranca\UseCase\CriarCarteiraUseCase;
 use App\Cobranca\UseCase\CriarObjetoComCobrancaUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoCarteiraUseCase;
+use App\Cobranca\UseCase\EnviarDocumentoCarteiraUseCase;
+use App\Cobranca\UseCase\ExcluirDocumentoCarteiraUseCase;
 use App\Cobranca\UseCase\ListarCarteirasUseCase;
 use App\Cobranca\UseCase\MontarVisaoCarteiraUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -50,11 +59,16 @@ final class CarteiraController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly CarteiraRepository $carteiraRepository,
         private readonly ClienteRepository $clienteRepository,
+        private readonly CarteiraDocumentoRepository $carteiraDocumentoRepository,
         private readonly ListarCarteirasUseCase $listarCarteiras,
         private readonly MontarVisaoCarteiraUseCase $montarVisaoCarteira,
         private readonly CriarCarteiraUseCase $criarCarteira,
         private readonly EditarConfiguracaoCarteiraUseCase $editarConfiguracao,
         private readonly CriarObjetoComCobrancaUseCase $criarObjeto,
+        private readonly EnviarDocumentoCarteiraUseCase $enviarDocumentoCarteira,
+        private readonly ExcluirDocumentoCarteiraUseCase $excluirDocumentoCarteira,
+        private readonly ArquivoStorageInterface $storage,
+        private readonly string $cobrancasUploadsDir,
     ) {
     }
 
@@ -120,6 +134,9 @@ final class CarteiraController extends AbstractController
             'casos' => $visao['casos'],
             'forms' => $this->formulariosDaCarteira($carteira, $tenant),
             'ajudaCarteira' => self::ajudaDosCampos(),
+            // Documentos da carteira (Ajuste #5): lista cronológica abaixo da configuração.
+            'documentos' => $this->carteiraDocumentoRepository->listarPorCarteira($carteira),
+            'categoriasCarteira' => CategoriaDocumentoCarteira::cases(),
         ]);
     }
 
@@ -216,6 +233,99 @@ final class CarteiraController extends AbstractController
         return $this->redirectToRoute('cobranca_carteira_show', ['id' => $id]);
     }
 
+    // ------------------------------------------------------- documentos (#5) ---
+
+    /**
+     * Envia um documento da carteira (Ajuste #5): form multipart HTML puro + PRG — não é o
+     * file-manager JSON do Caso (`DocumentoCobrancaController`), é uma lista simples. Whitelist de
+     * MIME/tamanho e o guard de tenant vivem no `EnviarDocumentoCarteiraUseCase`.
+     */
+    #[Route('/carteiras/{id}/documentos', name: 'cobranca_carteira_documento_upload', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function uploadDocumento(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $carteira = $this->carteiraRepository->findOneByIdDoTenant($id, $tenant);
+        if ($carteira === null) {
+            throw $this->createNotFoundException('Carteira de cobrança não encontrada.');
+        }
+
+        if (!$this->isCsrfTokenValid('cobranca_carteira_documento_upload_' . $id, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirectToRoute('cobranca_carteira_show', ['id' => $id]);
+        }
+
+        $arquivo = $request->files->get('arquivo');
+        if (!$arquivo instanceof UploadedFile) {
+            $this->addFlash('danger', 'Nenhum arquivo enviado.');
+
+            return $this->redirectToRoute('cobranca_carteira_show', ['id' => $id]);
+        }
+
+        $categoria = CategoriaDocumentoCarteira::tryFrom((string) $request->request->get('categoria', ''))
+            ?? CategoriaDocumentoCarteira::Outro;
+        $observacao = trim((string) $request->request->get('observacao', ''));
+
+        try {
+            $this->enviarDocumentoCarteira->executar($carteira, $arquivo, $categoria, $observacao !== '' ? $observacao : null, $tenant);
+            $this->addFlash('success', 'Documento adicionado.');
+        } catch (TipoArquivoNaoPermitidoException | ArquivoMuitoGrandeException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('cobranca_carteira_show', ['id' => $id]);
+    }
+
+    #[Route('/carteiras/documentos/{docId}/excluir', name: 'cobranca_carteira_documento_excluir', methods: ['POST'], requirements: ['docId' => '\d+'])]
+    public function excluirDocumento(int $docId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $documento = $this->carteiraDocumentoRepository->findOneByIdDoTenant($docId, $tenant);
+        if ($documento === null) {
+            throw $this->createNotFoundException('Documento não encontrado.');
+        }
+        $carteiraId = (int) $documento->getCarteira()?->getId();
+
+        if (!$this->isCsrfTokenValid('cobranca_carteira_documento_excluir_' . $docId, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirectToRoute('cobranca_carteira_show', ['id' => $carteiraId]);
+        }
+
+        $this->excluirDocumentoCarteira->executar($documento, $tenant);
+        $this->addFlash('success', 'Documento removido.');
+
+        return $this->redirectToRoute('cobranca_carteira_show', ['id' => $carteiraId]);
+    }
+
+    #[Route('/carteiras/documentos/{docId}/download', name: 'cobranca_carteira_documento_download', methods: ['GET'], requirements: ['docId' => '\d+'])]
+    public function downloadDocumento(int $docId): BinaryFileResponse
+    {
+        $tenant = $this->tenantComModulo();
+        if ($tenant === null) {
+            throw $this->createAccessDeniedException('Sem acesso ao módulo de Cobranças.');
+        }
+
+        $documento = $this->carteiraDocumentoRepository->findOneByIdDoTenant($docId, $tenant);
+        if ($documento === null) {
+            throw $this->createNotFoundException('Documento não encontrado.');
+        }
+
+        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
+        if (!$this->storage->existe($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado no armazenamento.');
+        }
+
+        return $this->storage->servir($caminho, $documento->getNomeOriginal(), inline: false);
+    }
 
     /**
      * Texto de ajuda (popover) dos campos de configuração da carteira, a partir dos enums (fonte única).

@@ -12,9 +12,11 @@ use App\Cobranca\DTO\MarcarAcordoCumpridoInput;
 use App\Cobranca\DTO\ParcelaEdicaoInput;
 use App\Cobranca\DTO\RomperAcordoInput;
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\Enum\CategoriaDocumentoAcordo;
 use App\Cobranca\Enum\Periodicidade;
 use App\Cobranca\Exception\AcordoComParcelasRenegociadasException;
 use App\Cobranca\Exception\AcordoNaoAtivoException;
+use App\Cobranca\Exception\ArquivoMuitoGrandeException;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\ObrigacaoComPagamentoException;
 use App\Cobranca\Exception\ObrigacaoDeAcordoException;
@@ -23,10 +25,12 @@ use App\Cobranca\Exception\ObrigacaoJaSubstituidaException;
 use App\Cobranca\Exception\ObrigacaoNaoEhDividaOriginalException;
 use App\Cobranca\Exception\ObrigacaoNaoEncontradaException;
 use App\Cobranca\Exception\ParcelamentoInvalidoException;
+use App\Cobranca\Exception\TipoArquivoNaoPermitidoException;
 use App\Cobranca\Form\AcordoCriarType;
 use App\Cobranca\Form\CancelarAcordoType;
 use App\Cobranca\Form\EditarAcordoType;
 use App\Cobranca\Form\RomperAcordoType;
+use App\Cobranca\Repository\AcordoDocumentoRepository;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObrigacaoRepository;
@@ -34,12 +38,17 @@ use App\Cobranca\Service\GeradorParcelamento;
 use App\Cobranca\UseCase\CancelarAcordoUseCase;
 use App\Cobranca\UseCase\CriarAcordoUseCase;
 use App\Cobranca\UseCase\EditarAcordoUseCase;
+use App\Cobranca\UseCase\EnviarDocumentoAcordoUseCase;
+use App\Cobranca\UseCase\ExcluirDocumentoAcordoUseCase;
 use App\Cobranca\UseCase\MarcarAcordoCumpridoUseCase;
 use App\Cobranca\UseCase\MontarDetalheAcordoUseCase;
 use App\Cobranca\UseCase\RomperAcordoUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
+use App\Shared\Service\ArquivoStorageInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -61,6 +70,7 @@ final class AcordoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly AcordoRepository $acordoRepository,
+        private readonly AcordoDocumentoRepository $acordoDocumentoRepository,
         private readonly ObrigacaoRepository $obrigacaoRepository,
         private readonly CriarAcordoUseCase $criarAcordo,
         private readonly RomperAcordoUseCase $romperAcordo,
@@ -69,6 +79,10 @@ final class AcordoController extends AbstractController
         private readonly GeradorParcelamento $geradorParcelamento,
         private readonly MontarDetalheAcordoUseCase $montarDetalheAcordo,
         private readonly EditarAcordoUseCase $editarAcordo,
+        private readonly EnviarDocumentoAcordoUseCase $enviarDocumentoAcordo,
+        private readonly ExcluirDocumentoAcordoUseCase $excluirDocumentoAcordo,
+        private readonly ArquivoStorageInterface $storage,
+        private readonly string $cobrancasUploadsDir,
     ) {
     }
 
@@ -126,6 +140,9 @@ final class AcordoController extends AbstractController
             'forms' => $forms,
             'podeAgir' => $podeAgir,
             'parcelasTravadas' => $parcelasTravadas,
+            // Documentos do acordo (Ajuste #4): aba "Documentos" — lista cronológica.
+            'documentos' => $this->acordoDocumentoRepository->listarPorAcordo($acordo),
+            'categoriasAcordo' => CategoriaDocumentoAcordo::cases(),
         ]);
     }
 
@@ -329,6 +346,100 @@ final class AcordoController extends AbstractController
         }
 
         return $this->redirect($this->generateUrl('cobranca_objeto_show', ['id' => $objetoId]) . '#secao-divida');
+    }
+
+    // ------------------------------------------------------- documentos (#4) ---
+
+    /**
+     * Envia um documento do acordo (Ajuste #4): form multipart HTML puro + PRG — mesma mecânica
+     * simplificada da carteira (não é o file-manager JSON do Caso). Whitelist de MIME/tamanho e o
+     * guard de tenant vivem no `EnviarDocumentoAcordoUseCase`.
+     */
+    #[Route('/acordos/{id}/documentos', name: 'cobranca_acordo_documento_upload', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function uploadDocumento(int $id, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $acordo = $this->acordoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($acordo === null) {
+            throw $this->createNotFoundException('Acordo não encontrado.');
+        }
+
+        if (!$this->isCsrfTokenValid('cobranca_acordo_documento_upload_' . $id, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirectToRoute('cobranca_acordo_show', ['id' => $id]);
+        }
+
+        $arquivo = $request->files->get('arquivo');
+        if (!$arquivo instanceof UploadedFile) {
+            $this->addFlash('danger', 'Nenhum arquivo enviado.');
+
+            return $this->redirectToRoute('cobranca_acordo_show', ['id' => $id]);
+        }
+
+        $categoria = CategoriaDocumentoAcordo::tryFrom((string) $request->request->get('categoria', ''))
+            ?? CategoriaDocumentoAcordo::Outro;
+        $observacao = trim((string) $request->request->get('observacao', ''));
+
+        try {
+            $this->enviarDocumentoAcordo->executar($acordo, $arquivo, $categoria, $observacao !== '' ? $observacao : null, $tenant);
+            $this->addFlash('success', 'Documento adicionado.');
+        } catch (TipoArquivoNaoPermitidoException | ArquivoMuitoGrandeException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('cobranca_acordo_show', ['id' => $id]);
+    }
+
+    #[Route('/acordos/documentos/{docId}/excluir', name: 'cobranca_acordo_documento_excluir', methods: ['POST'], requirements: ['docId' => '\d+'])]
+    public function excluirDocumento(int $docId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $documento = $this->acordoDocumentoRepository->findOneByIdDoTenant($docId, $tenant);
+        if ($documento === null) {
+            throw $this->createNotFoundException('Documento não encontrado.');
+        }
+        $acordoId = (int) $documento->getAcordo()?->getId();
+
+        if (!$this->isCsrfTokenValid('cobranca_acordo_documento_excluir_' . $docId, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirectToRoute('cobranca_acordo_show', ['id' => $acordoId]);
+        }
+
+        $this->excluirDocumentoAcordo->executar($documento, $tenant);
+        $this->addFlash('success', 'Documento removido.');
+
+        return $this->redirectToRoute('cobranca_acordo_show', ['id' => $acordoId]);
+    }
+
+    #[Route('/acordos/documentos/{docId}/download', name: 'cobranca_acordo_documento_download', methods: ['GET'], requirements: ['docId' => '\d+'])]
+    public function downloadDocumento(int $docId): BinaryFileResponse
+    {
+        $tenant = $this->tenantComModulo();
+        if ($tenant === null) {
+            throw $this->createAccessDeniedException('Sem acesso ao módulo de Cobranças.');
+        }
+
+        $documento = $this->acordoDocumentoRepository->findOneByIdDoTenant($docId, $tenant);
+        if ($documento === null) {
+            throw $this->createNotFoundException('Documento não encontrado.');
+        }
+
+        $caminho = $this->storage->caminho($this->cobrancasUploadsDir . '/' . $tenant->getId(), $documento->getCaminhoArquivo());
+        if (!$this->storage->existe($caminho)) {
+            throw $this->createNotFoundException('Arquivo não encontrado no armazenamento.');
+        }
+
+        return $this->storage->servir($caminho, $documento->getNomeOriginal(), inline: false);
     }
 
     /**

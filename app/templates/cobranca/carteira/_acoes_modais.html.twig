@@ -51,3 +51,42 @@
     </div>
 </div>
 {% endif %}
+
+{# ── Adicionar documento da carteira (Ajuste #5; form multipart puro, sem FormType) ── #}
+{% if has_permission('resources.cobranca.gerenciar') %}
+<div class="modal fade" id="modalAdicionarDocumentoCarteira" tabindex="-1" aria-labelledby="tituloAdicionarDocumentoCarteira" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{{ path('cobranca_carteira_documento_upload', {id: carteira.id}) }}" enctype="multipart/form-data">
+                <input type="hidden" name="_token" value="{{ csrf_token('cobranca_carteira_documento_upload_' ~ carteira.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloAdicionarDocumentoCarteira"><i class="bi bi-paperclip me-1"></i>Adicionar documento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="carteiraDocumentoArquivo">Arquivo</label>
+                        <input type="file" class="form-control" id="carteiraDocumentoArquivo" name="arquivo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="carteiraDocumentoCategoria">Categoria</label>
+                        <select class="form-select" id="carteiraDocumentoCategoria" name="categoria">
+                            {% for c in categoriasCarteira %}
+                            <option value="{{ c.value }}">{{ c.rotulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label" for="carteiraDocumentoObservacao">Observação</label>
+                        <textarea class="form-control" id="carteiraDocumentoObservacao" name="observacao" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i>Enviar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
