@@ -63,6 +63,13 @@ final class CasoDetalheOutput
          * no fim para não quebrar chamadores antigos por posição; default composta = o do domínio).
          */
         public readonly bool $baseHonorariosComposta = true,
+        /**
+         * Carência RESOLVIDA dos honorários (cascata Carteira→Objeto, #9-T3), em dias. A UI usa isto para o
+         * `data-carencia` do preview JS (%↔R$) nos modais de registrar/editar obrigação — antes lido do
+         * snapshot morto do Caso (editor aposentado da tela); agora é o mesmo `configCaso.carenciaHonorariosDias`
+         * já resolvido acima para `baseHonorariosComposta`.
+         */
+        public readonly ?int $carenciaHonorariosDias = null,
     ) {
     }
 }

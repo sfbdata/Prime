@@ -163,6 +163,9 @@ final class MontarDetalheCasoUseCase
             // Base resolvida do honorário do CASO (para o espelho %↔R$ do honorário nos modais converter
             // sobre a base certa — composta soma valor+juros+multa+correção; principal usa só o valor).
             baseHonorariosComposta: $configCaso->baseHonorarios === BaseEncargo::Composta,
+            // #9-T3: carência resolvida da cascata (Carteira→Objeto) para o `data-carencia` do preview JS
+            // — o editor de honorários do Caso saiu da tela, este era o único lugar que ainda a expunha.
+            carenciaHonorariosDias: $configCaso->carenciaHonorariosDias,
         );
     }
 

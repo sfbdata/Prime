@@ -21,7 +21,9 @@ use App\Tests\Functional\JusPrimeWebTestCase;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Component\DomCrawler\Crawler;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Zenstruck\Foundry\Test\Factories;
 
 /**
@@ -282,5 +284,25 @@ abstract class CobrancaWebTestCase extends JusPrimeWebTestCase
     protected function tokenDoFormulario(Crawler $crawler, string $nomeForm): string
     {
         return (string) $crawler->filter('input[name="' . $nomeForm . '[_token]"]')->first()->attr('value');
+    }
+
+    /**
+     * Token CSRF por INTENÇÃO, direto do gerenciador — para endpoints cujo form saiu da UI (dormente
+     * no backend, #9-T3) mas cuja rota continua ativa: sem markup na página, não há `<input>` para
+     * `tokenDoFormulario` raspar. Precisa de UMA requisição já servida pelo `$client` (sessão iniciada)
+     * antes de chamar — o token é empurrado/desempurrado na `RequestStack` só para o `SessionTokenStorage`
+     * achar a sessão da request corrente; `framework.test: true` (ambiente de teste) mantém essa mesma
+     * sessão viva entre requisições do MESMO client, sem depender de cookie roundtrip.
+     */
+    protected function tokenCsrf(KernelBrowser $client, string $intencao): string
+    {
+        $requestStack = static::getContainer()->get(RequestStack::class);
+        $requestStack->push($client->getRequest());
+
+        try {
+            return (string) static::getContainer()->get(CsrfTokenManagerInterface::class)->getToken($intencao);
+        } finally {
+            $requestStack->pop();
+        }
     }
 }

@@ -29,13 +29,20 @@ use PHPUnit\Framework\Attributes\TestDox;
  *
  * ⚠️ T1 (cascata de encargos ao vivo sem snapshot, #9): `ResolvedorConfigEncargos::resolverDoCaso`
  * passou a delegar ao OBJETO/CARTEIRA e não lê mais `formaHonorarios`/`percentualHonorarios` do
- * CASO. Este UseCase/endpoint (fora do escopo de T1 — não foi aposentado) continua gravando essas
- * colunas do caso, mas elas viraram sombra/mortas para fins de CÁLCULO: o percentual submetido aqui
- * não influencia mais o honorário recalculado — a alíquota efetiva é a da CARTEIRA (fixa em 10% nos
- * seeds abaixo). Os testes foram ajustados para refletir essa taxa viva (15200 em vez de 30400) em
- * vez do percentual do formulário. Isto é uma REGRESSÃO CONHECIDA do endpoint
- * `/cobrancas/casos/{id}/configuracao-honorarios` deixada para decisão do orquestrador/T2-T3
- * (retirar o modal do caso em favor do modal do objeto, ou redirecionar a escrita para o objeto).
+ * CASO. Este UseCase/endpoint continua gravando essas colunas do caso, mas elas viraram sombra/mortas
+ * para fins de CÁLCULO: o percentual submetido aqui não influencia mais o honorário recalculado — a
+ * alíquota efetiva é a da CARTEIRA (fixa em 10% nos seeds abaixo). Os testes foram ajustados para
+ * refletir essa taxa viva (15200 em vez de 30400) em vez do percentual do formulário.
+ *
+ * ⚠️ #9-T3 RESOLVEU a regressão anotada acima pela T1: o modal `#modalEditarConfigCaso` (e o botão que
+ * o abria) SAIU da tela (`cobranca/objeto/show.html.twig` e `cobranca/caso/_acoes_modais.html.twig`) —
+ * o "meio" da cascata agora tem UI própria no OBJETO (`ObjetoConfigEncargosControllerTest`,
+ * `#modalConfigEncargosObjeto`). Este endpoint (`CasoController::editarConfiguracaoHonorarios`, rota
+ * `cobranca_caso_editar_config`) e o Form/UseCase/DTO seguem DORMENTES de propósito (reversível, spec
+ * §5/§9) — a suíte abaixo prova que o backend continua funcionando por baixo, mesmo sem UI. Como o
+ * `<input>` do form não existe mais na página, o token CSRF já não pode ser raspado do DOM
+ * (`tokenDoFormulario`) — usa `tokenCsrf()` (gerado direto pelo `CsrfTokenManagerInterface` da mesma
+ * intenção `editar_configuracao_caso`, ver `CobrancaWebTestCase`).
  */
 #[CoversClass(CasoController::class)]
 final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
@@ -51,8 +58,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $objetoId = (int) $caso->getObjeto()->getId();
         $obrigacaoId = (int) $obrigacao->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -101,8 +108,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $carteira->setTaxaMultaBp(0);
         $em->flush();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -161,8 +168,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $substituidaId = (int) $substituida->getId();
         $automaticaId = (int) $automatica->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -212,8 +219,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $em->flush();
         $congeladaId = (int) $congelada->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -245,8 +252,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $casoId = (int) $caso->getId();
         $objetoId = (int) $caso->getObjeto()->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
@@ -283,8 +290,8 @@ final class CasoConfigHonorariosControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $obrigacaoId = (int) $obrigacao->getId();
 
-        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
-        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_caso');
+        $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenCsrf($client, 'editar_configuracao_caso');
 
         $client->request('POST', '/cobrancas/casos/' . $casoId . '/configuracao-honorarios', [
             'editar_configuracao_caso' => [
