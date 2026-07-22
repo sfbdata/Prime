@@ -100,5 +100,4 @@ final class PastilhasDeContato
 
         return $pastilhas;
     }
-
 }

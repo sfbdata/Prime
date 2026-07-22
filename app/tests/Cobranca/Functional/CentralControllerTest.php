@@ -352,11 +352,24 @@ final class CentralControllerTest extends CobrancaWebTestCase
         $this->contato($tenant, $casoA, $user, $this->hoje('09:00:00'), ResultadoContato::Atendido);
         $this->contato($tenant, $casoB, $user, $this->hoje('09:30:00'), ResultadoContato::Atendido);
         $this->contato($tenant, $casoB, $user, $this->hoje('10:00:00'), ResultadoContato::Atendido);
+        // Um evento de cada coluna, só na carteira B: se o filtro vazar, aparece na A.
+        $this->evento($tenant, $casoB, $user, TipoEventoHistorico::AcordoCriado, $this->hoje('11:00:00'));
+        $this->evento($tenant, $casoB, $user, TipoEventoHistorico::PagamentoRegistrado, $this->hoje('12:00:00'));
 
         $crawler = $client->request('GET', '/cobrancas/central', ['carteira' => (string) $carteiraA->getId()]);
 
         self::assertResponseIsSuccessful();
-        self::assertSame('1', trim($crawler->filter('.js-linha-pessoa[data-chave="' . $user->getId() . '"] td')->eq(0)->text()));
+
+        // TODAS as colunas, não só a primeira: com carteira, a SQL nativa passa pelo duplo `sprintf` E
+        // pela expansão de `IN (:tiposTrabalho)`, que reposiciona os demais binds. Aferir uma coluna só
+        // deixaria passar um embaralhamento dos parâmetros.
+        $linha = $crawler->filter('.js-linha-pessoa[data-chave="' . $user->getId() . '"] td');
+        self::assertSame('1', trim($linha->eq(0)->text()), 'contatos');
+        self::assertSame('1', trim($linha->eq(1)->text()), 'falou com o devedor');
+        self::assertSame('0', trim($linha->eq(2)->text()), 'acordo da carteira B nao entra');
+        self::assertSame('0', trim($linha->eq(3)->text()), 'baixa da carteira B nao entra');
+        // Última ação = o contato das 09:00 da carteira A, não o pagamento das 12:00 da carteira B.
+        self::assertStringContainsString('09:00', trim($linha->eq(4)->text()));
     }
 
     #[TestDox('Evento sem usuário aparece na linha "Sem responsável", nunca atribuído a alguém')]

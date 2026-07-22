@@ -376,7 +376,11 @@ class EventoHistoricoRepository extends ServiceEntityRepository
 
         $sql = sprintf(
             $sql,
-            'INNER JOIN cobranca_caso c ON c.id = e.caso_id INNER JOIN cobranca_objeto o ON o.id = c.objeto_id',
+            // Tenant repetido nas tabelas juntadas: defesa em profundidade. O recorte já vem do
+            // `e.tenant_id` e a carteira é validada por posse no controller, mas esta é a única
+            // consulta do arquivo que atravessa três tabelas — barato deixar as três explícitas.
+            'INNER JOIN cobranca_caso c ON c.id = e.caso_id AND c.tenant_id = :tenant'
+            . ' INNER JOIN cobranca_objeto o ON o.id = c.objeto_id AND o.tenant_id = :tenant',
             'AND o.carteira_id = :carteira',
         );
 

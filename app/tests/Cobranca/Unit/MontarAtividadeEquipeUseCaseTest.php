@@ -205,6 +205,59 @@ final class MontarAtividadeEquipeUseCaseTest extends TestCase
         self::assertSame(42, $saida->totalContatos);
     }
 
+    #[TestDox('Quem NÃO é da equipe e só importou (zerado após o §5.1) não vira linha fantasma')]
+    public function testSobraSemTrabalhoNaoViraLinha(): void
+    {
+        // Depois do §5.1, quem só rodou importação zera as quatro colunas E a última ação. Como não é
+        // da equipe elegível, entraria como uma linha "0 0 0 0 —" idêntica à de um colega da equipe,
+        // sem nada que justifique estar ali — e sem somar nada ao total.
+        $sut = $this->useCase(
+            [
+                $this->linha(1, 'Maria', 10, 4, 1, 0, '2026-07-20 11:00:00'),
+                $this->linha(77, 'Quem Só Importou', 0, 0, 0, 0, null),
+            ],
+            [['id' => 1, 'nome' => 'Maria']],
+        );
+
+        $saida = $this->executar($sut);
+
+        self::assertSame(
+            ['Maria'],
+            array_map(static fn (AtividadePessoaOutput $p): string => $p->nome, $saida->pessoas),
+        );
+        self::assertSame(10, $saida->totalContatos, 'o total nao muda: a linha omitida somava zero');
+    }
+
+    #[TestDox('Já quem NÃO é da equipe mas trabalhou continua aparecendo, com o que fez')]
+    public function testSobraComTrabalhoContinuaAparecendo(): void
+    {
+        $sut = $this->useCase(
+            [
+                $this->linha(1, 'Maria', 10, 4, 1, 0, '2026-07-20 11:00:00'),
+                $this->linha(77, 'Cláudia (ex-equipe)', 0, 0, 0, 2, '2026-07-20 09:00:00'),
+            ],
+            [['id' => 1, 'nome' => 'Maria']],
+        );
+
+        $saida = $this->executar($sut);
+
+        self::assertSame(2, $this->porNome($saida->pessoas, 'Cláudia (ex-equipe)')->baixas);
+        self::assertSame(2, $saida->totalBaixas);
+    }
+
+    #[TestDox('Membro da equipe zerado CONTINUA na lista — a regra da sobra não o alcança')]
+    public function testMembroDaEquipeZeradoNaoEhFiltrado(): void
+    {
+        $sut = $this->useCase(
+            [],
+            [['id' => 1, 'nome' => 'Maria'], ['id' => 9, 'nome' => 'Samuel']],
+        );
+
+        $saida = $this->executar($sut);
+
+        self::assertCount(2, $saida->pessoas, 'quem tem o modulo aparece zerado, sempre');
+    }
+
     #[TestDox('As pessoas saem em ordem alfabética; "Sem responsável" fica sempre por último')]
     public function testOrdenacao(): void
     {

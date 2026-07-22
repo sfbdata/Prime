@@ -6,6 +6,7 @@ namespace App\Cobranca\UseCase;
 
 use App\Cobranca\DTO\AtividadeEquipeOutput;
 use App\Cobranca\DTO\AtividadePessoaOutput;
+use App\Cobranca\DTO\DesfechoContatoOutput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\UsuarioCobrancaRepository;
@@ -86,7 +87,16 @@ final class MontarAtividadeEquipeUseCase
 
         // Sobra do agregado: quem registrou trabalho no período mas não está na equipe elegível hoje
         // (perdeu o módulo, foi desativado, mudou de escritório). O trabalho dele não pode sumir.
+        //
+        // Mas só entra quem de fato TRABALHOU. Depois do §5.1, quem apenas rodou uma importação zera as
+        // quatro colunas e a última ação: viraria uma linha "0 0 0 0 —" idêntica à de um colega da
+        // equipe, sem nada que explique a presença dela e sem somar nada ao total. A lista é a equipe
+        // (spec §4) mais quem produziu número — não todo id que passou pela tabela de eventos.
         foreach ($porUsuario as $linha) {
+            if (!$this->produziuNumero($linha)) {
+                continue;
+            }
+
             $pessoas[] = $this->linhaDaPessoa($linha, $this->nomeDeQuemSaiu($linha));
         }
 
@@ -124,6 +134,20 @@ final class MontarAtividadeEquipeUseCase
     }
 
     /**
+     * A linha tem algo a mostrar? Vale só para a SOBRA do agregado — membro da equipe elegível aparece
+     * zerado por decisão da spec (§4: a ausência é a informação que o gestor foi buscar).
+     *
+     * @param array<string, mixed> $linha
+     */
+    private function produziuNumero(array $linha): bool
+    {
+        return (int) $linha['contatos'] > 0
+            || (int) $linha['acordos'] > 0
+            || (int) $linha['baixas'] > 0
+            || $linha['ultimaAcao'] !== null;
+    }
+
+    /**
      * O nome vem do LEFT JOIN da agregação. Só cai no genérico se o usuário sumiu da tabela `user` —
      * o que a FK `ON DELETE SET NULL` torna improvável, mas uma linha sem rótulo seria pior.
      *
@@ -138,7 +162,7 @@ final class MontarAtividadeEquipeUseCase
 
     /**
      * @param list<AtividadePessoaOutput> $pessoas
-     * @param list<\App\Cobranca\DTO\DesfechoContatoOutput> $canais
+     * @param list<DesfechoContatoOutput> $canais
      */
     private function comTotais(array $pessoas, array $canais): AtividadeEquipeOutput
     {
