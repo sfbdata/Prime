@@ -21,14 +21,16 @@
 
 ## 2. Limpeza (humano)
 
-Nenhuma tabela fora do domínio tem FK para `cobranca_*` (verificado em dev), então o `CASCADE` fica
-contido no domínio — não alcança User/Tenant/Pasta/Processo.
+Nenhuma tabela fora do domínio tem FK para `cobranca_*` (verificado em dev), e as 19 listadas cobrem
+todas as FKs internas — então **não se usa `CASCADE`**: se um dia surgir uma tabela nova apontando para
+cobrança, o Postgres recusa o TRUNCATE em vez de truncá-la junto em silêncio. Validado em dev com
+`BEGIN … TRUNCATE … ROLLBACK` (rodou sem erro e sem apagar nada).
 
 ```bash
 # Execute manualmente no terminal externo
 
 # --- DEV ---
-docker exec jusprime_db_dev psql -U symfony -d saas -c "
+docker exec jusprime_db_dev psql -U symfony -d saas -v ON_ERROR_STOP=1 -c "
 TRUNCATE TABLE
   cobranca_acordo, cobranca_acordo_documento, cobranca_alocacao_pagamento,
   cobranca_carteira, cobranca_carteira_documento, cobranca_caso, cobranca_documento,
@@ -36,14 +38,16 @@ TRUNCATE TABLE
   cobranca_pagamento, cobranca_pessoa, cobranca_pessoa_email, cobranca_pessoa_endereco,
   cobranca_pessoa_telefone, cobranca_proxima_acao, cobranca_secao,
   cobranca_vinculo_pessoa_objeto
-RESTART IDENTITY CASCADE;"
+RESTART IDENTITY;"
 
 # --- PROD (VPS; confira o dump antes) ---
-# docker exec jusprime_db_prod psql -U jusprime -d prime -c "<mesmo TRUNCATE>"
+# docker exec jusprime_db_prod psql -U jusprime -d prime -v ON_ERROR_STOP=1 -c "<mesmo TRUNCATE>"
 ```
 
+Só toca `cobranca_*`: clientes, pastas, processos, usuários e escritórios ficam intactos.
+
 Os arquivos anexados (documentos de carteira/caso/acordo) **não** são apagados pelo TRUNCATE: ficam
-órfãos em `app/public/uploads/`. Se quiser zerar também, limpe as pastas de cobrança à mão.
+órfãos em `app/public/uploads/cobrancas/<tenantId>/`. Se quiser zerar também, limpe à mão.
 
 ## 3. Migrações
 
