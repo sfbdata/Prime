@@ -1,5 +1,8 @@
 # Checklist de go-live — Encargos separados e configuráveis em cascata
 
+> ⚠️ **HISTÓRICO.** Para o cenário atual (banco de Cobrança zerado em dev e prod, go-live refeito sobre
+> dado limpo), use `RECONFIGURACAO_POS_LIMPEZA.md` — inclusive o A1, que **deixou de ser necessário**.
+>
 > ⚠️ **SUPERADO pelo modelo "ENCARGOS AO VIVO" (2026-07-20).** Este checklist descreve o modelo antigo
 > (encargos **materializados + cron** de crescimento). A feature pivotou: o encargo agora é **calculado ao
 > vivo** na leitura (vencimento → hoje × taxa), **sem cron** e **sem congelamento manual**. O cron
