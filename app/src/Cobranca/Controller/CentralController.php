@@ -73,6 +73,10 @@ final class CentralController extends AbstractController
      * Detalhe de uma pessoa no mesmo recorte da tabela. Responde um FRAGMENTO (sem layout): a tela o
      * injeta abaixo da linha clicada, e é por ser rota própria que a consulta da tabela não cresce com o
      * tamanho da equipe (spec §8).
+     *
+     * `?cadastro=1` expande os lançamentos de cadastro/importação, que por padrão ficam resumidos numa
+     * linha (spec §5.1). Buscar essa lista só quando pedida é o ponto: ela é justamente a que pode ter
+     * centenas de linhas de uma importação.
      */
     #[Route('/central/atividade/{chave}', name: 'cobranca_central_atividade_detalhe', requirements: ['chave' => '\d+|sem-responsavel'], methods: ['GET'])]
     public function detalheAtividade(Request $request, string $chave): Response
@@ -87,9 +91,43 @@ final class CentralController extends AbstractController
 
         [$usuarioId, $nome] = $this->resolverPessoa($chave, $tenant);
 
-        $detalhe = $this->montarDetalhe->executar($tenant, $usuarioId, $nome, $periodo['inicio'], $periodo['fimExclusivo'], $carteira);
+        $detalhe = $this->montarDetalhe->executar(
+            $tenant,
+            $usuarioId,
+            $nome,
+            $periodo['inicio'],
+            $periodo['fimExclusivo'],
+            $carteira,
+            $request->query->getBoolean('cadastro'),
+        );
 
-        return $this->render('cobranca/central/_detalhe_pessoa.html.twig', ['detalhe' => $detalhe]);
+        return $this->render('cobranca/central/_detalhe_pessoa.html.twig', [
+            'detalhe' => $detalhe,
+            'urlExpandirCadastro' => $this->generateUrl('cobranca_central_atividade_detalhe', [
+                'chave' => $chave,
+                'cadastro' => 1,
+            ] + $this->filtrosDaUrl($request)),
+        ]);
+    }
+
+    /**
+     * Filtros correntes, para o link de expandir manter o MESMO recorte da tela. Sem isso, expandir os
+     * lançamentos de cadastro traria o período padrão e mostraria um número que não bate com o resumo
+     * logo acima.
+     *
+     * @return array<string, string>
+     */
+    private function filtrosDaUrl(Request $request): array
+    {
+        $filtros = [];
+        foreach (['periodo', 'inicio', 'fim', 'carteira'] as $chave) {
+            $valor = trim((string) $request->query->get($chave, ''));
+            if ($valor !== '') {
+                $filtros[$chave] = $valor;
+            }
+        }
+
+        return $filtros;
     }
 
     /**
@@ -185,6 +223,13 @@ final class CentralController extends AbstractController
         return [$inicio, $fim->modify('+1 day')];
     }
 
+    /**
+     * Parse ESTRITO. `createFromFormat` sozinho não recusa data impossível: ele "corrige" — `2026-13-45`
+     * vira 2027-02-14, `2026-02-31` vira 2026-03-03. Numa tela de relatório isso é pior que recusar a
+     * entrada, porque o gestor lê números de um período que ele não pediu, sem nada avisando.
+     * `getLastErrors()` é o que separa "data que existe" de "data que o PHP remendou": qualquer
+     * warning/erro devolve null, e o chamador cai no padrão.
+     */
     private function parseData(string $valor): ?\DateTimeImmutable
     {
         if ($valor === '') {
@@ -192,7 +237,15 @@ final class CentralController extends AbstractController
         }
 
         $data = \DateTimeImmutable::createFromFormat('!Y-m-d', $valor);
+        if ($data === false) {
+            return null;
+        }
 
-        return $data === false ? null : $data;
+        $erros = \DateTimeImmutable::getLastErrors();
+        if ($erros !== false && ($erros['warning_count'] > 0 || $erros['error_count'] > 0)) {
+            return null;
+        }
+
+        return $data;
     }
 }

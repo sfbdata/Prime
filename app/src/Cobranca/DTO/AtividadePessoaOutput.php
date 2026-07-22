@@ -41,9 +41,4 @@ final class AtividadePessoaOutput
     {
         return $this->semResponsavel ? 'sem-responsavel' : (string) $this->usuarioId;
     }
-
-    public function temAlgumaAtividade(): bool
-    {
-        return $this->contatos > 0 || $this->acordos > 0 || $this->baixas > 0 || $this->ultimaAcao !== null;
-    }
 }

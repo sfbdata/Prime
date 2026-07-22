@@ -8,6 +8,7 @@ use App\Cobranca\DTO\AtividadePessoaOutput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\UsuarioCobrancaRepository;
+use App\Cobranca\Service\PastilhasDeContato;
 use App\Cobranca\UseCase\MontarAtividadeEquipeUseCase;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -27,18 +28,21 @@ final class MontarAtividadeEquipeUseCaseTest extends TestCase
     private const FIM_EXCLUSIVO = '2026-07-21 00:00:00';
 
     /**
-     * @param list<array<string, mixed>>      $agregado
+     * @param list<array<string, mixed>>         $agregado
      * @param list<array{id: int, nome: string}> $elegiveis
+     * @param array<string, int>                 $canais
      */
-    private function useCase(array $agregado, array $elegiveis): MontarAtividadeEquipeUseCase
+    private function useCase(array $agregado, array $elegiveis, array $canais = []): MontarAtividadeEquipeUseCase
     {
         $eventos = $this->createMock(EventoHistoricoRepository::class);
         $eventos->method('agregarAtividadePorUsuario')->willReturn($agregado);
 
+        $eventos->method('contarPayloadDeContatoDoSetor')->willReturn($canais);
+
         $usuarios = $this->createMock(UsuarioCobrancaRepository::class);
         $usuarios->method('ativosComAcessoAoModulo')->willReturn($elegiveis);
 
-        return new MontarAtividadeEquipeUseCase($eventos, $usuarios);
+        return new MontarAtividadeEquipeUseCase($eventos, $usuarios, new PastilhasDeContato());
     }
 
     /**
@@ -236,17 +240,51 @@ final class MontarAtividadeEquipeUseCaseTest extends TestCase
             )
             ->willReturn([]);
 
+        // A faixa de canais é do SETOR e tem de respeitar os MESMOS filtros da tabela.
+        $eventos->expects(self::once())
+            ->method('contarPayloadDeContatoDoSetor')
+            ->with(
+                self::identicalTo($tenant),
+                self::identicalTo(PastilhasDeContato::CHAVE_CANAL),
+                self::identicalTo($inicio),
+                self::identicalTo($fimExclusivo),
+                self::identicalTo($carteira),
+            )
+            ->willReturn([]);
+
         $usuarios = $this->createMock(UsuarioCobrancaRepository::class);
         $usuarios->expects(self::once())
             ->method('ativosComAcessoAoModulo')
             ->with(self::identicalTo($tenant))
             ->willReturn([]);
 
-        $saida = (new MontarAtividadeEquipeUseCase($eventos, $usuarios))
+        $saida = (new MontarAtividadeEquipeUseCase($eventos, $usuarios, new PastilhasDeContato()))
             ->executar($tenant, $inicio, $fimExclusivo, $carteira);
 
         self::assertSame([], $saida->pessoas);
         self::assertSame(0, $saida->totalContatos);
         self::assertNull($saida->ultimaAcaoDoSetor);
+    }
+
+    #[TestDox('A faixa de canais responde "quantos contatos e por qual meio" (spec §4)')]
+    public function testFaixaDeCanais(): void
+    {
+        $sut = $this->useCase(
+            [$this->linha(1, 'Maria', 142, 58, 7, 12, '2026-07-20 17:40:00')],
+            [['id' => 1, 'nome' => 'Maria']],
+            canais: ['telefone' => 71, 'whatsapp' => 54, 'email' => 12, 'sms' => 5],
+        );
+
+        $saida = $this->executar($sut);
+
+        $porRotulo = [];
+        foreach ($saida->canais as $canal) {
+            $porRotulo[$canal->label] = $canal->quantidade;
+        }
+
+        self::assertSame(71, $porRotulo['Telefone'] ?? null);
+        self::assertSame(54, $porRotulo['WhatsApp'] ?? null);
+        self::assertSame(12, $porRotulo['E-mail'] ?? null);
+        self::assertSame(5, $porRotulo['SMS'] ?? null);
     }
 }

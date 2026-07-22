@@ -138,11 +138,37 @@
         linha.click();
     });
 
+    // §5.1: expandir os lançamentos de cadastro/importação recarrega o MESMO fragmento com `cadastro=1`.
+    // Buscar essa lista só quando pedida é o ponto — ela é a que pode ter centenas de linhas.
+    tabela.addEventListener('click', function (evento) {
+        var botao = evento.target.closest('.js-expandir-cadastro');
+        if (!botao) { return; }
+
+        var celula = botao.closest('.js-detalhe-conteudo');
+        var erroAnterior = celula.querySelector('.js-erro-cadastro');
+        if (erroAnterior) { erroAnterior.remove(); }
+        botao.disabled = true;
+
+        fetch(botao.dataset.url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (resposta) {
+                if (!resposta.ok) { throw new Error('falha ' + resposta.status); }
+
+                return resposta.text();
+            })
+            .then(function (html) { celula.innerHTML = html; })
+            .catch(function () {
+                botao.disabled = false;
+                botao.insertAdjacentHTML('afterend',
+                    '<span class="text-danger small ms-2 js-erro-cadastro">não foi possível carregar</span>');
+            });
+    });
+
     tabela.addEventListener('click', function (evento) {
         var linha = evento.target.closest('.js-linha-pessoa');
         if (!linha) { return; }
 
-        // Link do detalhe já aberto não pode fechar a linha por baixo do clique.
+        // Link dentro da própria linha não pode fechar o detalhe por baixo do clique. (Cliques no
+        // detalhe já não chegam aqui: ele mora num <tr> IRMÃO, então o closest acima devolve null.)
         if (evento.target.closest('a')) { return; }
 
         var destino = document.getElementById('detalhe-' + linha.dataset.chave);

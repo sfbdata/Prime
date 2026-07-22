@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Cobranca\UseCase;
 
 use App\Cobranca\DTO\AtividadePessoaDetalheOutput;
-use App\Cobranca\DTO\DesfechoContatoOutput;
 use App\Cobranca\DTO\EventoAtividadeOutput;
 use App\Cobranca\Entity\Carteira;
-use App\Cobranca\Enum\ResultadoContato;
+use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Cobranca\Service\PastilhasDeContato;
 use App\Entity\Tenant\Tenant;
 
 /**
@@ -34,6 +34,7 @@ final class MontarDetalheAtividadePessoaUseCase
 
     public function __construct(
         private readonly EventoHistoricoRepository $eventoRepository,
+        private readonly PastilhasDeContato $pastilhas,
     ) {
     }
 
@@ -44,76 +45,100 @@ final class MontarDetalheAtividadePessoaUseCase
         \DateTimeImmutable $inicio,
         \DateTimeImmutable $fimExclusivo,
         ?Carteira $carteira = null,
+        bool $incluirCadastro = false,
     ): AtividadePessoaDetalheOutput {
-        $contagem = $this->eventoRepository->contarDesfechosDeContato($tenant, $usuarioId, $inicio, $fimExclusivo, $carteira);
+        $contarPayload = fn (string $chave): array => $this->eventoRepository->contarPayloadDeContatoDaPessoa(
+            $tenant,
+            $chave,
+            $usuarioId,
+            $inicio,
+            $fimExclusivo,
+            $carteira,
+        );
 
-        // +1 é o truque que dispensa uma segunda consulta só para saber se sobrou coisa de fora.
+        // A lista PADRÃO é só trabalho de cobrança (spec §5.1): sem isso, uma importação de 537 linhas
+        // afoga os 3 contatos que o gestor abriu o detalhe para ver.
+        [$eventos, $truncado] = $this->listar(
+            $tenant,
+            $usuarioId,
+            $inicio,
+            $fimExclusivo,
+            $carteira,
+            TipoEventoHistorico::trabalhoDeCobranca(),
+        );
+
+        $tiposCadastro = TipoEventoHistorico::lancamentoDeCadastro();
+
+        // O resto NUNCA some calado: vira a linha "+ N lançamentos de cadastro/importação", expansível.
+        $totalCadastro = $this->eventoRepository->contarEventosDoUsuarioNoPeriodo(
+            $tenant,
+            $usuarioId,
+            $inicio,
+            $fimExclusivo,
+            $carteira,
+            $tiposCadastro,
+        );
+
+        $eventosCadastro = [];
+        $truncadoCadastro = false;
+        if ($incluirCadastro && $totalCadastro > 0) {
+            [$eventosCadastro, $truncadoCadastro] = $this->listar(
+                $tenant,
+                $usuarioId,
+                $inicio,
+                $fimExclusivo,
+                $carteira,
+                $tiposCadastro,
+            );
+        }
+
+        return new AtividadePessoaDetalheOutput(
+            usuarioId: $usuarioId,
+            nome: $nome,
+            desfechos: $this->pastilhas->desfechos($contarPayload(PastilhasDeContato::CHAVE_RESULTADO)),
+            canais: $this->pastilhas->canais($contarPayload(PastilhasDeContato::CHAVE_CANAL)),
+            eventos: $eventos,
+            truncado: $truncado,
+            limite: self::LIMITE_EVENTOS,
+            totalCadastro: $totalCadastro,
+            eventosCadastro: $eventosCadastro,
+            cadastroExpandido: $incluirCadastro,
+            truncadoCadastro: $truncadoCadastro,
+        );
+    }
+
+    /**
+     * Busca uma lista de eventos com a folga de +1 — o truque que dispensa uma segunda consulta só para
+     * saber se sobrou coisa de fora — e devolve já cortada no limite, com o aviso de truncagem.
+     *
+     * @param list<TipoEventoHistorico> $tipos
+     *
+     * @return array{0: list<EventoAtividadeOutput>, 1: bool}
+     */
+    private function listar(
+        Tenant $tenant,
+        ?int $usuarioId,
+        \DateTimeImmutable $inicio,
+        \DateTimeImmutable $fimExclusivo,
+        ?Carteira $carteira,
+        array $tipos,
+    ): array {
         $eventos = $this->eventoRepository->eventosDoUsuarioNoPeriodo(
             $tenant,
             $usuarioId,
             $inicio,
             $fimExclusivo,
             $carteira,
+            $tipos,
             self::LIMITE_EVENTOS + 1,
         );
 
-        $truncado = \count($eventos) > self::LIMITE_EVENTOS;
-
-        return new AtividadePessoaDetalheOutput(
-            usuarioId: $usuarioId,
-            nome: $nome,
-            desfechos: $this->desfechos($contagem),
-            eventos: array_map(
+        return [
+            array_map(
                 static fn ($evento): EventoAtividadeOutput => EventoAtividadeOutput::fromEntity($evento),
                 array_slice($eventos, 0, self::LIMITE_EVENTOS),
             ),
-            truncado: $truncado,
-            limite: self::LIMITE_EVENTOS,
-        );
-    }
-
-    /**
-     * Ordem das pastilhas: "Atendido" primeiro (é a medida de efetividade que a coluna "Falou com o
-     * devedor" resume), depois os demais desfechos oferecidos no formulário — inclusive os zerados, para
-     * o gestor ver a régua inteira.
-     *
-     * Fora dessa régua, só entra o que de fato ocorreu:
-     * - `prometeu_pagar` saiu do formulário no ajuste de 2026-07 e sobrevive só em histórico antigo:
-     *   pastilha zerada dele seria pedir um desfecho que ninguém consegue mais registrar;
-     * - contato sem a chave `resultado` no payload vira "Não informado";
-     * - valor desconhecido é exibido CRU — some em silêncio seria a tela mentir sobre o total.
-     *
-     * @param array<string, int> $contagem valor cru do payload → quantidade
-     *
-     * @return list<DesfechoContatoOutput>
-     */
-    private function desfechos(array $contagem): array
-    {
-        $regua = array_merge(
-            [ResultadoContato::Atendido],
-            array_values(array_filter(
-                ResultadoContato::selecionaveis(),
-                static fn (ResultadoContato $r): bool => $r !== ResultadoContato::Atendido,
-            )),
-        );
-
-        $pastilhas = [];
-        foreach ($regua as $resultado) {
-            $pastilhas[] = new DesfechoContatoOutput($resultado->label(), $contagem[$resultado->value] ?? 0);
-            unset($contagem[$resultado->value]);
-        }
-
-        foreach ($contagem as $valorCru => $quantidade) {
-            if ($quantidade <= 0) {
-                continue;
-            }
-
-            $conhecido = ResultadoContato::tryFrom((string) $valorCru);
-            $label = $conhecido?->label() ?? ($valorCru === '' ? 'Não informado' : (string) $valorCru);
-
-            $pastilhas[] = new DesfechoContatoOutput($label, $quantidade);
-        }
-
-        return $pastilhas;
+            \count($eventos) > self::LIMITE_EVENTOS,
+        ];
     }
 }

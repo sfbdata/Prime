@@ -586,3 +586,23 @@ html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
     border: 1px solid rgba(var(--jp-accent-rgb), .25);
 }
 .cobranca-pastilha.is-zerada { background: var(--bs-tertiary-bg); border-color: var(--bs-border-color); color: var(--bs-secondary-color); }
+
+/* Faixa de canais acima da tabela (spec §4) e grupos de pastilhas do detalhe. */
+.cobranca-central-canais {
+    display: flex; align-items: center; flex-wrap: wrap; gap: .5rem;
+    font-size: .9rem; color: var(--bs-secondary-color);
+}
+.cobranca-central-canais-total strong { color: var(--bs-body-color); font-variant-numeric: tabular-nums; }
+.cobranca-central-canais-sep { opacity: .5; }
+
+.cobranca-central-grupo-pastilhas { display: flex; flex-direction: column; gap: .5rem; }
+.cobranca-central-pastilhas-linha { display: flex; align-items: baseline; flex-wrap: wrap; gap: .5rem; }
+.cobranca-central-pastilhas-titulo {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; font-weight: 600;
+    color: var(--bs-secondary-color); min-width: 4.5rem;
+}
+
+/* Lançamentos de cadastro/importação: resumidos, nunca escondidos (spec §5.1). */
+.cobranca-central-cadastro { border-top: 1px dashed var(--bs-border-color); padding-top: .6rem; }
+.cobranca-central-cadastro .btn-link { color: var(--bs-secondary-color); text-decoration: none; }
+.cobranca-central-cadastro .btn-link:hover { color: var(--jp-accent); text-decoration: underline; }

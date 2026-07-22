@@ -9,6 +9,7 @@ use App\Cobranca\DTO\AtividadePessoaOutput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Repository\UsuarioCobrancaRepository;
+use App\Cobranca\Service\PastilhasDeContato;
 use App\Entity\Tenant\Tenant;
 
 /**
@@ -39,6 +40,7 @@ final class MontarAtividadeEquipeUseCase
     public function __construct(
         private readonly EventoHistoricoRepository $eventoRepository,
         private readonly UsuarioCobrancaRepository $usuarioRepository,
+        private readonly PastilhasDeContato $pastilhas,
     ) {
     }
 
@@ -49,6 +51,15 @@ final class MontarAtividadeEquipeUseCase
         ?Carteira $carteira = null,
     ): AtividadeEquipeOutput {
         $agregado = $this->eventoRepository->agregarAtividadePorUsuario($tenant, $inicio, $fimExclusivo, $carteira);
+
+        // "Quantos contatos e por qual meio" (spec §4): a faixa é do SETOR e respeita os mesmos filtros.
+        $canais = $this->pastilhas->canais($this->eventoRepository->contarPayloadDeContatoDoSetor(
+            $tenant,
+            PastilhasDeContato::CHAVE_CANAL,
+            $inicio,
+            $fimExclusivo,
+            $carteira,
+        ));
 
         /** @var array<int, array<string, mixed>> $porUsuario */
         $porUsuario = [];
@@ -89,7 +100,7 @@ final class MontarAtividadeEquipeUseCase
             $pessoas[] = $this->linhaDaPessoa($orfao, AtividadePessoaOutput::SEM_RESPONSAVEL, semResponsavel: true);
         }
 
-        return $this->comTotais($pessoas);
+        return $this->comTotais($pessoas, $canais);
     }
 
     /**
@@ -127,8 +138,9 @@ final class MontarAtividadeEquipeUseCase
 
     /**
      * @param list<AtividadePessoaOutput> $pessoas
+     * @param list<\App\Cobranca\DTO\DesfechoContatoOutput> $canais
      */
-    private function comTotais(array $pessoas): AtividadeEquipeOutput
+    private function comTotais(array $pessoas, array $canais): AtividadeEquipeOutput
     {
         $contatos = 0;
         $atendidos = 0;
@@ -147,6 +159,6 @@ final class MontarAtividadeEquipeUseCase
             }
         }
 
-        return new AtividadeEquipeOutput($pessoas, $contatos, $atendidos, $acordos, $baixas, $ultimaAcao);
+        return new AtividadeEquipeOutput($pessoas, $contatos, $atendidos, $acordos, $baixas, $ultimaAcao, $canais);
     }
 }

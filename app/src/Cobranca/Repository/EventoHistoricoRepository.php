@@ -11,6 +11,8 @@ use App\Cobranca\Enum\ResultadoContato;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Entity\Tenant\Tenant;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -84,6 +86,9 @@ class EventoHistoricoRepository extends ServiceEntityRepository
      * do último segundo do dia. SQL nativo não passa pelos filtros do Doctrine — por isso `tenant_id` é
      * filtrado explicitamente aqui.
      *
+     * "Última ação" é `MAX` **restrito aos tipos de trabalho de cobrança** (spec §5.1): sem o FILTER,
+     * quem só subiu planilha apareceria com ação recente sem ter falado com ninguém.
+     *
      * @return list<array{usuarioId: ?int, usuarioNome: ?string, contatos: int, atendidos: int, acordos: int, baixas: int, ultimaAcao: ?\DateTimeImmutable}>
      */
     public function agregarAtividadePorUsuario(
@@ -99,7 +104,7 @@ class EventoHistoricoRepository extends ServiceEntityRepository
                    COUNT(*) FILTER (WHERE e.tipo = :contato AND e.dados->>'resultado' = :atendido) AS atendidos,
                    COUNT(*) FILTER (WHERE e.tipo = :acordo) AS acordos,
                    COUNT(*) FILTER (WHERE e.tipo IN (:pagamento, :liquidacao)) AS baixas,
-                   MAX(e.ocorrido_em) AS ultima_acao
+                   MAX(e.ocorrido_em) FILTER (WHERE e.tipo IN (:tiposTrabalho)) AS ultima_acao
             FROM cobranca_evento_historico e
             LEFT JOIN "user" u ON u.id = e.usuario_id
             %s
@@ -110,17 +115,21 @@ class EventoHistoricoRepository extends ServiceEntityRepository
             GROUP BY e.usuario_id, u.full_name, u.email
             SQL;
 
-        $params = $this->parametrosDoPeriodo($tenant, $inicio, $fimExclusivo) + [
-            'contato' => TipoEventoHistorico::ContatoRealizado->value,
-            'atendido' => ResultadoContato::Atendido->value,
-            'acordo' => TipoEventoHistorico::AcordoCriado->value,
-            'pagamento' => TipoEventoHistorico::PagamentoRegistrado->value,
-            'liquidacao' => TipoEventoHistorico::LiquidacaoRegistrada->value,
-        ];
+        $consulta = $this->comFiltroDeCarteira(
+            $sql,
+            $carteira,
+            $this->parametrosDoPeriodo($tenant, $inicio, $fimExclusivo) + [
+                'contato' => TipoEventoHistorico::ContatoRealizado->value,
+                'atendido' => ResultadoContato::Atendido->value,
+                'acordo' => TipoEventoHistorico::AcordoCriado->value,
+                'pagamento' => TipoEventoHistorico::PagamentoRegistrado->value,
+                'liquidacao' => TipoEventoHistorico::LiquidacaoRegistrada->value,
+                'tiposTrabalho' => TipoEventoHistorico::valoresDe(TipoEventoHistorico::trabalhoDeCobranca()),
+            ],
+            ['tiposTrabalho' => ArrayParameterType::STRING],
+        );
 
-        $linhas = $this->getEntityManager()->getConnection()
-            ->executeQuery($this->comFiltroDeCarteira($sql, $carteira, $params), $params)
-            ->fetchAllAssociative();
+        $linhas = $this->executar($consulta);
 
         return array_map(static fn (array $l): array => [
             'usuarioId' => $l['usuario_id'] === null ? null : (int) $l['usuario_id'],
@@ -134,65 +143,116 @@ class EventoHistoricoRepository extends ServiceEntityRepository
     }
 
     /**
-     * Desfechos dos contatos de UMA pessoa no período, contados por valor CRU do payload
-     * (`dados->>'resultado'`). A tradução para rótulo é do UseCase — o repositório não conhece labels.
+     * Contatos de UMA pessoa no período, contados por valor CRU de uma chave do payload — `resultado`
+     * (desfecho) ou `canal` (meio). A tradução para rótulo é do UseCase; o repositório não conhece
+     * labels.
      *
-     * Contato antigo sem a chave `resultado` (ou com `dados` nulo) cai na chave `''`; o UseCase o exibe
-     * como "Não informado". `$usuarioId` nulo significa a linha "Sem responsável", não "qualquer um".
+     * A chave vai como PARÂMETRO (`e.dados->>:chave`), não interpolada na SQL: não há string de fora
+     * entrando no texto da consulta. O agrupamento usa `GROUP BY 1` (ordinal) porque repetir a
+     * expressão no GROUP BY não funciona com parâmetro: o DBAL reescreve o nomeado em posicional, os
+     * dois viram placeholders DIFERENTES e o Postgres deixa de reconhecê-los como a mesma expressão.
+     *
+     * Contato antigo sem a chave (ou com `dados` nulo) cai em `''`; o UseCase o exibe como
+     * "Não informado". `$usuarioId` nulo significa a linha "Sem responsável", não "qualquer um".
      *
      * @return array<string, int>
      */
-    public function contarDesfechosDeContato(
+    public function contarPayloadDeContatoDaPessoa(
         Tenant $tenant,
+        string $chavePayload,
         ?int $usuarioId,
         \DateTimeImmutable $inicio,
         \DateTimeImmutable $fimExclusivo,
         ?Carteira $carteira = null,
     ): array {
-        $condicaoUsuario = $usuarioId === null ? 'e.usuario_id IS NULL' : 'e.usuario_id = :usuario';
+        $extra = $usuarioId === null ? [] : ['usuario' => $usuarioId];
 
+        return $this->contarPayloadDeContato(
+            $tenant,
+            $chavePayload,
+            $usuarioId === null ? 'e.usuario_id IS NULL' : 'e.usuario_id = :usuario',
+            $extra,
+            $inicio,
+            $fimExclusivo,
+            $carteira,
+        );
+    }
+
+    /**
+     * Mesma contagem, do SETOR inteiro — a faixa de canais que fica acima da tabela (spec §4). Aqui
+     * "todo mundo" inclui os eventos órfãos: a faixa responde "quantos contatos, por qual meio" no
+     * período, e o contato existiu mesmo que o autor não esteja mais registrado.
+     *
+     * @return array<string, int>
+     */
+    public function contarPayloadDeContatoDoSetor(
+        Tenant $tenant,
+        string $chavePayload,
+        \DateTimeImmutable $inicio,
+        \DateTimeImmutable $fimExclusivo,
+        ?Carteira $carteira = null,
+    ): array {
+        return $this->contarPayloadDeContato($tenant, $chavePayload, null, [], $inicio, $fimExclusivo, $carteira);
+    }
+
+    /**
+     * @param ?string             $condicaoUsuario null = sem recorte de pessoa (setor inteiro)
+     * @param array<string, mixed> $extra
+     *
+     * @return array<string, int>
+     */
+    private function contarPayloadDeContato(
+        Tenant $tenant,
+        string $chavePayload,
+        ?string $condicaoUsuario,
+        array $extra,
+        \DateTimeImmutable $inicio,
+        \DateTimeImmutable $fimExclusivo,
+        ?Carteira $carteira,
+    ): array {
         $sql = sprintf(
             <<<'SQL'
-                SELECT COALESCE(e.dados->>'resultado', '') AS resultado, COUNT(*) AS quantidade
+                SELECT COALESCE(e.dados->>:chave, '') AS valor, COUNT(*) AS quantidade
                 FROM cobranca_evento_historico e
                 %%s
                 WHERE e.tenant_id = :tenant
                   AND e.tipo = :contato
                   AND e.ocorrido_em >= :inicio
                   AND e.ocorrido_em < :fim
-                  AND %s
+                  %s
                   %%s
-                GROUP BY COALESCE(e.dados->>'resultado', '')
+                GROUP BY 1
                 SQL,
-            $condicaoUsuario,
+            $condicaoUsuario === null ? '' : 'AND ' . $condicaoUsuario,
         );
 
-        $params = $this->parametrosDoPeriodo($tenant, $inicio, $fimExclusivo) + [
-            'contato' => TipoEventoHistorico::ContatoRealizado->value,
-        ];
-        if ($usuarioId !== null) {
-            $params['usuario'] = $usuarioId;
-        }
-
-        $linhas = $this->getEntityManager()->getConnection()
-            ->executeQuery($this->comFiltroDeCarteira($sql, $carteira, $params), $params)
-            ->fetchAllAssociative();
+        $linhas = $this->executar($this->comFiltroDeCarteira(
+            $sql,
+            $carteira,
+            $this->parametrosDoPeriodo($tenant, $inicio, $fimExclusivo) + $extra + [
+                'chave' => $chavePayload,
+                'contato' => TipoEventoHistorico::ContatoRealizado->value,
+            ],
+        ));
 
         $contagem = [];
         foreach ($linhas as $linha) {
-            $contagem[(string) $linha['resultado']] = (int) $linha['quantidade'];
+            $contagem[(string) $linha['valor']] = (int) $linha['quantidade'];
         }
 
         return $contagem;
     }
 
     /**
-     * Eventos de UMA pessoa no período, do mais recente para o mais antigo. `$limite` deve vir com a
-     * folga de +1 do UseCase: é assim que ele descobre que a lista foi truncada sem uma segunda consulta
-     * de contagem.
+     * Eventos de UMA pessoa no período, do mais recente para o mais antigo, RESTRITOS aos tipos pedidos
+     * (spec §5.1: o detalhe mostra trabalho de cobrança por padrão, e os lançamentos de
+     * cadastro/importação só quando o usuário expande). `$limite` deve vir com a folga de +1 do UseCase:
+     * é assim que ele descobre que a lista foi truncada sem uma segunda consulta de contagem.
      *
      * Os joins de caso/objeto são FETCH JOIN de propósito — a lista mostra o objeto de cada evento, e
      * sem eles seriam duas queries por linha. `$usuarioId` nulo = "Sem responsável".
+     *
+     * @param list<TipoEventoHistorico> $tipos
      *
      * @return EventoHistorico[]
      */
@@ -202,21 +262,71 @@ class EventoHistoricoRepository extends ServiceEntityRepository
         \DateTimeImmutable $inicio,
         \DateTimeImmutable $fimExclusivo,
         ?Carteira $carteira,
+        array $tipos,
         int $limite,
     ): array {
-        $qb = $this->createQueryBuilder('e')
+        if ($tipos === []) {
+            return [];
+        }
+
+        return $this->consultaDeEventos($tenant, $usuarioId, $inicio, $fimExclusivo, $carteira, $tipos)
             ->addSelect('c', 'o')
+            ->orderBy('e.ocorridoEm', 'DESC')
+            ->addOrderBy('e.id', 'DESC')
+            ->setMaxResults($limite)
+            ->getQuery()
+            ->getResult();
+    }
+
+    /**
+     * Quantos eventos daqueles tipos a pessoa tem no período — é o "+ N lançamentos de
+     * cadastro/importação" do detalhe (spec §5.1). Conta no banco; não carrega os eventos para contar.
+     *
+     * @param list<TipoEventoHistorico> $tipos
+     */
+    public function contarEventosDoUsuarioNoPeriodo(
+        Tenant $tenant,
+        ?int $usuarioId,
+        \DateTimeImmutable $inicio,
+        \DateTimeImmutable $fimExclusivo,
+        ?Carteira $carteira,
+        array $tipos,
+    ): int {
+        if ($tipos === []) {
+            return 0;
+        }
+
+        return (int) $this->consultaDeEventos($tenant, $usuarioId, $inicio, $fimExclusivo, $carteira, $tipos)
+            ->select('COUNT(e.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    /**
+     * Base compartilhada das duas consultas de evento do detalhe — mesmo recorte (tenant, pessoa,
+     * período, carteira, tipos), para a contagem nunca discordar da lista.
+     *
+     * @param list<TipoEventoHistorico> $tipos
+     */
+    private function consultaDeEventos(
+        Tenant $tenant,
+        ?int $usuarioId,
+        \DateTimeImmutable $inicio,
+        \DateTimeImmutable $fimExclusivo,
+        ?Carteira $carteira,
+        array $tipos,
+    ): QueryBuilder {
+        $qb = $this->createQueryBuilder('e')
             ->join('e.caso', 'c')
             ->join('c.objeto', 'o')
             ->andWhere('e.tenant = :tenant')
             ->andWhere('e.ocorridoEm >= :inicio')
             ->andWhere('e.ocorridoEm < :fim')
+            ->andWhere('e.tipo IN (:tipos)')
             ->setParameter('tenant', $tenant)
             ->setParameter('inicio', $inicio)
             ->setParameter('fim', $fimExclusivo)
-            ->orderBy('e.ocorridoEm', 'DESC')
-            ->addOrderBy('e.id', 'DESC')
-            ->setMaxResults($limite);
+            ->setParameter('tipos', TipoEventoHistorico::valoresDe($tipos));
 
         if ($usuarioId === null) {
             $qb->andWhere('e.usuario IS NULL');
@@ -228,7 +338,7 @@ class EventoHistoricoRepository extends ServiceEntityRepository
             $qb->andWhere('o.carteira = :carteira')->setParameter('carteira', $carteira);
         }
 
-        return $qb->getQuery()->getResult();
+        return $qb;
     }
 
     /**
@@ -247,20 +357,43 @@ class EventoHistoricoRepository extends ServiceEntityRepository
      * Preenche os dois `%s` dos SQLs acima: o JOIN até a carteira e a condição. Sem filtro de carteira o
      * caminho `evento → caso → objeto` é puro custo, então ele só entra quando é usado.
      *
-     * @param array<string, mixed> $params preenchido por referência com o id da carteira
+     * Devolve SQL, parâmetros e tipos JUNTOS, num único valor. A versão anterior mutava `$params` por
+     * referência dentro da lista de argumentos do `executeQuery` — funcionava só pela ordem de avaliação
+     * do PHP, e qualquer refactor que separasse as linhas quebraria em runtime.
+     *
+     * @param array<string, mixed> $params
+     * @param array<string, mixed> $tipos
+     *
+     * @return array{0: string, 1: array<string, mixed>, 2: array<string, mixed>}
      */
-    private function comFiltroDeCarteira(string $sql, ?Carteira $carteira, array &$params): string
+    private function comFiltroDeCarteira(string $sql, ?Carteira $carteira, array $params, array $tipos = []): array
     {
         if ($carteira === null) {
-            return sprintf($sql, '', '');
+            return [sprintf($sql, '', ''), $params, $tipos];
         }
 
         $params['carteira'] = (int) $carteira->getId();
 
-        return sprintf(
+        $sql = sprintf(
             $sql,
             'INNER JOIN cobranca_caso c ON c.id = e.caso_id INNER JOIN cobranca_objeto o ON o.id = c.objeto_id',
             'AND o.carteira_id = :carteira',
         );
+
+        return [$sql, $params, $tipos];
+    }
+
+    /**
+     * @param array{0: string, 1: array<string, mixed>, 2: array<string, mixed>} $consulta
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function executar(array $consulta): array
+    {
+        [$sql, $params, $tipos] = $consulta;
+
+        return $this->getEntityManager()->getConnection()
+            ->executeQuery($sql, $params, $tipos)
+            ->fetchAllAssociative();
     }
 }

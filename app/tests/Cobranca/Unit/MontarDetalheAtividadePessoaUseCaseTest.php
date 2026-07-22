@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Unit;
 
+use App\Cobranca\DTO\AtividadePessoaDetalheOutput;
 use App\Cobranca\DTO\DesfechoContatoOutput;
 use App\Cobranca\Entity\EventoHistorico;
+use App\Cobranca\Enum\CanalContato;
 use App\Cobranca\Enum\ResultadoContato;
+use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Cobranca\Service\PastilhasDeContato;
 use App\Cobranca\UseCase\MontarDetalheAtividadePessoaUseCase;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -15,9 +19,10 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Detalhe de uma pessoa na aba Atividade (spec §4/§5/§10). Prova que o desfecho sai do PAYLOAD JSON
- * (`dados->>'resultado'`, o `value` do enum — nunca o label), que o legado `prometeu_pagar` só aparece
- * quando existe de fato, e que a lista de eventos avisa quando trunca.
+ * Detalhe de uma pessoa na aba Atividade (spec §4/§5/§5.1/§10). Prova que desfecho e canal saem do
+ * PAYLOAD JSON (o `value` do enum, nunca o label), que o legado `prometeu_pagar` só aparece quando
+ * existe de fato, que a lista avisa ao truncar e que **lançamento de cadastro/importação fica fora da
+ * lista principal, mas nunca some calado**.
  */
 #[CoversClass(MontarDetalheAtividadePessoaUseCase::class)]
 final class MontarDetalheAtividadePessoaUseCaseTest extends TestCase
@@ -28,35 +33,62 @@ final class MontarDetalheAtividadePessoaUseCaseTest extends TestCase
     /**
      * @param array<string, int> $desfechos
      * @param EventoHistorico[]  $eventos
+     * @param array<string, int> $canais
+     * @param EventoHistorico[]  $eventosCadastro
      */
-    private function useCase(array $desfechos, array $eventos = []): MontarDetalheAtividadePessoaUseCase
-    {
+    private function useCase(
+        array $desfechos,
+        array $eventos = [],
+        array $canais = [],
+        int $totalCadastro = 0,
+        array $eventosCadastro = [],
+    ): MontarDetalheAtividadePessoaUseCase {
         $repositorio = $this->createMock(EventoHistoricoRepository::class);
-        $repositorio->method('contarDesfechosDeContato')->willReturn($desfechos);
-        $repositorio->method('eventosDoUsuarioNoPeriodo')->willReturn($eventos);
 
-        return new MontarDetalheAtividadePessoaUseCase($repositorio);
+        $repositorio->method('contarPayloadDeContatoDaPessoa')->willReturnCallback(
+            static fn (Tenant $t, string $chave): array => $chave === PastilhasDeContato::CHAVE_CANAL ? $canais : $desfechos,
+        );
+
+        // O repositório devolve conforme os TIPOS pedidos: trabalho na chamada padrão, cadastro na de
+        // expansão. É esse contrato que o §5.1 depende.
+        $repositorio->method('eventosDoUsuarioNoPeriodo')->willReturnCallback(
+            static function (Tenant $t, ?int $u, \DateTimeImmutable $i, \DateTimeImmutable $f, $c, array $tipos) use ($eventos, $eventosCadastro): array {
+                $ehCadastro = \in_array(TipoEventoHistorico::ObrigacaoCriada, $tipos, true);
+
+                return $ehCadastro ? $eventosCadastro : $eventos;
+            },
+        );
+
+        $repositorio->method('contarEventosDoUsuarioNoPeriodo')->willReturn($totalCadastro);
+
+        return new MontarDetalheAtividadePessoaUseCase($repositorio, new PastilhasDeContato());
     }
 
-    private function executar(MontarDetalheAtividadePessoaUseCase $sut, ?int $usuarioId = 1, string $nome = 'Maria'): \App\Cobranca\DTO\AtividadePessoaDetalheOutput
-    {
+    private function executar(
+        MontarDetalheAtividadePessoaUseCase $sut,
+        ?int $usuarioId = 1,
+        string $nome = 'Maria',
+        bool $incluirCadastro = false,
+    ): AtividadePessoaDetalheOutput {
         return $sut->executar(
             new Tenant(),
             $usuarioId,
             $nome,
             new \DateTimeImmutable(self::INICIO),
             new \DateTimeImmutable(self::FIM_EXCLUSIVO),
+            null,
+            $incluirCadastro,
         );
     }
 
     /**
-     * @param list<DesfechoContatoOutput> $desfechos
+     * @param list<DesfechoContatoOutput> $pastilhas
      */
-    private function quantidade(array $desfechos, string $label): ?int
+    private function quantidade(array $pastilhas, string $label): ?int
     {
-        foreach ($desfechos as $desfecho) {
-            if ($desfecho->label === $label) {
-                return $desfecho->quantidade;
+        foreach ($pastilhas as $pastilha) {
+            if ($pastilha->label === $label) {
+                return $pastilha->quantidade;
             }
         }
 
@@ -77,6 +109,39 @@ final class MontarDetalheAtividadePessoaUseCaseTest extends TestCase
         self::assertSame(27, $this->quantidade($saida->desfechos, 'Atendido'));
         self::assertSame(21, $this->quantidade($saida->desfechos, 'Não atendido'));
         self::assertSame(6, $this->quantidade($saida->desfechos, 'Caixa postal'));
+    }
+
+    #[TestDox('Os canais vêm do payload (dados->>canal), rotulados pelo CanalContato')]
+    public function testCanaisLidosDoPayload(): void
+    {
+        $sut = $this->useCase([], canais: [
+            CanalContato::Telefone->value => 34,
+            CanalContato::WhatsApp->value => 21,
+            CanalContato::Email->value => 5,
+        ]);
+
+        $saida = $this->executar($sut);
+
+        self::assertSame(34, $this->quantidade($saida->canais, 'Telefone'));
+        self::assertSame(21, $this->quantidade($saida->canais, 'WhatsApp'));
+        self::assertSame(5, $this->quantidade($saida->canais, 'E-mail'));
+        self::assertSame(0, $this->quantidade($saida->canais, 'SMS'), 'canal sem uso aparece zerado');
+    }
+
+    #[TestDox('Desfecho e canal não se misturam: cada um lê a sua chave do payload')]
+    public function testDesfechoECanalNaoSeMisturam(): void
+    {
+        $sut = $this->useCase(
+            [ResultadoContato::Atendido->value => 9],
+            canais: [CanalContato::Telefone->value => 4],
+        );
+
+        $saida = $this->executar($sut);
+
+        self::assertSame(9, $this->quantidade($saida->desfechos, 'Atendido'));
+        self::assertSame(4, $this->quantidade($saida->canais, 'Telefone'));
+        self::assertNull($this->quantidade($saida->desfechos, 'Telefone'));
+        self::assertNull($this->quantidade($saida->canais, 'Atendido'));
     }
 
     #[TestDox('Desfecho selecionável sem nenhuma ocorrência aparece zerado (o gestor vê a régua inteira)')]
@@ -168,5 +233,91 @@ final class MontarDetalheAtividadePessoaUseCaseTest extends TestCase
 
         self::assertNull($saida->usuarioId);
         self::assertSame('Sem responsável', $saida->nome);
+    }
+
+    // ── §5.1: trabalho de cobrança × lançamento de cadastro/importação ──────────────────────────
+
+    #[TestDox('§5.1: a lista padrão pede APENAS tipos de trabalho de cobrança ao repositório')]
+    public function testListaPadraoPedeSoTrabalho(): void
+    {
+        $repositorio = $this->createMock(EventoHistoricoRepository::class);
+        $repositorio->method('contarPayloadDeContatoDaPessoa')->willReturn([]);
+        $repositorio->method('contarEventosDoUsuarioNoPeriodo')->willReturn(0);
+        $repositorio->expects(self::once())
+            ->method('eventosDoUsuarioNoPeriodo')
+            ->with(
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::anything(),
+                self::identicalTo(TipoEventoHistorico::trabalhoDeCobranca()),
+                self::anything(),
+            )
+            ->willReturn([]);
+
+        (new MontarDetalheAtividadePessoaUseCase($repositorio, new PastilhasDeContato()))->executar(
+            new Tenant(),
+            1,
+            'Maria',
+            new \DateTimeImmutable(self::INICIO),
+            new \DateTimeImmutable(self::FIM_EXCLUSIVO),
+        );
+    }
+
+    #[TestDox('§5.1: os lançamentos de cadastro não somem — vêm contados, prontos para a linha "+N"')]
+    public function testCadastroEhResumidoNaoEscondido(): void
+    {
+        $saida = $this->executar($this->useCase([], [new EventoHistorico()], totalCadastro: 537));
+
+        self::assertSame(537, $saida->totalCadastro);
+        self::assertTrue($saida->temLancamentosDeCadastro());
+        self::assertCount(1, $saida->eventos, 'a lista principal segue só com trabalho');
+        self::assertSame([], $saida->eventosCadastro, 'sem expandir, a lista pesada nem é buscada');
+        self::assertFalse($saida->cadastroExpandido);
+    }
+
+    #[TestDox('§5.1: sem lançamento de cadastro no período, não há linha a exibir')]
+    public function testSemCadastroNaoTemLinha(): void
+    {
+        $saida = $this->executar($this->useCase([], [new EventoHistorico()]));
+
+        self::assertSame(0, $saida->totalCadastro);
+        self::assertFalse($saida->temLancamentosDeCadastro());
+    }
+
+    #[TestDox('§5.1: ao expandir, os lançamentos de cadastro são carregados')]
+    public function testExpandirCarregaOsLancamentosDeCadastro(): void
+    {
+        $saida = $this->executar(
+            $this->useCase([], [new EventoHistorico()], totalCadastro: 3, eventosCadastro: [new EventoHistorico(), new EventoHistorico()]),
+            incluirCadastro: true,
+        );
+
+        self::assertTrue($saida->cadastroExpandido);
+        self::assertCount(2, $saida->eventosCadastro);
+        self::assertCount(1, $saida->eventos, 'a lista de trabalho continua separada');
+    }
+
+    #[TestDox('§5.1: expandir sem nada para expandir não dispara consulta de lista')]
+    public function testExpandirSemCadastroNaoConsulta(): void
+    {
+        $repositorio = $this->createMock(EventoHistoricoRepository::class);
+        $repositorio->method('contarPayloadDeContatoDaPessoa')->willReturn([]);
+        $repositorio->method('contarEventosDoUsuarioNoPeriodo')->willReturn(0);
+        // Só a lista de trabalho: a de cadastro não é pedida quando o total é zero.
+        $repositorio->expects(self::once())->method('eventosDoUsuarioNoPeriodo')->willReturn([]);
+
+        $saida = (new MontarDetalheAtividadePessoaUseCase($repositorio, new PastilhasDeContato()))->executar(
+            new Tenant(),
+            1,
+            'Maria',
+            new \DateTimeImmutable(self::INICIO),
+            new \DateTimeImmutable(self::FIM_EXCLUSIVO),
+            null,
+            true,
+        );
+
+        self::assertSame([], $saida->eventosCadastro);
     }
 }

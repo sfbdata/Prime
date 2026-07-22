@@ -20,11 +20,30 @@
     </div>
 {% else %}
     {% if atividade.vazia %}
+        {#
+           "Nenhum TRABALHO", não "nenhum registro": desde o §5.1 as colunas e a última ação só contam
+           trabalho de cobrança, então um período só de importação cai aqui — e dizer "nenhum registro"
+           seria falso justamente na primeira frase da tela.
+        #}
         <p class="cobranca-central-aviso text-muted small mb-2">
-            <i class="bi bi-info-circle me-1"></i>Nenhum registro no período selecionado — a tela mostra o
-            que a equipe registra, então a linha zerada pode ser trabalho não registrado.
+            <i class="bi bi-info-circle me-1"></i>Nenhum trabalho de cobrança registrado no período
+            selecionado. Lançamentos de cadastro e importação não entram nesta conta — a tela mostra o
+            que a equipe registra, então a linha zerada também pode ser trabalho não registrado.
         </p>
     {% endif %}
+
+    {# Faixa de canais (spec §4): "quantos contatos e por qual meio", a pergunta direta do dono. #}
+    <div class="cobranca-central-canais mb-3">
+        <span class="cobranca-central-canais-total">Contatos no período: <strong>{{ atividade.totalContatos }}</strong></span>
+        <span class="cobranca-central-canais-sep" aria-hidden="true">·</span>
+        <span class="cobranca-pastilhas">
+            {% for canal in atividade.canais %}
+            <span class="cobranca-pastilha {{ canal.quantidade == 0 ? 'is-zerada' : '' }}">
+                {{ canal.label }}<strong class="ms-1">{{ canal.quantidade }}</strong>
+            </span>
+            {% endfor %}
+        </span>
+    </div>
 
     <div class="card cobranca-card cobranca-central-tabela">
         <table class="table table-sm align-middle mb-0" id="tabelaAtividade">
