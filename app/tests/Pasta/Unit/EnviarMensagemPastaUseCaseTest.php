@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaMensagem;
 use App\Entity\Tenant\Tenant;
+use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EnviarMensagemPastaUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -17,6 +18,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(EnviarMensagemPastaUseCase::class)]
 final class EnviarMensagemPastaUseCaseTest extends TestCase
 {
+    use CriaSanitizadorTextoRico;
+
     private EntityManagerInterface&MockObject $em;
     private EnviarMensagemPastaUseCase $useCase;
     private Pasta $pasta;
@@ -26,7 +29,7 @@ final class EnviarMensagemPastaUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em     = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EnviarMensagemPastaUseCase($this->em);
+        $this->useCase = new EnviarMensagemPastaUseCase($this->em, $this->criarSanitizadorTextoRico());
 
         $this->tenant = new Tenant();
         $this->autor  = (new User())->setEmail('autor@test.com');

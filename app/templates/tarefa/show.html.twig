@@ -9,6 +9,12 @@
 } %}
 
 {% block body %}
+{# Editor rico (barra de formatação). Quill auto-hospedado — sem CDN externo. #}
+<link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
+<link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
+<script src="{{ asset('js/quill/quill.js') }}"></script>
+<script src="{{ asset('js/editor-rico.js') }}" defer></script>
+
 
 <div class="content-header">
     <div class="container-fluid">
@@ -160,7 +166,7 @@
                                         <input type="hidden" name="_token" value="{{ csrf_token('mensagem_tarefa_' ~ tarefa.id) }}">
                                         <input type="hidden" name="acao" id="acaoMensagem" value="">
 
-                                        <textarea name="mensagem" id="tarefaMensagemConteudo"
+                                        <textarea name="mensagem" id="tarefaMensagemConteudo" data-editor-rico
                                                   class="form-control form-control-sm mb-2"
                                                   rows="2" maxlength="5000"
                                                   placeholder="Escreva uma observação… (Ctrl+Enter para enviar)"></textarea>
@@ -232,6 +238,7 @@
                                                                         title="Editar mensagem"
                                                                         data-msg-id="{{ item.mensagemId }}"
                                                                         data-conteudo="{{ item.detalhe|e('html_attr') }}"
+                                                                        data-conteudo-html="{{ item.detalhe|texto_rico|e('html_attr') }}"
                                                                         data-csrf="{{ csrf_token('editar_mensagem_tarefa_' ~ item.mensagemId) }}"
                                                                         data-url="{{ path('tarefa_mensagem_editar', {id: item.mensagemId}) }}">
                                                                     <i class="bi bi-pencil"></i>
@@ -246,7 +253,13 @@
                                                     {% if item.detalhe %}
                                                         <div class="mt-1 small tarefa-msg-conteudo {% if item.tipo.value == 'mensagem' %}text-body{% else %}text-muted{% endif %}"
                                                              {% if item.mensagemId %}id="tarefa-msg-conteudo-{{ item.mensagemId }}"{% endif %}>
-                                                            {{ item.detalhe|nl2br }}
+                                                            {% if item.tipo.value == 'mensagem' %}
+                                                                {# Escrito por uma pessoa: passa pelo editor rico. #}
+                                                                <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
+                                                            {% else %}
+                                                                {# Texto do sistema: segue escapado. #}
+                                                                {{ item.detalhe|nl2br }}
+                                                            {% endif %}
                                                         </div>
                                                     {% endif %}
                                                     {% if item.arquivoAnexo and item.mensagemId %}
@@ -898,6 +911,12 @@ document.addEventListener('DOMContentLoaded', function () {
         conteudoDiv.style.display = 'none';
         conteudoDiv.after(textarea);
         textarea.after(acoesBtns);
+
+        // Transforma a textarea recem-criada em editor (o auto-init so pega o DOM inicial).
+        if (window.EditorRico) {
+            const quillEd = EditorRico.montar(textarea);
+            if (quillEd) { quillEd.focus(); }
+        }
         textarea.focus();
         btnEditar.disabled = true;
 
@@ -933,8 +952,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     return;
                 }
 
-                conteudoDiv.innerHTML = esc(data.conteudo).replace(/\n/g, '<br>');
-                btnEditar.dataset.conteudo = data.conteudo;
+                // `conteudoHtml` vem SANITIZADO do servidor.
+                conteudoDiv.innerHTML = '<span class="editor-rico-conteudo"><span class="ql-editor">'
+                    + (data.conteudoHtml ?? '') + '</span></span>';
+                btnEditar.dataset.conteudo     = data.conteudo;
+                btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
 
                 // Injeta a marca "(editado)" ao lado da hora, se ainda não houver
                 const small = btnEditar.parentElement.querySelector('small.text-muted');

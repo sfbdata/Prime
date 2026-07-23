@@ -3202,6 +3202,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 textareaEd.rows = 3;
                 textareaEd.maxLength = 5000;
                 textareaEd.value = conteudoAtual;
+                textareaEd.dataset.editorRicoPendente = '1';
 
                 const btnSalvar = document.createElement('button');
                 btnSalvar.type = 'button';
@@ -3221,7 +3222,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 conteudoDiv.classList.add('d-none');
                 conteudoDiv.after(area);
-                textareaEd.focus();
+
+                // Transforma a textarea recem-criada em editor (o auto-init so pega o DOM inicial).
+                if (window.EditorRico) {
+                    const quillEd = EditorRico.montar(textareaEd);
+                    if (quillEd) { quillEd.focus(); } else { textareaEd.focus(); }
+                } else {
+                    textareaEd.focus();
+                }
 
                 btnCancelar.addEventListener('click', function () {
                     area.remove();
@@ -3229,13 +3237,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
 
                 btnSalvar.addEventListener('click', async function () {
-                    const novo = textareaEd.value.trim();
-                    if (novo === '') { alert('A mensagem não pode ser vazia.'); return; }
+                    // O editor esvazia a textarea quando nao ha texto real (`<p><br></p>` nao conta).
+                    const vazio = window.EditorRico
+                        ? EditorRico.estaVazio(textareaEd)
+                        : textareaEd.value.trim() === '';
+                    if (vazio) { alert('A mensagem não pode ser vazia.'); return; }
 
                     btnSalvar.disabled = true;
                     const fd = new FormData();
                     fd.append('_token', btnEditar.dataset.csrf);
-                    fd.append('conteudo', novo);
+                    fd.append('conteudo', textareaEd.value);
 
                     try {
                         const resp = await fetch(btnEditar.dataset.url, {
@@ -3245,7 +3256,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         });
                         const data = await resp.json();
                         if (resp.ok) {
-                            conteudoDiv.innerHTML = esc(data.conteudo).replace(/\n/g, '<br>');
+                            // `conteudoHtml` vem SANITIZADO do servidor.
+                            conteudoDiv.innerHTML = '<span class="editor-rico-conteudo"><span class="ql-editor">'
+                                + (data.conteudoHtml ?? '') + '</span></span>';
                             btnEditar.dataset.conteudo = data.conteudo;
                             marcarEditado(item);
                             area.remove();
@@ -3339,7 +3352,8 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             inserirMensagem(data);
-            textarea.value = '';
+            // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
+            if (window.EditorRico) { EditorRico.limpar(textarea); } else { textarea.value = ''; }
             if (vazioMsg) { vazioMsg.remove(); }
             if (countBadge) {
                 countBadge.textContent = parseInt(countBadge.textContent || '0', 10) + 1;
@@ -3355,7 +3369,9 @@ document.addEventListener('DOMContentLoaded', function () {
     function inserirMensagem(data) {
         const dt   = new Date(data.criadaEmTs);
         const hora = dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        const corpo = esc(data.conteudo).replace(/\n/g, '<br>');
+        // `conteudoHtml` vem SANITIZADO do servidor: entra como HTML (e o que mostra a formatacao).
+        const corpo = '<span class="editor-rico-conteudo"><span class="ql-editor">'
+            + (data.conteudoHtml ?? '') + '</span></span>';
 
         const urlEditar  = urlEditarTpl.replace('__ID__', data.id);
         const urlExcluir = urlExcluirTpl.replace('__ID__', data.id);

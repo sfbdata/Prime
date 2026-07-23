@@ -14,6 +14,7 @@ use App\Cobranca\Exception\CasoNaoEncontradoException;
 use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
+use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Cobranca\UseCase\RegistrarAnotacaoUseCase;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -26,6 +27,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(RegistrarAnotacaoUseCase::class)]
 final class RegistrarAnotacaoUseCaseTest extends TestCase
 {
+    use CriaSanitizadorTextoRico;
+
     private CasoCobrancaRepository&MockObject $casoRepository;
     private EventoHistoricoRepository&MockObject $eventoRepository;
     private RegistrarAnotacaoUseCase $sut;
@@ -39,7 +42,7 @@ final class RegistrarAnotacaoUseCaseTest extends TestCase
         $this->eventoRepository = $this->createMock(EventoHistoricoRepository::class);
         // O serviço é final (não mockável): usa-se o REAL com o repositório de eventos mockado.
         $registrarEvento = new RegistrarEventoHistorico($this->eventoRepository);
-        $this->sut = new RegistrarAnotacaoUseCase($this->casoRepository, $registrarEvento);
+        $this->sut = new RegistrarAnotacaoUseCase($this->casoRepository, $registrarEvento, $this->criarSanitizadorTextoRico());
         $this->tenant = new Tenant();
         $this->usuario = new User();
     }

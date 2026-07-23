@@ -13,6 +13,7 @@ use App\Cobranca\Exception\AnotacaoNaoEditavelException;
 use App\Cobranca\Exception\CasoEncerradoException;
 use App\Cobranca\Exception\EventoNaoEncontradoException;
 use App\Cobranca\Repository\EventoHistoricoRepository;
+use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Cobranca\UseCase\EditarAnotacaoUseCase;
 use App\Cobranca\UseCase\ExcluirAnotacaoUseCase;
 use App\Entity\Auth\User;
@@ -29,6 +30,8 @@ use Symfony\Component\Clock\MockClock;
 #[CoversClass(ExcluirAnotacaoUseCase::class)]
 final class EditarExcluirAnotacaoUseCaseTest extends TestCase
 {
+    use CriaSanitizadorTextoRico;
+
     private const REGISTRO = '2026-07-22 10:00:00';
 
     private EventoHistoricoRepository&MockObject $eventoRepository;
@@ -53,7 +56,7 @@ final class EditarExcluirAnotacaoUseCaseTest extends TestCase
         $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($evento);
         $this->eventoRepository->expects($this->once())->method('salvar')->with($evento, true);
 
-        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-23 09:00:00'));
+        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-23 09:00:00'), $this->criarSanitizadorTextoRico());
 
         $input = new EditarAnotacaoInput();
         $input->eventoId = 5;
@@ -73,14 +76,14 @@ final class EditarExcluirAnotacaoUseCaseTest extends TestCase
         $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($evento);
 
         // Primeira edição às 47h — dentro.
-        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-24 09:00:00'));
+        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-24 09:00:00'), $this->criarSanitizadorTextoRico());
         $input = new EditarAnotacaoInput();
         $input->eventoId = 5;
         $input->texto = 'primeira correcao';
         $sut->executar($input, $this->tenant, $this->autor);
 
         // Segunda tentativa às 49h da ORIGEM: se a edição tivesse renovado o prazo, passaria.
-        $sut2 = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-24 11:00:00'));
+        $sut2 = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-24 11:00:00'), $this->criarSanitizadorTextoRico());
         $input2 = new EditarAnotacaoInput();
         $input2->eventoId = 5;
         $input2->texto = 'segunda correcao';
@@ -97,7 +100,7 @@ final class EditarExcluirAnotacaoUseCaseTest extends TestCase
         $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($evento);
         $this->eventoRepository->expects($this->never())->method('salvar');
 
-        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-24 10:00:01'));
+        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-24 10:00:01'), $this->criarSanitizadorTextoRico());
 
         $input = new EditarAnotacaoInput();
         $input->eventoId = 5;
@@ -115,7 +118,7 @@ final class EditarExcluirAnotacaoUseCaseTest extends TestCase
         $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($evento);
         $this->eventoRepository->expects($this->once())->method('salvar');
 
-        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-24 10:00:00'));
+        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-24 10:00:00'), $this->criarSanitizadorTextoRico());
 
         $input = new EditarAnotacaoInput();
         $input->eventoId = 5;
@@ -137,7 +140,7 @@ final class EditarExcluirAnotacaoUseCaseTest extends TestCase
         $outro = new User();
         $this->definirId($outro, 99);
 
-        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-22 11:00:00'));
+        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-22 11:00:00'), $this->criarSanitizadorTextoRico());
 
         $input = new EditarAnotacaoInput();
         $input->eventoId = 5;
@@ -155,7 +158,7 @@ final class EditarExcluirAnotacaoUseCaseTest extends TestCase
         $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($evento);
         $this->eventoRepository->expects($this->never())->method('salvar');
 
-        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-22 11:00:00'));
+        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-22 11:00:00'), $this->criarSanitizadorTextoRico());
 
         $input = new EditarAnotacaoInput();
         $input->eventoId = 5;
@@ -172,7 +175,7 @@ final class EditarExcluirAnotacaoUseCaseTest extends TestCase
         $this->eventoRepository->method('findOneByIdDoTenant')->willReturn(null);
         $this->eventoRepository->expects($this->never())->method('salvar');
 
-        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-22 11:00:00'));
+        $sut = new EditarAnotacaoUseCase($this->eventoRepository, $this->relogio('2026-07-22 11:00:00'), $this->criarSanitizadorTextoRico());
 
         $input = new EditarAnotacaoInput();
         $input->eventoId = 999;

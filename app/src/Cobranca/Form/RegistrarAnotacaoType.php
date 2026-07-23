@@ -23,6 +23,8 @@ final class RegistrarAnotacaoType extends AbstractType
             'label' => false,
             'required' => false, // a obrigatoriedade é do DTO — evita o balão nativo do browser
             'attr' => [
+                // Liga o editor rico (barra de formatação) — ver public/js/editor-rico.js.
+                'data-editor-rico' => true,
                 'rows' => 2,
                 'maxlength' => 5000,
                 'class' => 'form-control form-control-sm',

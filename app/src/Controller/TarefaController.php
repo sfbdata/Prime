@@ -13,6 +13,7 @@ use App\Tarefa\Repository\TarefaRepository;
 use App\Tarefa\Exception\MetaNaoExcluivelException;
 use App\Tarefa\Exception\PrazoNaoEditavelException;
 use App\Tarefa\UseCase\AtualizarPrazoTarefaUseCase;
+use App\Shared\Service\SanitizadorTextoRico;
 use App\Tarefa\UseCase\EditarTarefaMensagemUseCase;
 use App\Tarefa\UseCase\ExcluirTarefaUseCase;
 use App\Repository\UserRepository;
@@ -261,7 +262,7 @@ final class TarefaController extends AbstractController
      * Responsável envia → Para Revisão. Gestor devolve → Pendente.
      */
     #[Route('/{id}/mensagem', name: 'tarefa_mensagem', methods: ['POST'])]
-    public function mensagem(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager): Response
+    public function mensagem(Tarefa $tarefa, Request $request, EntityManagerInterface $entityManager, SanitizadorTextoRico $sanitizador): Response
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -272,7 +273,8 @@ final class TarefaController extends AbstractController
             throw $this->createAccessDeniedException('Token CSRF inválido.');
         }
 
-        $texto = trim((string) $request->request->get('mensagem', ''));
+        // Vem do editor rico (HTML): limpo ANTES de persistir. Texto puro atravessa intacto.
+        $texto = $sanitizador->limpar(trim((string) $request->request->get('mensagem', ''))) ?? '';
         $acao  = (string) $request->request->get('acao', '');
 
         $arquivoMensagem = $request->files->get('arquivo_mensagem');
@@ -283,10 +285,13 @@ final class TarefaController extends AbstractController
             $arquivoAnexoPath = $uploaded[0] ?? null;
         }
 
-        if ($texto !== '' || $arquivoAnexoPath !== null) {
+        // `estaVazio` e não `!== ''`: o editor entrega `<p><br></p>` quando nada foi digitado.
+        $temTexto = !$sanitizador->estaVazio($texto);
+
+        if ($temTexto || $arquivoAnexoPath !== null) {
             $mensagem = new TarefaMensagem();
             $mensagem->setUsuario($usuario);
-            $mensagem->setMensagem($texto !== '' ? $texto : '[Arquivo anexado]');
+            $mensagem->setMensagem($temTexto ? $texto : '[Arquivo anexado]');
             $mensagem->setArquivoAnexo($arquivoAnexoPath);
             $mensagem->setTenant($tarefa->getTenant());
             $tarefa->addMensagem($mensagem);
@@ -321,7 +326,7 @@ final class TarefaController extends AbstractController
      * Edita o texto de uma mensagem do histórico. Apenas o autor pode editar.
      */
     #[Route('/mensagem/{id}/editar', name: 'tarefa_mensagem_editar', methods: ['POST'])]
-    public function editarMensagem(TarefaMensagem $mensagem, Request $request, EditarTarefaMensagemUseCase $useCase): JsonResponse
+    public function editarMensagem(TarefaMensagem $mensagem, Request $request, EditarTarefaMensagemUseCase $useCase, SanitizadorTextoRico $sanitizador): JsonResponse
     {
         /** @var User $usuario */
         $usuario = $this->getUser();
@@ -343,8 +348,10 @@ final class TarefaController extends AbstractController
         }
 
         return $this->json([
-            'conteudo'  => $mensagem->getMensagem(),
-            'editadoEm' => $mensagem->getEditadoEm()?->format('d/m/Y H:i'),
+            // cru volta ao editor; conteudoHtml é o que a tela exibe (sanitizado).
+            'conteudo'     => $mensagem->getMensagem(),
+            'conteudoHtml' => $sanitizador->paraExibicao($mensagem->getMensagem()),
+            'editadoEm'    => $mensagem->getEditadoEm()?->format('d/m/Y H:i'),
         ]);
     }
 

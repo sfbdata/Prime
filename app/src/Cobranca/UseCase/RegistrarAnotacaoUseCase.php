@@ -13,6 +13,7 @@ use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Service\RegistrarEventoHistorico;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Service\SanitizadorTextoRico;
 
 /**
  * Registra uma ANOTAÇÃO livre na linha do tempo do Caso de Cobrança (ajuste 2026-07).
@@ -41,6 +42,7 @@ final class RegistrarAnotacaoUseCase
     public function __construct(
         private readonly CasoCobrancaRepository $casoRepository,
         private readonly RegistrarEventoHistorico $registrarEvento,
+        private readonly SanitizadorTextoRico $sanitizador,
     ) {
     }
 
@@ -60,7 +62,15 @@ final class RegistrarAnotacaoUseCase
         // A timeline renderiza a `descricao` — o texto entra nela como o usuário escreveu, sem prefixo
         // nem moldura. O `trim` evita gravar anotação que só tem espaço/quebra de linha (o NotBlank do
         // DTO já barra a vazia, mas ele não normaliza o que passa).
-        $texto = trim((string) $input->texto);
+        // Vem do editor rico (HTML): limpo ANTES de virar evento — a linha do tempo renderiza
+        // este texto, então o banco não pode guardar marcação perigosa. Texto puro passa intacto.
+        $texto = $this->sanitizador->limpar(trim((string) $input->texto)) ?? '';
+
+        // `estaVazio` porque o editor entrega `<p><br></p>` quando nada foi digitado — o NotBlank
+        // do DTO não pega isso, já que como string ele não é vazio.
+        if ($this->sanitizador->estaVazio($texto)) {
+            throw new \InvalidArgumentException('A anotação não pode ser vazia.');
+        }
 
         return $this->registrarEvento->registrar(
             $caso,

@@ -32,7 +32,7 @@ final class EditarTarefaMensagemUseCaseTest extends KernelTestCase
     {
         self::bootKernel();
         $this->em      = static::getContainer()->get(EntityManagerInterface::class);
-        $this->useCase = new EditarTarefaMensagemUseCase($this->em);
+        $this->useCase = new EditarTarefaMensagemUseCase($this->em, static::getContainer()->get(\App\Shared\Service\SanitizadorTextoRico::class));
     }
 
     private function criarMensagem(string $conteudoInicial = 'Conteúdo original'): TarefaMensagem

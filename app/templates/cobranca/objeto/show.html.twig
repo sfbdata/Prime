@@ -177,7 +177,15 @@
                             </span>
                             {% endif %}
                         </div>
-                        <div>{{ e.descricao|nl2br }}</div>
+                        <div>
+                            {% if e.tipoValue == 'anotacao' %}
+                                {# Escrita por uma pessoa no editor rico. #}
+                                <span class="editor-rico-conteudo"><span class="ql-editor">{{ e.descricao|texto_rico }}</span></span>
+                            {% else %}
+                                {# Evento gerado pelo sistema: segue escapado. #}
+                                {{ e.descricao|nl2br }}
+                            {% endif %}
+                        </div>
                         <div class="caso-timeline-meta">{{ e.ocorridoEm|date('d/m/Y H:i') }}{% if e.usuarioNome %} · {{ e.usuarioNome }}{% endif %}</div>
                     </li>
                     {% endfor %}
@@ -408,6 +416,11 @@
 {% block stylesheets %}
 {{ parent() }}
 <link rel="stylesheet" href="{{ asset('css/cobrancas.css') }}">
+{# Editor rico (barra de formatação). Quill auto-hospedado — sem CDN externo. #}
+<link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
+<link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
+<script src="{{ asset('js/quill/quill.js') }}"></script>
+<script src="{{ asset('js/editor-rico.js') }}" defer></script>
 <link rel="stylesheet" href="{{ asset('css/pasta-arquivos.css') }}">
 {% endblock %}
 
@@ -453,7 +466,14 @@ document.addEventListener('DOMContentLoaded', function () {
             botao.addEventListener('click', function () {
                 if (!formEditarAnotacao) { return; }
                 formEditarAnotacao.setAttribute('action', botao.dataset.url);
-                if (campoAnotacao) { campoAnotacao.value = botao.dataset.texto || ''; }
+                if (campoAnotacao) {
+                    // Passa pelo editor rico quando ele estiver montado; senão, textarea comum.
+                    if (window.EditorRico) {
+                        EditorRico.definirConteudo(campoAnotacao, botao.dataset.texto || '');
+                    } else {
+                        campoAnotacao.value = botao.dataset.texto || '';
+                    }
+                }
                 new bootstrap.Modal(modalEditarAnotacao).show();
             });
         });

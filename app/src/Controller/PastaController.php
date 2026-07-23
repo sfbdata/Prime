@@ -594,7 +594,7 @@ class PastaController extends AbstractController
     }
 
     #[Route('/{id}/mensagem', name: 'pasta_enviar_mensagem', methods: ['POST'])]
-    public function enviarMensagem(Pasta $pasta, Request $request): JsonResponse
+    public function enviarMensagem(Pasta $pasta, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -623,7 +623,9 @@ class PastaController extends AbstractController
 
         return $this->json([
             'id'          => $mensagem->getId(),
-            'conteudo'    => $mensagem->getConteudo(),
+            // cru volta ao editor; conteudoHtml é o que a tela exibe (sanitizado).
+            'conteudo'     => $mensagem->getConteudo(),
+            'conteudoHtml' => $sanitizador->paraExibicao($mensagem->getConteudo()),
             'autorNome'   => $currentUser->getFullName(),
             'criadaEm'    => $mensagem->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs'  => $mensagem->getCriadaEm()->format(\DateTimeInterface::ATOM),
@@ -635,7 +637,7 @@ class PastaController extends AbstractController
     // ── Editar mensagem do chat (autor, dentro de 24h) ────────────────────────
 
     #[Route('/{id}/mensagem/{msgId}/editar', name: 'pasta_editar_mensagem', methods: ['POST'])]
-    public function editarMensagem(Pasta $pasta, int $msgId, Request $request): JsonResponse
+    public function editarMensagem(Pasta $pasta, int $msgId, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -666,8 +668,9 @@ class PastaController extends AbstractController
         }
 
         return $this->json([
-            'conteudo'  => $mensagem->getConteudo(),
-            'editadaEm' => $mensagem->getEditadaEm()?->format('d/m/Y H:i'),
+            'conteudo'     => $mensagem->getConteudo(),
+            'conteudoHtml' => $sanitizador->paraExibicao($mensagem->getConteudo()),
+            'editadaEm'    => $mensagem->getEditadaEm()?->format('d/m/Y H:i'),
         ]);
     }
 
@@ -1621,7 +1624,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Enviar observação ─────────────────────────────────────────
 
     #[Route('/{id}/financeiro/observacao', name: 'pasta_financeiro_observacao_enviar', methods: ['POST'])]
-    public function financeiroEnviarObservacao(Pasta $pasta, Request $request): JsonResponse
+    public function financeiroEnviarObservacao(Pasta $pasta, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1661,7 +1664,7 @@ class PastaController extends AbstractController
     // ── Financeiro: Editar observação ─────────────────────────────────────────
 
     #[Route('/{id}/financeiro/observacao/{obsId}/editar', name: 'pasta_financeiro_observacao_editar', methods: ['POST'])]
-    public function financeiroEditarObservacao(Pasta $pasta, int $obsId, Request $request): JsonResponse
+    public function financeiroEditarObservacao(Pasta $pasta, int $obsId, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1692,8 +1695,9 @@ class PastaController extends AbstractController
         }
 
         return $this->json([
-            'conteudo'  => $obs->getConteudo(),
-            'editadaEm' => $obs->getEditadaEm()?->format('d/m/Y H:i'),
+            'conteudo'     => $obs->getConteudo(),
+            'conteudoHtml' => $sanitizador->paraExibicao($obs->getConteudo()),
+            'editadaEm'    => $obs->getEditadaEm()?->format('d/m/Y H:i'),
         ]);
     }
 

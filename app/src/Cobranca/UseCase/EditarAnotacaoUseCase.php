@@ -12,6 +12,7 @@ use App\Cobranca\Exception\EventoNaoEncontradoException;
 use App\Cobranca\Repository\EventoHistoricoRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
+use App\Shared\Service\SanitizadorTextoRico;
 use Psr\Clock\ClockInterface;
 
 /**
@@ -34,6 +35,7 @@ final class EditarAnotacaoUseCase
     public function __construct(
         private readonly EventoHistoricoRepository $eventoRepository,
         private readonly ClockInterface $clock,
+        private readonly SanitizadorTextoRico $sanitizador,
     ) {
     }
 
@@ -55,7 +57,14 @@ final class EditarAnotacaoUseCase
             throw new AnotacaoNaoEditavelException();
         }
 
-        $evento->reescrever(trim((string) $input->texto), $this->clock->now());
+        // Mesma limpeza do registro: a edição é outra porta para o mesmo texto.
+        $texto = $this->sanitizador->limpar(trim((string) $input->texto)) ?? '';
+
+        if ($this->sanitizador->estaVazio($texto)) {
+            throw new \InvalidArgumentException('A anotação não pode ser vazia.');
+        }
+
+        $evento->reescrever($texto, $this->clock->now());
         $this->eventoRepository->salvar($evento, true);
 
         return $evento;

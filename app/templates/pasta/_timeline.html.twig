@@ -1,3 +1,9 @@
+{# Editor rico (barra de formatação). Quill auto-hospedado — sem CDN externo. #}
+<link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
+<link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
+<script src="{{ asset('js/quill/quill.js') }}"></script>
+<script src="{{ asset('js/editor-rico.js') }}" defer></script>
+
 <div class="card mt-4" id="pasta-timeline-card">
     <div class="card-header">
         <h3 class="card-title mb-0 d-flex align-items-center gap-2">
@@ -10,20 +16,21 @@
     <div class="card-body border-bottom pb-3">
         <form id="formTimelineMensagem">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_mensagem_' ~ pasta.id) }}">
-            <div class="d-flex gap-2 align-items-end">
-                <div class="flex-grow-1">
+            <div>
+                <div>
                     <textarea
                         name="conteudo"
                         id="timelineConteudo"
+                        data-editor-rico
                         class="form-control form-control-sm"
                         rows="2"
                         maxlength="5000"
                         placeholder="Adicionar observação, combinado ou anotação do caso… (Ctrl+Enter para enviar)"
                     ></textarea>
                 </div>
-                <button type="submit" class="btn btn-primary btn-sm flex-shrink-0" id="btnEnviarMensagem">
+                <div class="d-flex justify-content-end mt-2"><button type="submit" class="btn btn-primary btn-sm" id="btnEnviarMensagem">
                     <i class="bi bi-send me-1"></i> Enviar
-                </button>
+                </button></div>
             </div>
             <div id="timelineMensagemErro" class="text-danger small mt-1 d-none"></div>
         </form>
@@ -108,7 +115,13 @@
                                 </div>
                             {% elseif item.detalhe %}
                                 <div class="mt-1 small {% if ehMensagem %}text-body pasta-msg-conteudo{% else %}text-muted{% endif %}">
-                                    {{ item.detalhe|nl2br }}
+                                    {% if ehMensagem %}
+                                        {# Relatório escrito por uma pessoa: passa pelo editor rico. #}
+                                        <span class="editor-rico-conteudo"><span class="ql-editor">{{ item.detalhe|texto_rico }}</span></span>
+                                    {% else %}
+                                        {# Texto gerado pelo sistema (mudança de status etc.): segue escapado. #}
+                                        {{ item.detalhe|nl2br }}
+                                    {% endif %}
                                 </div>
                             {% endif %}
 
