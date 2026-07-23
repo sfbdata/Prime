@@ -92,8 +92,9 @@ if re.search(r'\bgit\b', sem_msg) and re.search(r'\bcommit\b', sem_msg) \
 # Por isso cada forma exige contexto de escrita, não a mera presença do texto — foi
 # justamente a presença-crua que virou falso positivo (barrava `git config --get` e echos).
 hookspath_escrita = (
-    # `git -c core.hooksPath=…` — a atribuição inline
-    re.search(r'core\.hooksPath\s*=', cmd)
+    # `git -c core.hooksPath=…` — a atribuição inline. Exige o `-c` antes do `=`:
+    # `core.hooksPath=` cru aparece em echo/diagnóstico benigno e não é burla.
+    re.search(r'-c\s+core\.hooksPath\s*=', cmd)
     # `git config --unset[-all] core.hooksPath`
     or re.search(r'--unset\S*\s+core\.hooksPath', cmd)
     # `git config core.hooksPath <valor>` — exige `git … config`, um valor depois do
