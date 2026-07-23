@@ -53,6 +53,11 @@ final class Version20260508170000 extends AbstractMigration
               AND NOT EXISTS (
                   SELECT 1 FROM user_tenant ut2 WHERE ut2.user_id = u.id AND ut2.tenant_id = 1
               )
+              -- Banco NOVO (criado só por migrations) não tem tenant nenhum, e o vínculo
+              -- violava a FK — a migration só passava onde já havia dump carregado. Sem esta
+              -- guarda não é possível criar um banco de teste do zero, que é o que o
+              -- isolamento por frente (TEST_TOKEN) e o ritual de migrations exigem.
+              AND EXISTS (SELECT 1 FROM tenant WHERE id = 1)
         SQL);
 
     }

@@ -145,6 +145,53 @@ Não foi construído nada disto ainda. É a recomendação que saiu da investiga
 4. Integração em série, um piloto de git por vez.
 5. Smoke serializado enquanto não houver a porta 8081.
 
+## 5b. Correções à §3.2 e à §4 (medidas ao construir o fluxo, 2026-07-23)
+
+A §5 foi implementada. Ao executá-la, três afirmações das seções anteriores caíram. Ficam aqui em
+vez de editadas acima, para preservar o registro do que se acreditava antes.
+
+**1. `worktree.baseRef` não é o mecanismo que dá base às frentes.** O schema do Claude Code só admite
+`fresh` ou `head` (não um ref arbitrário como `origin/master`), e — mais importante — o setting é
+usado pelo **fan-out** (worktrees de subagente), que precisa de `head` para carregar os contratos
+committados localmente. Mudá-lo para `fresh` quebraria o fan-out. As frentes não dependem dele: o
+`scripts/frente-abrir.sh` passa `origin/master` como base **explicitamente** (`git worktree add …
+origin/master`). Então o setting fica `head` e as frentes ainda saem do master. (A tentativa inicial
+de trocar para `fresh` foi revertida.)
+
+**2. A receita de banco isolado da §3.2 não funciona.** `migrations:migrate` não constrói o banco de
+teste, e não é assim que o `saas_test` nasceu: ele tem **zero** linhas em
+`doctrine_migration_versions`. Rodar migrate num banco vazio nem completa — falha em
+`Version20260508170000` (vincula o usuário E2E ao **tenant 1 fixo** sem checar se existe) e, passada
+essa, em `Version20260625200952` (`legenda_cor.tenant_id` NOT NULL com linhas nulas).
+
+**3. `schema:create` também não serve — e falha de um jeito que engana.** Ele completa sem erro, mas
+entrega um banco **incompleto**: sem a extensão `unaccent`, sem as 4 funções do schema `public` e com
+318 índices contra 320. Nada disso vem do mapeamento das entidades; vem de SQL cru das migrations.
+Medido: a suíte deu 12 erros + ~10 falhas, quase todas de busca livre e acento, com o repositório
+principal verde em 2464/2464 no mesmo código.
+
+**A receita que funciona é clonar:**
+
+```sql
+CREATE DATABASE "saas_test<frente>" TEMPLATE "saas_test";
+```
+
+`TEMPLATE` copia extensões, funções e índices junto. Resultado após a troca: **duas frentes rodando ao
+mesmo tempo, 2464/2464 e 7842 asserções cada** — idêntico ao repositório principal, nenhuma derrubando
+a outra. É o que o `scripts/frente-abrir.sh` faz. Exigência do Postgres: ninguém conectado ao
+`saas_test` no momento do clone.
+
+**Consequência para o ritual de migrations da §4.** O passo 3 — "recriar o banco do zero, porque só
+ele executa as duas migrations na ordem canônica" — **não é executável neste projeto hoje**: o
+histórico de migrations não replica em banco vazio. Enquanto isso não for resolvido, a ordem
+canônica não tem como ser provada por execução; sobra a leitura humana das duas migrations (passo 5),
+que passa de complemento a única defesa quando as duas tocam a mesma tabela.
+
+Uma guarda foi acrescentada à `Version20260508170000` (só insere o vínculo se o tenant 1 existir).
+É segura — a migration é no-op em produção e já foi aplicada em dev/teste —, mas **sozinha não
+resolve**: a migration seguinte quebra por outro motivo. Consertar a cadeia inteira é trabalho à
+parte, não decidido.
+
 ## 6. Decisões que sobraram para o humano
 
 - Auditar as 5 branches de junho/maio da §1 e decidir o que aproveitar.

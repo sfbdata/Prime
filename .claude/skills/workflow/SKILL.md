@@ -183,6 +183,76 @@ escopo ou comportamento incompatível entre implementações. O orquestrador dev
 **Na dúvida entre conflito simples e semântico, tratar como semântico e
 interromper o fan-out.**
 
+## Frentes paralelas (worktrees)
+
+Isto é diferente do fan-out acima. Lá, subagentes dividem **uma** tarefa e as worktrees
+saem do HEAD da branch (`baseRef=head`), para carregar os contratos committados localmente.
+Aqui, **frentes** independentes correm em paralelo, possivelmente em sessões e dias diferentes,
+e cada uma sai de `origin/master`.
+
+A base de cada frente é definida pelo **script**, não pelo `worktree.baseRef`:
+`scripts/frente-abrir.sh` faz `git worktree add ... origin/master` explicitamente. Por isso o
+setting continua `head` (que o fan-out precisa) sem prejudicar as frentes.
+
+Registro obrigatório: `docs/frentes-ativas.md`. É o que permite duas sessões saberem uma da
+outra. Fatos medidos do ambiente: `docs/worktrees-frentes-paralelas.md`.
+
+```bash
+scripts/frente-abrir.sh <nome>          # worktree + vendor + uploads + banco de teste isolado
+scripts/frente-testar.sh <nome>         # suíte DA frente, no banco DA frente
+scripts/frente-fechar.sh <nome>         # ritual de migration + suíte; para antes do merge
+```
+
+**Princípio:** implementação em paralelo, **integração em série**. Um piloto de git por vez.
+
+1. **Um domínio por frente.** Duas frentes no mesmo domínio conflitam quase sempre.
+2. **Arquivos compartilhados declarados na abertura.** Os que doem aqui:
+   `app/templates/base.html.twig`, CSS global, rotas, enums de `app/src/Shared/`, `docs/`.
+   Quem toca um desses vai sozinho ou por último.
+3. **Frentes com migration, uma de cada vez** — não por impossibilidade, mas porque o custo de
+   fazer certo (renomear a versão, ler as duas, rodar de novo) supera o de esperar. Frentes de
+   tela, relatório ou lógica paralelizam à vontade. *Mantenha essa justificativa ao repetir a
+   regra: sem o porquê ela vira dogma e alguém contorna sem entender o que perde.*
+4. **Verde na branch não basta.** Uma branch cortada de `origin/master` prova `master + A`;
+   nenhuma prova `master + A + B`. Antes de integrar, traga o master para dentro da frente e
+   rode de novo; **depois** do merge, rode a suíte no master. É esse segundo passo que pega a
+   quebra cruzada, e é o que todo mundo pula.
+5. **Smoke serializado.** `nginx.conf` fixa `root /var/www/app/public` e só a 8080 é publicada:
+   `localhost:8080` sempre serve o repositório principal. Duas frentes não podem ser conferidas
+   no navegador ao mesmo tempo.
+
+### Cortar do master, e quando empilhar
+
+O padrão é cada frente sair de `origin/master`. Mas a regra tem três ramos, não um:
+
+1. **A pronta e liberável** → publique A, corte B do master. Caso comum.
+2. **A travada num portão humano** (decisão de produto, ratificação) → empilhar B sobre A é
+   legítimo: `scripts/frente-abrir.sh <b> <a>`. Declare a base em `docs/frentes-ativas.md` e
+   assuma o que vem junto — **o deploy será A+B**, e quem segura o portão de A segura a pilha.
+3. **Empilhar sem nenhum dos dois motivos** → é o acidente. Contra ele agem o hook
+   `pre-commit` (recusa commit na branch errada) e o registro em `docs/frentes-ativas.md`.
+
+Já aconteceu de a camada de baixo ficar dias parada num portão de ratificação e a de cima
+empilhar por cima; quando subiu, um deploy virou 36 commits com uma decisão de dinheiro no meio.
+O erro não foi cortar da branch errada — a dependência era real. Foi não declarar a pilha.
+
+### Armadilhas medidas (não repita)
+
+- **`cd app && php bin/phpunit` testa o repositório PRINCIPAL**, não a worktree — verde falso.
+  Use `scripts/frente-testar.sh`.
+- **Worktree nova nasce sem `app/vendor/`** (gitignored, 299M): a suíte falha seca até rodar
+  `composer install`. Idem `app/public/uploads/` — sem os diretórios o upload quebra por
+  permissão, não por código. O `frente-abrir.sh` cobre os dois.
+- **O banco de teste da frente é um CLONE do `saas_test` (`CREATE DATABASE … TEMPLATE`).** As duas
+  receitas óbvias produzem banco errado: `migrations:migrate` num banco vazio nem completa (parte
+  das migrations supõe dados de dump), e `schema:create` completa mas entrega banco **incompleto** —
+  sem a extensão `unaccent`, sem as 4 funções do schema `public` e com 2 índices a menos, porque
+  isso vem de SQL cru das migrations, não do mapeamento das entidades. Sintoma: ~22 testes de busca
+  livre/acento falhando contra um master verde. O `frente-abrir.sh` já faz o clone.
+- **Ao decidir se uma branch pode ser apagada, confira por CONTEÚDO contra `origin/master`**
+  (`git cherry`) e use `git branch -d`, nunca `-D`. `git status --porcelain` mostra arquivo não
+  commitado e **não** mostra commit não publicado — checagem incompatível com comando destrutivo.
+
 ## Ciclo de trabalho (sequencial, tarefa única)
 
 Para trabalho que não se decompõe em blocos paralelos, o orquestrador conduz o

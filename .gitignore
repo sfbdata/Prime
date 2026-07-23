@@ -79,6 +79,9 @@ relatorio-commits-10-11-jun-2026.md
 # a um clone novo (aí as worktrees apareceriam como untracked no repo principal).
 .worktrees/
 /.claude/worktrees/
+# Marcador da frente lido pelo hook pre-commit. É local por definição: diz de qual
+# frente ESTA pasta é, e cada worktree tem o seu.
+.frente
 
 # Snapshots de prod usados como fixture de dev (contêm PII — nunca versionar)
 /fixtures/

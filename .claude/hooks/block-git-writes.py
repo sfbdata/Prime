@@ -87,7 +87,11 @@ if re.search(r'\bgit\b', sem_msg) and re.search(r'\bcommit\b', sem_msg) \
     barra("--no-verify/-n não é permitido em commit (não burle os hooks).")
 
 # --- burla via override do caminho de hooks ---
-if re.search(r'core\.hooksPath', cmd):
-    barra("override de core.hooksPath não é permitido (burla de hook).")
+# Só a ATRIBUIÇÃO é burla; consultar (`--get`, `--list`) é leitura e fica liberado —
+# mesma família de falso positivo do `merge-base`, onde ler estava barrado junto com escrever.
+if re.search(r'core\.hooksPath\s*=', cmd) \
+        or re.search(r'core\.hooksPath\s+(?![&|;<>)])\S', cmd) \
+        or re.search(r'--unset[\w-]*\s+core\.hooksPath', cmd):
+    barra("definir/remover core.hooksPath não é permitido (burla de hook); consultar é livre.")
 
 sys.exit(0)
