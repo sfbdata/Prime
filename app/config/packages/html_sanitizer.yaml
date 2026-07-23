@@ -1,6 +1,43 @@
 framework:
     html_sanitizer:
         sanitizers:
+            # Anotações/observações escritas pelos usuários no editor rico (barra de formatação).
+            # Libera SÓ o que a barra produz: ênfase, títulos, listas, citação e span (cor).
+            # Injeta-se como `HtmlSanitizerInterface $textoRico` — o nome do argumento tem de ser
+            # EXATAMENTE o nome do sanitizador; com outro nome o autowiring cai no `default`, calado.
+            #
+            # Fora de propósito, e cada ausência é uma decisão:
+            #  - `style`: o atributo é o vetor que sobra num sanitizador (ele não filtra proprie-
+            #    dades CSS). Por isso cor/alinhamento/recuo saem por CLASSE `ql-*`, não por style.
+            #  - `a`/`img`: a barra não oferece link nem imagem (escopo aprovado pelo dono).
+            #  - `class` é liberado aqui, mas o `SanitizadorTextoRico` descarta depois toda classe
+            #    que não seja `ql-*` — senão daria para injetar utilitário do Bootstrap (`d-none`).
+            textoRico:
+                allow_elements:
+                    p: ['class']
+                    br: []
+                    strong: []
+                    b: []
+                    em: []
+                    i: []
+                    u: []
+                    s: []
+                    h1: ['class']
+                    h2: ['class']
+                    h3: ['class']
+                    h4: ['class']
+                    h5: ['class']
+                    h6: ['class']
+                    ol: []
+                    ul: []
+                    li: ['class', 'data-list']
+                    blockquote: ['class']
+                    span: ['class']
+                allow_relative_links: false
+                allow_relative_medias: false
+                max_input_length: 20000
+
+
             # Sanitizador do teor das publicações do DJEN (conteúdo HTML externo, do CNJ).
             # Preserva a formatação de documento (parágrafos, negrito, seções, tabelas de partes)
             # e remove tudo que for perigoso (script/style/iframe, handlers de evento, javascript:).
