@@ -10,8 +10,23 @@
 # acumulem/integrem vários commits (-n/--no-commit/--stdin/--skip/range/múltiplos).
 import sys, json, re
 
-data = json.load(sys.stdin)
-cmd = (data.get("tool_input") or {}).get("command") or data.get("command", "")
+def barra_bruto(motivo):
+    """Recusa antes de o guard ter contexto para explicar direito."""
+    print(f"BLOQUEADO: {motivo}", file=sys.stderr)
+    sys.exit(2)
+
+
+# O guard falha FECHADO: se não deu para ler a entrada, não dá para saber o que o
+# comando faz, então recusa. Deixar passar em silêncio seria o modo de falha caro
+# (comando de escrita liberado por um erro de parsing que ninguém vê).
+try:
+    data = json.load(sys.stdin)
+    cmd = (data.get("tool_input") or {}).get("command") or data.get("command", "")
+except Exception as e:
+    barra_bruto(f"nao foi possivel ler a entrada do hook ({e.__class__.__name__}).")
+
+if not isinstance(cmd, str) or not cmd.strip():
+    barra_bruto("comando ausente ou em formato inesperado na entrada do hook.")
 # Tira mensagens entre aspas p/ não confundir texto de -m com flags/subcomandos.
 sem_msg = re.sub(r'"[^"]*"|\'[^\']*\'', '', cmd)
 
@@ -56,7 +71,10 @@ if re.search(r'\bcherry-pick\b', sem_msg):
 # --- escrita/publicação/reescrita reservada ao humano (add/commit/cherry-pick fora) ---
 proibidas = (
     r'\bgit\s+(?:-C\s+\S+\s+)?'
-    r'(push|pull|revert|reset|merge|rebase|rm\b'
+    # `merge(?!-)`: o hifen ja e fronteira de palavra, entao `merge\b` casava com
+    # `git merge-base` / `merge-tree` / `merge-file`, que sao LEITURA pura. Acrescentar
+    # \b nao resolve — so o lookahead negativo separa o subcomando das formas hifenizadas.
+    r'(push|pull|revert|reset|merge(?!-)|rebase|rm\b'
     r'|checkout|branch\s+-[dD]|tag\s+-d'
     r'|stash\s+(push|pop|drop|clear))\b'
 )

@@ -74,7 +74,11 @@ relatorio-commits-10-11-jun-2026.md
 
 # Snapshots/saída do Playwright MCP (descartável, fora do git)
 /.playwright-mcp/
+# Worktrees de frentes paralelas. `.claude/worktrees/` é o caminho que o Claude Code
+# usa; estava coberto só por .git/info/exclude, que não é versionado e não sobrevive
+# a um clone novo (aí as worktrees apareceriam como untracked no repo principal).
 .worktrees/
+/.claude/worktrees/
 
 # Snapshots de prod usados como fixture de dev (contêm PII — nunca versionar)
 /fixtures/
