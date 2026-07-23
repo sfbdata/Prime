@@ -11,6 +11,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
 use App\Ponto\Repository\FeriadoRepository;
@@ -55,6 +56,7 @@ final class PontoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly InicioContagemResolver $inicioContagemResolver,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -114,7 +116,7 @@ final class PontoController extends AbstractController
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-        $inicioContagem = $repository->findDataPrimeiraBatida($user, $tenant);
+        $inicioContagem = $this->inicioContagemResolver->resolver($user, $tenant);
         $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagem);
 
         $hojeStr = $agora->format('Y-m-d');
@@ -760,7 +762,7 @@ final class PontoController extends AbstractController
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $inicioContagemPdf = $repository->findDataPrimeiraBatida($targetUser, $tenant);
+        $inicioContagemPdf = $this->inicioContagemResolver->resolver($targetUser, $tenant);
         $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioContagemPdf);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
@@ -844,7 +846,7 @@ final class PontoController extends AbstractController
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $inicioContagemXlsx = $repository->findDataPrimeiraBatida($targetUser, $tenant);
+        $inicioContagemXlsx = $this->inicioContagemResolver->resolver($targetUser, $tenant);
         $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioContagemXlsx);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());

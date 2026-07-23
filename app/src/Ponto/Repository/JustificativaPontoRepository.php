@@ -3,6 +3,7 @@
 namespace App\Ponto\Repository;
 
 use App\Entity\Auth\User;
+use App\Entity\Tenant\Tenant;
 use App\Ponto\Entity\JustificativaPonto;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -15,6 +16,32 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, JustificativaPonto::class);
+    }
+
+    /**
+     * Data da justificativa ABONADA mais antiga do colaborador no escritório. Junto com a primeira
+     * batida, define quando a folha começa a contar — um abono deferido também é registro de ponto.
+     * Retorna null quando não há nenhuma.
+     */
+    public function findDataPrimeiraAbonada(User $user, Tenant $tenant): ?\DateTimeImmutable
+    {
+        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO).
+        $primeira = $this->createQueryBuilder('j')
+            ->select('MIN(j.data)')
+            ->andWhere('j.user = :user')
+            ->andWhere('j.tenant = :tenant')
+            ->andWhere('j.status = :status')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->setParameter('status', 'abonado')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        if ($primeira === null) {
+            return null;
+        }
+
+        return new \DateTimeImmutable((string) $primeira);
     }
 
     /**

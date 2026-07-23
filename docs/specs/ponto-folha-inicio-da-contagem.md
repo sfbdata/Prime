@@ -5,8 +5,10 @@
 
 ## Regra
 
-A folha de ponto conta **a partir da data da primeira batida do colaborador naquele
-escritório**, e daí em diante.
+A folha de ponto conta **a partir do registro de ponto mais antigo do colaborador naquele
+escritório** — seja uma **batida** real, seja uma **justificativa já abonada** —, e daí em diante.
+Um abono deferido também é registro de ponto: se o colaborador esqueceu de bater os primeiros dias
+e o admin deferiu abono retroativo, a contagem abre ali.
 
 `data_admissao` e `created_at` **não participam do cálculo**. Continuam existindo como
 **registro** (a admissão aparece no cabeçalho da folha/XLSX), mas não decidem o que entra
@@ -36,13 +38,22 @@ responde exatamente isso, com dado real em vez de heurística.
 
 ## Contrato
 
-### `RegistroPontoRepository`
+### Repositórios (ambos com filtro de tenant explícito, além do TenantFilter)
 
 ```php
-findDataPrimeiraBatida(User $user, Tenant $tenant): ?\DateTimeImmutable
+RegistroPontoRepository::findDataPrimeiraBatida(User $user, Tenant $tenant): ?\DateTimeImmutable
+JustificativaPontoRepository::findDataPrimeiraAbonada(User $user, Tenant $tenant): ?\DateTimeImmutable
 ```
-`MIN(dataHora)` do colaborador **no tenant informado** (filtro de tenant explícito, além do
-TenantFilter). `null` quando não há nenhuma batida.
+`MIN` da respectiva data no tenant informado; `null` quando não há nenhum registro daquele tipo.
+A segunda considera apenas justificativas com `status = 'abonado'`.
+
+### `InicioContagemResolver` (novo)
+
+```php
+resolver(User $user, Tenant $tenant): ?\DateTimeImmutable
+```
+Devolve a **mais antiga** entre a primeira batida e o primeiro abono; `null` se não houver nenhum
+dos dois. Centraliza a regra para os 6 chamadores não a reimplementarem cada um.
 
 ### `FolhaPontoBuilder::buildRows`
 
@@ -63,7 +74,7 @@ TenantFilter). `null` quando não há nenhuma batida.
 
 ### Chamadores (6)
 
-Resolvem `inicioContagem` via `findDataPrimeiraBatida($user, $tenant)` e passam adiante:
+Resolvem `inicioContagem` via `InicioContagemResolver::resolver($user, $tenant)` e passam adiante:
 
 | Arquivo | Uso |
 |---|---|
