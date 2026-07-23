@@ -74,6 +74,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use App\Shared\Service\ArquivoStorageInterface;
 use App\Shared\Service\CompressorArquivoInterface;
+use App\Shared\Service\SanitizadorTextoRico;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -1731,7 +1732,7 @@ class PastaController extends AbstractController
     // ── Detalhes: Enviar observação ───────────────────────────────────────────
 
     #[Route('/{id}/detalhes/observacao', name: 'pasta_detalhes_observacao_enviar', methods: ['POST'])]
-    public function detalhesEnviarObservacao(Pasta $pasta, Request $request): JsonResponse
+    public function detalhesEnviarObservacao(Pasta $pasta, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1759,7 +1760,10 @@ class PastaController extends AbstractController
 
         return $this->json([
             'id'         => $obs->getId(),
-            'conteudo'   => $obs->getConteudo(),
+            // `conteudo` é o valor CRU (volta para dentro do editor ao editar); `conteudoHtml` é o
+            // que a tela exibe — sanitizado aqui para o JS poder inserir como HTML com segurança.
+            'conteudo'     => $obs->getConteudo(),
+            'conteudoHtml' => $sanitizador->paraExibicao($obs->getConteudo()),
             'autorNome'  => $currentUser->getFullName(),
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
             'csrfEditar'  => $this->csrfTokenManager->getToken('pasta_detalhes_obs_editar_' . $obs->getId())->getValue(),
@@ -1770,7 +1774,7 @@ class PastaController extends AbstractController
     // ── Detalhes: Editar observação ───────────────────────────────────────────
 
     #[Route('/{id}/detalhes/observacao/{obsId}/editar', name: 'pasta_detalhes_observacao_editar', methods: ['POST'])]
-    public function detalhesEditarObservacao(Pasta $pasta, int $obsId, Request $request): JsonResponse
+    public function detalhesEditarObservacao(Pasta $pasta, int $obsId, Request $request, SanitizadorTextoRico $sanitizador): JsonResponse
     {
         /** @var \App\Entity\Auth\User $currentUser */
         $currentUser = $this->getUser();
@@ -1801,8 +1805,9 @@ class PastaController extends AbstractController
         }
 
         return $this->json([
-            'conteudo'  => $obs->getConteudo(),
-            'editadaEm' => $obs->getEditadaEm()?->format('d/m/Y H:i'),
+            'conteudo'     => $obs->getConteudo(),
+            'conteudoHtml' => $sanitizador->paraExibicao($obs->getConteudo()),
+            'editadaEm'    => $obs->getEditadaEm()?->format('d/m/Y H:i'),
         ]);
     }
 

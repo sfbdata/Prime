@@ -1,4 +1,10 @@
 {# ── Observações da Aba Detalhes ──────────────────────────────────────────── #}
+{# Editor rico (barra de formatação). O Quill é auto-hospedado — sem CDN externo. #}
+<link rel="stylesheet" href="{{ asset('js/quill/quill.snow.css') }}">
+<link rel="stylesheet" href="{{ asset('css/editor-rico.css') }}">
+<script src="{{ asset('js/quill/quill.js') }}"></script>
+<script src="{{ asset('js/editor-rico.js') }}" defer></script>
+
 <div class="card mt-4">
     <div class="card-header">
         <span class="card-title mb-0 small fw-semibold"><i class="bi bi-chat-left-text me-1"></i> Observações</span>
@@ -7,14 +13,16 @@
     <div class="card-body border-bottom pb-3">
         <form id="formDetalhesObservacao">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_detalhes_obs_' ~ pasta.id) }}">
-            <div class="d-flex gap-2 align-items-end">
-                <textarea name="conteudo"
-                          id="detalhesObsConteudo"
-                          class="form-control form-control-sm detalhes-obs-textarea"
-                          rows="2"
-                          maxlength="5000"
-                          placeholder="Adicionar observação… (Ctrl+Enter para enviar)"></textarea>
-                <button type="submit" class="btn btn-primary btn-sm flex-shrink-0" id="btnEnviarObsDetalhes">
+            {# O editor ocupa a largura toda (a barra de formatação não cabe ao lado do botão). #}
+            <textarea name="conteudo"
+                      id="detalhesObsConteudo"
+                      class="form-control form-control-sm detalhes-obs-textarea"
+                      rows="2"
+                      maxlength="5000"
+                      data-editor-rico
+                      placeholder="Adicionar observação… (Ctrl+Enter para enviar)"></textarea>
+            <div class="d-flex justify-content-end mt-2">
+                <button type="submit" class="btn btn-primary btn-sm" id="btnEnviarObsDetalhes">
                     <i class="bi bi-send me-1"></i> Enviar
                 </button>
             </div>
@@ -48,7 +56,9 @@
                                         class="btn btn-link btn-sm p-0 text-secondary btn-editar-obs-det"
                                         title="Editar observação"
                                         data-obs-id="{{ obs.id }}"
+                                        {# `conteudo` volta para dentro do editor; `conteudo-html` restaura a exibição ao cancelar. #}
                                         data-conteudo="{{ obs.conteudo|e('html_attr') }}"
+                                        data-conteudo-html="{{ obs.conteudo|texto_rico|e('html_attr') }}"
                                         data-csrf="{{ csrf_token('pasta_detalhes_obs_editar_' ~ obs.id) }}"
                                         data-url="{{ path('pasta_detalhes_observacao_editar', {id: pasta.id, obsId: obs.id}) }}">
                                     <i class="bi bi-pencil"></i>
@@ -64,7 +74,11 @@
                             </div>
                             {% endif %}
                         </div>
-                        <div class="obs-conteudo-det">{{ obs.conteudo }}</div>
+                        {# `texto_rico` sanitiza e já é `is_safe: html` — legado em texto puro sai
+                           escapado, com as quebras de linha preservadas. #}
+                        <div class="obs-conteudo-det editor-rico-conteudo">
+                            <div class="ql-editor">{{ obs.conteudo|texto_rico }}</div>
+                        </div>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -82,7 +96,6 @@
 }
 .obs-conteudo-det {
     font-size: .875rem;
-    white-space: pre-wrap;
     word-break: break-word;
 }
 .detalhes-obs-textarea {
@@ -137,7 +150,8 @@
                 if (vazioMsg) { vazioMsg.remove(); }
                 obsLista.appendChild(criarItem(data));
                 obsLista.scrollTop = obsLista.scrollHeight;
-                obsConteudo.value = '';
+                // Limpa o editor (que é quem alimenta a textarea); sem isso o texto enviado ficaria na tela.
+                if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
             } catch (_) {
                 mostrarErro('Erro de rede. Tente novamente.');
             } finally {
@@ -172,6 +186,7 @@
                             title="Editar observação"
                             data-obs-id="${data.id}"
                             data-conteudo="${esc(data.conteudo)}"
+                            data-conteudo-html="${esc(data.conteudoHtml ?? '')}"
                             data-csrf="${esc(data.csrfEditar)}"
                             data-url="${esc(urlEditar)}">
                         <i class="bi bi-pencil"></i>
@@ -186,7 +201,12 @@
                     </button>
                 </div>
             </div>
-            <div class="obs-conteudo-det">${esc(data.conteudo)}</div>`;
+            <div class="obs-conteudo-det editor-rico-conteudo"><div class="ql-editor"></div></div>`;
+
+        // `conteudoHtml` vem SANITIZADO do servidor, então entra como HTML (é o que exibe a
+        // formatação). Os demais campos seguem escapados via esc() no template acima.
+        div.querySelector('.ql-editor').innerHTML = data.conteudoHtml ?? '';
+
         return div;
     }
 
@@ -205,6 +225,18 @@
                 textarea.maxLength = 5000;
                 textarea.value = conteudoAtual;
 
+                // Devolve o conteúdo à tela quando a edição termina (cancelar ou erro).
+                function restaurarExibicao(html) {
+                    if (window.EditorRico) { EditorRico.desmontar(textarea); }
+                    const div = document.createElement('div');
+                    div.className = 'obs-conteudo-det editor-rico-conteudo';
+                    const interno = document.createElement('div');
+                    interno.className = 'ql-editor';
+                    interno.innerHTML = html ?? '';   // sempre sanitizado no servidor
+                    div.appendChild(interno);
+                    textarea.replaceWith(div);
+                }
+
                 const btnConfirmar = document.createElement('button');
                 btnConfirmar.type = 'button';
                 btnConfirmar.className = 'btn btn-sm btn-success me-1';
@@ -220,25 +252,35 @@
                 acoesBtns.appendChild(btnConfirmar);
                 acoesBtns.appendChild(btnCancelar);
 
+                const htmlAtual = btnEditar.dataset.conteudoHtml ?? '';
+
                 conteudoDiv.replaceWith(textarea);
                 textarea.after(acoesBtns);
-                textarea.focus();
+
+                // Transforma a textarea recém-criada em editor (o auto-init só pega o DOM inicial).
+                if (window.EditorRico) {
+                    const quill = EditorRico.montar(textarea);
+                    if (quill) { quill.focus(); } else { textarea.focus(); }
+                } else {
+                    textarea.focus();
+                }
 
                 btnCancelar.addEventListener('click', function () {
                     acoesBtns.remove();
-                    const div = document.createElement('div');
-                    div.className = 'obs-conteudo-det';
-                    div.textContent = conteudoAtual;
-                    textarea.replaceWith(div);
+                    restaurarExibicao(htmlAtual);
                 });
 
                 btnConfirmar.addEventListener('click', async function () {
-                    const novoConteudo = textarea.value.trim();
-                    if (novoConteudo === '') { alert('A observação não pode ser vazia.'); return; }
+                    // O editor esvazia a textarea quando não há texto real (o `<p><br></p>` do
+                    // Quill não conta), então esta checagem continua valendo.
+                    const vazio = window.EditorRico
+                        ? EditorRico.estaVazio(textarea)
+                        : textarea.value.trim() === '';
+                    if (vazio) { alert('A observação não pode ser vazia.'); return; }
 
                     const fd = new FormData();
                     fd.append('_token', btnEditar.dataset.csrf);
-                    fd.append('conteudo', novoConteudo);
+                    fd.append('conteudo', textarea.value);
 
                     try {
                         const resp = await fetch(btnEditar.dataset.url, {
@@ -248,16 +290,15 @@
                         });
                         const data = await resp.json();
                         acoesBtns.remove();
-                        const div = document.createElement('div');
-                        div.className = 'obs-conteudo-det';
+
                         if (resp.ok) {
-                            div.textContent = data.conteudo;
-                            btnEditar.dataset.conteudo = data.conteudo;
+                            restaurarExibicao(data.conteudoHtml);
+                            btnEditar.dataset.conteudo     = data.conteudo;
+                            btnEditar.dataset.conteudoHtml = data.conteudoHtml ?? '';
                         } else {
-                            div.textContent = conteudoAtual;
+                            restaurarExibicao(htmlAtual);
                             alert(data.erro ?? 'Erro ao editar.');
                         }
-                        textarea.replaceWith(div);
                     } catch (_) {
                         alert('Erro de rede.');
                     }

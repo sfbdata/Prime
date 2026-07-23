@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
+use App\Shared\Service\SanitizadorTextoRico;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
@@ -23,6 +24,7 @@ final class EditarObservacaoDetalhesUseCase
 
     public function __construct(
         private readonly EntityManagerInterface $em,
+        private readonly SanitizadorTextoRico $sanitizador,
     ) {}
 
     public function podeEditar(PastaObservacaoDetalhes $observacao, User $usuario, Tenant $tenant, ?\DateTimeImmutable $agora = null): bool
@@ -48,9 +50,11 @@ final class EditarObservacaoDetalhesUseCase
             throw new ObservacaoDetalhesNaoEditavelException('Esta observação não pode ser editada.');
         }
 
-        $conteudo = trim($conteudo);
+        // Mesma limpeza do envio: a edição é outra porta de entrada para o mesmo campo, e uma
+        // porta sem sanitização anularia a da outra.
+        $conteudo = $this->sanitizador->limpar(trim($conteudo)) ?? '';
 
-        if ($conteudo === '' || mb_strlen($conteudo) > 5000) {
+        if ($this->sanitizador->estaVazio($conteudo) || $this->sanitizador->comprimentoDoTexto($conteudo) > 5000) {
             throw new \InvalidArgumentException('Conteúdo inválido: deve ter entre 1 e 5000 caracteres.');
         }
 

@@ -323,4 +323,107 @@ final class PastaObservacaoDetalhesControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(403);
     }
+
+    // ── Editor rico: a marcação perigosa nunca chega ao banco ────────────────
+
+    #[TestDox('POST com script no conteúdo grava LIMPO — a barreira é o servidor, não o editor')]
+    public function testEnviarConteudoMaliciosoGravaLimpo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        // Requisição forjada: ninguém digitaria isto no editor — vem direto no POST.
+        $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao", [
+            '_token'   => $this->gerarCsrf('pasta_detalhes_obs_' . $pasta->getId()),
+            'conteudo' => '<p onclick="roubar()">Combinado</p><script>alert(document.cookie)</script>',
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringNotContainsStringIgnoringCase('<script', (string) $data['conteudo']);
+        self::assertStringNotContainsStringIgnoringCase('onclick', (string) $data['conteudo']);
+        self::assertStringContainsString('Combinado', (string) $data['conteudo']);
+
+        // E o que foi PERSISTIDO precisa estar limpo — não só o que voltou no JSON.
+        $em  = static::getContainer()->get(EntityManagerInterface::class);
+        $obs = $em->getRepository(PastaObservacaoDetalhes::class)->find($data['id']);
+        self::assertNotNull($obs);
+        self::assertStringNotContainsStringIgnoringCase('<script', $obs->getConteudo());
+        self::assertStringNotContainsStringIgnoringCase('onclick', $obs->getConteudo());
+    }
+
+    #[TestDox('POST preserva a formatação legítima da barra')]
+    public function testEnviarFormatacaoLegitimaEPreservada(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao", [
+            '_token'   => $this->gerarCsrf('pasta_detalhes_obs_' . $pasta->getId()),
+            'conteudo' => '<p><strong>Urgente:</strong> ligar hoje</p><ul><li>conferir prazo</li></ul>',
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringContainsString('<strong>Urgente:</strong>', (string) $data['conteudo']);
+        self::assertStringContainsString('conferir prazo', (string) $data['conteudo']);
+        // `conteudoHtml` é o que o JS insere na tela: precisa vir e vir seguro.
+        self::assertArrayHasKey('conteudoHtml', $data);
+        self::assertStringContainsString('<strong>Urgente:</strong>', (string) $data['conteudoHtml']);
+    }
+
+    #[TestDox('editar também sanitiza — a segunda porta de entrada do mesmo campo')]
+    public function testEditarConteudoMaliciosoGravaLimpo(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+        $obs    = $this->criarObservacao($pasta, $autor, $tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao/{$obs->getId()}/editar", [
+            '_token'   => $this->gerarCsrf('pasta_detalhes_obs_editar_' . $obs->getId()),
+            'conteudo' => '<p>Corrigido</p><img src=x onerror="alert(1)">',
+        ]);
+
+        self::assertResponseIsSuccessful();
+
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertStringNotContainsStringIgnoringCase('onerror', (string) $data['conteudo']);
+        self::assertStringContainsString('Corrigido', (string) $data['conteudo']);
+    }
+
+    #[TestDox('parágrafo vazio do editor é recusado com 422')]
+    public function testEnviarParagrafoVazioDoEditorRecusado(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/detalhes/observacao", [
+            '_token'   => $this->gerarCsrf('pasta_detalhes_obs_' . $pasta->getId()),
+            'conteudo' => '<p><br></p>',
+        ]);
+
+        self::assertResponseStatusCodeSame(422);
+    }
 }

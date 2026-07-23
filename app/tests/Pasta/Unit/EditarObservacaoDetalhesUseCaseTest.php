@@ -9,6 +9,7 @@ use App\Entity\Tenant\Tenant;
 use App\Pasta\Entity\Pasta;
 use App\Pasta\Entity\PastaObservacaoDetalhes;
 use App\Pasta\Exception\ObservacaoDetalhesNaoEditavelException;
+use App\Tests\Shared\CriaSanitizadorTextoRico;
 use App\Pasta\UseCase\EditarObservacaoDetalhesUseCase;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -18,6 +19,8 @@ use PHPUnit\Framework\TestCase;
 #[CoversClass(EditarObservacaoDetalhesUseCase::class)]
 final class EditarObservacaoDetalhesUseCaseTest extends TestCase
 {
+    use CriaSanitizadorTextoRico;
+
     private EntityManagerInterface&MockObject $em;
     private EditarObservacaoDetalhesUseCase $useCase;
     private Tenant $tenant;
@@ -26,7 +29,7 @@ final class EditarObservacaoDetalhesUseCaseTest extends TestCase
     protected function setUp(): void
     {
         $this->em      = $this->createMock(EntityManagerInterface::class);
-        $this->useCase = new EditarObservacaoDetalhesUseCase($this->em);
+        $this->useCase = new EditarObservacaoDetalhesUseCase($this->em, $this->criarSanitizadorTextoRico());
         $this->tenant  = new Tenant();
         $this->autor   = (new User())->setEmail('autor@test.com');
     }
