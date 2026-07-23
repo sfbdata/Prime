@@ -1,5 +1,10 @@
 # Spec — Folha de ponto ignora dias anteriores à admissão
 
+> ⚠️ **SUPERADA por [`ponto-folha-inicio-da-contagem.md`](ponto-folha-inicio-da-contagem.md).**
+> A regra descrita aqui (limitar por `data_admissao ?? created_at`) foi ao ar e **causou
+> regressão**: colaboradores admitidos anos antes de o sistema existir passaram a acumular
+> centenas de horas negativas. Mantida como registro do que foi tentado e por que falhou.
+
 **Risco:** ALTO (ponto eletrônico) · **Deploy:** humano · **Base:** `origin/master`
 
 ## Problema

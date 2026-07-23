@@ -46,6 +46,7 @@ use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use App\Ponto\Service\CalculadoraJornada;
 use App\Ponto\Service\FolhaPontoBuilder;
+use App\Ponto\Service\InicioContagemResolver;
 use App\Service\TenantBootstrapService;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\EntityManagerInterface;
@@ -66,6 +67,7 @@ final class TenantController extends AbstractController
         private readonly string $justificativasUploadsDir,
         private readonly ArquivoStorageService $storage,
         private readonly TenantContext $tenantContext,
+        private readonly InicioContagemResolver $inicioContagemResolver,
     ) {}
 
     #[Route(name: 'app_tenant_index', methods: ['GET'])]
@@ -560,8 +562,8 @@ final class TenantController extends AbstractController
             $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
             $feriados = $feriadoRepository->findByTenant($tenant);
             $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-            $inicioVinculoPonto = $userTenant->getDataAdmissao() ?? $user->getCreatedAt();
-            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioVinculoPonto);
+            $inicioContagemPonto = $this->inicioContagemResolver->resolver($user, $tenant);
+            $folhaRowsPonto = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidasPonto, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagemPonto);
             $mesCompetenciaPonto = $mesSelecionado;
             $anoCompetenciaPonto = $anoSelecionado;
         }

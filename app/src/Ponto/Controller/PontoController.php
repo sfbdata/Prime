@@ -11,6 +11,7 @@ use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Enum\TipoJustificativa;
 use App\Ponto\Entity\RegistroPonto;
 use App\Ponto\Service\HomeOfficeResolver;
+use App\Ponto\Service\InicioContagemResolver;
 use App\Ponto\Service\JornadaResolver;
 use App\Ponto\Form\JustificativaPontoType;
 use App\Ponto\Repository\FeriadoRepository;
@@ -55,6 +56,7 @@ final class PontoController extends AbstractController
         private readonly TenantContext $tenantContext,
         private readonly PermissionChecker $permissionChecker,
         private readonly UserTenantRepository $userTenantRepository,
+        private readonly InicioContagemResolver $inicioContagemResolver,
     ) {}
 
     #[Route('/', name: 'ponto_index')]
@@ -114,10 +116,8 @@ final class PontoController extends AbstractController
         $feriados = $feriadoRepository->findByTenant($tenant);
 
         $justificativasDoMes = $justificativaRepository->findByUserAndCompetenciaIndexed($user, $anoSelecionado, $mesSelecionado);
-        $userTenant = $this->userTenantRepository->findAtivoPorUserETenant($user, $tenant);
-        $dataAdmissao = $userTenant?->getDataAdmissao();
-        $inicioVinculo = $dataAdmissao ?? $user->getCreatedAt();
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioVinculo);
+        $inicioContagem = $this->inicioContagemResolver->resolver($user, $tenant);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, false, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenant, $inicioContagem);
 
         $hojeStr = $agora->format('Y-m-d');
         $batidasParaHoje = ($competenciaSelecionada === $competenciaAtual)
@@ -137,7 +137,7 @@ final class PontoController extends AbstractController
         }
 
         $anoAtual = (int) $agora->format('Y');
-        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $dataAdmissao);
+        $saldoMes = $folhaPontoBuilder->calcularSaldoAnual($user, $anoAtual, $feriados, $jornadaTenant, $inicioContagem);
 
         $jornadaInfo = $this->resolverJornadaInfo($user, $jornadaTenant);
         $duracaoJornadaDiariaMinutos = $this->resolverDuracaoJornadaDiaria($user, $agora, $jornadaTenant);
@@ -762,15 +762,15 @@ final class PontoController extends AbstractController
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $inicioVinculoPdf = $this->userTenantRepository->findAtivoPorUserETenant($targetUser, $tenant)?->getDataAdmissao() ?? $targetUser->getCreatedAt();
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioVinculoPdf);
+        $inicioContagemPdf = $this->inicioContagemResolver->resolver($targetUser, $tenant);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantPdf, $inicioContagemPdf);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
             $nomeUsuario = (string) $targetUser->getUserIdentifier();
         }
 
-        $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantPdf, $folhaPontoBuilder);
+        $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantPdf, $folhaPontoBuilder, $inicioContagemPdf);
 
         $html = $twig->render('ponto/folha_pdf.html.twig', $dados);
 
@@ -846,8 +846,8 @@ final class PontoController extends AbstractController
 
         $inicioMes = new \DateTimeImmutable(sprintf('%04d-%02d-01 00:00:00', $ano, $mes));
         $fimMes = $inicioMes->modify('last day of this month')->setTime(23, 59, 59);
-        $inicioVinculoXlsx = $this->userTenantRepository->findAtivoPorUserETenant($targetUser, $tenant)?->getDataAdmissao() ?? $targetUser->getCreatedAt();
-        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioVinculoXlsx);
+        $inicioContagemXlsx = $this->inicioContagemResolver->resolver($targetUser, $tenant);
+        $folhaRows = $folhaPontoBuilder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, $feriados, $justificativasDoMes, $jornadaTenantXlsx, $inicioContagemXlsx);
 
         $nomeUsuario = trim((string) $targetUser->getFullName());
         if ($nomeUsuario === '') {
@@ -861,7 +861,7 @@ final class PontoController extends AbstractController
 
         $nomeArquivo = sprintf('folha_ponto_%s-%02d-%04d.xlsx', $nomeUsuario, $mes, $ano);
 
-        $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantXlsx, $folhaPontoBuilder);
+        $dados = $this->montarDadosFolha($targetUser, $tenant, $ano, $mes, $folhaRows, $feriados, $jornada, $jornadaTenantXlsx, $folhaPontoBuilder, $inicioContagemXlsx);
 
         return $xlsxExporter->exportar($dados['folhaRows'], $nomeArquivo, $dados);
     }
@@ -883,6 +883,7 @@ final class PontoController extends AbstractController
         ?\App\Ponto\Entity\JornadaColaborador $jornada,
         ?\App\Ponto\Entity\JornadaTenant $jornadaTenant,
         FolhaPontoBuilder $builder,
+        ?\DateTimeInterface $inicioContagem,
     ): array {
         $profile    = $targetUser->getProfile();
         $userTenant = $this->userTenantRepository->findAtivoPorUserETenant($targetUser, $tenant);
@@ -963,7 +964,7 @@ final class PontoController extends AbstractController
             $anoAnterior--;
         }
         $saldoBancoAnteriorMinutos = $jornada !== null
-            ? $builder->calcularSaldoAteMes($targetUser, $anoAnterior, $mesAnterior, $feriados, $jornadaTenant, $userTenant?->getDataAdmissao())
+            ? $builder->calcularSaldoAteMes($targetUser, $anoAnterior, $mesAnterior, $feriados, $jornadaTenant, $inicioContagem)
             : 0;
 
         $enderecoPartes = array_filter([

@@ -23,9 +23,11 @@ class FolhaPontoBuilder
      * @param RegistroPonto[] $batidas
      * @param Feriado[] $feriados
      * @param array<string, JustificativaPonto> $justificativasDoMes Justificativas indexadas por 'Y-m-d'
-     * @param ?\DateTimeInterface $inicioVinculo Início do vínculo (admissão ?? createdAt) já resolvido pelo chamador;
-     *                                           dias anteriores são tratados como fora do vínculo (sem saldo, sem somar no banco).
-     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, antesAdmissao: bool}>
+     * @param ?\DateTimeInterface $inicioContagem Data da primeira batida do colaborador — início da contagem.
+     *                                            `null` significa colaborador sem nenhum registro de ponto: nenhum
+     *                                            dia conta. Dias anteriores a ela ficam fora (sem saldo, sem somar
+     *                                            no banco). Admissão e data de cadastro não entram nessa conta.
+     * @return array<int, array{diaMes: string, diaSemana: string, entrada: string, repouso: string, retorno: string, saida: string, fimSemana: bool, minutosTrabalhadosDia: int|null, saldoDia: int|null, saldoAcumulado: int|null, justificadoDia: bool, justificativa: JustificativaPonto|null, homeOffice: bool, antesDoPrimeiroRegistro: bool}>
      */
     public function buildRows(
         \DateTimeImmutable $inicioMes,
@@ -37,8 +39,9 @@ class FolhaPontoBuilder
         array $feriados = [],
         array $justificativasDoMes = [],
         ?JornadaTenant $jornadaTenant = null,
-        ?\DateTimeInterface $inicioVinculo = null
+        \DateTimeInterface|null|false $inicioContagem = false
     ): array {
+        $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
         $registrosPorDia = [];
         foreach ($batidas as $batida) {
             $chaveDia = $batida->getDataHora()->format('Y-m-d');
@@ -76,15 +79,16 @@ class FolhaPontoBuilder
         $saldoAcumulado = 0;
         $hoje = new \DateTimeImmutable('today');
 
-        $inicioVinculoNorm = $inicioVinculo !== null
-            ? \DateTimeImmutable::createFromInterface($inicioVinculo)->setTime(0, 0, 0)
+        $inicioContagemNorm = $inicioContagem !== null
+            ? \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0)
             : null;
 
         for ($dia = $inicioMes; $dia <= $fimMes; $dia = $dia->modify('+1 day')) {
             $chaveDia = $dia->format('Y-m-d');
             $indiceDiaSemana = (int) $dia->format('N');
             $diaFuturo = $dia > $hoje;
-            $diaAntesVinculo = $inicioVinculoNorm !== null && $dia < $inicioVinculoNorm;
+            // Sem primeiro registro, nenhum dia conta; com ele, os anteriores ficam de fora.
+            $diaForaDaContagem = $inicioContagemNorm === null || $dia < $inicioContagemNorm;
 
             $row = [
                 'diaMes'    => $dia->format('d'),
@@ -100,7 +104,7 @@ class FolhaPontoBuilder
                 'saidaId'   => isset($registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA])   ? $registrosPorDia[$chaveDia][RegistroPonto::TIPO_SAIDA]->getId()   : null,
                 'fimSemana'       => $indiceDiaSemana >= 6,
                 'domingo'         => $indiceDiaSemana === 7,
-                'antesAdmissao'   => $diaAntesVinculo,
+                'antesDoPrimeiroRegistro' => $diaForaDaContagem,
                 'isFeriado'       => false,
                 'nomeFeriado'     => null,
                 'minutosIntervalo'      => null,
@@ -114,8 +118,8 @@ class FolhaPontoBuilder
 
             if ($jornada !== null) {
                 $feriadoDoDia = $this->calculadora->getFeriadoDoDia($dia, $feriados);
-                if ($diaFuturo || $diaAntesVinculo) {
-                    // Dias futuros ou anteriores à admissão: não exibe saldo nem soma no banco
+                if ($diaFuturo || $diaForaDaContagem) {
+                    // Dia futuro ou anterior ao primeiro registro: não exibe saldo nem soma no banco
                     $row['minutosTrabalhadosDia'] = null;
                     $row['saldoDia']              = null;
                     $row['saldoAcumulado']        = null;
@@ -215,13 +219,32 @@ class FolhaPontoBuilder
     }
 
     /**
+     * Distingue "não informado" (erro de chamada) de `null` ("colaborador sem registro de ponto").
+     * Sem esta guarda, esquecer o parâmetro zeraria a folha em SILÊNCIO — e a semântica do valor
+     * omitido acabou de se inverter (antes: conta tudo; agora: não conta nada), então uma chamada
+     * antiga sobrevivendo a um merge daria saldo errado sem nenhum sinal.
+     */
+    private function exigirInicioContagem(\DateTimeInterface|null|false $inicioContagem, string $metodo): void
+    {
+        if ($inicioContagem === false) {
+            throw new \InvalidArgumentException(sprintf(
+                '%s: informe $inicioContagem (data da primeira batida do colaborador). '
+                . 'null significa "sem nenhum registro de ponto", não "não informado".',
+                $metodo
+            ));
+        }
+    }
+
+    /**
      * Calcula o saldo acumulado do banco de horas até o último dia do mês informado.
      * Útil para obter o "saldo anterior" antes da competência exportada.
      *
      * @param Feriado[] $feriados
      */
-    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, ?\DateTimeInterface $dataAdmissao = null): int
+    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
     {
+        $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
             return 0;
@@ -229,14 +252,14 @@ class FolhaPontoBuilder
 
         $hoje = new \DateTimeImmutable('today');
 
-        $baseVinculo = $dataAdmissao ?? $user->getCreatedAt();
-        if ($baseVinculo === null) {
+        // Sem nenhum registro de ponto não há o que contar.
+        if ($inicioContagem === null) {
             return 0;
         }
-        $inicioVinculo = \DateTimeImmutable::createFromInterface($baseVinculo)->setTime(0, 0, 0);
+        $inicioContagemNorm = \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
 
         $inicioAno = new \DateTimeImmutable(sprintf('%04d-01-01', $ano));
-        $inicio = $inicioVinculo > $inicioAno ? $inicioVinculo : $inicioAno;
+        $inicio = $inicioContagemNorm > $inicioAno ? $inicioContagemNorm : $inicioAno;
 
         $limiteMax = new \DateTimeImmutable(sprintf('%04d-%02d-01', $ano, $mes));
         $limiteMax = $limiteMax->modify('last day of this month');
@@ -272,7 +295,7 @@ class FolhaPontoBuilder
                 $feriados,
                 $justificativas,
                 $jornadaTenant,
-                $inicioVinculo
+                $inicioContagemNorm
             );
 
             if (!empty($rows)) {
@@ -298,13 +321,15 @@ class FolhaPontoBuilder
      * Calcula o saldo acumulado do banco de horas para o ano inteiro.
      *
      * Regras:
-     * - Começa no max(início do vínculo [dataAdmissao ?? createdAt], 01/01/ano)
+     * - Começa no max(primeira batida do colaborador, 01/01/ano) — admissão/cadastro não contam
      * - Termina no min(hoje, 31/12/ano) — dias futuros nunca contam
      *
      * @param Feriado[] $feriados
      */
-    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, ?\DateTimeInterface $dataAdmissao = null): int
+    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
     {
+        $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
             return 0;
@@ -312,14 +337,14 @@ class FolhaPontoBuilder
 
         $hoje = new \DateTimeImmutable('today');
 
-        $baseVinculo = $dataAdmissao ?? $user->getCreatedAt();
-        if ($baseVinculo === null) {
+        // Sem nenhum registro de ponto não há o que contar.
+        if ($inicioContagem === null) {
             return 0;
         }
-        $inicioVinculo = \DateTimeImmutable::createFromInterface($baseVinculo)->setTime(0, 0, 0);
+        $inicioContagemNorm = \DateTimeImmutable::createFromInterface($inicioContagem)->setTime(0, 0, 0);
 
         $inicioAno = new \DateTimeImmutable(sprintf('%04d-01-01', $ano));
-        $inicio = $inicioVinculo > $inicioAno ? $inicioVinculo : $inicioAno;
+        $inicio = $inicioContagemNorm > $inicioAno ? $inicioContagemNorm : $inicioAno;
 
         $fimAno = new \DateTimeImmutable(sprintf('%04d-12-31', $ano));
         $fim = $hoje < $fimAno ? $hoje : $fimAno;
@@ -354,7 +379,7 @@ class FolhaPontoBuilder
                 $feriados,
                 $justificativas,
                 $jornadaTenant,
-                $inicioVinculo
+                $inicioContagemNorm
             );
 
             if (!empty($rows)) {

@@ -39,6 +39,29 @@ class RegistroPontoRepository extends ServiceEntityRepository
     }
 
     /**
+     * Data da primeira batida do colaborador no escritório — marca o início da contagem da
+     * folha. Retorna null quando o colaborador ainda não registrou ponto nenhuma vez.
+     */
+    public function findDataPrimeiraBatida(User $user, Tenant $tenant): ?\DateTimeImmutable
+    {
+        // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO).
+        $primeira = $this->createQueryBuilder('r')
+            ->select('MIN(r.dataHora)')
+            ->andWhere('r.user = :user')
+            ->andWhere('r.tenant = :tenant')
+            ->setParameter('user', $user)
+            ->setParameter('tenant', $tenant)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        if ($primeira === null) {
+            return null;
+        }
+
+        return new \DateTimeImmutable((string) $primeira);
+    }
+
+    /**
      * @return array<int, array{valor: string, label: string, ano: int, mes: int}>
      */
     public function findCompetenciasComRegistroPorUsuario(User $user, Tenant $tenant): array

@@ -43,7 +43,7 @@ final class FolhaPontoBuilderTest extends TestCase
         $inicioMes = new \DateTimeImmutable('2026-04-01');
         $fimMes    = new \DateTimeImmutable('2026-04-30');
 
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [$feriado], []);
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [$feriado], [], null, $this->contagemAntiga());
 
         $diaFeriado = $rows[20]; // dia 21 = índice 20
         self::assertTrue($diaFeriado['isFeriado']);
@@ -57,7 +57,7 @@ final class FolhaPontoBuilderTest extends TestCase
         $inicioMes = new \DateTimeImmutable('2026-04-01');
         $fimMes    = new \DateTimeImmutable('2026-04-30');
 
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], []);
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $this->contagemAntiga());
 
         self::assertFalse($rows[0]['isFeriado']);
         self::assertNull($rows[0]['nomeFeriado']);
@@ -77,7 +77,7 @@ final class FolhaPontoBuilderTest extends TestCase
         $inicioMes = new \DateTimeImmutable('2026-04-07');
         $fimMes    = new \DateTimeImmutable('2026-04-07');
 
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, [], []);
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, [], [], null, $this->contagemAntiga());
 
         self::assertSame(60, $rows[0]['minutosIntervalo']);
     }
@@ -94,7 +94,7 @@ final class FolhaPontoBuilderTest extends TestCase
         $inicioMes = new \DateTimeImmutable('2026-04-07');
         $fimMes    = new \DateTimeImmutable('2026-04-07');
 
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, [], []);
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, $batidas, true, false, $jornada, [], [], null, $this->contagemAntiga());
 
         self::assertNull($rows[0]['minutosIntervalo']);
     }
@@ -105,7 +105,7 @@ final class FolhaPontoBuilderTest extends TestCase
         $dia = new \DateTimeImmutable('2026-04-07'); // terça, dia útil passado, sem batidas
 
         // Sem justificativa, um dia útil sem batidas gera saldo negativo (falta).
-        $baseline = $this->builder->buildRows($dia, $dia, [], true, false, $jornada, [], [])[0]['saldoDia'];
+        $baseline = $this->builder->buildRows($dia, $dia, [], true, false, $jornada, [], [], null, $this->contagemAntiga())[0]['saldoDia'];
         self::assertLessThan(0, $baseline);
 
         // Dispensa Abonada de dia inteiro deve zerar a falta e marcar o dia como justificado.
@@ -119,6 +119,8 @@ final class FolhaPontoBuilderTest extends TestCase
             $jornada,
             [],
             ['2026-04-07' => $justificativa],
+            null,
+            $this->contagemAntiga(),
         );
 
         self::assertSame(0, $rows[0]['saldoDia']);
@@ -139,7 +141,7 @@ final class FolhaPontoBuilderTest extends TestCase
         ];
 
         // Sem justificativa: déficit de 180 min (3h que faltaram para fechar a jornada).
-        $baseline = $this->builder->buildRows($dia, $dia, $batidas, true, false, $jornada, [], [])[0]['saldoDia'];
+        $baseline = $this->builder->buildRows($dia, $dia, $batidas, true, false, $jornada, [], [], null, $this->contagemAntiga())[0]['saldoDia'];
         self::assertSame(-180, $baseline);
 
         // Dispensa Abonada de dia inteiro (SEM abono parcial): zera o déficit, não credita 8h por cima.
@@ -153,6 +155,8 @@ final class FolhaPontoBuilderTest extends TestCase
             $jornada,
             [],
             ['2026-04-07' => $justificativa],
+            null,
+            $this->contagemAntiga(),
         );
 
         self::assertSame(0, $rows[0]['saldoDia']); // dia neutro: só o restante que faltava foi abonado
@@ -164,7 +168,7 @@ final class FolhaPontoBuilderTest extends TestCase
         $jornada = $this->jornadaSimples();
         $dia = new \DateTimeImmutable('2026-04-07'); // terça, dia útil passado, sem batidas
 
-        $baseline = $this->builder->buildRows($dia, $dia, [], true, false, $jornada, [], [])[0]['saldoDia'];
+        $baseline = $this->builder->buildRows($dia, $dia, [], true, false, $jornada, [], [], null, $this->contagemAntiga())[0]['saldoDia'];
 
         // Sistema Indisponível em abono parcial (14:00–16:00 = 120 min) soma os minutos ao saldo.
         $justificativa = $this->justificativaAbonada('sistema_indisponivel', true, '14:00', '16:00');
@@ -179,6 +183,8 @@ final class FolhaPontoBuilderTest extends TestCase
             $jornada,
             [],
             ['2026-04-07' => $justificativa],
+            null,
+            $this->contagemAntiga(),
         );
 
         self::assertSame($baseline + 120, $rows[0]['saldoDia']);
@@ -190,127 +196,153 @@ final class FolhaPontoBuilderTest extends TestCase
         $user = new User();
         $user->setEmail('a@b.com')->setFullName('Teste');
 
-        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, []);
+        // Início da contagem válido: isola o guard de jornada como ÚNICO motivo do zero.
+        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, $this->contagemAntiga());
 
         self::assertSame(0, $resultado);
     }
 
-    public function testCalcularSaldoAteMesRetornaZeroSemCreatedAt(): void
+    public function testOmitirInicioContagemFalhaEmVezDeZerarASilenciosamente(): void
     {
-        $user    = new User();
-        $jornada = new JornadaColaborador($user);
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01');
 
-        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, []);
-
-        self::assertSame(0, $resultado);
+        // Omitir o parâmetro é erro de chamada — não pode virar "folha vazia" sem ninguém perceber.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->builder->buildRows($inicioMes, $inicioMes, [], true, false, $jornada, [], []);
     }
 
     // ──────────────────────────────────────────────────────────────────
-    // Início do vínculo (admissão): dias anteriores não contam
+    // Início da contagem: começa no primeiro registro de ponto
     // ──────────────────────────────────────────────────────────────────
 
-    public function testBuildRowsIgnoraDiasAntesDoInicioDoVinculo(): void
+    public function testBuildRowsIgnoraDiasAnterioresAoPrimeiroRegistro(): void
     {
         $jornada   = $this->jornadaSimples();
         $inicioMes = new \DateTimeImmutable('2026-04-01'); // qua
         $fimMes    = new \DateTimeImmutable('2026-04-03'); // sex
-        $vinculo   = new \DateTimeImmutable('2026-04-03'); // admissão na sexta
+        $contagem  = new \DateTimeImmutable('2026-04-03'); // primeira batida na sexta
 
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $vinculo);
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $contagem);
 
-        // 01 e 02/04 (antes do vínculo): tratados como fora do vínculo
-        self::assertTrue($rows[0]['antesAdmissao']);
+        // 01 e 02/04: antes do primeiro registro → fora da contagem
+        self::assertTrue($rows[0]['antesDoPrimeiroRegistro']);
         self::assertNull($rows[0]['saldoDia']);
         self::assertNull($rows[0]['saldoAcumulado']);
-        self::assertTrue($rows[1]['antesAdmissao']);
+        self::assertTrue($rows[1]['antesDoPrimeiroRegistro']);
         self::assertNull($rows[1]['saldoDia']);
 
-        // 03/04 (dia da admissão, dia útil sem batidas): conta normalmente
-        self::assertFalse($rows[2]['antesAdmissao']);
+        // 03/04: dia do primeiro registro (útil, sem batidas) → conta normalmente
+        self::assertFalse($rows[2]['antesDoPrimeiroRegistro']);
         self::assertSame(-480, $rows[2]['saldoDia']);
     }
 
-    public function testBuildRowsNaoAcumulaDiasAntesDoVinculoNoBanco(): void
+    public function testBuildRowsNaoAcumulaDiasAnterioresAoPrimeiroRegistro(): void
     {
         $jornada   = $this->jornadaSimples();
         $inicioMes = new \DateTimeImmutable('2026-04-01');
         $fimMes    = new \DateTimeImmutable('2026-04-03');
-        $vinculo   = new \DateTimeImmutable('2026-04-03');
+        $contagem  = new \DateTimeImmutable('2026-04-03');
 
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $vinculo);
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $contagem);
 
-        // O banco do 1º dia válido é só o próprio dia (-480), não arrasta 01 e 02
+        // O banco do 1º dia contado é só o próprio dia (-480), não arrasta 01 e 02
         self::assertSame(-480, $rows[2]['saldoAcumulado']);
     }
 
-    public function testBuildRowsSemInicioVinculoContaTodosOsDias(): void
+    public function testBuildRowsSemPrimeiroRegistroNenhumDiaConta(): void
     {
         $jornada   = $this->jornadaSimples();
         $inicioMes = new \DateTimeImmutable('2026-04-01');
         $fimMes    = new \DateTimeImmutable('2026-04-03');
 
-        // Sem passar o vínculo (assinatura atual) → comportamento preservado
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], []);
-
-        self::assertFalse($rows[0]['antesAdmissao']);
-        self::assertSame(-480, $rows[0]['saldoDia']);
-    }
-
-    public function testBuildRowsInicioVinculoAntesDoMesNaoTemEfeito(): void
-    {
-        $jornada   = $this->jornadaSimples();
-        $inicioMes = new \DateTimeImmutable('2026-04-01');
-        $fimMes    = new \DateTimeImmutable('2026-04-03');
-        $vinculo   = new \DateTimeImmutable('2026-03-15');
-
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $vinculo);
-
-        self::assertFalse($rows[0]['antesAdmissao']);
-        self::assertSame(-480, $rows[0]['saldoDia']);
-    }
-
-    public function testBuildRowsInicioVinculoDepoisDoMesZeraTudo(): void
-    {
-        $jornada   = $this->jornadaSimples();
-        $inicioMes = new \DateTimeImmutable('2026-04-01');
-        $fimMes    = new \DateTimeImmutable('2026-04-03');
-        $vinculo   = new \DateTimeImmutable('2026-05-01');
-
-        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $vinculo);
+        // Colaborador que nunca registrou ponto: nada entra no banco (nem débito fantasma).
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, null);
 
         foreach ($rows as $row) {
-            self::assertTrue($row['antesAdmissao']);
+            self::assertTrue($row['antesDoPrimeiroRegistro']);
+            self::assertNull($row['saldoDia']);
+            self::assertNull($row['saldoAcumulado']);
+        }
+    }
+
+    public function testBuildRowsInicioAnteriorAoMesNaoTemEfeito(): void
+    {
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01');
+        $fimMes    = new \DateTimeImmutable('2026-04-03');
+        $contagem  = new \DateTimeImmutable('2026-03-15');
+
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $contagem);
+
+        self::assertFalse($rows[0]['antesDoPrimeiroRegistro']);
+        self::assertSame(-480, $rows[0]['saldoDia']);
+    }
+
+    public function testBuildRowsInicioPosteriorAoMesNadaConta(): void
+    {
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01');
+        $fimMes    = new \DateTimeImmutable('2026-04-03');
+        $contagem  = new \DateTimeImmutable('2026-05-01');
+
+        $rows = $this->builder->buildRows($inicioMes, $fimMes, [], true, false, $jornada, [], [], null, $contagem);
+
+        foreach ($rows as $row) {
+            self::assertTrue($row['antesDoPrimeiroRegistro']);
             self::assertNull($row['saldoDia']);
         }
     }
 
-    public function testCalcularSaldoAteMesUsaDataAdmissaoComoInicioDoVinculo(): void
+    public function testBuildRowsDiaSemBatidaDepoisDoInicioContinuaSendoFalta(): void
     {
-        $user = $this->usuarioComJornada(); // createdAt = hoje (2026)
+        $jornada  = $this->jornadaSimples();
+        $dia      = new \DateTimeImmutable('2026-04-07'); // terça útil, sem batidas
+        $contagem = new \DateTimeImmutable('2026-04-01'); // já registrava ponto antes
 
-        // Sem admissão: createdAt (hoje) é posterior a março/2026 → nada anterior a contar
-        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2026, 3, []));
+        $rows = $this->builder->buildRows($dia, $dia, [], true, false, $jornada, [], [], null, $contagem);
 
-        // Com admissão em fev/2026: fev e março (dias úteis sem batida) passam a contar → débito
-        $comAdmissao = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, new \DateTimeImmutable('2026-02-01'));
-        self::assertLessThan(0, $comAdmissao);
+        // Buraco DEPOIS do início da contagem é ausência real — continua negativo.
+        self::assertFalse($rows[0]['antesDoPrimeiroRegistro']);
+        self::assertSame(-480, $rows[0]['saldoDia']);
     }
 
-    public function testCalcularSaldoAnualUsaDataAdmissaoComoInicioDoVinculo(): void
+    public function testCalcularSaldoAnualIgnoraMesesAnterioresAoPrimeiroRegistro(): void
     {
-        $user = $this->usuarioComJornada(); // createdAt = hoje (2026)
+        // Cenário do veterano: admitido há anos, mas só passou a registrar ponto no fim de 2025.
+        $user = $this->usuarioComJornada();
 
-        // Sem admissão: createdAt (hoje, 2026) é posterior a 2025 → ano de 2025 zera
-        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, []));
+        $soNovembroEDezembro = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'));
+        $anoInteiro          = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-01-01'));
 
-        // Com admissão em nov/2025: nov e dez de 2025 passam a contar → débito
-        $comAdmissao = $this->builder->calcularSaldoAnual($user, 2025, [], null, new \DateTimeImmutable('2025-11-01'));
-        self::assertLessThan(0, $comAdmissao);
+        self::assertLessThan(0, $soNovembroEDezembro);
+        // Contar o ano inteiro seria MUITO mais negativo — é exatamente o débito fantasma que a regra evita.
+        self::assertLessThan($soNovembroEDezembro, $anoInteiro);
+    }
+
+    public function testCalcularSaldoAnualSemPrimeiroRegistroRetornaZero(): void
+    {
+        $user = $this->usuarioComJornada();
+
+        self::assertSame(0, $this->builder->calcularSaldoAnual($user, 2025, [], null, null));
+    }
+
+    public function testCalcularSaldoAteMesSemPrimeiroRegistroRetornaZero(): void
+    {
+        $user = $this->usuarioComJornada();
+
+        self::assertSame(0, $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, null));
     }
 
     // ──────────────────────────────────────────────────────────────────
     // Helpers
     // ──────────────────────────────────────────────────────────────────
+
+    /** Início da contagem bem antes dos cenários: nesses testes todo dia do período deve contar. */
+    private function contagemAntiga(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable('2020-01-01');
+    }
 
     private function jornadaSimples(): JornadaColaborador
     {
@@ -334,6 +366,11 @@ final class FolhaPontoBuilderTest extends TestCase
         $jornada = $this->jornadaSimples();
         $user    = $jornada->getUser();
         $user->setJornadaColaborador($jornada); // linka os dois lados: getJornadaColaborador() != null
+
+        // createdAt ANTIGO de propósito: é o que faz os testes de saldo discriminarem a regra nova
+        // da que quebrou a produção. Com o createdAt padrão (= agora), a regra antiga
+        // (`dataAdmissao ?? createdAt`) devolveria 0 por acidente e os testes passariam à toa.
+        $user->setCreatedAt(new \DateTimeImmutable('2020-01-01'));
 
         return $user;
     }
