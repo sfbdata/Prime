@@ -150,7 +150,10 @@
 
                 {% if caso.historico|length > 0 %}
                 <ul class="caso-timeline">
-                    {% for e in caso.historico|reverse %}
+                    {# Sem `|reverse`: a ordem vem pronta do repositório (mais recente primeiro).
+                       Antes eram DOIS lugares decidindo a ordem — consulta em ASC e inversão aqui —,
+                       e mexer só num deles invertia a lista sem querer. #}
+                    {% for e in caso.historico %}
                     <li class="caso-timeline-item">
                         <div class="caso-timeline-tipo d-flex align-items-center gap-2">
                             <span>{{ e.tipoLabel }}</span>

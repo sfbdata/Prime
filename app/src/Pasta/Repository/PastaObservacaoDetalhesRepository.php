@@ -28,7 +28,9 @@ final class PastaObservacaoDetalhesRepository extends ServiceEntityRepository
             ->andWhere('o.tenant = :tenant')
             ->setParameter('pasta', $pasta)
             ->setParameter('tenant', $tenant)
-            ->orderBy('o.criadaEm', 'ASC')
+            // MAIS RECENTE PRIMEIRO: a observação recém-escrita é a que interessa ler, e é o que
+            // as timelines da Pasta e da Meta já faziam. Uso exclusivo de exibição.
+            ->orderBy('o.criadaEm', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

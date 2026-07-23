@@ -148,8 +148,10 @@
 
                 const vazioMsg = document.getElementById('detalhesObsVazio');
                 if (vazioMsg) { vazioMsg.remove(); }
-                obsLista.appendChild(criarItem(data));
-                obsLista.scrollTop = obsLista.scrollHeight;
+                // Mais recente PRIMEIRO (mesma ordem do servidor): entra no topo, e a rolagem
+                // volta para o topo — não para o fim, que agora guarda o item mais antigo.
+                obsLista.prepend(criarItem(data));
+                obsLista.scrollTop = 0;
                 // Limpa o editor (que é quem alimenta a textarea); sem isso o texto enviado ficaria na tela.
                 if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
             } catch (_) {

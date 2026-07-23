@@ -65,8 +65,12 @@ class EventoHistoricoRepository extends ServiceEntityRepository
             ->andWhere('e.tenant = :tenant')
             ->setParameter('caso', $caso)
             ->setParameter('tenant', $caso->getTenant())
-            ->orderBy('e.ocorridoEm', 'ASC')
-            ->addOrderBy('e.id', 'ASC')
+            // MAIS RECENTE PRIMEIRO: o histórico é lido de cima para baixo, e o que acabou de
+            // acontecer é o que interessa. Alinha com as timelines da Pasta e da Meta, que já
+            // ordenavam assim. Uso exclusivo de exibição (`MontarDetalheCasoUseCase`) — nenhum
+            // cálculo depende desta ordem.
+            ->orderBy('e.ocorridoEm', 'DESC')
+            ->addOrderBy('e.id', 'DESC')
             ->getQuery()
             ->getResult();
     }

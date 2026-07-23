@@ -161,16 +161,18 @@ final class ReconciliarPagamentoFluxoControllerTest extends CobrancaWebTestCase
         $pagamentos = static::getContainer()->get(PagamentoRepository::class)->doCaso($casoFresh);
         self::assertSame(30000, $pagamentos[0]->getValorDivida(), 'o pagamento passou a cobrir os 30000');
 
-        // O histórico tem os DOIS eventos, e na ordem correta: a edição da obrigação ANTES da correção do
-        // pagamento (é a sequência real do fluxo). Índices, não posições fixas, para não depender de
-        // outros eventos que o caso possa ter.
+        // O histórico tem os DOIS eventos, e na ordem que a TELA usa: `doCaso` devolve do mais
+        // RECENTE para o mais antigo (2026-07-23, a pedido do dono — a anotação nova aparece em
+        // cima). Então a correção do pagamento, que aconteceu depois, vem antes na lista. A
+        // sequência real do fluxo (edição → correção) continua a mesma; o que mudou é a leitura.
+        // Índices, não posições fixas, para não depender de outros eventos que o caso possa ter.
         $eventos = static::getContainer()->get(EventoHistoricoRepository::class)->doCaso($casoFresh);
         $tipos = array_map(static fn ($e) => $e->getTipo(), $eventos);
         $idxEdicao = array_search(TipoEventoHistorico::ObrigacaoEditada, $tipos, true);
         $idxCorrecao = array_search(TipoEventoHistorico::PagamentoCorrigido, $tipos, true);
         self::assertNotFalse($idxEdicao, 'o histórico registra a edição da obrigação');
         self::assertNotFalse($idxCorrecao, 'o histórico registra a correção do pagamento');
-        self::assertLessThan($idxCorrecao, $idxEdicao, 'a edição da obrigação vem ANTES da correção do pagamento');
+        self::assertLessThan($idxEdicao, $idxCorrecao, 'o mais recente (correção) aparece ANTES na lista');
     }
 
     #[TestDox('IDOR: editar obrigação PAGA de OUTRO tenant devolve 404 (o pagamento não afrouxa a guarda)')]

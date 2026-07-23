@@ -581,8 +581,9 @@
 
                 const vazioMsg = document.getElementById('financeiroObsVazio');
                 if (vazioMsg) { vazioMsg.remove(); }
-                obsLista.appendChild(criarItemObs(data));
-                obsLista.scrollTop = obsLista.scrollHeight;
+                // Mais recente PRIMEIRO (mesma ordem do servidor).
+                obsLista.prepend(criarItemObs(data));
+                obsLista.scrollTop = 0;
                 // Limpa o editor (fonte da textarea); sem isso o texto enviado ficaria na tela.
                 if (window.EditorRico) { EditorRico.limpar(obsConteudo); } else { obsConteudo.value = ''; }
             } catch (_) {
