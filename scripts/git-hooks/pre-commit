@@ -1,0 +1,84 @@
+#!/usr/bin/env bash
+# Impede commit na branch errada.
+#
+# Por que um hook do GIT e nao um hook do Claude Code: este script roda DENTRO do
+# repositorio onde o commit esta acontecendo. Ele nao precisa adivinhar em qual
+# worktree esta — a propria invocacao ja responde isso. Um hook que precisa inferir
+# a localizacao erra em silencio, que e exatamente a falha que este guard existe
+# para eliminar.
+#
+# Vale para todos: Claude, outra sessao, ou voce no terminal. As duas fugas
+# (`--no-verify` e trocar `core.hooksPath`) sao bloqueadas pelo
+# .claude/hooks/block-git-writes.py.
+#
+# Contrato: cada worktree tem um `.frente` na raiz com o nome da branch daquela
+# frente. Ausencia do arquivo RECUSA o commit — na duvida sobre onde estamos, a
+# resposta segura e parar e falar alto, nunca deixar passar.
+set -uo pipefail
+
+raiz=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "pre-commit: nao consegui determinar a raiz do repositorio. Commit recusado." >&2
+    exit 1
+}
+
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null) || {
+    echo "pre-commit: nao consegui determinar a branch atual. Commit recusado." >&2
+    exit 1
+}
+
+if [ "$branch" = "HEAD" ]; then
+    echo "pre-commit: HEAD destacado (detached). Commitar aqui produz commit orfao." >&2
+    echo "            Va para uma branch antes: git switch <branch>" >&2
+    exit 1
+fi
+
+marcador="$raiz/.frente"
+
+if [ ! -f "$marcador" ]; then
+    cat >&2 <<FIM
+pre-commit: falta o arquivo .frente nesta pasta — commit RECUSADO.
+
+  pasta:  $raiz
+  branch: $branch
+
+O .frente diz de qual frente esta pasta e, e e o que impede um commit cair na
+branch errada. Sem ele o guard nao tem como conferir nada, e deixar passar seria
+justamente o erro silencioso que ele existe para evitar.
+
+Se a branch acima E a correta para esta pasta, crie o marcador e repita o commit:
+
+  echo $branch > "$marcador"
+
+Frentes novas ja nascem com o arquivo (scripts/frente-abrir.sh).
+FIM
+    exit 1
+fi
+
+esperada=$(tr -d '[:space:]' < "$marcador")
+
+if [ -z "$esperada" ]; then
+    echo "pre-commit: .frente esta vazio em $raiz. Commit recusado." >&2
+    echo "            Corrija com: echo $branch > $raiz/.frente" >&2
+    exit 1
+fi
+
+if [ "$branch" != "$esperada" ]; then
+    cat >&2 <<FIM
+pre-commit: commit na branch ERRADA — recusado.
+
+  pasta:            $raiz
+  frente desta pasta: $esperada
+  branch atual:       $branch
+
+Voce trocou de branch e esqueceu de voltar, ou esta na pasta errada. Nenhuma das
+duas quer o commit aqui.
+
+  voltar para a frente:  git switch $esperada
+  ver onde cada frente mora: git worktree list
+
+Se a mudanca pertence mesmo a $branch, faca-a na pasta daquela frente.
+FIM
+    exit 1
+fi
+
+exit 0
