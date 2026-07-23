@@ -87,11 +87,23 @@ if re.search(r'\bgit\b', sem_msg) and re.search(r'\bcommit\b', sem_msg) \
     barra("--no-verify/-n não é permitido em commit (não burle os hooks).")
 
 # --- burla via override do caminho de hooks ---
-# Só a ATRIBUIÇÃO é burla; consultar (`--get`, `--list`) é leitura e fica liberado —
-# mesma família de falso positivo do `merge-base`, onde ler estava barrado junto com escrever.
-if re.search(r'core\.hooksPath\s*=', cmd) \
-        or re.search(r'core\.hooksPath\s+(?![&|;<>)])\S', cmd) \
-        or re.search(r'--unset[\w-]*\s+core\.hooksPath', cmd):
+# Só a ESCRITA de core.hooksPath por git é burla. Consultar (`--get`/`--list`) é livre, e
+# mencionar a string em prosa/echo ou tocar num caminho como `.git/config` é inofensivo.
+# Por isso cada forma exige contexto de escrita, não a mera presença do texto — foi
+# justamente a presença-crua que virou falso positivo (barrava `git config --get` e echos).
+hookspath_escrita = (
+    # `git -c core.hooksPath=…` — a atribuição inline
+    re.search(r'core\.hooksPath\s*=', cmd)
+    # `git config --unset[-all] core.hooksPath`
+    or re.search(r'--unset\S*\s+core\.hooksPath', cmd)
+    # `git config core.hooksPath <valor>` — exige `git … config`, um valor depois do
+    # nome, e que NÃO seja uma consulta. `.git/config` não casa (não há `git ` antes de
+    # `config`); `git config --get core.hooksPath` não casa (sem valor após o nome + tem --get).
+    or (re.search(r'\bgit\b(?:\s+-\S+)*\s+config\b', cmd)
+        and re.search(r'core\.hooksPath\s+(?![&|;<>)])\S', cmd)
+        and not re.search(r'--(get|list|get-all|get-regexp)\b', cmd))
+)
+if hookspath_escrita:
     barra("definir/remover core.hooksPath não é permitido (burla de hook); consultar é livre.")
 
 sys.exit(0)
