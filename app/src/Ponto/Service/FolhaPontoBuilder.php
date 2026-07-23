@@ -39,8 +39,9 @@ class FolhaPontoBuilder
         array $feriados = [],
         array $justificativasDoMes = [],
         ?JornadaTenant $jornadaTenant = null,
-        ?\DateTimeInterface $inicioContagem = null
+        \DateTimeInterface|null|false $inicioContagem = false
     ): array {
+        $this->exigirInicioContagem($inicioContagem, 'buildRows');
         $registrosPorDia = [];
         foreach ($batidas as $batida) {
             $chaveDia = $batida->getDataHora()->format('Y-m-d');
@@ -218,13 +219,32 @@ class FolhaPontoBuilder
     }
 
     /**
+     * Distingue "não informado" (erro de chamada) de `null` ("colaborador sem registro de ponto").
+     * Sem esta guarda, esquecer o parâmetro zeraria a folha em SILÊNCIO — e a semântica do valor
+     * omitido acabou de se inverter (antes: conta tudo; agora: não conta nada), então uma chamada
+     * antiga sobrevivendo a um merge daria saldo errado sem nenhum sinal.
+     */
+    private function exigirInicioContagem(\DateTimeInterface|null|false $inicioContagem, string $metodo): void
+    {
+        if ($inicioContagem === false) {
+            throw new \InvalidArgumentException(sprintf(
+                '%s: informe $inicioContagem (data da primeira batida do colaborador). '
+                . 'null significa "sem nenhum registro de ponto", não "não informado".',
+                $metodo
+            ));
+        }
+    }
+
+    /**
      * Calcula o saldo acumulado do banco de horas até o último dia do mês informado.
      * Útil para obter o "saldo anterior" antes da competência exportada.
      *
      * @param Feriado[] $feriados
      */
-    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, ?\DateTimeInterface $inicioContagem = null): int
+    public function calcularSaldoAteMes(User $user, int $ano, int $mes, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
     {
+        $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
             return 0;
@@ -306,8 +326,10 @@ class FolhaPontoBuilder
      *
      * @param Feriado[] $feriados
      */
-    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, ?\DateTimeInterface $inicioContagem = null): int
+    public function calcularSaldoAnual(User $user, int $ano, array $feriados, ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
     {
+        $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
+
         $jornada = $user->getJornadaColaborador();
         if ($jornada === null) {
             return 0;

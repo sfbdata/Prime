@@ -117,6 +117,51 @@ final class PontoIsolamentoRepositoryTest extends KernelTestCase
 
     // ----------------------------------------------------------------- helpers
 
+    public function testFindDataPrimeiraBatidaIsolaPorTenant(): void
+    {
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $usuario = $this->criarUser();
+
+        $this->criarRegistro($usuario, $tenantA, '2026-03-10 09:00:00');
+        $this->criarRegistro($usuario, $tenantB, '2026-05-20 09:00:00');
+
+        /** @var RegistroPontoRepository $repo */
+        $repo = static::getContainer()->get(RegistroPontoRepository::class);
+
+        // Escopo explícito no método: cada escritório enxerga só a própria primeira batida.
+        // Vazar aqui adiantaria o início da contagem no outro escritório e mexeria no banco de horas.
+        self::assertSame('2026-03-10', $repo->findDataPrimeiraBatida($usuario, $tenantA)?->format('Y-m-d'));
+        self::assertSame('2026-05-20', $repo->findDataPrimeiraBatida($usuario, $tenantB)?->format('Y-m-d'));
+    }
+
+    public function testFindDataPrimeiraBatidaRetornaNullSemNenhumaBatida(): void
+    {
+        $tenant  = $this->criarTenant();
+        $usuario = $this->criarUser();
+
+        /** @var RegistroPontoRepository $repo */
+        $repo = static::getContainer()->get(RegistroPontoRepository::class);
+
+        // null = "sem registro de ponto": a folha não conta nada, em vez de acumular débito fantasma.
+        self::assertNull($repo->findDataPrimeiraBatida($usuario, $tenant));
+    }
+
+    public function testFindDataPrimeiraBatidaRetornaAMaisAntiga(): void
+    {
+        $tenant  = $this->criarTenant();
+        $usuario = $this->criarUser();
+
+        $this->criarRegistro($usuario, $tenant, '2026-04-02 08:00:00');
+        $this->criarRegistro($usuario, $tenant, '2026-03-11 17:00:00'); // a mais antiga, gravada depois
+        $this->criarRegistro($usuario, $tenant, '2026-05-30 09:00:00');
+
+        /** @var RegistroPontoRepository $repo */
+        $repo = static::getContainer()->get(RegistroPontoRepository::class);
+
+        self::assertSame('2026-03-11', $repo->findDataPrimeiraBatida($usuario, $tenant)?->format('Y-m-d'));
+    }
+
     private function ligarFiltro(int $tenantId): void
     {
         $this->em->getFilters()->enable('tenant')->setParameter('tenant', $tenantId, Types::INTEGER);

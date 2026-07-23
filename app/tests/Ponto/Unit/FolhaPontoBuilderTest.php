@@ -196,9 +196,20 @@ final class FolhaPontoBuilderTest extends TestCase
         $user = new User();
         $user->setEmail('a@b.com')->setFullName('Teste');
 
-        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, []);
+        // Início da contagem válido: isola o guard de jornada como ÚNICO motivo do zero.
+        $resultado = $this->builder->calcularSaldoAteMes($user, 2026, 3, [], null, $this->contagemAntiga());
 
         self::assertSame(0, $resultado);
+    }
+
+    public function testOmitirInicioContagemFalhaEmVezDeZerarASilenciosamente(): void
+    {
+        $jornada   = $this->jornadaSimples();
+        $inicioMes = new \DateTimeImmutable('2026-04-01');
+
+        // Omitir o parâmetro é erro de chamada — não pode virar "folha vazia" sem ninguém perceber.
+        $this->expectException(\InvalidArgumentException::class);
+        $this->builder->buildRows($inicioMes, $inicioMes, [], true, false, $jornada, [], []);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -355,6 +366,11 @@ final class FolhaPontoBuilderTest extends TestCase
         $jornada = $this->jornadaSimples();
         $user    = $jornada->getUser();
         $user->setJornadaColaborador($jornada); // linka os dois lados: getJornadaColaborador() != null
+
+        // createdAt ANTIGO de propósito: é o que faz os testes de saldo discriminarem a regra nova
+        // da que quebrou a produção. Com o createdAt padrão (= agora), a regra antiga
+        // (`dataAdmissao ?? createdAt`) devolveria 0 por acidente e os testes passariam à toa.
+        $user->setCreatedAt(new \DateTimeImmutable('2020-01-01'));
 
         return $user;
     }
