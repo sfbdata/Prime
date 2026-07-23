@@ -8,6 +8,7 @@ use App\Entity\Auth\User;
 use App\Ponto\Entity\JustificativaPonto;
 use App\Ponto\Entity\RegistroPonto;
 use App\Entity\Tenant\Tenant;
+use App\Ponto\Repository\JustificativaPontoRepository;
 use App\Ponto\Repository\RegistroPontoRepository;
 use App\Shared\Doctrine\Filter\TenantFilter;
 use Doctrine\DBAL\Types\Types;
@@ -117,6 +118,70 @@ final class PontoIsolamentoRepositoryTest extends KernelTestCase
 
     // ----------------------------------------------------------------- helpers
 
+    public function testFindDataPrimeiraAbonadaIsolaPorTenant(): void
+    {
+        $tenantA = $this->criarTenant();
+        $tenantB = $this->criarTenant();
+        $usuario = $this->criarUser();
+
+        $this->criarJustificativa($usuario, $tenantA, 'abonado', '2026-03-05');
+        $this->criarJustificativa($usuario, $tenantB, 'abonado', '2026-06-09');
+
+        /** @var JustificativaPontoRepository $repo */
+        $repo = static::getContainer()->get(JustificativaPontoRepository::class);
+
+        self::assertSame('2026-03-05', $repo->findDataPrimeiraAbonada($usuario, $tenantA)?->format('Y-m-d'));
+        self::assertSame('2026-06-09', $repo->findDataPrimeiraAbonada($usuario, $tenantB)?->format('Y-m-d'));
+    }
+
+    public function testFindDataPrimeiraAbonadaIgnoraJustificativaNaoAbonada(): void
+    {
+        $tenant  = $this->criarTenant();
+        $usuario = $this->criarUser();
+
+        // Uma PENDENTE mais antiga não pode abrir a contagem — só abono deferido conta.
+        $this->criarJustificativa($usuario, $tenant, 'pendente', '2026-02-01');
+        $this->criarJustificativa($usuario, $tenant, 'rejeitado', '2026-02-10');
+        $this->criarJustificativa($usuario, $tenant, 'abonado', '2026-04-20');
+
+        /** @var JustificativaPontoRepository $repo */
+        $repo = static::getContainer()->get(JustificativaPontoRepository::class);
+
+        self::assertSame('2026-04-20', $repo->findDataPrimeiraAbonada($usuario, $tenant)?->format('Y-m-d'));
+    }
+
+    public function testFindDataPrimeiraAbonadaRespeitaOPisoDaJanela(): void
+    {
+        $tenant  = $this->criarTenant();
+        $usuario = $this->criarUser();
+
+        $this->criarJustificativa($usuario, $tenant, 'abonado', '2026-01-05'); // fora da janela
+        $this->criarJustificativa($usuario, $tenant, 'abonado', '2026-05-10'); // dentro
+
+        /** @var JustificativaPontoRepository $repo */
+        $repo = static::getContainer()->get(JustificativaPontoRepository::class);
+
+        // Sem piso, vence a mais antiga; com piso, só o que está dentro da janela.
+        self::assertSame('2026-01-05', $repo->findDataPrimeiraAbonada($usuario, $tenant)?->format('Y-m-d'));
+        self::assertSame(
+            '2026-05-10',
+            $repo->findDataPrimeiraAbonada($usuario, $tenant, new \DateTimeImmutable('2026-05-01'))?->format('Y-m-d')
+        );
+    }
+
+    public function testFindDataPrimeiraAbonadaRetornaNullSemAbono(): void
+    {
+        $tenant  = $this->criarTenant();
+        $usuario = $this->criarUser();
+
+        $this->criarJustificativa($usuario, $tenant, 'pendente', '2026-02-01');
+
+        /** @var JustificativaPontoRepository $repo */
+        $repo = static::getContainer()->get(JustificativaPontoRepository::class);
+
+        self::assertNull($repo->findDataPrimeiraAbonada($usuario, $tenant));
+    }
+
     public function testFindDataPrimeiraBatidaIsolaPorTenant(): void
     {
         $tenantA = $this->criarTenant();
@@ -202,12 +267,12 @@ final class PontoIsolamentoRepositoryTest extends KernelTestCase
         return $registro;
     }
 
-    private function criarJustificativa(User $user, Tenant $tenant, string $status): JustificativaPonto
+    private function criarJustificativa(User $user, Tenant $tenant, string $status, string $data = '2026-03-10'): JustificativaPonto
     {
         $justificativa = new JustificativaPonto();
         $justificativa->setUser($user);
         $justificativa->setTenant($tenant);
-        $justificativa->setData(new \DateTime('2026-03-10'));
+        $justificativa->setData(new \DateTime($data));
         $justificativa->setStatus($status);
         $this->em->persist($justificativa);
         $this->em->flush();

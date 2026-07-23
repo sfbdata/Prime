@@ -21,21 +21,28 @@ class JustificativaPontoRepository extends ServiceEntityRepository
     /**
      * Data da justificativa ABONADA mais antiga do colaborador no escritório. Junto com a primeira
      * batida, define quando a folha começa a contar — um abono deferido também é registro de ponto.
-     * Retorna null quando não há nenhuma.
+     *
+     * `$aPartirDe` limita a busca por baixo: serve para procurar o abono mais antigo DENTRO de uma
+     * janela, sem que um abono retroativo antigo puxe o início da contagem para trás.
+     * Retorna null quando não há nenhuma no recorte.
      */
-    public function findDataPrimeiraAbonada(User $user, Tenant $tenant): ?\DateTimeImmutable
+    public function findDataPrimeiraAbonada(User $user, Tenant $tenant, ?\DateTimeInterface $aPartirDe = null): ?\DateTimeImmutable
     {
         // Filtro de tenant explícito além do TenantFilter: é dado de ponto (risco ALTO).
-        $primeira = $this->createQueryBuilder('j')
+        $qb = $this->createQueryBuilder('j')
             ->select('MIN(j.data)')
             ->andWhere('j.user = :user')
             ->andWhere('j.tenant = :tenant')
             ->andWhere('j.status = :status')
             ->setParameter('user', $user)
             ->setParameter('tenant', $tenant)
-            ->setParameter('status', 'abonado')
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('status', 'abonado');
+
+        if ($aPartirDe !== null) {
+            $qb->andWhere('j.data >= :aPartirDe')->setParameter('aPartirDe', $aPartirDe);
+        }
+
+        $primeira = $qb->getQuery()->getSingleScalarResult();
 
         if ($primeira === null) {
             return null;

@@ -5,99 +5,114 @@
 
 ## Regra
 
-A folha de ponto conta **a partir do registro de ponto mais antigo do colaborador naquele
-escritório** — seja uma **batida** real, seja uma **justificativa já abonada** —, e daí em diante.
-Um abono deferido também é registro de ponto: se o colaborador esqueceu de bater os primeiros dias
-e o admin deferiu abono retroativo, a contagem abre ali.
+A folha conta **a partir do registro de ponto mais antigo do colaborador naquele escritório**, e daí
+em diante. Registro é a **batida** real ou uma **justificativa já abonada** — abono deferido também
+é registro.
 
-`data_admissao` e `created_at` **não participam do cálculo**. Continuam existindo como
-**registro** (a admissão aparece no cabeçalho da folha/XLSX), mas não decidem o que entra
-no banco de horas.
+`data_admissao` e `created_at` **não participam do cálculo**. Seguem existindo como registro (a
+admissão aparece no cabeçalho da folha/XLSX), mas não decidem o que entra no banco de horas.
+
+**Janela do abono:** um abono só puxa o início para trás se cair **até 30 dias antes da primeira
+batida** (`InicioContagemResolver::JANELA_ABONO_DIAS`). Sem esse limite, um abono retroativo antigo
+— o sistema aceita qualquer data passada — abriria dezenas de dias úteis sem batida como débito,
+recriando o mesmo fantasma que esta regra existe para matar. A janela cobre o caso real: esqueceu
+de bater os primeiros dias e o admin deferiu abono depois. Quando **não há batida alguma**, o abono
+mais antigo abre a contagem (não há âncora para janela).
 
 ### Invariantes
 
-1. **Antes do primeiro registro → não conta.** Nenhuma meta, nenhum saldo, não soma no banco.
-2. **Sem nenhuma batida → não conta nada.** Colaborador que nunca registrou ponto tem saldo 0,
-   e não um débito fantasma de todos os dias úteis.
-3. **Depois do primeiro registro, buraco é falta.** Dia sem batida posterior ao início da
-   contagem continua gerando débito — é ausência real. Só o "antes do primeiro registro" é
-   ignorado.
+1. **Antes do primeiro registro → não conta.** Sem meta, sem saldo, não soma no banco.
+2. **Sem nenhum registro → não conta nada.** Colaborador que nunca registrou ponto tem saldo 0, não
+   um débito fantasma de todos os dias úteis.
+3. **Depois do primeiro registro, buraco é falta.** Dia sem batida posterior ao início segue gerando
+   débito — é ausência real. Só o "antes do primeiro registro" é ignorado.
 
 ## Histórico — por que a regra anterior falhou
 
-A primeira versão limitava por `data_admissao ?? created_at`. Ela consertava o caso do
-recém-contratado, mas **quebrou os veteranos**: quem foi admitido anos antes do sistema existir
-e só foi cadastrado recentemente passou a contar desde **01/01 do ano corrente** (a admissão
-antiga perdia para o início do ano), acumulando **centenas de horas negativas** em meses nos
-quais a pessoa sequer estava no sistema.
+A primeira versão limitava por `data_admissao ?? created_at`. Consertava o recém-contratado, mas
+**quebrou os veteranos**: quem foi admitido antes de o sistema existir e só foi cadastrado
+recentemente passou a contar desde 01/01 do ano corrente, acumulando centenas de horas negativas em
+meses nos quais sequer estava no sistema. Medido em produção: **7 colaboradores**, de 37 a 90 dias
+de fantasma (o pior ≈ 512 h).
 
-A lição: `data_admissao` responde *"desde quando a pessoa é funcionária"*; `created_at`,
-*"desde quando o registro existe"*. Nenhuma das duas responde *"desde quando há controle de
-ponto para esta pessoa"* — e é essa a pergunta que a folha precisa fazer. A primeira batida
-responde exatamente isso, com dado real em vez de heurística.
+A lição: `data_admissao` responde *"desde quando a pessoa é funcionária"*; `created_at`, *"desde
+quando o cadastro existe"*. Nenhuma responde *"desde quando há controle de ponto para esta pessoa"* —
+e é essa a pergunta da folha. O primeiro registro responde, com dado real em vez de heurística.
 
 ## Contrato
 
-### Repositórios (ambos com filtro de tenant explícito, além do TenantFilter)
+### Repositórios (filtro de tenant explícito, além do TenantFilter)
 
 ```php
 RegistroPontoRepository::findDataPrimeiraBatida(User $user, Tenant $tenant): ?\DateTimeImmutable
-JustificativaPontoRepository::findDataPrimeiraAbonada(User $user, Tenant $tenant): ?\DateTimeImmutable
+JustificativaPontoRepository::findDataPrimeiraAbonada(User $user, Tenant $tenant, ?\DateTimeInterface $aPartirDe = null): ?\DateTimeImmutable
 ```
-`MIN` da respectiva data no tenant informado; `null` quando não há nenhum registro daquele tipo.
-A segunda considera apenas justificativas com `status = 'abonado'`.
+`MIN` da respectiva data; `null` se não houver registro no recorte. A segunda considera apenas
+`status = 'abonado'`; `$aPartirDe` limita por baixo (é o piso da janela — sem ele, o `MIN` pegaria
+um abono antigo e ignoraria outro, mais recente, que está dentro da janela).
 
-### `InicioContagemResolver` (novo)
+### `InicioContagemResolver`
 
 ```php
 resolver(User $user, Tenant $tenant): ?\DateTimeImmutable
 ```
-Devolve a **mais antiga** entre a primeira batida e o primeiro abono; `null` se não houver nenhum
-dos dois. Centraliza a regra para os 6 chamadores não a reimplementarem cada um.
+Sem batida → abono mais antigo (sem janela). Com batida → a mais antiga entre a batida e o abono
+**dentro da janela**. `null` se não houver nenhum registro.
 
-### `FolhaPontoBuilder::buildRows`
+### `FolhaPontoBuilder`
 
-- Parâmetro ao final: `?\DateTimeInterface $inicioContagem = null`.
-- `inicioContagem === null` → **nenhum dia conta** (invariante 2): `minutosTrabalhadosDia`,
-  `saldoDia` e `saldoAcumulado` ficam `null` e nada entra no acumulador.
-- Caso contrário, dias `< inicioContagem` (normalizado a 00:00) recebem o mesmo tratamento de
-  dia futuro — `null` e fora do acumulador.
-- Nova chave na linha: `antesDoPrimeiroRegistro: bool`.
-- **Não** consulta `createdAt` nem `dataAdmissao`.
-
-### `calcularSaldoAteMes` / `calcularSaldoAnual`
-
-- Parâmetro ao final: `?\DateTimeInterface $inicioContagem = null`.
-- `inicioContagem === null` → retorna `0`.
-- `inicio = max(inicioContagem, 01/01/ano)`; repassa `inicioContagem` ao `buildRows`.
-- **Removem** o uso de `createdAt` (e o guard associado) e de `dataAdmissao`.
+```php
+buildRows(..., ?JornadaTenant $jornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): array
+calcularSaldoAteMes(User, int $ano, int $mes, array $feriados, ?JornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
+calcularSaldoAnual(User, int $ano, array $feriados, ?JornadaTenant = null, \DateTimeInterface|null|false $inicioContagem = false): int
+```
+- **Omitir o parâmetro lança `InvalidArgumentException`.** O default é a sentinela `false`, não
+  `null`: `null` significa "sem registro de ponto" e a semântica do valor omitido se inverteu (antes
+  "conta tudo", agora "não conta nada"), então uma chamada antiga sobrevivendo a um merge daria
+  saldo errado **em silêncio**. A sentinela transforma isso em falha imediata.
+- `buildRows`: dias `< inicioContagem` (normalizado a 00:00) recebem o tratamento de dia futuro —
+  `null` em minutos/saldo/acumulado e fora do acumulador. Nova chave na linha:
+  `antesDoPrimeiroRegistro: bool`. Não consulta `createdAt` nem `dataAdmissao`.
+- Acumulados: `inicioContagem === null` → `0`; senão `inicio = max(inicioContagem, 01/01/ano)`,
+  repassando ao `buildRows`.
 
 ### Chamadores (6)
 
-Resolvem `inicioContagem` via `InicioContagemResolver::resolver($user, $tenant)` e passam adiante:
+Resolvem via `InicioContagemResolver::resolver($user, $tenant)` (injetado no construtor dos dois
+controllers) e repassam:
 
 | Arquivo | Uso |
 |---|---|
-| `PontoController` | folha mensal · `calcularSaldoAnual` · export PDF · export XLSX · `calcularSaldoAteMes` |
+| `PontoController` | folha mensal · `calcularSaldoAnual` · export PDF · export XLSX · `calcularSaldoAteMes` (via `montarDadosFolha`) |
 | `TenantController` | folha do colaborador na visão do escritório |
 
-O `UserTenant` continua sendo lido onde já era (cargo, lotação, admissão do cabeçalho) — só
-deixa de alimentar o cálculo.
+O `UserTenant` segue lido onde já era (cargo, lotação, admissão do cabeçalho) — só deixou de
+alimentar o cálculo.
 
 ## Testes
 
-1. `buildRows` com `inicioContagem` no meio do mês: dias antes → `saldoDia null` e
-   `antesDoPrimeiroRegistro true`; dias a partir dele contam.
-2. `buildRows` não soma os dias anteriores no `saldoAcumulado`.
-3. **`buildRows` com `inicioContagem = null` → nenhum dia conta** (invariante 2).
-4. `inicioContagem` anterior ao mês → nenhum efeito; posterior ao mês → nada conta.
-5. **Cenário do veterano** (o que quebrou): início da contagem no meio do ano → meses
-   anteriores não entram no `calcularSaldoAnual`.
-6. `calcularSaldoAteMes`/`Anual` com `inicioContagem = null` → 0.
-7. Dia sem batida **posterior** ao início da contagem continua negativo (invariante 3).
+**Unit — `FolhaPontoBuilderTest`:** dias antes do início não contam e marcam
+`antesDoPrimeiroRegistro`; não entram no `saldoAcumulado`; `null` → nenhum dia conta; início antes
+do mês não tem efeito; início depois do mês zera tudo; buraco posterior ao início segue falta;
+**omitir o parâmetro lança**; acumulados com `null` → 0 (com `createdAt` fixado em 2020, para
+falharem na regra que quebrou a produção).
+
+**Unit — `InicioContagemResolverTest`:** só batida; só abono; abono dentro da janela puxa; **abono
+fora da janela não puxa**; batida anterior ao abono manda; nenhum registro → `null`.
+
+**Functional — `PontoIsolamentoRepositoryTest`** (SQL real): isolamento por tenant das duas
+consultas; `null` sem registro; "a mais antiga"; abono **não-abonado** (pendente/rejeitado) ignorado;
+piso da janela respeitado.
+
+## Impacto no dado existente
+
+A regra **muda saldo retroativo**: é o objetivo. Antes de publicar, rodar a comparação por
+(usuário, escritório) entre o início antigo e o novo e conferir a lista. Medição de produção em
+2026-07: 7 colaboradores deixam de acumular fantasma (37–90 dias cada); 4 cadastros sem batida
+alguma param de contar; 1 caso (YLKA) tem a contagem **antecipada em 3 dias** — conferir esses dias.
 
 ## Fora de escopo
 
-- Não altera o cálculo de saldo do dia (`CalculadoraJornada`) nem a régua de jornada.
-- Não altera `data_admissao`/`created_at` de ninguém (seguem como registro).
-- Não redesenha template (só disponibiliza a chave `antesDoPrimeiroRegistro`).
+- Não altera o cálculo do saldo do dia (`CalculadoraJornada`) nem a régua de jornada.
+- Não altera `data_admissao`/`created_at` de ninguém.
+- Não redesenha template (só disponibiliza `antesDoPrimeiroRegistro`).

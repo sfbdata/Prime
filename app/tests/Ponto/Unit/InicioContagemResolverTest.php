@@ -38,6 +38,15 @@ final class InicioContagemResolverTest extends TestCase
         self::assertSame('2026-05-15', $resolver->resolver(new User(), new Tenant())?->format('Y-m-d'));
     }
 
+    public function testAbonoRetroativoForaDaJanelaNaoPuxaAContagem(): void
+    {
+        // 1ª batida 18/05 e abono deferido para 10/04 (38 dias antes, fora da janela de 30):
+        // sem esse limite, ~26 dias úteis sem batida virariam débito de uma tacada só.
+        $resolver = $this->resolver('2026-05-18', '2026-04-10');
+
+        self::assertSame('2026-05-18', $resolver->resolver(new User(), new Tenant())?->format('Y-m-d'));
+    }
+
     public function testBatidaAnteriorAoAbonoMandaNaContagem(): void
     {
         $resolver = $this->resolver('2026-05-10', '2026-06-02');
@@ -60,8 +69,18 @@ final class InicioContagemResolverTest extends TestCase
             ->willReturn($primeiraBatida === null ? null : new \DateTimeImmutable($primeiraBatida));
 
         $justificativas = $this->createMock(JustificativaPontoRepository::class);
+        // Simula o recorte por janela que o repositório real faz no SQL (`j.data >= :aPartirDe`).
         $justificativas->method('findDataPrimeiraAbonada')
-            ->willReturn($primeiroAbono === null ? null : new \DateTimeImmutable($primeiroAbono));
+            ->willReturnCallback(
+                static function ($user, $tenant, ?\DateTimeInterface $aPartirDe = null) use ($primeiroAbono): ?\DateTimeImmutable {
+                    if ($primeiroAbono === null) {
+                        return null;
+                    }
+                    $abono = new \DateTimeImmutable($primeiroAbono);
+
+                    return ($aPartirDe !== null && $abono < $aPartirDe) ? null : $abono;
+                }
+            );
 
         return new InicioContagemResolver($registros, $justificativas);
     }

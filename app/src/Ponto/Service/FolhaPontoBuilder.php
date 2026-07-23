@@ -41,7 +41,7 @@ class FolhaPontoBuilder
         ?JornadaTenant $jornadaTenant = null,
         \DateTimeInterface|null|false $inicioContagem = false
     ): array {
-        $this->exigirInicioContagem($inicioContagem, 'buildRows');
+        $this->exigirInicioContagem($inicioContagem, __FUNCTION__);
         $registrosPorDia = [];
         foreach ($batidas as $batida) {
             $chaveDia = $batida->getDataHora()->format('Y-m-d');

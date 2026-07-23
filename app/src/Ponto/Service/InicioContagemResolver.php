@@ -23,6 +23,15 @@ use App\Ponto\Repository\RegistroPontoRepository;
  */
 final class InicioContagemResolver
 {
+    /**
+     * Um abono só puxa o início da contagem para trás se cair DENTRO desta janela antes da primeira
+     * batida. Sem o limite, um abono retroativo antigo (o sistema aceita qualquer data passada)
+     * abriria dezenas de dias úteis sem batida como débito — o mesmo débito fantasma que esta regra
+     * existe para matar. A janela cobre o caso real: esqueceu de bater os primeiros dias e o admin
+     * deferiu abono depois.
+     */
+    private const JANELA_ABONO_DIAS = 30;
+
     public function __construct(
         private readonly RegistroPontoRepository $registroPontoRepository,
         private readonly JustificativaPontoRepository $justificativaPontoRepository,
@@ -32,16 +41,23 @@ final class InicioContagemResolver
     public function resolver(User $user, Tenant $tenant): ?\DateTimeImmutable
     {
         $primeiraBatida = $this->registroPontoRepository->findDataPrimeiraBatida($user, $tenant);
-        $primeiroAbono  = $this->justificativaPontoRepository->findDataPrimeiraAbonada($user, $tenant);
 
+        // Sem nenhuma batida, o abono é o único registro de ponto que existe — não há âncora
+        // para janela nenhuma.
         if ($primeiraBatida === null) {
-            return $primeiroAbono;
+            return $this->justificativaPontoRepository->findDataPrimeiraAbonada($user, $tenant);
         }
 
-        if ($primeiroAbono === null) {
+        $limiteJanela = $primeiraBatida->modify(sprintf('-%d days', self::JANELA_ABONO_DIAS));
+
+        // Busca o abono mais antigo DENTRO da janela: um abono anterior a ela não adianta a contagem.
+        $abonoNaJanela = $this->justificativaPontoRepository
+            ->findDataPrimeiraAbonada($user, $tenant, $limiteJanela);
+
+        if ($abonoNaJanela === null || $abonoNaJanela >= $primeiraBatida) {
             return $primeiraBatida;
         }
 
-        return $primeiroAbono < $primeiraBatida ? $primeiroAbono : $primeiraBatida;
+        return $abonoNaJanela;
     }
 }
