@@ -95,9 +95,28 @@
     color: var(--bs-primary);
 }
 
-/* O seletor de cor precisa mostrar a cor real, não a do tema. */
+/* ── Seletor de cor ──────────────────────────────────────────────────────────────────────── */
+
 .editor-rico .ql-snow .ql-color-picker .ql-picker-item {
     border: 1px solid var(--bs-border-color);
+}
+
+/*
+ * A amostra mostra a cor EXATA que será aplicada. O Quill pinta o quadradinho com o valor cru do
+ * atributo (`red` → #ff0000 do CSS), mas aplica no texto a sua própria paleta (`red` → #e60000):
+ * sem isto, o usuário escolhe um tom e recebe outro.
+ */
+.editor-rico .ql-color-picker .ql-picker-item[data-value="red"]    { background-color: #e60000 !important; }
+.editor-rico .ql-color-picker .ql-picker-item[data-value="orange"] { background-color: #ff9900 !important; }
+.editor-rico .ql-color-picker .ql-picker-item[data-value="green"]  { background-color: #008a00 !important; }
+.editor-rico .ql-color-picker .ql-picker-item[data-value="blue"]   { background-color: #0066cc !important; }
+.editor-rico .ql-color-picker .ql-picker-item[data-value="purple"] { background-color: #9933ff !important; }
+
+/* "Sem cor": quadradinho vazio, com um risco na diagonal para não parecer branco. */
+.editor-rico .ql-color-picker .ql-picker-item:not([data-value]) {
+    background: linear-gradient(to top right,
+        transparent calc(50% - 1px), var(--bs-danger) calc(50% - 1px),
+        var(--bs-danger) calc(50% + 1px), transparent calc(50% + 1px)) !important;
 }
 
 /* Variante compacta, para os campos de envio rápido (uma linha + botão ao lado). */

@@ -28,8 +28,40 @@
     /** Espelha `max_input_length` do sanitizador `textoRico`, com folga para a marcação. */
     var MAX_CARACTERES = 5000;
 
-    /** Cores que o CSS do Quill já estiliza dentro de `.ql-editor` (menos branco, que some no claro). */
-    var PALETA = ['#e60000', '#ff9900', '#008a00', '#0066cc', '#9933ff', false];
+    /**
+     * Cores por NOME, não por hexadecimal — e isso é obrigatório, não estilo.
+     *
+     * A cor sai por CLASSE (`ql-color-red`), e o CSS do Quill só define regra para os nomes que ele
+     * conhece. Com um hexadecimal na paleta, o editor gera `class="ql-color-#e60000"`: nome de
+     * classe inválido, nenhuma regra casa, e a cor simplesmente não aparece.
+     *
+     * `false` é a opção "sem cor" (volta ao padrão do tema). Branco fica de fora: some no tema claro.
+     */
+    var PALETA = ['red', 'orange', 'green', 'blue', 'purple', false];
+
+    /** Dica de cada controle da barra (o Quill não põe `title` sozinho). */
+    var DICAS = {
+        'ql-bold': 'Negrito',
+        'ql-italic': 'Itálico',
+        'ql-underline': 'Sublinhado',
+        'ql-strike': 'Tachado',
+        'ql-blockquote': 'Citação',
+        'ql-clean': 'Limpar formatação',
+        'ql-color': 'Cor do texto',
+        'ql-header': 'Título',
+        'ql-align': 'Alinhamento',
+    };
+
+    /** Controles que se repetem com valores diferentes (lista, recuo, alinhamento). */
+    var DICAS_POR_VALOR = {
+        'ql-list': { ordered: 'Lista numerada', bullet: 'Lista com marcadores' },
+        'ql-indent': { '+1': 'Aumentar recuo', '-1': 'Diminuir recuo' },
+        'ql-align': { '': 'Alinhar à esquerda', center: 'Centralizar', right: 'Alinhar à direita', justify: 'Justificar' },
+        'ql-color': {
+            red: 'Vermelho', orange: 'Laranja', green: 'Verde',
+            blue: 'Azul', purple: 'Roxo', '': 'Sem cor',
+        },
+    };
 
     /**
      * Formatos aceitos — precisam ser um subconjunto do que o sanitizador `textoRico` permite.
@@ -64,6 +96,44 @@
         Quill.register(Quill.import('attributors/class/color'), true);
         Quill.register(Quill.import('attributors/class/background'), true);
         registrado = true;
+    }
+
+    /**
+     * Põe `title` em cada controle da barra. O Quill entrega só ícones, sem rótulo nem dica — quem
+     * não reconhece o desenho fica sem saber o que o botão faz. Roda uma vez, após montar.
+     */
+    function aplicarDicas(casca) {
+        var barra = casca.querySelector('.ql-toolbar');
+        if (!barra) { return; }
+
+        barra.querySelectorAll('button, .ql-picker').forEach(function (controle) {
+            var classe = [].slice.call(controle.classList).find(function (c) {
+                return c.indexOf('ql-') === 0 && c !== 'ql-picker';
+            });
+            if (!classe) { return; }
+
+            var valor = controle.value !== undefined ? controle.value : null;
+            var porValor = DICAS_POR_VALOR[classe];
+            var dica = (porValor && valor !== null && porValor[valor]) || DICAS[classe];
+
+            if (dica) { controle.setAttribute('title', dica); }
+        });
+
+        // Itens de dentro dos seletores (cores, níveis de título, alinhamentos).
+        barra.querySelectorAll('.ql-picker-item').forEach(function (item) {
+            var seletor = item.closest('.ql-picker');
+            var classe = seletor && [].slice.call(seletor.classList).find(function (c) {
+                return c.indexOf('ql-') === 0 && c !== 'ql-picker';
+            });
+            var valor = item.getAttribute('data-value') || '';
+            var porValor = classe && DICAS_POR_VALOR[classe];
+
+            if (porValor && porValor[valor]) {
+                item.setAttribute('title', porValor[valor]);
+            } else if (classe === 'ql-header') {
+                item.setAttribute('title', valor === '' ? 'Texto normal' : 'Título ' + valor);
+            }
+        });
     }
 
     function textoDoEditor(quill) {
@@ -120,6 +190,7 @@
             }
         }
 
+        aplicarDicas(casca);
         sincronizar(textarea, quill);
 
         quill.on('text-change', function () {

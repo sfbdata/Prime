@@ -69,6 +69,22 @@ final class SanitizadorTextoRicoTest extends TestCase
         self::assertStringContainsString('sumiu', $limpo);
     }
 
+    #[TestDox('cor tem de ser por NOME — classe com hexadecimal é inválida e não pinta nada')]
+    public function testCorPorHexadecimalEDescartada(): void
+    {
+        // Regressão: a paleta nasceu em hexadecimal e o editor gerava `ql-color-#e60000`, que não
+        // é nome de classe válido — nenhuma regra CSS casava e a cor não aparecia. A paleta passou
+        // a usar nomes (`red`), que é o que o CSS do Quill estiliza.
+        $comHex = $this->sanitizador->limpar('<p><span class="ql-color-#e60000">texto</span></p>');
+        self::assertIsString($comHex);
+        self::assertStringNotContainsString('ql-color-#', $comHex);
+        self::assertStringContainsString('texto', $comHex);
+
+        $comNome = $this->sanitizador->limpar('<p><span class="ql-color-red">texto</span></p>');
+        self::assertIsString($comNome);
+        self::assertStringContainsString('ql-color-red', $comNome);
+    }
+
     // ── O que precisa SOBREVIVER ─────────────────────────────────────────────────────────────
 
     #[TestDox('mantém a formatação que a barra oferece')]

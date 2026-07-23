@@ -36,7 +36,7 @@ final class SanitizadorTextoRico
      * injetar utilitário do Bootstrap (`d-none` esconde a observação, `position-fixed` sobrepõe a
      * tela). Como o atributo `style` não é liberado, a formatação visual sai toda por estas classes.
      */
-    private const CLASSE_PERMITIDA = '/^ql-(align|indent|color|bg|size|font)-[a-z0-9#-]+$/i';
+    private const CLASSE_PERMITIDA = '/^ql-(align|indent|color|bg|size|font)-[a-z0-9-]+$/i';
 
     public function __construct(
         // O nome do argumento tem de ser EXATAMENTE o nome do sanitizador no YAML (`textoRico`) —
