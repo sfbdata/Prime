@@ -176,12 +176,15 @@
 }
 .fm-pasta-info { min-width: 0; flex: 1; }
 .fm-pasta-nome {
-    display: block;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
     font-weight: 600;
+    font-size: .9rem;
     color: var(--bs-body-color);
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
 }
 .fm-pasta-contagem {
     display: block;
@@ -205,6 +208,9 @@
 .fm-pasta:hover .fm-pasta-menu,
 .fm-pasta-menu:focus-visible,
 .fm-pasta.menu-aberto .fm-pasta-menu { opacity: 1; }
+/* Cartão com o menu de ações aberto sobe acima dos vizinhos, senão o dropdown
+   (preso no stacking context do :hover) fica escondido atrás das pastas de baixo. */
+.fm-pasta.menu-aberto { z-index: 30; }
 .fm-pasta-menu:hover { background: var(--fm-hover-forte); color: var(--bs-body-color); }
 
 /* estados de drag */
@@ -221,6 +227,37 @@
     transition: opacity .15s;
 }
 .fm-pasta:hover .fm-pasta-grip { opacity: .6; }
+
+/* Pastas em modo LISTA: linhas de largura total, nome em uma linha só.
+   Como a linha ocupa toda a largura, o nome quase sempre cabe inteiro;
+   nos raros nomes gigantes o corte é com reticências e o tooltip (title) mostra o completo. */
+.fm-pastas.fm-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.fm-pastas.fm-lista .fm-pasta { padding: 10px 12px; }
+.fm-pastas.fm-lista .fm-pasta-icone { font-size: 1.5rem; }
+.fm-pastas.fm-lista .fm-pasta-info {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+.fm-pastas.fm-lista .fm-pasta-nome {
+    display: block;
+    -webkit-line-clamp: initial;
+    flex: 1;
+    min-width: 0;
+    font-size: .92rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.fm-pastas.fm-lista .fm-pasta-contagem {
+    margin-top: 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
 
 /* -------------------------------------------------------------- Arquivos -- */
 .fm-arquivos { display: flex; flex-direction: column; }

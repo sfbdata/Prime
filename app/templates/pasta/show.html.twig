@@ -884,7 +884,7 @@
                                                         <span class="fm-pasta-grip" title="Arrastar para reordenar"><i class="bi bi-grip-vertical"></i></span>
                                                         <span class="fm-pasta-icone"><i class="bi bi-folder-fill"></i></span>
                                                         <span class="fm-pasta-info">
-                                                            <span class="fm-pasta-nome">{{ secao.nome }}</span>
+                                                            <span class="fm-pasta-nome" title="{{ secao.nome|e('html_attr') }}">{{ secao.nome }}</span>
                                                             <span class="fm-pasta-contagem" data-secao-contagem="{{ secao.id }}">{{ secao.documentos|length }} {{ secao.documentos|length == 1 ? 'arquivo' : 'arquivos' }}</span>
                                                         </span>
                                                         <div class="dropdown">

@@ -104,6 +104,11 @@
 
         elArquivos.classList.toggle('fm-grade', modoView === 'grade');
         elArquivos.classList.toggle('fm-lista', modoView !== 'grade');
+
+        if (elPastas) {
+            elPastas.classList.toggle('fm-grade', modoView === 'grade');
+            elPastas.classList.toggle('fm-lista', modoView !== 'grade');
+        }
     }
 
     function mostrarCrumb(txt) {
@@ -186,6 +191,18 @@
             fm.querySelectorAll('.fm-view-btn').forEach(function (b) { b.classList.toggle('ativo', b === btn); });
             render();
         });
+    });
+
+    // Mantém a pasta acima das vizinhas enquanto o menu de ações está aberto.
+    // Sem isso, o :hover aplica transform (cria stacking context) e o dropdown
+    // do Bootstrap fica escondido atrás dos cartões de pasta seguintes.
+    fm.addEventListener('show.bs.dropdown', function (e) {
+        const card = e.target.closest('.fm-pasta');
+        if (card) card.classList.add('menu-aberto');
+    });
+    fm.addEventListener('hide.bs.dropdown', function (e) {
+        const card = e.target.closest('.fm-pasta');
+        if (card) card.classList.remove('menu-aberto');
     });
 
     // Preview / Editar / Mover (delegado na lista de arquivos)
