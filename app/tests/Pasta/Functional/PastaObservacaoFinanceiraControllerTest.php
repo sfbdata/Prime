@@ -323,4 +323,30 @@ final class PastaObservacaoFinanceiraControllerTest extends JusPrimeWebTestCase
 
         self::assertResponseStatusCodeSame(403);
     }
+
+    // ── Enviar ───────────────────────────────────────────────────────────────
+
+    #[TestDox('Enviar observação retorna conteudoHtml sanitizado para renderização imediata na lista')]
+    public function testEnviarRetornaConteudoHtml(): void
+    {
+        $client = static::createClient();
+        $tenant = $this->criarTenant();
+        $autor  = $this->criarUsuario($tenant, 'autor');
+        $pasta  = $this->criarPasta($tenant);
+
+        $this->instalarCsrfStorage();
+        $this->logarComTenant($client, $autor, $tenant);
+
+        $client->request('POST', "/pasta/{$pasta->getId()}/financeiro/observacao", [
+            '_token'   => $this->gerarCsrf('pasta_financeiro_obs_' . $pasta->getId()),
+            'conteudo' => '<p>Acordo <strong>fechado</strong></p>',
+        ]);
+
+        self::assertResponseStatusCodeSame(201);
+        $data = json_decode((string) $client->getResponse()->getContent(), true);
+        // Sem `conteudoHtml`, o JS grava innerHTML = '' e a observação nasce vazia
+        // na lista até o usuário editá-la (regressão do commit 8612079).
+        self::assertArrayHasKey('conteudoHtml', $data);
+        self::assertStringContainsString('<strong>fechado</strong>', $data['conteudoHtml']);
+    }
 }

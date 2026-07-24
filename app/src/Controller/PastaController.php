@@ -1653,6 +1653,7 @@ class PastaController extends AbstractController
         return $this->json([
             'id'         => $obs->getId(),
             'conteudo'   => $obs->getConteudo(),
+            'conteudoHtml' => $sanitizador->paraExibicao($obs->getConteudo()),
             'autorNome'  => $currentUser->getFullName(),
             'criadaEm'   => $obs->getCriadaEm()->format('d/m/Y H:i'),
             'criadaEmTs' => $obs->getCriadaEm()->format(\DateTimeInterface::ATOM),

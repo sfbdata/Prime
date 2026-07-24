@@ -180,13 +180,15 @@
         <form id="formFinanceiroObservacao">
             <input type="hidden" name="_token" value="{{ csrf_token('pasta_financeiro_obs_' ~ pasta.id) }}">
             <div class="d-flex gap-2 align-items-end">
-                <textarea name="conteudo"
-                          id="financeiroObsConteudo"
-                          class="form-control form-control-sm financeiro-obs-textarea"
-                          data-editor-rico
-                          rows="2"
-                          maxlength="5000"
-                          placeholder="Adicionar observação, combinado ou anotação financeira… (Ctrl+Enter para enviar)"></textarea>
+                <div class="flex-grow-1">
+                    <textarea name="conteudo"
+                              id="financeiroObsConteudo"
+                              class="form-control form-control-sm financeiro-obs-textarea"
+                              data-editor-rico
+                              rows="2"
+                              maxlength="5000"
+                              placeholder="Adicionar observação, combinado ou anotação financeira… (Ctrl+Enter para enviar)"></textarea>
+                </div>
                 <button type="submit" class="btn btn-primary btn-sm flex-shrink-0" id="btnEnviarObsFinanceiro">
                     <i class="bi bi-send me-1"></i> Enviar
                 </button>
