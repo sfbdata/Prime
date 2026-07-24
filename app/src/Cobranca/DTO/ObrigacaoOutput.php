@@ -78,6 +78,14 @@ final class ObrigacaoOutput
          */
         public readonly BaseEncargo $baseMulta = BaseEncargo::Principal,
         public readonly BaseEncargo $baseHonorarios = BaseEncargo::Composta,
+        /**
+         * Taxa de juros de mora EFETIVA (bp) que a cascata Carteira→Caso→Obrigação realmente aplica —
+         * resolvida no `ConfigEncargos`, NÃO o override cru `taxaJurosMensalBp` acima (que é `null`
+         * quando a obrigação herda). É o que o card usa para rotular o juros pela TAXA configurada
+         * ("1% a.m. pró-rata") em vez do percentual que o valor pró-rata representa sobre o principal —
+         * este último cresce a cada dia e engana quem lê. `null` (sem config resolvida) = não exibe rótulo.
+         */
+        public readonly ?int $taxaJurosEfetivaBp = null,
         /** Preenchido = encargos congelados, param de crescer (INV-E4); a UI marca isso. */
         public readonly ?\DateTimeImmutable $encargosCongeladosEm = null,
         /** Data de referência da última materialização — o "atualizado em" da tela. */
@@ -143,6 +151,9 @@ final class ObrigacaoOutput
             // defaults do domínio — não inventa base, e mantém os chamadores antigos intactos.
             baseMulta: $config?->baseMulta ?? BaseEncargo::Principal,
             baseHonorarios: $config?->baseHonorarios ?? BaseEncargo::Composta,
+            // Taxa de juros EFETIVA resolvida (bp) — só existe quando a config da cascata é passada.
+            // Sem ela, `null`: o card não inventa um rótulo de taxa.
+            taxaJurosEfetivaBp: $config?->taxaJurosMensalBp,
             encargosCongeladosEm: $o->getEncargosCongeladosEm(),
             encargosAtualizadosEm: $o->getEncargosAtualizadosEm(),
         );

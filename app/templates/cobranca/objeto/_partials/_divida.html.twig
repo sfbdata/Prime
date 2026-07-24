@@ -57,8 +57,11 @@
     {# Base de incidência de cada encargo — RESOLVIDA da cascata (o.baseMulta/o.baseHonorarios), não fixa.
        Multa e honorários podem operar sobre o PRINCIPAL puro ou a base COMPOSTA (valor + juros + multa +
        correção); derivar o "%" sobre a base errada mostra um número factualmente falso para quem configura
-       Principal (achado da auditoria). Juros incidem sempre sobre o principal. Os "%" são SÓ apresentação,
-       derivados na hora, com guarda contra divisão por zero. #}
+       Principal (achado da auditoria). Multa e honorários são % FIXOS (não crescem com o tempo), então o
+       "%" derivado na hora (valor/base) é honesto — guarda contra divisão por zero.
+       JUROS é diferente: o valor cresce pró-rata/dia, então dividir valor/principal daria um percentual que
+       incha a cada dia e engana. Por isso o juros mostra a TAXA CONFIGURADA resolvida (o.taxaJurosEfetivaBp,
+       ex. "1% a.m. pró-rata"), não um percentual derivado. O valor em R$ ao lado é que revela o acúmulo. #}
     {% set baseComposta = o.valorOriginal + o.juros + o.multa + o.correcao %}
     {% set baseMultaVal = o.baseMulta.value == 'composta' ? baseComposta : o.valorOriginal %}
     {% set baseHonVal = o.baseHonorarios.value == 'composta' ? baseComposta : o.valorOriginal %}
@@ -68,7 +71,7 @@
             <span class="jp-enc-val col-original">{{ o.valorOriginal|centavos }}</span>
         </span>
         <span class="jp-obr-enc jp-enc-juros">
-            <span class="jp-enc-rot">Juros{% if o.valorOriginal > 0 and o.juros > 0 %} <span class="jp-enc-pct">{{ (o.juros * 100 / o.valorOriginal)|round(2)|replace({'.': ','}) }}%</span>{% endif %}</span>
+            <span class="jp-enc-rot">Juros{% if o.taxaJurosEfetivaBp %} <span class="jp-enc-pct">{{ (o.taxaJurosEfetivaBp / 100)|round(2)|replace({'.': ','}) }}% a.m. pró-rata</span>{% endif %}</span>
             <span class="jp-enc-val col-juros">{{ o.juros|centavos }}</span>
         </span>
         <span class="jp-obr-enc jp-enc-multa">

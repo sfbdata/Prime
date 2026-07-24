@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Cobranca\Unit;
 
+use App\Cobranca\DTO\ConfigEncargos;
 use App\Cobranca\DTO\ObrigacaoOutput;
 use App\Cobranca\Entity\Acordo;
 use App\Cobranca\Entity\Obrigacao;
@@ -167,5 +168,29 @@ final class ObrigacaoOutputTest extends TestCase
         self::assertNull($output->taxaMultaBp);
         self::assertNull($output->taxaCorrecaoBp);
         self::assertNull($output->taxaHonorariosBp);
+    }
+
+    #[Test]
+    public function fromEntityExpoeATaxaDeJurosEFETIVAResolvidaDaCascata(): void
+    {
+        // Diferente dos 4 overrides CRUS acima: `taxaJurosEfetivaBp` é a taxa que a cascata
+        // Carteira→Caso→Obrigação REALMENTE aplica (vem do ConfigEncargos já resolvido). É o que o
+        // card precisa para rotular "1% a.m. pró-rata" em vez do percentual inflado que cresce com os dias.
+        // Aqui a obrigação NÃO tem override próprio (herda), mas a config resolvida diz 1% a.m. (100 bp).
+        $config = new ConfigEncargos(taxaJurosMensalBp: 100);
+
+        $output = ObrigacaoOutput::fromEntity($this->obrigacao(), config: $config);
+
+        self::assertSame(100, $output->taxaJurosEfetivaBp);
+    }
+
+    #[Test]
+    public function fromEntitySemConfigDeixaATaxaDeJurosEfetivaNula(): void
+    {
+        // Chamadores antigos não passam config — sem taxa resolvida, o campo sai `null` (não 0), e o
+        // template não exibe nenhum rótulo de taxa (melhor nada do que um "0% a.m." enganoso).
+        $output = ObrigacaoOutput::fromEntity($this->obrigacao());
+
+        self::assertNull($output->taxaJurosEfetivaBp);
     }
 }
