@@ -37,6 +37,44 @@ framework:
                 allow_relative_medias: false
                 max_input_length: 20000
 
+            # Descrição do card e comentários do Kanban. Feature ANTERIOR ao editor rico, com barra
+            # PRÓPRIA (Quill) que oferece mais que a do textoRico: título, ênfase, listas, LINK e
+            # bloco de código. Por isso não reusa `textoRico` — sanitizá-lo com aquele apagaria os
+            # links e os blocos de código que os cards já têm.
+            #
+            # Até 2026-07-23 o Kanban gravava o HTML do Quill CRU e exibia com `|raw` — XSS
+            # armazenado. Este sanitizador fecha isso: injeta-se como `HtmlSanitizerInterface $kanban`.
+            #
+            #  - `a`: liberado, mas SÓ `href` (sem `target`/`onclick`), e `force_https`/sem link
+            #    relativo garantem que `javascript:` e afins não sobrevivem.
+            #  - `pre`/`code`: o bloco de código do Quill (`code-block`). Sem `class`: liberar
+            #    `class` reabriria a injeção de utilitário do Bootstrap, e o realce de sintaxe (a
+            #    única classe legítima, `ql-syntax`) nem é carregado — o `<pre>` é estilizado por CSS.
+            #  - `style` continua FORA — mesmo motivo do textoRico.
+            kanban:
+                allow_elements:
+                    p: []
+                    br: []
+                    strong: []
+                    b: []
+                    em: []
+                    i: []
+                    u: []
+                    s: []
+                    h1: []
+                    h2: []
+                    h3: []
+                    ol: []
+                    ul: []
+                    li: ['data-list']
+                    pre: []
+                    code: []
+                    a: ['href', 'title']
+                allow_relative_links: false
+                allow_relative_medias: false
+                force_https_urls: true
+                max_input_length: 20000
+
 
             # Sanitizador do teor das publicações do DJEN (conteúdo HTML externo, do CNJ).
             # Preserva a formatação de documento (parágrafos, negrito, seções, tabelas de partes)

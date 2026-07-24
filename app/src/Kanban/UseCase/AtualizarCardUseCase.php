@@ -10,6 +10,7 @@ use App\Kanban\DTO\AtualizarCardInput;
 use App\Kanban\DTO\CardDetalheOutput;
 use App\Kanban\Entity\KanbanCard;
 use App\Kanban\Repository\KanbanCardRepository;
+use App\Kanban\Service\SanitizadorTextoKanban;
 use App\Repository\UserRepository;
 
 final class AtualizarCardUseCase
@@ -17,6 +18,7 @@ final class AtualizarCardUseCase
     public function __construct(
         private readonly KanbanCardRepository $cardRepository,
         private readonly UserRepository $userRepository,
+        private readonly SanitizadorTextoKanban $sanitizador,
     ) {
     }
 
@@ -24,7 +26,9 @@ final class AtualizarCardUseCase
     {
 
         $card->setTitulo($input->titulo);
-        $card->setDescricao($input->descricao);
+        // A descrição vem do editor Quill (HTML): sanitizada ANTES de persistir, para o banco nunca
+        // guardar marcação perigosa — era exatamente a origem do XSS armazenado do Kanban.
+        $card->setDescricao($this->sanitizador->limpar($input->descricao));
 
         if ($input->dataVencimento !== null && $input->dataVencimento !== '') {
             $card->setDataVencimento(new \DateTimeImmutable($input->dataVencimento));

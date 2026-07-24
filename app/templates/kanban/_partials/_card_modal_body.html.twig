@@ -34,7 +34,7 @@
             <div class="kb-modal-section-title">
                 <i class="bi bi-text-left"></i> Descrição
             </div>
-            <div id="quillDescricao" style="min-height:80px;">{% if card.descricao %}{{ card.descricao|raw }}{% endif %}</div>
+            <div id="quillDescricao" style="min-height:80px;">{% if card.descricao %}{{ card.descricao|texto_kanban }}{% endif %}</div>
         </div>
 
         {# Checklists #}

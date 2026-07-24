@@ -9,6 +9,7 @@ use App\Kanban\DTO\CriarComentarioInput;
 use App\Kanban\Entity\KanbanComentario;
 use App\Kanban\Repository\KanbanComentarioRepository;
 use App\Kanban\UseCase\AtualizarComentarioUseCase;
+use App\Tests\Kanban\CriaSanitizadorTextoKanban;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Security\Core\Exception\AccessDeniedException;
@@ -16,6 +17,8 @@ use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 #[CoversClass(AtualizarComentarioUseCase::class)]
 final class AtualizarComentarioUseCaseTest extends TestCase
 {
+    use CriaSanitizadorTextoKanban;
+
     public function testDeveAtualizarComentarioDoProprioUsuario(): void
     {
         $usuario = $this->createStub(User::class);
@@ -34,7 +37,7 @@ final class AtualizarComentarioUseCaseTest extends TestCase
         $repo->expects($this->once())->method('salvar')->with($comentario, flush: true);
 
         $input   = new CriarComentarioInput(conteudo: '<p>novo</p>');
-        $useCase = new AtualizarComentarioUseCase($repo);
+        $useCase = new AtualizarComentarioUseCase($repo, $this->criarSanitizadorTextoKanban());
         $useCase->executar($comentario, $input, $usuario);
     }
 
@@ -47,7 +50,7 @@ final class AtualizarComentarioUseCaseTest extends TestCase
 
         $repo    = $this->createStub(KanbanComentarioRepository::class);
         $input   = new CriarComentarioInput(conteudo: '<p>hack</p>');
-        $useCase = new AtualizarComentarioUseCase($repo);
+        $useCase = new AtualizarComentarioUseCase($repo, $this->criarSanitizadorTextoKanban());
 
         $this->expectException(AccessDeniedException::class);
         $useCase->executar($comentario, $input, $usuario);
