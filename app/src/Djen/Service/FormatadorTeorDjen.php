@@ -29,7 +29,11 @@ final class FormatadorTeorDjen
         . 'Diante do exposto|Posto isso|Publique-se|Intime-se|Intimem-se|Cumpra-se|DEFIRO|INDEFIRO|HOMOLOGO';
 
     public function __construct(
-        private readonly HtmlSanitizerInterface $djenSanitizer,
+        // O nome do argumento tem de ser EXATAMENTE o nome do sanitizador no YAML (`djen`) — é assim
+        // que o Symfony expõe o alias (`HtmlSanitizerInterface $djen`). Com `$djenSanitizer` o
+        // autowiring caía calado no sanitizador `default`, que trunca a entrada em 20 KB: publicações
+        // longas chegavam cortadas, perdendo o final (o dispositivo, numa decisão). Ver debug:autowiring.
+        private readonly HtmlSanitizerInterface $djen,
     ) {
     }
 
@@ -46,7 +50,7 @@ final class FormatadorTeorDjen
 
         // Tem marcação HTML de formatação? Então mantém a estrutura do documento (sanitizada).
         if (preg_match('/<(br|p|div|section|article|table|tr|td|th|li|ul|ol|h[1-6]|b|strong|em|i|span|font)\b/i', $texto) === 1) {
-            return $this->djenSanitizer->sanitize($texto);
+            return $this->djen->sanitize($texto);
         }
 
         return $this->prettificarTextoCorrido($texto);

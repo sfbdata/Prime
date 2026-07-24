@@ -79,7 +79,8 @@ framework:
             # Sanitizador do teor das publicações do DJEN (conteúdo HTML externo, do CNJ).
             # Preserva a formatação de documento (parágrafos, negrito, seções, tabelas de partes)
             # e remove tudo que for perigoso (script/style/iframe, handlers de evento, javascript:).
-            # Injeta-se como argumento `HtmlSanitizerInterface $djenSanitizer` (convenção do Symfony).
+            # Injeta-se como `HtmlSanitizerInterface $djen` — o nome do argumento tem de ser EXATAMENTE
+            # o nome do sanitizador; com outro nome o autowiring cai no `default`, que trunca em 20 KB.
             djen:
                 allow_elements:
                     section: []
@@ -117,7 +118,10 @@ framework:
                     h4: []
                     h5: []
                     h6: []
-                # Sem <a>/<img>: o botão "Inteiro teor na origem" já cobre o link de forma segura.
+                # Sem <a>/<img> no resultado: o botão "Inteiro teor na origem" já cobre o link de
+                # forma segura. Mas `block_elements` (não `drop`) preserva o TEXTO do link — sem
+                # isto, "veja em [este processo]" perde as palavras "este processo" junto com a tag.
+                block_elements: ['a', 'img']
                 allow_relative_links: false
                 allow_relative_medias: false
                 max_input_length: 1000000
