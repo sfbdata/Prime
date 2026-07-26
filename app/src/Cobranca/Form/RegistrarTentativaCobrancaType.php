@@ -46,18 +46,18 @@ final class RegistrarTentativaCobrancaType extends AbstractType
                 'choice_label' => fn (ResultadoContato $r) => $r->label(),
                 'attr' => ['class' => 'form-select'],
             ])
-            // Relato é campo NARRATIVO (SPEC UX §11/§12) — ganha a mesma barra de formatação da
-            // anotação. Canal, data e resultado seguem estruturados, sem editor: são etiquetas que o
-            // relatório conta, não texto corrido.
+            // O relato É narrativo e a SPEC UX §11 pediria editor rico aqui — mas ele fica FORA desta
+            // entrega, de propósito. Ligar a barra sem mais nada guardaria HTML CRU no banco: este
+            // UseCase concatena a observação direto na descrição do evento, sem passar pelo
+            // `SanitizadorTextoRico::limpar()` que a anotação usa na escrita. Sanitizar aqui exigiria
+            // mexer no UseCase (domínio) e a descrição ainda é lida pela Central de Acompanhamento
+            // (`cobranca/central/_lista_eventos.html.twig`), que está em produção e escapa o valor —
+            // todo contato novo passaria a mostrar `<p>` literal numa tela fora do escopo autorizado.
+            // Follow-up registrado; ver SPEC §2 (timebox corta o que exige alteração estrutural).
             ->add('observacao', TextareaType::class, [
                 'label' => 'Relato do Atendimento (opcional)',
                 'required' => false,
-                'attr' => [
-                    'data-editor-rico' => true,
-                    'class' => 'form-control',
-                    'rows' => 3,
-                    'placeholder' => 'O que o devedor disse, o que ficou combinado, o contexto do contato',
-                ],
+                'attr' => ['class' => 'form-control', 'rows' => 2],
             ]);
     }
 

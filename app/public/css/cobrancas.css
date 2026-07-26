@@ -624,6 +624,14 @@ html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
     box-shadow: inset 0 -2px 0 var(--jp-accent);
 }
 .cob-barra .nav-link:focus-visible { outline: 2px solid var(--jp-accent); outline-offset: -2px; }
+
+/* Abaixo de 1400px Dívida e Honorários só existem dentro de "Mais ações" — a SPEC §19.1 exige que a
+   opção ativa continue evidente. O próprio "Mais ações" já se destaca sozinho: o Bootstrap marca o
+   dropdown-toggle com `.active` quando a aba ativa está dentro dele, e a regra acima pega isso. Falta
+   só trocar o azul padrão do item do dropdown pelo accent do módulo. */
+.cob-barra .dropdown-item.active {
+    background: rgba(var(--jp-accent-rgb), .12); color: var(--jp-accent); font-weight: 600;
+}
 /* Ponto de corte MEDIDO, não escolhido no chute: as 9 opções somam ~1265px; abaixo de 1400 de viewport
    a barra não as comporta em uma linha. Aí valem as 4 que a SPEC §6.4 manda manter visíveis — Cobrança,
    Documentos, Histórico e Registrar contato — e o resto recolhe em "Mais ações". */

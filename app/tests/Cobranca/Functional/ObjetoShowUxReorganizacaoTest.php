@@ -65,14 +65,23 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertResponseIsSuccessful();
 
-        // Narrativos: anotação (criar e corrigir) e o relato do contato.
+        // Narrativos cobertos por esta entrega: anotação, ao criar e ao corrigir.
         self::assertSelectorExists('#tab-cobranca textarea[name="registrar_anotacao[texto]"][data-editor-rico]');
         self::assertSelectorExists('#modalEditarAnotacao textarea[data-editor-rico]');
-        self::assertSelectorExists('#modalRegistrarTentativa textarea[name="registrar_tentativa_cobranca[observacao]"][data-editor-rico]');
 
-        // Estruturados do MESMO modal seguem simples — a SPEC proíbe editor rico em canal/data/resultado.
+        // Estruturados seguem simples — a SPEC proíbe editor rico em canal/data/resultado.
         self::assertCount(0, $crawler->filter('#modalRegistrarTentativa select[data-editor-rico]'), 'seletor não leva editor rico');
         self::assertCount(0, $crawler->filter('#modalRegistrarTentativa input[data-editor-rico]'), 'data/hora não leva editor rico');
+
+        // O relato do contato ficou DELIBERADAMENTE de fora (ver RegistrarTentativaCobrancaType): sem
+        // sanitização na escrita, ligar a barra aqui guardaria HTML cru e vazaria `<p>` literal para a
+        // Central de Acompanhamento, que está em produção. Este assert existe para que religá-lo seja
+        // uma decisão consciente, e não um efeito colateral de alguém "completando" a SPEC.
+        self::assertCount(
+            0,
+            $crawler->filter('#modalRegistrarTentativa textarea[data-editor-rico]'),
+            'relato do contato só pode ganhar editor rico junto com sanitização na escrita',
+        );
 
         // A barra do editor é a do sistema — sem biblioteca nova nesta entrega.
         $html = (string) $client->getResponse()->getContent();
@@ -110,6 +119,33 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         $form['_token'] = '';
         $client->submit($form);
         self::assertNotNull($this->buscarEvento($id), 'sem CSRF válido a anotação não pode sumir');
+    }
+
+    #[TestDox('SPEC §10: o modal único não permite cruzar o CSRF de uma anotação com a URL de outra')]
+    public function testTokenDeUmaAnotacaoNaoExcluiOutra(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $alvo = $this->semearAnotacao($caso, $tenant, $usuario, 'esta NÃO pode sumir');
+        $outra = $this->semearAnotacao($caso, $tenant, $usuario, 'a que emprestou o token');
+        $idAlvo = (int) $alvo->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+
+        // O modal passou a ser UM só, com action e token injetados por JS. Isso torna possível montar
+        // um POST com o token de uma anotação e a URL de outra — cenário que não existia quando cada
+        // linha tinha o próprio form. O servidor tem de recusar.
+        $tokenDaOutra = (string) $crawler
+            ->filter('.js-excluir-anotacao[data-url*="/anotacoes/' . $outra->getId() . '/excluir"]')
+            ->eq(0)->attr('data-token');
+
+        $form = $crawler->filter('#formExcluirAnotacao')->form();
+        $form->getNode()->setAttribute('action', '/cobrancas/casos/anotacoes/' . $idAlvo . '/excluir');
+        $form['_token'] = $tokenDaOutra;
+        $client->submit($form);
+
+        self::assertNotNull($this->buscarEvento($idAlvo), 'token de outra anotação não pode excluir esta');
     }
 
     #[TestDox('SPEC §7.3: erro de validação devolve o texto digitado em vez de apagá-lo')]

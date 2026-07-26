@@ -282,13 +282,19 @@
                             {{ include('cobranca/objeto/_partials/_anotacao_acoes.html.twig', {e: e}) }}
                         </div>
                         <div>
-                            {% if e.tipoValue == 'anotacao' or e.tipoValue == 'contato_realizado' %}
-                                {# Escritos por uma pessoa no editor rico (anotação livre e relato do
-                                   contato). `texto_rico` sanitiza na EXIBIÇÃO e trata conteúdo legado sem
-                                   `<` como texto puro — mesmo resultado que o `|nl2br` de antes. #}
+                            {% if e.tipoValue == 'anotacao' %}
+                                {# Escrita por uma pessoa no editor rico. #}
                                 <span class="editor-rico-conteudo"><span class="ql-editor">{{ e.descricao|texto_rico }}</span></span>
                             {% else %}
-                                {# Evento gerado pelo sistema: segue escapado. #}
+                                {# Evento gerado pelo sistema: segue escapado.
+
+                                   `contato_realizado` chegou a passar por `texto_rico` nesta frente e
+                                   VOLTOU para `nl2br`: o discriminador do sanitizador trata qualquer
+                                   texto com `<` como HTML, e relato legado em texto puro perde o trecho.
+                                   Medido no sanitizador real: "cliente diz valor < 500 nao paga" sai
+                                   "cliente diz valor  500 nao paga"; "e-mail <fulano@x.com> confirmado"
+                                   sai "e-mail ". O dev tem 4 contatos e nenhum com `<` — amostra que não
+                                   autoriza concluir nada sobre produção. #}
                                 {{ e.descricao|nl2br }}
                             {% endif %}
                         </div>

@@ -68,9 +68,27 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
 
+        // "Ficha completa" só existe com o vínculo da pessoa cobrada resolvido (é dele que sai o id da
+        // pessoa). Sem semear o vínculo a barra nasce com uma opção a menos e a contagem exata abaixo
+        // mediria um cenário incompleto, não a barra da SPEC.
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant,
+            'objeto' => $caso->getObjeto(),
+            'pessoa' => $caso->getPessoaCobradaAtual(),
+            'tipoVinculo' => TipoVinculo::Proprietario,
+        ]);
+
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
+
+        // Contagem EXATA, não só "existe": a barra tem 9 opções + "Mais ações" (SPEC UX §6.2), e cada
+        // uma das 5 opções menos frequentes é repetida dentro do dropdown para a largura estreita.
+        // Sem travar o número, um item duplicado a mais passaria despercebido.
+        self::assertCount(10, $crawler->filter('#objetoTabs > li'), 'a barra tem 9 opções + Mais ações');
+        self::assertCount(10, $crawler->filter('#objetoTabs > li > .nav-link'), 'cada item da barra é um nav-link');
+        self::assertCount(5, $crawler->filter('#objetoTabs .cob-mais .dropdown-item'), 'o dropdown repete só as 5 menos frequentes');
+        self::assertCount(5, $crawler->filter('#objetoTabs > li.cob-item-extra'), 'as 5 que recolhem abaixo de 1400px');
 
         // As 5 ÁREAS DE CONTEÚDO (SPEC UX §6.3). Dívida e Honorários são opções DIFERENTES — o ponto
         // que a SPEC faz questão de separar —, e nenhuma aba de "encargos" foi criada.

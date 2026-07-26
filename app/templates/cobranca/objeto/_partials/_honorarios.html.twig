@@ -44,8 +44,17 @@
         </div>
     </div>
 
-    {# ── Por obrigação: o mesmo valor já exibido na composição da dívida ── #}
-    <h6 class="mb-2">Por obrigação</h6>
+    {# ── Por obrigação: o mesmo valor já exibido na composição da dívida ──
+       O aviso abaixo não é decoração: a configuração acima é a RESOLVIDA da cascata (carteira → objeto),
+       enquanto cada linha mostra o honorário GRAVADO na obrigação, que pode ter taxa própria
+       (`taxa_honorarios_bp`). Sem dizer isso, quem conferir "percentual × base" contra a lista encontra
+       divergência que não existe — o mesmo engano que o card do juros já custou uma correção. #}
+    <h6 class="mb-1">Por obrigação</h6>
+    <p class="small text-secondary mb-2">
+        A configuração acima é a que vale hoje para novas incidências. Cada obrigação pode ter taxa
+        própria, definida em <em>Editar configuração de encargos</em> — por isso um valor da lista pode
+        não bater com o percentual exibido.
+    </p>
     {# `set` dentro de `for` não escapa do laço no Twig — a lista vazia é decidida ANTES, pelos dois
        conjuntos que a alimentam. #}
     {% set semObrigacoes = caso.obrigacoesAvulsas|length == 0 and caso.gruposAcordo|length == 0 %}
