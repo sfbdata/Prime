@@ -21,9 +21,6 @@ trait CriaSanitizadorTextoRico
     private function criarSanitizadorTextoRico(): SanitizadorTextoRico
     {
         $config = (new HtmlSanitizerConfig())
-            // `a` entrou em 2026-07-26 junto com o botão de link da barra (SPEC UX §11.1). Só
-            // `href`/`title`, sem link relativo e com `forceHttpsUrls` — espelha o YAML.
-            ->allowElement('a', ['href', 'title'])
             ->allowElement('p', ['class'])
             ->allowElement('br')
             ->allowElement('strong')
@@ -44,8 +41,7 @@ trait CriaSanitizadorTextoRico
             ->allowElement('blockquote', ['class'])
             ->allowElement('span', ['class'])
             ->allowRelativeLinks(false)
-            ->allowRelativeMedias(false)
-            ->forceHttpsUrls(true);
+            ->allowRelativeMedias(false);
 
         return new SanitizadorTextoRico(new HtmlSanitizer($config));
     }

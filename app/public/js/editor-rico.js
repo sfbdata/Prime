@@ -50,7 +50,6 @@
         'ql-color': 'Cor do texto',
         'ql-header': 'Título',
         'ql-align': 'Alinhamento',
-        'ql-link': 'Inserir link',
     };
 
     /** Controles que se repetem com valores diferentes (lista, recuo, alinhamento). */
@@ -70,7 +69,7 @@
      */
     var FORMATOS = [
         'header', 'bold', 'italic', 'underline', 'strike',
-        'color', 'list', 'indent', 'align', 'blockquote', 'link',
+        'color', 'list', 'indent', 'align', 'blockquote',
     ];
 
     var BARRA = [
@@ -80,7 +79,7 @@
         [{ list: 'ordered' }, { list: 'bullet' }],
         [{ indent: '-1' }, { indent: '+1' }],
         [{ align: [] }],
-        ['blockquote', 'link'],
+        ['blockquote'],
         ['clean'],
     ];
 
