@@ -12,9 +12,8 @@
    viraram 3 — Cobrança · Documentos · Histórico —, e a de Pessoas, que abria por padrão, virou card. #}
 {% set caso = objeto.caso %}
 {% set podeGerenciar = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
-{# Mesma resolução usada pelo card da pessoa: a barra de atividades precisa do vínculo da cobrada atual
-   para montar o link de "Ficha completa" (SPEC UX §6.2/§13). #}
-{% set vinculoCobradoBarra = objeto.vinculos|filter(v => v.ehCobradaAtual)|first|default(null) %}
+{# A resolução do vínculo da cobrada atual mudou de lugar junto com a função: agora vive dentro do
+   partial `_responsaveis.html.twig`, que é quem precisa dela. #}
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid">
@@ -134,31 +133,23 @@
                     <i class="bi bi-clock-history me-1"></i>Histórico <span class="badge text-bg-secondary">{{ caso.historico|length }}</span>
                 </button>
             </li>
-            {% if vinculoCobradoBarra and has_permission('resources.cobranca.gerenciar') %}
+            {# "Ficha completa" virou "Responsáveis", e agora é ÁREA DE CONTEÚDO, não link para outra
+               página: a aba reúne a lista de vinculados, a troca de responsável e o acesso à ficha —
+               as três coisas que antes viviam em lugares diferentes. Sem gate de capacidade, como o
+               antigo "Envolvidos": ver quem responde pela unidade é leitura; as ações lá dentro
+               mantêm cada uma o seu gate. #}
             <li class="nav-item cob-item-extra" role="presentation">
-                <a class="nav-link" href="{{ path('cobranca_pessoa_show', {id: vinculoCobradoBarra.pessoaId}) }}">
-                    <i class="bi bi-person-lines-fill me-1"></i>Ficha completa
-                </a>
-            </li>
-            {% endif %}
-            {% if podeGerenciar %}
-            <li class="nav-item cob-item-extra" role="presentation">
-                <button class="nav-link" type="button" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa">
-                    <i class="bi bi-arrow-left-right me-1"></i>Trocar responsável
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-responsaveis" type="button">
+                    <i class="bi bi-people me-1"></i>Responsáveis <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span>
                 </button>
             </li>
+            {% if podeGerenciar %}
             <li class="nav-item" role="presentation">
                 <button class="nav-link" type="button" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
                     <i class="bi bi-telephone me-1"></i>Registrar contato
                 </button>
             </li>
             {% endif %}
-            <li class="nav-item cob-item-extra" role="presentation">
-                <button class="nav-link" type="button" data-bs-toggle="collapse" data-bs-target="#vinculosObjeto"
-                        aria-expanded="false" aria-controls="vinculosObjeto">
-                    <i class="bi bi-people me-1"></i>Envolvidos <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span>
-                </button>
-            </li>
             <li class="nav-item cob-item-extra" role="presentation">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-divida" type="button">
                     <i class="bi bi-cash-coin me-1"></i>Dívida
@@ -171,32 +162,49 @@
             </li>
 
             {# Estreito (SPEC UX §6.4): Cobrança, Registrar contato, Documentos e Histórico continuam
-               visíveis; o resto recolhe aqui em vez de quebrar a barra em várias linhas. O corte é em
-               1400px — largura medida em que as 9 opções deixam de caber numa linha (ver cobrancas.css). #}
-            <li class="nav-item dropdown cob-mais d-xxl-none" role="presentation">
+               visíveis; o resto recolhe aqui em vez de quebrar a barra em várias linhas. O corte desceu
+               para 1200px porque a barra encolheu de 9 para 7 opções (ver a medição em cobrancas.css). #}
+            <li class="nav-item dropdown cob-mais d-xl-none" role="presentation">
                 <button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="bi bi-three-dots me-1"></i>Mais ações
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end">
-                    {% if vinculoCobradoBarra and has_permission('resources.cobranca.gerenciar') %}
-                    <li><a class="dropdown-item" href="{{ path('cobranca_pessoa_show', {id: vinculoCobradoBarra.pessoaId}) }}"><i class="bi bi-person-lines-fill me-2"></i>Ficha completa</a></li>
-                    {% endif %}
-                    {% if podeGerenciar %}
-                    <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"><i class="bi bi-arrow-left-right me-2"></i>Trocar responsável</button></li>
-                    {% endif %}
-                    <li><button class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#vinculosObjeto"><i class="bi bi-people me-2"></i>Envolvidos <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span></button></li>
+                    <li><button class="dropdown-item" type="button" data-bs-toggle="tab" data-bs-target="#tab-responsaveis"><i class="bi bi-people me-2"></i>Responsáveis <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span></button></li>
                     <li><button class="dropdown-item" type="button" data-bs-toggle="tab" data-bs-target="#tab-divida"><i class="bi bi-cash-coin me-2"></i>Dívida</button></li>
                     <li><button class="dropdown-item" type="button" data-bs-toggle="tab" data-bs-target="#tab-honorarios"><i class="bi bi-percent me-2"></i>Honorários</button></li>
                 </ul>
             </li>
         </ul>
-        <div class="cob-grid">
-        <div class="cob-main">
+        {# Coluna única: o trilho direito (card da pessoa + próxima ação) saiu, e o conteúdo passou a
+           ocupar a largura toda. A dívida e o histórico são as duas coisas que mais sofriam com a
+           coluna estreita. #}
         <div class="tab-content border rounded p-3 bg-body">
             {# ── Cobrança: a anotação é a atividade inicial da página (SPEC UX §7). O editor é o primeiro
                elemento útil; as anotações recentes vêm logo abaixo. O histórico completo (com os eventos
                automáticos) continua na sua própria opção. ── #}
             <div class="tab-pane fade show active" id="tab-cobranca">
+                {# ── Próxima ação, compacta ── Saiu do cartão do trilho e virou uma FAIXA de uma linha
+                   aqui, onde o trabalho do dia acontece. Mesmo conteúdo e mesmos gatilhos
+                   (#modalConcluirAcao / #modalDefinirAcao) — só o formato mudou. ── #}
+                <div class="cob-proxima-faixa {{ caso.proximaAcao and caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
+                    <i class="bi {{ caso.proximaAcao ? 'bi-flag-fill' : 'bi-dash-circle' }}"></i>
+                    <span class="cob-proxima-rotulo">Próxima ação{% if caso.proximaAcao and caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis fw-semibold">atrasada</span>{% endif %}</span>
+                    {% if caso.proximaAcao %}
+                        <span class="cob-proxima-texto">{{ caso.proximaAcao.descricao }}</span>
+                        {% if caso.proximaAcao.prazo %}
+                        <span class="cob-proxima-prazo">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</span>
+                        {% endif %}
+                        {% if podeGerenciar %}
+                        <button type="button" class="btn btn-sm jp-btn-accent py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
+                        {% endif %}
+                    {% else %}
+                        <span class="cob-proxima-texto text-secondary">Nenhuma ação definida</span>
+                        {% if podeGerenciar %}
+                        <button type="button" class="btn btn-sm jp-btn-outline py-0 ms-auto flex-shrink-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
+                        {% endif %}
+                    {% endif %}
+                </div>
+
                 {% if podeGerenciar and not caso.encerrado and forms.registrarAnotacao is defined %}
                 <div class="cob-anotacao-nova mb-4">
                     <h6 class="mb-2"><i class="bi bi-pencil-square me-1"></i>Nova anotação</h6>
@@ -254,6 +262,11 @@
                 {{ include('cobranca/objeto/_partials/_movimentos.html.twig') }}
             </div>
 
+            {# ── Responsáveis: quem responde pela unidade, com troca de responsável e acesso à ficha ── #}
+            <div class="tab-pane fade" id="tab-responsaveis">
+                {{ include('cobranca/objeto/_partials/_responsaveis.html.twig') }}
+            </div>
+
             {# ── Honorários (SPEC UX §14.2): aba só de leitura, montada com o que o sistema JÁ calcula. ── #}
             <div class="tab-pane fade" id="tab-honorarios">
                 {{ include('cobranca/objeto/_partials/_honorarios.html.twig') }}
@@ -305,41 +318,10 @@
                 {% else %}<p class="text-muted mb-0 text-center py-3">Sem eventos no histórico.</p>{% endif %}
             </div>
         </div>
-        </div>
 
-        <div class="cob-rail">
-            {# ── Próxima ação: promovida a cartão de destaque no topo do trilho (Ajuste 11, T3) — o
-               mesmo conteúdo/lógica do Ajuste 10 (`if caso.proximaAcao ... else`), só reenvelopado.
-               Os gatilhos `#modalConcluirAcao`/`#modalDefinirAcao` continuam intactos. ── #}
-            <div class="cob-proxima {{ caso.proximaAcao and caso.proximaAcao.atrasada ? 'atrasada' : '' }}">
-                {% if caso.proximaAcao %}
-                    <div class="cob-proxima-label d-flex align-items-center gap-2">
-                        <span><i class="bi bi-flag-fill me-1"></i>Próxima ação{% if caso.proximaAcao.atrasada %} · <span class="text-warning-emphasis">atrasada</span>{% endif %}</span>
-                        {% if podeGerenciar %}
-                        <button type="button" class="btn btn-sm jp-btn-accent py-0 ms-auto" data-bs-toggle="modal" data-bs-target="#modalConcluirAcao">Concluir</button>
-                        {% endif %}
-                    </div>
-                    <div class="fw-semibold mt-2">{{ caso.proximaAcao.descricao }}</div>
-                    {% if caso.proximaAcao.prazo %}<div class="small text-secondary">Prazo: {{ caso.proximaAcao.prazo|date('d/m/Y') }}{% if caso.proximaAcao.responsavelNome %} · {{ caso.proximaAcao.responsavelNome }}{% endif %}</div>{% endif %}
-                {% else %}
-                    <div class="cob-proxima-label">Próxima ação</div>
-                    <div class="d-flex align-items-center gap-2 mt-2">
-                        <span class="text-secondary"><i class="bi bi-dash-circle me-1"></i>Nenhuma ação definida</span>
-                        {% if podeGerenciar %}
-                        <button type="button" class="btn btn-sm jp-btn-outline py-0" data-bs-toggle="modal" data-bs-target="#modalDefinirAcao">Definir</button>
-                        {% endif %}
-                    </div>
-                {% endif %}
-            </div>
-
-            {# ── De quem é a dívida (era a aba "Pessoas", que abria por padrão) — sai de cima das abas
-               e vai para o trilho direito. ── #}
-            {{ include('cobranca/objeto/_partials/_pessoa_card.html.twig') }}
-
-            {# O cartão "Ações do caso" (Judicializar/Encerrar) subiu para o cabeçalho, junto do status que
-               essas ações mudam (SPEC UX §6.1). Mesmos gates, mesmos modais. #}
-        </div>
-        </div>
+        {# O trilho direito acabou: o card da pessoa virou a aba Responsáveis e a próxima ação virou a
+           faixa compacta no topo da aba Cobrança. "Ações do caso" (Judicializar/Encerrar) já morava no
+           cabeçalho desde a reorganização anterior. #}
     </div>
 </section>
 
@@ -929,7 +911,21 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* Encerrar vínculo: o botão da linha (envolvidos, no card da pessoa) injeta a URL de ação e o contexto. */
+    /* "Definir como atual" (aba Responsáveis): pré-seleciona a pessoa no modal de troca que já existia.
+       NÃO troca direto: `AlterarPessoaCobradaInput` exige motivo (NotBlank), que é regra do domínio —
+       o clique leva ao modal com a escolha feita, faltando só o motivo. Nenhuma regra foi duplicada
+       nem afrouxada aqui; o servidor valida tudo como antes. */
+    var modalAlterarPessoa = document.getElementById('modalAlterarPessoa');
+    if (modalAlterarPessoa) {
+        modalAlterarPessoa.addEventListener('show.bs.modal', function (event) {
+            var botao = event.relatedTarget;
+            if (!botao || !botao.classList.contains('js-definir-cobrada')) { return; }
+            var select = modalAlterarPessoa.querySelector('select');
+            if (select) { select.value = botao.getAttribute('data-pessoa-id') || ''; }
+        });
+    }
+
+    /* Encerrar vínculo: o botão da linha (aba Responsáveis) injeta a URL de ação e o contexto. */
     var modalEncerrarVinculo = document.getElementById('modalEncerrarVinculo');
     if (modalEncerrarVinculo) {
         modalEncerrarVinculo.addEventListener('show.bs.modal', function (event) {

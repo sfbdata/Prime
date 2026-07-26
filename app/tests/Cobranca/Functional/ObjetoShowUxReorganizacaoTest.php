@@ -8,9 +8,12 @@ use App\Cobranca\Controller\ObjetoController;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Enum\TipoEventoHistorico;
+use App\Cobranca\Enum\TipoVinculo;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cobranca\ObrigacaoFactory;
+use App\Tests\Factory\Cobranca\PessoaFactory;
+use App\Tests\Factory\Cobranca\VinculoPessoaObjetoFactory;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -225,6 +228,148 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         self::assertStringContainsString('combinado', $html, 'o texto legítimo continua visível');
         self::assertStringNotContainsString('<script>alert(1)</script>', $html, 'script não pode chegar ao navegador');
         self::assertStringNotContainsStringIgnoringCase('javascript:alert(2)', $html, 'href javascript: não pode chegar ao navegador');
+    }
+
+    #[TestDox('Aba Responsáveis: atual no topo e expandido, demais em accordion, com as ações consolidadas')]
+    public function testAbaResponsaveisConsolidaPessoasEAcoes(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $objeto = $caso->getObjeto();
+
+        // A pessoa cobrada atual…
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $objeto,
+            'pessoa' => $caso->getPessoaCobradaAtual(), 'tipoVinculo' => TipoVinculo::Proprietario,
+        ]);
+        // …e uma segunda pessoa, que é quem prova o accordion e o "Definir como atual".
+        $outra = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'Maria Fiadora']);
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $objeto,
+            'pessoa' => $outra, 'tipoVinculo' => TipoVinculo::Representante,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objeto->getId());
+        self::assertResponseIsSuccessful();
+
+        // Responsável atual: um só, no topo, fora do accordion (sempre visível).
+        self::assertCount(1, $crawler->filter('#tab-responsaveis .cob-resp-atual'), 'exatamente um responsável atual, expandido');
+        self::assertSelectorTextContains('#tab-responsaveis .cob-resp-atual', 'Responsável atual');
+
+        // Demais: dentro do accordion, recolhidas.
+        $itens = $crawler->filter('#tab-responsaveis .cob-resp-accordion .accordion-item');
+        self::assertCount(1, $itens, 'a segunda pessoa entra no accordion');
+        self::assertStringContainsString('Maria Fiadora', $itens->text());
+        self::assertCount(1, $crawler->filter('#tab-responsaveis .accordion-collapse.collapse:not(.show)'), 'as demais nascem recolhidas');
+
+        // Ações consolidadas na aba, reusando os modais existentes — sem rota nova.
+        self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalVincularPessoaObjeto"]', 'Adicionar pessoa: vincular existente');
+        self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalNovaPessoa"]', 'Adicionar pessoa: cadastrar nova');
+        self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalEncerrarVinculo"]', 'Encerrar vínculo segue disponível');
+
+        // "Definir como atual": um clique abre o modal de troca JÁ com a pessoa escolhida. O motivo
+        // continua obrigatório (regra do domínio), por isso o fluxo passa pelo modal e não troca direto.
+        $definir = $crawler->filter('#tab-responsaveis .js-definir-cobrada');
+        self::assertCount(1, $definir, 'a pessoa não-atual ganha "Definir como atual"');
+        self::assertSame('#modalAlterarPessoa', $definir->attr('data-bs-target'));
+        self::assertSame((string) $outra->getId(), $definir->attr('data-pessoa-id'), 'o botão carrega a pessoa que será definida');
+    }
+
+    #[TestDox('Objeto com um vínculo só continua podendo trocar o responsável e encerrar o vínculo')]
+    public function testFuncoesDoCardRemovidoSobrevivemComUmVinculoSo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // O caso mais comum do banco real: a ÚNICA pessoa vinculada é a própria cobrada atual. Aqui o
+        // accordion de "outras pessoas" fica vazio — se as ações vivessem só nele, trocar responsável e
+        // encerrar vínculo teriam sumido da tela, que é a regressão que este teste existe para travar.
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $caso->getObjeto(),
+            'pessoa' => $caso->getPessoaCobradaAtual(), 'tipoVinculo' => TipoVinculo::Proprietario,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(0, $crawler->filter('#tab-responsaveis .accordion-item'), 'não há outras pessoas neste cenário');
+
+        // Trocar responsável: caminho universal, que lista todas as pessoas do escritório (inclusive
+        // quem ainda não está vinculado) — era o que a barra oferecia antes da consolidação.
+        self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalAlterarPessoa"]', 'trocar responsável sumiu quando só há a cobrada atual');
+        // Encerrar vínculo da própria cobrada atual: o card removido oferecia, o UseCase aceita.
+        self::assertSelectorExists('#tab-responsaveis .cob-resp-atual [data-bs-target="#modalEncerrarVinculo"]', 'encerrar vínculo da cobrada atual sumiu');
+    }
+
+    #[TestDox('Pessoa homônima não recebe "Definir como atual" habilitado — o modal não conseguiria selecioná-la')]
+    public function testDefinirComoAtualDesabilitadoParaHomonimo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $objeto = $caso->getObjeto();
+
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $objeto,
+            'pessoa' => $caso->getPessoaCobradaAtual(), 'tipoVinculo' => TipoVinculo::Proprietario,
+        ]);
+
+        // Duas pessoas com o MESMO nome. `PessoaRepository::opcoesDoTenant` indexa as opções pelo nome,
+        // então uma delas some da lista do modal de troca — defeito ANTERIOR a esta entrega. O botão não
+        // pode prometer uma troca que o formulário recusaria: ele aparece desabilitado.
+        $vinculada = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA']);
+        PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA']);
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $objeto,
+            'pessoa' => $vinculada, 'tipoVinculo' => TipoVinculo::Representante,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objeto->getId());
+        self::assertResponseIsSuccessful();
+
+        $corpo = $crawler->filter('#tab-responsaveis .accordion-body');
+        self::assertStringContainsString('Definir como atual', $corpo->text(), 'a ação continua visível');
+
+        // O critério NÃO pode ser "sempre desabilitado": `opcoesDoTenant` ordena por nome e sobrescreve
+        // por nome, sem desempate entre homônimos — qual dos dois sobrevive é indefinido no Postgres.
+        // Um assert fixo aqui seria flaky. O que precisa valer SEMPRE é a coerência: o botão está
+        // habilitado se, e somente se, o modal consegue selecionar aquela pessoa.
+        $opcoes = $crawler->filter('#modalAlterarPessoa select option')->each(fn ($o) => $o->attr('value'));
+        $selecionavel = \in_array((string) $vinculada->getId(), $opcoes, true);
+        $habilitados = $crawler->filter('#tab-responsaveis .js-definir-cobrada')->count();
+        $desabilitados = $crawler->filter('#tab-responsaveis .accordion-body button[disabled]')->count();
+
+        self::assertSame(
+            $selecionavel,
+            $habilitados === 1,
+            'o botão só pode estar habilitado quando a pessoa existe nas opções do modal de troca',
+        );
+        self::assertSame(1, $habilitados + $desabilitados, 'a ação aparece exatamente uma vez, habilitada ou desabilitada');
+    }
+
+    #[TestDox('Quem não gerencia vê a aba Responsáveis, mas sem as ações de mutação')]
+    public function testAbaResponsaveisRespeitaOsGatesDeSempre(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $caso->getObjeto(),
+            'pessoa' => $caso->getPessoaCobradaAtual(), 'tipoVinculo' => TipoVinculo::Proprietario,
+        ]);
+
+        $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+
+        // Ver quem responde pela unidade é leitura — o antigo collapse "Envolvidos" também não exigia
+        // capacidade. O que não pode aparecer é gatilho de mutação.
+        self::assertSelectorExists('#tab-responsaveis .cob-resp-atual');
+        self::assertSelectorNotExists('#tab-responsaveis .js-definir-cobrada', 'sem capacidade não se troca o responsável');
+        self::assertSelectorNotExists('#tab-responsaveis [data-bs-target="#modalVincularPessoaObjeto"]');
+        self::assertSelectorNotExists('#tab-responsaveis [data-bs-target="#modalNovaPessoa"]');
+        self::assertSelectorNotExists('#tab-responsaveis [data-bs-target="#modalEncerrarVinculo"]');
     }
 
     /** Lê o estado REAL do banco: o EM é resetado entre requisições e o cache de identidade mente. */

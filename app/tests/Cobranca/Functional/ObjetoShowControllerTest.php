@@ -82,30 +82,37 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
 
-        // Contagem EXATA, não só "existe": a barra tem 9 opções + "Mais ações" (SPEC UX §6.2), e cada
-        // uma das 5 opções menos frequentes é repetida dentro do dropdown para a largura estreita.
-        // Sem travar o número, um item duplicado a mais passaria despercebido.
-        self::assertCount(10, $crawler->filter('#objetoTabs > li'), 'a barra tem 9 opções + Mais ações');
-        self::assertCount(10, $crawler->filter('#objetoTabs > li > .nav-link'), 'cada item da barra é um nav-link');
-        self::assertCount(5, $crawler->filter('#objetoTabs .cob-mais .dropdown-item'), 'o dropdown repete só as 5 menos frequentes');
-        self::assertCount(5, $crawler->filter('#objetoTabs > li.cob-item-extra'), 'as 5 que recolhem abaixo de 1400px');
+        // Contagem EXATA, não só "existe". Depois da consolidação em "Responsáveis" a barra tem 6 áreas
+        // de conteúdo + 1 ação (Registrar contato) + "Mais ações" = 8 itens. Sem travar o número, um
+        // item duplicado a mais — ou um que deveria ter saído e ficou — passaria despercebido.
+        self::assertCount(8, $crawler->filter('#objetoTabs > li'), 'a barra tem 7 opções + Mais ações');
+        self::assertCount(8, $crawler->filter('#objetoTabs > li > .nav-link'), 'cada item da barra é um nav-link');
+        self::assertCount(3, $crawler->filter('#objetoTabs .cob-mais .dropdown-item'), 'o dropdown repete só as menos frequentes');
+        self::assertCount(3, $crawler->filter('#objetoTabs > li.cob-item-extra'), 'as 3 que recolhem abaixo de 1200px');
 
-        // As 5 ÁREAS DE CONTEÚDO (SPEC UX §6.3). Dívida e Honorários são opções DIFERENTES — o ponto
-        // que a SPEC faz questão de separar —, e nenhuma aba de "encargos" foi criada.
-        foreach (['cobranca', 'documentos', 'historico', 'divida', 'honorarios'] as $aba) {
+        // As 6 ÁREAS DE CONTEÚDO. Dívida e Honorários seguem opções DIFERENTES, e nenhuma aba de
+        // "encargos" foi criada.
+        foreach (['cobranca', 'documentos', 'historico', 'responsaveis', 'divida', 'honorarios'] as $aba) {
             self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-' . $aba . '"]', "sumiu a opção {$aba} da barra");
             self::assertSelectorExists('#tab-' . $aba, "sumiu o painel da opção {$aba}");
         }
         self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-encargos"]', 'a SPEC proíbe aba separada de encargos');
 
-        // As AÇÕES convivem na mesma barra, reusando os modais/collapse que já existiam.
+        // Registrar contato continua ação na barra, reusando o modal que já existia.
         self::assertSelectorExists('#objetoTabs [data-bs-target="#modalRegistrarTentativa"]', 'Registrar contato saiu da barra');
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#modalAlterarPessoa"]', 'Trocar responsável saiu da barra');
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#vinculosObjeto"]', 'Envolvidos saiu da barra');
 
-        // Pessoa deixou de ser aba e segue card.
+        // "Trocar responsável" e "Envolvidos" foram CONSOLIDADOS na aba Responsáveis: não podem mais
+        // existir como item solto da barra, senão a consolidação não aconteceu de fato.
+        self::assertSelectorNotExists('#objetoTabs [data-bs-target="#modalAlterarPessoa"]', 'Trocar responsável tinha de sair da barra');
+        self::assertSelectorNotExists('#objetoTabs [data-bs-target="#vinculosObjeto"]', 'Envolvidos tinha de sair da barra');
+        self::assertSelectorNotExists('#vinculosObjeto', 'o collapse de envolvidos do card lateral não existe mais');
+
+        // O card lateral da pessoa e o cartão de próxima ação saíram; a próxima ação virou faixa dentro
+        // da aba Cobrança (a função continua, o cartão não).
         self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-pessoas"]');
-        self::assertSelectorExists('.jp-pessoa-card');
+        self::assertSelectorNotExists('.jp-pessoa-card', 'o card lateral da pessoa foi removido');
+        self::assertSelectorNotExists('.cob-rail', 'o trilho direito foi removido');
+        self::assertSelectorExists('#tab-cobranca .cob-proxima-faixa', 'a próxima ação tem de continuar visível, compacta, na aba Cobrança');
         // A subnav do módulo voltou (B3): esta página era a única que a perdia.
         self::assertSelectorExists('.cobranca-subnav');
         // E marca CARTEIRAS: o objeto se chega por Carteira→Objeto (ajuste 2, decisão G). Sem travar o
@@ -321,8 +328,14 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $objeto->getId());
 
         self::assertResponseIsSuccessful();
-        $linha = $crawler->filter('.jp-vinculo-linha.encerrado')->text();
+        // O vínculo encerrado deixou o card lateral e passou para a aba Responsáveis — no destaque do
+        // topo quando a pessoa segue sendo a cobrada atual (encerrar o vínculo não troca quem se cobra),
+        // ou no accordion quando não é. O motivo continua exibido nos dois casos, e escapado.
+        $linha = $crawler->filter('#tab-responsaveis')->text();
         self::assertStringContainsString('Fiança <quitada> & liberada', $linha);
+        // Além do motivo, o ESTADO tem de continuar marcado — sem isto o assert acima passaria mesmo
+        // que a aba deixasse de distinguir vínculo ativo de encerrado.
+        self::assertStringContainsString('encerrado', mb_strtolower($linha), 'o vínculo encerrado precisa aparecer marcado como tal');
         // Confere que o motivo foi escapado no HTML bruto (nunca `|raw`).
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Fiança &lt;quitada&gt; &amp; liberada', $html);

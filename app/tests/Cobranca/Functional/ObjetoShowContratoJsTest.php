@@ -155,9 +155,10 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
             'O handler de abertura do modal de Editar parou de ler o data-taxa-*-bp por encargo (rehidratação morta)',
         );
 
-        // Ajuste 11 (T3): a "Próxima ação" migrou da coluna principal para o cartão de destaque
-        // do trilho (`.cob-proxima`) — o gancho visual, não só o modal que ela abre.
-        self::assertSelectorExists('.cob-proxima', 'Sumiu o cartão Próxima ação do trilho');
+        // A "Próxima ação" saiu do cartão do trilho e virou faixa compacta no topo da aba Cobrança —
+        // o gancho visual, não só o modal que ela abre. O trilho não existe mais.
+        self::assertSelectorExists('#tab-cobranca .cob-proxima-faixa', 'Sumiu a faixa Próxima ação da aba Cobrança');
+        self::assertSelectorExists('.cob-proxima-faixa [data-bs-target="#modalDefinirAcao"], .cob-proxima-faixa [data-bs-target="#modalConcluirAcao"]', 'a faixa perdeu o gatilho de definir/concluir');
 
         // SPEC UX §6.1 (2026-07-26): "Encerrar cobrança" saiu do cartão do trilho e virou botão do
         // CABEÇALHO, junto do status que ele muda. Neste cenário há Obrigação com restante > 0 →
