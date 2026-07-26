@@ -17,17 +17,6 @@
 {% set demais = objeto.vinculos|filter(v => not v.ehCobradaAtual) %}
 {% set podeAbrirFicha = has_permission('resources.cobranca.gerenciar') %}
 
-{# Quem o modal de troca CONSEGUE selecionar. Não é detalhe de estilo: `PessoaRepository::opcoesDoTenant`
-   monta as opções indexadas pelo NOME, então pessoas homônimas se sobrescrevem e algumas simplesmente
-   não existem na lista (medido no dev: 125 pessoas, 110 opções). Oferecer "Definir como atual" para
-   quem o formulário não aceita produziria um modal que não pode ser enviado. Lendo as choices do
-   próprio form, o botão só aparece habilitado para quem é de fato selecionável — e, para os demais,
-   aparece DESABILITADO explicando o porquê, em vez de sumir sem explicação.
-   O defeito é anterior a esta entrega e está reportado; consertá-lo mexe no repositório. #}
-{% set idsSelecionaveis = forms.alterarPessoa is defined
-    ? forms.alterarPessoa.novaPessoaCobradaId.vars.choices|map(c => c.value)
-    : [] %}
-
 <div class="jp-secao">
     <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
         <h5 class="mb-0">
@@ -162,22 +151,15 @@
                     <div class="d-flex gap-2 flex-wrap">
                         {# "Definir como atual" abre o MESMO modal de troca com a pessoa já escolhida. O
                            motivo continua obrigatório (regra do domínio, `AlterarPessoaCobradaInput`):
-                           por isso o clique leva ao modal em vez de trocar direto. #}
-                        {% if podeGerenciar and v.ativo %}
-                            {% if (v.pessoaId ~ '') in idsSelecionaveis %}
-                            <button type="button" class="btn btn-sm jp-btn-accent js-definir-cobrada"
-                                    data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"
-                                    data-pessoa-id="{{ v.pessoaId }}" data-pessoa-nome="{{ v.nome|e('html_attr') }}">
-                                <i class="bi bi-arrow-left-right me-1"></i>Definir como atual
-                            </button>
-                            {% else %}
-                            <span class="d-inline-block" data-bs-toggle="tooltip"
-                                  title="Outra pessoa do escritório tem exatamente este nome, e a lista de seleção só guarda uma delas. Ajuste o cadastro para diferenciar os nomes.">
-                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled>
-                                    <i class="bi bi-arrow-left-right me-1"></i>Definir como atual
-                                </button>
-                            </span>
-                            {% endif %}
+                           por isso o clique leva ao modal em vez de trocar direto.
+                           O `forms.alterarPessoa is defined` é a mesma guarda do botão universal lá em
+                           cima: sem o form o modal não é renderizado, e o botão abriria coisa nenhuma. #}
+                        {% if podeGerenciar and v.ativo and forms.alterarPessoa is defined %}
+                        <button type="button" class="btn btn-sm jp-btn-accent js-definir-cobrada"
+                                data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"
+                                data-pessoa-id="{{ v.pessoaId }}" data-pessoa-nome="{{ v.nome|e('html_attr') }}">
+                            <i class="bi bi-arrow-left-right me-1"></i>Definir como atual
+                        </button>
                         {% endif %}
                         {% if podeAbrirFicha %}
                         <a href="{{ path('cobranca_pessoa_show', {id: v.pessoaId}) }}" class="btn btn-sm btn-outline-secondary">

@@ -18,6 +18,7 @@ nada aqui é servido ao usuário. Servem para conferir o que foi entregue sem pr
 | `07-escuro-registrar-contato.png` | Modal `Registrar contato` — relato em textarea simples (o editor rico ficou fora desta entrega) |
 | `08-claro-responsaveis.png` | Aba **Responsáveis**: responsável atual expandido no topo, demais em accordion com `Definir como atual`, `Editar` e `Encerrar vínculo` |
 | `09-claro-definir-como-atual.png` | `Definir como atual` em um clique: abre o modal de troca **já com a pessoa selecionada**, faltando só o motivo (obrigatório por regra do domínio) |
+| `10-escuro-homonimo-definir-como-atual.png` | Depois do conserto dos homônimos: `CRUZEIRO E SOUSA IMOVEIS LTDA ME` (um de **seis** com o mesmo nome) tem `Definir como atual` **habilitado**. Antes o botão vinha desabilitado, porque o modal não conseguia selecionar essa pessoa |
 
 A barra de formatação nas imagens tem negrito, itálico, sublinhado, tachado, cor, listas, recuo,
 alinhamento, citação e limpar formatação. **Link não faz parte dela**: o sanitizador `textoRico` não

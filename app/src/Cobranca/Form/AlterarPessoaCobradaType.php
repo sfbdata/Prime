@@ -13,8 +13,9 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * Trocar manualmente a pessoa cobrada de um caso (SPEC §8). `casoId` vem da rota; a nova pessoa é
- * escolhida entre as do tenant (opção `pessoas` = mapa nome→id, montada pelo controller idêntica no
- * render e no POST). O motivo é obrigatório (fica no histórico).
+ * escolhida entre as do tenant (opção `pessoas` = mapa rótulo→id, com o id como VALOR e o nome apenas
+ * como rótulo — homônimos aparecem separados, cada um com o próprio id; montada pelo controller
+ * idêntica no render e no POST). O motivo é obrigatório (fica no histórico).
  */
 final class AlterarPessoaCobradaType extends AbstractType
 {

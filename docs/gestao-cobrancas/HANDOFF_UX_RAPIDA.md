@@ -12,9 +12,8 @@ Reorganização de interface de `cobranca_objeto_show`, executada em 2026-07-26 
 | Branch | `feature/cobranca-ux-rapida` |
 | Worktree | `.claude/worktrees/cobranca-ux-rapida` |
 | Base | `origin/master` `0bb1f29` |
-| HEAD | `8e5af79` |
-| Diff | 25 arquivos, +1980 −396 |
-| Suíte | **2593/2593** (8175 asserções), no banco da frente |
+| HEAD | topo de `feature/cobranca-ux-rapida` (6 commits sobre a base) |
+| Suíte | **2601/2601** (8209 asserções), no banco da frente |
 | Árvore | limpa |
 
 Commits, na ordem:
@@ -25,6 +24,8 @@ Commits, na ordem:
 | `b9782f5` | Reverte o editor rico do relato do contato; fecha achados da 1ª revisão |
 | `856133a` | Contém o escopo na cobrança (desfaz a liberação global de link) e prova a segurança da anotação |
 | `8e5af79` | Aba Responsáveis, remoção do trilho direito, largura total, próxima ação compacta |
+| `7b48a52` | Documenta a entrega |
+| _HEAD_ | **Homônimos: opção por id com rótulo desempatado; tira a mitigação da UI** |
 
 ## O que a página virou
 
@@ -112,24 +113,52 @@ de tela:
 Enquanto isso, `Editar` (no responsável atual e em cada pessoa do accordion) leva à ficha completa —
 a função continua acessível, sem perda.
 
-## 🐛 Achado aberto: homônimos somem do "Trocar responsável"
+## ✅ Homônimos no "Trocar responsável" — CORRIGIDO (2026-07-26)
 
-`PessoaRepository::opcoesDoTenant` (`app/src/Cobranca/Repository/PessoaRepository.php:60-76`) monta as
-opções **indexadas pelo nome**:
+`PessoaRepository::opcoesDoTenant` montava as opções **indexadas pelo nome**, então homônimo
+sobrescrevia homônimo: **125 pessoas produziam 110 opções — 15 inalcançáveis** no modal de troca, e
+escolher um nome repetido podia selecionar o **registro errado** (isso decide **quem é cobrado**).
 
-```php
-$opcoes[$linha['nome']] = (int) $linha['id'];   // homônimo sobrescreve homônimo
-```
+O conserto ficou no repositório e nos seus consumidores diretos. O **valor** da opção sempre foi o id
+(é o que o form submete e o UseCase resolve por id + tenant); o defeito era a **chave**. Agora nome
+repetido ganha desempate — CPF, CNPJ, e-mail ou `#id`, o primeiro disponível — e um laço garante que
+nenhuma opção apague outra nem no cadastro patológico. `ORDER BY nome, id` tornou a ordem estável.
+Nome único continua exibido puro: o desempate não expõe documento a mais na tela.
 
-Medido no dev: **125 pessoas produzem 110 opções — 15 ficam inalcançáveis** no modal de troca. Pior:
-escolher um nome repetido seleciona o **registro errado**, e isso decide **quem é cobrado**.
+A mitigação da UI (o `Definir como atual` desabilitado com tooltip) **saiu junto**, já sem propósito.
 
-Não foi corrigido aqui: mexe no repositório e afeta o modal já entregue. A mitigação dentro do escopo
-é que `Definir como atual` aparece **desabilitado**, explicando a condição, quando a pessoa não está
-nas opções — em vez de abrir um modal que não pode ser enviado.
+Medido no preview, no dado real: **125 pessoas → 125 opções, 125 valores únicos, 125 rótulos únicos**.
+Troca ponta a ponta feita nos dois sentidos entre homônimos (`#23` de seis `CRUZEIRO`, e `#22` de duas
+`MARIA`): gravou o id exato, conferido no banco. Evidência em
+[mockups/ux-rapida/10-escuro-homonimo-definir-como-atual.png](mockups/ux-rapida/10-escuro-homonimo-definir-como-atual.png).
 
-O conserto é dar desempate à chave (o valor precisa ser o id, com o nome só como rótulo) e revisar o
-`ORDER BY`, que hoje não desempata entre homônimos — qual deles sobrevive é **indefinido**.
+Prova de que os testes pegam o defeito: reintroduzindo a indexação por nome, **6 testes falham** — um
+deles gravando a pessoa errada no banco (`53714` no lugar de `53715`).
+
+### O que o conserto NÃO resolve (decisão do dono)
+
+**Ninguém mais desaparece — mas o rótulo ainda não diz ao humano QUAL homônimo é qual.** No dado real
+importado, as 24 pessoas homônimas (9 nomes) têm CPF, CNPJ, e-mail, telefone e RG **todos vazios**: o
+desempate cai sempre no `#id`, e `CRUZEIRO E SOUSA IMOVEIS LTDA ME (#23)` não significa nada para o
+operador. Onde o id vem do vínculo (`Definir como atual`) não há ambiguidade; onde o humano **escolhe
+da lista** (`Trocar responsável`, `Vincular pessoa já cadastrada`) a escolha entre homônimos continua
+sendo às cegas — e o erro fica invisível depois, porque a tela mostra o mesmo nome.
+
+O que de fato distingue essas seis está **fora da linha da pessoa**: cada uma tem um vínculo, em
+unidade diferente (`#23` → QUADRA 01 CHACARA 03/10, `#36` → QUADRA 02 CHACARA 02/08, …). Levar a
+unidade para o rótulo exige o repositório passar a conhecer vínculos e objetos — e decidir o que
+mostrar para quem tem vários. **Ficou fora por ser ampliação de escopo, não por esquecimento.**
+
+### Follow-ups registrados
+
+- `desempate()` lê a **coluna-sombra** `p.email`; quem teve e-mail cadastrado pelo
+  `AdicionarEmailPessoaUseCase` (lista `cobranca_pessoa_email`) aparece com e-mail na aba Responsáveis
+  e com `(#id)` no select. Inerte hoje (1 linha no preview), mas a regra diverge do resto do domínio.
+- **A mesma classe de defeito segue aberta ao lado**: `ClienteRepository::opcoesDoTenant`
+  (chave = nome de exibição) e `PastaRepository::opcoesDoTenant` (chave = NUP) sobrescrevem por rótulo
+  exatamente como o `PessoaRepository` fazia. Inertes no dado atual; fora do escopo desta frente.
+- O `addOrderBy('p.id')` não tem teste que o trave: com duas linhas recém-inseridas o Postgres devolve
+  na ordem de inserção mesmo sem ele.
 
 ## Como conferir no navegador
 
@@ -138,9 +167,10 @@ O conserto é dar desempate à chave (o valor precisa ser o id, com o nome só c
 1. Salvar anotação com negrito → aparece em "Anotações recentes" → editar (badge **Editada**) →
    excluir (o modal mostra um trecho). `Ctrl+Enter` salva.
 2. **Dívida** e **Honorários** — a composição e as métricas.
-3. **Responsáveis** — atual no topo, demais no accordion. Objeto `22` tem dois vínculos e um homônimo
-   (botão desabilitado); objeto `72` tem um vínculo com nome único (o `Definir como atual` funciona e
-   abre o modal já com a pessoa selecionada).
+3. **Responsáveis** — atual no topo, demais no accordion. Objeto `22` tem dois vínculos, e **os dois
+   são homônimos** (`MARIA PEREIRA DA SILVA` é uma de duas; `CRUZEIRO E SOUSA IMOVEIS LTDA ME`, uma de
+   seis): `Definir como atual` aparece **habilitado** e pré-seleciona o id certo. Objeto `72` tem um
+   vínculo com nome único.
 4. Estreitar abaixo de 1200px → `Mais ações`. Alternar tema claro/escuro.
 
 Evidências visuais em [mockups/ux-rapida/](mockups/ux-rapida/) — documentação, não asset da aplicação.
@@ -167,6 +197,11 @@ Evidências visuais em [mockups/ux-rapida/](mockups/ux-rapida/) — documentaç�
 - **Ponto de corte responsivo é medido, não chutado.** A barra caiu de 9 para 7 opções e o corte desceu
   de 1400 para 1200px. Ao mexer nos itens, **meça de novo**.
 - **Twig: `{% set %}` dentro de `{% for %}` não escapa do laço.**
-- **Revisão adversarial pagou-se três vezes**: pegou os 2 bloqueantes do relato, a liberação global de
-  link e as 2 funções que o card removido levaria junto (trocar responsável em 116 dos 121 objetos, e
-  encerrar o vínculo da própria pessoa cobrada).
+- **Revisão adversarial pagou-se quatro vezes**: pegou os 2 bloqueantes do relato, a liberação global
+  de link, as 2 funções que o card removido levaria junto (trocar responsável em 116 dos 121 objetos, e
+  encerrar o vínculo da própria pessoa cobrada) e, no conserto dos homônimos, a diferença entre
+  **unicidade e distinguibilidade** — 125 rótulos únicos não são 125 rótulos úteis.
+- **O teste novo só vale se você provar que ele pega.** A prova aqui foi reintroduzir o defeito e ver
+  6 falhas, uma delas gravando a pessoa errada. Sem esse passo, "suíte verde" não diria nada.
+- **Métrica de smoke pode medir a coisa errada.** "125 opções, 125 valores únicos" fecha o buraco de
+  quem sumia e **não diz nada** sobre o operador conseguir escolher certo entre seis nomes iguais.

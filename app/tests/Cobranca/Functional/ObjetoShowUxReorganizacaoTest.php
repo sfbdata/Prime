@@ -303,8 +303,8 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         self::assertSelectorExists('#tab-responsaveis .cob-resp-atual [data-bs-target="#modalEncerrarVinculo"]', 'encerrar vínculo da cobrada atual sumiu');
     }
 
-    #[TestDox('Pessoa homônima não recebe "Definir como atual" habilitado — o modal não conseguiria selecioná-la')]
-    public function testDefinirComoAtualDesabilitadoParaHomonimo(): void
+    #[TestDox('Pessoa homônima recebe "Definir como atual" habilitado e é selecionável no modal de troca')]
+    public function testDefinirComoAtualFuncionaParaHomonimo(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -316,11 +316,11 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
             'pessoa' => $caso->getPessoaCobradaAtual(), 'tipoVinculo' => TipoVinculo::Proprietario,
         ]);
 
-        // Duas pessoas com o MESMO nome. `PessoaRepository::opcoesDoTenant` indexa as opções pelo nome,
-        // então uma delas some da lista do modal de troca — defeito ANTERIOR a esta entrega. O botão não
-        // pode prometer uma troca que o formulário recusaria: ele aparece desabilitado.
-        $vinculada = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA']);
-        PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA']);
+        // Duas pessoas com o MESMO nome. Até 2026-07-26 `PessoaRepository::opcoesDoTenant` indexava as
+        // opções pelo nome e uma delas sumia do modal — a UI mitigava desabilitando o botão. Com o mapa
+        // indexado por rótulo desempatado, as duas existem: a ação volta a valer para homônimo.
+        $vinculada = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA', 'cpf' => '111.111.111-11']);
+        $gemea = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA', 'cpf' => '222.222.222-22']);
         VinculoPessoaObjetoFactory::createOne([
             'tenant' => $tenant, 'objeto' => $objeto,
             'pessoa' => $vinculada, 'tipoVinculo' => TipoVinculo::Representante,
@@ -329,24 +329,20 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $objeto->getId());
         self::assertResponseIsSuccessful();
 
-        $corpo = $crawler->filter('#tab-responsaveis .accordion-body');
-        self::assertStringContainsString('Definir como atual', $corpo->text(), 'a ação continua visível');
-
-        // O critério NÃO pode ser "sempre desabilitado": `opcoesDoTenant` ordena por nome e sobrescreve
-        // por nome, sem desempate entre homônimos — qual dos dois sobrevive é indefinido no Postgres.
-        // Um assert fixo aqui seria flaky. O que precisa valer SEMPRE é a coerência: o botão está
-        // habilitado se, e somente se, o modal consegue selecionar aquela pessoa.
+        // O modal oferece as DUAS, com ids diferentes — nenhuma foi engolida pela outra.
         $opcoes = $crawler->filter('#modalAlterarPessoa select option')->each(fn ($o) => $o->attr('value'));
-        $selecionavel = \in_array((string) $vinculada->getId(), $opcoes, true);
-        $habilitados = $crawler->filter('#tab-responsaveis .js-definir-cobrada')->count();
-        $desabilitados = $crawler->filter('#tab-responsaveis .accordion-body button[disabled]')->count();
+        self::assertContains((string) $vinculada->getId(), $opcoes, 'a homônima vinculada tem de ser selecionável');
+        self::assertContains((string) $gemea->getId(), $opcoes, 'a outra homônima também');
 
-        self::assertSame(
-            $selecionavel,
-            $habilitados === 1,
-            'o botão só pode estar habilitado quando a pessoa existe nas opções do modal de troca',
+        // Botão habilitado, com o id certo — é ele que o JS injeta no select ao abrir o modal.
+        $botoes = $crawler->filter('#tab-responsaveis .js-definir-cobrada');
+        self::assertCount(1, $botoes, 'a ação aparece uma vez para a pessoa do accordion');
+        self::assertSame((string) $vinculada->getId(), $botoes->attr('data-pessoa-id'));
+        self::assertCount(
+            0,
+            $crawler->filter('#tab-responsaveis .accordion-body button[disabled]'),
+            'a mitigação de homônimo saiu junto com o defeito',
         );
-        self::assertSame(1, $habilitados + $desabilitados, 'a ação aparece exatamente uma vez, habilitada ou desabilitada');
     }
 
     #[TestDox('Quem não gerencia vê a aba Responsáveis, mas sem as ações de mutação')]

@@ -13,8 +13,9 @@
 > posterior, o **modal de pessoa com qualificação e contatos**.
 >
 > A SPEC abaixo é o que foi **pedido**, não o que foi **entregue**. O que de fato entrou, o que ficou
-> fora e por quê, mais o ambiente da frente e um bug aberto de homônimos que afeta a troca de
-> responsável: **[HANDOFF_UX_RAPIDA.md](HANDOFF_UX_RAPIDA.md)**.
+> fora e por quê, mais o ambiente da frente: **[HANDOFF_UX_RAPIDA.md](HANDOFF_UX_RAPIDA.md)**.
+> O bug de homônimos que afetava a troca de responsável foi **corrigido em 2026-07-26** (com uma
+> limitação de rótulo que o handoff descreve e o dono precisa avaliar).
 
 ## 1. Objetivo
 

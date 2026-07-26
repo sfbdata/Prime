@@ -16,8 +16,9 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
  * Vincular uma Pessoa a um Objeto de Cobrança (SPEC §7). `objetoId` NÃO é campo — vem da rota e é
- * preenchido pelo controller. As opções de pessoa (`pessoas` = mapa nome→id) são escopadas ao tenant e
- * passadas pelo controller, idênticas no render e no POST. Validação nos #[Assert] do DTO.
+ * preenchido pelo controller. As opções de pessoa (`pessoas` = mapa rótulo→id, com o id como VALOR e o
+ * nome apenas como rótulo) são escopadas ao tenant e passadas pelo controller, idênticas no render e no
+ * POST. Validação nos #[Assert] do DTO.
  */
 final class VincularPessoaAObjetoType extends AbstractType
 {
