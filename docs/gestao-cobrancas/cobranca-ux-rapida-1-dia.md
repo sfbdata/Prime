@@ -5,6 +5,17 @@
 > **Referência:** montagem enviada pelo dono com a orientação “Sugestão de organização das atividades”  
 > **Objetivo:** facilitar o uso por pessoas com pouca habilidade tecnológica, sem reconstruir o domínio
 
+> ### ⚠️ Estado da entrega — leia antes de usar esta SPEC como verdade
+>
+> Executada em 2026-07-26 na branch `feature/cobranca-ux-rapida` (**nada publicado**).
+> **Três itens desta SPEC ficaram deliberadamente de fora**, cada um por um impedimento medido:
+> o botão de **link** na barra (§11.1), o **editor rico no relato do contato** (§11/§12) e, do delta
+> posterior, o **modal de pessoa com qualificação e contatos**.
+>
+> A SPEC abaixo é o que foi **pedido**, não o que foi **entregue**. O que de fato entrou, o que ficou
+> fora e por quê, mais o ambiente da frente e um bug aberto de homônimos que afeta a troca de
+> responsável: **[HANDOFF_UX_RAPIDA.md](HANDOFF_UX_RAPIDA.md)**.
+
 ## 1. Objetivo
 
 Reorganizar a página atual de cobrança para que o usuário consiga:

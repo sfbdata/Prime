@@ -7,7 +7,7 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| _(nenhuma frente aberta)_ | | | | | |
+| `feature/cobranca-ux-rapida` | Cobrança (só a página do objeto) | **não** | nenhum — `cobrancas.css` é do módulo; sanitizador e `editor-rico.js` foram devolvidos ao master byte a byte | pronta para integrar | `origin/master` `0bb1f29` |
 
 **Estágios:** `implementando` · `em revisão` · `pronta para integrar` · `travada` (diga em quê).
 
