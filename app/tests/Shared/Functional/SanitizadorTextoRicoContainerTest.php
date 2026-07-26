@@ -42,6 +42,40 @@ final class SanitizadorTextoRicoContainerTest extends KernelTestCase
         );
     }
 
+    /**
+     * O link entrou na barra em 2026-07-26 (SPEC UX §11.1), revertendo a exclusão anterior de `<a>`.
+     * Liberar uma tag que carrega URL é o tipo de mudança que precisa de prova própria: o teste acima
+     * só garante que contêiner e trait CONCORDAM — dois lugares podem concordar e ambos estarem
+     * errados. Aqui afirmamos o comportamento seguro em si.
+     */
+    #[TestDox('o link liberado aceita http(s) e não deixa passar javascript: nem handlers')]
+    public function testLinkLiberadoNaoAbreBrechaDeXss(): void
+    {
+        self::bootKernel();
+        $sanitizador = static::getContainer()->get(SanitizadorTextoRico::class);
+        self::assertInstanceOf(SanitizadorTextoRico::class, $sanitizador);
+
+        // 1) Link legítimo sobrevive — é a razão de a tag ter sido liberada.
+        $limpo = $sanitizador->limpar('<a href="https://exemplo.test/boleto">2ª via</a>');
+        self::assertStringContainsString('https://exemplo.test/boleto', $limpo, 'link https tem de sobreviver');
+        self::assertStringContainsString('2ª via', $limpo);
+
+        // 2) `javascript:` NÃO sobrevive — o vetor clássico de XSS via href.
+        $perigoso = $sanitizador->limpar('<a href="javascript:alert(document.cookie)">clique</a>');
+        self::assertStringNotContainsStringIgnoringCase('javascript:', $perigoso, 'href javascript: não pode sobreviver');
+
+        // 3) Handlers e `target` não entram, mesmo num link válido.
+        $comHandler = $sanitizador->limpar('<a href="https://exemplo.test" target="_blank" onclick="roubar()">x</a>');
+        self::assertStringNotContainsString('onclick', $comHandler);
+        self::assertStringNotContainsString('target', $comHandler);
+
+        // 4) `data:` também não — outro esquema executável em alguns contextos.
+        self::assertStringNotContainsStringIgnoringCase(
+            'data:text/html',
+            $sanitizador->limpar('<a href="data:text/html;base64,PHNjcmlwdD4=">x</a>'),
+        );
+    }
+
     /** @return iterable<string, array{string}> */
     public static function casosDeReferencia(): iterable
     {
@@ -49,6 +83,9 @@ final class SanitizadorTextoRicoContainerTest extends KernelTestCase
         yield 'handler' => ['<p onclick="x()">ok</p>'];
         yield 'style inline' => ['<p style="position:fixed">ok</p>'];
         yield 'link' => ['<a href="https://exemplo.test">link</a>'];
+        yield 'link javascript' => ['<a href="javascript:alert(1)">x</a>'];
+        yield 'link com target e handler' => ['<a href="https://x.test" target="_blank" onclick="y()">z</a>'];
+        yield 'link http (forçado a https)' => ['<a href="http://exemplo.test">link</a>'];
         yield 'imagem' => ['<img src="x.png">'];
         yield 'ênfase' => ['<p><strong>a</strong><em>b</em><u>c</u><s>d</s></p>'];
         yield 'títulos' => ['<h1>a</h1><h2>b</h2><h3>c</h3>'];

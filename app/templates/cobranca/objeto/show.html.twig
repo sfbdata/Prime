@@ -12,6 +12,9 @@
    viraram 3 — Cobrança · Documentos · Histórico —, e a de Pessoas, que abria por padrão, virou card. #}
 {% set caso = objeto.caso %}
 {% set podeGerenciar = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
+{# Mesma resolução usada pelo card da pessoa: a barra de atividades precisa do vínculo da cobrada atual
+   para montar o link de "Ficha completa" (SPEC UX §6.2/§13). #}
+{% set vinculoCobradoBarra = objeto.vinculos|filter(v => v.ehCobradaAtual)|first|default(null) %}
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid">
@@ -23,13 +26,29 @@
             <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>{{ objeto.identificacao }}</h1>
             <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
             {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
+            {# Ações de SITUAÇÃO (raras) ficam no cabeçalho, junto do status que elas mudam — SPEC UX §6.1.
+               Vieram do cartão "Ações do caso" do trilho; mesmos gates e mesmos modais de antes. #}
             {% if podeGerenciar %}
             <div class="ms-auto d-flex gap-2 flex-wrap">
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
-                    <i class="bi bi-telephone me-1"></i>Registrar contato
+                {% if can_access_module('pastas') and not caso.pastaJudicialId %}
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
+                    <i class="bi bi-bank me-1"></i>Judicializar
                 </button>
-                {# Judicializar/Encerrar (ações raras) saíram do dropdown `⋯` — vivem agora no cartão
-                   "Ações do caso" do trilho (Ajuste 11, T3). #}
+                {% endif %}
+                {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível zerado).
+                   Desabilitado, o botão ENSINA a condição em vez de falhar depois do clique. #}
+                {% if caso.prontoParaEncerrar %}
+                <button type="button" class="btn btn-sm btn-outline-danger cob-acao-encerrar" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
+                    <i class="bi bi-flag me-1"></i>Encerrar cobrança
+                </button>
+                {% else %}
+                <span class="d-inline-block" data-bs-toggle="tooltip"
+                      title="Só é possível encerrar com o total em aberto zerado. Faltam {{ caso.saldoExigivel|centavos }}.">
+                    <button type="button" class="btn btn-sm btn-outline-secondary cob-acao-encerrar is-disabled" disabled>
+                        <i class="bi bi-flag me-1"></i>Encerrar cobrança
+                    </button>
+                </span>
+                {% endif %}
             </div>
             {% endif %}
         </div>
@@ -38,37 +57,32 @@
             Carteira: <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}">{{ objeto.carteiraNome }}</a>
             {% if caso.pastaJudicialId %} · <a href="{{ path('pasta_show', {id: caso.pastaJudicialId}) }}"><i class="bi bi-folder-symlink me-1"></i>Pasta judicial</a>{% endif %}
         </div>
+
+        {# Resumo do dinheiro no próprio cabeçalho (SPEC UX §6.1): quem abre a página vê a situação sem
+           rolar. Os DOIS valores já existiam no hero — nenhum cálculo novo, nenhum estado novo. #}
+        <div class="cob-resumo mt-2">
+            <div class="cob-resumo-item">
+                <span class="cob-resumo-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">Total em aberto</span>
+                <span class="cob-resumo-valor {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</span>
+            </div>
+            <div class="cob-resumo-item">
+                <span class="cob-resumo-label">Total vencido</span>
+                <span class="cob-resumo-valor {{ caso.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ caso.saldoVencido|centavos }}</span>
+            </div>
+        </div>
     </div>
 </section>
 
 <section class="content mt-3">
     <div class="container-fluid">
-        <div class="cob-grid">
-        <div class="cob-main">
-        {# ── Hero do dinheiro (Ajuste 11): substitui o cockpit em faixa. Só os campos que o
-           `CasoDetalheOutput` de fato tem — sem barra de progresso (não há valorRecuperado/totalDoCaso;
-           não inventar cálculo). ──────────────────────────────────────────────────────────────── #}
-        <div class="cob-hero">
-            <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
-                <div>
-                    <div class="cob-hero-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">Total em aberto</div>
-                    <div class="cob-hero-total {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</div>
-                    {% if caso.saldoVencido > 0 %}<div class="mt-1"><span class="cob-hero-venc">{{ caso.saldoVencido|centavos }}</span> <span class="cob-hero-sub">já vencido</span></div>{% endif %}
-                </div>
-                <div class="text-end cob-hero-sub">
-                    <div class="cob-hero-label">Honorários</div>
-                    <div class="fw-semibold text-white">{{ caso.formaHonorariosLabel }}{% if caso.percentualHonorarios %} ({{ caso.percentualHonorarios }}%){% endif %}</div>
-                    {# #9-T3: o "meio" da cascata de encargos é o OBJETO (não mais o caso — o editor de
-                       honorários do caso aposentou aqui, segue vivo no backend por reversibilidade). Abre a
-                       config de encargos do objeto (as 4 taxas + bases + carência/tolerância, spec §4). #}
-                    {% if podeGerenciar and formConfigEncargos %}
-                    <button type="button" class="btn btn-sm jp-btn-outline py-0 mt-1" data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto">
-                        <i class="bi bi-pencil me-1"></i>Editar configuração de encargos
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
+        {# O hero do dinheiro (Ajuste 11) subiu para o cabeçalho como `.cob-resumo` (SPEC UX §6.1) e o
+           bloco de honorários virou a aba Honorários. `Editar configuração de encargos` continua sendo
+           ação do contexto financeiro — agora dentro da aba Dívida (SPEC UX §14.1).
+
+           Alertas e barra de atividades ficam FORA da grade de 2 colunas, em largura total. Dentro da
+           coluna principal (≈740px em 1280) as 9 opções quebravam em três linhas — exatamente a "quebra
+           desorganizada" que a SPEC §6.4 proíbe. Em largura total elas cabem numa linha só, e a SPEC §6.2
+           pede a barra "logo abaixo do cabeçalho" de qualquer forma. #}
 
         {# ── Alertas (derivados, read-only — SPEC §14) ──────────────
            O alerta continua só CONTANDO o que há (invariável 28: o sistema alerta, o humano decide), mas
@@ -97,11 +111,16 @@
         </div>
         {% endif %}
 
-        {# ── Abas: 6 → 3 ───────────────────────────────────────── #}
-        <ul class="nav nav-tabs" id="objetoTabs" role="tablist">
+        {# ── Barra de atividades (SPEC UX §6.2) ─────────────────────────────────────────────────────
+           Uma região só reúne o que antes estava espalhado entre abas, cabeçalho, trilho e card da
+           pessoa. Dois comportamentos convivem: item de CONTEÚDO troca o painel (aba Bootstrap); item de
+           AÇÃO abre o modal/collapse que já existia. Nenhuma rota, modal ou permissão mudou — só o lugar
+           do gatilho. Ordem e rótulos vêm da SPEC; `id="objetoTabs"` é preservado porque o JS do `?aba=`
+           e o `pasta-arquivos.js` dependem dele. #}
+        <ul class="nav nav-tabs cob-barra" id="objetoTabs" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-cobranca" type="button">
-                    <i class="bi bi-cash-coin me-1"></i>Cobrança
+                    <i class="bi bi-pencil-square me-1"></i>Cobrança
                 </button>
             </li>
             {# `id="documentos-tab"`: o pasta-arquivos.js usa este id para restaurar a aba após o upload. #}
@@ -115,12 +134,129 @@
                     <i class="bi bi-clock-history me-1"></i>Histórico <span class="badge text-bg-secondary">{{ caso.historico|length }}</span>
                 </button>
             </li>
+            {% if vinculoCobradoBarra and has_permission('resources.cobranca.gerenciar') %}
+            <li class="nav-item cob-item-extra" role="presentation">
+                <a class="nav-link" href="{{ path('cobranca_pessoa_show', {id: vinculoCobradoBarra.pessoaId}) }}">
+                    <i class="bi bi-person-lines-fill me-1"></i>Ficha completa
+                </a>
+            </li>
+            {% endif %}
+            {% if podeGerenciar %}
+            <li class="nav-item cob-item-extra" role="presentation">
+                <button class="nav-link" type="button" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa">
+                    <i class="bi bi-arrow-left-right me-1"></i>Trocar responsável
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" type="button" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
+                    <i class="bi bi-telephone me-1"></i>Registrar contato
+                </button>
+            </li>
+            {% endif %}
+            <li class="nav-item cob-item-extra" role="presentation">
+                <button class="nav-link" type="button" data-bs-toggle="collapse" data-bs-target="#vinculosObjeto"
+                        aria-expanded="false" aria-controls="vinculosObjeto">
+                    <i class="bi bi-people me-1"></i>Envolvidos <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span>
+                </button>
+            </li>
+            <li class="nav-item cob-item-extra" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-divida" type="button">
+                    <i class="bi bi-cash-coin me-1"></i>Dívida
+                </button>
+            </li>
+            <li class="nav-item cob-item-extra" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-honorarios" type="button">
+                    <i class="bi bi-percent me-1"></i>Honorários
+                </button>
+            </li>
+
+            {# Estreito (SPEC UX §6.4): Cobrança, Registrar contato, Documentos e Histórico continuam
+               visíveis; o resto recolhe aqui em vez de quebrar a barra em várias linhas. O corte é em
+               1400px — largura medida em que as 9 opções deixam de caber numa linha (ver cobrancas.css). #}
+            <li class="nav-item dropdown cob-mais d-xxl-none" role="presentation">
+                <button class="nav-link dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-three-dots me-1"></i>Mais ações
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    {% if vinculoCobradoBarra and has_permission('resources.cobranca.gerenciar') %}
+                    <li><a class="dropdown-item" href="{{ path('cobranca_pessoa_show', {id: vinculoCobradoBarra.pessoaId}) }}"><i class="bi bi-person-lines-fill me-2"></i>Ficha completa</a></li>
+                    {% endif %}
+                    {% if podeGerenciar %}
+                    <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"><i class="bi bi-arrow-left-right me-2"></i>Trocar responsável</button></li>
+                    {% endif %}
+                    <li><button class="dropdown-item" type="button" data-bs-toggle="collapse" data-bs-target="#vinculosObjeto"><i class="bi bi-people me-2"></i>Envolvidos <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span></button></li>
+                    <li><button class="dropdown-item" type="button" data-bs-toggle="tab" data-bs-target="#tab-divida"><i class="bi bi-cash-coin me-2"></i>Dívida</button></li>
+                    <li><button class="dropdown-item" type="button" data-bs-toggle="tab" data-bs-target="#tab-honorarios"><i class="bi bi-percent me-2"></i>Honorários</button></li>
+                </ul>
+            </li>
         </ul>
-        <div class="tab-content border border-top-0 rounded-bottom p-3 bg-body">
-            {# Cobrança: a dívida e o que já entrou — o trabalho do dia numa aba só. #}
+        <div class="cob-grid">
+        <div class="cob-main">
+        <div class="tab-content border rounded p-3 bg-body">
+            {# ── Cobrança: a anotação é a atividade inicial da página (SPEC UX §7). O editor é o primeiro
+               elemento útil; as anotações recentes vêm logo abaixo. O histórico completo (com os eventos
+               automáticos) continua na sua própria opção. ── #}
             <div class="tab-pane fade show active" id="tab-cobranca">
+                {% if podeGerenciar and not caso.encerrado and forms.registrarAnotacao is defined %}
+                <div class="cob-anotacao-nova mb-4">
+                    <h6 class="mb-2"><i class="bi bi-pencil-square me-1"></i>Nova anotação</h6>
+                    {{ form_start(forms.registrarAnotacao, {action: path('cobranca_anotacao_registrar', {id: caso.id}), attr: {class: 'js-form-anotacao'}}) }}
+                    {{ form_widget(forms.registrarAnotacao.texto) }}
+                    {{ form_errors(forms.registrarAnotacao.texto) }}
+                    <div class="d-flex justify-content-end mt-2">
+                        <button type="submit" class="btn jp-btn-accent js-salvar-anotacao">
+                            <i class="bi bi-check-lg me-1"></i>Salvar anotação
+                        </button>
+                    </div>
+                    {{ form_end(forms.registrarAnotacao) }}
+                </div>
+                {% endif %}
+
+                {# Anotações recentes (SPEC UX §8): só as anotações livres, as 10 mais novas. Eventos
+                   automáticos não entram aqui — eles não são editáveis nem excluíveis. #}
+                {% set anotacoes = caso.historico|filter(e => e.tipoValue == 'anotacao') %}
+                <h6 class="mb-2"><i class="bi bi-chat-left-text me-1"></i>Anotações recentes</h6>
+                {% if anotacoes|length > 0 %}
+                <ul class="cob-anotacoes">
+                    {% for e in anotacoes|slice(0, 10) %}
+                    <li class="cob-anotacao">
+                        <div class="d-flex align-items-center gap-2 cob-anotacao-topo">
+                            <span class="cob-anotacao-autor">{{ e.usuarioNome|default('Sistema') }}</span>
+                            <span class="cob-anotacao-data">{{ e.ocorridoEm|date('d/m/Y H:i') }}</span>
+                            {% if e.editadoEm %}<span class="badge text-bg-secondary">Editada</span>{% endif %}
+                            {{ include('cobranca/objeto/_partials/_anotacao_acoes.html.twig', {e: e}) }}
+                        </div>
+                        <div class="cob-anotacao-corpo">
+                            <span class="editor-rico-conteudo"><span class="ql-editor">{{ e.descricao|texto_rico }}</span></span>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% if anotacoes|length > 10 %}
+                <p class="small text-secondary mb-0">Mostrando as 10 mais recentes de {{ anotacoes|length }}. As demais ficam em <strong>Histórico</strong>.</p>
+                {% endif %}
+                {% else %}
+                <p class="text-muted mb-0 py-3">Nenhuma anotação ainda. Use o campo acima para registrar o que aconteceu.</p>
+                {% endif %}
+            </div>
+
+            {# ── Dívida: a composição financeira e o que já entrou (SPEC UX §14.1) — o mesmo conteúdo de
+               antes, agora com opção própria na barra. ── #}
+            <div class="tab-pane fade" id="tab-divida">
+                {% if podeGerenciar and formConfigEncargos %}
+                <div class="d-flex justify-content-end mb-2">
+                    <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto">
+                        <i class="bi bi-pencil me-1"></i>Editar configuração de encargos
+                    </button>
+                </div>
+                {% endif %}
                 {{ include('cobranca/objeto/_partials/_divida.html.twig') }}
                 {{ include('cobranca/objeto/_partials/_movimentos.html.twig') }}
+            </div>
+
+            {# ── Honorários (SPEC UX §14.2): aba só de leitura, montada com o que o sistema JÁ calcula. ── #}
+            <div class="tab-pane fade" id="tab-honorarios">
+                {{ include('cobranca/objeto/_partials/_honorarios.html.twig') }}
             </div>
 
             {# Documentos (file manager religado na Onda 8C — reusa pasta-arquivos.js sem editá-lo) #}
@@ -128,26 +264,8 @@
                 {{ include('cobranca/caso/_documentos.html.twig') }}
             </div>
 
-            {# Histórico (timeline — SPEC §13) #}
+            {# Histórico (timeline — SPEC §13): todos os eventos, na ordem de sempre. #}
             <div class="tab-pane fade" id="tab-historico">
-                {# Anotação livre (ajuste 2026-07), no espírito do campo de mensagem da timeline da Pasta:
-                   o que foi combinado/ouvido e não cabe em formulário estruturado entra aqui e passa a
-                   conviver com os eventos automáticos. Append-only de propósito — sem editar nem apagar
-                   (é registro operacional, não rascunho). O que É classificável continua tendo o seu
-                   próprio formulário: relatório conta etiqueta, não lê texto corrido. #}
-                {% if podeGerenciar and not caso.encerrado and forms.registrarAnotacao is defined %}
-                <div class="mb-3 pb-3 border-bottom">
-                    {{ form_start(forms.registrarAnotacao, {action: path('cobranca_anotacao_registrar', {id: caso.id})}) }}
-                    <div class="d-flex gap-2 align-items-end">
-                        <div class="flex-grow-1">{{ form_widget(forms.registrarAnotacao.texto) }}</div>
-                        <button type="submit" class="btn btn-sm jp-btn-accent flex-shrink-0">
-                            <i class="bi bi-send me-1"></i>Anotar
-                        </button>
-                    </div>
-                    {{ form_end(forms.registrarAnotacao) }}
-                </div>
-                {% endif %}
-
                 {% if caso.historico|length > 0 %}
                 <ul class="caso-timeline">
                     {# Sem `|reverse`: a ordem vem pronta do repositório (mais recente primeiro).
@@ -161,28 +279,13 @@
                             {# `editavel` vem decidido do SERVIDOR (anotação própria, dentro das 48h) — o
                                template não recalcula prazo nem compara autoria, senão tela e servidor
                                poderiam discordar. Passada a janela, os botões somem sozinhos. #}
-                            {% if e.editavel %}
-                            <span class="ms-auto d-flex gap-1">
-                                <button type="button" class="btn btn-link btn-sm p-0 text-secondary js-editar-anotacao"
-                                        title="Corrigir esta anotação (até 48h)"
-                                        data-url="{{ path('cobranca_anotacao_editar', {eventoId: e.id}) }}"
-                                        data-texto="{{ e.descricao|e('html_attr') }}">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <form method="post" action="{{ path('cobranca_anotacao_excluir', {eventoId: e.id}) }}"
-                                      onsubmit="return confirm('Excluir esta anotação? Ela some do histórico e não dá para desfazer.');"
-                                      class="d-inline">
-                                    <input type="hidden" name="_token" value="{{ csrf_token('excluir_anotacao_' ~ e.id) }}">
-                                    <button type="submit" class="btn btn-link btn-sm p-0 text-danger" title="Excluir esta anotação (até 48h)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                            </span>
-                            {% endif %}
+                            {{ include('cobranca/objeto/_partials/_anotacao_acoes.html.twig', {e: e}) }}
                         </div>
                         <div>
-                            {% if e.tipoValue == 'anotacao' %}
-                                {# Escrita por uma pessoa no editor rico. #}
+                            {% if e.tipoValue == 'anotacao' or e.tipoValue == 'contato_realizado' %}
+                                {# Escritos por uma pessoa no editor rico (anotação livre e relato do
+                                   contato). `texto_rico` sanitiza na EXIBIÇÃO e trata conteúdo legado sem
+                                   `<` como texto puro — mesmo resultado que o `|nl2br` de antes. #}
                                 <span class="editor-rico-conteudo"><span class="ql-editor">{{ e.descricao|texto_rico }}</span></span>
                             {% else %}
                                 {# Evento gerado pelo sistema: segue escapado. #}
@@ -227,32 +330,8 @@
                e vai para o trilho direito. ── #}
             {{ include('cobranca/objeto/_partials/_pessoa_card.html.twig') }}
 
-            {# ── Ações do caso: Judicializar/Encerrar saíram do dropdown `⋯` do header (Ajuste 11, T3)
-               — são raras, não o trabalho do dia a dia. Mesmos gates/gatilhos de antes. ── #}
-            {% if podeGerenciar %}
-            <div class="cob-card p-3">
-                <h6 class="mb-2">Ações do caso</h6>
-                <div class="d-flex flex-column gap-2">
-                    {% if can_access_module('pastas') and not caso.pastaJudicialId %}
-                    <a href="#" role="button" class="cob-acao-link" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
-                        <i class="bi bi-bank"></i><span>Judicializar</span>
-                    </a>
-                    {% endif %}
-                    {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível
-                       zerado). Desabilitado, o item ENSINA a condição em vez de falhar depois do clique. #}
-                    {% if caso.prontoParaEncerrar %}
-                    <a href="#" role="button" class="cob-acao-link text-danger" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
-                        <i class="bi bi-flag"></i><span>Encerrar cobrança</span>
-                    </a>
-                    {% else %}
-                    <span class="cob-acao-link is-disabled" data-bs-toggle="tooltip"
-                          title="Só é possível encerrar com o total em aberto zerado. Faltam {{ caso.saldoExigivel|centavos }}.">
-                        <i class="bi bi-flag"></i><span>Encerrar cobrança</span>
-                    </span>
-                    {% endif %}
-                </div>
-            </div>
-            {% endif %}
+            {# O cartão "Ações do caso" (Judicializar/Encerrar) subiu para o cabeçalho, junto do status que
+               essas ações mudam (SPEC UX §6.1). Mesmos gates, mesmos modais. #}
         </div>
         </div>
     </div>
@@ -293,6 +372,33 @@
                 <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar correção</button>
             </div>
             {{ form_end(forms.editarAnotacao) }}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# Exclusão de anotação (SPEC UX §10): o `confirm()` do navegador não dizia QUAL anotação sumiria. Agora
+   a confirmação mostra um trecho do texto. Um modal só, compartilhado: o clique injeta a action, o token
+   CSRF daquela linha e o trecho. Rota, método e CSRF continuam exatamente os de antes. #}
+{% if podeGerenciar and not caso.encerrado %}
+<div class="modal fade" id="modalExcluirAnotacao" tabindex="-1" aria-labelledby="tituloExcluirAnotacao" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formExcluirAnotacao">
+                <input type="hidden" name="_token" id="tokenExcluirAnotacao" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloExcluirAnotacao"><i class="bi bi-trash me-1"></i>Excluir anotação</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">Esta anotação sai do histórico e <strong>não dá para desfazer</strong>.</p>
+                    <blockquote class="cob-anotacao-trecho" id="trechoExcluirAnotacao"></blockquote>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Excluir anotação</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -436,13 +542,14 @@ document.addEventListener('DOMContentLoaded', function () {
         new bootstrap.Tooltip(el);
     });
 
-    /* Volta do POST de anotação (registrar/corrigir/excluir) cai na aba Histórico, e não na Cobrança:
-       o servidor manda `?aba=historico` e aqui ativamos a aba correspondente.
+    /* Volta do POST de anotação (registrar/corrigir/excluir): o servidor manda `?aba=cobranca` e aqui
+       ativamos a aba correspondente. Desde a reorganização de UX (SPEC §7.3) o destino é a própria aba
+       Cobrança, onde ficam o editor e as "Anotações recentes" — quem salvou vê o resultado sem trocar
+       de aba. O mecanismo é genérico: qualquer `?aba=<id>` existente é ativada.
 
-       O parâmetro é CONSUMIDO (replaceState) logo em seguida — de propósito. Assim a volta do POST
-       mostra o Histórico, mas F5 ou reabrir o objeto voltam para a Cobrança, que é a aba de trabalho.
+       O parâmetro é CONSUMIDO (replaceState) logo em seguida — de propósito, para não grudar na URL.
        Um `#hash` não serviria: o Bootstrap ignora o hash ao escolher a aba ativa, e ele sobreviveria
-       ao F5, prendendo a pessoa no Histórico. */
+       ao F5, prendendo a pessoa numa aba que ela não escolheu. */
     var paramsUrl = new URLSearchParams(window.location.search);
     var abaPedida = paramsUrl.get('aba');
     if (abaPedida) {
@@ -481,6 +588,40 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         });
     }
+
+    /* Exclusão de anotação (SPEC UX §10): mesma mecânica do modal único acima. O trecho entra por
+       `textContent`, NUNCA por innerHTML — é texto do usuário, e aqui ele não pode virar marcação. */
+    var modalExcluirAnotacao = document.getElementById('modalExcluirAnotacao');
+    if (modalExcluirAnotacao) {
+        var formExcluirAnotacao = document.getElementById('formExcluirAnotacao');
+        var tokenExcluirAnotacao = document.getElementById('tokenExcluirAnotacao');
+        var trechoExcluirAnotacao = document.getElementById('trechoExcluirAnotacao');
+
+        document.querySelectorAll('.js-excluir-anotacao').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                if (!formExcluirAnotacao) { return; }
+                formExcluirAnotacao.setAttribute('action', botao.dataset.url);
+                if (tokenExcluirAnotacao) { tokenExcluirAnotacao.value = botao.dataset.token || ''; }
+                if (trechoExcluirAnotacao) {
+                    var trecho = (botao.dataset.trecho || '').trim();
+                    trechoExcluirAnotacao.textContent = trecho !== '' ? trecho : '(anotação sem texto)';
+                }
+                bootstrap.Modal.getOrCreateInstance(modalExcluirAnotacao).show();
+            });
+        });
+    }
+
+    /* Envio duplicado da anotação (SPEC UX §7.3): trava o botão no primeiro submit. O texto NÃO é
+       limpo aqui — quem limpa é o redirect do servidor depois do sucesso; se a validação falhar, o
+       usuário volta com o que digitou. */
+    document.querySelectorAll('.js-form-anotacao').forEach(function (formulario) {
+        formulario.addEventListener('submit', function () {
+            var botao = formulario.querySelector('.js-salvar-anotacao');
+            if (!botao || botao.disabled) { return; }
+            botao.disabled = true;
+            botao.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Salvando...';
+        });
+    });
 
     /* B5: a última mutação falhou na validação → reabre o modal com o digitado e o erro inline (o
        conteúdo já vem do form_row reidratado; aqui só damos o show). O marcador é consumido no servidor. */

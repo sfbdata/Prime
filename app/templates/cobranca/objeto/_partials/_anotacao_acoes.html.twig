@@ -1,0 +1,39 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Ações de uma anotação livre: corrigir e excluir (SPEC UX §9 e §10).
+
+   Existe para que a aba Cobrança ("Anotações recentes") e o Histórico usem exatamente os mesmos
+   gatilhos — duas cópias divergiriam no primeiro ajuste.
+
+   `editavel` vem decidido do SERVIDOR (anotação própria, dentro das 48h): o template não recalcula
+   prazo nem compara autoria, senão tela e servidor poderiam discordar. Evento automático do sistema
+   nunca é editável, então nem chega a renderizar botão — a imutabilidade não depende deste `if`, ela
+   é garantida no UseCase.
+
+   O `podeGerenciar` entra JUNTO porque os dois modais (#modalEditarAnotacao e #modalExcluirAnotacao)
+   só existem sob ele. `editavel` não olha capacidade nem caso encerrado — então, num caso encerrado
+   ou para quem não gerencia, o botão apareceria sem modal atrás e o clique não faria nada. Botão
+   morto engana mais do que botão ausente; e nada de função se perde, porque a rota exige a mesma
+   capacidade (`CasoController::excluirAnotacao`).
+
+   Contexto esperado: `e` (EventoHistoricoOutput) e `podeGerenciar` (herdados do `show`).
+─────────────────────────────────────────────────────────────────────────── #}
+{% if e.editavel and podeGerenciar %}
+<span class="ms-auto d-flex gap-1">
+    <button type="button" class="btn btn-link btn-sm p-0 text-secondary js-editar-anotacao"
+            title="Corrigir esta anotação (até 48h)"
+            data-url="{{ path('cobranca_anotacao_editar', {eventoId: e.id}) }}"
+            data-texto="{{ e.descricao|e('html_attr') }}">
+        <i class="bi bi-pencil"></i><span class="visually-hidden">Editar anotação</span>
+    </button>
+    {# Excluir não dispara mais o `confirm()` do navegador: a confirmação passou a MOSTRAR um trecho da
+       anotação, para o usuário saber qual vai embora (SPEC UX §10). O POST, a rota e o CSRF são os
+       mesmos — só o passo de confirmação mudou. #}
+    <button type="button" class="btn btn-link btn-sm p-0 text-danger js-excluir-anotacao"
+            title="Excluir esta anotação (até 48h)"
+            data-url="{{ path('cobranca_anotacao_excluir', {eventoId: e.id}) }}"
+            data-token="{{ csrf_token('excluir_anotacao_' ~ e.id) }}"
+            data-trecho="{{ e.descricao|striptags|slice(0, 140)|e('html_attr') }}">
+        <i class="bi bi-trash"></i><span class="visually-hidden">Excluir anotação</span>
+    </button>
+</span>
+{% endif %}

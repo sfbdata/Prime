@@ -519,34 +519,16 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 }
 html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 
-/* Hero do dinheiro — painel verde-escuro (identidade do módulo, não índigo). Ajuste 11 §T2: o output
-   (`CasoDetalheOutput`) não tem `valorRecuperado`/`totalDoCaso` — sem barra de progresso (não inventar cálculo).
-   Painel FIXO-escuro nos 2 temas (mesma exceção do gradiente, spec §3): os textos claros abaixo são
-   FIXOS, não tokens de tema — por isso vivem em custom properties próprias (`--cob-hero-*`), não em
-   `--bs-*`/`--jp-*`. Zero hex solto fora daqui; zero `style` inline no template. */
-.cob-hero {
-    --cob-hero-fg: #fff;        /* dinheiro/título */
-    --cob-hero-muted: #a7e0c3;  /* rótulos/subtítulos verde-claro */
-    --cob-hero-sub: #c7e6d5;    /* texto secundário (ex.: "já vencido", bloco Honorários) */
-    --cob-hero-venc: #ff8f9e;   /* "já vencido" — perigo lido sobre verde escuro */
-    color: var(--cob-hero-fg); border-radius: var(--cob-radius); padding: 1.35rem 1.5rem;
-    background: linear-gradient(135deg, #0f3d2e 0%, #14533b 100%);
-    display: flex; flex-direction: column; gap: 1.1rem;
-}
-.cob-hero-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--cob-hero-muted); font-weight: 600; }
-.cob-hero-total { font-size: 2.55rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.cob-hero-venc { color: var(--cob-hero-venc); font-weight: 700; font-variant-numeric: tabular-nums; }
-.cob-hero-sub { color: var(--cob-hero-sub); }
+/* O hero do dinheiro (`.cob-hero*`) e os links do cartão "Ações do caso" (`.cob-acao-link`) saíram na
+   reorganização de UX de 2026-07-26: os valores viraram `.cob-resumo` no cabeçalho e Judicializar/
+   Encerrar viraram botões do próprio cabeçalho. As regras foram removidas junto — CSS órfão vira
+   armadilha na próxima leitura. */
 
-/* Cartões do trilho (Ajuste 11 §T3): "Próxima ação" em destaque + "Ações do caso" (Judicializar/Encerrar,
-   que saíram do dropdown `⋯` do header). Cor = accent verde do módulo, nunca índigo. */
+/* Cartão do trilho: "Próxima ação" em destaque. Cor = accent verde do módulo, nunca índigo. */
 .cob-proxima { border: 1px solid rgba(var(--jp-accent-rgb), .30); background: rgba(var(--jp-accent-rgb), .07); border-radius: var(--cob-radius); padding: 1.1rem; }
 .cob-proxima-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--jp-accent); font-weight: 600; }
 /* Ação atrasada: mesmo alerta visual que o resto do módulo usa para atraso (âmbar, não o accent verde). */
 .cob-proxima.atrasada { border-color: rgba(var(--bs-warning-rgb), .5); background: rgba(var(--bs-warning-rgb), .1); }
-.cob-acao-link { display: flex; align-items: center; gap: .7rem; padding: .7rem .8rem; border: 1px solid var(--bs-border-color); border-radius: .625rem; text-decoration: none; color: var(--bs-body-color); }
-.cob-acao-link:hover { background: var(--bs-tertiary-bg); }
-.cob-acao-link.is-disabled { opacity: .55; }
 
 /* ── Central de Acompanhamento (Fatia 1) ───────────────────────────────────
    Tabela por pessoa + detalhe sob demanda. Só variáveis Bootstrap e o accent
@@ -608,3 +590,73 @@ html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 .cobranca-central-cadastro { border-top: 1px dashed var(--bs-border-color); padding-top: .6rem; }
 .cobranca-central-cadastro .btn-link { color: var(--bs-secondary-color); text-decoration: none; }
 .cobranca-central-cadastro .btn-link:hover { color: var(--jp-accent); text-decoration: underline; }
+
+/* ── Reorganização rápida da página de cobrança (SPEC UX, 2026-07-26) ──────────────────────────────
+   Três blocos novos: o resumo do dinheiro no cabeçalho, a barra de atividades e a área de anotações.
+   Só variáveis Bootstrap (`--bs-*`) e o accent do módulo (`--jp-accent`): claro e escuro saem do mesmo
+   código, sem cor solta. */
+
+/* Resumo do cabeçalho (§6.1) — os mesmos dois valores que ficavam no hero, agora legíveis sem rolar. */
+.cob-resumo { display: flex; flex-wrap: wrap; gap: 1.75rem; }
+.cob-resumo-item { display: flex; flex-direction: column; gap: .1rem; }
+.cob-resumo-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
+.cob-resumo-valor { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
+.cob-resumo-valor.is-vencido { color: var(--bs-danger); }
+.cob-resumo-valor.saldo-zerado { color: var(--bs-success); }
+
+/* Barra de atividades (§6.2) — conteúdo e ação na mesma região. Texto SEMPRE junto do ícone (§6.2:
+   "não usar apenas ícone em ação importante"). Quebra permitida, mas com `row-gap` para não parecer
+   acidente; abaixo de `lg` os itens menos frequentes recolhem em "Mais ações" (§6.4). */
+/* A barra vive em LARGURA TOTAL, acima da grade de 2 colunas — dentro da coluna principal as 9 opções
+   quebravam em três linhas. Como não fica mais "colada" no painel, o item ativo é marcado por um traço
+   inferior no accent, não pelo truque de borda da aba clássica do Bootstrap. */
+.cob-barra { border-bottom: 1px solid var(--bs-border-color); gap: .15rem; row-gap: .25rem; margin-bottom: 1rem; }
+.cob-barra .nav-link {
+    display: inline-flex; align-items: center; white-space: nowrap;
+    padding: .5rem .75rem; /* mais enxuto que o padrão do Bootstrap: 9 opções numa linha só */
+    color: var(--bs-secondary-color); border: 1px solid transparent; cursor: pointer;
+}
+.cob-barra .nav-link:hover { color: var(--bs-body-color); background: var(--bs-tertiary-bg); }
+/* Aba ativa evidente (§19.1): accent no texto, fundo suave e traço inferior. */
+.cob-barra .nav-link.active {
+    color: var(--jp-accent); font-weight: 600;
+    background: rgba(var(--jp-accent-rgb), .10); border-color: transparent;
+    box-shadow: inset 0 -2px 0 var(--jp-accent);
+}
+.cob-barra .nav-link:focus-visible { outline: 2px solid var(--jp-accent); outline-offset: -2px; }
+/* Ponto de corte MEDIDO, não escolhido no chute: as 9 opções somam ~1265px; abaixo de 1400 de viewport
+   a barra não as comporta em uma linha. Aí valem as 4 que a SPEC §6.4 manda manter visíveis — Cobrança,
+   Documentos, Histórico e Registrar contato — e o resto recolhe em "Mais ações". */
+@media (max-width: 1399.98px) { .cob-barra .cob-item-extra { display: none; } }
+
+/* Anotação (§7) — primeiro elemento útil da aba Cobrança. */
+.cob-anotacao-nova { border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius); padding: 1rem; background: var(--bs-tertiary-bg); }
+.cob-anotacao-nova .editor-rico { background: var(--bs-body-bg); border-radius: .5rem; }
+
+/* Anotações recentes (§8) — lista enxuta; o histórico completo continua na sua própria opção. */
+.cob-anotacoes { list-style: none; margin: 0 0 .75rem; padding: 0; display: flex; flex-direction: column; gap: .6rem; }
+.cob-anotacao { border: 1px solid var(--bs-border-color); border-left: 3px solid rgba(var(--jp-accent-rgb), .55); border-radius: .625rem; padding: .7rem .85rem; }
+.cob-anotacao-topo { font-size: .8rem; }
+.cob-anotacao-autor { font-weight: 600; color: var(--bs-body-color); }
+.cob-anotacao-data { color: var(--bs-secondary-color); }
+.cob-anotacao-corpo { margin-top: .35rem; }
+/* Trecho na confirmação de exclusão (§10): mostra QUAL anotação some. */
+.cob-anotacao-trecho {
+    margin: 0; padding: .6rem .8rem; border-left: 3px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg); border-radius: .375rem; color: var(--bs-body-color);
+    font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+/* Aba Honorários (§14.2) — leitura pura, sem número novo. */
+.cob-hon-config { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.cob-hon-item { display: flex; flex-direction: column; gap: .1rem; }
+.cob-hon-rot { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
+.cob-hon-val { font-weight: 600; color: var(--bs-body-color); }
+.cob-hon-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cob-hon-lista > li {
+    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+    padding: .5rem 0; border-top: 1px solid var(--bs-border-color);
+}
+.cob-hon-desc { flex: 1 1 14rem; min-width: 0; }
+.cob-hon-venc { color: var(--bs-secondary-color); font-size: .85rem; }
+.cob-hon-num { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }

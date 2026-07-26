@@ -61,8 +61,8 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('Proprietário', $html);
     }
 
-    #[TestDox('Ajuste 10: a página tem exatamente 3 abas e a pessoa cobrada virou card, não aba')]
-    public function testPaginaDoObjetoTemAsTresAbasEOCardDaPessoa(): void
+    #[TestDox('SPEC UX §6.2: a barra de atividades reúne as 5 áreas de conteúdo e as ações, e a pessoa cobrada segue card')]
+    public function testBarraDeAtividadesReuneConteudoEAcoes(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -71,11 +71,21 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
-        self::assertCount(3, $crawler->filter('#objetoTabs .nav-link'), 'devem ser exatamente 3 abas');
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-cobranca"]');
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-documentos"]');
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-historico"]');
-        // Pessoa deixou de ser aba e virou card.
+
+        // As 5 ÁREAS DE CONTEÚDO (SPEC UX §6.3). Dívida e Honorários são opções DIFERENTES — o ponto
+        // que a SPEC faz questão de separar —, e nenhuma aba de "encargos" foi criada.
+        foreach (['cobranca', 'documentos', 'historico', 'divida', 'honorarios'] as $aba) {
+            self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-' . $aba . '"]', "sumiu a opção {$aba} da barra");
+            self::assertSelectorExists('#tab-' . $aba, "sumiu o painel da opção {$aba}");
+        }
+        self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-encargos"]', 'a SPEC proíbe aba separada de encargos');
+
+        // As AÇÕES convivem na mesma barra, reusando os modais/collapse que já existiam.
+        self::assertSelectorExists('#objetoTabs [data-bs-target="#modalRegistrarTentativa"]', 'Registrar contato saiu da barra');
+        self::assertSelectorExists('#objetoTabs [data-bs-target="#modalAlterarPessoa"]', 'Trocar responsável saiu da barra');
+        self::assertSelectorExists('#objetoTabs [data-bs-target="#vinculosObjeto"]', 'Envolvidos saiu da barra');
+
+        // Pessoa deixou de ser aba e segue card.
         self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-pessoas"]');
         self::assertSelectorExists('.jp-pessoa-card');
         // A subnav do módulo voltou (B3): esta página era a única que a perdia.
@@ -897,9 +907,10 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawlerDepois = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('27,20', $crawlerDepois->filter('#secao-divida .jp-obr .col-juros')->text());
-        // Saldo do caso (header): 170,00 + 27,20 de juros (multa/correção seguem 0, herdadas da
-        // carteira neutra) = 197,20.
-        self::assertStringContainsString('197,20', $crawlerDepois->filter('.cob-hero-total')->text());
+        // Saldo do caso (cabeçalho): 170,00 + 27,20 de juros (multa/correção seguem 0, herdadas da
+        // carteira neutra) = 197,20. O valor mudou de lugar na reorganização de UX (hero → `.cob-resumo`
+        // no cabeçalho), mas continua sendo o "Total em aberto" — o primeiro item do resumo.
+        self::assertStringContainsString('197,20', $crawlerDepois->filter('.cob-resumo-item')->eq(0)->text());
     }
 
     // ── FIX crítico (Task 9): rehidratação do override de taxa no modal de Editar ──

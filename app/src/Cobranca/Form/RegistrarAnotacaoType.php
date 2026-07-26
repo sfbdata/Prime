@@ -11,9 +11,10 @@ use Symfony\Component\Form\FormBuilderInterface;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
 /**
- * Anotação livre na linha do tempo do Caso (ajuste 2026-07). Um campo só, exibido inline no topo da
- * aba Histórico — não é modal: escrever uma observação é trabalho de segundos e não merece dois
- * cliques. Validação (obrigatório, 5000 caracteres) nos #[Assert] do DTO. CSRF pelo token padrão.
+ * Anotação livre na linha do tempo do Caso (ajuste 2026-07). Um campo só, exibido inline — não é
+ * modal: escrever uma observação é trabalho de segundos e não merece dois cliques. Desde a
+ * reorganização de UX (2026-07-26) ele abre a aba Cobrança, como primeiro elemento útil da página.
+ * Validação (obrigatório, 5000 caracteres) nos #[Assert] do DTO. CSRF pelo token padrão.
  */
 final class RegistrarAnotacaoType extends AbstractType
 {
@@ -25,10 +26,10 @@ final class RegistrarAnotacaoType extends AbstractType
             'attr' => [
                 // Liga o editor rico (barra de formatação) — ver public/js/editor-rico.js.
                 'data-editor-rico' => true,
-                'rows' => 2,
+                'rows' => 4,
                 'maxlength' => 5000,
-                'class' => 'form-control form-control-sm',
-                'placeholder' => 'Anotar o que foi combinado, o que o devedor disse, o contexto do caso…',
+                'class' => 'form-control',
+                'placeholder' => 'Anote o que foi combinado, o que o devedor disse ou qualquer contexto importante',
             ],
         ]);
     }

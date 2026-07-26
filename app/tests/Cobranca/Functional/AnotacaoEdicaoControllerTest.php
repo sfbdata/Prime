@@ -37,7 +37,11 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertResponseIsSuccessful();
-        self::assertCount(1, $crawler->filter('.js-editar-anotacao'), 'o autor vê o lápis na própria anotação');
+        // Desde a reorganização de UX a anotação aparece em DOIS lugares — "Anotações recentes" (aba
+        // Cobrança) e a linha do tempo (aba Histórico) —, e o lápis acompanha os dois. Contar o total
+        // esconderia a regressão de um dos lados; por isso conferimos cada painel.
+        self::assertCount(1, $crawler->filter('#tab-cobranca .js-editar-anotacao'), 'o autor vê o lápis nas anotações recentes');
+        self::assertCount(1, $crawler->filter('#tab-historico .js-editar-anotacao'), 'e também na linha do tempo');
 
         // O modal é compartilhado: no navegador o JS injeta a action da linha clicada. Aqui fazemos o
         // mesmo, para o teste exercitar o form real (com o CSRF real) na URL daquela anotação.
@@ -67,7 +71,17 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
         $id = (int) $evento->getId();
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
-        $client->submit($crawler->filter('form[action*="/anotacoes/' . $id . '/excluir"]')->form());
+
+        // A exclusão passou a exigir confirmação num modal COMPARTILHADO (SPEC UX §10): o botão da linha
+        // carrega a URL e o CSRF daquela anotação, e o JS os injeta no form único. Aqui fazemos o mesmo,
+        // para o teste exercitar o form real com o token real — como já se faz no modal de correção.
+        $botao = $crawler->filter('.js-excluir-anotacao[data-url*="/anotacoes/' . $id . '/excluir"]')->eq(0);
+        self::assertCount(1, $botao, 'a lixeira da anotação precisa existir para o autor');
+
+        $form = $crawler->filter('#formExcluirAnotacao')->form();
+        $form->getNode()->setAttribute('action', (string) $botao->attr('data-url'));
+        $form['_token'] = (string) $botao->attr('data-token');
+        $client->submit($form);
 
         self::assertResponseRedirects();
         self::assertNull($this->buscar($id), 'exclusão é definitiva, sem marca de removida');
@@ -84,7 +98,7 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
 
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertCount(0, $crawler->filter('.js-editar-anotacao'), 'lápis some depois de 48h');
-        self::assertCount(0, $crawler->filter('form[action*="/anotacoes/' . $id . '/excluir"]'), 'lixeira some depois de 48h');
+        self::assertCount(0, $crawler->filter('.js-excluir-anotacao[data-url*="/anotacoes/' . $id . '/excluir"]'), 'lixeira some depois de 48h');
 
         // A UI escondeu, mas quem decide é o servidor: POST forjado tem de ser recusado.
         $client->request('POST', '/cobrancas/casos/anotacoes/' . $id . '/editar', [
@@ -136,8 +150,8 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
         self::assertSame('Contato por Telefone', $this->recarregar($id)->getDescricao());
     }
 
-    #[TestDox('Registrar, corrigir e excluir voltam para a aba Histórico, não para a Cobrança')]
-    public function testVoltaParaAbaHistorico(): void
+    #[TestDox('Registrar, corrigir e excluir voltam para a aba Cobrança, onde as anotações recentes ficam')]
+    public function testVoltaParaAbaCobranca(): void
     {
         $client = static::createClient();
         [$usuario, $tenant] = $this->criarAdminLogado($client);
@@ -152,7 +166,7 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
         $form = $crawler->filter('form[action*="/anotacoes"]')->form();
         $form['registrar_anotacao[texto]'] = 'nova anotacao';
         $client->submit($form);
-        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=historico');
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=cobranca');
 
         // 2) Corrigir
         $crawler = $client->followRedirect();
@@ -160,12 +174,16 @@ final class AnotacaoEdicaoControllerTest extends CobrancaWebTestCase
         $formEdicao->getNode()->setAttribute('action', '/cobrancas/casos/anotacoes/' . $id . '/editar');
         $formEdicao['editar_anotacao[texto]'] = 'texto corrigido';
         $client->submit($formEdicao);
-        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=historico');
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=cobranca');
 
-        // 3) Excluir
+        // 3) Excluir (modal compartilhado: action e CSRF vêm do botão da linha)
         $crawler = $client->followRedirect();
-        $client->submit($crawler->filter('form[action*="/anotacoes/' . $id . '/excluir"]')->form());
-        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=historico');
+        $botaoExcluir = $crawler->filter('.js-excluir-anotacao[data-url*="/anotacoes/' . $id . '/excluir"]')->eq(0);
+        $formExclusao = $crawler->filter('#formExcluirAnotacao')->form();
+        $formExclusao->getNode()->setAttribute('action', (string) $botaoExcluir->attr('data-url'));
+        $formExclusao['_token'] = (string) $botaoExcluir->attr('data-token');
+        $client->submit($formExclusao);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=cobranca');
     }
 
     #[TestDox('Anotação de outro escritório responde 404 (anti-IDOR)')]

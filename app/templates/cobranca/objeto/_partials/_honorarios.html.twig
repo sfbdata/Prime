@@ -1,0 +1,87 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Aba Honorários (SPEC UX §14.2) — LEITURA PURA.
+
+   Regra de corte desta entrega: a aba só REORGANIZA número que o sistema já calcula. Nada aqui soma,
+   projeta ou deriva nova métrica; cada valor exibido é o mesmo que já aparece na composição da dívida
+   (`ObrigacaoOutput.honorarios`) ou no extrato (`PagamentoOutput.valorHonorarios`), só que reunido num
+   lugar só.
+
+   Por isso NÃO existem aqui "honorários projetados/realizados/pendentes" POR OBJETO: hoje esses
+   agregados só existem no escopo do escritório, no dashboard (`MontarDashboardCobrancaUseCase`).
+   Inventá-los por objeto seria criar fonte de dados nova — fora do timebox, por decisão da SPEC.
+
+   A coluna de honorários da dívida continua onde estava: esta aba não a substitui (SPEC UX §14.2).
+
+   Contexto herdado do show: `caso`, `podeGerenciar`, `formConfigEncargos`.
+─────────────────────────────────────────────────────────────────────────── #}
+<div class="jp-secao">
+    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
+        <h5 class="mb-0"><i class="bi bi-percent me-1"></i>Honorários</h5>
+        {% if podeGerenciar and formConfigEncargos %}
+        <button type="button" class="btn btn-sm jp-btn-outline" data-bs-toggle="modal" data-bs-target="#modalConfigEncargosObjeto">
+            <i class="bi bi-pencil me-1"></i>Editar configuração de encargos
+        </button>
+        {% endif %}
+    </div>
+
+    {# ── Como está configurado ── #}
+    <div class="cob-hon-config mb-4">
+        <div class="cob-hon-item">
+            <span class="cob-hon-rot">Forma configurada</span>
+            <span class="cob-hon-val">{{ caso.formaHonorariosLabel }}</span>
+        </div>
+        <div class="cob-hon-item">
+            <span class="cob-hon-rot">Percentual</span>
+            <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios }}%{% else %}—{% endif %}</span>
+        </div>
+        <div class="cob-hon-item">
+            <span class="cob-hon-rot">Base de cálculo</span>
+            <span class="cob-hon-val">{{ caso.baseHonorariosComposta ? 'Composta' : 'Principal' }}</span>
+        </div>
+        <div class="cob-hon-item">
+            <span class="cob-hon-rot">Carência</span>
+            <span class="cob-hon-val">{% if caso.carenciaHonorariosDias is not null %}{{ caso.carenciaHonorariosDias }} dia(s){% else %}—{% endif %}</span>
+        </div>
+    </div>
+
+    {# ── Por obrigação: o mesmo valor já exibido na composição da dívida ── #}
+    <h6 class="mb-2">Por obrigação</h6>
+    {# `set` dentro de `for` não escapa do laço no Twig — a lista vazia é decidida ANTES, pelos dois
+       conjuntos que a alimentam. #}
+    {% set semObrigacoes = caso.obrigacoesAvulsas|length == 0 and caso.gruposAcordo|length == 0 %}
+    <ul class="cob-hon-lista mb-4">
+        {% for o in caso.obrigacoesAvulsas %}
+            <li>
+                <span class="cob-hon-desc">{{ o.descricao }}</span>
+                <span class="cob-hon-venc">venc. {{ o.vencimentoOriginal|date('d/m/Y') }}</span>
+                <span class="cob-hon-num col-honorarios">{{ o.honorarios|centavos }}</span>
+            </li>
+        {% endfor %}
+        {% for grupo in caso.gruposAcordo %}
+            {% for p in grupo.parcelas %}
+                <li>
+                    <span class="cob-hon-desc">{{ p.descricao }} <span class="jp-chip">acordo #{{ grupo.acordoId }}</span></span>
+                    <span class="cob-hon-venc">venc. {{ p.vencimentoOriginal|date('d/m/Y') }}</span>
+                    <span class="cob-hon-num col-honorarios">{{ p.honorarios|centavos }}</span>
+                </li>
+            {% endfor %}
+        {% endfor %}
+        {% if semObrigacoes %}
+        <li class="text-muted">Nenhuma obrigação em aberto.</li>
+        {% endif %}
+    </ul>
+
+    {# ── Por recebimento: o mesmo valor já exibido no extrato ── #}
+    <h6 class="mb-2">Por recebimento</h6>
+    <ul class="cob-hon-lista mb-0">
+        {% for p in caso.pagamentos %}
+        <li>
+            <span class="cob-hon-desc">Recebimento de {{ p.valorTotal|centavos }}{% if p.foiCorrigido %} <span class="jp-chip">corrigido</span>{% endif %}</span>
+            <span class="cob-hon-venc">{{ p.data|date('d/m/Y') }}</span>
+            <span class="cob-hon-num col-honorarios">{{ p.valorHonorarios|centavos }}</span>
+        </li>
+        {% else %}
+        <li class="text-muted">Nenhum recebimento registrado.</li>
+        {% endfor %}
+    </ul>
+</div>

@@ -8,12 +8,12 @@
    modais (`formNovaPessoa`, `formVincular`, `formEncerrarVinculo` — null para quem não gerencia).
    Os modais são os MESMOS de hoje: #modalAlterarPessoa, #modalVincularPessoaObjeto, #modalNovaPessoa.
 
-   Gates idênticos aos de hoje, e são DOIS, de propósito: trocar a pessoa cobrada exige caso aberto
-   (`podeTrocarPessoa`), mas MANTER O CADASTRO de envolvidos (vincular, cadastrar, encerrar vínculo) não —
-   os UseCases de vínculo não olham o encerramento, e corrigir quem era quem continua válido depois que a
-   cobrança acaba. Quem não gerencia recebe os forms como null e não vê gatilho nenhum.
+   O gate de trocar a pessoa cobrada (exige caso aberto) mudou de lugar junto com o botão: mora agora na
+   barra de atividades do `show`, sob `podeGerenciar`. MANTER O CADASTRO de envolvidos (vincular,
+   cadastrar, encerrar vínculo) segue sem esse gate — os UseCases de vínculo não olham o encerramento, e
+   corrigir quem era quem continua válido depois que a cobrança acaba. Quem não gerencia recebe os forms
+   como null e não vê gatilho nenhum.
 ─────────────────────────────────────────────────────────────────────────── #}
-{% set podeTrocarPessoa = has_permission('resources.cobranca.gerenciar') and not caso.encerrado %}
 {% set vinculoCobrado = objeto.vinculos|filter(v => v.ehCobradaAtual)|first|default(null) %}
 
 <div class="jp-pessoa-card mb-3">
@@ -24,29 +24,10 @@
             ? (partes|first|slice(0, 1) ~ partes|last|slice(0, 1))
             : caso.pessoaCobradaNome|slice(0, 2))|upper %}
 
-        <div class="d-flex gap-2 justify-content-start flex-wrap mb-2">
-            {# Ponto #1-B (qualificação da pessoa): acesso à ficha completa — qualificação +
-               listas de endereço/telefone/e-mail. Só quando o vínculo da cobrada atual foi
-               resolvido (sempre verdadeiro aqui dentro de `objeto.temCobradaAtual`) e o usuário
-               tem a mesma capacidade que a rota exige (`resources.cobranca.gerenciar`). #}
-            {% if vinculoCobrado and has_permission('resources.cobranca.gerenciar') %}
-            <a href="{{ path('cobranca_pessoa_show', {id: vinculoCobrado.pessoaId}) }}" class="btn btn-sm btn-outline-secondary"
-               title="Ver ficha completa da pessoa">
-                <i class="bi bi-person-lines-fill me-1"></i>Ficha completa
-            </a>
-            {% endif %}
-            {% if podeTrocarPessoa %}
-            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"
-                    title="Alterar a pessoa cobrada">
-                <i class="bi bi-arrow-left-right me-1"></i>Trocar
-            </button>
-            {% endif %}
-            <button type="button" class="btn btn-sm btn-outline-secondary jp-vinculos-toggle border px-2 py-1 rounded"
-                    data-bs-toggle="collapse" data-bs-target="#vinculosObjeto" aria-expanded="false" aria-controls="vinculosObjeto">
-                Envolvidos <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span> <i class="bi bi-chevron-down"></i>
-            </button>
-        </div>
-
+        {# Ficha completa · Trocar responsável · Envolvidos saíram daqui: agora vivem na barra de
+           atividades, junto das demais funções (SPEC UX §6.2/§13). Manter os dois lugares deixaria a
+           mesma ação em duas regiões, que é exatamente o que a reorganização veio desfazer. O collapse
+           `#vinculosObjeto` continua ancorado neste card — só o gatilho mudou de lugar. #}
         <div class="jp-pessoa-topo">
             <div class="jp-pessoa-avatar" aria-hidden="true">{{ iniciais }}</div>
             <div class="flex-grow-1 min-w-0">
