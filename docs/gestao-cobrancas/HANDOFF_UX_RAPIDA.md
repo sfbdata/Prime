@@ -133,6 +133,36 @@ de tela:
 Enquanto isso, `Editar` (no responsável atual e em cada pessoa do accordion) leva à ficha completa —
 a função continua acessível, sem perda.
 
+## Modal "Criar acordo" — reorganizado (2026-07-26)
+
+Três passos numerados (**o que será renegociado** → **como parcelar** → **parcelas**), no lugar de um
+formulário corrido. Só apresentação: os nomes de campo, ids e ganchos do gerador seguem idênticos.
+
+- Cada dívida virou **linha clicável** (`.form-check`), com a lista rolando em 15rem. O `form_widget` do
+  ChoiceType expandido soltava o quadradinho no fim do texto — alvo minúsculo, sem relação visual com a
+  linha. Os checkboxes são renderizados um a um com o `attr` **mesclado**, nunca substituído: ele carrega
+  `data-valor-centavos`/`data-alocado-centavos`, insumo da soma da seleção e do aviso de pagamento.
+  Sobrescrever apagaria o dado e todo acordo nasceria com total R$ 0,00, em silêncio. Há teste de
+  contrato travando os dois atributos.
+- **`Selecionar todas` / `Limpar`**: disparam `change` em cada checkbox em vez de recalcular por conta
+  própria — o total, o aviso e o fechamento continuam saindo do listener de sempre, sem segundo caminho
+  de dinheiro.
+- **Status de fechamento foi para o rodapé**, ao lado do botão que ele governa: é ele que explica por que
+  "Criar acordo" está desabilitado, e no fim do corpo saía de vista quando o modal rolava.
+- Dois defeitos visuais **pré-existentes** corrigidos: os campos `Total negociado` e `Entrada` renderizavam
+  **sem `form-control`** (27px contra 38px dos vizinhos, grade torta) porque o `attr` do form substituiu o
+  default do `CentavosType`; e `modal-dialog-scrollable` não funcionava porque o `form_start` insere um
+  `<form>` entre `.modal-content` e o corpo, quebrando a cadeia flex do Bootstrap — corpo de 1449px numa
+  janela de 720px jogava o rodapé para fora da tela.
+
+### 🐛 Follow-up aberto no mesmo arquivo
+
+`AcordoCriarType::opcoesObrigacoes` monta `$opcoes[$label] = $id` — **a mesma colisão por rótulo** que o
+`PessoaRepository` tinha. Duas obrigações com descrição, vencimento e valor idênticos se sobrescrevem, e
+uma delas fica impossível de acordar. Hoje é **latente** (medido no dev: zero duplicatas por
+`caso + descrição + vencimento`), e o helper é compartilhado com o modal de pagamento. O conserto é o
+mesmo: desempatar o rótulo quando repetir. Não foi feito por estar fora do pedido de UX.
+
 ## ✅ Homônimos no "Trocar responsável" — CORRIGIDO (2026-07-26)
 
 `PessoaRepository::opcoesDoTenant` montava as opções **indexadas pelo nome**, então homônimo

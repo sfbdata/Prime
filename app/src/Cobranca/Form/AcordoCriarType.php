@@ -49,13 +49,15 @@ final class AcordoCriarType extends AbstractType
             ->add('valorTotalNegociado', CentavosType::class, [
                 'label' => 'Total negociado',
                 'required' => false,
-                // Preserva os defaults do CentavosType (inputmode/placeholder), que attr sobrescreveria.
-                'attr' => ['inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-total' => ''],
+                // `attr` SUBSTITUI o default do CentavosType — por isso inputmode/placeholder são
+                // repetidos aqui. `form-control` entrou junto: sem ele os dois campos de dinheiro
+                // renderizavam sem estilo (27px contra 38px dos vizinhos), desalinhando a grade.
+                'attr' => ['class' => 'form-control', 'inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-total' => ''],
             ])
             ->add('valorEntrada', CentavosType::class, [
                 'label' => 'Entrada (opcional)',
                 'required' => false,
-                'attr' => ['inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-entrada' => ''],
+                'attr' => ['class' => 'form-control', 'inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-entrada' => ''],
             ])
             ->add('parcelas', CollectionType::class, [
                 'entry_type' => ParcelaAcordoType::class,

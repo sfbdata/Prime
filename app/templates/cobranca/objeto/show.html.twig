@@ -1153,6 +1153,30 @@ document.addEventListener('DOMContentLoaded', function () {
         var gerarBtn = document.getElementById('acordoGerar');
         if (gerarBtn) { gerarBtn.addEventListener('click', gerar); }
 
+        /* "Selecionar todas" / "Limpar": com seis ou mais competências, marcar uma a uma é o caminho
+           comum e era todo manual. Os botões DISPARAM `change` em cada checkbox em vez de recalcular por
+           conta própria — assim o total da seleção, o aviso de pagamento e o fechamento continuam saindo
+           do MESMO listener de sempre. Duplicar a soma aqui seria criar um segundo caminho de dinheiro. */
+        modal.querySelectorAll('[data-acordo-selecao]').forEach(function (botao) {
+            botao.addEventListener('click', function () {
+                var marcar = botao.getAttribute('data-acordo-selecao') === 'todas';
+                checkboxes.forEach(function (c) {
+                    if (c.checked === marcar) { return; }
+                    c.checked = marcar;
+                    c.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+            });
+        });
+
+        /* O aviso "nenhuma parcela ainda" some quando existe linha. Observa o container porque as linhas
+           nascem de três caminhos (gerar, adicionar, remover) e nenhum deles deve precisar lembrar disso. */
+        var vazioBox = modal.querySelector('[data-acordo-vazio]');
+        function sincronizarVazio() {
+            if (vazioBox) { vazioBox.classList.toggle('d-none', container.querySelectorAll('.parcela-linha').length > 0); }
+        }
+        new MutationObserver(sincronizarVazio).observe(container, { childList: true });
+        sincronizarVazio();
+
         checkboxes.forEach(function (c) {
             c.addEventListener('change', function () {
                 var s = somaSelecionadas();

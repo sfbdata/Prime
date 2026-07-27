@@ -665,6 +665,52 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    também, para "cinza = carteira" valer nos 10 campos. Sem `:has`, cai no comportamento de antes. */
 #modalConfigEncargosObjeto .form-select:has(option[value=""]:checked) { color: var(--bs-secondary-color); }
 
+/* Modal "Criar acordo" — três passos (o que sai do saldo → como parcelar → as parcelas). Só
+   apresentação: os ganchos que o gerador de parcelas lê são os mesmos de antes. */
+.cob-acordo-passo { padding-bottom: 1.1rem; margin-bottom: 1.1rem; border-bottom: 1px solid var(--bs-border-color); }
+.cob-acordo-passo:last-of-type { border-bottom: 0; padding-bottom: 0; margin-bottom: .75rem; }
+.cob-acordo-passo-titulo { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; font-size: .95rem; }
+.cob-acordo-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.4rem; height: 1.4rem; border-radius: 50%;
+    background: rgba(var(--jp-accent-rgb), .18); color: var(--jp-accent);
+    font-size: .78rem; font-weight: 700; flex-shrink: 0;
+}
+.cob-acordo-selecionado { font-size: .9rem; color: var(--bs-secondary-color); }
+.cob-acordo-selecionado strong { color: var(--bs-body-color); font-variant-numeric: tabular-nums; }
+
+/* Lista de dívidas: cada opção vira LINHA clicável. O ChoiceType expandido soltava o quadradinho no fim
+   do texto — alvo minúsculo e sem relação visual com a linha. Rolagem em ~15rem porque um caso com
+   dezenas de competências empurrava o resto do modal para fora da tela. */
+.cob-acordo-lista {
+    max-height: 15rem; overflow-y: auto;
+    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
+}
+.cob-acordo-item { padding: .5rem .75rem .5rem 2.25rem; margin: 0; border-bottom: 1px solid var(--bs-border-color); }
+.cob-acordo-item:last-child { border-bottom: 0; }
+.cob-acordo-item:hover { background: var(--bs-tertiary-bg); }
+.cob-acordo-item .form-check-input { margin-left: -1.5rem; margin-top: .2rem; }
+.cob-acordo-item .form-check-label { cursor: pointer; display: block; }
+.cob-acordo-item:has(.form-check-input:checked) { background: rgba(var(--jp-accent-rgb), .08); }
+
+.cob-acordo-gerador { background: var(--bs-tertiary-bg); border-radius: var(--cob-radius); padding: 1rem; }
+/* A grade mistura `form_row` (label SEM `.form-label`, margem 0) com campos escritos à mão (`.form-label`,
+   margem .5rem): sem igualar, as duas primeiras colunas ficam 19px mais baixas que as outras três —
+   medido no preview. Igualar aqui é mais seguro que trocar o tema de formulário do projeto inteiro. */
+.cob-acordo-gerador .row label { display: inline-block; margin-bottom: .5rem; }
+.cob-acordo-data { max-width: 16rem; }
+/* `modal-dialog-scrollable` sozinho NÃO funciona aqui: o Bootstrap espera header/body/footer como filhos
+   diretos do `.modal-content`, e o `form_start` insere um `<form>` no meio — a cadeia flex quebra, o
+   corpo cresce sem limite e o rodapé (com "Criar acordo" e o status de fechamento) sai da tela. Medido:
+   corpo de 1449px numa janela de 720px. Repassar o flex ao form recupera a rolagem. */
+#modalCriarAcordo .modal-content > form {
+    display: flex; flex-direction: column;
+    min-height: 0; max-height: 100%; overflow: hidden;
+}
+/* O status de fechamento divide o rodapé com os botões; em tela estreita ele vai para cima deles. */
+.cob-acordo-rodape { justify-content: flex-end; gap: .5rem; }
+.cob-acordo-rodape [data-acordo-fechamento]:empty { display: none; }
+
 /* Aba Honorários (§14.2) — leitura pura: os números são os mesmos da dívida e do extrato, e os totais
    são somas deles, feitas no UseCase. */
 .cob-hon-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }

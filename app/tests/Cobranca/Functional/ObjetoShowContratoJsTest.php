@@ -88,6 +88,20 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
             self::assertSelectorExists($gancho, "Sumiu o gancho: {$gancho}");
         }
 
+        // Criar acordo: os ganchos do gerador. `data-valor-centavos` é o insumo da SOMA da seleção — a
+        // reorganização visual do modal renderiza os checkboxes um a um, e um `attr` sobrescrito no lugar
+        // de mesclado apagaria esse dado deixando todo acordo nascer com total R$ 0,00, em silêncio.
+        foreach (['#modalCriarAcordo input[name*="obrigacoesSubstituidasIds"][data-valor-centavos]',
+                  '#modalCriarAcordo input[name*="obrigacoesSubstituidasIds"][data-alocado-centavos]',
+                  '#modalCriarAcordo input[data-acordo-total]', '#modalCriarAcordo input[data-acordo-entrada]',
+                  '#modalCriarAcordo [data-acordo-total-selecionado]', '#modalCriarAcordo [data-acordo-erro-gerador]',
+                  '#modalCriarAcordo [data-acordo-fechamento]', '#modalCriarAcordo [data-acordo-vazio]',
+                  '#modalCriarAcordo [data-acordo-selecao="todas"]', '#modalCriarAcordo [data-acordo-selecao="nenhuma"]',
+                  '#acordoQtdParcelas', '#acordoData1', '#acordoPeriodicidade', '#acordoGerar',
+                  '#parcelasContainer', '#addParcela', '#avisoAcordoComPagamento'] as $gancho) {
+            self::assertSelectorExists($gancho, "Sumiu o gancho do acordo: {$gancho}");
+        }
+
         // Modais que o JS abre/rehidrata (ids fixos)
         foreach (['#modalRegistrarPagamento', '#modalCriarAcordo', '#modalEditarObrigacao',
                   '#modalRegistrarObrigacao', '#modalExcluirObrigacao', '#modalConcluirAcao'] as $gancho) {
