@@ -17,6 +17,33 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(ObjetoController::class)]
 final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
 {
+    #[TestDox('"Ver na dívida" leva à ABA da dívida: carrega o gancho que o JS usa para ativá-la antes de rolar')]
+    public function testVerNaDividaCarregaOGanchoDeAbertura(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // Obrigação VENCIDA: é o que faz nascer o alerta que traz o botão.
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Cota vencida', 'valorOriginal' => 50000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('-30 days'),
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+
+        $botao = $crawler->filter('.jp-alerta-acoes a[href="#secao-divida"]');
+        self::assertCount(1, $botao, 'o alerta de vencida tem de oferecer "Ver na dívida"');
+
+        // O alvo do link mora DENTRO do pane da aba Dívida, que nasce oculto: sem este gancho o clique
+        // não sai do lugar, porque não se rola até elemento invisível.
+        self::assertSame('divida', $botao->attr('data-abrir-aba'), 'sem o gancho o botão vira clique morto');
+        self::assertSelectorExists('#tab-divida #secao-divida', 'o alvo da rolagem tem de estar dentro do pane da aba');
+        self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-divida"]', 'o JS ativa a aba por este gatilho');
+    }
+
     #[TestDox('A página do objeto mantém todos os ganchos de id/data-* que o JS usa')]
     public function testGanchosDeJsPresentes(): void
     {

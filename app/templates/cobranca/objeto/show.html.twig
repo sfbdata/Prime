@@ -94,7 +94,12 @@
                 <span>{{ alerta.descricao }}</span>
                 {% if alerta.tipo.value in ['obrigacao_vencida', 'parcela_acordo_vencida'] %}
                 <div class="jp-alerta-acoes">
-                    <a href="#secao-divida" class="btn btn-sm btn-outline-secondary">Ver na dívida</a>
+                    {# `#secao-divida` mora DENTRO da aba Dívida. Antes da reorganização a seção estava
+                       sempre na página e o link rolava até ela; agora a aba nasce oculta, e navegador
+                       nenhum rola até elemento invisível — o botão virava clique morto. O
+                       `data-abrir-aba` faz o JS ativar a aba antes de rolar. O `href` continua sendo o
+                       alvo da rolagem (e o destino natural se o JS não rodar). #}
+                    <a href="#secao-divida" data-abrir-aba="divida" class="btn btn-sm btn-outline-secondary">Ver na dívida</a>
                 </div>
                 {% elseif alerta.tipo.value == 'acao_atrasada' and podeGerenciar %}
                 <div class="jp-alerta-acoes">
@@ -558,6 +563,36 @@ document.addEventListener('DOMContentLoaded', function () {
         var queryLimpa = paramsUrl.toString();
         window.history.replaceState({}, '', window.location.pathname + (queryLimpa ? '?' + queryLimpa : ''));
     }
+
+    /* Atalho para uma aba a partir de fora dela (hoje: "Ver na dívida", nos alertas do topo). O alvo da
+       rolagem mora DENTRO de um `.tab-pane` oculto — sem ativar a aba antes, o `href="#secao-divida"`
+       não sai do lugar, porque não se rola até um elemento invisível.
+
+       A rolagem espera o `shown.bs.tab`: o pane só ganha altura ao fim da transição, e medir antes daria
+       uma posição errada. Quando a aba JÁ está ativa o evento não dispara (o Bootstrap ignora `show()`
+       no que já está visível), então esse caso rola direto. */
+    document.querySelectorAll('[data-abrir-aba]').forEach(function (atalho) {
+        atalho.addEventListener('click', function (e) {
+            var aba = atalho.getAttribute('data-abrir-aba') || '';
+            if (!/^[a-z-]+$/.test(aba)) { return; }
+
+            var pane = document.getElementById('tab-' + aba);
+            var gatilho = document.querySelector('#objetoTabs [data-bs-target="#tab-' + aba + '"]');
+            if (!pane || !gatilho) { return; }
+
+            e.preventDefault();
+            var alvo = atalho.getAttribute('href');
+            var rolar = function () {
+                var destino = alvo && alvo.charAt(0) === '#' ? document.querySelector(alvo) : null;
+                (destino || pane).scrollIntoView({ behavior: 'smooth', block: 'start' });
+            };
+
+            if (pane.classList.contains('active')) { rolar(); return; }
+
+            gatilho.addEventListener('shown.bs.tab', rolar, { once: true });
+            bootstrap.Tab.getOrCreateInstance(gatilho).show();
+        });
+    });
 
     /* Correção de anotação (2026-07-22): o modal é UM só, compartilhado por todas as linhas. Ao clicar
        no lápis, injetamos a action da anotação e o texto atual — mesmo padrão dos demais modais
