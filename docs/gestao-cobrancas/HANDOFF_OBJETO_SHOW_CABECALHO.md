@@ -8,7 +8,7 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`** (`6e93b43` == `origin/master`) — commit local, sem publicar |
+| Branch | **`master`**, commit local `4f3b594` sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma prevista**, e é decisão de projeto (ver §3.1 da spec) |
 | Suíte | `tests/Cobranca/Unit` 652/652 verde ao fim da Etapa 1 |
@@ -24,7 +24,19 @@ Worktree não serve para esta frente: o `nginx.conf` fixa `root /var/www/app/pub
 publicada, então **`localhost:8080` sempre serve o checkout principal** — e é lá que o dono faz o
 smoke desta tela. Trabalhar em worktree exigiria subir um container de preview só para isso.
 
-### ⚠️ O banco `saas` do dev NÃO serve para o smoke
+### Banco do dev — ✅ já resolvido em 2026-07-27
+
+`app/.env.local` (gitignored) foi criado no checkout principal apontando para **`saas_ux`**, e o cache
+foi limpo. `localhost:8080` está servindo o master contra um banco compatível. Nada a fazer — o texto
+abaixo fica só como registro do diagnóstico.
+
+Isso **não afeta os testes**: o Symfony ignora `.env.local` quando `APP_ENV=test`, então a suíte segue
+no `saas_test`. Confirmado rodando `tests/Cobranca/Unit` depois da troca (652/652).
+
+<details>
+<summary>Por que o <code>saas</code> não servia</summary>
+
+#### ⚠️ O banco `saas` do dev NÃO serve para o smoke
 
 `saas` está **à frente do master**: carrega as 4 migrations da frente canônica
 (`Version20260725120000` … `180000`), que renomeiam `caso_id → objeto_id` em `cobranca_liquidacao`,
@@ -45,8 +57,9 @@ docker exec jusprime_php_dev bash -c 'cd app && php bin/console cache:clear'
 ```
 
 (A credencial é a mesma do `app/.env`; só o nome do banco muda.) Para voltar ao `saas`, apague o
-`.env.local`. **Não fiz isso sozinho**: `.env.local` muda o banco que a 8080 inteira lê, e outra
-sessão pode estar usando o ambiente.
+`.env.local`.
+
+</details>
 
 ⚠️ **Duas worktrees vivas no repositório** (`cobranca-acompanhamento-canonico`, `cobranca-ux-rapida`).
 Rode `git worktree list` antes de qualquer integração — worktree abandonada segurando uma branch faz
@@ -57,8 +70,7 @@ Não commite junto.
 
 ## Etapas
 
-- [x] **1 — Fundação** (enum, tipo de evento, DTOs de leitura, calculadora de prescrição)
-      — ⚠️ **escrita e testada, mas AINDA NÃO COMMITADA**; ver "Primeira coisa a fazer" abaixo
+- [x] **1 — Fundação** (enum, tipo de evento, DTOs de leitura, calculadora de prescrição) — `4f3b594`
 - [ ] **2 — UseCases de qualificação** (registrar + desfazer + exceção)
 - [ ] **3 — Leitura da página** (totais do cabeçalho, prescrição, ficha da cobrada, vizinhos na carteira)
 - [ ] **4 — Rotas** (registrar / desfazer qualificação)
@@ -71,28 +83,18 @@ O dono faz o smoke no navegador dele. **Não abra o Playwright.**
 
 ---
 
-## Primeira coisa a fazer
+## Antes de commitar qualquer etapa
 
-O repositório ficou parado na branch `cobranca-objeto-show-cabecalho` (criada por engano antes de o
-hook explicar a regra pasta↔frente) com **tudo da Etapa 1 já em staging, sem commit**. O Claude não
-pode `git switch` — é operação do humano.
+**Nunca inclua** `docs/gestao-cobrancas/cobranca-acompanhamento-canonica.md`: é untracked e pertence a
+outra frente. `git add` explícito por arquivo, nunca `git add .`.
 
-```bash
-# Execute manualmente no terminal externo
-git switch master
-git branch -d cobranca-objeto-show-cabecalho
-git status --short          # confere que o staging da Etapa 1 continua lá
-```
-
-As duas branches apontam para o mesmo commit, então o staging atravessa a troca intacto. Depois disso
-o Claude commita a Etapa 1 normalmente.
-
-**Não inclua** `docs/gestao-cobrancas/cobranca-acompanhamento-canonica.md` no commit — é untracked e
-pertence a outra frente.
+O hook `pre-commit` amarra pasta↔frente e recusa commit fora do `master` nesta pasta. Se você criar
+uma branch aqui, fica preso: `git switch` é do humano, o Claude não pode voltar sozinho. Já aconteceu
+uma vez nesta frente — não repita.
 
 ---
 
-## Etapa 1 — FEITA (falta commitar)
+## Etapa 1 — FEITA E COMMITADA (`4f3b594`)
 
 Arquivos novos:
 
