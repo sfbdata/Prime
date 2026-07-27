@@ -15,9 +15,20 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 | Etapas | **as 8 fechadas** |
 | Publicado | **nada** |
 
-⚠️ **O que ainda depende de você** está reunido em "O que falta para publicar", no fim deste
-documento — inclusive **uma mudança de número já em produção** (aba Honorários) que saiu do
-BLOQUEANTE da revisão final.
+### 👉 Chat novo começa por aqui
+
+O código está **fechado e verde**; o que resta é smoke e ajuste. Não releia o documento inteiro — as
+etapas 1 a 7 são histórico e só interessam se o ajuste tocar uma delas. Leia, nesta ordem:
+
+1. este `## Estado`;
+2. **`## Roteiro de smoke`** — o que o dono vai conferir, incluindo o cenário de acordo rompido que
+   **precisa ser provocado** (ele não existe no banco);
+3. **`## Para o próximo chat (ajustes pós-smoke)`** — o mapa de "se o dono pedir X, mexe em Y", os
+   ajustes já levantados e não feitos, e as travas de git desta pasta;
+4. **`## Etapa 8`** — só se o ajuste tocar dinheiro, testes ou o desfazer.
+
+⚠️ **Uma mudança de número já em PRODUÇÃO** saiu do BLOQUEANTE da revisão final (o `A receber` da aba
+Honorários). O dono tem de estar ciente antes de publicar — detalhe na Etapa 8.
 
 ### Por que master, e não uma branch própria
 
@@ -710,15 +721,133 @@ vai mostrar nem o defeito nem a correção**. Em produção não foi medido.
 
 ## O que falta para publicar
 
-1. **Seu smoke** em `localhost:8080` (`saas_ux`). O roteiro da Etapa 7 está lá em cima; some a ele o
-   duplo clique nos botões de qualificação, que é o único jeito de provar o handler.
+1. **O smoke do dono** em `localhost:8080` — roteiro completo na seção seguinte.
 2. **Duas decisões abertas desde a Etapa 2** (cascata do desfazer dentro dos 5 minutos · caso encerrado
    não impedir desfazer) — cada uma travada por um teste nomeado, então mudar de ideia quebra teste em
    vez de mudar comportamento em silêncio.
 3. **Ciente da mudança no `A receber` da aba Honorários** (BLOQUEANTE acima) — é o único número já
    publicado que esta frente altera.
 4. **Rodar a query do item 3 de "não foi mexido"** na produção, antes do deploy.
-5. **Publicar**: `push` é seu. Sem migration.
+5. **Publicar**: `push` é do humano. Sem migration.
+
+---
+
+## Roteiro de smoke (`localhost:8080`, banco `saas_ux`)
+
+O dono faz no navegador dele. **Não abra o Playwright.**
+
+### A. O que a Etapa 7 (CSS) precisa que se olhe — a única prova que ela tem
+
+Nos **dois temas** e em pelo menos **uma largura de celular**:
+
+1. os 4 cards em 4 → 2 → 1 colunas conforme a largura, com `Total atualizado` destacado;
+2. a caixa de prescrição nas severidades que o dado produzir (a `sev-info` é neutra **de propósito**:
+   pintar de verde um prazo que ainda corre sugere "resolvido");
+3. a linha fina `Total em aberto / Total vencido` **menor** que os cards, com o vencido em vermelho;
+4. a faixa de qualificação e a lista de telefones sem estourar a largura no celular;
+5. o painel de qualificação como cartão, com os três botões em coluna e largura cheia.
+
+### B. O clique duplo — o handler que só o navegador prova
+
+Qualquer cobrança → aba **Responsáveis** → **dois cliques rápidos** num dos três botões de
+qualificação. Tem de nascer **uma** linha só na listinha, e o botão fica cinza depois do primeiro
+clique. Repetir no `Marcar como atual` de um telefone.
+
+### C. O acordo rompido — precisa ser provocado
+
+**O cenário não existe no `saas_ux`**: medido em 2026-07-27, são 11 acordos e **todos ativos**. Sem
+provocar, nem o defeito nem a correção aparecem na tela.
+
+**Melhor cobrança para o teste: objeto 84 — `QUADRA 07 CHACARA 02/03`, acordo nº 9** (5 parcelas e
+4 obrigações substituídas — é onde a dobra seria mais gritante).
+
+```
+http://localhost:8080/cobrancas/objetos/84
+```
+
+1. Anote o card **Total atualizado** e a linha `N obrigações em aberto`.
+2. Aba **Dívida** → **romper o acordo**.
+3. Volte ao cabeçalho.
+
+**O que tem de acontecer:** as 5 parcelas passam a aparecer marcadas como *"parcela de acordo
+desfeito"* e as 4 originais voltam para a lista. O card **`Total atualizado` NÃO pode incluir aquelas
+5 parcelas**. Conferência a olho: some as linhas que **não** estão marcadas como "parcela de acordo
+desfeito" — tem de bater com o card. Card muito maior que essa soma = o conserto não pegou.
+
+**Para desfazer depois** (é banco de teste, mas fica limpo):
+
+```bash
+# Execute manualmente no terminal externo
+docker exec jusprime_db_dev psql -U symfony -d saas_ux -c "update cobranca_acordo set status='ativo' where id=9;"
+```
+
+### D. O que o smoke NÃO consegue mostrar
+
+O **"antes"**. O código servido já está corrigido — vê-se o resultado certo, não a diferença. Para ver
+o erro seria preciso reverter o código, o que não vale o risco. Nesse ponto a prova é a injeção de
+defeito registrada na Etapa 8.
+
+### E. O sinal nasce saturado (não é bug)
+
+Medido no `saas_ux`: 125 pessoas · **123 sem CPF e sem CNPJ** · **123 sem estado civil** · **3
+endereços** e **3 telefones no total**. A aba vai nascer com `Qualificação incompleta` e faixa quase
+toda "não informado" em ~98% das unidades, e "Nenhum telefone cadastrado" na quase totalidade. **É o
+estado do cadastro, não defeito da tela.** Vale decidir se o badge deve mesmo aparecer nesse volume.
+
+---
+
+## Para o próximo chat (ajustes pós-smoke)
+
+**Estado de partida:** `master` local em `c29692a`, 12+1 commits à frente de `origin/master` `6e93b43`,
+**nada publicado**, suíte completa **2705/2705**, sem migration. Leia esta seção, o `## Estado` do topo
+e a `## Etapa 8` — o resto é histórico e só interessa se o ajuste tocar aquela etapa.
+
+**Antes de tocar em qualquer coisa:**
+
+```bash
+git status && git branch -vv | grep '^\*' && git worktree list
+docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Cobranca'
+```
+
+Duas worktrees vivas (`cobranca-acompanhamento-canonico`, `cobranca-ux-rapida`) e o untracked
+`docs/gestao-cobrancas/cobranca-acompanhamento-canonica.md` são de **outras frentes** — nunca commite
+junto, sempre `git add` explícito por arquivo.
+
+**Continua valendo:** trabalho direto no `master` do checkout principal (o hook `pre-commit` amarra
+pasta↔frente e a `:8080` sempre serve este checkout — ver "Por que master, e não uma branch própria",
+no topo).
+
+### Onde cada tipo de ajuste provavelmente cai
+
+| Se o dono pedir… | Mexe em |
+|---|---|
+| trocar texto, ordem, tamanho ou cor de algo do cabeçalho | `templates/cobranca/objeto/show.html.twig` (bloco `.cob-cab`) + `public/css/cobrancas.css` (bloco da Etapa 7, no fim) |
+| trocar algo da aba Responsáveis | `templates/cobranca/objeto/_partials/_responsaveis.html.twig` |
+| trocar algo do painel de qualificação | `_partials/_painel_qualificacao.html.twig` (+ `Enum/QualificacaoContato.php` se for rótulo/ordem/opção) |
+| mudar **um número** de dinheiro | `UseCase/MontarDetalheCasoUseCase.php` — **nunca no Twig**, e o teste unitário anda junto |
+| mudar a regra do desfazer | `UseCase/DesfazerQualificacaoContatoUseCase.php` + `Entity/EventoHistorico.php` |
+| mudar quem vê o quê (gates) | `Controller/ObjetoController.php` (`podeAbrirFicha`/`podeQualificarDesfazer`) + os `{% if %}` do Twig |
+| mudar as setas / ordem das unidades | `Repository/ObjetoCobrancaRepository.php::vizinhosNaCarteira` |
+
+### Ajustes que já têm dono conhecido (levantados e não feitos)
+
+1. **Badge `Qualificação incompleta` fora do gate de PII** — decisão do dono, uma linha de Twig.
+2. **`Marcar como atual` e o mini-form de telefone levam para FORA da aba** (rotas da ficha
+   redirecionam para `cobranca_pessoa_show`). Trazer de volta exige um `?voltar=` nas duas rotas —
+   frente de ~20 minutos, registrada na Etapa 6.
+3. **Índice `(carteira_id, identificacao, id)`** para as setas — é migration, e esta frente decidiu
+   não ter nenhuma.
+4. **Duas decisões da Etapa 2** (cascata do desfazer · caso encerrado) — travadas pelos testes
+   `cascataDentroDaJanela` e `casoEncerradoAindaDesfaz`.
+5. **`Simular acordo` e `Planilha atualizada`** estão desabilitados com tooltip, à espera de o dono
+   dizer o que fazem (§1.4 / §6 da spec).
+
+### Regra que esta frente aprendeu e o próximo chat deve manter
+
+**Todo teste novo tem de ser provado por injeção de defeito** — e **conferir com `grep` que o defeito
+foi mesmo aplicado onde você pensa**. Três alarmes falsos nesta frente foram culpa da injeção, não do
+teste. Se um teste passar verde dos dois lados, ou ele não prova o que diz, ou há defesa dupla — nos
+dois casos o comentário no teste tem de dizer isso, em vez de prometer mais do que há.
 
 ## Comandos
 
