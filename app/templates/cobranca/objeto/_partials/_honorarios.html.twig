@@ -1,14 +1,14 @@
 {# ───────────────────────────────────────────────────────────────────────────
    Aba Honorários (SPEC UX §14.2) — LEITURA PURA.
 
-   Regra de corte desta entrega: a aba só REORGANIZA número que o sistema já calcula. Nada aqui soma,
-   projeta ou deriva nova métrica; cada valor exibido é o mesmo que já aparece na composição da dívida
-   (`ObrigacaoOutput.honorarios`) ou no extrato (`PagamentoOutput.valorHonorarios`), só que reunido num
-   lugar só.
+   Cada valor exibido é o mesmo que já aparece na composição da dívida (`ObrigacaoOutput.honorarios`)
+   ou no extrato (`PagamentoOutput.valorHonorarios`), só que reunido num lugar só. Os TOTAIS (topo e
+   rodapé das listas) são somas desses mesmos valores, calculadas no `MontarDetalheCasoUseCase` — não
+   no Twig, porque são dinheiro e lá têm teste. Nenhuma regra financeira nova, nenhuma fonte nova.
 
-   Por isso NÃO existem aqui "honorários projetados/realizados/pendentes" POR OBJETO: hoje esses
-   agregados só existem no escopo do escritório, no dashboard (`MontarDashboardCobrancaUseCase`).
-   Inventá-los por objeto seria criar fonte de dados nova — fora do timebox, por decisão da SPEC.
+   Os "honorários projetados/realizados/pendentes" do dashboard continuam sendo OUTRA coisa: aqueles
+   são agregados do escritório, calculados por `MontarDashboardCobrancaUseCase`. Aqui é o recorte deste
+   objeto, somado do que a própria aba lista.
 
    A coluna de honorários da dívida continua onde estava: esta aba não a substitui (SPEC UX §14.2).
 
@@ -24,7 +24,32 @@
         {% endif %}
     </div>
 
+    {# ── Os dois números que respondem "quanto rendeu e quanto falta" ──
+       `A receber` é RECORTE de `honorariosDasObrigacoes` (só o não quitado), não uma terceira conta: por
+       isso os dois totais das listas abaixo continuam batendo linha a linha. Deliberadamente NÃO existe
+       um "total geral" somando os dois — receber e ter recebido são estados diferentes do mesmo
+       honorário, e somá-los produziria um número que não significa nada. #}
+    <div class="cob-hon-cards mb-4">
+        <div class="cob-hon-card">
+            <span class="cob-hon-card-rot">A receber</span>
+            <span class="cob-hon-card-val">{{ caso.honorariosEmAberto|centavos }}</span>
+            <span class="cob-hon-card-nota">honorários das obrigações ainda em aberto</span>
+        </div>
+        <div class="cob-hon-card">
+            <span class="cob-hon-card-rot">Já recebido</span>
+            <span class="cob-hon-card-val is-recebido">{{ caso.honorariosRecebidos|centavos }}</span>
+            <span class="cob-hon-card-nota">
+                {% if caso.pagamentos|length > 0 %}
+                    em {{ caso.pagamentos|length }} recebimento{{ caso.pagamentos|length > 1 ? 's' : '' }}
+                {% else %}
+                    nenhum recebimento ainda
+                {% endif %}
+            </span>
+        </div>
+    </div>
+
     {# ── Como está configurado ── #}
+    <h6 class="mb-2">Configuração</h6>
     <div class="cob-hon-config mb-4">
         <div class="cob-hon-item">
             <span class="cob-hon-rot">Forma configurada</span>
@@ -32,7 +57,8 @@
         </div>
         <div class="cob-hon-item">
             <span class="cob-hon-rot">Percentual</span>
-            <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios }}%{% else %}—{% endif %}</span>
+            {# O DTO carrega o decimal cru ("15.00"); a vírgula é só apresentação, como no resto da tela. #}
+            <span class="cob-hon-val">{% if caso.percentualHonorarios %}{{ caso.percentualHonorarios|replace({'.': ','}) }}%{% else %}—{% endif %}</span>
         </div>
         <div class="cob-hon-item">
             <span class="cob-hon-rot">Base de cálculo</span>
@@ -58,39 +84,58 @@
     {# `set` dentro de `for` não escapa do laço no Twig — a lista vazia é decidida ANTES, pelos dois
        conjuntos que a alimentam. #}
     {% set semObrigacoes = caso.obrigacoesAvulsas|length == 0 and caso.gruposAcordo|length == 0 %}
-    <ul class="cob-hon-lista mb-4">
+    <ul class="cob-hon-lista mb-4" data-lista="obrigacoes">
         {% for o in caso.obrigacoesAvulsas %}
-            <li>
-                <span class="cob-hon-desc">{{ o.descricao }}</span>
+            <li{% if o.quitada %} class="is-quitada"{% endif %}>
+                <span class="cob-hon-desc">
+                    {{ o.descricao }}
+                    {% if o.quitada %}<span class="badge text-bg-success">Quitada</span>{% endif %}
+                </span>
                 <span class="cob-hon-venc">venc. {{ o.vencimentoOriginal|date('d/m/Y') }}</span>
                 <span class="cob-hon-num col-honorarios">{{ o.honorarios|centavos }}</span>
             </li>
         {% endfor %}
         {% for grupo in caso.gruposAcordo %}
             {% for p in grupo.parcelas %}
-                <li>
-                    <span class="cob-hon-desc">{{ p.descricao }} <span class="jp-chip">acordo #{{ grupo.acordoId }}</span></span>
+                <li{% if p.quitada %} class="is-quitada"{% endif %}>
+                    <span class="cob-hon-desc">
+                        {{ p.descricao }} <span class="jp-chip">acordo #{{ grupo.acordoId }}</span>
+                        {% if p.quitada %}<span class="badge text-bg-success">Quitada</span>{% endif %}
+                    </span>
                     <span class="cob-hon-venc">venc. {{ p.vencimentoOriginal|date('d/m/Y') }}</span>
                     <span class="cob-hon-num col-honorarios">{{ p.honorarios|centavos }}</span>
                 </li>
             {% endfor %}
         {% endfor %}
         {% if semObrigacoes %}
-        <li class="text-muted">Nenhuma obrigação em aberto.</li>
+        <li class="text-muted">Nenhuma obrigação registrada.</li>
+        {% else %}
+        {# O rodapé soma TODAS as linhas acima, quitadas inclusive — é o que se confere a olho. O recorte
+           "a receber" (só o não quitado) está no card do topo. #}
+        <li class="cob-hon-total">
+            <span class="cob-hon-desc">Total das obrigações</span>
+            <span class="cob-hon-num col-honorarios">{{ caso.honorariosDasObrigacoes|centavos }}</span>
+        </li>
         {% endif %}
     </ul>
 
     {# ── Por recebimento: o mesmo valor já exibido no extrato ── #}
     <h6 class="mb-2">Por recebimento</h6>
-    <ul class="cob-hon-lista mb-0">
+    <ul class="cob-hon-lista mb-0" data-lista="recebimentos">
         {% for p in caso.pagamentos %}
         <li>
             <span class="cob-hon-desc">Recebimento de {{ p.valorTotal|centavos }}{% if p.foiCorrigido %} <span class="jp-chip">corrigido</span>{% endif %}</span>
             <span class="cob-hon-venc">{{ p.data|date('d/m/Y') }}</span>
             <span class="cob-hon-num col-honorarios">{{ p.valorHonorarios|centavos }}</span>
         </li>
+        {% endfor %}
+        {% if caso.pagamentos|length > 0 %}
+        <li class="cob-hon-total">
+            <span class="cob-hon-desc">Total recebido</span>
+            <span class="cob-hon-num col-honorarios">{{ caso.honorariosRecebidos|centavos }}</span>
+        </li>
         {% else %}
         <li class="text-muted">Nenhum recebimento registrado.</li>
-        {% endfor %}
+        {% endif %}
     </ul>
 </div>

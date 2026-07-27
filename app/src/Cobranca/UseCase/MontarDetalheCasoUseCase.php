@@ -127,6 +127,34 @@ final class MontarDetalheCasoUseCase
         $acordos = array_map(AcordoOutput::fromEntity(...), $this->acordoRepository->doCaso($caso));
         [$gruposAcordo, $obrigacoesAvulsas] = $this->agruparPorAcordo($obrigacoes, $acordos);
 
+        // Totais da aba Honorários: somados sobre o MESMO conjunto que a aba lista (avulsas + parcelas
+        // dos grupos), para o rodapé sempre bater com as linhas visíveis. Ver a nota no DTO.
+        $listadasNaAba = $obrigacoesAvulsas;
+        foreach ($gruposAcordo as $grupo) {
+            foreach ($grupo->parcelas as $parcela) {
+                $listadasNaAba[] = $parcela;
+            }
+        }
+
+        $honorariosDasObrigacoes = 0;
+        $honorariosEmAberto = 0;
+        foreach ($listadasNaAba as $listada) {
+            $honorariosDasObrigacoes += $listada->honorarios;
+            if (!$listada->quitada()) {
+                $honorariosEmAberto += $listada->honorarios;
+            }
+        }
+
+        // Extraído para variável (antes era montado direto no construtor) porque agora é lido DUAS vezes:
+        // a lista da aba e o total de honorários recebidos precisam vir do mesmo array, não de duas
+        // consultas que poderiam divergir.
+        $pagamentos = array_map(PagamentoOutput::fromEntity(...), $this->pagamentoRepository->doCaso($caso));
+
+        $honorariosRecebidos = 0;
+        foreach ($pagamentos as $pagamento) {
+            $honorariosRecebidos += $pagamento->valorHonorarios;
+        }
+
         // #9-T2: FORMA sempre da carteira (não sobreponível); ALÍQUOTA já resolvida em `$configCaso`
         // (cascata do objeto) — a mesma fonte que `CalculadoraHonorarios` usa no split. O snapshot do
         // caso (`getFormaHonorarios`/`getPercentualHonorarios`) não é mais lido aqui.
@@ -162,7 +190,7 @@ final class MontarDetalheCasoUseCase
             obrigacoes: $obrigacoes,
             gruposAcordo: $gruposAcordo,
             obrigacoesAvulsas: $obrigacoesAvulsas,
-            pagamentos: array_map(PagamentoOutput::fromEntity(...), $this->pagamentoRepository->doCaso($caso)),
+            pagamentos: $pagamentos,
             liquidacoes: array_map(LiquidacaoOutput::fromEntity(...), $this->liquidacaoRepository->doCaso($caso)),
             acordos: $acordos,
             // `$hoje` é o mesmo relógio injetado usado no resto do método — a janela de edição da
@@ -177,6 +205,9 @@ final class MontarDetalheCasoUseCase
             // #9-T3: carência resolvida da cascata (Carteira→Objeto) para o `data-carencia` do preview JS
             // — o editor de honorários do Caso saiu da tela, este era o único lugar que ainda a expunha.
             carenciaHonorariosDias: $configCaso->carenciaHonorariosDias,
+            honorariosDasObrigacoes: $honorariosDasObrigacoes,
+            honorariosEmAberto: $honorariosEmAberto,
+            honorariosRecebidos: $honorariosRecebidos,
         );
     }
 

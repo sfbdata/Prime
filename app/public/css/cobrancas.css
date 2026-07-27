@@ -665,7 +665,20 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    também, para "cinza = carteira" valer nos 10 campos. Sem `:has`, cai no comportamento de antes. */
 #modalConfigEncargosObjeto .form-select:has(option[value=""]:checked) { color: var(--bs-secondary-color); }
 
-/* Aba Honorários (§14.2) — leitura pura, sem número novo. */
+/* Aba Honorários (§14.2) — leitura pura: os números são os mesmos da dívida e do extrato, e os totais
+   são somas deles, feitas no UseCase. */
+.cob-hon-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+.cob-hon-card {
+    display: flex; flex-direction: column; gap: .15rem;
+    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
+    padding: .9rem 1rem; background: var(--bs-tertiary-bg);
+}
+.cob-hon-card-rot { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
+.cob-hon-card-val { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
+/* Recebido é o único valor "bom" da aba — mesma leitura verde do saldo zerado do cabeçalho. */
+.cob-hon-card-val.is-recebido { color: var(--bs-success); }
+.cob-hon-card-nota { font-size: .8rem; color: var(--bs-secondary-color); }
+
 .cob-hon-config { display: flex; flex-wrap: wrap; gap: 1.5rem; }
 .cob-hon-item { display: flex; flex-direction: column; gap: .1rem; }
 .cob-hon-rot { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
@@ -675,6 +688,15 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
     padding: .5rem 0; border-top: 1px solid var(--bs-border-color);
 }
-.cob-hon-desc { flex: 1 1 14rem; min-width: 0; }
+.cob-hon-desc { flex: 1 1 14rem; min-width: 0; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
 .cob-hon-venc { color: var(--bs-secondary-color); font-size: .85rem; }
 .cob-hon-num { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Quitada continua na lista (ela compõe o total das obrigações), mas recua visualmente — o trabalho
+   está no que falta receber. */
+.cob-hon-lista > li.is-quitada .cob-hon-desc,
+.cob-hon-lista > li.is-quitada .cob-hon-num { color: var(--bs-secondary-color); }
+/* Rodapé de total: borda mais forte para fechar a lista, sem virar outra "linha de dívida". */
+.cob-hon-lista > li.cob-hon-total {
+    border-top-width: 2px; border-top-color: var(--bs-secondary-color);
+    font-weight: 700; margin-top: .15rem;
+}

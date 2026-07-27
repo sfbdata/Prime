@@ -21,6 +21,7 @@ nada aqui é servido ao usuário. Servem para conferir o que foi entregue sem pr
 | `10-escuro-homonimo-definir-como-atual.png` | Depois do conserto dos homônimos: `CRUZEIRO E SOUSA IMOVEIS LTDA ME` (um de **seis** com o mesmo nome) tem `Definir como atual` **habilitado**. Antes o botão vinha desabilitado, porque o modal não conseguia selecionar essa pessoa |
 | `11-escuro-anotacoes-rolagem.png` | Lista de anotações com **todas** as 14 no HTML e rolagem dentro do bloco (352px de 1112px de conteúdo); o contador no cabeçalho substituiu o aviso "mostrando as 10 mais recentes". Anotações semeadas só para a captura e apagadas depois |
 | `12-escuro-encargos-valores-da-carteira.png` | `Editar configuração de encargos` mostrando **os valores da carteira TOP LIFE II** em cinza (1,00% de juros, 2,00% de multa, 15,00% de honorários, 30 dias de carência) no lugar do selo "Herda da carteira". Todos os campos estão **vazios** — o cinza é placeholder, não valor gravado |
+| `13-escuro-honorarios-totais.png` | Aba **Honorários** com os dois cards no topo (`A receber` / `Já recebido`) e o rodapé `Total das obrigações`. O rodapé bate com a soma das seis linhas: 27,40 + 27,16 + 26,89 + 26,64 + 26,38 + 0,00 = **R$ 134,47** |
 
 A barra de formatação nas imagens tem negrito, itálico, sublinhado, tachado, cor, listas, recuo,
 alinhamento, citação e limpar formatação. **Link não faz parte dela**: o sanitizador `textoRico` não

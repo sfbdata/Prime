@@ -12,8 +12,8 @@ Reorganização de interface de `cobranca_objeto_show`, executada em 2026-07-26 
 | Branch | `feature/cobranca-ux-rapida` |
 | Worktree | `.claude/worktrees/cobranca-ux-rapida` |
 | Base | `origin/master` `0bb1f29` |
-| HEAD | topo de `feature/cobranca-ux-rapida` (6 commits sobre a base) |
-| Suíte | **2601/2601** (8209 asserções), no banco da frente |
+| HEAD | topo de `feature/cobranca-ux-rapida` (10 commits sobre a base) |
+| Suíte | **2609/2609** (8278 asserções), no banco da frente |
 | Árvore | limpa |
 
 Commits, na ordem:
@@ -25,7 +25,11 @@ Commits, na ordem:
 | `856133a` | Contém o escopo na cobrança (desfaz a liberação global de link) e prova a segurança da anotação |
 | `8e5af79` | Aba Responsáveis, remoção do trilho direito, largura total, próxima ação compacta |
 | `7b48a52` | Documenta a entrega |
-| _HEAD_ | **Homônimos: opção por id com rótulo desempatado; tira a mitigação da UI** |
+| — | **Homônimos: opção por id com rótulo desempatado; tira a mitigação da UI** |
+| — | Anotações: todas na lista, com rolagem no bloco |
+| — | Modal de encargos: mostra os valores da carteira no lugar do selo "Herda da carteira" |
+| — | "Ver na dívida" passa a abrir a aba Dívida antes de rolar |
+| _HEAD_ | **Aba Honorários: cards de total (`A receber` / `Já recebido`) e rodapé por lista** |
 
 ## O que a página virou
 
@@ -50,7 +54,13 @@ Commits, na ordem:
   preenchidos**: campo preenchido vira override do objeto no submit, e a partir daí mexer na carteira
   não alcança mais este objeto. Um "salvar" sem digitar nada congelaria os 10 campos em silêncio —
   há teste travando exatamente isso (`testSalvarSemDigitarNadaMantemAHerancaViva`).
-- **Honorários** — só o que o sistema já calcula.
+- **Honorários** — dois cards no topo (**A receber**, honorários das obrigações ainda em aberto; e
+  **Já recebido**, dos recebimentos), a configuração resolvida, e as duas listas com **rodapé de
+  total**. Os totais são somados no `MontarDetalheCasoUseCase` (não no Twig: é dinheiro, e lá tem
+  teste) sobre EXATAMENTE o conjunto que a aba lista — avulsas + parcelas dos grupos de acordo, que a
+  partição garante disjuntos. **Invariante: o rodapé bate com a soma das linhas visíveis**, que é o que
+  permite conferir a olho; `AbaHonorariosTotaisTest` trava isso. Não existe "total geral" somando os
+  dois cards de propósito — receber e ter recebido são estados diferentes do mesmo honorário.
 - **Sem trilho direito**: o card da pessoa virou a aba Responsáveis e a próxima ação virou a faixa.
 
 ## Ambiente da frente (o `saas` do dev NÃO serve)

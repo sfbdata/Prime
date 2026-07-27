@@ -70,6 +70,22 @@ final class CasoDetalheOutput
          * já resolvido acima para `baseHonorariosComposta`.
          */
         public readonly ?int $carenciaHonorariosDias = null,
+        /**
+         * Totais da aba Honorários (SPEC UX §14.2), em centavos. São SOMAS do que a própria aba lista —
+         * nenhuma regra financeira nova, nenhuma fonte de dados nova: o honorário por obrigação é o
+         * `ObrigacaoOutput::honorarios` já exibido na composição da dívida, e o por recebimento é o
+         * `PagamentoOutput::valorHonorarios` já exibido no extrato.
+         *
+         * Somados no UseCase (e não no Twig) porque são dinheiro: aqui têm teste, e o conjunto somado é
+         * EXATAMENTE o que a tela percorre — `obrigacoesAvulsas` + as parcelas dos `gruposAcordo`, que a
+         * partição de `agruparPorAcordo` garante disjuntos. As substituídas por acordo vigente ficam de
+         * fora dos dois (a aba não as lista, e elas estão fora do exigível), então o rodapé sempre bate
+         * com a soma das linhas visíveis — é o que permite conferir a olho.
+         */
+        public readonly int $honorariosDasObrigacoes = 0,
+        /** Recorte do anterior: só o que ainda NÃO foi quitado. É o honorário que falta receber. */
+        public readonly int $honorariosEmAberto = 0,
+        public readonly int $honorariosRecebidos = 0,
     ) {
     }
 }
