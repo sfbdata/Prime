@@ -8,10 +8,10 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, commits locais `4f3b594` (Etapa 1) e `a365114` (docs) sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`**, HEAD `29c4cbf` (Etapa 3) sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma prevista**, e é decisão de projeto (ver §3.1 da spec) |
-| Suíte | `tests/Cobranca` 1156/1156 verde ao fim da Etapa 2 (`tests/Cobranca/Unit` 666/666) |
+| Suíte | `tests/Cobranca` **1180/1180** verde ao fim da Etapa 3 |
 | Publicado | **nada** |
 
 ⚠️ **Duas decisões do dono estão abertas na Etapa 2** — o código segue a spec literal nas duas, e as
@@ -75,7 +75,7 @@ Não commite junto.
 
 - [x] **1 — Fundação** (enum, tipo de evento, DTOs de leitura, calculadora de prescrição) — `4f3b594`
 - [x] **2 — UseCases de qualificação** (registrar + desfazer + exceção + query da 4ª condição)
-- [ ] **3 — Leitura da página** (totais do cabeçalho, prescrição, ficha da cobrada, vizinhos na carteira)
+- [x] **3 — Leitura da página** (totais do cabeçalho, prescrição, ficha da cobrada, vizinhos na carteira) — `29c4cbf`
 - [ ] **4 — Rotas** (registrar / desfazer qualificação)
 - [ ] **5 — Template do cabeçalho**
 - [ ] **6 — Template da aba Responsáveis + painel de qualificação**
@@ -199,16 +199,69 @@ permanente e sem saída, e a janela aqui é de 5 minutos, não 48 horas. O mesmo
 anotação, onde o projeto escolheu o contrário — **o domínio ficou com duas regras opostas para "remover
 evento por engano"**. Uniformizar é decisão sua. Teste que trava: `casoEncerradoAindaDesfaz`.
 
-## Etapa 3 — PRÓXIMA
+## Etapa 3 — FEITA (`29c4cbf`)
 
-Leitura da página. `MontarDetalheCasoUseCase` passa a somar os quatro totais do cabeçalho (§1.2), a
-contagem de obrigações em aberto, o `PrescricaoOutput` (§1.3) e a lista de `QualificacaoContatoOutput`
-(§3.4); `MontarDetalheObjetoUseCase` ganha `fichaCobrada` e os vizinhos na carteira (§4, §1.5).
+Nenhum arquivo novo de produção; a Etapa 1 já tinha criado os DTOs e a calculadora.
 
-Atenção aos pontos que a spec já fixou: os totais somam sobre **exatamente** o conjunto que a aba Dívida
-lista, no UseCase e nunca no Twig (§1.2); o relógio é `EncargosVivos::agora()` (§1.3); a listinha de
-qualificação passa `$ehMaisRecente = true` só para a primeira linha, que é o que decide o botão desfazer
-no servidor (`QualificacaoContatoOutput::tentarDe`).
+| Arquivo | O quê |
+|---|---|
+| `DTO/CasoDetalheOutput.php` | +6 campos: `totalPrincipalEmAberto`, `totalEncargosEmAberto`, `totalAtualizadoEmAberto`, `totaisAtualizadosEm`, `obrigacoesEmAbertoQtd`, `prescricao`, `qualificacoes` |
+| `DTO/ObjetoDetalheOutput.php` | +3 campos: `fichaCobrada`, `objetoAnteriorId`, `objetoProximoId` |
+| `UseCase/MontarDetalheCasoUseCase.php` | soma os cards no mesmo laço dos totais de honorários; `montarQualificacoes()`; +`CalculadoraPrescricao` no construtor |
+| `UseCase/MontarDetalheObjetoUseCase.php` | +`MontarFichaPessoaUseCase` e `ObjetoCobrancaRepository` no construtor |
+| `Repository/ObjetoCobrancaRepository.php` | `vizinhosNaCarteira()` + o privado `vizinho()` |
+
+Testes: `Unit/CalculadoraPrescricaoTest` (novo, 10), `Unit/MontarDetalheCasoUseCaseTest` (+8),
+`Functional/MontarDetalheObjetoUseCaseTest` (+5, contra o banco).
+
+### Contratos que a Etapa 5 e a 6 consomem
+
+```
+caso.totalPrincipalEmAberto · caso.totalEncargosEmAberto · caso.honorariosEmAberto
+caso.totalAtualizadoEmAberto   // = a soma dos três acima, por construção
+caso.totaisAtualizadosEm       // data do relógio, para o "atualizado em" do card
+caso.obrigacoesEmAbertoQtd     // a linha meta "N obrigações em aberto"
+caso.prescricao                // ?PrescricaoOutput — null = a caixa não é renderizada
+caso.qualificacoes             // list<QualificacaoContatoOutput>, mais recente primeiro
+objeto.fichaCobrada            // ?PessoaFichaOutput — telefones/e-mails/endereços da cobrada
+objeto.objetoAnteriorId · objeto.objetoProximoId   // null = seta desabilitada
+```
+
+**O card `Honorários` do cabeçalho é o `honorariosEmAberto` que já existia** — não há um segundo campo
+com o mesmo número. O conjunto e a regra são idênticos aos da aba Honorários; duplicar só criaria dois
+lugares para divergir. Quem mexer num tem de lembrar que mexe nos dois.
+
+⚠️ `totalAtualizadoEmAberto` é o **bruto** (principal + encargos + honorários das em aberto).
+**Não é** o `saldoExigivel`, que é líquido de pagamentos e é quem governa o encerramento. Os dois ficam
+na tela de propósito (§1.2). Trocar um pelo outro no Twig faz o gestor conferir o número errado.
+
+### O que a Etapa 3 ensinou
+
+**Injeção de defeito: 11 rodadas, 10 falharam como esperado — e a que passou verde achou um teste que
+mentia.** O `aListinhaTrazSoAsQualificacoes` afirmava que o filtro por TIPO excluía a anotação, mas quem
+a excluía era o payload vazio (`dados['qualificacao'] ?? null`). Removi o filtro de tipo e o teste
+continuou verde. Corrigido com um evento `ContatoRealizado` carregando um payload com a chave
+`qualificacao` — aí o filtro de tipo vira a única defesa, e o teste passou a pegar. **A asserção que você
+escreve e a causa que a faz passar podem ser coisas diferentes; só a injeção mostra qual é qual.**
+
+**O filtro de `tenant` na consulta dos vizinhos é comprovadamente redundante** (a carteira já é
+tenant-bound): removê-lo sozinho deixa a suíte verde. Ele fica como defesa em profundidade, e o docblock
+diz isso — mas **nenhum teste prova esse filtro**, e prometer o contrário seria falso. O que o teste
+prova é o filtro de **carteira** (removê-lo derruba).
+
+**`Doctrine\ORM\Query\Expr` não tem `comparison()`** — é `gt()`/`lt()`. E a injeção de defeito que
+remove um `andWhere` tem de remover o `setParameter` correspondente, senão o erro é
+"Too many parameters" e você prova o seu próprio bug de injeção, não o do código (aconteceu uma vez
+aqui — refeita mirando a DIREÇÃO do desempate, com os parâmetros intactos, o teste caiu de verdade).
+
+**`willReturn` no `setUp` vence qualquer stub do corpo do teste.** Tirei o
+`eventoRepository->method('doCaso')->willReturn([])` do `setUp` do `MontarDetalheCasoUseCaseTest` para os
+testes da listinha conseguirem devolver eventos concretos — o arquivo já documentava essa armadilha para
+os outros `doCaso`, e ela mordeu de novo.
+
+**`ehMaisRecente` é decidido pela POSIÇÃO entre os eventos do tipo, antes de o payload ser lido.**
+`ultimaQualificacaoDoCaso` (a guarda do servidor) não olha o payload; se uma linha quebrada sumisse da
+lista e o `true` escorregasse para a seguinte, a tela ofereceria um botão que a rota vai recusar.
 
 ## Comandos
 
