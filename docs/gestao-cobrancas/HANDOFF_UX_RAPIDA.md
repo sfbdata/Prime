@@ -43,7 +43,13 @@ Commits, na ordem:
 - **Responsáveis** — responsável atual no topo e expandido, demais em accordion; `Trocar responsável`,
   `Adicionar pessoa`, `Definir como atual`, `Editar` e `Encerrar vínculo`.
 - **Dívida** — composição inteira (principal, juros, multa, correção, honorários, total) e
-  `Editar configuração de encargos`.
+  `Editar configuração de encargos`. Esse modal **mostra os valores que a carteira tem configurados**
+  (em cinza, como placeholder de cada campo vazio) em vez do selo "Herda da carteira" — os números
+  vêm do `ResolvedorConfigEncargos::resolverDaCarteira`, o mesmo que o cálculo usa, para a tela nunca
+  exibir um valor derivado por regra paralela. **Continuam sendo placeholders, não valores
+  preenchidos**: campo preenchido vira override do objeto no submit, e a partir daí mexer na carteira
+  não alcança mais este objeto. Um "salvar" sem digitar nada congelaria os 10 campos em silêncio —
+  há teste travando exatamente isso (`testSalvarSemDigitarNadaMantemAHerancaViva`).
 - **Honorários** — só o que o sistema já calcula.
 - **Sem trilho direito**: o card da pessoa virou a aba Responsáveis e a próxima ação virou a faixa.
 

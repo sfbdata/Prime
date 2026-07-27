@@ -494,9 +494,11 @@
             <div class="modal-body">
                 <div class="alert alert-info small d-flex align-items-start gap-2 mb-3">
                     <i class="bi bi-info-circle-fill"></i>
+                    {# Os valores em cinza são os da carteira, mostrados campo a campo como placeholder.
+                       A frase abaixo diz DE ONDE eles vêm — sem isso, um número cinza no campo poderia
+                       ser lido como algo já gravado neste objeto. #}
                     <div>Vale para <strong>todas as obrigações de todos os casos</strong> deste objeto, ao vivo (sem
-                        congelar nada). Deixe um campo <strong>vazio</strong> para herdar o que está configurado na
-                        carteira.</div>
+                        congelar nada). Os valores em cinza são os da carteira <strong>{{ objeto.carteiraNome }}</strong>.</div>
                 </div>
                 {{ form_errors(formConfigEncargos) }}
                 {{ include('cobranca/objeto/_partials/_campos_config_encargos.html.twig', {

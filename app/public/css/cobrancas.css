@@ -659,6 +659,12 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere;
 }
 
+/* Encargos do objeto: campo sem override mostra o valor da carteira. Nos inputs isso já sai cinza
+   (é placeholder); nos selects o navegador pinta a opção vazia com a cor normal, o que faria um
+   valor da carteira parecer escolha gravada neste objeto. Aqui a opção vazia selecionada fica cinza
+   também, para "cinza = carteira" valer nos 10 campos. Sem `:has`, cai no comportamento de antes. */
+#modalConfigEncargosObjeto .form-select:has(option[value=""]:checked) { color: var(--bs-secondary-color); }
+
 /* Aba Honorários (§14.2) — leitura pura, sem número novo. */
 .cob-hon-config { display: flex; flex-wrap: wrap; gap: 1.5rem; }
 .cob-hon-item { display: flex; flex-direction: column; gap: .1rem; }
