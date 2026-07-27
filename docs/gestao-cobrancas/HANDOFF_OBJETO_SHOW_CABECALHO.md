@@ -8,10 +8,10 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, HEAD `29c4cbf` (Etapa 3) sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`**, HEAD `fd9b2b5` (Etapa 4) sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma prevista**, e é decisão de projeto (ver §3.1 da spec) |
-| Suíte | `tests/Cobranca` **1180/1180** verde ao fim da Etapa 3 |
+| Suíte | `tests/Cobranca` **1194/1194** verde ao fim da Etapa 4 |
 | Publicado | **nada** |
 
 ⚠️ **Duas decisões do dono estão abertas na Etapa 2** — o código segue a spec literal nas duas, e as
@@ -76,7 +76,7 @@ Não commite junto.
 - [x] **1 — Fundação** (enum, tipo de evento, DTOs de leitura, calculadora de prescrição) — `4f3b594`
 - [x] **2 — UseCases de qualificação** (registrar + desfazer + exceção + query da 4ª condição)
 - [x] **3 — Leitura da página** (totais do cabeçalho, prescrição, ficha da cobrada, vizinhos na carteira) — `29c4cbf`
-- [ ] **4 — Rotas** (registrar / desfazer qualificação)
+- [x] **4 — Rotas** (registrar / desfazer qualificação) — `fd9b2b5`
 - [ ] **5 — Template do cabeçalho**
 - [ ] **6 — Template da aba Responsáveis + painel de qualificação**
 - [ ] **7 — CSS**
@@ -262,6 +262,80 @@ os outros `doCaso`, e ela mordeu de novo.
 **`ehMaisRecente` é decidido pela POSIÇÃO entre os eventos do tipo, antes de o payload ser lido.**
 `ultimaQualificacaoDoCaso` (a guarda do servidor) não olha o payload; se uma linha quebrada sumisse da
 lista e o `true` escorregasse para a seguinte, a tela ofereceria um botão que a rota vai recusar.
+
+## Etapa 4 — FEITA (`fd9b2b5`)
+
+| Arquivo | O quê |
+|---|---|
+| `Controller/QualificacaoContatoController.php` (novo) | as duas rotas POST da §3.5 |
+| `tests/.../QualificacaoContatoControllerTest.php` (novo) | 14 funcionais |
+| `tests/.../CobrancaWebTestCase.php` | `tokenCsrf()` passou a **salvar a sessão** |
+
+### Contrato que a Etapa 6 (template do painel) consome
+
+O painel **não usa Symfony Form** — são três `<form method="post">` crus, um por botão, mais o do
+desfazer. Os campos e as intenções de CSRF:
+
+```twig
+{# registrar — um form por botão do painel #}
+<form method="post" action="{{ path('cobranca_qualificacao_registrar', {id: caso.id}) }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('registrar_qualificacao_' ~ caso.id) }}">
+    <input type="hidden" name="qualificacao" value="{{ q.value }}">   {# valor do enum #}
+
+{# desfazer — só na linha que o servidor marcou com podeDesfazer #}
+<form method="post" action="{{ path('cobranca_qualificacao_desfazer', {eventoId: linha.eventoId}) }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('desfazer_qualificacao_' ~ linha.eventoId) }}">
+```
+
+⚠️ **Estas duas intenções são STATEFUL**, ao contrário de todo Form do projeto: `config/packages/csrf.yaml`
+põe `submit`/`authenticate`/`logout` em `stateless_token_ids`, e o Form usa `token_id: submit`. Como aqui
+não há Form, o token vai pela sessão. Consequência prática: `csrf_token()` no Twig é obrigatório — não dá
+para reaproveitar o mecanismo stateless que o resto da página usa.
+
+Ambas as rotas voltam para `cobranca_objeto_show` com `?aba=responsaveis` (o mecanismo genérico de
+ativar aba que o `show` já tem). Sem objeto resolvível, caem em `cobranca_caso_index`.
+
+### O que a Etapa 4 ensinou
+
+**O helper `tokenCsrf()` estava quebrado, e o estrago era só em testes que esperavam RECUSA.** Ele gerava
+o token e não salvava a sessão; quem persiste a sessão é o `kernel.response`, que não roda quando você
+gera o token entre requisições. Resultado: a requisição seguinte carregava a sessão anterior, **sem** o
+token, e o POST era recusado por CSRF **haja o que houver**. Todo teste que afirmava "a regra X recusa"
+passava porque o CSRF recusava antes — a regra X nunca chegava a ser exercida. Com o `save()`, dois
+funcionais antigos de anotação (`testEventoAutomaticoNaoPodeSerExcluido` e
+`testEdicaoEExclusaoExigemCapacidadeDeGerenciar`) passaram a exercitar de verdade o que dizem provar:
+injetei defeito nos dois e os dois caíram — antes não cairiam.
+
+**Dois testes desta etapa nasceram com o mesmo defeito, e só a injeção mostrou.** Os de capacidade
+postavam sem token: rebaixar o gate de `tenantComCapacidade` para `tenantComModulo` deixava os dois
+VERDES. Corrigidos passando o CSRF certo (o operador tem o módulo de leitura, então consegue abrir a
+página e obter o token) e assertando o **destino** do redirect — `semAcesso()` vai para `/`, e é esse
+destino que separa "barrado pelo gate" de "barrado pelo CSRF". `assertResponseRedirects()` sem alvo
+aceita os dois e não prova nada.
+
+**A recusa por TIPO no desfazer tem defesa dupla, e nenhum teste separa as duas.** Além do
+`podeSerDesfeitaPor`, a consulta da 4ª condição já filtra por tipo — para uma anotação ela devolve `null`
+e a remoção cai ali de qualquer jeito. Medido: remover UMA das duas deixa o teste verde; só removendo AS
+DUAS ele cai. O teste prova que a **rota** não apaga evento de outro tipo, não que a checagem da entidade
+sozinha funciona; o comentário no teste diz isso, para ninguém prometer mais do que há.
+
+**18 injeções de defeito, todas derrubaram o teste esperado** (`tmp` do scratchpad, não versionado). Entre
+elas as duas que provam a ORDEM das guardas: reordenar o CSRF para antes da resolução tenant-safe faz o
+cross-tenant responder 302 em vez de 404, e o teste cai.
+
+**Refutado por medição:** a revisão levantou que o `TenantFilter` global tornaria redundante o
+`findOneByIdDoTenant` do controller (o `find()` cru também esconderia o registro alheio). Não é o que
+acontece: trocar por `find()` derruba os dois testes cross-tenant com "Failed asserting that the Response
+status code is 404". O filtro do controller é o que responde ali.
+
+### O que a Etapa 4 devolveu para o dono / para a Etapa 8
+
+1. **`DesfazerQualificacaoContatoUseCase::executar` devolve o id do CASO e ninguém usa.** O handoff da
+   Etapa 2 anunciou esse retorno "para o redirect", mas o redirect vai para a página do **objeto**, e o
+   controller resolve o objeto pelo evento antes de remover. O retorno virou peso morto. Não mexi no
+   UseCase (é da Etapa 2, já revisado e testado); tirar ou manter é decisão de quem fechar a etapa 8.
+2. **As duas actions passam de ~20 linhas** da heurística 5-10-20 do `criar-controller`. O excedente é
+   guarda e comentário, não lógica; registrado por honestidade, não como pendência.
 
 ## Comandos
 
