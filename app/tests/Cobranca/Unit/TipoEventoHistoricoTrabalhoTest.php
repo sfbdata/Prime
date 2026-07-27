@@ -27,6 +27,9 @@ final class TipoEventoHistoricoTrabalhoTest extends TestCase
         'acordo_criado', 'acordo_editado', 'acordo_rompido', 'acordo_cancelado', 'acordo_cumprido',
         'pagamento_registrado', 'pagamento_corrigido', 'liquidacao_registrada',
         'pessoa_cobrada_alterada', 'judicializacao', 'vinculo_pasta', 'encerramento', 'anotacao',
+        // 2026-07-27: carimbo de qualificação do devedor (recusa / telefone inexistente / promessa).
+        // Sai de uma ligação, não de importação — por isso conta como trabalho de cobrança.
+        'qualificacao_contato',
     ];
 
     /** Lista literal da spec §5.1. */

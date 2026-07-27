@@ -70,6 +70,13 @@ class EventoHistorico implements TenantAware
      */
     public const JANELA_EDICAO = 'PT48H';
 
+    /**
+     * Janela para DESFAZER uma qualificação de contato (2026-07-27). É muito mais curta que a da
+     * anotação de propósito: a qualificação nasce de um clique único, sem formulário nem confirmação,
+     * então a válvula existe para o engano do momento — não para revisar o registro depois.
+     */
+    public const JANELA_DESFAZER_QUALIFICACAO = 'PT5M';
+
     public function __construct()
     {
         $this->ocorridoEm = new \DateTimeImmutable();
@@ -91,6 +98,28 @@ class EventoHistorico implements TenantAware
         }
 
         return $agora <= $this->ocorridoEm->add(new \DateInterval(self::JANELA_EDICAO));
+    }
+
+    /**
+     * Condições de DESFAZER que dependem só deste evento: ser uma qualificação de contato, ter sido
+     * registrada por quem está desfazendo, e estar dentro dos 5 minutos.
+     *
+     * A quarta condição da spec — ser a qualificação MAIS RECENTE do caso — não cabe aqui: um evento
+     * não conhece os irmãos. Ela é verificada no `DesfazerQualificacaoContatoUseCase`, que é quem tem
+     * o caso inteiro à mão. Manter a divisão explícita evita a armadilha de alguém achar que este
+     * método sozinho autoriza a remoção.
+     */
+    public function podeSerDesfeitaPor(?User $usuario, \DateTimeImmutable $agora): bool
+    {
+        if ($this->tipo !== TipoEventoHistorico::QualificacaoContato || $usuario === null || $this->usuario === null) {
+            return false;
+        }
+
+        if ($this->usuario->getId() !== $usuario->getId()) {
+            return false;
+        }
+
+        return $agora <= $this->ocorridoEm->add(new \DateInterval(self::JANELA_DESFAZER_QUALIFICACAO));
     }
 
     public function getId(): ?int

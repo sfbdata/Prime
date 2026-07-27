@@ -129,7 +129,12 @@ falado com ninguém. Decisão do dono em 2026-07-22: **separar**.
 `contato_realizado` · `boleto_enviado` · `novo_prazo` · `negociacao` · `acordo_criado` ·
 `acordo_editado` · `acordo_rompido` · `acordo_cancelado` · `acordo_cumprido` ·
 `pagamento_registrado` · `pagamento_corrigido` · `liquidacao_registrada` ·
-`pessoa_cobrada_alterada` · `judicializacao` · `vinculo_pasta` · `encerramento` · `anotacao`
+`pessoa_cobrada_alterada` · `judicializacao` · `vinculo_pasta` · `encerramento` · `anotacao` ·
+`qualificacao_contato`
+
+> `qualificacao_contato` entrou em 2026-07-27 (spec `cobranca-objeto-show-cabecalho-responsaveis.md`):
+> carimbar recusa de pagamento / telefone inexistente / promessa de pagamento sai de uma ligação, não
+> de uma planilha. É trabalho de cobrança e conta aqui.
 
 **Tipos de cadastro/importação (fora):**
 `caso_aberto` · `obrigacao_criada` · `obrigacao_editada` · `obrigacao_excluida` ·

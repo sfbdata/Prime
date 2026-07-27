@@ -19,6 +19,17 @@ enum TipoEventoHistorico: string
      */
     case Anotacao = 'anotacao';
 
+    /**
+     * Carimbo de qualificação do devedor, gravado em UM clique no painel da aba Responsáveis
+     * (2026-07-27): recusa de pagamento, telefone inexistente, promessa de pagamento. A qualificação
+     * em si vai no payload `dados` (`QualificacaoContato`); a `descricao` guarda o rótulo.
+     *
+     * Diferente da anotação, admite DESFAZER numa janela curta (5 min, só o autor, só a mais recente)
+     * — o registro nasce de um clique único, sem formulário nem confirmação, e sem essa válvula um
+     * engano viraria histórico permanente.
+     */
+    case QualificacaoContato = 'qualificacao_contato';
+
     case CasoAberto = 'caso_aberto';
     case ObrigacaoCriada = 'obrigacao_criada';
     case ObrigacaoEditada = 'obrigacao_editada';
@@ -70,6 +81,7 @@ enum TipoEventoHistorico: string
             self::VinculoPasta => 'Vínculo com pasta',
             self::Encerramento => 'Encerramento',
             self::Anotacao => 'Anotação',
+            self::QualificacaoContato => 'Qualificação de contato',
         };
     }
 
@@ -108,7 +120,10 @@ enum TipoEventoHistorico: string
             self::Judicializacao,
             self::VinculoPasta,
             self::Encerramento,
-            self::Anotacao => true,
+            self::Anotacao,
+            // Qualificar o devedor é trabalho de cobrança: sai de uma ligação ou de uma tentativa de
+            // contato, não de importação de planilha. Conta na Central junto do resto.
+            self::QualificacaoContato => true,
 
             self::CasoAberto,
             self::ObrigacaoCriada,
