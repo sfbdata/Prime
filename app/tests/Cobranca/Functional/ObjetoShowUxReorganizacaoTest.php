@@ -50,11 +50,15 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         self::assertSelectorExists('#tab-cobranca .cob-anotacao-nova textarea[data-editor-rico]');
         self::assertSelectorExists('#tab-cobranca .cob-anotacao-nova button[type="submit"]');
 
+        // Ancorado no ÍCONE do cabeçalho da lista, não no rótulo: o texto pode ser reescrito sem que a
+        // ordem dos blocos mude, e um teste que cai por renomear título não protege invariante nenhuma.
         $painel = $crawler->filter('#tab-cobranca')->html();
+        $posLista = strpos($painel, 'bi-chat-left-text');
+        self::assertIsInt($posLista, 'o cabeçalho da lista de anotações sumiu do painel');
         self::assertLessThan(
-            strpos($painel, 'Anotações recentes'),
+            $posLista,
             strpos($painel, 'cob-anotacao-nova'),
-            'o editor precisa vir antes das anotações recentes',
+            'o editor precisa vir antes da lista de anotações',
         );
     }
 
@@ -90,6 +94,38 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('js/editor-rico.js', $html);
         self::assertStringContainsString('js/quill/quill.js', $html);
+    }
+
+    #[TestDox('SPEC §8: TODAS as anotações aparecem, num bloco rolável — nenhuma fica escondida')]
+    public function testTodasAsAnotacoesAparecemNoBlocoRolavel(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // 12 > o antigo corte de 10: se alguém reintroduzir um `slice`, este teste cai. A 1ª e a 12ª
+        // são nomeadas porque o que precisa valer é que NENHUMA ponta suma — nem a mais nova (topo da
+        // lista), nem a mais velha (só alcançável rolando).
+        $this->semearAnotacao($caso, $tenant, $usuario, 'a mais antiga de todas');
+        for ($i = 2; $i <= 11; ++$i) {
+            $this->semearAnotacao($caso, $tenant, $usuario, 'anotação de enchimento ' . $i);
+        }
+        $this->semearAnotacao($caso, $tenant, $usuario, 'a mais recente de todas');
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+
+        self::assertCount(12, $crawler->filter('#tab-cobranca .cob-anotacoes .cob-anotacao'), 'as 12 anotações têm de estar no HTML');
+
+        $lista = $crawler->filter('#tab-cobranca .cob-anotacoes');
+        self::assertStringContainsString('a mais recente de todas', $lista->text());
+        self::assertStringContainsString('a mais antiga de todas', $lista->text(), 'a mais velha não pode ser cortada');
+
+        // A rolagem é CSS, mas a região precisa ser alcançável pelo teclado — isso o HTML garante.
+        self::assertSame('0', $lista->attr('tabindex'), 'bloco rolável sem foco por teclado deixa o conteúdo inacessível');
+
+        // E o corte antigo não pode voltar disfarçado de aviso.
+        self::assertStringNotContainsString('mais recentes de', $crawler->filter('#tab-cobranca')->text());
     }
 
     #[TestDox('SPEC §10: excluir anotação exige confirmação e leva a URL e o CSRF daquela linha')]

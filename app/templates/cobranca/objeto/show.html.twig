@@ -220,13 +220,22 @@
                 </div>
                 {% endif %}
 
-                {# Anotações recentes (SPEC UX §8): só as anotações livres, as 10 mais novas. Eventos
-                   automáticos não entram aqui — eles não são editáveis nem excluíveis. #}
+                {# Anotações da cobrança (SPEC UX §8): só as anotações livres — eventos automáticos não
+                   entram aqui, porque não são editáveis nem excluíveis.
+
+                   Aparecem TODAS, com rolagem dentro do bloco (`.cob-anotacoes`) em vez do corte nas 10
+                   mais novas que existia antes: procurar uma anotação antiga não deve exigir trocar para
+                   o Histórico, onde ela some no meio dos eventos automáticos. Nada muda em consulta —
+                   `EventoHistoricoRepository::doCaso` sempre trouxe o histórico inteiro; o corte era só
+                   de exibição. `tabindex="0"` porque região rolável tem de ser alcançável pelo teclado. #}
                 {% set anotacoes = caso.historico|filter(e => e.tipoValue == 'anotacao') %}
-                <h6 class="mb-2"><i class="bi bi-chat-left-text me-1"></i>Anotações recentes</h6>
+                <h6 class="mb-2">
+                    <i class="bi bi-chat-left-text me-1"></i>Anotações
+                    {% if anotacoes|length > 0 %}<span class="badge text-bg-secondary">{{ anotacoes|length }}</span>{% endif %}
+                </h6>
                 {% if anotacoes|length > 0 %}
-                <ul class="cob-anotacoes">
-                    {% for e in anotacoes|slice(0, 10) %}
+                <ul class="cob-anotacoes" tabindex="0" role="region" aria-label="Anotações da cobrança">
+                    {% for e in anotacoes %}
                     <li class="cob-anotacao">
                         <div class="d-flex align-items-center gap-2 cob-anotacao-topo">
                             <span class="cob-anotacao-autor">{{ e.usuarioNome|default('Sistema') }}</span>
@@ -240,9 +249,6 @@
                     </li>
                     {% endfor %}
                 </ul>
-                {% if anotacoes|length > 10 %}
-                <p class="small text-secondary mb-0">Mostrando as 10 mais recentes de {{ anotacoes|length }}. As demais ficam em <strong>Histórico</strong>.</p>
-                {% endif %}
                 {% else %}
                 <p class="text-muted mb-0 py-3">Nenhuma anotação ainda. Use o campo acima para registrar o que aconteceu.</p>
                 {% endif %}

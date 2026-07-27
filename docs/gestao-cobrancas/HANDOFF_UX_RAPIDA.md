@@ -34,8 +34,12 @@ Commits, na ordem:
 - **Barra de atividades** (largura total, acima do conteúdo) — 7 opções: Cobrança · Documentos ·
   Histórico · Responsáveis · Registrar contato · Dívida · Honorários. Abaixo de **1200px** as menos
   frequentes recolhem em `Mais ações`; ficam visíveis as 4 que a SPEC §6.4 exige.
-- **Cobrança** — próxima ação em faixa compacta, editor de anotação (primeiro elemento útil) e
-  "Anotações recentes" com editar/excluir.
+- **Cobrança** — próxima ação em faixa compacta, editor de anotação (primeiro elemento útil) e a lista
+  de **Anotações** com editar/excluir: aparecem **todas**, com contador no cabeçalho e rolagem dentro
+  do bloco (22rem, a mesma altura da lista de eventos da Central). Substituiu o corte nas 10 mais
+  novas — procurar uma anotação antiga não deve obrigar a ir ao Histórico, onde ela some no meio dos
+  eventos automáticos. Sem custo de consulta: `EventoHistoricoRepository::doCaso` sempre trouxe o
+  histórico inteiro, o corte era só de exibição.
 - **Responsáveis** — responsável atual no topo e expandido, demais em accordion; `Trocar responsável`,
   `Adicionar pessoa`, `Definir como atual`, `Editar` e `Encerrar vínculo`.
 - **Dívida** — composição inteira (principal, juros, multa, correção, honorários, total) e
@@ -164,8 +168,9 @@ mostrar para quem tem vários. **Ficou fora por ser ampliação de escopo, não 
 
 `http://localhost:8090/cobrancas/objetos/84` (senha do dev: `Prime123!`).
 
-1. Salvar anotação com negrito → aparece em "Anotações recentes" → editar (badge **Editada**) →
-   excluir (o modal mostra um trecho). `Ctrl+Enter` salva.
+1. Salvar anotação com negrito → aparece na lista de **Anotações** → editar (badge **Editada**) →
+   excluir (o modal mostra um trecho). `Ctrl+Enter` salva. Com mais de ~5 anotações o bloco passa a
+   rolar sozinho, sem cortar nenhuma (medido: 14 anotações = 1112px de conteúdo em 352px de janela).
 2. **Dívida** e **Honorários** — a composição e as métricas.
 3. **Responsáveis** — atual no topo, demais no accordion. Objeto `22` tem dois vínculos, e **os dois
    são homônimos** (`MARIA PEREIRA DA SILVA` é uma de duas; `CRUZEIRO E SOUSA IMOVEIS LTDA ME`, uma de
