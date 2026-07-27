@@ -17,6 +17,33 @@ use PHPUnit\Framework\Attributes\TestDox;
 #[CoversClass(ObjetoController::class)]
 final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
 {
+    #[TestDox('"Ver na dívida" leva à ABA da dívida: carrega o gancho que o JS usa para ativá-la antes de rolar')]
+    public function testVerNaDividaCarregaOGanchoDeAbertura(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+
+        // Obrigação VENCIDA: é o que faz nascer o alerta que traz o botão.
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso,
+            'descricao' => 'Cota vencida', 'valorOriginal' => 50000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('-30 days'),
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+
+        $botao = $crawler->filter('.jp-alerta-acoes a[href="#secao-divida"]');
+        self::assertCount(1, $botao, 'o alerta de vencida tem de oferecer "Ver na dívida"');
+
+        // O alvo do link mora DENTRO do pane da aba Dívida, que nasce oculto: sem este gancho o clique
+        // não sai do lugar, porque não se rola até elemento invisível.
+        self::assertSame('divida', $botao->attr('data-abrir-aba'), 'sem o gancho o botão vira clique morto');
+        self::assertSelectorExists('#tab-divida #secao-divida', 'o alvo da rolagem tem de estar dentro do pane da aba');
+        self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-divida"]', 'o JS ativa a aba por este gatilho');
+    }
+
     #[TestDox('A página do objeto mantém todos os ganchos de id/data-* que o JS usa')]
     public function testGanchosDeJsPresentes(): void
     {
@@ -59,6 +86,20 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
                   '[data-selecao-total]', '[data-acao="acordar-selecionadas"]',
                   '[data-acao="limpar-selecao"]'] as $gancho) {
             self::assertSelectorExists($gancho, "Sumiu o gancho: {$gancho}");
+        }
+
+        // Criar acordo: os ganchos do gerador. `data-valor-centavos` é o insumo da SOMA da seleção — a
+        // reorganização visual do modal renderiza os checkboxes um a um, e um `attr` sobrescrito no lugar
+        // de mesclado apagaria esse dado deixando todo acordo nascer com total R$ 0,00, em silêncio.
+        foreach (['#modalCriarAcordo input[name*="obrigacoesSubstituidasIds"][data-valor-centavos]',
+                  '#modalCriarAcordo input[name*="obrigacoesSubstituidasIds"][data-alocado-centavos]',
+                  '#modalCriarAcordo input[data-acordo-total]', '#modalCriarAcordo input[data-acordo-entrada]',
+                  '#modalCriarAcordo [data-acordo-total-selecionado]', '#modalCriarAcordo [data-acordo-erro-gerador]',
+                  '#modalCriarAcordo [data-acordo-fechamento]', '#modalCriarAcordo [data-acordo-vazio]',
+                  '#modalCriarAcordo [data-acordo-selecao="todas"]', '#modalCriarAcordo [data-acordo-selecao="nenhuma"]',
+                  '#acordoQtdParcelas', '#acordoData1', '#acordoPeriodicidade', '#acordoGerar',
+                  '#parcelasContainer', '#addParcela', '#avisoAcordoComPagamento'] as $gancho) {
+            self::assertSelectorExists($gancho, "Sumiu o gancho do acordo: {$gancho}");
         }
 
         // Modais que o JS abre/rehidrata (ids fixos)
@@ -155,15 +196,16 @@ final class ObjetoShowContratoJsTest extends CobrancaWebTestCase
             'O handler de abertura do modal de Editar parou de ler o data-taxa-*-bp por encargo (rehidratação morta)',
         );
 
-        // Ajuste 11 (T3): a "Próxima ação" migrou da coluna principal para o cartão de destaque
-        // do trilho (`.cob-proxima`) — o gancho visual, não só o modal que ela abre.
-        self::assertSelectorExists('.cob-proxima', 'Sumiu o cartão Próxima ação do trilho');
+        // A "Próxima ação" saiu do cartão do trilho e virou faixa compacta no topo da aba Cobrança —
+        // o gancho visual, não só o modal que ela abre. O trilho não existe mais.
+        self::assertSelectorExists('#tab-cobranca .cob-proxima-faixa', 'Sumiu a faixa Próxima ação da aba Cobrança');
+        self::assertSelectorExists('.cob-proxima-faixa [data-bs-target="#modalDefinirAcao"], .cob-proxima-faixa [data-bs-target="#modalConcluirAcao"]', 'a faixa perdeu o gatilho de definir/concluir');
 
-        // Ajuste 11 (T3): o cartão "Ações do caso" no trilho. Neste cenário há Obrigação com
-        // restante > 0 → saldoExigivel > 0 → `caso.prontoParaEncerrar` é false → "Encerrar cobrança"
-        // renderiza DESABILITADO (`.cob-acao-link.is-disabled`), ensinando a condição em vez de
-        // deixar o item sumir. Cobre o ramo desabilitado; o ramo habilitado (saldo zerado) e
+        // SPEC UX §6.1 (2026-07-26): "Encerrar cobrança" saiu do cartão do trilho e virou botão do
+        // CABEÇALHO, junto do status que ele muda. Neste cenário há Obrigação com restante > 0 →
+        // saldoExigivel > 0 → `caso.prontoParaEncerrar` é false → renderiza DESABILITADO, ensinando a
+        // condição em vez de sumir. Cobre o ramo desabilitado; o ramo habilitado (saldo zerado) e
         // Judicializar (módulo pastas) exigem cenário/tenant extra — ver FOLLOW-UP no relatório.
-        self::assertSelectorExists('.cob-acao-link.is-disabled', 'Sumiu a linha desabilitada de Encerrar cobrança');
+        self::assertSelectorExists('.content-header .cob-acao-encerrar.is-disabled', 'Sumiu o botão desabilitado de Encerrar cobrança no cabeçalho');
     }
 }

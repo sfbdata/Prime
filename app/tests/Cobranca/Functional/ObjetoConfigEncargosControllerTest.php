@@ -305,6 +305,94 @@ final class ObjetoConfigEncargosControllerTest extends CobrancaWebTestCase
      *
      * @return array<string, string>
      */
+    #[TestDox('O modal MOSTRA os valores da carteira nos campos vazios, em vez de anunciar herança')]
+    public function testModalMostraOsValoresConfiguradosDaCarteira(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant, [], [
+            'taxaJurosMensalBp' => 150,
+            'regimeJuros' => RegimeJuros::Composto,
+            'taxaMultaBp' => 200,
+            'baseMulta' => BaseEncargo::Principal,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+            'baseHonorarios' => BaseEncargo::Composta,
+            'carenciaHonorariosDias' => 30,
+            'toleranciaJurosMultaDias' => 5,
+        ]);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+
+        $modal = $crawler->filter('#modalConfigEncargosObjeto');
+
+        // Número, não regra: o campo vazio exibe o que a carteira cobra hoje.
+        self::assertSame('1,50', $modal->filter('#editar_configuracao_objeto_taxaJurosMensalBp')->attr('placeholder'));
+        self::assertSame('2,00', $modal->filter('#editar_configuracao_objeto_taxaMultaBp')->attr('placeholder'));
+        self::assertSame('20,00', $modal->filter('#editar_configuracao_objeto_taxaHonorariosBp')->attr('placeholder'), 'a alíquota vem da forma+percentual da carteira, convertida pelo resolvedor');
+        self::assertSame('30', $modal->filter('#editar_configuracao_objeto_carenciaHonorariosDias')->attr('placeholder'));
+        self::assertSame('5', $modal->filter('#editar_configuracao_objeto_toleranciaJurosMultaDias')->attr('placeholder'));
+
+        // Nos selects, a opção vazia carrega o rótulo do que está configurado na carteira.
+        self::assertSame('Juros compostos', $modal->filter('#editar_configuracao_objeto_regimeJuros option[value=""]')->text());
+        self::assertSame('Sobre o valor com encargos (progressiva)', $modal->filter('#editar_configuracao_objeto_baseHonorarios option[value=""]')->text());
+        self::assertSame('Sobre o valor original (fixa)', $modal->filter('#editar_configuracao_objeto_baseMulta option[value=""]')->text());
+
+        // E o anúncio de herança saiu — dos campos e do aviso do topo.
+        self::assertStringNotContainsString('Herda a carteira', $modal->html());
+        self::assertStringNotContainsString('Herda da carteira', $modal->html());
+        self::assertStringNotContainsString('para herdar', $modal->html());
+    }
+
+    #[TestDox('DINHEIRO: salvar o modal sem digitar nada NÃO congela os valores da carteira como override')]
+    public function testSalvarSemDigitarNadaMantemAHerancaViva(): void
+    {
+        $client = static::createClient();
+        [$carteira, $caso] = $this->semearGrafo($this->criarAdminLogado($client)[1], [], [
+            'taxaJurosMensalBp' => 150,
+            'formaHonorarios' => FormaHonorarios::AcrescidoDivida,
+            'percentualHonorarios' => '20.00',
+        ]);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'editar_configuracao_objeto');
+
+        // Exatamente o que o navegador manda quando o usuário abre o modal e clica em Salvar: os
+        // placeholders NÃO viajam. Se algum dia virarem valor preenchido, este teste cai — e cai por
+        // um bom motivo: o objeto teria parado de acompanhar a carteira sem ninguém pedir.
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/configuracao-encargos', [
+            'editar_configuracao_objeto' => self::payload(['_token' => $token]),
+        ]);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $objeto = $em->find(ObjetoCobranca::class, $objetoId);
+
+        self::assertNull($objeto->getTaxaJurosMensalBp(), 'juros do objeto tem de continuar null (herdando)');
+        self::assertNull($objeto->getRegimeJuros());
+        self::assertNull($objeto->getTaxaMultaBp());
+        self::assertNull($objeto->getBaseMulta());
+        self::assertNull($objeto->getTaxaCorrecaoBp());
+        self::assertNull($objeto->getBaseCorrecao());
+        self::assertNull($objeto->getTaxaHonorariosBp());
+        self::assertNull($objeto->getBaseHonorarios());
+        self::assertNull($objeto->getCarenciaHonorariosDias());
+        self::assertNull($objeto->getToleranciaJurosMultaDias());
+
+        // E a herança segue VIVA: mexer na carteira continua alcançando este objeto.
+        $carteira = $em->find($carteira::class, $carteira->getId());
+        $carteira->setTaxaJurosMensalBp(300);
+        $em->flush();
+        $em->clear();
+
+        $resolvido = static::getContainer()->get(\App\Cobranca\Service\ResolvedorConfigEncargos::class)
+            ->resolverDoObjeto($em->find(ObjetoCobranca::class, $objetoId));
+        self::assertSame(300, $resolvido->taxaJurosMensalBp, 'a nova taxa da carteira tem de chegar ao objeto');
+    }
+
     private static function payload(array $campos): array
     {
         return array_merge([

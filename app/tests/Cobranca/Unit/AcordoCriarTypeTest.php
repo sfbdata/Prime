@@ -88,4 +88,51 @@ final class AcordoCriarTypeTest extends TestCase
 
         self::assertSame(['Abril/2026 — venc 10/04/2026 — R$ 1.400,00' => 7], $opcoes);
     }
+
+    #[Test]
+    public function opcoesObrigacoesIdenticasNaoSeApagam(): void
+    {
+        // Mesma descrição, mesmo vencimento, mesmo valor — uma reimportação basta para produzir isso. A
+        // chave do mapa é o rótulo: sem desempate, a segunda sobrescrevia a primeira e uma das duas
+        // ficava impossível de acordar ou de receber pagamento, sem nenhum aviso.
+        $a = $this->obrigacaoCom(id: 7, valorOriginal: 100000, descricao: 'Abril/2026');
+        $b = $this->obrigacaoCom(id: 9, valorOriginal: 100000, descricao: 'Abril/2026');
+
+        $opcoes = AcordoCriarType::opcoesObrigacoes([$a, $b]);
+
+        self::assertCount(2, $opcoes, 'obrigação idêntica não pode apagar obrigação');
+        self::assertSame([7, 9], array_values($opcoes), 'cada opção resolve o SEU id');
+        foreach (array_keys($opcoes) as $rotulo) {
+            self::assertStringContainsString('Abril/2026', (string) $rotulo);
+        }
+    }
+
+    #[Test]
+    public function opcoesObrigacoesIdenticasComPagamentosDiferentesJaSeDistinguem(): void
+    {
+        // Aqui os rótulos já diferem pelo "já recebidos" — o desempate por id não entra, para não sujar
+        // um rótulo que já é único.
+        $a = $this->obrigacaoCom(id: 7, valorOriginal: 100000, descricao: 'Abril/2026');
+        $b = $this->obrigacaoCom(id: 9, valorOriginal: 100000, descricao: 'Abril/2026');
+
+        $opcoes = AcordoCriarType::opcoesObrigacoes([$a, $b], [9 => 25000]);
+
+        self::assertCount(2, $opcoes);
+        self::assertArrayHasKey('Abril/2026 — venc 10/04/2026 — R$ 1.000,00', $opcoes);
+        self::assertArrayHasKey('Abril/2026 — venc 10/04/2026 — R$ 750,00 (R$ 250,00 já recebidos)', $opcoes);
+    }
+
+    #[Test]
+    public function opcoesObrigacoesSuportaTresIdenticas(): void
+    {
+        $opcoes = AcordoCriarType::opcoesObrigacoes([
+            $this->obrigacaoCom(id: 1, valorOriginal: 5000, descricao: 'Taxa'),
+            $this->obrigacaoCom(id: 2, valorOriginal: 5000, descricao: 'Taxa'),
+            $this->obrigacaoCom(id: 3, valorOriginal: 5000, descricao: 'Taxa'),
+        ]);
+
+        self::assertCount(3, $opcoes);
+        self::assertSame([1, 2, 3], array_values($opcoes));
+        self::assertCount(3, array_unique(array_keys($opcoes)), 'os três rótulos têm de ser distintos');
+    }
 }

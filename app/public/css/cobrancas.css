@@ -181,12 +181,10 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-money { font-variant-numeric: tabular-nums; font-weight: 600; }
 .caso-metric-valor { font-variant-numeric: tabular-nums; }
 
-/* ── Card da pessoa cobrada ── */
-.jp-pessoa-card {
-    border: 1px solid var(--bs-border-color); border-radius: .75rem;
-    background: var(--bs-body-bg); padding: 1rem 1.15rem;
-}
-.jp-pessoa-topo { display: flex; align-items: flex-start; gap: .9rem; }
+/* ── Identidade da pessoa ──
+   O card lateral (`.jp-pessoa-card`, `.jp-pessoa-topo`) e a lista de envolvidos em linha
+   (`.jp-vinculos-toggle`, `.jp-vinculo-linha`) saíram junto com o trilho direito: quem mostra pessoa
+   agora é a aba Responsáveis. O que sobrou aqui é o que ELA reusa — avatar, nome e contatos. */
 .jp-pessoa-avatar {
     flex: 0 0 auto; width: 46px; height: 46px; border-radius: 50%;
     display: grid; place-items: center; font-weight: 700; font-size: 1.05rem;
@@ -199,18 +197,6 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-pessoa-contatos a { color: inherit; text-decoration: none; }
 .jp-pessoa-contatos a:hover { color: var(--jp-accent); text-decoration: underline; }
 .jp-contato-label { font-weight: 600; opacity: .75; white-space: nowrap; }
-.jp-vinculos-toggle {
-    background: none; border: 0; padding: 0; font-size: .8rem; font-weight: 600;
-    color: var(--bs-secondary-color); display: inline-flex; align-items: center; gap: .3rem;
-}
-.jp-vinculos-toggle:hover { color: var(--jp-accent); }
-.jp-vinculos-toggle .bi { transition: transform .15s; }
-.jp-vinculos-toggle[aria-expanded="true"] .bi-chevron-down { transform: rotate(180deg); }
-.jp-vinculo-linha {
-    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
-    padding: .5rem .1rem; border-top: 1px solid var(--bs-border-color); font-size: .875rem;
-}
-.jp-vinculo-linha.encerrado { color: var(--bs-secondary-color); }
 
 /* ── Seções da aba Cobrança ── */
 .jp-secao { margin-bottom: 1.5rem; }
@@ -506,47 +492,36 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .jp-chip.is-vencida { border-color: rgba(var(--bs-danger-rgb), .4); color: var(--bs-danger); background: rgba(var(--bs-danger-rgb), .07); }
 .jp-chip.is-paga { border-color: rgba(var(--bs-success-rgb), .4); color: var(--bs-success); background: rgba(var(--bs-success-rgb), .07); }
 
-/* ── Ajuste 11: cockpit em 2 colunas ─────────────────────────────── */
+/* ── Página do objeto ─────────────────────────────────────────────
+   A grade de 2 colunas (`.cob-grid`/`.cob-main`/`.cob-rail`) e os cartões do trilho (`.cob-card`,
+   `.cob-hero*`, `.cob-acao-link`, `.cob-proxima` em cartão) foram removidos: o conteúdo ocupa a
+   largura toda, a pessoa virou a aba Responsáveis e a próxima ação virou a faixa abaixo. CSS órfão
+   não fica para trás — vira armadilha na próxima leitura. */
 .cobrancas-page { --cob-radius: 1rem; }
 
-.cob-grid { display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
-@media (max-width: 991.98px) { .cob-grid { grid-template-columns: 1fr; } }
-.cob-main, .cob-rail { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-
-.cob-card {
-    background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
-    border-radius: var(--cob-radius); box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.03);
+/* Próxima ação, compacta no topo da aba Cobrança: uma linha só, que quebra sozinha se faltar largura. */
+.cob-proxima-faixa {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    border: 1px solid rgba(var(--jp-accent-rgb), .30); background: rgba(var(--jp-accent-rgb), .07);
+    border-radius: .625rem; padding: .55rem .85rem; margin-bottom: 1.25rem;
 }
-html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
-
-/* Hero do dinheiro — painel verde-escuro (identidade do módulo, não índigo). Ajuste 11 §T2: o output
-   (`CasoDetalheOutput`) não tem `valorRecuperado`/`totalDoCaso` — sem barra de progresso (não inventar cálculo).
-   Painel FIXO-escuro nos 2 temas (mesma exceção do gradiente, spec §3): os textos claros abaixo são
-   FIXOS, não tokens de tema — por isso vivem em custom properties próprias (`--cob-hero-*`), não em
-   `--bs-*`/`--jp-*`. Zero hex solto fora daqui; zero `style` inline no template. */
-.cob-hero {
-    --cob-hero-fg: #fff;        /* dinheiro/título */
-    --cob-hero-muted: #a7e0c3;  /* rótulos/subtítulos verde-claro */
-    --cob-hero-sub: #c7e6d5;    /* texto secundário (ex.: "já vencido", bloco Honorários) */
-    --cob-hero-venc: #ff8f9e;   /* "já vencido" — perigo lido sobre verde escuro */
-    color: var(--cob-hero-fg); border-radius: var(--cob-radius); padding: 1.35rem 1.5rem;
-    background: linear-gradient(135deg, #0f3d2e 0%, #14533b 100%);
-    display: flex; flex-direction: column; gap: 1.1rem;
-}
-.cob-hero-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--cob-hero-muted); font-weight: 600; }
-.cob-hero-total { font-size: 2.55rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
-.cob-hero-venc { color: var(--cob-hero-venc); font-weight: 700; font-variant-numeric: tabular-nums; }
-.cob-hero-sub { color: var(--cob-hero-sub); }
-
-/* Cartões do trilho (Ajuste 11 §T3): "Próxima ação" em destaque + "Ações do caso" (Judicializar/Encerrar,
-   que saíram do dropdown `⋯` do header). Cor = accent verde do módulo, nunca índigo. */
-.cob-proxima { border: 1px solid rgba(var(--jp-accent-rgb), .30); background: rgba(var(--jp-accent-rgb), .07); border-radius: var(--cob-radius); padding: 1.1rem; }
-.cob-proxima-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--jp-accent); font-weight: 600; }
+.cob-proxima-faixa > .bi { color: var(--jp-accent); }
+.cob-proxima-rotulo { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--jp-accent); font-weight: 600; }
+.cob-proxima-texto { font-weight: 600; min-width: 0; }
+.cob-proxima-prazo { font-size: .85rem; color: var(--bs-secondary-color); }
 /* Ação atrasada: mesmo alerta visual que o resto do módulo usa para atraso (âmbar, não o accent verde). */
-.cob-proxima.atrasada { border-color: rgba(var(--bs-warning-rgb), .5); background: rgba(var(--bs-warning-rgb), .1); }
-.cob-acao-link { display: flex; align-items: center; gap: .7rem; padding: .7rem .8rem; border: 1px solid var(--bs-border-color); border-radius: .625rem; text-decoration: none; color: var(--bs-body-color); }
-.cob-acao-link:hover { background: var(--bs-tertiary-bg); }
-.cob-acao-link.is-disabled { opacity: .55; }
+.cob-proxima-faixa.atrasada { border-color: rgba(var(--bs-warning-rgb), .5); background: rgba(var(--bs-warning-rgb), .1); }
+.cob-proxima-faixa.atrasada > .bi, .cob-proxima-faixa.atrasada .cob-proxima-rotulo { color: var(--bs-warning-text-emphasis); }
+
+/* ── Aba Responsáveis ── responsável atual em destaque, demais em accordion. */
+.cob-resp-atual {
+    border: 1px solid rgba(var(--jp-accent-rgb), .30); background: rgba(var(--jp-accent-rgb), .06);
+    border-radius: var(--cob-radius); padding: 1.1rem 1.25rem;
+}
+.cob-resp-accordion .accordion-button { padding: .75rem 1rem; font-size: .95rem; }
+.cob-resp-accordion .accordion-button:not(.collapsed) { background: rgba(var(--jp-accent-rgb), .08); color: var(--bs-body-color); box-shadow: none; }
+.cob-resp-accordion .accordion-button:focus { box-shadow: none; border-color: rgba(var(--jp-accent-rgb), .4); }
+.cob-resp-accordion .accordion-body { padding-top: .5rem; }
 
 /* ── Central de Acompanhamento (Fatia 1) ───────────────────────────────────
    Tabela por pessoa + detalhe sob demanda. Só variáveis Bootstrap e o accent
@@ -608,3 +583,166 @@ html[data-bs-theme="dark"] .cob-card { box-shadow: 0 1px 2px rgba(0,0,0,.3); }
 .cobranca-central-cadastro { border-top: 1px dashed var(--bs-border-color); padding-top: .6rem; }
 .cobranca-central-cadastro .btn-link { color: var(--bs-secondary-color); text-decoration: none; }
 .cobranca-central-cadastro .btn-link:hover { color: var(--jp-accent); text-decoration: underline; }
+
+/* ── Reorganização rápida da página de cobrança (SPEC UX, 2026-07-26) ──────────────────────────────
+   Três blocos novos: o resumo do dinheiro no cabeçalho, a barra de atividades e a área de anotações.
+   Só variáveis Bootstrap (`--bs-*`) e o accent do módulo (`--jp-accent`): claro e escuro saem do mesmo
+   código, sem cor solta. */
+
+/* Resumo do cabeçalho (§6.1) — os mesmos dois valores que ficavam no hero, agora legíveis sem rolar. */
+.cob-resumo { display: flex; flex-wrap: wrap; gap: 1.75rem; }
+.cob-resumo-item { display: flex; flex-direction: column; gap: .1rem; }
+.cob-resumo-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
+.cob-resumo-valor { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
+.cob-resumo-valor.is-vencido { color: var(--bs-danger); }
+.cob-resumo-valor.saldo-zerado { color: var(--bs-success); }
+
+/* Barra de atividades (§6.2) — conteúdo e ação na mesma região. Texto SEMPRE junto do ícone (§6.2:
+   "não usar apenas ícone em ação importante"). Quebra permitida, mas com `row-gap` para não parecer
+   acidente; abaixo de `lg` os itens menos frequentes recolhem em "Mais ações" (§6.4). */
+/* A barra vive em LARGURA TOTAL, acima da grade de 2 colunas — dentro da coluna principal as 9 opções
+   quebravam em três linhas. Como não fica mais "colada" no painel, o item ativo é marcado por um traço
+   inferior no accent, não pelo truque de borda da aba clássica do Bootstrap. */
+.cob-barra { border-bottom: 1px solid var(--bs-border-color); gap: .15rem; row-gap: .25rem; margin-bottom: 1rem; }
+.cob-barra .nav-link {
+    display: inline-flex; align-items: center; white-space: nowrap;
+    padding: .5rem .75rem; /* mais enxuto que o padrão do Bootstrap: 9 opções numa linha só */
+    color: var(--bs-secondary-color); border: 1px solid transparent; cursor: pointer;
+}
+.cob-barra .nav-link:hover { color: var(--bs-body-color); background: var(--bs-tertiary-bg); }
+/* Aba ativa evidente (§19.1): accent no texto, fundo suave e traço inferior. */
+.cob-barra .nav-link.active {
+    color: var(--jp-accent); font-weight: 600;
+    background: rgba(var(--jp-accent-rgb), .10); border-color: transparent;
+    box-shadow: inset 0 -2px 0 var(--jp-accent);
+}
+.cob-barra .nav-link:focus-visible { outline: 2px solid var(--jp-accent); outline-offset: -2px; }
+
+/* Abaixo de 1400px Dívida e Honorários só existem dentro de "Mais ações" — a SPEC §19.1 exige que a
+   opção ativa continue evidente. O próprio "Mais ações" já se destaca sozinho: o Bootstrap marca o
+   dropdown-toggle com `.active` quando a aba ativa está dentro dele, e a regra acima pega isso. Falta
+   só trocar o azul padrão do item do dropdown pelo accent do módulo. */
+.cob-barra .dropdown-item.active {
+    background: rgba(var(--jp-accent-rgb), .12); color: var(--jp-accent); font-weight: 600;
+}
+/* Ponto de corte MEDIDO, não escolhido no chute. Com a consolidação em "Responsáveis" a barra caiu de
+   9 para 7 opções e passou a somar ~937px (eram ~1265px), então o corte desceu de 1400 para 1200: em
+   1280 e 1366 — as telas mais comuns — as 7 agora cabem numa linha. Abaixo de 1200 valem as 4 que a
+   SPEC §6.4 manda manter visíveis (Cobrança, Documentos, Histórico e Registrar contato) e o resto
+   recolhe em "Mais ações". Ao mexer nos itens da barra, MEÇA de novo em vez de herdar este número. */
+@media (max-width: 1199.98px) { .cob-barra .cob-item-extra { display: none; } }
+
+/* Anotação (§7) — primeiro elemento útil da aba Cobrança. */
+.cob-anotacao-nova { border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius); padding: 1rem; background: var(--bs-tertiary-bg); }
+.cob-anotacao-nova .editor-rico { background: var(--bs-body-bg); border-radius: .5rem; }
+
+/* Anotações (§8) — TODAS aparecem, roladas dentro do bloco. Mesma altura da lista de eventos da
+   Central (`.cobranca-central-eventos`), para o módulo ter uma só altura de rolagem. `auto`: com
+   poucas anotações não aparece barra nenhuma. O `padding-right` reserva a faixa da barra para ela
+   não cobrir a borda de destaque do cartão; `padding-top/bottom` evitam que o primeiro e o último
+   fiquem colados no corte. `scroll-margin` no item mantém o alvo visível quando o teclado navega
+   até o menu de ações de uma anotação fora da área. */
+.cob-anotacoes {
+    list-style: none; margin: 0 0 .75rem; padding: 0; display: flex; flex-direction: column; gap: .6rem;
+    max-height: 22rem; overflow-y: auto; padding: .15rem .35rem .15rem 0;
+}
+.cob-anotacoes > .cob-anotacao { scroll-margin: .35rem; }
+.cob-anotacao { border: 1px solid var(--bs-border-color); border-left: 3px solid rgba(var(--jp-accent-rgb), .55); border-radius: .625rem; padding: .7rem .85rem; }
+.cob-anotacao-topo { font-size: .8rem; }
+.cob-anotacao-autor { font-weight: 600; color: var(--bs-body-color); }
+.cob-anotacao-data { color: var(--bs-secondary-color); }
+.cob-anotacao-corpo { margin-top: .35rem; }
+/* Trecho na confirmação de exclusão (§10): mostra QUAL anotação some. */
+.cob-anotacao-trecho {
+    margin: 0; padding: .6rem .8rem; border-left: 3px solid var(--bs-border-color);
+    background: var(--bs-tertiary-bg); border-radius: .375rem; color: var(--bs-body-color);
+    font-style: italic; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+
+/* Encargos do objeto: campo sem override mostra o valor da carteira. Nos inputs isso já sai cinza
+   (é placeholder); nos selects o navegador pinta a opção vazia com a cor normal, o que faria um
+   valor da carteira parecer escolha gravada neste objeto. Aqui a opção vazia selecionada fica cinza
+   também, para "cinza = carteira" valer nos 10 campos. Sem `:has`, cai no comportamento de antes. */
+#modalConfigEncargosObjeto .form-select:has(option[value=""]:checked) { color: var(--bs-secondary-color); }
+
+/* Modal "Criar acordo" — três passos (o que sai do saldo → como parcelar → as parcelas). Só
+   apresentação: os ganchos que o gerador de parcelas lê são os mesmos de antes. */
+.cob-acordo-passo { padding-bottom: 1.1rem; margin-bottom: 1.1rem; border-bottom: 1px solid var(--bs-border-color); }
+.cob-acordo-passo:last-of-type { border-bottom: 0; padding-bottom: 0; margin-bottom: .75rem; }
+.cob-acordo-passo-titulo { display: flex; align-items: center; gap: .5rem; margin-bottom: .75rem; font-size: .95rem; }
+.cob-acordo-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 1.4rem; height: 1.4rem; border-radius: 50%;
+    background: rgba(var(--jp-accent-rgb), .18); color: var(--jp-accent);
+    font-size: .78rem; font-weight: 700; flex-shrink: 0;
+}
+.cob-acordo-selecionado { font-size: .9rem; color: var(--bs-secondary-color); }
+.cob-acordo-selecionado strong { color: var(--bs-body-color); font-variant-numeric: tabular-nums; }
+
+/* Lista de dívidas: cada opção vira LINHA clicável. O ChoiceType expandido soltava o quadradinho no fim
+   do texto — alvo minúsculo e sem relação visual com a linha. Rolagem em ~15rem porque um caso com
+   dezenas de competências empurrava o resto do modal para fora da tela. */
+.cob-acordo-lista {
+    max-height: 15rem; overflow-y: auto;
+    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
+}
+.cob-acordo-item { padding: .5rem .75rem .5rem 2.25rem; margin: 0; border-bottom: 1px solid var(--bs-border-color); }
+.cob-acordo-item:last-child { border-bottom: 0; }
+.cob-acordo-item:hover { background: var(--bs-tertiary-bg); }
+.cob-acordo-item .form-check-input { margin-left: -1.5rem; margin-top: .2rem; }
+.cob-acordo-item .form-check-label { cursor: pointer; display: block; }
+.cob-acordo-item:has(.form-check-input:checked) { background: rgba(var(--jp-accent-rgb), .08); }
+
+.cob-acordo-gerador { background: var(--bs-tertiary-bg); border-radius: var(--cob-radius); padding: 1rem; }
+/* A grade mistura `form_row` (label SEM `.form-label`, margem 0) com campos escritos à mão (`.form-label`,
+   margem .5rem): sem igualar, as duas primeiras colunas ficam 19px mais baixas que as outras três —
+   medido no preview. Igualar aqui é mais seguro que trocar o tema de formulário do projeto inteiro. */
+.cob-acordo-gerador .row label { display: inline-block; margin-bottom: .5rem; }
+.cob-acordo-data { max-width: 16rem; }
+/* `modal-dialog-scrollable` sozinho NÃO funciona aqui: o Bootstrap espera header/body/footer como filhos
+   diretos do `.modal-content`, e o `form_start` insere um `<form>` no meio — a cadeia flex quebra, o
+   corpo cresce sem limite e o rodapé (com "Criar acordo" e o status de fechamento) sai da tela. Medido:
+   corpo de 1449px numa janela de 720px. Repassar o flex ao form recupera a rolagem. */
+#modalCriarAcordo .modal-content > form {
+    display: flex; flex-direction: column;
+    min-height: 0; max-height: 100%; overflow: hidden;
+}
+/* O status de fechamento divide o rodapé com os botões; em tela estreita ele vai para cima deles. */
+.cob-acordo-rodape { justify-content: flex-end; gap: .5rem; }
+.cob-acordo-rodape [data-acordo-fechamento]:empty { display: none; }
+
+/* Aba Honorários (§14.2) — leitura pura: os números são os mesmos da dívida e do extrato, e os totais
+   são somas deles, feitas no UseCase. */
+.cob-hon-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+.cob-hon-card {
+    display: flex; flex-direction: column; gap: .15rem;
+    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
+    padding: .9rem 1rem; background: var(--bs-tertiary-bg);
+}
+.cob-hon-card-rot { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
+.cob-hon-card-val { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
+/* Recebido é o único valor "bom" da aba — mesma leitura verde do saldo zerado do cabeçalho. */
+.cob-hon-card-val.is-recebido { color: var(--bs-success); }
+.cob-hon-card-nota { font-size: .8rem; color: var(--bs-secondary-color); }
+
+.cob-hon-config { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.cob-hon-item { display: flex; flex-direction: column; gap: .1rem; }
+.cob-hon-rot { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
+.cob-hon-val { font-weight: 600; color: var(--bs-body-color); }
+.cob-hon-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.cob-hon-lista > li {
+    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+    padding: .5rem 0; border-top: 1px solid var(--bs-border-color);
+}
+.cob-hon-desc { flex: 1 1 14rem; min-width: 0; display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.cob-hon-venc { color: var(--bs-secondary-color); font-size: .85rem; }
+.cob-hon-num { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Quitada continua na lista (ela compõe o total das obrigações), mas recua visualmente — o trabalho
+   está no que falta receber. */
+.cob-hon-lista > li.is-quitada .cob-hon-desc,
+.cob-hon-lista > li.is-quitada .cob-hon-num { color: var(--bs-secondary-color); }
+/* Rodapé de total: borda mais forte para fechar a lista, sem virar outra "linha de dívida". */
+.cob-hon-lista > li.cob-hon-total {
+    border-top-width: 2px; border-top-color: var(--bs-secondary-color);
+    font-weight: 700; margin-top: .15rem;
+}

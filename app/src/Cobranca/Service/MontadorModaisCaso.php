@@ -111,9 +111,10 @@ final class MontadorModaisCaso
             'definirProximaAcao' => $this->reidratarSeErro($this->formFactory->create(DefinirProximaAcaoType::class), 'definirProximaAcao', $erroModal),
             'concluirAcao' => $this->reidratarSeErro($this->formFactory->create(ConcluirAcaoType::class), 'concluirAcao', $erroModal),
             'registrarTentativa' => $this->reidratarSeErro($this->formFactory->create(RegistrarTentativaCobrancaType::class, $contatoAgora), 'registrarTentativa', $erroModal),
-            // Anotação livre da aba Histórico (ajuste 2026-07). Não é modal — é um campo inline —, então
-            // não entra no jogo de reidratação por erro: o controller devolve o erro como flash.
-            'registrarAnotacao' => $this->formFactory->create(RegistrarAnotacaoType::class)->createView(),
+            // Anotação livre, hoje no topo da aba Cobrança (SPEC UX §7). É campo INLINE, não modal — mas
+            // entra na reidratação assim mesmo: o `modalId` guardado vem vazio, então nada reabre, e o
+            // ganho é só o que a SPEC §7.3 exige — o texto digitado sobrevive ao erro de validação.
+            'registrarAnotacao' => $this->reidratarSeErro($this->formFactory->create(RegistrarAnotacaoType::class), 'registrarAnotacao', $erroModal),
             // Modal COMPARTILHADO de correção (2026-07-22): um só para todas as anotações — o JS injeta
             // a action da linha clicada e o texto atual. Um modal por linha inflaria o HTML à toa.
             'editarAnotacao' => $this->formFactory->create(EditarAnotacaoType::class)->createView(),

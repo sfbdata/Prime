@@ -43,6 +43,66 @@ final class AlterarPessoaCobradaControllerTest extends CobrancaWebTestCase
         self::assertSame((int) $nova->getId(), (int) $fresh->getPessoaCobradaAtual()->getId(), 'pessoa cobrada trocada');
     }
 
+    #[TestDox('Homônimas: cada uma pode ser definida como cobrada, e o id escolhido é o que vale')]
+    public function testAlterarPessoaEntreHomonimas(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        // Mesmo nome, documentos diferentes: antes do conserto uma delas nem chegava ao select, e a que
+        // sobrava respondia pelas duas — trocar o responsável podia cobrar a pessoa errada.
+        $primeira = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA', 'cpf' => '111.111.111-11'])->_real();
+        $segunda = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA', 'cpf' => '222.222.222-22'])->_real();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'alterar_pessoa_cobrada');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $primeira->getId(), 'motivo' => 'Primeira homônima', '_token' => $token],
+        ]);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        self::assertSame((int) $primeira->getId(), $this->pessoaCobradaDe($casoId), 'a homônima escolhida foi a gravada');
+
+        // A segunda também: o formulário aceita as duas, e cada envio resolve o id exato.
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'alterar_pessoa_cobrada');
+
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $segunda->getId(), 'motivo' => 'Segunda homônima', '_token' => $token],
+        ]);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        self::assertSame((int) $segunda->getId(), $this->pessoaCobradaDe($casoId), 'a outra homônima também é alcançável');
+    }
+
+    #[TestDox('Homônima de OUTRO tenant não entra no select nem é aceita no POST')]
+    public function testHomonimaDeOutroTenantNaoEhSelecionavel(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $casoId = (int) $caso->getId();
+        $objetoId = (int) $caso->getObjeto()->getId();
+        $pessoaAtualId = $this->pessoaCobradaDe($casoId);
+
+        PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'JOSE DA SILVA', 'cpf' => '111.111.111-11']);
+        $alheia = PessoaFactory::createOne(['tenant' => $this->tenantAvulso(), 'nome' => 'JOSE DA SILVA', 'cpf' => '222.222.222-22'])->_real();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $opcoes = $crawler->filter('#modalAlterarPessoa select option')->each(fn ($o) => $o->attr('value'));
+        self::assertNotContains((string) $alheia->getId(), $opcoes, 'pessoa de outro escritório não pode ser oferecida');
+
+        $token = $this->tokenDoFormulario($crawler, 'alterar_pessoa_cobrada');
+        $client->request('POST', '/cobrancas/casos/' . $casoId . '/pessoa-cobrada', [
+            'alterar_pessoa_cobrada' => ['novaPessoaCobradaId' => (string) $alheia->getId(), 'motivo' => 'tentativa', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId);
+        self::assertSame($pessoaAtualId, $this->pessoaCobradaDe($casoId), 'o nome igual não abre porta entre escritórios');
+    }
+
     #[TestDox('Alterar para Pessoa de OUTRO tenant: erro de domínio, não troca')]
     public function testAlterarPessoaDeOutroTenant(): void
     {
@@ -117,6 +177,15 @@ final class AlterarPessoaCobradaControllerTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertSame($pessoaAtualId, (int) $em->find(CasoCobranca::class, $casoId)->getPessoaCobradaAtual()->getId());
+    }
+
+    /** Lê o estado REAL do banco: o cache de identidade do EM mentiria sobre a troca. */
+    private function pessoaCobradaDe(int $casoId): int
+    {
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+
+        return (int) $em->find(CasoCobranca::class, $casoId)->getPessoaCobradaAtual()->getId();
     }
 
     #[TestDox('B5: alterar pessoa sem escolher a nova reabre o modal com o motivo digitado e o erro')]

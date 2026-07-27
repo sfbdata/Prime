@@ -287,7 +287,9 @@ final class CasoController extends AbstractController
     /**
      * Anotação livre na linha do tempo (ajuste 2026-07). Mesmo gate e mesma resolução tenant-safe do
      * contato — o que muda é que aqui não há campo classificado: é texto e só. Volta para a aba
-     * Histórico do objeto (âncora `#tab-historico`) para o autor ver a anotação já na lista.
+     * Cobrança do objeto (âncora `#tab-cobranca`), onde o editor e as "Anotações recentes" passaram a
+     * morar depois da reorganização de UX (2026-07-26): o autor vê a anotação já na lista, sem trocar
+     * de aba.
      */
     #[Route('/{id}/anotacoes', name: 'cobranca_anotacao_registrar', methods: ['POST'], requirements: ['id' => '\d+'])]
     public function registrarAnotacao(int $id, Request $request): Response
@@ -315,15 +317,23 @@ final class CasoController extends AbstractController
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
-            // Sem modal para reabrir: o campo é inline, então o erro vira flash e a tela volta inteira.
-            foreach ($form->getErrors(true) as $erro) {
-                $this->addFlash('danger', $erro->getMessage());
-            }
+            // SPEC UX §7.3: erro de validação não pode apagar o que a pessoa escreveu. Reusa o mesmo
+            // mecanismo B5 dos modais — payload one-shot na sessão, reidratado no `show` —, com
+            // `modalId` vazio porque aqui não há modal para reabrir: o campo é inline. Erro de RAIZ
+            // (CSRF) continua sendo rejeição limpa por flash, sem ecoar o payload.
+            $this->tratarFormInvalido(
+                $request,
+                $form,
+                $this->objetoIdDoCaso($caso),
+                'registrarAnotacao',
+                '',
+                'registrar_anotacao',
+            );
         }
 
         return $this->redirectToRoute(
             'cobranca_objeto_show',
-            ['id' => $this->objetoIdDoCaso($caso), 'aba' => 'historico'],
+            ['id' => $this->objetoIdDoCaso($caso), 'aba' => 'cobranca'],
         );
     }
 
@@ -369,7 +379,7 @@ final class CasoController extends AbstractController
             return $this->redirectToRoute('cobranca_caso_index');
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, 'aba' => 'historico']);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, 'aba' => 'cobranca']);
     }
 
     /**
@@ -411,7 +421,7 @@ final class CasoController extends AbstractController
             return $this->redirectToRoute('cobranca_caso_index');
         }
 
-        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, 'aba' => 'historico']);
+        return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, 'aba' => 'cobranca']);
     }
 
     /** Resolve o objeto de destino do redirect a partir do evento, sempre tenant-safe. */

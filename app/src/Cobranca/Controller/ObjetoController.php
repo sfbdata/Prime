@@ -18,6 +18,7 @@ use App\Cobranca\Repository\CasoCobrancaRepository;
 use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Service\MontadorModaisCaso;
+use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\CriarPessoaVinculadaAoObjetoUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoObjetoUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
@@ -55,6 +56,10 @@ final class ObjetoController extends AbstractController
         private readonly CriarPessoaVinculadaAoObjetoUseCase $criarPessoaVinculada,
         private readonly PessoaRepository $pessoaRepository,
         private readonly EditarConfiguracaoObjetoUseCase $editarConfiguracaoObjeto,
+        // Só para EXIBIR no modal de encargos o que a carteira já tem configurado (nível 1 da
+        // cascata). Nenhum cálculo passa por aqui — o dinheiro continua sendo resolvido no
+        // `EncargosVivos`, na leitura de cada obrigação.
+        private readonly ResolvedorConfigEncargos $resolvedorConfigEncargos,
     ) {
     }
 
@@ -232,7 +237,15 @@ final class ObjetoController extends AbstractController
         $input->carenciaHonorariosDias = $objeto->getCarenciaHonorariosDias();
         $input->toleranciaJurosMultaDias = $objeto->getToleranciaJurosMultaDias();
 
-        $form = $this->createForm(EditarConfiguracaoObjetoType::class, $input);
+        // O que a carteira tem configurado (nível 1 da cascata), para o modal MOSTRAR esses valores em
+        // vez de anunciar herança. Vem do próprio `ResolvedorConfigEncargos` — que já converte a
+        // alíquota de honorários (forma+percentual → bp) e aplica o fallback D3 da carência —, para a
+        // tela nunca exibir um número derivado por uma regra paralela à do cálculo.
+        $carteira = $objeto->getCarteira();
+
+        $form = $this->createForm(EditarConfiguracaoObjetoType::class, $input, [
+            'configCarteira' => $carteira !== null ? $this->resolvedorConfigEncargos->resolverDaCarteira($carteira) : null,
+        ]);
         if ($erroModal !== null && $erroModal['form'] === 'configEncargosObjeto') {
             $form->submit($erroModal['payload']);
         }

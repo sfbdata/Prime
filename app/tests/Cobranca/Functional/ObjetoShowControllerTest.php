@@ -61,23 +61,58 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         self::assertStringContainsString('Proprietário', $html);
     }
 
-    #[TestDox('Ajuste 10: a página tem exatamente 3 abas e a pessoa cobrada virou card, não aba')]
-    public function testPaginaDoObjetoTemAsTresAbasEOCardDaPessoa(): void
+    #[TestDox('SPEC UX §6.2: a barra de atividades reúne as 5 áreas de conteúdo e as ações, e a pessoa cobrada segue card')]
+    public function testBarraDeAtividadesReuneConteudoEAcoes(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
 
+        // "Ficha completa" só existe com o vínculo da pessoa cobrada resolvido (é dele que sai o id da
+        // pessoa). Sem semear o vínculo a barra nasce com uma opção a menos e a contagem exata abaixo
+        // mediria um cenário incompleto, não a barra da SPEC.
+        VinculoPessoaObjetoFactory::createOne([
+            'tenant' => $tenant,
+            'objeto' => $caso->getObjeto(),
+            'pessoa' => $caso->getPessoaCobradaAtual(),
+            'tipoVinculo' => TipoVinculo::Proprietario,
+        ]);
+
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
 
         self::assertResponseIsSuccessful();
-        self::assertCount(3, $crawler->filter('#objetoTabs .nav-link'), 'devem ser exatamente 3 abas');
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-cobranca"]');
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-documentos"]');
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-historico"]');
-        // Pessoa deixou de ser aba e virou card.
+
+        // Contagem EXATA, não só "existe". Depois da consolidação em "Responsáveis" a barra tem 6 áreas
+        // de conteúdo + 1 ação (Registrar contato) + "Mais ações" = 8 itens. Sem travar o número, um
+        // item duplicado a mais — ou um que deveria ter saído e ficou — passaria despercebido.
+        self::assertCount(8, $crawler->filter('#objetoTabs > li'), 'a barra tem 7 opções + Mais ações');
+        self::assertCount(8, $crawler->filter('#objetoTabs > li > .nav-link'), 'cada item da barra é um nav-link');
+        self::assertCount(3, $crawler->filter('#objetoTabs .cob-mais .dropdown-item'), 'o dropdown repete só as menos frequentes');
+        self::assertCount(3, $crawler->filter('#objetoTabs > li.cob-item-extra'), 'as 3 que recolhem abaixo de 1200px');
+
+        // As 6 ÁREAS DE CONTEÚDO. Dívida e Honorários seguem opções DIFERENTES, e nenhuma aba de
+        // "encargos" foi criada.
+        foreach (['cobranca', 'documentos', 'historico', 'responsaveis', 'divida', 'honorarios'] as $aba) {
+            self::assertSelectorExists('#objetoTabs [data-bs-target="#tab-' . $aba . '"]', "sumiu a opção {$aba} da barra");
+            self::assertSelectorExists('#tab-' . $aba, "sumiu o painel da opção {$aba}");
+        }
+        self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-encargos"]', 'a SPEC proíbe aba separada de encargos');
+
+        // Registrar contato continua ação na barra, reusando o modal que já existia.
+        self::assertSelectorExists('#objetoTabs [data-bs-target="#modalRegistrarTentativa"]', 'Registrar contato saiu da barra');
+
+        // "Trocar responsável" e "Envolvidos" foram CONSOLIDADOS na aba Responsáveis: não podem mais
+        // existir como item solto da barra, senão a consolidação não aconteceu de fato.
+        self::assertSelectorNotExists('#objetoTabs [data-bs-target="#modalAlterarPessoa"]', 'Trocar responsável tinha de sair da barra');
+        self::assertSelectorNotExists('#objetoTabs [data-bs-target="#vinculosObjeto"]', 'Envolvidos tinha de sair da barra');
+        self::assertSelectorNotExists('#vinculosObjeto', 'o collapse de envolvidos do card lateral não existe mais');
+
+        // O card lateral da pessoa e o cartão de próxima ação saíram; a próxima ação virou faixa dentro
+        // da aba Cobrança (a função continua, o cartão não).
         self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-pessoas"]');
-        self::assertSelectorExists('.jp-pessoa-card');
+        self::assertSelectorNotExists('.jp-pessoa-card', 'o card lateral da pessoa foi removido');
+        self::assertSelectorNotExists('.cob-rail', 'o trilho direito foi removido');
+        self::assertSelectorExists('#tab-cobranca .cob-proxima-faixa', 'a próxima ação tem de continuar visível, compacta, na aba Cobrança');
         // A subnav do módulo voltou (B3): esta página era a única que a perdia.
         self::assertSelectorExists('.cobranca-subnav');
         // E marca CARTEIRAS: o objeto se chega por Carteira→Objeto (ajuste 2, decisão G). Sem travar o
@@ -293,8 +328,14 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawler = $client->request('GET', '/cobrancas/objetos/' . $objeto->getId());
 
         self::assertResponseIsSuccessful();
-        $linha = $crawler->filter('.jp-vinculo-linha.encerrado')->text();
+        // O vínculo encerrado deixou o card lateral e passou para a aba Responsáveis — no destaque do
+        // topo quando a pessoa segue sendo a cobrada atual (encerrar o vínculo não troca quem se cobra),
+        // ou no accordion quando não é. O motivo continua exibido nos dois casos, e escapado.
+        $linha = $crawler->filter('#tab-responsaveis')->text();
         self::assertStringContainsString('Fiança <quitada> & liberada', $linha);
+        // Além do motivo, o ESTADO tem de continuar marcado — sem isto o assert acima passaria mesmo
+        // que a aba deixasse de distinguir vínculo ativo de encerrado.
+        self::assertStringContainsString('encerrado', mb_strtolower($linha), 'o vínculo encerrado precisa aparecer marcado como tal');
         // Confere que o motivo foi escapado no HTML bruto (nunca `|raw`).
         $html = (string) $client->getResponse()->getContent();
         self::assertStringContainsString('Fiança &lt;quitada&gt; &amp; liberada', $html);
@@ -897,9 +938,10 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawlerDepois = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('27,20', $crawlerDepois->filter('#secao-divida .jp-obr .col-juros')->text());
-        // Saldo do caso (header): 170,00 + 27,20 de juros (multa/correção seguem 0, herdadas da
-        // carteira neutra) = 197,20.
-        self::assertStringContainsString('197,20', $crawlerDepois->filter('.cob-hero-total')->text());
+        // Saldo do caso (cabeçalho): 170,00 + 27,20 de juros (multa/correção seguem 0, herdadas da
+        // carteira neutra) = 197,20. O valor mudou de lugar na reorganização de UX (hero → `.cob-resumo`
+        // no cabeçalho), mas continua sendo o "Total em aberto" — o primeiro item do resumo.
+        self::assertStringContainsString('197,20', $crawlerDepois->filter('.cob-resumo-item')->eq(0)->text());
     }
 
     // ── FIX crítico (Task 9): rehidratação do override de taxa no modal de Editar ──

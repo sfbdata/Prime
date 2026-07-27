@@ -308,9 +308,20 @@
     </div>
 </div>
 
-{# ── Criar acordo (obrigações substituídas + parcelas dinâmicas) ──── #}
+{# ── Criar acordo (obrigações substituídas + parcelas dinâmicas) ────
+   A reorganização de UX aqui é SÓ apresentação: os nomes dos campos, os ids e os ganchos que o gerador
+   de parcelas lê (`data-acordo-total`, `data-acordo-entrada`, `data-acordo-total-selecionado`,
+   `data-acordo-erro-gerador`, `data-acordo-fechamento`, `#acordoQtdParcelas`, `#acordoData1`,
+   `#acordoPeriodicidade`, `#acordoGerar`, `#parcelasContainer`, `.parcela-linha`, `#addParcela`,
+   `#avisoAcordoComPagamento`) continuam idênticos. Nenhum centavo muda de caminho.
+
+   Os checkboxes das obrigações são renderizados UM A UM para virarem linhas clicáveis de verdade — o
+   `form_widget` do ChoiceType expandido soltava o quadradinho no fim do texto, e acertar o alvo era
+   sorte. O `attr` de cada opção é MERGEADO, nunca substituído: ele carrega `data-valor-centavos` e
+   `data-alocado-centavos`, que são o insumo do total e do aviso de pagamento. Sobrescrever o atributo
+   zeraria a soma da seleção em silêncio. #}
 <div class="modal fade" id="modalCriarAcordo" tabindex="-1" aria-labelledby="tituloCriarAcordo" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             {{ form_start(forms.acordoCriar, {action: path('cobranca_acordo_criar', {id: caso.id})}) }}
             <div class="modal-header">
@@ -318,9 +329,11 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
             <div class="modal-body" id="corpoCriarAcordo">
-                {{ form_row(forms.acordoCriar.dataAcordo) }}
-                <div class="mb-3">
-                    <label class="form-label">Obrigações substituídas</label>
+
+                {# ── Passo 1: o que sai do saldo ── #}
+                <section class="cob-acordo-passo">
+                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">1</span>O que será renegociado</h6>
+
                     {# Ajuste 9 (INV-I): só DÍVIDA ORIGINAL é oferecida — parcela de acordo vigente não pode ser
                        renegociada aqui. Lista vazia significa que tudo já está dentro de um acordo: sem este
                        aviso o gestor veria um espaço em branco sem explicação. #}
@@ -331,64 +344,110 @@
                             e poderão ser acordadas de novo.
                         </div>
                     {% else %}
-                        {{ form_widget(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+                        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-2">
+                            <div class="btn-group btn-group-sm" role="group" aria-label="Seleção de dívidas">
+                                <button type="button" class="btn btn-outline-secondary" data-acordo-selecao="todas">Selecionar todas</button>
+                                <button type="button" class="btn btn-outline-secondary" data-acordo-selecao="nenhuma">Limpar</button>
+                            </div>
+                            <span class="cob-acordo-selecionado">
+                                Selecionado: <strong data-acordo-total-selecionado>R$ 0,00</strong>
+                            </span>
+                        </div>
+
+                        <div class="cob-acordo-lista">
+                            {% for opcao in forms.acordoCriar.obrigacoesSubstituidasIds %}
+                            <div class="form-check cob-acordo-item">
+                                {{ form_widget(opcao, {attr: opcao.vars.attr|merge({
+                                    class: (opcao.vars.attr.class|default('')) ~ ' form-check-input',
+                                })}) }}
+                                {{ form_label(opcao, null, {label_attr: {class: 'form-check-label'}}) }}
+                            </div>
+                            {% endfor %}
+                        </div>
                         {{ form_errors(forms.acordoCriar.obrigacoesSubstituidasIds) }}
+
                         {# Ajuste 10 (spec §5.3): renegociar dívida já parcialmente paga é legítimo (D7), mas o
                            gestor precisa SABER que há pagamento — a substituída sai do exigível levando a
                            alocação junto, então o valor sugerido é o REMANESCENTE. O JS revela quando alguma
                            marcada tem `data-alocado-centavos > 0`. #}
-                        <div class="alert alert-warning d-none py-2 small" id="avisoAcordoComPagamento">
+                        <div class="alert alert-warning d-none py-2 small mt-2 mb-0" id="avisoAcordoComPagamento">
                             <i class="bi bi-info-circle me-1"></i>
                             Uma das dívidas escolhidas <strong>já recebeu pagamento</strong>. O valor sugerido é o que
                             <strong>ainda falta</strong> — não o valor original.
                         </div>
-                        <div class="form-text">As obrigações escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Total selecionado: <strong data-acordo-total-selecionado>R$ 0,00</strong>.</div>
-                        <div class="form-text">Só dívidas originais podem ser acordadas. Parcelas de um acordo vigente não aparecem aqui — para refazer um acordo, rompa o atual primeiro.</div>
+                        <div class="form-text">
+                            As escolhidas saem do saldo exigível e passam a ser cobradas pelas parcelas. Só dívidas
+                            originais aparecem aqui — para refazer um acordo vigente, rompa o atual primeiro.
+                        </div>
                     {% endif %}
-                </div>
-                <hr>
-                {# ── Gerador de parcelamento (Ajuste 7) ── #}
-                <div class="row g-2 align-items-end mb-1" data-acordo-gerador>
-                    <div class="col-sm-6 col-md-4">{{ form_row(forms.acordoCriar.valorTotalNegociado) }}</div>
-                    <div class="col-sm-6 col-md-4">{{ form_row(forms.acordoCriar.valorEntrada) }}</div>
-                    <div class="col-sm-6 col-md-4">
-                        <label class="form-label" for="acordoQtdParcelas">Nº de parcelas</label>
-                        <input type="number" min="1" step="1" value="1" class="form-control" id="acordoQtdParcelas">
+                </section>
+
+                {# ── Passo 2: o gerador de parcelamento (Ajuste 7) ── #}
+                <section class="cob-acordo-passo">
+                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">2</span>Como parcelar</h6>
+                    <div class="cob-acordo-gerador" data-acordo-gerador>
+                        <div class="row g-3 align-items-end">
+                            <div class="col-sm-6 col-lg-3">{{ form_row(forms.acordoCriar.valorTotalNegociado) }}</div>
+                            <div class="col-sm-6 col-lg-3">{{ form_row(forms.acordoCriar.valorEntrada) }}</div>
+                            <div class="col-sm-6 col-lg-2">
+                                <label class="form-label" for="acordoQtdParcelas">Nº de parcelas</label>
+                                <input type="number" min="1" step="1" value="1" class="form-control" id="acordoQtdParcelas">
+                            </div>
+                            <div class="col-sm-6 col-lg-2">
+                                <label class="form-label" for="acordoData1">1º vencimento</label>
+                                <input type="date" class="form-control" id="acordoData1">
+                            </div>
+                            <div class="col-sm-6 col-lg-2">
+                                <label class="form-label" for="acordoPeriodicidade">Periodicidade</label>
+                                <select class="form-select" id="acordoPeriodicidade">
+                                    <option value="mensal">Mensal</option>
+                                    <option value="quinzenal">Quinzenal</option>
+                                    <option value="semanal">Semanal</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-3">
+                            <span class="form-text mb-0">
+                                O total nasce da seleção acima; edite-o para dar desconto ou acrescentar juros.
+                            </span>
+                            <button type="button" class="btn jp-btn-accent" id="acordoGerar">
+                                <i class="bi bi-magic me-1"></i>Gerar parcelas
+                            </button>
+                        </div>
+                        <div class="small text-danger mt-1" data-acordo-erro-gerador></div>
                     </div>
-                    <div class="col-sm-6 col-md-4">
-                        <label class="form-label" for="acordoData1">1º vencimento</label>
-                        <input type="date" class="form-control" id="acordoData1">
+                </section>
+
+                {# ── Passo 3: as parcelas geradas, editáveis ── #}
+                <section class="cob-acordo-passo">
+                    <h6 class="cob-acordo-passo-titulo"><span class="cob-acordo-num">3</span>Parcelas do acordo</h6>
+                    {# Vazio explicado: sem isto, "Parcelas do acordo" seguido de um botão parece um erro de
+                       carregamento. O JS não depende deste bloco — ele some sozinho quando há linha. #}
+                    <p class="cob-acordo-vazio text-secondary small" data-acordo-vazio>
+                        Nenhuma parcela ainda. Use <strong>Gerar parcelas</strong> acima, ou acrescente uma por vez.
+                    </p>
+                    <div id="parcelasContainer"
+                         data-prototype="{{ form_widget(forms.acordoCriar.parcelas.vars.prototype)|e('html_attr') }}"
+                         data-index="{{ forms.acordoCriar.parcelas|length }}">
+                        {% for parcela in forms.acordoCriar.parcelas %}
+                        <div class="parcela-linha border rounded p-2 mb-2">{{ form_widget(parcela) }}
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
+                        </div>
+                        {% endfor %}
                     </div>
-                    <div class="col-sm-6 col-md-4">
-                        <label class="form-label" for="acordoPeriodicidade">Periodicidade</label>
-                        <select class="form-select" id="acordoPeriodicidade">
-                            <option value="mensal">Mensal</option>
-                            <option value="quinzenal">Quinzenal</option>
-                            <option value="semanal">Semanal</option>
-                        </select>
-                    </div>
-                    <div class="col-sm-6 col-md-4">
-                        <button type="button" class="btn btn-outline-primary w-100" id="acordoGerar"><i class="bi bi-magic me-1"></i>Gerar parcelas</button>
-                    </div>
-                </div>
-                <div class="form-text">Informe o total negociado (desconto/juros ajustam) e a entrada; gere as parcelas e edite o que precisar. Ao mudar o valor de uma parcela, as demais se redistribuem.</div>
-                <div class="small text-danger mt-1" data-acordo-erro-gerador></div>
-                <hr>
-                <label class="form-label">Parcelas do acordo</label>
-                <div id="parcelasContainer"
-                     data-prototype="{{ form_widget(forms.acordoCriar.parcelas.vars.prototype)|e('html_attr') }}"
-                     data-index="{{ forms.acordoCriar.parcelas|length }}">
-                    {% for parcela in forms.acordoCriar.parcelas %}
-                    <div class="parcela-linha border rounded p-2 mb-2">{{ form_widget(parcela) }}
-                        <button type="button" class="btn btn-sm btn-outline-danger mt-1 remover-linha">Remover</button>
-                    </div>
-                    {% endfor %}
-                </div>
-                {{ form_errors(forms.acordoCriar.parcelas) }}
-                <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcela"><i class="bi bi-plus-lg me-1"></i>Adicionar parcela</button>
-                <div class="mt-2 small" data-acordo-fechamento></div>
+                    {{ form_errors(forms.acordoCriar.parcelas) }}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="addParcela"><i class="bi bi-plus-lg me-1"></i>Adicionar parcela</button>
+                    <div class="form-text">Ao mudar o valor de uma parcela, ela fica fixa e as demais se redistribuem para fechar o total.</div>
+                </section>
+
+                {# ── Data do acordo: registro, não negociação — por isso no fim, fora dos três passos ── #}
+                <div class="cob-acordo-data">{{ form_row(forms.acordoCriar.dataAcordo) }}</div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer cob-acordo-rodape">
+                {# O status de fechamento mora no RODAPÉ, ao lado do botão que ele governa: é ele que diz por
+                   que "Criar acordo" está desabilitado. Antes ficava no fim do corpo, fora de vista quando o
+                   modal rolava. O gancho `data-acordo-fechamento` é o mesmo — o JS não muda. #}
+                <div class="small flex-grow-1" data-acordo-fechamento></div>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Criar acordo</button>
             </div>

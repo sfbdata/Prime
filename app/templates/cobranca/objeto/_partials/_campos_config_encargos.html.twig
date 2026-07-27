@@ -1,8 +1,8 @@
 {# Campos de override de encargos do OBJETO (spec "cascata de encargos ao vivo sem snapshot" §4,
-   #9-T3) — nível 2 da cascata Carteira → Objeto → Obrigação. TODOS os 10 campos são opcionais: vazio =
-   herda a carteira. O indicador "Herda da carteira" aparece por campo quando o valor ainda é `null` no
-   MODELO (`form.<campo>.vars.data`, antes da transformação de view — o mesmo em GET e num B5
-   reidratado). Espelha o grid "Encargos por atraso" da config da carteira
+   #9-T3) — nível 2 da cascata Carteira → Objeto → Obrigação. TODOS os 10 campos são opcionais.
+   Campo vazio EXIBE, como placeholder, o valor que a carteira tem configurado (montado no
+   `EditarConfiguracaoObjetoType` a partir do `ResolvedorConfigEncargos`) — no lugar do antigo selo
+   "Herda da carteira", que dizia a regra sem dizer o número. Espelha o grid "Encargos por atraso" da config da carteira
    (`cobranca/carteira/_campos_config.html.twig`), mas SEM R$ (decisão #9-T3, documentada no relatório
    da T3: o objeto agrega várias obrigações, sem principal/vencimento únicos para o
    `ConversorTaxaEncargo` converter — só %/bp aqui).
@@ -11,14 +11,9 @@
    guarda "Menor da revisão T2": desabilita o override de honorários quando a carteira não cobra
    honorário percentual, evitando "exigível cobra honorário, split zera"). #}
 
-{% macro herda(campo) %}
-    {%- if campo.vars.data is null %}<span class="badge text-bg-secondary ms-1">Herda da carteira</span>{% endif -%}
-{% endmacro %}
-{% import _self as helpers %}
-
 <div class="row g-3">
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.taxaJurosMensalBp.vars.id }}">{{ form.taxaJurosMensalBp.vars.label }}{{ helpers.herda(form.taxaJurosMensalBp) }}</label>
+        <label class="form-label" for="{{ form.taxaJurosMensalBp.vars.id }}">{{ form.taxaJurosMensalBp.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.taxaJurosMensalBp) }}
             <span class="input-group-text">%</span>
@@ -27,13 +22,13 @@
     </div>
 
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.regimeJuros.vars.id }}">{{ form.regimeJuros.vars.label }}{{ helpers.herda(form.regimeJuros) }}</label>
+        <label class="form-label" for="{{ form.regimeJuros.vars.id }}">{{ form.regimeJuros.vars.label }}</label>
         {{ form_widget(form.regimeJuros) }}
         {{ form_errors(form.regimeJuros) }}
     </div>
 
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.taxaMultaBp.vars.id }}">{{ form.taxaMultaBp.vars.label }}{{ helpers.herda(form.taxaMultaBp) }}</label>
+        <label class="form-label" for="{{ form.taxaMultaBp.vars.id }}">{{ form.taxaMultaBp.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.taxaMultaBp) }}
             <span class="input-group-text">%</span>
@@ -42,13 +37,13 @@
     </div>
 
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.baseMulta.vars.id }}">{{ form.baseMulta.vars.label }}{{ helpers.herda(form.baseMulta) }}</label>
+        <label class="form-label" for="{{ form.baseMulta.vars.id }}">{{ form.baseMulta.vars.label }}</label>
         {{ form_widget(form.baseMulta) }}
         {{ form_errors(form.baseMulta) }}
     </div>
 
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.taxaCorrecaoBp.vars.id }}">{{ form.taxaCorrecaoBp.vars.label }}{{ helpers.herda(form.taxaCorrecaoBp) }}</label>
+        <label class="form-label" for="{{ form.taxaCorrecaoBp.vars.id }}">{{ form.taxaCorrecaoBp.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.taxaCorrecaoBp) }}
             <span class="input-group-text">%</span>
@@ -57,14 +52,14 @@
     </div>
 
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.baseCorrecao.vars.id }}">{{ form.baseCorrecao.vars.label }}{{ helpers.herda(form.baseCorrecao) }}</label>
+        <label class="form-label" for="{{ form.baseCorrecao.vars.id }}">{{ form.baseCorrecao.vars.label }}</label>
         {{ form_widget(form.baseCorrecao) }}
         {{ form_errors(form.baseCorrecao) }}
     </div>
 
     <div class="col-md-6">
         <label class="form-label" for="{{ form.taxaHonorariosBp.vars.id }}">
-            {{ form.taxaHonorariosBp.vars.label }}{% if not carteiraSemHonorarios %}{{ helpers.herda(form.taxaHonorariosBp) }}{% endif %}
+            {{ form.taxaHonorariosBp.vars.label }}
         </label>
         <div class="input-group">
             {{ form_widget(form.taxaHonorariosBp, carteiraSemHonorarios ? {attr: {disabled: true}} : {}) }}
@@ -77,13 +72,13 @@
     </div>
 
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.baseHonorarios.vars.id }}">{{ form.baseHonorarios.vars.label }}{{ helpers.herda(form.baseHonorarios) }}</label>
+        <label class="form-label" for="{{ form.baseHonorarios.vars.id }}">{{ form.baseHonorarios.vars.label }}</label>
         {{ form_widget(form.baseHonorarios) }}
         {{ form_errors(form.baseHonorarios) }}
     </div>
 
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.carenciaHonorariosDias.vars.id }}">{{ form.carenciaHonorariosDias.vars.label }}{{ helpers.herda(form.carenciaHonorariosDias) }}</label>
+        <label class="form-label" for="{{ form.carenciaHonorariosDias.vars.id }}">{{ form.carenciaHonorariosDias.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.carenciaHonorariosDias) }}
             <span class="input-group-text">dias</span>
@@ -92,7 +87,7 @@
     </div>
 
     <div class="col-md-6">
-        <label class="form-label" for="{{ form.toleranciaJurosMultaDias.vars.id }}">{{ form.toleranciaJurosMultaDias.vars.label }}{{ helpers.herda(form.toleranciaJurosMultaDias) }}</label>
+        <label class="form-label" for="{{ form.toleranciaJurosMultaDias.vars.id }}">{{ form.toleranciaJurosMultaDias.vars.label }}</label>
         <div class="input-group">
             {{ form_widget(form.toleranciaJurosMultaDias) }}
             <span class="input-group-text">dias</span>

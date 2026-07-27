@@ -49,13 +49,15 @@ final class AcordoCriarType extends AbstractType
             ->add('valorTotalNegociado', CentavosType::class, [
                 'label' => 'Total negociado',
                 'required' => false,
-                // Preserva os defaults do CentavosType (inputmode/placeholder), que attr sobrescreveria.
-                'attr' => ['inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-total' => ''],
+                // `attr` SUBSTITUI o default do CentavosType — por isso inputmode/placeholder são
+                // repetidos aqui. `form-control` entrou junto: sem ele os dois campos de dinheiro
+                // renderizavam sem estilo (27px contra 38px dos vizinhos), desalinhando a grade.
+                'attr' => ['class' => 'form-control', 'inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-total' => ''],
             ])
             ->add('valorEntrada', CentavosType::class, [
                 'label' => 'Entrada (opcional)',
                 'required' => false,
-                'attr' => ['inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-entrada' => ''],
+                'attr' => ['class' => 'form-control', 'inputmode' => 'decimal', 'placeholder' => '0,00', 'data-acordo-entrada' => ''],
             ])
             ->add('parcelas', CollectionType::class, [
                 'entry_type' => ParcelaAcordoType::class,
@@ -92,6 +94,12 @@ final class AcordoCriarType extends AbstractType
      * do acordo (PRG: o rótulo nunca renderiza, o ChoiceType valida o id) e o do modal de PAGAMENTO
      * (`MontadorModaisCaso::financeiros`), que oferece a obrigação inteira.
      *
+     * O VALOR é sempre o id — é ele que o formulário submete e o UseCase resolve. A chave é só
+     * ROTULAGEM, e rótulo repetido APAGA a opção anterior: duas obrigações com a mesma descrição, o
+     * mesmo vencimento e o mesmo valor (uma reimportação basta) colidiriam, e uma delas ficaria
+     * impossível de acordar ou de receber pagamento — sem nenhum aviso. Por isso o desempate por id,
+     * aplicado só quando o rótulo repete: quem tem rótulo único continua exibido como antes.
+     *
      * @param list<Obrigacao> $obrigacoes
      * @param array<int, int> $alocadoPorObrigacao Mapa `obrigacaoId => Σ alocado` (centavos).
      *
@@ -101,7 +109,8 @@ final class AcordoCriarType extends AbstractType
     {
         $opcoes = [];
         foreach ($obrigacoes as $o) {
-            $alocado = $alocadoPorObrigacao[(int) $o->getId()] ?? 0;
+            $id = (int) $o->getId();
+            $alocado = $alocadoPorObrigacao[$id] ?? 0;
             $remanescente = max(0, $o->valorExigivel() - $alocado);
             $valor = number_format($remanescente / 100, 2, ',', '.');
 
@@ -115,6 +124,12 @@ final class AcordoCriarType extends AbstractType
             // Ajuste 10 (spec §5.3): o gestor não pode renegociar às cegas um valor que já foi pago.
             if ($alocado > 0) {
                 $label .= sprintf(' (R$ %s já recebidos)', number_format($alocado / 100, 2, ',', '.'));
+            }
+
+            // Termina sempre: cada volta alonga a string e as chaves existentes são finitas. Cobre até o
+            // patológico — uma descrição cadastrada já contendo o sufixo de outra.
+            while (isset($opcoes[$label])) {
+                $label .= ' #' . $id;
             }
 
             $opcoes[$label] = $o->getId();
