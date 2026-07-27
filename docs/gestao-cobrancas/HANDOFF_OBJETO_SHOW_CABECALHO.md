@@ -8,10 +8,10 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, HEAD `fd9b2b5` (Etapa 4) sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`**, HEAD `4ae2fee` (Etapa 5) sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma prevista**, e é decisão de projeto (ver §3.1 da spec) |
-| Suíte | `tests/Cobranca` **1194/1194** verde ao fim da Etapa 4 |
+| Suíte | `tests/Cobranca` **1205/1205** verde ao fim da Etapa 5 |
 | Publicado | **nada** |
 
 ⚠️ **Duas decisões do dono estão abertas na Etapa 2** — o código segue a spec literal nas duas, e as
@@ -77,7 +77,7 @@ Não commite junto.
 - [x] **2 — UseCases de qualificação** (registrar + desfazer + exceção + query da 4ª condição)
 - [x] **3 — Leitura da página** (totais do cabeçalho, prescrição, ficha da cobrada, vizinhos na carteira) — `29c4cbf`
 - [x] **4 — Rotas** (registrar / desfazer qualificação) — `fd9b2b5`
-- [ ] **5 — Template do cabeçalho**
+- [x] **5 — Template do cabeçalho** (duas colunas, cards, prescrição, ações, setas) — `4ae2fee`
 - [ ] **6 — Template da aba Responsáveis + painel de qualificação**
 - [ ] **7 — CSS**
 - [ ] **8 — Testes** (unitários e funcionais) e suíte completa
@@ -336,6 +336,65 @@ status code is 404". O filtro do controller é o que responde ali.
    UseCase (é da Etapa 2, já revisado e testado); tirar ou manter é decisão de quem fechar a etapa 8.
 2. **As duas actions passam de ~20 linhas** da heurística 5-10-20 do `criar-controller`. O excedente é
    guarda e comentário, não lógica; registrado por honestidade, não como pendência.
+
+## Etapa 5 — FEITA (`4ae2fee`)
+
+| Arquivo | O quê |
+|---|---|
+| `templates/cobranca/objeto/show.html.twig` | cabeçalho da §1 inteiro, no lugar do bloco antigo |
+| `tests/.../CabecalhoObjetoShowTest.php` (novo) | 11 funcionais de renderização |
+| `tests/.../ObjetoShowControllerTest.php` | a barra de abas perdeu 1 item (ver abaixo) |
+
+Estrutura entregue, em `.cob-cab` (grade `row`/`col-12 col-lg-*`, duas colunas só a partir de 992px):
+
+```
+esquerda (.cob-cab-identidade)          direita (.cob-cab-lateral)
+  .cob-cab-trilha    Carteira › Unidade   .cob-presc      caixa de prescrição
+  h1 + badge de status + .cob-cab-nav       [data-severidade] + aviso + "Ver competência"
+  .cob-cab-meta      descrição · N …     .cob-cab-acoes  os 5 botões da §1.4
+  .cob-cab-cards     4× [data-card]
+  .cob-resumo        Total em aberto / Total vencido
+```
+
+Ganchos que os testes (e a Etapa 7) usam: `[data-card=principal|encargos|honorarios|total]`,
+`[data-meta=obrigacoes-em-aberto]`, `[data-nav=anterior|proximo]`, `[data-acao=simular-acordo|planilha-atualizada]`,
+`.cob-presc[data-severidade]`. **Só o CSS de acabamento falta** (Etapa 7): a estrutura já se sustenta na
+grade do Bootstrap, para não existir uma janela em que a página fique quebrada.
+
+### A armadilha, agora travada por teste
+
+`totalAtualizadoEmAberto` (card **Total atualizado**) é o BRUTO; `saldoExigivel` (linha fina, **Total em
+aberto**) é o LÍQUIDO de pagamentos. `testTotalAtualizadoNaoEOSaldoExigivel` monta uma obrigação de
+R$ 1.000,00 com R$ 400,00 pagos e exige **1000,00 no card e 600,00 na linha fina** — trocar um pelo outro
+no Twig derruba o teste (medido).
+
+### Duas decisões tomadas aqui (o dono pode reverter)
+
+1. **`Registrar contato` saiu da barra de abas** e virou o primeiro botão da barra de ações do cabeçalho,
+   porque a §1.4 o lista lá. Mantê-lo nos dois lugares poria o MESMO gatilho do MESMO modal duas vezes na
+   mesma dobra. `ObjetoShowControllerTest::testBarraDeAtividadesReuneConteudoEAcoes` mudou de 8 para 7
+   itens e passou a assertar as **duas** pontas (saiu da barra **e** chegou ao cabeçalho) — sozinha, a
+   segunda asserção aceitaria o botão duplicado.
+2. **A seta solta de "voltar para a carteira" saiu**, porque o primeiro nível da trilha
+   (`Carteira <nome>`) leva ao mesmo lugar e fica a dois centímetros dela.
+
+### O que a Etapa 5 ensinou
+
+**13 injeções de defeito, todas derrubaram o teste alvo** (script no scratchpad, não versionado). As que
+valeram mais: o card `Juros e multa` lendo `saldoVencido` (campo de nome parecido e ordem de grandeza
+próxima — só a asserção de que **os três cards somam o quarto** pega isso), o `Ver competência` sem o
+`data-abrir-aba` (vira clique morto, porque o alvo mora num pane oculto) e o aviso de estimativa removido
+da caixa de prescrição.
+
+**A faixa de severidade da prescrição é `≤ 90` crítica e `≤ 180` atenção — 150 dias é ATENÇÃO.** O
+primeiro cenário do teste nasceu com `-5 years +150 days` esperando `critica` e falhou; o certo para a
+faixa crítica é `+60 days`. Errar isso no teste é o mesmo erro que erraria na tela.
+
+**Injeção que derruba por 500 também é prova, desde que você saiba disso.** Trocar o guard
+`{% if caso.prescricao %}` por `{% if caso.obrigacoes|length > 0 %}` faz a caixa tentar ler propriedade de
+`null` e a página estourar — o teste cai por `assertResponseIsSuccessful`, não por asserção de conteúdo.
+Registrado para ninguém ler a linha `PEGOU` como se o teste tivesse pego a **ausência da caixa**: o que
+ele prova é que **o guard é o que a mantém fora da tela**.
 
 ## Comandos
 
