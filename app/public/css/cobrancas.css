@@ -589,11 +589,17 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    Só variáveis Bootstrap (`--bs-*`) e o accent do módulo (`--jp-accent`): claro e escuro saem do mesmo
    código, sem cor solta. */
 
-/* Resumo do cabeçalho (§6.1) — os mesmos dois valores que ficavam no hero, agora legíveis sem rolar. */
-.cob-resumo { display: flex; flex-wrap: wrap; gap: 1.75rem; }
-.cob-resumo-item { display: flex; flex-direction: column; gap: .1rem; }
-.cob-resumo-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--bs-secondary-color); font-weight: 600; }
-.cob-resumo-valor { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
+/* Resumo do cabeçalho (§6.1) — os mesmos dois valores que ficavam no hero, agora legíveis sem rolar.
+   ⚠️ Etapa 7 do redesenho do cabeçalho: este bloco virou a LINHA FINA da spec
+   `cobranca-objeto-show-cabecalho-responsaveis.md` §1.2 — ele agora fica ABAIXO dos quatro cards
+   `.cob-cab-cards`, e o card `Total atualizado` é quem manda no dinheiro. Por isso rótulo e valor
+   passaram a ficar na MESMA linha e o valor caiu de 1.5rem para 1.05rem: mantido do tamanho antigo,
+   o saldo exigível gritaria mais alto que o total do card e inverteria a hierarquia que a §1.2 fixa.
+   O código de cor (vencido/zerado) fica: é ele que separa os dois números de relance. */
+.cob-resumo { display: flex; flex-wrap: wrap; gap: .3rem 1.5rem; }
+.cob-resumo-item { display: flex; align-items: baseline; gap: .4rem; min-width: 0; }
+.cob-resumo-label { font-size: .78rem; color: var(--bs-secondary-color); font-weight: 600; }
+.cob-resumo-valor { font-size: 1.05rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
 .cob-resumo-valor.is-vencido { color: var(--bs-danger); }
 .cob-resumo-valor.saldo-zerado { color: var(--bs-success); }
 
@@ -746,3 +752,238 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     border-top-width: 2px; border-top-color: var(--bs-secondary-color);
     font-weight: 700; margin-top: .15rem;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════════════════════════
+   CABEÇALHO + ABA RESPONSÁVEIS do objeto — Etapa 7 (acabamento).
+   Contrato: docs/specs/cobranca-objeto-show-cabecalho-responsaveis.md (§1, §2 e §3).
+   As Etapas 5 e 6 entregaram a marcação sustentada só pela grade do Bootstrap; aqui entra o
+   acabamento sobre os ganchos que elas deixaram.
+
+   Três regras que valem para TUDO daqui para baixo:
+
+   1. Cor só por variável — `--bs-*` do Bootstrap 5.3 (que já troca sozinha entre claro e escuro) e
+      o `--jp-accent` do módulo. Fundo de painel usa `var(--bs-tertiary-bg)` ou tint TRANSLÚCIDO
+      (`rgba(var(--…-rgb), α)`), nunca um hex claro fixo: no tema escuro um hex claro vira uma placa
+      branca no meio da página. Para texto sobre tint colorido vale `--bs-*-text-emphasis`, que o
+      Bootstrap redefine nos dois temas.
+   2. As duas colunas (cabeçalho `col-lg-7/5`, aba `col-lg-8/4`) são da grade do Bootstrap e só se
+      separam em ≥992px. NENHUMA regra aqui fixa largura de coluna nem antecipa esse ponto — o que
+      há são grades internas elásticas, que refluem pela largura do próprio container.
+   3. Nada estoura no celular: todo container elástico leva `min-width: 0`, todo texto que vem do
+      cadastro (identificação, nome de carteira, endereço, e-mail, número) leva
+      `overflow-wrap: anywhere`, e as grades usam `minmax(min(X, 100%), 1fr)` — sem o `min()` uma
+      coluna de piso X sobra da tela quando o container é menor que X.
+═══════════════════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── §1 Cabeçalho: colunas e identidade ─────────────────────────────────────────────────────── */
+.cob-cab-identidade, .cob-cab-lateral { min-width: 0; }
+/* O `h1` mantém o tamanho responsivo do Bootstrap (o resto do sistema usa o mesmo) — só ganha
+   quebra: `objeto.identificacao` vem do cadastro e pode ser uma sequência longa sem espaço. */
+.cob-cab-identidade h1 { min-width: 0; overflow-wrap: anywhere; }
+
+/* Trilha de dois níveis (§1.1). Discreta: é orientação, não conteúdo — o título é que manda. */
+.cob-cab-trilha {
+    display: flex; align-items: center; flex-wrap: wrap; gap: .1rem .35rem;
+    margin-bottom: .2rem; color: var(--bs-secondary-color); min-width: 0;
+}
+.cob-cab-trilha a { color: var(--bs-secondary-color); text-decoration: none; overflow-wrap: anywhere; }
+.cob-cab-trilha a:hover { color: var(--jp-accent); text-decoration: underline; }
+.cob-cab-trilha-sep { opacity: .5; }
+.cob-cab-trilha-atual { color: var(--bs-body-color); font-weight: 600; overflow-wrap: anywhere; }
+
+/* Setas ‹ › entre unidades (§1.5). Glifo maior que o texto do botão, para o alvo ser óbvio; na
+   ponta da carteira a seta vem `.disabled` do Twig e aqui ela só apaga — o estado é decidido no
+   servidor (`objetoAnteriorId`/`objetoProximoId` nulos), nunca no CSS. */
+.cob-cab-nav .btn {
+    min-width: 2.1rem; padding: .1rem .4rem; font-size: 1.15rem; line-height: 1.4;
+    color: var(--bs-secondary-color);
+}
+.cob-cab-nav .btn.disabled { opacity: .4; }
+/* Vence o `:hover` do `.btn-outline-secondary` (que inverteria para fundo cinza sólido): o módulo
+   sinaliza interação com o accent, não com o cinza do Bootstrap. */
+.cob-cab-nav .btn:not(.disabled):hover, .cob-cab-nav .btn:not(.disabled):focus-visible {
+    background: rgba(var(--jp-accent-rgb), .12);
+    border-color: rgba(var(--jp-accent-rgb), .4);
+    color: var(--jp-accent);
+}
+
+.cob-cab-meta { overflow-wrap: anywhere; }
+
+/* ── §1.2 Os quatro cards que somam entre si ────────────────────────────────────────────────────
+   `auto-fit` + piso de 9.5rem: quatro numa linha na coluna larga, dois a dois quando ela aperta, um
+   embaixo do outro no telefone — sem media query, porque quem estreita a coluna tanto pode ser o
+   viewport quanto a própria grade de duas colunas do cabeçalho. */
+.cob-cab-cards {
+    display: grid; gap: .6rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(9.5rem, 100%), 1fr));
+}
+.cob-cab-card {
+    display: flex; flex-direction: column; gap: .1rem; min-width: 0;
+    border: 1px solid var(--bs-border-color); border-radius: .625rem;
+    padding: .6rem .8rem; background: var(--bs-tertiary-bg);
+}
+.cob-cab-card-rot {
+    font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--bs-secondary-color);
+}
+.cob-cab-card-val {
+    font-size: 1.15rem; font-weight: 700; line-height: 1.15;
+    font-variant-numeric: tabular-nums; color: var(--bs-body-color); overflow-wrap: anywhere;
+}
+/* A nota "atualizado em dd/mm/aaaa" é CONTEXTO do total, não um segundo dado: menor que o rótulo e
+   sem caixa-alta, para não disputar leitura com o valor logo acima. */
+.cob-cab-card-nota { font-size: .68rem; color: var(--bs-secondary-color); margin-top: .05rem; }
+
+/* `Total atualizado` é a soma dos três anteriores — o destaque diz "leia este" sem precisar de um
+   quinto elemento explicando a relação. Tint translúcido do accent (nunca hex): sai legível nos dois
+   temas e é o mesmo tratamento que `.cob-proxima-faixa` e `.cob-resp-atual` já usam. */
+.cob-cab-card.is-total {
+    border-color: rgba(var(--jp-accent-rgb), .35);
+    background: rgba(var(--jp-accent-rgb), .09);
+}
+.cob-cab-card.is-total .cob-cab-card-rot { color: var(--jp-accent); }
+.cob-cab-card.is-total .cob-cab-card-val { font-size: 1.35rem; color: var(--jp-accent); }
+
+/* Rótulo que esconde explicação atrás de tooltip avisa que é clicável-de-mouse-parado. Só nos
+   RÓTULOS: nos botões desabilitados o cursor certo é `not-allowed`, logo abaixo. */
+.cob-cab-card-rot[data-bs-toggle="tooltip"], .cob-resumo-label[data-bs-toggle="tooltip"] {
+    cursor: help;
+    text-decoration: underline dotted var(--bs-border-color);
+    text-underline-offset: .2em;
+}
+
+/* ── §1.3 Caixa de prescrição — o elemento dominante do cabeçalho ───────────────────────────────
+   A caixa só existe quando há obrigação em aberto (guard no Twig, `caso.prescricao`), e a severidade
+   vem pronta da `CalculadoraPrescricao`. O CSS só pinta a faixa que o servidor escolheu. */
+.cob-presc {
+    display: flex; flex-direction: column; gap: .3rem; min-width: 0;
+    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
+    padding: .95rem 1.1rem; background: var(--bs-tertiary-bg);
+}
+.cob-presc-topo {
+    display: flex; align-items: center; gap: .4rem;
+    font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--bs-secondary-color);
+}
+.cob-presc-destaque {
+    font-size: 1.4rem; font-weight: 700; line-height: 1.15; color: var(--bs-body-color);
+    overflow-wrap: anywhere;
+}
+.cob-presc-detalhe { color: var(--bs-secondary-color); overflow-wrap: anywhere; }
+.cob-presc-detalhe strong { color: var(--bs-body-color); font-weight: 600; }
+/* O aviso de estimativa é OBRIGATÓRIO (§1.3) e não pode virar rodapé decorativo: fica separado por
+   uma divisória suave, legível, só um degrau abaixo do detalhe. */
+.cob-presc-aviso {
+    margin-top: .15rem; padding-top: .45rem;
+    border-top: 1px dashed color-mix(in srgb, var(--bs-border-color), transparent 35%);
+    color: var(--bs-secondary-color);
+}
+.cob-presc-link { align-self: flex-start; margin-top: .35rem; }
+
+/* As três severidades. Tint translúcido + `--bs-*-text-emphasis` no texto: o Bootstrap 5.3 redefine
+   essas variáveis no tema escuro, então o mesmo código serve aos dois. `sev-info` (prazo folgado) é
+   deliberadamente NEUTRO — pintar de verde um prazo que ainda corre sugere "resolvido". */
+.cob-presc.sev-danger {
+    border-color: rgba(var(--bs-danger-rgb), .4); background: rgba(var(--bs-danger-rgb), .08);
+}
+.cob-presc.sev-danger .cob-presc-topo,
+.cob-presc.sev-danger .cob-presc-destaque { color: var(--bs-danger-text-emphasis); }
+
+.cob-presc.sev-warning {
+    border-color: rgba(var(--bs-warning-rgb), .45); background: rgba(var(--bs-warning-rgb), .1);
+}
+.cob-presc.sev-warning .cob-presc-topo,
+.cob-presc.sev-warning .cob-presc-destaque { color: var(--bs-warning-text-emphasis); }
+
+.cob-presc.sev-info { border-color: var(--bs-border-color); background: var(--bs-tertiary-bg); }
+.cob-presc.sev-info .cob-presc-topo { color: var(--bs-secondary-color); }
+
+/* ── §1.4 Ações do cabeçalho ────────────────────────────────────────────────────────────────────
+   `Simular acordo` e `Planilha atualizada` entram desabilitados de propósito (não existem ainda). O
+   `<span>` de fora é quem carrega o tooltip — elemento `disabled` não dispara evento —, e é nele que
+   o cursor precisa dizer "não dá". Mesmo tratamento nos ícones de telefone da aba (§2.3). */
+.cob-cab-acoes [data-bs-toggle="tooltip"]:has(> .btn:disabled),
+.cob-resp-telefone [data-bs-toggle="tooltip"]:has(> .btn:disabled),
+.cob-resp-rodape [data-bs-toggle="tooltip"]:has(> .btn:disabled) { cursor: not-allowed; }
+
+/* ── §2 Aba Responsáveis ────────────────────────────────────────────────────────────────────────
+   `.cob-resp-atual` (card da cobrada) e `.cob-resp-accordion` já vinham do Ajuste 10 e continuam
+   valendo — ficam mais acima no arquivo, junto do bloco original. Aqui entra o que a Etapa 6 criou. */
+.cob-resp-conteudo, .cob-resp-lateral { min-width: 0; }
+.cob-resp-contagem { color: var(--bs-secondary-color); font-weight: 500; }
+
+/* Lista de telefones (§2.3). O divisor entre linhas vem da utilitária `border-top` do Bootstrap,
+   aplicada no Twig a partir da segunda linha — NÃO é repetido aqui de propósito: duas fontes para a
+   mesma linha divergiriam no dia em que uma das duas mudasse. O que é do CSS é o resto. */
+.cob-resp-telefone { min-width: 0; }
+.cob-resp-telefone a {
+    color: var(--bs-body-color); text-decoration: none; font-weight: 600;
+    font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.cob-resp-telefone a:hover { color: var(--jp-accent); text-decoration: underline; }
+/* O mini-form reusa `AdicionarTelefoneType`, e o tema de formulário do projeto deixa `mb-3` no campo
+   e no botão (é ele que alinha os dois pela base). Seguido do `mt-3` da faixa de qualificação, isso
+   abria ~2rem de vão morto entre os dois blocos: a margem negativa recolhe metade sem desalinhar o
+   par nem mexer na utilitária — que é `!important` e só se venceria com outro `!important`. */
+.cob-resp-telefone-novo { margin-bottom: -.5rem; }
+
+/* Faixa de qualificação (§2.4): rótulo pequeno em cima, valor embaixo. Flex, não grid: o endereço é
+   muito mais longo que os outros três e pede uma base maior sem que isso vire coluna fixa. Todos
+   encolhem (`min-width: 0`) e quebram, então nenhuma largura de base sobra da tela no celular. */
+.cob-resp-qualif {
+    display: flex; flex-wrap: wrap; gap: .75rem 1.5rem;
+    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
+    padding: .85rem 1rem; background: var(--bs-tertiary-bg);
+}
+.cob-resp-qualif-item { display: flex; flex-direction: column; gap: .1rem; flex: 1 1 10rem; min-width: 0; }
+.cob-resp-qualif-item[data-qualif="endereco"] { flex-basis: 18rem; }
+.cob-resp-qualif-rot {
+    font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
+    color: var(--bs-secondary-color);
+}
+.cob-resp-qualif-val { color: var(--bs-body-color); overflow-wrap: anywhere; }
+.cob-resp-qualif-val a { color: var(--bs-body-color); text-decoration: none; }
+.cob-resp-qualif-val a:hover { color: var(--jp-accent); text-decoration: underline; }
+
+/* Rodapé da aba (§2.6): `← Voltar` e `Próxima unidade →` nas pontas. A borda e o espaçamento vêm
+   das utilitárias no Twig; aqui só o respiro de quando os dois quebram em linhas diferentes. */
+.cob-resp-rodape { row-gap: .5rem; }
+
+/* ── §3 Painel de qualificação de contato ───────────────────────────────────────────────────────
+   Cartão da coluna direita. Os três botões gravam num clique — o painel tem de ler como um bloco
+   próprio, separado do conteúdo da esquerda, e não como mais uma lista solta. */
+.cob-qualif {
+    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
+    padding: 1rem; background: var(--bs-tertiary-bg); min-width: 0;
+}
+.cob-qualif-titulo {
+    font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--bs-secondary-color);
+}
+.cob-qualif-titulo > .bi { color: var(--jp-accent); }
+
+/* Botões em coluna, largura cheia. Cada botão é um `<form>` próprio (§3: sem Symfony Form), então
+   quem empilha é a grade e quem estica é o botão dentro do seu form. `white-space: normal`: rótulo
+   de qualificação é frase ("Telefone inexistente") e precisa quebrar em vez de vazar do painel.
+   O `width: 100%` repete o `w-100` que o Twig já põe no botão — de propósito, para o empilhamento
+   ser do componente e não depender de utilitária. É seguro repetir porque as duas declarações são
+   idênticas e incondicionais; o divisor das listas (abaixo e em §2.3) NÃO é repetido justamente
+   porque lá a utilitária é condicional (`not loop.first`) e as duas fontes poderiam divergir. */
+.cob-qualif-botoes { display: grid; gap: .5rem; }
+.cob-qualif-botoes > form { min-width: 0; }
+.cob-qualif-botoes .btn { width: 100%; white-space: normal; }
+
+/* Listinha (§3.4). Rola dentro do painel na MESMA altura que o resto do módulo já usa para listas
+   longas (`.cob-anotacoes`, `.cobranca-central-eventos`): sem isso, uma cobrança muito trabalhada
+   estica a coluna direita muito além do conteúdo da esquerda. Como lá, o divisor entre linhas vem
+   da utilitária no Twig. */
+.cob-qualif-lista { max-height: 22rem; overflow-y: auto; padding-right: .35rem; }
+.cob-qualif-item { min-width: 0; }
+.cob-qualif-item > .bi { color: var(--bs-secondary-color); flex-shrink: 0; }
+.cob-qualif-item-texto { color: var(--bs-body-color); overflow-wrap: anywhere; min-width: 0; }
+/* `desfazer` é ação de reparo, não caminho principal: discreto até o mouse chegar, e aí vermelho —
+   nunca o índigo padrão do `btn-link`, que o módulo não usa em lugar nenhum. Só COR: o botão carrega
+   `.text-decoration-none`, que é `!important`, então sublinhar no hover daqui seria regra morta. */
+.cob-qualif-item [data-acao="desfazer-qualificacao"] { color: var(--bs-secondary-color); font-size: .8rem; }
+.cob-qualif-item [data-acao="desfazer-qualificacao"]:hover,
+.cob-qualif-item [data-acao="desfazer-qualificacao"]:focus-visible { color: var(--bs-danger); }
