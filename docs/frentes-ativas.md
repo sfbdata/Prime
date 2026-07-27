@@ -7,14 +7,11 @@ Quem abre uma frente acrescenta a linha. Quem integra tira.
 
 | Frente (branch) | Domínio | Migration? | Arquivos compartilhados que toca | Estágio | Base |
 |---|---|---|---|---|---|
-| `feature/cobranca-ux-rapida` | Cobrança (só a página do objeto) | **não** | nenhum — `cobrancas.css` é do módulo; sanitizador e `editor-rico.js` foram devolvidos ao master byte a byte | pronta para integrar | `origin/master` `0bb1f29` |
+| _(nenhuma frente aberta)_ | | | | | |
 
-O bug de homônimos em `PessoaRepository::opcoesDoTenant` (que segurava a integração) foi **corrigido e
-comprovado** em 2026-07-26: 125 pessoas → 125 opções, troca ponta a ponta entre homônimos gravando o id
-exato, e prova de mutação (6 testes falham se o defeito voltar). Sobra **uma decisão do dono, que não
-bloqueia a integração**: no dado real o rótulo de desempate cai sempre em `(#id)`, que não ajuda o
-operador a saber qual homônimo é qual — detalhe e opções em
-[gestao-cobrancas/HANDOFF_UX_RAPIDA.md](gestao-cobrancas/HANDOFF_UX_RAPIDA.md).
+`feature/cobranca-ux-rapida` foi **integrada e publicada** em 2026-07-26 (merge `bbc1724`, sem
+migration), com a suíte em 2612/2612 no master **depois** do merge. O que ela entregou e a decisão de
+rótulo que ficou em aberto: [gestao-cobrancas/HANDOFF_UX_RAPIDA.md](gestao-cobrancas/HANDOFF_UX_RAPIDA.md).
 
 **Estágios:** `implementando` · `em revisão` · `pronta para integrar` · `travada` (diga em quê).
 

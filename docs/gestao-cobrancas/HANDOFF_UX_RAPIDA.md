@@ -3,18 +3,22 @@
 Reorganização de interface de `cobranca_objeto_show`, executada em 2026-07-26 a partir da SPEC
 [cobranca-ux-rapida-1-dia.md](cobranca-ux-rapida-1-dia.md), mais um delta incremental pedido depois.
 
-**Nada publicado.** Sem push, merge, PR ou deploy. **Sem migration** — o banco não muda.
+**✅ INTEGRADA E PUBLICADA em 2026-07-26** — merge `bbc1724` no master, `git push origin master` feito,
+suíte 2612/2612 rodada no master **depois** do merge. **Sem migration**: o banco não muda.
+**Falta só o DEPLOY** (rebuild na VPS — prod é imagem baked, `git pull` sozinho não aplica nada) e o
+smoke em produção, com o roteiro de "Como conferir" mais abaixo.
 
 ## Estado
 
 | | |
 |---|---|
-| Branch | `feature/cobranca-ux-rapida` |
-| Worktree | `.claude/worktrees/cobranca-ux-rapida` |
+| Branch | `feature/cobranca-ux-rapida` — **integrada**, pode ser apagada (`git branch -d`) |
+| Worktree | `.claude/worktrees/cobranca-ux-rapida` — pode ser removida |
 | Base | `origin/master` `0bb1f29` |
-| HEAD | topo de `feature/cobranca-ux-rapida` (10 commits sobre a base) |
-| Suíte | **2609/2609** (8278 asserções), no banco da frente |
-| Árvore | limpa |
+| Merge | `bbc1724` (`--no-ff`), 12 commits, 47 arquivos |
+| Suíte | **2612/2612** (8305 asserções) — no banco da frente E no master pós-merge |
+| Publicado | `origin/master` `bbc1724` |
+| Falta | **deploy na VPS** + smoke em produção |
 
 Commits, na ordem:
 
