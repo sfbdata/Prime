@@ -1,0 +1,80 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Painel de Qualificação de Contato — coluna direita da aba Responsáveis
+   (spec `cobranca-objeto-show-cabecalho-responsaveis.md` §3).
+
+   Três botões que GRAVAM NUM CLIQUE, sem modal: o valor está em ser instantâneo durante a ligação.
+   Cada botão é um `<form method="post">` cru — o painel NÃO usa Symfony Form, porque não há
+   formulário a validar, só um enum vindo de um botão.
+
+   ⚠️ As duas intenções de CSRF daqui são STATEFUL, ao contrário de todo Form do projeto:
+   `config/packages/csrf.yaml` põe `submit`/`authenticate`/`logout` em `stateless_token_ids`, e o Form
+   usa `token_id: submit`. Sem Form, o token vai pela SESSÃO — por isso `csrf_token()` no Twig é
+   obrigatório aqui e não dá para reaproveitar o mecanismo stateless do resto da página.
+
+   O template NÃO decide nada: a ordem dos botões vem do enum (`QualificacaoContato::doPainel()`, via
+   controller) e o `desfazer` só é renderizado na linha que o SERVIDOR marcou com `podeDesfazer` — ele
+   não recalcula prazo de 5 minutos nem compara autoria. Se recalculasse, tela e servidor poderiam
+   discordar e o botão apareceria para quem a rota vai recusar.
+
+   Contexto herdado do show: `caso` (CasoDetalheOutput), `qualificacoesDoPainel` (list<QualificacaoContato>),
+   `podeGerenciar` (capacidade E caso aberto) e `podeQualificarDesfazer` (só a capacidade).
+─────────────────────────────────────────────────────────────────────────── #}
+<div class="cob-qualif jp-secao" data-painel="qualificacao">
+    <h6 class="cob-qualif-titulo mb-1"><i class="bi bi-tag me-1"></i>Qualificação de contato</h6>
+    <p class="text-secondary small mb-3">Um clique registra no histórico da cobrança.</p>
+
+    {% if podeGerenciar %}
+    <div class="cob-qualif-botoes d-grid gap-2">
+        {# `loop.last` = a positiva, destacada. A ordem (duas negativas, depois a positiva) é fixa e
+           documentada em `QualificacaoContato::doPainel()`; usar a posição em vez de repetir o valor
+           do enum aqui evita duas fontes para a mesma decisão. #}
+        {% for q in qualificacoesDoPainel %}
+        <form method="post" action="{{ path('cobranca_qualificacao_registrar', {id: caso.id}) }}" data-disable-on-submit="true">
+            <input type="hidden" name="_token" value="{{ csrf_token('registrar_qualificacao_' ~ caso.id) }}">
+            <input type="hidden" name="qualificacao" value="{{ q.value }}">
+            <button type="submit" class="btn btn-sm w-100 {{ loop.last ? 'jp-btn-accent' : 'btn-outline-secondary' }}"
+                    data-qualificacao="{{ q.value }}">
+                <i class="bi {{ q.icone }} me-1"></i>{{ q.label }}
+            </button>
+        </form>
+        {% endfor %}
+    </div>
+    {% elseif caso.encerrado %}
+    <p class="text-secondary small mb-0"><i class="bi bi-lock me-1"></i>Cobrança encerrada — não há novo lançamento.</p>
+    {% endif %}
+
+    {# ── Listinha (§3.4): só as qualificações, mais recente primeiro. "Nada além disso" — o dono pediu
+       algo limpo, e o Histórico completo continua na aba própria. A ordem vem pronta do
+       `MontarDetalheCasoUseCase`; o template não reordena. #}
+    <div class="cob-qualif-lista mt-3">
+        {% if caso.qualificacoes|length > 0 %}
+        <ul class="list-unstyled mb-0">
+            {% for linha in caso.qualificacoes %}
+            <li class="cob-qualif-item d-flex align-items-center gap-2 flex-wrap py-1{{ not loop.first ? ' border-top' : '' }}"
+                data-qualif-linha="{{ linha.eventoId }}">
+                <i class="bi {{ linha.icone }}" aria-hidden="true"></i>
+                <span class="cob-qualif-item-texto small">
+                    {{ linha.label }} · {{ linha.ocorridoEm|date('d/m/Y') }}{% if linha.autorNome %} · {{ linha.autorNome }}{% endif %}
+                </span>
+                {# `podeDesfazer` já embute as quatro condições da §3.5 decididas no servidor (tipo,
+                   autoria, 5 minutos e ser a mais recente). A capacidade é a ÚNICA coisa somada aqui, e
+                   ela é `podeQualificarDesfazer` — não `podeGerenciar`: caso encerrado NÃO impede
+                   desfazer (decisão registrada na Etapa 2, travada pelo teste `casoEncerradoAindaDesfaz`),
+                   porque em caso encerrado nem a qualificação corretiva por cima seria possível. #}
+                {% if linha.podeDesfazer and podeQualificarDesfazer %}
+                <form method="post" action="{{ path('cobranca_qualificacao_desfazer', {eventoId: linha.eventoId}) }}"
+                      class="ms-auto" data-disable-on-submit="true">
+                    <input type="hidden" name="_token" value="{{ csrf_token('desfazer_qualificacao_' ~ linha.eventoId) }}">
+                    <button type="submit" class="btn btn-link btn-sm p-0 text-decoration-none" data-acao="desfazer-qualificacao">
+                        desfazer
+                    </button>
+                </form>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small mb-0">Nenhuma qualificação registrada.</p>
+        {% endif %}
+    </div>
+</div>

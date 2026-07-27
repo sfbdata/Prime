@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Controller;
 
+use App\Cobranca\DTO\AdicionarTelefonePessoaInput;
 use App\Cobranca\DTO\CriarPessoaVinculadaInput;
 use App\Cobranca\DTO\EditarConfiguracaoObjetoInput;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Enum\FormaHonorarios;
+use App\Cobranca\Enum\QualificacaoContato;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
+use App\Cobranca\Form\AdicionarTelefoneType;
 use App\Cobranca\Form\CriarPessoaVinculadaType;
 use App\Cobranca\Form\EditarConfiguracaoObjetoType;
 use App\Cobranca\Form\EncerrarVinculoType;
@@ -87,6 +90,10 @@ final class ObjetoController extends AbstractController
 
         // Modais de mutação só para quem tem a capacidade — mesmo gate que os esconde no Twig. Movimentação
         // financeira é capacidade SEPARADA de gerenciar (SPEC §22). Judicializar exige o módulo `pastas`.
+        //
+        // ⚠️ `$podeGerenciar` AQUI é só a CAPACIDADE. O `podeGerenciar` do Twig
+        // (`show.html.twig`) é capacidade **E** caso aberto — mesmo nome, semânticas diferentes. Quem
+        // usar esta variável para uma rota que também recusa caso encerrado precisa somar a condição.
         $usuario = $this->usuarioLogado();
         $podeGerenciar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.gerenciar');
         $podeMovimentar = $this->permissionChecker->hasPermission($usuario, $tenant, 'resources.cobranca.movimentacao_financeira');
@@ -104,10 +111,13 @@ final class ObjetoController extends AbstractController
 
         $documentos = $this->montadorModais->documentosParaFm($caso);
 
+        // O usuário logado vai junto só para o histórico saber quais anotações ELE pode corrigir nas
+        // 48h (2026-07-22) e quais qualificações ELE pode desfazer nos 5 min (2026-07-27) — a decisão
+        // é do servidor, nunca do template.
+        $detalhe = $this->montarDetalheObjeto->executar($objeto, $caso, $usuario);
+
         return $this->render('cobranca/objeto/show.html.twig', [
-            // O usuário logado vai junto só para o histórico saber quais anotações ELE pode corrigir
-            // nas 48h (2026-07-22) — a decisão é do servidor, nunca do template.
-            'objeto' => $this->montarDetalheObjeto->executar($objeto, $caso, $this->usuarioLogado()),
+            'objeto' => $detalhe,
             'forms' => $forms,
             'modalErroId' => $erroModal['modalId'] ?? null,
             'modalErroAcao' => $erroModal['acao'] ?? null,
@@ -129,6 +139,18 @@ final class ObjetoController extends AbstractController
             // Guarda "Menor da revisão T2": a carteira sem forma percentual de honorários desabilita o
             // override de honorários do objeto no modal (evita "exigível cobra honorário, split zera").
             'carteiraSemHonorarios' => $objeto->getCarteira()?->getFormaHonorarios() === FormaHonorarios::SemPercentual,
+            // ── Aba Responsáveis (spec §2.3 e §3, Etapa 6) ────────────────────────────────────────
+            // Mini-form inline de adicionar telefone da pessoa COBRADA. Reusa `AdicionarTelefoneType`
+            // e a rota da ficha (`cobranca_pessoa_telefone_adicionar`): a aba passou a listar os
+            // telefones de verdade, e sem o FormView não há como renderizar o campo com o CSRF que
+            // aquela rota espera. Só nasce com a capacidade que a rota exige, e só com cobrada.
+            'formTelefoneCobrada' => ($podeGerenciar && $detalhe->fichaCobrada !== null)
+                ? $this->telefoneCobradaView($detalhe->fichaCobrada->id)
+                : null,
+            // A ORDEM dos três botões do painel é fixa e mora no enum (`doPainel()`): as duas negativas
+            // primeiro, a positiva por último. Vem do controller porque Twig não chama método estático —
+            // e reordenar no template faria a tela discordar da fonte única.
+            'qualificacoesDoPainel' => QualificacaoContato::doPainel(),
         ]);
     }
 
@@ -213,6 +235,19 @@ final class ObjetoController extends AbstractController
         }
 
         return $form->createView();
+    }
+
+    /**
+     * Mini-form inline de adicionar telefone da pessoa cobrada (spec §2.3). `pessoaId` NÃO é campo do
+     * form (`AdicionarTelefoneType` só tem `numero`): quem o define é a rota de destino, a partir da
+     * URL — por isso o Input aqui existe só para dar `data_class` ao form.
+     */
+    private function telefoneCobradaView(int $pessoaId): FormView
+    {
+        $input = new AdicionarTelefonePessoaInput();
+        $input->pessoaId = $pessoaId;
+
+        return $this->createForm(AdicionarTelefoneType::class, $input)->createView();
     }
 
     /**

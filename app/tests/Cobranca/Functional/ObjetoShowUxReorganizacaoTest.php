@@ -322,7 +322,7 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         // O caso mais comum do banco real: a ÚNICA pessoa vinculada é a própria cobrada atual. Aqui o
         // accordion de "outras pessoas" fica vazio — se as ações vivessem só nele, trocar responsável e
         // encerrar vínculo teriam sumido da tela, que é a regressão que este teste existe para travar.
-        VinculoPessoaObjetoFactory::createOne([
+        $vinculo = VinculoPessoaObjetoFactory::createOne([
             'tenant' => $tenant, 'objeto' => $caso->getObjeto(),
             'pessoa' => $caso->getPessoaCobradaAtual(), 'tipoVinculo' => TipoVinculo::Proprietario,
         ]);
@@ -336,7 +336,20 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         // quem ainda não está vinculado) — era o que a barra oferecia antes da consolidação.
         self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalAlterarPessoa"]', 'trocar responsável sumiu quando só há a cobrada atual');
         // Encerrar vínculo da própria cobrada atual: o card removido oferecia, o UseCase aceita.
-        self::assertSelectorExists('#tab-responsaveis .cob-resp-atual [data-bs-target="#modalEncerrarVinculo"]', 'encerrar vínculo da cobrada atual sumiu');
+        // Etapa 6 (spec §2.1) MOVEU o botão do card da pessoa para o cabeçalho da aba, junto de
+        // "Trocar responsável" e "Editar". A função é a mesma e o alvo (o vínculo da cobrada atual)
+        // também — o que mudou foi o lugar do gatilho. As duas asserções abaixo travam as duas pontas:
+        // ele existe no cabeçalho, e existe UMA vez só na aba (com um vínculo só, duplicar seria pôr o
+        // mesmo gatilho do mesmo modal duas vezes na mesma dobra).
+        $encerrar = $crawler->filter('#tab-responsaveis [data-bs-target="#modalEncerrarVinculo"]');
+        self::assertCount(1, $encerrar, 'encerrar vínculo da cobrada atual sumiu (ou apareceu duplicado)');
+        // Ancorado pela IDENTIDADE do vínculo, não pelo prefixo da URL: "contém /cobrancas/vinculos/"
+        // aceitaria o vínculo de qualquer pessoa, e a asserção prometeria mais do que prova.
+        self::assertSame(
+            '/cobrancas/vinculos/' . $vinculo->getId() . '/encerrar',
+            $encerrar->attr('data-acao-url'),
+            'o botão do cabeçalho tem de carregar a URL de encerramento do vínculo da COBRADA ATUAL',
+        );
     }
 
     #[TestDox('Pessoa homônima recebe "Definir como atual" habilitado e é selecionável no modal de troca')]

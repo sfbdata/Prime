@@ -672,6 +672,20 @@
 {{ parent() }}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    /* Anti duplo-submit dos forms CRUS desta página (aba Responsáveis: os três botões de qualificação,
+       o "Marcar como atual" e o mini-form de telefone). Cópia deliberada do handler da ficha da pessoa
+       (`cobranca/pessoa/show.html.twig`), porque aquele só varre o DOM da página dele — o atributo
+       `data-disable-on-submit` aqui era INERTE até 2026-07-27, e um duplo clique gravava DUAS
+       qualificações (cada uma contando como trabalho de cobrança na Central, com o desfazer removendo
+       uma por vez). Fica ANTES do guard de `bootstrap` de propósito: não depende dele, e a proteção não
+       pode cair junto se o bundle não carregar. */
+    document.querySelectorAll('.cobrancas-page form[data-disable-on-submit]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            var btn = form.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; }
+        });
+    });
+
     if (typeof bootstrap === 'undefined') { return; }
     document.querySelectorAll('.cobrancas-page [data-bs-toggle="tooltip"]').forEach(function (el) {
         new bootstrap.Tooltip(el);

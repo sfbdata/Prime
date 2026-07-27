@@ -1,186 +1,383 @@
 {# ───────────────────────────────────────────────────────────────────────────
-   Aba Responsáveis — consolida o que estava espalhado em três lugares: a opção "Ficha completa" da
-   barra, a ação "Trocar responsável" e o collapse "Envolvidos" do card lateral (que saiu).
+   Aba Responsáveis — spec `cobranca-objeto-show-cabecalho-responsaveis.md` §2 (Etapa 6).
 
-   Nada de regra nova aqui: a lista é a mesma `objeto.vinculos` que o card usava, e cada ação abre o
-   MESMO modal de antes (#modalVincularPessoaObjeto, #modalNovaPessoa, #modalAlterarPessoa,
-   #modalEncerrarVinculo). Só o lugar do gatilho mudou.
+   Duas colunas a partir de 992px: conteúdo à esquerda (≈2/3), painel de qualificação à direita (≈1/3).
+   Empilha abaixo disso, como o cabeçalho.
 
-   Gates preservados: ver a lista não exige capacidade (o collapse "Envolvidos" também não exigia);
-   cada AÇÃO segue sob o mesmo gate de antes — `podeGerenciar` para trocar a pessoa cobrada,
-   `formVincular`/`formNovaPessoa`/`formEncerrarVinculo` (null para quem não gerencia) para o resto, e
-   `resources.cobranca.gerenciar` para abrir a ficha, que é o que a rota exige.
+   O que MUDOU nesta etapa em relação à versão anterior da aba:
+   - a lista de telefones vem da FICHA da pessoa (`objeto.fichaCobrada.telefones`), não mais do
+     telefone único derivado (`vinculo.telefone`) — a pessoa tem vários, e só um é o atual;
+   - a linha de contatos do card virou a faixa de qualificação da §2.4 (CPF · E-mail · Estado civil ·
+     Endereço), com o e-mail e o endereço marcados como ATUAIS;
+   - o cabeçalho da aba ganhou o badge `Qualificação incompleta` e reuniu as três ações da §2.1;
+   - `Adicionar pessoa` desceu para junto de "Outras pessoas vinculadas", que é onde ele age (§2.5);
+   - entrou o rodapé `← Voltar` / `Próxima unidade →` (§2.6).
 
-   Contexto herdado do show: `objeto`, `caso`, `podeGerenciar` e os forms dos modais.
+   O que a maquete pede e NÃO entra (§2.3 / §6), para ninguém "consertar" isso depois:
+   - selos `WhatsApp 21/07` e `Não atende` POR TELEFONE: o contato registrado não guarda a qual
+     telefone se referia — só canal e desfecho, no payload do evento. Exibir exigiria inventar o
+     vínculo. Ligar contato↔telefone é frente própria, com migração;
+   - editar/excluir telefone: não há rota; entram desabilitados, como os botões do cabeçalho.
+
+   Nenhuma regra nova: o accordion é a mesma `objeto.vinculos` de antes, cada ação abre o MESMO modal
+   (#modalVincularPessoaObjeto, #modalNovaPessoa, #modalAlterarPessoa, #modalEncerrarVinculo) e as
+   rotas de telefone são as da ficha da pessoa, que já existiam.
+
+   Contexto herdado do show: `objeto`, `caso`, `podeGerenciar`, os forms dos modais,
+   `formTelefoneCobrada` e `qualificacoesDoPainel`.
 ─────────────────────────────────────────────────────────────────────────── #}
 {% set cobradaAtual = objeto.vinculos|filter(v => v.ehCobradaAtual)|first|default(null) %}
 {% set demais = objeto.vinculos|filter(v => not v.ehCobradaAtual) %}
-{% set podeAbrirFicha = has_permission('resources.cobranca.gerenciar') %}
+{% set ficha = objeto.fichaCobrada %}
 
-<div class="jp-secao">
+{# `podeGerenciar` (do show) = capacidade E caso aberto. Duas coisas desta aba dependem só da
+   CAPACIDADE: abrir/editar a ficha da pessoa (rota de pessoa, que não conhece caso nenhum) e DESFAZER
+   uma qualificação — caso encerrado não impede desfazer (decisão da Etapa 2, travada pelo teste
+   `casoEncerradoAindaDesfaz`), porque lá nem a qualificação corretiva por cima seria possível. #}
+{% set podeAbrirFicha = has_permission('resources.cobranca.gerenciar') %}
+{% set podeQualificarDesfazer = podeAbrirFicha %}
+
+{# Badge `Qualificação incompleta` (§2.1): falta CPF/CNPJ, OU estado civil, OU qualquer endereço. Fica
+   no template por ser leitura de completude para exibição — não é regra de negócio, nada decide a
+   partir dela e nenhum outro lugar do sistema a consome. As três pernas do OU estão travadas por
+   teste funcional, uma a uma. #}
+{% set qualificacaoIncompleta = ficha is not null and (
+    (not ficha.cpf and not ficha.cnpj)
+    or ficha.estadoCivilLabel is null
+    or ficha.enderecos|length == 0
+) %}
+
+<div class="jp-secao cob-resp">
+    {# ── §2.1 Cabeçalho da aba ───────────────────────────────────────────────────────────────────── #}
     <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mb-3">
-        <h5 class="mb-0">
-            <i class="bi bi-people me-1"></i>Responsáveis
-            <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span>
+        <h5 class="mb-0 d-flex align-items-center gap-2 flex-wrap">
+            <span><i class="bi bi-people me-1"></i>Responsáveis <span class="cob-resp-contagem">({{ objeto.vinculos|length }})</span></span>
+            {% if qualificacaoIncompleta %}
+                {# O badge LEVA À FICHA, que é onde se corrige — sem o link ele seria só uma reclamação.
+                   Sem a capacidade a rota da ficha nega, então aí ele vira aviso sem link em vez de um
+                   clique que cai em "sem acesso". #}
+                {% if podeAbrirFicha %}
+                <a href="{{ path('cobranca_pessoa_show', {id: ficha.id}) }}" class="badge text-bg-warning text-decoration-none"
+                   data-badge="qualificacao-incompleta"
+                   data-bs-toggle="tooltip" title="Falta CPF/CNPJ, estado civil ou endereço — clique para completar a ficha.">
+                    <i class="bi bi-exclamation-triangle me-1"></i>Qualificação incompleta
+                </a>
+                {% else %}
+                <span class="badge text-bg-warning" data-badge="qualificacao-incompleta">
+                    <i class="bi bi-exclamation-triangle me-1"></i>Qualificação incompleta
+                </span>
+                {% endif %}
+            {% endif %}
         </h5>
         <div class="d-flex gap-2 flex-wrap">
-        {# Troca de responsável SEM partir de um vínculo. É o caminho universal que existia na barra: o
-           modal lista todas as pessoas do escritório, inclusive quem ainda não está vinculado. Sem ele,
-           objeto com um vínculo só (116 dos 121 no banco de dev) ficaria sem NENHUM gatilho de troca —
-           a consolidação teria virado remoção de função. O botão por pessoa, no accordion, continua
-           existindo como atalho que já vem com a escolha feita. #}
-        {% if podeGerenciar and forms.alterarPessoa is defined %}
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa">
-            <i class="bi bi-arrow-left-right me-1"></i>Trocar responsável
-        </button>
-        {% endif %}
-        {% if formVincular or formNovaPessoa %}
-        <div class="dropdown">
-            <button class="btn btn-sm jp-btn-accent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <i class="bi bi-person-plus me-1"></i>Adicionar pessoa
+            {# Troca de responsável SEM partir de um vínculo. É o caminho universal que existia na barra: o
+               modal lista todas as pessoas do escritório, inclusive quem ainda não está vinculado. Sem ele,
+               objeto com um vínculo só (116 dos 121 no banco de dev) ficaria sem NENHUM gatilho de troca.
+               O botão por pessoa, no accordion, continua existindo como atalho já com a escolha feita. #}
+            {% if podeGerenciar and forms.alterarPessoa is defined %}
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa">
+                <i class="bi bi-arrow-left-right me-1"></i>Trocar responsável
             </button>
-            <ul class="dropdown-menu dropdown-menu-end">
-                {% if formVincular %}
-                <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
-                    <i class="bi bi-link-45deg me-2"></i>Vincular pessoa já cadastrada
-                </button></li>
-                {% endif %}
-                {% if formNovaPessoa %}
-                <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
-                    <i class="bi bi-person-plus me-2"></i>Cadastrar nova pessoa
-                </button></li>
-                {% endif %}
-            </ul>
-        </div>
-        {% endif %}
+            {% endif %}
+            {% if cobradaAtual and podeAbrirFicha %}
+            <a href="{{ path('cobranca_pessoa_show', {id: cobradaAtual.pessoaId}) }}" class="btn btn-sm btn-outline-secondary" data-acao="editar-ficha">
+                <i class="bi bi-pencil me-1"></i>Editar
+            </a>
+            {% endif %}
+            {# O card que esta aba substituiu oferecia encerrar vínculo para TODOS os vínculos ativos,
+               inclusive o da cobrada atual — e o `EncerrarVinculoUseCase` aceita esse caso (só recusa
+               vínculo já encerrado). Sem este botão a função sumiria para a pessoa do topo. #}
+            {% if cobradaAtual and cobradaAtual.ativo and formEncerrarVinculo %}
+            <button type="button" class="btn btn-sm btn-outline-danger"
+                    data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
+                    data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: cobradaAtual.vinculoId}) }}"
+                    data-vinculo-rotulo="{{ (cobradaAtual.nome ~ ' (' ~ cobradaAtual.papelLabel ~ ')')|e('html_attr') }}">
+                <i class="bi bi-x-circle me-1"></i>Encerrar vínculo
+            </button>
+            {% endif %}
         </div>
     </div>
 
-    {# ── Responsável atual: topo e sempre expandido (é a pessoa de quem se cobra) ── #}
-    {% if cobradaAtual %}
-        {% set partes = cobradaAtual.nome|split(' ')|filter(p => p is not empty) %}
-        {% set iniciais = (partes|length > 1
-            ? (partes|first|slice(0, 1) ~ partes|last|slice(0, 1))
-            : cobradaAtual.nome|slice(0, 2))|upper %}
-    <div class="cob-resp-atual">
-        <div class="d-flex align-items-start gap-3 flex-wrap">
-            <div class="jp-pessoa-avatar" aria-hidden="true">{{ iniciais }}</div>
-            <div class="flex-grow-1 min-w-0">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                    <span class="badge text-bg-success">Responsável atual</span>
-                    <span class="jp-chip">{{ cobradaAtual.papelLabel }} desde {{ cobradaAtual.dataInicio|date('m/Y') }}</span>
-                    {# O vínculo pode estar ENCERRADO e a pessoa seguir sendo a cobrada atual (o
-                       encerramento do vínculo não troca quem se cobra). O card lateral que esta aba
-                       substituiu mostrava esse estado e o motivo — continua mostrando. #}
-                    {% if not cobradaAtual.ativo %}<span class="badge text-bg-secondary">Vínculo encerrado</span>{% endif %}
-                </div>
-                <p class="jp-pessoa-nome mt-1" title="{{ cobradaAtual.nome }}">{{ cobradaAtual.nome }}</p>
-                <div class="jp-pessoa-contatos">
-                    {% if cobradaAtual.cpf %}<span><i class="bi bi-person-vcard"></i><span class="jp-contato-label">CPF:</span> {{ cobradaAtual.cpf }}</span>{% endif %}
-                    {% if cobradaAtual.cnpj %}<span><i class="bi bi-building"></i><span class="jp-contato-label">CNPJ:</span> {{ cobradaAtual.cnpj }}</span>{% endif %}
-                    {% if cobradaAtual.telefone %}<a href="tel:{{ cobradaAtual.telefone|e('url') }}"><i class="bi bi-telephone"></i><span class="jp-contato-label">Telefone:</span> {{ cobradaAtual.telefone }}</a>{% endif %}
-                    {% if cobradaAtual.email %}<a href="mailto:{{ cobradaAtual.email|e('url') }}"><i class="bi bi-envelope"></i><span class="jp-contato-label">E-mail:</span> {{ cobradaAtual.email }}</a>{% endif %}
-                    {% if not cobradaAtual.ativo and cobradaAtual.motivoEncerramento %}
-                    <span class="text-secondary"><i class="bi bi-info-circle"></i><span class="jp-contato-label">Encerramento:</span> {{ cobradaAtual.motivoEncerramento }}</span>
-                    {% endif %}
+    <div class="row g-3">
+        <div class="col-12 col-lg-8 cob-resp-conteudo">
+            {% if cobradaAtual %}
+            {# ── §2.2 Card da pessoa cobrada ─────────────────────────────────────────────────────── #}
+            {% set partes = cobradaAtual.nome|split(' ')|filter(p => p is not empty) %}
+            {% set iniciais = (partes|length > 1
+                ? (partes|first|slice(0, 1) ~ partes|last|slice(0, 1))
+                : cobradaAtual.nome|slice(0, 2))|upper %}
+            <div class="cob-resp-atual">
+                <div class="d-flex align-items-start gap-3 flex-wrap">
+                    <div class="jp-pessoa-avatar" aria-hidden="true">{{ iniciais }}</div>
+                    <div class="flex-grow-1 min-w-0">
+                        <div class="d-flex align-items-center gap-2 flex-wrap">
+                            <span class="badge text-bg-success">Responsável atual</span>
+                            <span class="jp-chip" data-meta="papel-desde">{{ cobradaAtual.papelLabel }} · desde {{ cobradaAtual.dataInicio|date('m/Y') }}</span>
+                            {# O vínculo pode estar ENCERRADO e a pessoa seguir sendo a cobrada atual (o
+                               encerramento do vínculo não troca quem se cobra). O selo diz isso. #}
+                            {% if not cobradaAtual.ativo %}<span class="badge text-bg-secondary" data-selo="vinculo-encerrado">Vínculo encerrado</span>{% endif %}
+                        </div>
+                        <p class="jp-pessoa-nome mt-1" title="{{ cobradaAtual.nome }}">{{ cobradaAtual.nome }}</p>
+                        {% if not cobradaAtual.ativo and cobradaAtual.motivoEncerramento %}
+                        <div class="text-secondary small"><i class="bi bi-info-circle me-1"></i>Encerramento: {{ cobradaAtual.motivoEncerramento }}</div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
-            <div class="d-flex gap-2 flex-shrink-0">
-                {% if podeAbrirFicha %}
-                <a href="{{ path('cobranca_pessoa_show', {id: cobradaAtual.pessoaId}) }}" class="btn btn-sm btn-outline-secondary">
-                    <i class="bi bi-pencil me-1"></i>Editar
-                </a>
-                {% endif %}
-                {# O card removido oferecia encerrar vínculo para TODOS os vínculos ativos, inclusive o
-                   da cobrada atual — e o `EncerrarVinculoUseCase` aceita esse caso (só recusa vínculo
-                   já encerrado). Sem este botão a função teria sumido para a pessoa do topo. #}
-                {% if cobradaAtual.ativo and formEncerrarVinculo %}
-                <button type="button" class="btn btn-sm btn-outline-danger"
-                        data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
-                        data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: cobradaAtual.vinculoId}) }}"
-                        data-vinculo-rotulo="{{ (cobradaAtual.nome ~ ' (' ~ cobradaAtual.papelLabel ~ ')')|e('html_attr') }}">
-                    <i class="bi bi-x-circle me-1"></i>Encerrar vínculo
-                </button>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-    {% else %}
-    {# DEFENSIVO, hoje inalcançável: `pessoa_cobrada_atual_id` é NOT NULL. Mantido em paridade com o
-       card que esta aba substituiu, e para o dia em que a coluna admitir null. #}
-    <div class="jp-vazio py-3">
-        <i class="bi bi-person-dash"></i>
-        <div class="jp-vazio-titulo">Nenhuma pessoa cobrada</div>
-        <p class="jp-vazio-dica">Vincule quem responde por esta cobrança usando <strong>Adicionar pessoa</strong>.</p>
-    </div>
-    {% endif %}
 
-    {# ── Demais vinculadas: recolhidas, porque são consulta — não o trabalho do dia ── #}
-    <h6 class="mt-4 mb-2">Outras pessoas vinculadas <span class="badge text-bg-secondary">{{ demais|length }}</span></h6>
-    {% if demais|length > 0 %}
-    <div class="accordion cob-resp-accordion" id="accordionResponsaveis">
-        {% for v in demais %}
-        <div class="accordion-item">
-            <h2 class="accordion-header">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                        data-bs-target="#responsavel{{ v.vinculoId }}" aria-expanded="false" aria-controls="responsavel{{ v.vinculoId }}">
-                    <span class="d-flex align-items-center gap-2 flex-wrap">
-                        <i class="bi {{ v.ativo ? 'bi-person-fill' : 'bi-person-dash' }}"></i>
-                        <span class="fw-semibold">{{ v.nome }}</span>
-                        <span class="jp-chip">{{ v.papelLabel }}</span>
-                        {% if not v.ativo %}<span class="badge text-bg-secondary">Encerrado</span>{% endif %}
+            {# ── §2.3 Telefones, da FICHA da pessoa ──────────────────────────────────────────────────
+               `objeto.fichaCobrada.telefones` (linha do tempo `criadoEm ASC`): "adicionar" nunca apaga o
+               anterior, e exatamente um é o `atual`. `cobradaAtual.telefone` é a COLUNA-SOMBRA de
+               `Pessoa`, escrita pelo bridge `Pessoa::setTelefone()` junto com a linha `atual` da lista —
+               não é derivada dela na leitura. Mostrar só a sombra esconde todos os outros números, que é
+               justamente o que o dono pediu para acabar.
+
+               ⚠️ GATE DE PII (achado da revisão de 2026-07-27, não é pedido da spec). A página do objeto
+               exige só o MÓDULO (`tenantComModulo`), enquanto a ficha da pessoa exige a capacidade
+               `resources.cobranca.gerenciar`. Sem o gate abaixo, quem não pode abrir a ficha leria nesta
+               aba um SUPERCONJUNTO do que a ficha protege: a lista inteira de telefones, o endereço
+               completo com CEP e o estado civil. O ramo `{% else %}` mantém a paridade com o que esta aba
+               já mostrava antes da Etapa 6 (documento, telefone e e-mail da cobrada) — nada foi tirado de
+               ninguém, só não foi ampliado em silêncio. Voltar atrás é decisão do dono. #}
+            {% if ficha is not null and podeAbrirFicha %}
+            <div class="cob-resp-telefones mt-3">
+                <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>Telefones <span class="badge text-bg-secondary">{{ ficha.telefones|length }}</span></h6>
+                {% if ficha.telefones|length > 0 %}
+                <ul class="list-unstyled mb-0">
+                    {% for t in ficha.telefones %}
+                    <li class="cob-resp-telefone d-flex align-items-center gap-2 flex-wrap py-2{{ not loop.first ? ' border-top' : '' }}" data-telefone="{{ t.id }}">
+                        <i class="bi {{ t.atual ? 'bi-telephone-fill text-success' : 'bi-telephone text-secondary' }}" aria-hidden="true"></i>
+                        <div class="flex-grow-1 min-w-0">
+                            <a href="tel:{{ t.numero|e('url') }}">{{ t.numero }}</a>
+                            <span class="small text-secondary">· cadastrado em {{ t.criadoEm|date('d/m/Y') }}</span>
+                        </div>
+                        <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
+                            {% if t.atual %}
+                            <span class="badge text-bg-success" data-selo="telefone-atual">Atual</span>
+                            {% elseif podeAbrirFicha %}
+                            <form method="POST" action="{{ path('cobranca_pessoa_telefone_atual', {id: ficha.id, itemId: t.id}) }}" data-disable-on-submit="true">
+                                <input type="hidden" name="_token" value="{{ csrf_token('marcar_telefone_atual_' ~ t.id) }}">
+                                <button type="submit" class="btn btn-sm btn-outline-secondary" data-acao="marcar-telefone-atual">Marcar como atual</button>
+                            </form>
+                            {% endif %}
+                            {# Editar e excluir NÃO TÊM ROTA (§2.3): entram desabilitados em vez de virarem
+                               cliques mortos. Tooltip do Bootstrap não dispara em elemento `disabled` —
+                               daí o `<span>` por fora, mesmo padrão do `Simular acordo` do cabeçalho. #}
+                            {% for acao in [
+                                {chave: 'editar-telefone', icone: 'bi-pencil', rotulo: 'Editar telefone'},
+                                {chave: 'excluir-telefone', icone: 'bi-trash', rotulo: 'Excluir telefone'},
+                            ] %}
+                            <span class="d-inline-block" data-bs-toggle="tooltip" title="{{ acao.rotulo }} ainda não tem função — o histórico de telefones só acrescenta.">
+                                <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="{{ acao.chave }}" aria-label="{{ acao.rotulo }}" disabled>
+                                    <i class="bi {{ acao.icone }}"></i>
+                                </button>
+                            </span>
+                            {% endfor %}
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted small mb-0">Nenhum telefone cadastrado.</p>
+                {% endif %}
+
+                {# Mini-form inline de adicionar (§2.3). A rota é a da FICHA e VOLTA PARA ELA: quem
+                   adiciona telefone daqui termina na ficha da pessoa, não nesta aba. Mesmo desvio vale
+                   para "Marcar como atual" acima. É consequência conhecida de reusar as rotas que já
+                   existem, como a spec §2.3 manda — mudar o destino exigiria um `?voltar=` nas duas
+                   rotas de pessoa, o que sai do escopo da Etapa 6. Registrado no handoff da frente. #}
+                {% if formTelefoneCobrada is not null %}
+                <div class="cob-resp-telefone-novo mt-2">
+                    {{ form_start(formTelefoneCobrada, {
+                        action: path('cobranca_pessoa_telefone_adicionar', {id: ficha.id}),
+                        attr: {'data-disable-on-submit': 'true', 'data-form': 'adicionar-telefone', 'class': 'd-flex align-items-end gap-2 flex-wrap'},
+                    }) }}
+                    <div>{{ form_row(formTelefoneCobrada.numero) }}</div>
+                    <button type="submit" class="btn btn-sm jp-btn-accent mb-3"><i class="bi bi-plus-lg me-1"></i>Adicionar telefone</button>
+                    {{ form_end(formTelefoneCobrada) }}
+                </div>
+                {% endif %}
+            </div>
+
+            {# ── §2.4 Faixa de qualificação ──────────────────────────────────────────────────────────
+               Dado real da ficha; `não informado` quando vazio. O e-mail e o endereço são os marcados
+               como ATUAL nas respectivas listas — não o primeiro nem o último cadastrado. #}
+            {% set emailAtual = ficha.emails|filter(e => e.atual)|first|default(null) %}
+            {% set enderecoAtual = ficha.enderecos|filter(e => e.atual)|first|default(null) %}
+            <div class="cob-resp-qualif mt-3" data-faixa="qualificacao">
+                {# Item único de documento: `CPF` para pessoa física, `CNPJ` quando só há CNPJ. Um item só
+                   (e não dois) porque é exatamente o que o badge da §2.1 checa — "sem CPF/CNPJ" —, e um
+                   "CPF: não informado" numa empresa seria falso alarme. #}
+                <div class="cob-resp-qualif-item" data-qualif="documento">
+                    <span class="cob-resp-qualif-rot">{{ (ficha.cnpj and not ficha.cpf) ? 'CNPJ' : 'CPF' }}</span>
+                    <span class="cob-resp-qualif-val">{{ ficha.cpf ?: ficha.cnpj ?: 'não informado' }}</span>
+                </div>
+                <div class="cob-resp-qualif-item" data-qualif="email">
+                    <span class="cob-resp-qualif-rot">E-mail</span>
+                    <span class="cob-resp-qualif-val">
+                        {% if emailAtual %}<a href="mailto:{{ emailAtual.email|e('url') }}">{{ emailAtual.email }}</a>{% else %}não informado{% endif %}
                     </span>
-                </button>
-            </h2>
-            <div id="responsavel{{ v.vinculoId }}" class="accordion-collapse collapse" data-bs-parent="#accordionResponsaveis">
-                <div class="accordion-body">
-                    <div class="jp-pessoa-contatos mb-2">
-                        {% if v.cpf %}<span><i class="bi bi-person-vcard"></i><span class="jp-contato-label">CPF:</span> {{ v.cpf }}</span>{% endif %}
-                        {% if v.cnpj %}<span><i class="bi bi-building"></i><span class="jp-contato-label">CNPJ:</span> {{ v.cnpj }}</span>{% endif %}
-                        {% if v.telefone %}<a href="tel:{{ v.telefone|e('url') }}"><i class="bi bi-telephone"></i><span class="jp-contato-label">Telefone:</span> {{ v.telefone }}</a>{% endif %}
-                        {# E-mail de terceiro vinculado só para quem gerencia: a lista de envolvidos que
-                           esta aba substituiu mostrava documento e telefone, nunca e-mail. Ampliar a
-                           exposição de PII para o perfil sem capacidade seria mudança de permissão —
-                           fora do escopo deste delta. #}
-                        {% if v.email and podeAbrirFicha %}<a href="mailto:{{ v.email|e('url') }}"><i class="bi bi-envelope"></i><span class="jp-contato-label">E-mail:</span> {{ v.email }}</a>{% endif %}
-                        <span><i class="bi bi-calendar3"></i>{{ v.dataInicio|date('m/Y') }}{% if v.dataFim %} — {{ v.dataFim|date('m/Y') }}{% endif %}</span>
-                        {% if not v.ativo and v.motivoEncerramento %}
-                        <span class="text-secondary"><i class="bi bi-info-circle"></i>{{ v.motivoEncerramento }}</span>
-                        {% endif %}
-                    </div>
-                    <div class="d-flex gap-2 flex-wrap">
-                        {# "Definir como atual" abre o MESMO modal de troca com a pessoa já escolhida. O
-                           motivo continua obrigatório (regra do domínio, `AlterarPessoaCobradaInput`):
-                           por isso o clique leva ao modal em vez de trocar direto.
-                           O `forms.alterarPessoa is defined` é a mesma guarda do botão universal lá em
-                           cima: sem o form o modal não é renderizado, e o botão abriria coisa nenhuma. #}
-                        {% if podeGerenciar and v.ativo and forms.alterarPessoa is defined %}
-                        <button type="button" class="btn btn-sm jp-btn-accent js-definir-cobrada"
-                                data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"
-                                data-pessoa-id="{{ v.pessoaId }}" data-pessoa-nome="{{ v.nome|e('html_attr') }}">
-                            <i class="bi bi-arrow-left-right me-1"></i>Definir como atual
-                        </button>
-                        {% endif %}
-                        {% if podeAbrirFicha %}
-                        <a href="{{ path('cobranca_pessoa_show', {id: v.pessoaId}) }}" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-pencil me-1"></i>Editar
-                        </a>
-                        {% endif %}
-                        {% if v.ativo and formEncerrarVinculo %}
-                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
-                                data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: v.vinculoId}) }}"
-                                data-vinculo-rotulo="{{ (v.nome ~ ' (' ~ v.papelLabel ~ ')')|e('html_attr') }}">
-                            <i class="bi bi-x-circle me-1"></i>Encerrar vínculo
-                        </button>
-                        {% endif %}
-                    </div>
+                </div>
+                <div class="cob-resp-qualif-item" data-qualif="estado-civil">
+                    <span class="cob-resp-qualif-rot">Estado civil</span>
+                    <span class="cob-resp-qualif-val">{{ ficha.estadoCivilLabel ?: 'não informado' }}</span>
+                </div>
+                <div class="cob-resp-qualif-item" data-qualif="endereco">
+                    <span class="cob-resp-qualif-rot">Endereço</span>
+                    <span class="cob-resp-qualif-val">
+                        {%- if enderecoAtual -%}
+                            {{ enderecoAtual.logradouro }}, {{ enderecoAtual.numero }}
+                            {{- enderecoAtual.complemento ? ' — ' ~ enderecoAtual.complemento : '' }} ·
+                            {{ enderecoAtual.bairro }} · {{ enderecoAtual.cidade }}/{{ enderecoAtual.uf }} · CEP {{ enderecoAtual.cep }}
+                        {%- else -%}
+                            não informado
+                        {%- endif -%}
+                    </span>
                 </div>
             </div>
+            {% else %}
+            {# Paridade com a aba anterior à Etapa 6, para quem não tem a capacidade que a ficha exige:
+               documento, telefone (a coluna-sombra) e e-mail da cobrada. Os três já eram visíveis aqui
+               sem gate nenhum; o que a Etapa 6 acrescentou (lista completa, endereço, estado civil) é
+               que fica atrás da capacidade. #}
+            <div class="jp-pessoa-contatos mt-3" data-faixa="qualificacao-restrita">
+                {% if cobradaAtual.cpf %}<span><i class="bi bi-person-vcard"></i><span class="jp-contato-label">CPF:</span> {{ cobradaAtual.cpf }}</span>{% endif %}
+                {% if cobradaAtual.cnpj %}<span><i class="bi bi-building"></i><span class="jp-contato-label">CNPJ:</span> {{ cobradaAtual.cnpj }}</span>{% endif %}
+                {% if cobradaAtual.telefone %}<a href="tel:{{ cobradaAtual.telefone|e('url') }}"><i class="bi bi-telephone"></i><span class="jp-contato-label">Telefone:</span> {{ cobradaAtual.telefone }}</a>{% endif %}
+                {% if cobradaAtual.email %}<a href="mailto:{{ cobradaAtual.email|e('url') }}"><i class="bi bi-envelope"></i><span class="jp-contato-label">E-mail:</span> {{ cobradaAtual.email }}</a>{% endif %}
+            </div>
+            {% endif %}
+            {% else %}
+            {# DEFENSIVO, hoje inalcançável: `pessoa_cobrada_atual_id` é NOT NULL. Mantido em paridade com o
+               card que esta aba substituiu, e para o dia em que a coluna admitir null. #}
+            <div class="jp-vazio py-3">
+                <i class="bi bi-person-dash"></i>
+                <div class="jp-vazio-titulo">Nenhuma pessoa cobrada</div>
+                <p class="jp-vazio-dica">Vincule quem responde por esta cobrança usando <strong>Adicionar pessoa</strong>.</p>
+            </div>
+            {% endif %}
+
+            {# ── §2.5 Outras pessoas vinculadas: o accordion de hoje, preservado inteiro ───────────── #}
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-4 mb-2">
+                <h6 class="mb-0">Outras pessoas vinculadas <span class="badge text-bg-secondary">{{ demais|length }}</span></h6>
+                {% if formVincular or formNovaPessoa %}
+                <div class="dropdown">
+                    <button class="btn btn-sm jp-btn-accent dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-plus me-1"></i>Adicionar pessoa
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        {% if formVincular %}
+                        <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalVincularPessoaObjeto">
+                            <i class="bi bi-link-45deg me-2"></i>Vincular pessoa já cadastrada
+                        </button></li>
+                        {% endif %}
+                        {% if formNovaPessoa %}
+                        <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
+                            <i class="bi bi-person-plus me-2"></i>Cadastrar nova pessoa
+                        </button></li>
+                        {% endif %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+            {% if demais|length > 0 %}
+            <div class="accordion cob-resp-accordion" id="accordionResponsaveis">
+                {% for v in demais %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
+                                data-bs-target="#responsavel{{ v.vinculoId }}" aria-expanded="false" aria-controls="responsavel{{ v.vinculoId }}">
+                            <span class="d-flex align-items-center gap-2 flex-wrap">
+                                <i class="bi {{ v.ativo ? 'bi-person-fill' : 'bi-person-dash' }}"></i>
+                                <span class="fw-semibold">{{ v.nome }}</span>
+                                <span class="jp-chip">{{ v.papelLabel }}</span>
+                                {% if not v.ativo %}<span class="badge text-bg-secondary">Encerrado</span>{% endif %}
+                            </span>
+                        </button>
+                    </h2>
+                    <div id="responsavel{{ v.vinculoId }}" class="accordion-collapse collapse" data-bs-parent="#accordionResponsaveis">
+                        <div class="accordion-body">
+                            <div class="jp-pessoa-contatos mb-2">
+                                {% if v.cpf %}<span><i class="bi bi-person-vcard"></i><span class="jp-contato-label">CPF:</span> {{ v.cpf }}</span>{% endif %}
+                                {% if v.cnpj %}<span><i class="bi bi-building"></i><span class="jp-contato-label">CNPJ:</span> {{ v.cnpj }}</span>{% endif %}
+                                {% if v.telefone %}<a href="tel:{{ v.telefone|e('url') }}"><i class="bi bi-telephone"></i><span class="jp-contato-label">Telefone:</span> {{ v.telefone }}</a>{% endif %}
+                                {# E-mail de terceiro vinculado só para quem gerencia: a lista de envolvidos que
+                                   esta aba substituiu mostrava documento e telefone, nunca e-mail. Ampliar a
+                                   exposição de PII para o perfil sem capacidade seria mudança de permissão —
+                                   fora do escopo deste delta. #}
+                                {% if v.email and podeAbrirFicha %}<a href="mailto:{{ v.email|e('url') }}"><i class="bi bi-envelope"></i><span class="jp-contato-label">E-mail:</span> {{ v.email }}</a>{% endif %}
+                                <span><i class="bi bi-calendar3"></i>{{ v.dataInicio|date('m/Y') }}{% if v.dataFim %} — {{ v.dataFim|date('m/Y') }}{% endif %}</span>
+                                {% if not v.ativo and v.motivoEncerramento %}
+                                <span class="text-secondary"><i class="bi bi-info-circle"></i>{{ v.motivoEncerramento }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-2 flex-wrap">
+                                {# "Definir como atual" abre o MESMO modal de troca com a pessoa já escolhida. O
+                                   motivo continua obrigatório (regra do domínio, `AlterarPessoaCobradaInput`):
+                                   por isso o clique leva ao modal em vez de trocar direto.
+                                   O `forms.alterarPessoa is defined` é a mesma guarda do botão universal lá em
+                                   cima: sem o form o modal não é renderizado, e o botão abriria coisa nenhuma. #}
+                                {% if podeGerenciar and v.ativo and forms.alterarPessoa is defined %}
+                                <button type="button" class="btn btn-sm jp-btn-accent js-definir-cobrada"
+                                        data-bs-toggle="modal" data-bs-target="#modalAlterarPessoa"
+                                        data-pessoa-id="{{ v.pessoaId }}" data-pessoa-nome="{{ v.nome|e('html_attr') }}">
+                                    <i class="bi bi-arrow-left-right me-1"></i>Definir como atual
+                                </button>
+                                {% endif %}
+                                {% if podeAbrirFicha %}
+                                <a href="{{ path('cobranca_pessoa_show', {id: v.pessoaId}) }}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil me-1"></i>Editar
+                                </a>
+                                {% endif %}
+                                {% if v.ativo and formEncerrarVinculo %}
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#modalEncerrarVinculo"
+                                        data-acao-url="{{ path('cobranca_vinculo_encerrar', {id: v.vinculoId}) }}"
+                                        data-vinculo-rotulo="{{ (v.nome ~ ' (' ~ v.papelLabel ~ ')')|e('html_attr') }}">
+                                    <i class="bi bi-x-circle me-1"></i>Encerrar vínculo
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">Nenhuma outra pessoa vinculada a esta unidade.</p>
+            {% endif %}
         </div>
-        {% endfor %}
+
+        <div class="col-12 col-lg-4 cob-resp-lateral">
+            {# As duas variáveis são passadas EXPLICITAMENTE mesmo herdando o contexto: `strict_variables`
+               só está ligado em `test` (`config/packages/twig.yaml`), então em produção uma variável
+               renomeada aqui faria o painel perder os botões (ou o desfazer) em SILÊNCIO, com a suíte
+               verde. Declarado no include, a dependência fica visível para quem renomear. #}
+            {{ include('cobranca/objeto/_partials/_painel_qualificacao.html.twig', {
+                podeQualificarDesfazer: podeQualificarDesfazer,
+                qualificacoesDoPainel: qualificacoesDoPainel,
+            }) }}
+        </div>
     </div>
-    {% else %}
-    <p class="text-muted mb-0">Nenhuma outra pessoa vinculada a esta unidade.</p>
-    {% endif %}
+
+    {# ── §2.6 Rodapé ─────────────────────────────────────────────────────────────────────────────────
+       O `Salvar e Seguir` da maquete não tem o que salvar — tudo nesta aba grava na hora. Vira a
+       navegação que ele de fato queria dizer, reusando o MESMO `objeto.objetoProximoId` das setas do
+       cabeçalho (ordem `identificacao ASC, id ASC`). Na última unidade fica desabilitado. #}
+    <div class="cob-resp-rodape d-flex justify-content-between align-items-center gap-2 flex-wrap mt-4 pt-3 border-top">
+        <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}" class="btn btn-sm btn-outline-secondary" data-rodape="voltar">
+            ← Voltar
+        </a>
+        {% if objeto.objetoProximoId %}
+        <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId, aba: 'responsaveis'}) }}" class="btn btn-sm jp-btn-accent" data-rodape="proximo">
+            Próxima unidade →
+        </a>
+        {% else %}
+        <span class="d-inline-block" data-bs-toggle="tooltip" title="Esta é a última unidade da carteira.">
+            <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-rodape="proximo" disabled>
+                Próxima unidade →
+            </button>
+        </span>
+        {% endif %}
+    </div>
 </div>

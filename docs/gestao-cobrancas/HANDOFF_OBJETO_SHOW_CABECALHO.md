@@ -8,10 +8,10 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, HEAD `4ae2fee` (Etapa 5) sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`**, HEAD da Etapa 6 sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma prevista**, e é decisão de projeto (ver §3.1 da spec) |
-| Suíte | `tests/Cobranca` **1205/1205** verde ao fim da Etapa 5 |
+| Suíte | `tests/Cobranca` **1226/1226** verde ao fim da Etapa 6 (+21 testes novos) |
 | Publicado | **nada** |
 
 ⚠️ **Duas decisões do dono estão abertas na Etapa 2** — o código segue a spec literal nas duas, e as
@@ -78,7 +78,7 @@ Não commite junto.
 - [x] **3 — Leitura da página** (totais do cabeçalho, prescrição, ficha da cobrada, vizinhos na carteira) — `29c4cbf`
 - [x] **4 — Rotas** (registrar / desfazer qualificação) — `fd9b2b5`
 - [x] **5 — Template do cabeçalho** (duas colunas, cards, prescrição, ações, setas) — `4ae2fee`
-- [ ] **6 — Template da aba Responsáveis + painel de qualificação**
+- [x] **6 — Template da aba Responsáveis + painel de qualificação**
 - [ ] **7 — CSS**
 - [ ] **8 — Testes** (unitários e funcionais) e suíte completa
 
@@ -395,6 +395,103 @@ faixa crítica é `+60 days`. Errar isso no teste é o mesmo erro que erraria na
 `null` e a página estourar — o teste cai por `assertResponseIsSuccessful`, não por asserção de conteúdo.
 Registrado para ninguém ler a linha `PEGOU` como se o teste tivesse pego a **ausência da caixa**: o que
 ele prova é que **o guard é o que a mantém fora da tela**.
+
+## Etapa 6 — FEITA
+
+| Arquivo | O quê |
+|---|---|
+| `_partials/_responsaveis.html.twig` | REESCRITO: a §2 inteira (cabeçalho+badge, card, telefones da ficha, faixa, accordion, rodapé) |
+| `_partials/_painel_qualificacao.html.twig` (novo) | a §3 inteira: 3 botões de um clique, listinha, desfazer |
+| `templates/cobranca/objeto/show.html.twig` | handler anti duplo-submit (ver "Correções da revisão", achado 1) |
+| `Controller/ObjetoController.php` | `formTelefoneCobrada` + `qualificacoesDoPainel` + helper `telefoneCobradaView` |
+| `tests/.../AbaResponsaveisTest.php` (novo) | 21 funcionais de renderização |
+| `tests/.../ObjetoShowUxReorganizacaoTest.php` | 1 asserção remanejada (o `Encerrar vínculo` mudou de lugar) |
+
+Ganchos que os testes (e a Etapa 7) usam: `.cob-resp-contagem`, `[data-badge=qualificacao-incompleta]`,
+`[data-meta=papel-desde]`, `[data-selo=vinculo-encerrado|telefone-atual]`, `.cob-resp-telefone[data-telefone]`,
+`[data-acao=marcar-telefone-atual|editar-telefone|excluir-telefone|editar-ficha|desfazer-qualificacao]`,
+`[data-form=adicionar-telefone]`, `[data-faixa=qualificacao|qualificacao-restrita]`, `[data-qualif=documento|email|estado-civil|endereco]`,
+`[data-rodape=voltar|proximo]`, `[data-painel=qualificacao]`, `[data-qualificacao=<valor do enum>]`,
+`.cob-qualif-item[data-qualif-linha]`.
+
+### Duas coisas que o controller precisou ganhar (e por quê)
+
+1. **`formTelefoneCobrada`** — o mini-form da §2.3 reusa `AdicionarTelefoneType` e a rota da ficha. Sem o
+   `FormView` não há como renderizar o campo com o CSRF que aquela rota espera (é Symfony Form, token
+   `submit` stateless — nada a ver com as duas intenções do painel).
+2. **`qualificacoesDoPainel`** — a ordem dos três botões é fixa e mora em `QualificacaoContato::doPainel()`.
+   Twig não chama método estático; reordenar no template criaria uma segunda fonte para a mesma decisão.
+
+### Decisões tomadas aqui (o dono pode reverter)
+
+1. **`Editar` e `Encerrar vínculo` saíram do card da pessoa e foram para o cabeçalho da aba**, porque a
+   §2.1 os lista lá, junto de `Trocar responsável`. `ObjetoShowUxReorganizacaoTest::testFuncoesDoCardRemovidoSobrevivemComUmVinculoSo`
+   foi remanejado e ficou MAIS forte: agora exige **exatamente um** botão na aba e ancora pela **identidade
+   do vínculo** (`/cobrancas/vinculos/<id>/encerrar`), não pelo prefixo da URL.
+2. **`Adicionar pessoa` desceu** do cabeçalho da aba para junto de "Outras pessoas vinculadas", que é onde
+   ele age (§2.5).
+3. **`Marcar como atual` e o mini-form de telefone levam o usuário PARA FORA da aba**, para a ficha da
+   pessoa — as duas rotas de `PessoaController` redirecionam para `cobranca_pessoa_show` e a spec §2.3 manda
+   reusar as rotas que já existem. Mudar o destino exigiria um `?voltar=` nas duas rotas, o que sai do
+   escopo desta etapa. **Se incomodar no smoke, é frente de 20 minutos — mas é decisão sua.**
+
+### Correções da revisão (3 IMPORTANTES + 5 MENORES, todas aplicadas)
+
+**1. `data-disable-on-submit` era INERTE nesta página.** O handler existe só em
+`cobranca/pessoa/show.html.twig`, e ele varre só o DOM daquela página. Os quatro forms novos carregavam um
+atributo que ninguém lia: **duplo clique gravaria DUAS qualificações**, cada uma contando como trabalho de
+cobrança na Central, com o desfazer removendo uma por vez. O handler foi copiado para
+`objeto/show.html.twig`, **antes** do guard `typeof bootstrap === 'undefined'` — a proteção não depende do
+bundle e não pode cair junto com ele. ⚠️ **Isto não tem teste automatizado** (é JS); confira no smoke.
+
+**2. GATE DE PII — a aba mostrava mais do que a ficha protege.** `cobranca_objeto_show` exige só o
+**módulo**; `cobranca_pessoa_show` exige a capacidade `resources.cobranca.gerenciar`. Sem gate, quem não
+pode abrir a ficha leria na aba um **superconjunto** do que ela protege: lista inteira de telefones,
+endereço completo com CEP e estado civil. A lista e a faixa passaram para trás de `podeAbrirFicha`; o ramo
+`{% else %}` mantém **paridade exata com a aba anterior à Etapa 6** (documento, telefone e e-mail da
+cobrada, que já eram visíveis sem gate). **Nada foi tirado de quem só lê — apenas não foi ampliado em
+silêncio.** A spec §2.3/§2.4 não decide gate; **abrir isso de novo é decisão sua.**
+
+**3. Faltavam testes de permissão.** Os 17 testes iniciais usavam só `criarAdminLogado` — `podeAbrirFicha` e
+`podeQualificarDesfazer` eram código sem prova. Entraram 4 testes com `criarOperadorSemCapacidade`.
+
+Menores aplicados: asserção remanejada agora ancora por identidade (não por prefixo de URL); o comentário do
+mini-form parou de citar um registro que não existia (é este parágrafo); `$podeGerenciar` do controller
+ganhou o aviso de que é **só a capacidade**, enquanto o `podeGerenciar` do Twig é capacidade **e** caso
+aberto; o `include` do painel passa `podeQualificarDesfazer`/`qualificacoesDoPainel` **explicitamente**,
+porque `strict_variables` só está ligado em `test` e um rename faria o desfazer sumir em silêncio na
+produção.
+
+Menor **não** aplicado, de propósito: o badge `Qualificação incompleta` continua calculado no Twig. Hoje há
+um consumidor só e as três pernas do OU estão travadas por teste, uma a uma. **No dia em que aparecer o
+segundo consumidor (um filtro ou relatório de "qualificação incompleta"), o cálculo tem de subir para o
+`PessoaFichaOutput`** — senão nascem duas fontes para o mesmo termo de negócio.
+
+### O que a Etapa 6 ensinou
+
+**36 injeções de defeito, 35 derrubaram o teste alvo — e a 36ª foi medida de propósito.** O gate interno do
+`Marcar como atual` (`{% elseif podeAbrirFicha %}`) virou **defesa em profundidade** depois que o gate de PII
+passou a esconder a lista inteira: removê-lo deixa o teste VERDE. O comentário no teste diz isso — ele prova
+que a **tela** não oferece a mutação, não que o gate do botão sozinho funcione. Mesma classe do achado da
+Etapa 4 sobre a recusa por TIPO no desfazer.
+
+**Injeção que "não pega" pode ser culpa da injeção, não do teste.** A primeira tentativa de derrubar o rodapé
+trocou `d-inline-block` por `d-none`: o botão continuava no DOM, o crawler continuava achando, e a leitura
+apressada seria "o teste não pega a ausência". Refeita removendo o ramo `{% else %}` inteiro, caiu na hora.
+Esconder por CSS não é remover.
+
+**A revisão pegou 3 IMPORTANTES que a suíte verde não pegava**, e os três eram invisíveis por natureza: um
+atributo JS sem handler, uma ampliação de PII (que nenhum teste de renderização acusaria, porque renderizar
+é justamente o que ela faz) e a ausência de qualquer teste de permissão — que é o que permitiu os outros dois
+passarem despercebidos.
+
+### Aviso para o smoke (medido no `saas_ux`, o banco que serve a `:8080`)
+
+125 pessoas · **123 sem CPF e sem CNPJ** · **123 sem estado civil** · **3 endereços** e **3 telefones no
+total**. A tela nova vai nascer com `Qualificação incompleta` e faixa quase toda "não informado" em ~98% das
+unidades, e "Nenhum telefone cadastrado" na quase totalidade. **O sinal nasce saturado** — não é bug da aba,
+é o estado do cadastro. Vale decidir se o badge deve mesmo aparecer nesse volume ou se ele só faz sentido
+depois de uma campanha de qualificação.
 
 ## Comandos
 
