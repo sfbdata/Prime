@@ -20,53 +20,191 @@
         {# B3: esta era a única página do módulo que perdia a subnav — o usuário caía num beco sem saída. #}
         {{ include('cobranca/_partials/_subnav.html.twig', {ativo: 'carteiras'}) }}
 
-        <div class="d-flex align-items-center gap-2 mb-1 mt-3 flex-wrap">
-            <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}" class="btn btn-sm btn-outline-secondary" aria-label="Voltar para a carteira"><i class="bi bi-arrow-left"></i></a>
-            <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>{{ objeto.identificacao }}</h1>
-            <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
-            {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
-            {# Ações de SITUAÇÃO (raras) ficam no cabeçalho, junto do status que elas mudam — SPEC UX §6.1.
-               Vieram do cartão "Ações do caso" do trilho; mesmos gates e mesmos modais de antes. #}
-            {% if podeGerenciar %}
-            <div class="ms-auto d-flex gap-2 flex-wrap">
-                {% if can_access_module('pastas') and not caso.pastaJudicialId %}
-                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
-                    <i class="bi bi-bank me-1"></i>Judicializar
-                </button>
-                {% endif %}
-                {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível zerado).
-                   Desabilitado, o botão ENSINA a condição em vez de falhar depois do clique. #}
-                {% if caso.prontoParaEncerrar %}
-                <button type="button" class="btn btn-sm btn-outline-danger cob-acao-encerrar" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
-                    <i class="bi bi-flag me-1"></i>Encerrar cobrança
-                </button>
-                {% else %}
-                <span class="d-inline-block" data-bs-toggle="tooltip"
-                      title="Só é possível encerrar com o total em aberto zerado. Faltam {{ caso.saldoExigivel|centavos }}.">
-                    <button type="button" class="btn btn-sm btn-outline-secondary cob-acao-encerrar is-disabled" disabled>
-                        <i class="bi bi-flag me-1"></i>Encerrar cobrança
-                    </button>
-                </span>
-                {% endif %}
-            </div>
-            {% endif %}
-        </div>
-        <div class="text-secondary small">
-            {% if objeto.descricao %}{{ objeto.descricao }} · {% endif %}
-            Carteira: <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}">{{ objeto.carteiraNome }}</a>
-            {% if caso.pastaJudicialId %} · <a href="{{ path('pasta_show', {id: caso.pastaJudicialId}) }}"><i class="bi bi-folder-symlink me-1"></i>Pasta judicial</a>{% endif %}
-        </div>
+        {# ── Cabeçalho redesenhado (spec `cobranca-objeto-show-cabecalho-responsaveis.md` §1) ──────────
+           Duas colunas a partir de 992px (`col-lg-*`), empilhando abaixo disso: identidade + dinheiro à
+           esquerda, prescrição + ações à direita. O CSS de acabamento é da Etapa 7; a estrutura já se
+           sustenta na grade do Bootstrap para não haver uma janela em que a página fique quebrada. #}
+        <div class="cob-cab row g-3 mt-3">
+            <div class="col-12 col-lg-7 cob-cab-identidade">
+                {# Trilha de DOIS níveis (§1.1). O `Cond. Top Life` da maquete (o cliente da carteira)
+                   saiu por decisão do dono: a hierarquia real do sistema é Carteira › Unidade. Este link
+                   é também o caminho de volta — por isso a seta solta que existia aqui saiu, em vez de
+                   duplicar o mesmo destino a 2cm de distância. #}
+                <nav class="cob-cab-trilha small" aria-label="Trilha de navegação">
+                    <a href="{{ path('cobranca_carteira_show', {id: objeto.carteiraId}) }}">Carteira {{ objeto.carteiraNome }}</a>
+                    <span class="cob-cab-trilha-sep" aria-hidden="true">›</span>
+                    <span class="cob-cab-trilha-atual">Unidade {{ objeto.identificacao }}</span>
+                </nav>
 
-        {# Resumo do dinheiro no próprio cabeçalho (SPEC UX §6.1): quem abre a página vê a situação sem
-           rolar. Os DOIS valores já existiam no hero — nenhum cálculo novo, nenhum estado novo. #}
-        <div class="cob-resumo mt-2">
-            <div class="cob-resumo-item">
-                <span class="cob-resumo-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">Total em aberto</span>
-                <span class="cob-resumo-valor {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</span>
+                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                    <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>{{ objeto.identificacao }}</h1>
+                    <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
+                    {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
+
+                    {# ── Setas ‹ › entre unidades da MESMA carteira (§1.5) ──
+                       A ordem é `identificacao ASC, id ASC`, decidida no repositório: a ordem da listagem
+                       (`atualizadoEm DESC`) muda sozinha a cada registro e a mesma seta levaria a lugares
+                       diferentes a cada visita. Ponta da lista → `null` no DTO → seta desabilitada; o
+                       template não recalcula vizinhança nenhuma. #}
+                    <div class="cob-cab-nav btn-group btn-group-sm ms-auto" role="group" aria-label="Navegar entre unidades da carteira">
+                        {% if objeto.objetoAnteriorId %}
+                        <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoAnteriorId}) }}"
+                           class="btn btn-outline-secondary" data-nav="anterior"
+                           data-bs-toggle="tooltip" title="Unidade anterior da carteira"
+                           aria-label="Unidade anterior da carteira">‹</a>
+                        {% else %}
+                        <span class="btn btn-outline-secondary disabled" data-nav="anterior" aria-disabled="true"
+                              data-bs-toggle="tooltip" title="Esta é a primeira unidade da carteira">‹</span>
+                        {% endif %}
+                        {% if objeto.objetoProximoId %}
+                        <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId}) }}"
+                           class="btn btn-outline-secondary" data-nav="proximo"
+                           data-bs-toggle="tooltip" title="Próxima unidade da carteira"
+                           aria-label="Próxima unidade da carteira">›</a>
+                        {% else %}
+                        <span class="btn btn-outline-secondary disabled" data-nav="proximo" aria-disabled="true"
+                              data-bs-toggle="tooltip" title="Esta é a última unidade da carteira">›</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Linha meta (§1.1). `Matrícula` da maquete NÃO entra: o sistema tem `referenciaExterna`,
+                   que é genérica e nem sempre é matrícula — decisão do dono. #}
+                <div class="cob-cab-meta text-secondary small">
+                    {% if objeto.descricao %}{{ objeto.descricao }} · {% endif %}
+                    <span data-meta="obrigacoes-em-aberto">{{ caso.obrigacoesEmAbertoQtd }} {{ caso.obrigacoesEmAbertoQtd == 1 ? 'obrigação' : 'obrigações' }} em aberto</span>
+                    {% if caso.pastaJudicialId %} · <a href="{{ path('pasta_show', {id: caso.pastaJudicialId}) }}"><i class="bi bi-folder-symlink me-1"></i>Pasta judicial</a>{% endif %}
+                </div>
+
+                {# ── Os quatro cards que SOMAM ENTRE SI (§1.2) ────────────────────────────────────────
+                   Principal + Juros e multa + Honorários = Total atualizado, por construção no
+                   `MontarDetalheCasoUseCase` (é dinheiro: soma-se onde há teste, nunca no Twig).
+
+                   ⚠️ `totalAtualizadoEmAberto` é o valor BRUTO — principal + encargos + honorários das
+                   obrigações em aberto, SEM abater o que já foi recebido. Não é o `saldoExigivel` da
+                   linha fina abaixo, que é líquido de pagamentos e é quem governa o encerramento. São
+                   contas diferentes com resultados diferentes, e as duas ficam na tela de propósito.
+                   Trocar uma pela outra aqui faz o gestor conferir o número errado. #}
+                <div class="cob-cab-cards mt-3">
+                    <div class="cob-cab-card" data-card="principal">
+                        <span class="cob-cab-card-rot">Principal</span>
+                        <span class="cob-cab-card-val">{{ caso.totalPrincipalEmAberto|centavos }}</span>
+                    </div>
+                    <div class="cob-cab-card" data-card="encargos">
+                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Juros, multa e correção monetária das obrigações em aberto.">Juros e multa</span>
+                        <span class="cob-cab-card-val">{{ caso.totalEncargosEmAberto|centavos }}</span>
+                    </div>
+                    <div class="cob-cab-card" data-card="honorarios">
+                        <span class="cob-cab-card-rot">Honorários</span>
+                        <span class="cob-cab-card-val">{{ caso.honorariosEmAberto|centavos }}</span>
+                    </div>
+                    <div class="cob-cab-card is-total" data-card="total">
+                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Valor bruto das obrigações em aberto (principal + encargos + honorários), antes de abater pagamentos.">Total atualizado</span>
+                        <span class="cob-cab-card-val">{{ caso.totalAtualizadoEmAberto|centavos }}</span>
+                        {% if caso.totaisAtualizadosEm %}
+                        <span class="cob-cab-card-nota">atualizado em {{ caso.totaisAtualizadosEm|date('d/m/Y') }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+
+                {# Linha fina com os DOIS valores que o cabeçalho já mostrava (§1.2). `Total em aberto` é o
+                   saldo exigível, líquido de pagamentos — é ele que governa o botão `Encerrar cobrança`. #}
+                <div class="cob-resumo mt-2">
+                    <div class="cob-resumo-item">
+                        <span class="cob-resumo-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">Total em aberto</span>
+                        <span class="cob-resumo-valor {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</span>
+                    </div>
+                    <div class="cob-resumo-item">
+                        <span class="cob-resumo-label">Total vencido</span>
+                        <span class="cob-resumo-valor {{ caso.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ caso.saldoVencido|centavos }}</span>
+                    </div>
+                </div>
             </div>
-            <div class="cob-resumo-item">
-                <span class="cob-resumo-label">Total vencido</span>
-                <span class="cob-resumo-valor {{ caso.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ caso.saldoVencido|centavos }}</span>
+
+            <div class="col-12 col-lg-5 cob-cab-lateral">
+                {# ── Prescrição (§1.3): o elemento dominante do cabeçalho ──────────────────────────────
+                   `caso.prescricao` é `null` quando não há obrigação em aberto — e aí a caixa nem nasce,
+                   porque não há o que prescrever. A severidade, o prazo e os dias vêm prontos do
+                   `CalculadoraPrescricao`; o template só escolhe a cor e a frase. #}
+                {% if caso.prescricao %}
+                {% set presc = caso.prescricao %}
+                {% set sevClasse = {'esgotada': 'sev-danger', 'critica': 'sev-danger', 'atencao': 'sev-warning'}[presc.severidade]|default('sev-info') %}
+                <div class="cob-presc {{ sevClasse }}" data-severidade="{{ presc.severidade }}">
+                    <div class="cob-presc-topo">
+                        <i class="bi {{ presc.esgotada ? 'bi-x-octagon' : 'bi-hourglass-split' }}"></i>
+                        <span class="cob-presc-rotulo">Prescrição</span>
+                    </div>
+                    <div class="cob-presc-destaque">
+                        {% if presc.esgotada %}
+                            Prazo esgotado em {{ presc.prazoLimite|date('d/m/Y') }}
+                        {% else %}
+                            Faltam {{ presc.diasRestantes }} {{ presc.diasRestantes == 1 ? 'dia' : 'dias' }}
+                        {% endif %}
+                    </div>
+                    <div class="cob-presc-detalhe small">
+                        Competência mais antiga em aberto: <strong>{{ presc.obrigacaoDescricao }}</strong>,
+                        vencida em {{ presc.vencimentoMaisAntigo|date('d/m/Y') }}.
+                        Prazo de {{ presc.prazoAnos }} anos → limite em {{ presc.prazoLimite|date('d/m/Y') }}.
+                    </div>
+                    {# Aviso OBRIGATÓRIO (§1.3): o sistema conta dias, não emite parecer. Sem esta linha a
+                       tela sugere uma certeza jurídica que o cálculo não tem — ele desconhece interrupção
+                       e suspensão do prazo. Não remova sem ler a nota da `CalculadoraPrescricao`. #}
+                    <div class="cob-presc-aviso small">
+                        <i class="bi bi-info-circle me-1"></i>Estimativa a partir do vencimento mais antigo em aberto.
+                        Não considera marcos de interrupção ou suspensão — confira antes de ajuizar.
+                    </div>
+                    {# Mesmo mecanismo `data-abrir-aba` dos alertas do topo: o alvo mora dentro de um pane
+                       oculto, e navegador nenhum rola até elemento invisível. #}
+                    <a href="#secao-divida" data-abrir-aba="divida" class="btn btn-sm btn-outline-secondary cob-presc-link">Ver competência</a>
+                </div>
+                {% endif %}
+
+                {# ── Barra de ações (§1.4) ─────────────────────────────────────────────────────────────
+                   `Simular acordo` e `Planilha atualizada` NÃO EXISTEM no sistema: entram desabilitados
+                   com tooltip dizendo isso, em vez de virarem links que quebram. O dono decide depois o
+                   que fazem. Tooltip em elemento `disabled` não dispara — daí o `<span>` de fora, mesmo
+                   padrão que o `Encerrar cobrança` desabilitado já usava. Os três pontinhos da maquete
+                   saíram: não há o que colocar neles. #}
+                <div class="cob-cab-acoes mt-3 d-flex gap-2 flex-wrap">
+                    {% if podeGerenciar %}
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
+                        <i class="bi bi-telephone me-1"></i>Registrar contato
+                    </button>
+                    {% endif %}
+                    <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função — será definida com o gestor.">
+                        <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="simular-acordo" disabled>
+                            <i class="bi bi-calculator me-1"></i>Simular acordo
+                        </button>
+                    </span>
+                    <span class="d-inline-block" data-bs-toggle="tooltip" title="Ainda não tem função — será definida com o gestor.">
+                        <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="planilha-atualizada" disabled>
+                            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Planilha atualizada
+                        </button>
+                    </span>
+                    {# Ações de SITUAÇÃO (raras) seguem no cabeçalho, junto do status que elas mudam —
+                       mesmos gates e mesmos modais de sempre. #}
+                    {% if podeGerenciar %}
+                        {% if can_access_module('pastas') and not caso.pastaJudicialId %}
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modalJudicializar">
+                            <i class="bi bi-bank me-1"></i>Judicializar
+                        </button>
+                        {% endif %}
+                        {# Espelha o guard do servidor (`EncerrarCasoUseCase`: só encerra com saldo exigível
+                           zerado). Desabilitado, o botão ENSINA a condição em vez de falhar após o clique. #}
+                        {% if caso.prontoParaEncerrar %}
+                        <button type="button" class="btn btn-sm btn-outline-danger cob-acao-encerrar" data-bs-toggle="modal" data-bs-target="#modalEncerrarCaso">
+                            <i class="bi bi-flag me-1"></i>Encerrar cobrança
+                        </button>
+                        {% else %}
+                        <span class="d-inline-block" data-bs-toggle="tooltip"
+                              title="Só é possível encerrar com o total em aberto zerado. Faltam {{ caso.saldoExigivel|centavos }}.">
+                            <button type="button" class="btn btn-sm btn-outline-secondary cob-acao-encerrar is-disabled" disabled>
+                                <i class="bi bi-flag me-1"></i>Encerrar cobrança
+                            </button>
+                        </span>
+                        {% endif %}
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -148,13 +286,9 @@
                     <i class="bi bi-people me-1"></i>Responsáveis <span class="badge text-bg-secondary">{{ objeto.vinculos|length }}</span>
                 </button>
             </li>
-            {% if podeGerenciar %}
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" type="button" data-bs-toggle="modal" data-bs-target="#modalRegistrarTentativa">
-                    <i class="bi bi-telephone me-1"></i>Registrar contato
-                </button>
-            </li>
-            {% endif %}
+            {# `Registrar contato` SAIU daqui: a spec do cabeçalho (§1.4) o coloca na barra de ações, junto
+               das outras quatro. Mantê-lo nos dois lugares poria o MESMO gatilho do mesmo modal duas vezes
+               na mesma dobra — a barra volta a ser só o que ela deve ser, áreas de CONTEÚDO. #}
             <li class="nav-item cob-item-extra" role="presentation">
                 <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-divida" type="button">
                     <i class="bi bi-cash-coin me-1"></i>Dívida

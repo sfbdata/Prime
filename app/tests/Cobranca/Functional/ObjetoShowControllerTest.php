@@ -82,11 +82,13 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
 
         self::assertResponseIsSuccessful();
 
-        // Contagem EXATA, não só "existe". Depois da consolidação em "Responsáveis" a barra tem 6 áreas
-        // de conteúdo + 1 ação (Registrar contato) + "Mais ações" = 8 itens. Sem travar o número, um
-        // item duplicado a mais — ou um que deveria ter saído e ficou — passaria despercebido.
-        self::assertCount(8, $crawler->filter('#objetoTabs > li'), 'a barra tem 7 opções + Mais ações');
-        self::assertCount(8, $crawler->filter('#objetoTabs > li > .nav-link'), 'cada item da barra é um nav-link');
+        // Contagem EXATA, não só "existe". Depois da consolidação em "Responsáveis" a barra tinha 6 áreas
+        // de conteúdo + 1 ação (Registrar contato) + "Mais ações" = 8 itens; com o cabeçalho redesenhado
+        // (spec cabecalho-responsaveis §1.4) a ação MUDOU DE LUGAR para a barra de ações do cabeçalho, e
+        // sobram 6 áreas + "Mais ações" = 7. Sem travar o número, um item duplicado a mais — ou um que
+        // deveria ter saído e ficou — passaria despercebido.
+        self::assertCount(7, $crawler->filter('#objetoTabs > li'), 'a barra tem 6 opções de conteúdo + Mais ações');
+        self::assertCount(7, $crawler->filter('#objetoTabs > li > .nav-link'), 'cada item da barra é um nav-link');
         self::assertCount(3, $crawler->filter('#objetoTabs .cob-mais .dropdown-item'), 'o dropdown repete só as menos frequentes');
         self::assertCount(3, $crawler->filter('#objetoTabs > li.cob-item-extra'), 'as 3 que recolhem abaixo de 1200px');
 
@@ -98,8 +100,11 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         }
         self::assertSelectorNotExists('#objetoTabs [data-bs-target="#tab-encargos"]', 'a SPEC proíbe aba separada de encargos');
 
-        // Registrar contato continua ação na barra, reusando o modal que já existia.
-        self::assertSelectorExists('#objetoTabs [data-bs-target="#modalRegistrarTentativa"]', 'Registrar contato saiu da barra');
+        // Registrar contato mudou de lugar: saiu da barra e passou a ser o primeiro botão da barra de
+        // ações do cabeçalho (spec §1.4). O gatilho e o modal são os mesmos — só o lugar mudou. As duas
+        // asserções andam JUNTAS de propósito: sozinha, a de baixo aceitaria o botão nos DOIS lugares.
+        self::assertSelectorNotExists('#objetoTabs [data-bs-target="#modalRegistrarTentativa"]', 'Registrar contato tinha de sair da barra');
+        self::assertSelectorExists('.content-header .cob-cab-acoes [data-bs-target="#modalRegistrarTentativa"]', 'Registrar contato tinha de aparecer nas ações do cabeçalho');
 
         // "Trocar responsável" e "Envolvidos" foram CONSOLIDADOS na aba Responsáveis: não podem mais
         // existir como item solto da barra, senão a consolidação não aconteceu de fato.
