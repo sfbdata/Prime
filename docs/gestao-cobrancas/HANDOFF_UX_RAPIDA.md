@@ -155,13 +155,17 @@ formulário corrido. Só apresentação: os nomes de campo, ids e ganchos do ger
   `<form>` entre `.modal-content` e o corpo, quebrando a cadeia flex do Bootstrap — corpo de 1449px numa
   janela de 720px jogava o rodapé para fora da tela.
 
-### 🐛 Follow-up aberto no mesmo arquivo
+### ✅ Colisão por rótulo no mesmo arquivo — CORRIGIDA
 
-`AcordoCriarType::opcoesObrigacoes` monta `$opcoes[$label] = $id` — **a mesma colisão por rótulo** que o
-`PessoaRepository` tinha. Duas obrigações com descrição, vencimento e valor idênticos se sobrescrevem, e
-uma delas fica impossível de acordar. Hoje é **latente** (medido no dev: zero duplicatas por
-`caso + descrição + vencimento`), e o helper é compartilhado com o modal de pagamento. O conserto é o
-mesmo: desempatar o rótulo quando repetir. Não foi feito por estar fora do pedido de UX.
+`AcordoCriarType::opcoesObrigacoes` montava `$opcoes[$label] = $id` — **a mesma colisão** que o
+`PessoaRepository` tinha. Duas obrigações com descrição, vencimento e valor idênticos (uma reimportação
+basta) se sobrescreviam, e uma delas ficava impossível de acordar **ou de receber pagamento** — o helper
+alimenta os dois modais. Era latente no dado atual (medido: zero duplicatas por `caso + descrição +
+vencimento`), e não haveria aviso nenhum no dia em que deixasse de ser.
+
+Mesmo conserto: desempate por id **só quando o rótulo repete**; rótulo já único segue idêntico ao de
+antes (inclusive o "(R$ x já recebidos)", que por si só já distingue). Prova de que o teste pega: sem o
+desempate, três obrigações idênticas viram **uma** opção e dois testes caem.
 
 ## ✅ Homônimos no "Trocar responsável" — CORRIGIDO (2026-07-26)
 
