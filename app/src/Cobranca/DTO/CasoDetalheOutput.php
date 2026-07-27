@@ -83,9 +83,48 @@ final class CasoDetalheOutput
          * com a soma das linhas visíveis — é o que permite conferir a olho.
          */
         public readonly int $honorariosDasObrigacoes = 0,
-        /** Recorte do anterior: só o que ainda NÃO foi quitado. É o honorário que falta receber. */
+        /**
+         * Recorte do anterior: só o que ainda NÃO foi quitado. É o honorário que falta receber.
+         *
+         * É TAMBÉM o card `Honorários` do cabeçalho (spec §1.2), e não há um segundo campo com o mesmo
+         * número: o conjunto somado é idêntico (as listadas na aba Dívida que não estão quitadas) e a
+         * regra é a mesma. Duplicar o valor sob outro nome só criaria dois lugares para divergir.
+         */
         public readonly int $honorariosEmAberto = 0,
         public readonly int $honorariosRecebidos = 0,
+        /**
+         * Os quatro cards de dinheiro do cabeçalho (spec §1.2), em centavos. Somados AQUI (no UseCase) e
+         * nunca no Twig, sobre EXATAMENTE o mesmo conjunto que a aba Dívida lista — `obrigacoesAvulsas`
+         * mais as parcelas dos `gruposAcordo` —, restrito ao que ainda não foi quitado. É a mesma regra
+         * dos totais da aba Honorários acima, pelo mesmo motivo: é dinheiro, e aqui há teste.
+         *
+         * Os quatro fecham entre si por construção:
+         * `totalAtualizadoEmAberto = totalPrincipalEmAberto + totalEncargosEmAberto + honorariosEmAberto`.
+         *
+         * ⚠️ Este é o BRUTO (principal + encargos), NÃO o saldo exigível: `saldoExigivel` acima é
+         * líquido dos pagamentos já recebidos e é ele que governa o encerramento (spec §1.2, nota). São
+         * contas diferentes de propósito — trocar uma pela outra faz o gestor conferir o número errado.
+         */
+        public readonly int $totalPrincipalEmAberto = 0,
+        /** Σ (juros + multa + correção) das em aberto — o card `Juros e multa` (a correção entra junto). */
+        public readonly int $totalEncargosEmAberto = 0,
+        public readonly int $totalAtualizadoEmAberto = 0,
+        /** Data do relógio da hidratação: o "atualizado em" que o card `Total atualizado` exibe. */
+        public readonly ?\DateTimeImmutable $totaisAtualizadosEm = null,
+        /** `N obrigações em aberto` da linha meta (spec §1.1) — contadas sobre o mesmo conjunto acima. */
+        public readonly int $obrigacoesEmAbertoQtd = 0,
+        /**
+         * Aviso de prescrição do cabeçalho (spec §1.3). `null` quando não há obrigação em aberto — não
+         * há o que prescrever, e a caixa nem aparece na tela.
+         */
+        public readonly ?PrescricaoOutput $prescricao = null,
+        /**
+         * Listinha do painel de qualificação da aba Responsáveis (spec §3.4), mais recente primeiro. Só
+         * as qualificações — o histórico completo continua em `historico`.
+         *
+         * @var list<QualificacaoContatoOutput>
+         */
+        public readonly array $qualificacoes = [],
     ) {
     }
 }

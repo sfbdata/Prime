@@ -13,11 +13,14 @@ use App\Cobranca\DTO\LiquidacaoOutput;
 use App\Cobranca\DTO\ObrigacaoOutput;
 use App\Cobranca\DTO\PagamentoOutput;
 use App\Cobranca\DTO\ProximaAcaoOutput;
+use App\Cobranca\DTO\QualificacaoContatoOutput;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\BaseEncargo;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\StatusCaso;
+use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
@@ -27,6 +30,7 @@ use App\Cobranca\Repository\PagamentoRepository;
 use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraHonorarios;
+use App\Cobranca\Service\CalculadoraPrescricao;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\EncargosVivos;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
@@ -42,6 +46,11 @@ use App\Cobranca\Service\ResolvedorConfigEncargos;
  * delegando a `CalculadoraHonorarios` — este UseCase é quem tem, ao mesmo tempo, o alocado por
  * obrigação e o caso (do qual a calculadora resolve a política de honorários). A regra continua a
  * morar na calculadora.
+ *
+ * Redesenho do cabeçalho (2026-07-27): os quatro cards de dinheiro (§1.2), a contagem de obrigações em
+ * aberto (§1.1) e o aviso de prescrição (§1.3) são somados/derivados AQUI, sobre EXATAMENTE o conjunto
+ * que a aba Dívida lista — nunca no Twig. A listinha de qualificações do painel (§3.4) sai da mesma
+ * leitura da linha do tempo que já alimenta o histórico.
  *
  * #9-T2: `formaHonorariosLabel`/`percentualHonorarios` do hero NÃO leem mais o snapshot do caso —
  * a FORMA vem da carteira e a ALÍQUOTA da cascata do objeto (`ResolvedorConfigEncargos::resolverDoObjeto`),
@@ -62,6 +71,7 @@ final class MontarDetalheCasoUseCase
         private readonly CalculadoraHonorarios $calculadoraHonorarios,
         private readonly ResolvedorConfigEncargos $resolvedorConfig,
         private readonly EncargosVivos $encargosVivos,
+        private readonly CalculadoraPrescricao $calculadoraPrescricao,
     ) {
     }
 
@@ -136,13 +146,30 @@ final class MontarDetalheCasoUseCase
             }
         }
 
+        // Os quatro cards de dinheiro do cabeçalho (spec §1.2) saem do MESMO laço e do MESMO conjunto
+        // que os totais da aba Honorários: `$listadasNaAba` restrito ao que ainda não foi quitado. Somar
+        // aqui (e não no Twig) é o que permite ter teste — e é o que garante que o cabeçalho nunca
+        // discorde da soma das linhas que a aba Dívida mostra logo abaixo.
         $honorariosDasObrigacoes = 0;
         $honorariosEmAberto = 0;
+        $totalPrincipalEmAberto = 0;
+        $totalEncargosEmAberto = 0;
+        $obrigacoesEmAbertoQtd = 0;
+        $emAberto = [];
         foreach ($listadasNaAba as $listada) {
             $honorariosDasObrigacoes += $listada->honorarios;
-            if (!$listada->quitada()) {
-                $honorariosEmAberto += $listada->honorarios;
+
+            if ($listada->quitada()) {
+                continue;
             }
+
+            ++$obrigacoesEmAbertoQtd;
+            $emAberto[] = $listada;
+            $honorariosEmAberto += $listada->honorarios;
+            $totalPrincipalEmAberto += $listada->valorOriginal;
+            // Os três encargos, e não `valorAtual - valorOriginal`: a subtração daria o mesmo número
+            // (INV-E1) mas esconderia de qual parcela ele veio, e o card se chama "Juros e multa".
+            $totalEncargosEmAberto += $listada->juros + $listada->multa + $listada->correcao;
         }
 
         // Extraído para variável (antes era montado direto no construtor) porque agora é lido DUAS vezes:
@@ -162,6 +189,11 @@ final class MontarDetalheCasoUseCase
         $percentualHonorarios = $formaHonorarios->exigePercentual()
             ? $this->formatarPercentualDeBp($configCaso->taxaHonorariosBp)
             : null;
+
+        // UMA leitura da linha do tempo serve aos dois consumidores: o histórico completo e a listinha
+        // de qualificações do painel (spec §3.4). Antes o array era montado direto no construtor; agora
+        // é variável porque é percorrido duas vezes — nunca duas consultas, que poderiam divergir.
+        $eventos = $this->eventoRepository->doCaso($caso);
 
         return new CasoDetalheOutput(
             id: $caso->getId() ?? 0,
@@ -197,7 +229,7 @@ final class MontarDetalheCasoUseCase
             // anotação não pode medir o tempo por uma fonte diferente da que rege a tela.
             historico: array_map(
                 static fn ($e) => EventoHistoricoOutput::fromEntity($e, $usuarioAtual, $hoje),
-                $this->eventoRepository->doCaso($caso),
+                $eventos,
             ),
             // Base resolvida do honorário do CASO (para o espelho %↔R$ do honorário nos modais converter
             // sobre a base certa — composta soma valor+juros+multa+correção; principal usa só o valor).
@@ -208,7 +240,54 @@ final class MontarDetalheCasoUseCase
             honorariosDasObrigacoes: $honorariosDasObrigacoes,
             honorariosEmAberto: $honorariosEmAberto,
             honorariosRecebidos: $honorariosRecebidos,
+            totalPrincipalEmAberto: $totalPrincipalEmAberto,
+            totalEncargosEmAberto: $totalEncargosEmAberto,
+            // O card `Total atualizado` é a soma dos outros três, não uma quinta conta: assim ele fecha
+            // com o que está exibido ao lado, sempre.
+            totalAtualizadoEmAberto: $totalPrincipalEmAberto + $totalEncargosEmAberto + $honorariosEmAberto,
+            totaisAtualizadosEm: $hoje,
+            obrigacoesEmAbertoQtd: $obrigacoesEmAbertoQtd,
+            // Mesmo relógio, mesmo conjunto: a prescrição olha a competência mais antiga entre EXATAMENTE
+            // as obrigações em aberto que os cards somaram (spec §1.3).
+            prescricao: $this->calculadoraPrescricao->calcular($emAberto, $hoje),
+            qualificacoes: $this->montarQualificacoes($eventos, $usuarioAtual, $hoje),
         );
+    }
+
+    /**
+     * A listinha do painel de qualificação (spec §3.4), mais recente primeiro — a mesma ordem em que
+     * `EventoHistoricoRepository::doCaso` já devolve a linha do tempo.
+     *
+     * `$ehMaisRecente` é decidido pela POSIÇÃO entre os eventos do tipo, ANTES de o payload ser lido, e
+     * só a primeira o recebe. A ordem importa: `ultimaQualificacaoDoCaso` (a quarta condição de desfazer,
+     * no servidor) escolhe o evento mais recente do tipo sem olhar o payload. Se a primeira linha tivesse
+     * um payload irreconhecível e o `true` escorregasse para a seguinte, a tela ofereceria um botão que a
+     * rota vai recusar — o defeito exato que decidir no servidor existe para evitar.
+     *
+     * @param list<EventoHistorico> $eventos
+     *
+     * @return list<QualificacaoContatoOutput>
+     */
+    private function montarQualificacoes(array $eventos, ?User $usuarioAtual, \DateTimeImmutable $hoje): array
+    {
+        $qualificacoes = [];
+        $jaViuAPrimeira = false;
+
+        foreach ($eventos as $evento) {
+            if ($evento->getTipo() !== TipoEventoHistorico::QualificacaoContato) {
+                continue;
+            }
+
+            $ehMaisRecente = !$jaViuAPrimeira;
+            $jaViuAPrimeira = true;
+
+            $linha = QualificacaoContatoOutput::tentarDe($evento, $usuarioAtual, $hoje, $ehMaisRecente);
+            if ($linha !== null) {
+                $qualificacoes[] = $linha;
+            }
+        }
+
+        return $qualificacoes;
     }
 
     /**

@@ -6,15 +6,20 @@ namespace App\Tests\Cobranca\Functional;
 
 use App\Cobranca\DTO\CasoDetalheOutput;
 use App\Cobranca\DTO\ObjetoDetalheOutput;
+use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
 use App\Cobranca\Entity\ObjetoCobranca;
+use App\Cobranca\Entity\Pessoa;
+use App\Cobranca\Entity\PessoaTelefone;
 use App\Cobranca\Entity\VinculoPessoaObjeto;
 use App\Cobranca\Enum\StatusCaso;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Cobranca\Repository\CasoCobrancaRepository;
+use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\VinculoPessoaObjetoRepository;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
+use App\Cobranca\UseCase\MontarFichaPessoaUseCase;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cliente\ClientePFFactory;
 use App\Tests\Factory\Cobranca\CarteiraFactory;
@@ -44,6 +49,7 @@ final class MontarDetalheObjetoUseCaseTest extends KernelTestCase
     private EntityManagerInterface $em;
     private MontarDetalheObjetoUseCase $sut;
     private CasoCobrancaRepository $casoRepo;
+    private ObjetoCobrancaRepository $objetoRepo;
 
     protected function setUp(): void
     {
@@ -58,7 +64,13 @@ final class MontarDetalheObjetoUseCaseTest extends KernelTestCase
         $casoRepo = $this->em->getRepository(CasoCobranca::class);
         $this->casoRepo = $casoRepo;
 
-        $this->sut = new MontarDetalheObjetoUseCase($montarDetalheCaso, $vinculoRepo);
+        /** @var MontarFichaPessoaUseCase $montarFichaPessoa */
+        $montarFichaPessoa = static::getContainer()->get(MontarFichaPessoaUseCase::class);
+        /** @var ObjetoCobrancaRepository $objetoRepo */
+        $objetoRepo = $this->em->getRepository(ObjetoCobranca::class);
+        $this->objetoRepo = $objetoRepo;
+
+        $this->sut = new MontarDetalheObjetoUseCase($montarDetalheCaso, $vinculoRepo, $montarFichaPessoa, $objetoRepo);
     }
 
     private function tenant(): Tenant
@@ -71,18 +83,21 @@ final class MontarDetalheObjetoUseCaseTest extends KernelTestCase
         return $tenant;
     }
 
-    private function objeto(Tenant $tenant, string $identificacao, ?string $descricao): ObjetoCobranca
+    private function objeto(Tenant $tenant, string $identificacao, ?string $descricao, ?Carteira $carteira = null): ObjetoCobranca
     {
-        $carteira = CarteiraFactory::createOne([
-            'tenant' => $tenant,
-            'cliente' => ClientePFFactory::createOne(['tenant' => $tenant]),
-        ]);
-
         return ObjetoCobrancaFactory::createOne([
             'tenant' => $tenant,
-            'carteira' => $carteira,
+            'carteira' => $carteira ?? $this->carteira($tenant),
             'identificacao' => $identificacao,
             'descricao' => $descricao,
+        ])->_real();
+    }
+
+    private function carteira(Tenant $tenant): Carteira
+    {
+        return CarteiraFactory::createOne([
+            'tenant' => $tenant,
+            'cliente' => ClientePFFactory::createOne(['tenant' => $tenant]),
         ])->_real();
     }
 
@@ -125,6 +140,158 @@ final class MontarDetalheObjetoUseCaseTest extends KernelTestCase
         self::assertCount(1, $cobradas);
         self::assertSame('João Silva', $cobradas[0]->nome);
         self::assertSame('Proprietário', $cobradas[0]->papelLabel);
+    }
+
+    #[TestDox('a ficha da pessoa cobrada atual vem completa, com a lista de telefones da ficha')]
+    public function testFichaDaCobradaVemCompletaComOsTelefones(): void
+    {
+        $tenant = $this->tenant();
+        $objeto = $this->objeto($tenant, 'Apto 302', null);
+
+        $joao = PessoaFactory::createOne(['tenant' => $tenant, 'nome' => 'João Silva', 'cpf' => '11144477735'])->_real();
+        $this->telefone($tenant, $joao, '21988887777', atual: true);
+        $this->telefone($tenant, $joao, '2133334444', atual: false);
+
+        $caso = CasoCobrancaFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $objeto,
+            'pessoaCobradaAtual' => $joao, 'status' => StatusCaso::Ativo,
+        ])->_real();
+
+        $out = $this->sut->executar($objeto, $caso);
+
+        self::assertNotNull($out->fichaCobrada);
+        self::assertSame($joao->getId(), $out->fichaCobrada->id);
+        self::assertSame('João Silva', $out->fichaCobrada->nome);
+        // É a LISTA da ficha (§2.3), não o telefone único derivado que a aba mostrava antes.
+        self::assertCount(2, $out->fichaCobrada->telefones);
+        self::assertSame(
+            ['21988887777', '2133334444'],
+            array_map(static fn ($t) => $t->numero, $out->fichaCobrada->telefones),
+        );
+        self::assertTrue($out->fichaCobrada->telefones[0]->atual);
+    }
+
+    #[TestDox('sem pessoa cobrada atual a ficha vem nula, sem consulta perdida')]
+    public function testSemCobradaAtualAFichaEhNula(): void
+    {
+        $tenant = $this->tenant();
+        $objeto = $this->objeto($tenant, 'Apto 404', null);
+
+        $caso = CasoCobrancaFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $objeto,
+            'pessoaCobradaAtual' => PessoaFactory::createOne(['tenant' => $tenant]),
+            'status' => StatusCaso::Ativo,
+        ])->_real();
+
+        // `setPessoaCobradaAtual` não aceita null (o caminho normal sempre tem cobrada), mas a coluna é
+        // nulável e o dado legado chega assim — é o cenário que `temCobradaAtual` já contemplava antes
+        // desta etapa. Zerar em memória reproduz exatamente isso, sem persistir um estado inválido.
+        (new \ReflectionProperty(CasoCobranca::class, 'pessoaCobradaAtual'))->setValue($caso, null);
+
+        $out = $this->sut->executar($objeto, $caso);
+
+        self::assertFalse($out->temCobradaAtual);
+        self::assertNull($out->fichaCobrada);
+    }
+
+    /**
+     * A vizinhança das setas `‹ ›` (spec §1.5). Ordem `identificacao ASC, id ASC` — estável entre
+     * visitas, ao contrário da listagem da carteira (`atualizadoEm DESC`), que muda sozinha a cada
+     * registro e faria a mesma seta levar a lugares diferentes.
+     */
+    #[TestDox('as setas apontam para o vizinho por identificacao ASC e ficam nulas nas pontas')]
+    public function testVizinhosNaCarteiraSeguemIdentificacaoAsc(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+
+        // Criados FORA de ordem de propósito: a ordem é da identificação, não da inserção.
+        $meio = $this->objeto($tenant, 'Apto 202', null, $carteira);
+        $ultimo = $this->objeto($tenant, 'Apto 303', null, $carteira);
+        $primeiro = $this->objeto($tenant, 'Apto 101', null, $carteira);
+
+        self::assertSame(
+            ['anteriorId' => null, 'proximoId' => $meio->getId()],
+            $this->objetoRepo->vizinhosNaCarteira($primeiro),
+        );
+        self::assertSame(
+            ['anteriorId' => $primeiro->getId(), 'proximoId' => $ultimo->getId()],
+            $this->objetoRepo->vizinhosNaCarteira($meio),
+        );
+        self::assertSame(
+            ['anteriorId' => $meio->getId(), 'proximoId' => null],
+            $this->objetoRepo->vizinhosNaCarteira($ultimo),
+        );
+
+        // E é isso que chega ao DTO da página.
+        $caso = CasoCobrancaFactory::createOne([
+            'tenant' => $tenant, 'objeto' => $meio,
+            'pessoaCobradaAtual' => PessoaFactory::createOne(['tenant' => $tenant]),
+            'status' => StatusCaso::Ativo,
+        ])->_real();
+
+        $out = $this->sut->executar($meio, $caso);
+        self::assertSame($primeiro->getId(), $out->objetoAnteriorId);
+        self::assertSame($ultimo->getId(), $out->objetoProximoId);
+    }
+
+    /**
+     * Duas unidades podem ter a MESMA identificação na mesma carteira (nada no banco impede). Sem o
+     * desempate por `id`, a comparação `>`/`<` pularia a gêmea — ou entraria em laço entre as duas.
+     */
+    #[TestDox('identificações repetidas desempatam por id, sem pular nem repetir a gêmea')]
+    public function testVizinhosDesempatamPorIdQuandoAIdentificacaoRepete(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+
+        $gemeaA = $this->objeto($tenant, 'Casa 1', null, $carteira);
+        $gemeaB = $this->objeto($tenant, 'Casa 1', null, $carteira);
+        $seguinte = $this->objeto($tenant, 'Casa 2', null, $carteira);
+
+        self::assertGreaterThan($gemeaA->getId(), $gemeaB->getId());
+
+        self::assertSame(
+            ['anteriorId' => null, 'proximoId' => $gemeaB->getId()],
+            $this->objetoRepo->vizinhosNaCarteira($gemeaA),
+            'a gêmea de id maior é o próximo, não a Casa 2',
+        );
+        self::assertSame(
+            ['anteriorId' => $gemeaA->getId(), 'proximoId' => $seguinte->getId()],
+            $this->objetoRepo->vizinhosNaCarteira($gemeaB),
+        );
+    }
+
+    #[TestDox('a seta nunca atravessa carteira nem tenant')]
+    public function testVizinhosNaoAtravessamCarteiraNemTenant(): void
+    {
+        $tenant = $this->tenant();
+        $outroTenant = $this->tenant();
+
+        $carteira = $this->carteira($tenant);
+        $atual = $this->objeto($tenant, 'Apto 100', null, $carteira);
+        $vizinhoLegitimo = $this->objeto($tenant, 'Apto 300', null, $carteira);
+
+        // Ambos ficariam ENTRE 100 e 300 se a consulta vazasse — e roubariam a seta do legítimo.
+        $this->objeto($tenant, 'Apto 200', null, $this->carteira($tenant));
+        $this->objeto($outroTenant, 'Apto 200', null, $this->carteira($outroTenant));
+
+        self::assertSame(
+            ['anteriorId' => null, 'proximoId' => $vizinhoLegitimo->getId()],
+            $this->objetoRepo->vizinhosNaCarteira($atual),
+        );
+    }
+
+    private function telefone(Tenant $tenant, Pessoa $pessoa, string $numero, bool $atual): void
+    {
+        $telefone = (new PessoaTelefone())
+            ->setTenant($tenant)
+            ->setPessoa($pessoa)
+            ->setNumero($numero)
+            ->setAtual($atual);
+
+        $this->em->persist($telefone);
+        $this->em->flush();
     }
 
     #[TestDox('casoAncoraDoObjeto retorna o caso ativo do objeto e null quando não há caso')]

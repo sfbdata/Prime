@@ -25,6 +25,22 @@ final class ObjetoDetalheOutput
         public readonly CasoDetalheOutput $caso,
         public readonly bool $temCobradaAtual,
         public readonly array $vinculos,
+        /**
+         * Ficha completa da pessoa cobrada ATUAL (spec §4) — telefones, e-mails e endereços, que a aba
+         * Responsáveis passa a listar de verdade em vez do telefone único derivado. Só a cobrada: a
+         * ficha dos demais vinculados continua a um clique de distância, no accordion.
+         *
+         * `null` quando o caso não tem cobrada atual (`temCobradaAtual === false`).
+         */
+        public readonly ?PessoaFichaOutput $fichaCobrada = null,
+        /**
+         * Vizinhos da unidade na carteira (spec §1.5), para as setas `‹ ›` do cabeçalho e o
+         * `Próxima unidade →` do rodapé. `null` = a unidade está naquela ponta e a seta fica
+         * desabilitada. Ordem `identificacao ASC, id ASC`, resolvida em
+         * `ObjetoCobrancaRepository::vizinhosNaCarteira`.
+         */
+        public readonly ?int $objetoAnteriorId = null,
+        public readonly ?int $objetoProximoId = null,
     ) {
     }
 }

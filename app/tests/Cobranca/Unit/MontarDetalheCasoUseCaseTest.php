@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace App\Tests\Cobranca\Unit;
 
 use App\Cobranca\Entity\Acordo;
+use App\Cobranca\DTO\PrescricaoOutput;
 use App\Cobranca\Entity\Carteira;
 use App\Cobranca\Entity\CasoCobranca;
+use App\Cobranca\Entity\EventoHistorico;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Obrigacao;
 use App\Cobranca\Enum\FormaHonorarios;
+use App\Cobranca\Enum\QualificacaoContato;
 use App\Cobranca\Enum\StatusAcordo;
+use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Repository\AcordoRepository;
 use App\Cobranca\Repository\AlocacaoPagamentoRepository;
 use App\Cobranca\Repository\EventoHistoricoRepository;
@@ -21,14 +25,17 @@ use App\Cobranca\Repository\ProximaAcaoRepository;
 use App\Cobranca\Service\AlertasCobranca;
 use App\Cobranca\Service\CalculadoraEncargos;
 use App\Cobranca\Service\CalculadoraHonorarios;
+use App\Cobranca\Service\CalculadoraPrescricao;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\Service\CalculadoraSaldo;
 use App\Cobranca\Service\EncargosVivos;
 use Symfony\Component\Clock\MockClock;
 use App\Cobranca\UseCase\MontarDetalheCasoUseCase;
+use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 
@@ -54,6 +61,10 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     private CalculadoraHonorarios $calculadoraHonorarios;
     private MontarDetalheCasoUseCase $useCase;
     private Tenant $tenant;
+    private User $autor;
+
+    /** Relógio fixo do UseCase (o mesmo do `EncargosVivos` injetado abaixo). */
+    private const AGORA = '2026-07-20';
 
     protected function setUp(): void
     {
@@ -76,7 +87,9 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         $this->obrigacaoRepository->method('doCasoExigiveis')->willReturn([]);
         $this->pagamentoRepository->method('doCaso')->willReturn([]);
         $this->liquidacaoRepository->method('doCaso')->willReturn([]);
-        $this->eventoRepository->method('doCaso')->willReturn([]);
+        // `EventoHistoricoRepository::doCaso` também NÃO é stubado aqui, pelo mesmo motivo dos `doCaso`
+        // acima: os testes da listinha de qualificação (§3.4) precisam devolver eventos concretos, e um
+        // `willReturn([])` no setUp travaria como PRIMEIRO matcher e venceria qualquer stub do corpo.
         $this->proximaAcaoRepository->method('findAtivaDoCaso')->willReturn(null);
         $this->calculadoraSaldo->method('saldoExigivel')->willReturn(0);
         $this->calculadoraSaldo->method('saldoVencido')->willReturn(0);
@@ -109,10 +122,14 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
             new ResolvedorConfigEncargos(),
             // EncargosVivos com relógio fixo (aplicador puro): as obrigações do teste têm vencimento/config
             // que não geram encargo, então a hidratação é no-op — o foco do teste é a agregação/DTOs.
-            new EncargosVivos(new MockClock(new \DateTimeImmutable('2026-07-20')), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
+            new EncargosVivos(new MockClock(new \DateTimeImmutable(self::AGORA)), new CalculadoraEncargos(), new ResolvedorConfigEncargos()),
+            // CalculadoraPrescricao é `final` e PURA (só conta dias sobre a lista recebida): instância real.
+            new CalculadoraPrescricao(),
         );
 
         $this->tenant = new Tenant();
+        $this->autor = (new User())->setFullName('Farlei Rocha');
+        (new \ReflectionProperty(User::class, 'id'))->setValue($this->autor, 7);
     }
 
     #[Test]
@@ -262,6 +279,246 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         self::assertSame(120000, $grupo->valorTotal);   // 2 × 60000, e NÃO 240000
     }
 
+    // ------------------------------------------------- cabeçalho: os quatro cards de dinheiro (§1.2)
+
+    /**
+     * O cabeçalho soma sobre o MESMO conjunto que a aba Dívida lista, restrito ao que não está quitado.
+     *
+     * A obrigação quitada tem valor DIFERENTE em todas as colunas (principal, encargos, honorários): se
+     * o filtro `quitada()` cair, os quatro cards se movem juntos e nenhum passa por acidente.
+     */
+    #[Test]
+    #[TestDox('os quatro cards somam só as obrigações em aberto e fecham entre si')]
+    public function osTotaisDoCabecalhoSomamSoAsObrigacoesEmAberto(): void
+    {
+        $caso = $this->casoPersistido();
+
+        $emAberto = $this->novaObrigacao($caso, 101, 100000)->definirEncargos(5000, 2000, 1000, 20000, new \DateTimeImmutable(self::AGORA));
+        $quitada = $this->novaObrigacao($caso, 102, 50000)->definirEncargos(1000, 0, 0, 10000, new \DateTimeImmutable(self::AGORA));
+        $parcial = $this->novaObrigacao($caso, 103, 30000)->definirEncargos(0, 0, 0, 3000, new \DateTimeImmutable(self::AGORA));
+
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$emAberto, $quitada, $parcial]);
+        // 102 exigível = 50000 + 1000 = 51000, todo alocado → quitada, sai dos cards.
+        // 103 tem pagamento PARCIAL: continua em aberto e entra inteira (o card é bruto, não saldo).
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([102 => 51000, 103 => 10000]);
+
+        $detalhe = $this->useCase->executar($caso);
+
+        self::assertSame(2, $detalhe->obrigacoesEmAbertoQtd, 'a quitada não conta na linha meta');
+        self::assertSame(130000, $detalhe->totalPrincipalEmAberto, '100000 + 30000, sem os 50000 da quitada');
+        self::assertSame(8000, $detalhe->totalEncargosEmAberto, 'juros+multa+correção só das em aberto');
+        self::assertSame(23000, $detalhe->honorariosEmAberto, 'o card Honorários é o honorário em aberto');
+        self::assertSame(161000, $detalhe->totalAtualizadoEmAberto);
+        self::assertSame(
+            $detalhe->totalPrincipalEmAberto + $detalhe->totalEncargosEmAberto + $detalhe->honorariosEmAberto,
+            $detalhe->totalAtualizadoEmAberto,
+            'o Total atualizado é a soma dos três cards exibidos ao lado, sempre',
+        );
+        self::assertEquals(new \DateTimeImmutable(self::AGORA), $detalhe->totaisAtualizadosEm);
+
+        // Blindagem: o total da aba Honorários continua contando TODAS (inclusive a quitada) — os dois
+        // números convivem e respondem perguntas diferentes.
+        self::assertSame(33000, $detalhe->honorariosDasObrigacoes);
+    }
+
+    /**
+     * O conjunto somado é o da aba Dívida, não o `doCaso` cru: obrigação substituída por acordo vigente
+     * está FORA da lista (virou anexo recolhido do grupo) e fora do exigível. Contá-la inflaria o
+     * cabeçalho contra as linhas visíveis logo abaixo — a conferência a olho deixaria de fechar.
+     */
+    #[Test]
+    #[TestDox('o cabeçalho soma as parcelas do acordo vigente e ignora as obrigações que ele substituiu')]
+    public function osTotaisIgnoramObrigacaoSubstituidaPorAcordoVigente(): void
+    {
+        $caso = $this->casoComAcordoVigente(
+            substituidas: ['Janeiro/2026'],                          // 120000 — fora da aba
+            parcelas: ['Parcela 1 de 2', 'Parcela 2 de 2'],          // 60000 cada — é o que a aba lista
+        );
+
+        $detalhe = $this->useCase->executar($caso);
+
+        self::assertSame(2, $detalhe->obrigacoesEmAbertoQtd);
+        self::assertSame(120000, $detalhe->totalPrincipalEmAberto, '2 × 60000, e NÃO 240000');
+        self::assertSame(120000, $detalhe->totalAtualizadoEmAberto);
+    }
+
+    // -------------------------------------------------------------- cabeçalho: prescrição (§1.3)
+
+    #[Test]
+    #[TestDox('a prescrição olha a competência em aberto mais antiga, ignorando a quitada mais velha')]
+    public function aPrescricaoUsaAObrigacaoEmAbertoMaisAntiga(): void
+    {
+        $caso = $this->casoPersistido();
+
+        $velhaQuitada = $this->novaObrigacao($caso, 101, 40000, 'Janeiro/2020', '2020-01-10');
+        $maisAntigaEmAberto = $this->novaObrigacao($caso, 102, 40000, 'Março/2022', '2022-03-15');
+        $recente = $this->novaObrigacao($caso, 103, 40000, 'Junho/2024', '2024-06-01');
+
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$velhaQuitada, $maisAntigaEmAberto, $recente]);
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([101 => 40000]);
+
+        $prescricao = $this->useCase->executar($caso)->prescricao;
+
+        self::assertNotNull($prescricao);
+        self::assertSame(102, $prescricao->obrigacaoId, 'a quitada de 2020 não prescreve — não há o que ajuizar');
+        self::assertSame('Março/2022', $prescricao->obrigacaoDescricao);
+        // Prazo limite 15/03/2027 contra o relógio 20/07/2026: 238 dias, faixa informativa.
+        self::assertEquals(new \DateTimeImmutable('2027-03-15'), $prescricao->prazoLimite);
+        self::assertSame(238, $prescricao->diasRestantes);
+        self::assertSame(PrescricaoOutput::SEVERIDADE_INFORMATIVA, $prescricao->severidade);
+    }
+
+    #[Test]
+    #[TestDox('sem obrigação em aberto a caixa de prescrição não é montada')]
+    public function semObrigacaoEmAbertoNaoHaPrescricao(): void
+    {
+        $caso = $this->casoPersistido();
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$this->novaObrigacao($caso, 101, 40000)]);
+        $this->alocacaoRepository->method('somasPorObrigacaoDosCasos')->willReturn([101 => 40000]);
+
+        $detalhe = $this->useCase->executar($caso);
+
+        self::assertNull($detalhe->prescricao);
+        self::assertSame(0, $detalhe->obrigacoesEmAbertoQtd);
+        self::assertSame(0, $detalhe->totalAtualizadoEmAberto);
+    }
+
+    // ------------------------------------------------ aba Responsáveis: listinha de qualificação (§3.4)
+
+    #[Test]
+    #[TestDox('a listinha traz só as qualificações, mais recente primeiro, e ignora os demais eventos')]
+    public function aListinhaTrazSoAsQualificacoes(): void
+    {
+        $caso = $this->casoPersistido();
+
+        // O contato carrega um payload com a MESMA chave `qualificacao` de propósito: `dados` é JSON
+        // livre, e sem o filtro por TIPO a listinha aceitaria qualquer evento cujo payload por acaso
+        // tenha essa chave. É o filtro de tipo que precisa barrá-lo — não a leitura do payload.
+        $intruso = $this->evento($caso, 897, TipoEventoHistorico::ContatoRealizado, '2026-07-19 23:57:00')
+            ->setDados(['qualificacao' => QualificacaoContato::RecusaPagamento->value]);
+
+        // Na ordem em que `doCaso` devolve: mais recente primeiro.
+        $this->eventoRepository->method('doCaso')->willReturn([
+            $this->qualificacao($caso, 900, QualificacaoContato::RecusaPagamento, '2026-07-19 23:58:00'),
+            $this->evento($caso, 899, TipoEventoHistorico::Anotacao, '2026-07-19 23:57:30'),
+            $intruso,
+            $this->qualificacao($caso, 898, QualificacaoContato::PromessaPagamento, '2026-07-19 10:00:00'),
+        ]);
+
+        $detalhe = $this->useCase->executar($caso, $this->autor);
+
+        self::assertCount(2, $detalhe->qualificacoes, 'nem a anotação nem o contato entram na listinha');
+        self::assertSame([900, 898], array_map(static fn ($q) => $q->eventoId, $detalhe->qualificacoes));
+        self::assertSame('Recusa de pagamento', $detalhe->qualificacoes[0]->label);
+        self::assertSame('Promessa de pagamento', $detalhe->qualificacoes[1]->label);
+        self::assertSame('Farlei Rocha', $detalhe->qualificacoes[0]->autorNome);
+
+        // O histórico completo continua trazendo os quatro — a listinha é um recorte, não um filtro global.
+        self::assertCount(4, $detalhe->historico);
+    }
+
+    /**
+     * O botão desfazer só aparece para a PRIMEIRA linha. As duas qualificações deste teste estão dentro
+     * dos 5 minutos e são do mesmo autor: as três condições que o evento sabe responder sozinho valem
+     * para ambas. A única coisa que separa uma da outra é a posição — que é exatamente a quarta condição
+     * que o servidor cobra no `DesfazerQualificacaoContatoUseCase`.
+     */
+    #[Test]
+    #[TestDox('só a qualificação mais recente recebe o botão desfazer')]
+    public function soAMaisRecentePodeSerDesfeita(): void
+    {
+        $caso = $this->casoPersistido();
+
+        $this->eventoRepository->method('doCaso')->willReturn([
+            $this->qualificacao($caso, 900, QualificacaoContato::RecusaPagamento, '2026-07-19 23:58:00'),
+            $this->qualificacao($caso, 899, QualificacaoContato::PromessaPagamento, '2026-07-19 23:57:00'),
+        ]);
+
+        $qualificacoes = $this->useCase->executar($caso, $this->autor)->qualificacoes;
+
+        self::assertTrue($qualificacoes[0]->podeDesfazer);
+        self::assertFalse($qualificacoes[1]->podeDesfazer, 'dentro da janela, mas não é a mais recente');
+    }
+
+    /**
+     * `ultimaQualificacaoDoCaso` (a guarda do servidor) escolhe o evento mais recente do tipo SEM olhar
+     * o payload. Se a linha de payload quebrado sumisse da lista e o `ehMaisRecente` escorregasse para a
+     * seguinte, a tela ofereceria um botão que a rota vai recusar — o desencontro exato que decidir o
+     * `podeDesfazer` no servidor existe para evitar.
+     */
+    #[Test]
+    #[TestDox('qualificação de payload irreconhecível some da lista sem passar o desfazer adiante')]
+    public function payloadQuebradoNaoTransfereODesfazerParaASeguinte(): void
+    {
+        $caso = $this->casoPersistido();
+
+        $quebrada = $this->evento($caso, 900, TipoEventoHistorico::QualificacaoContato, '2026-07-19 23:58:00')
+            ->setDados(['qualificacao' => 'tipo_que_nao_existe']);
+
+        $this->eventoRepository->method('doCaso')->willReturn([
+            $quebrada,
+            $this->qualificacao($caso, 899, QualificacaoContato::RecusaPagamento, '2026-07-19 23:57:00'),
+        ]);
+
+        $qualificacoes = $this->useCase->executar($caso, $this->autor)->qualificacoes;
+
+        self::assertCount(1, $qualificacoes, 'a linha quebrada é pulada, não derruba a página');
+        self::assertSame(899, $qualificacoes[0]->eventoId);
+        self::assertFalse(
+            $qualificacoes[0]->podeDesfazer,
+            'a mais recente do TIPO continua sendo a quebrada — o botão não pode escorregar para esta',
+        );
+    }
+
+    /** Sem leitor, ninguém pode desfazer nada — mesmo dentro da janela (a Central lê assim). */
+    #[Test]
+    public function semUsuarioAtualNenhumaQualificacaoPodeSerDesfeita(): void
+    {
+        $caso = $this->casoPersistido();
+        $this->eventoRepository->method('doCaso')->willReturn([
+            $this->qualificacao($caso, 900, QualificacaoContato::RecusaPagamento, '2026-07-19 23:58:00'),
+        ]);
+
+        self::assertFalse($this->useCase->executar($caso)->qualificacoes[0]->podeDesfazer);
+    }
+
+    /** A listinha e o histórico saem da MESMA leitura: duas consultas poderiam divergir na ordem. */
+    #[Test]
+    public function aLinhaDoTempoEhLidaUmaVezSo(): void
+    {
+        $caso = $this->casoPersistido();
+
+        $this->eventoRepository->expects(self::once())->method('doCaso')->willReturn([
+            $this->qualificacao($caso, 900, QualificacaoContato::RecusaPagamento, '2026-07-19 23:58:00'),
+        ]);
+
+        $detalhe = $this->useCase->executar($caso, $this->autor);
+
+        self::assertCount(1, $detalhe->historico);
+        self::assertCount(1, $detalhe->qualificacoes);
+    }
+
+    private function qualificacao(CasoCobranca $caso, int $id, QualificacaoContato $qualificacao, string $ocorridoEm): EventoHistorico
+    {
+        return $this->evento($caso, $id, TipoEventoHistorico::QualificacaoContato, $ocorridoEm)
+            ->setDescricao($qualificacao->label())
+            ->setDados(['qualificacao' => $qualificacao->value]);
+    }
+
+    private function evento(CasoCobranca $caso, int $id, TipoEventoHistorico $tipo, string $ocorridoEm): EventoHistorico
+    {
+        $evento = (new EventoHistorico())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setTipo($tipo)
+            ->setUsuario($this->autor)
+            ->setDescricao('Evento ' . $id)
+            ->setOcorridoEm(new \DateTimeImmutable($ocorridoEm));
+        (new \ReflectionProperty(EventoHistorico::class, 'id'))->setValue($evento, $id);
+
+        return $evento;
+    }
+
     /**
      * @param list<string> $substituidas descrições das obrigações que o acordo substituiu (viram
      *                                    `Obrigacao::acordoSubstituto`)
@@ -296,14 +553,14 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         return $caso;
     }
 
-    private function novaObrigacao(CasoCobranca $caso, int $id, int $valorOriginal, ?string $descricao = null): Obrigacao
+    private function novaObrigacao(CasoCobranca $caso, int $id, int $valorOriginal, ?string $descricao = null, string $vencimento = '2026-09-01'): Obrigacao
     {
         $o = (new Obrigacao())
             ->setTenant($this->tenant)
             ->setCaso($caso)
             ->setDescricao($descricao ?? 'Obrigação '.$id)
             ->setValorOriginal($valorOriginal)
-            ->setVencimentoOriginal(new \DateTimeImmutable('2026-09-01'));
+            ->setVencimentoOriginal(new \DateTimeImmutable($vencimento));
         (new \ReflectionProperty(Obrigacao::class, 'id'))->setValue($o, $id);
 
         return $o;
