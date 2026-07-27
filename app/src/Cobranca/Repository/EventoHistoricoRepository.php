@@ -76,6 +76,35 @@ class EventoHistoricoRepository extends ServiceEntityRepository
     }
 
     /**
+     * A qualificação de contato MAIS RECENTE do caso, ou `null` se ainda não houver nenhuma.
+     *
+     * É a quarta condição de desfazer da spec §3.5 — a única que um evento sozinho não sabe responder,
+     * porque depende dos irmãos. Consulta dedicada, com `setMaxResults(1)`, em vez de reaproveitar
+     * `doCaso()`: aquela carrega a linha do tempo INTEIRA (contatos, pagamentos, acordos) só para olhar
+     * a primeira linha de um tipo.
+     *
+     * Desempate por `id DESC` além do `ocorridoEm DESC`: dois cliques dentro do mesmo segundo têm a
+     * mesma data, e sem o desempate qual delas é "a última" ficaria a critério do plano de execução do
+     * Postgres. Mesma ordenação de `doCaso()`, para a listinha do painel e esta guarda nunca
+     * discordarem sobre quem está no topo.
+     */
+    public function ultimaQualificacaoDoCaso(CasoCobranca $caso): ?EventoHistorico
+    {
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.caso = :caso')
+            ->andWhere('e.tenant = :tenant')
+            ->andWhere('e.tipo = :tipo')
+            ->setParameter('caso', $caso)
+            ->setParameter('tenant', $caso->getTenant())
+            ->setParameter('tipo', TipoEventoHistorico::QualificacaoContato)
+            ->orderBy('e.ocorridoEm', 'DESC')
+            ->addOrderBy('e.id', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
+    /**
      * Atividade da equipe no período, agregada por pessoa (Central de Acompanhamento, Fatia 1 §5/§9).
      *
      * SQL NATIVO de propósito: as contagens condicionais (`COUNT(*) FILTER`) e a leitura do desfecho no

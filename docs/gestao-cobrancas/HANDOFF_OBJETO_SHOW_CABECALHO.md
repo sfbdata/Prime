@@ -8,11 +8,14 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, commit local `4f3b594` sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`**, commits locais `4f3b594` (Etapa 1) e `a365114` (docs) sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma prevista**, e é decisão de projeto (ver §3.1 da spec) |
-| Suíte | `tests/Cobranca/Unit` 652/652 verde ao fim da Etapa 1 |
+| Suíte | `tests/Cobranca` 1156/1156 verde ao fim da Etapa 2 (`tests/Cobranca/Unit` 666/666) |
 | Publicado | **nada** |
+
+⚠️ **Duas decisões do dono estão abertas na Etapa 2** — o código segue a spec literal nas duas, e as
+duas estão travadas por teste. Ver "O que a Etapa 2 devolveu para o dono", no fim deste documento.
 
 ### Por que master, e não uma branch própria
 
@@ -71,7 +74,7 @@ Não commite junto.
 ## Etapas
 
 - [x] **1 — Fundação** (enum, tipo de evento, DTOs de leitura, calculadora de prescrição) — `4f3b594`
-- [ ] **2 — UseCases de qualificação** (registrar + desfazer + exceção)
+- [x] **2 — UseCases de qualificação** (registrar + desfazer + exceção + query da 4ª condição)
 - [ ] **3 — Leitura da página** (totais do cabeçalho, prescrição, ficha da cobrada, vizinhos na carteira)
 - [ ] **4 — Rotas** (registrar / desfazer qualificação)
 - [ ] **5 — Template do cabeçalho**
@@ -127,22 +130,85 @@ Quem esquecer disso vai deixar desfazer qualquer qualificação dos últimos 5 m
 
 ---
 
-## Etapa 2 — PRÓXIMA
+## Etapa 2 — FEITA
 
-Criar:
+Arquivos novos:
 
-- `app/src/Cobranca/Exception/QualificacaoNaoDesfazivelException.php`
-- `app/src/Cobranca/UseCase/RegistrarQualificacaoContatoUseCase.php`
-  - espelhe `RegistrarAnotacaoUseCase`: resolve o caso por `findOneByIdDoTenant`, recusa
-    `CasoEncerradoException`, grava via `RegistrarEventoHistorico::registrar(..., flush: true)`
-  - `descricao` = `$qualificacao->label()`; `dados = ['qualificacao' => $qualificacao->value]`
-- `app/src/Cobranca/UseCase/DesfazerQualificacaoContatoUseCase.php`
-  - as **4** condições da spec §3.5, sendo a 4ª (mais recente) verificada aqui
-  - remove o evento de verdade (`EventoHistoricoRepository::remover`), como a exclusão de anotação faz
+| Arquivo | O quê |
+|---|---|
+| `app/src/Cobranca/Exception/QualificacaoNaoDesfazivelException.php` | mensagem única para os 4 motivos |
+| `app/src/Cobranca/UseCase/RegistrarQualificacaoContatoUseCase.php` | um clique → evento; sem DTO nem Form |
+| `app/src/Cobranca/UseCase/DesfazerQualificacaoContatoUseCase.php` | as 4 condições da §3.5 |
+| `app/tests/Cobranca/Unit/QualificacaoContatoUseCaseTest.php` | 14 testes dos dois UseCases |
+| `app/tests/Cobranca/Functional/UltimaQualificacaoRepositoryTest.php` | 6 testes da query, contra o banco |
 
-O relógio: use a mesma fonte do resto da página (`EncargosVivos::agora()`). **Nada de
-`new \DateTimeImmutable()` no caminho** — sem relógio injetado o teste da janela de 5 minutos não tem
-como fixar o tempo.
+Alterado: `EventoHistoricoRepository::ultimaQualificacaoDoCaso` (a 4ª condição é uma consulta).
+
+### Contratos que a Etapa 3 e a 4 consomem
+
+```php
+RegistrarQualificacaoContatoUseCase::executar(
+    int $casoId, QualificacaoContato $qualificacao, Tenant $tenant, User $usuario
+): EventoHistorico
+
+DesfazerQualificacaoContatoUseCase::executar(
+    int $eventoId, Tenant $tenant, User $usuario
+): int   // id do caso, para o redirect
+```
+
+Sem Input DTO nos dois, de propósito: não há formulário a validar — o registrar recebe um enum vindo de
+um botão, e o desfazer recebe só o id. O gate `resources.cobranca.gerenciar` e o CSRF são do controller
+(Etapa 4); os UseCases não conhecem request.
+
+### O que a Etapa 2 ensinou
+
+**O relógio injetado tem de carimbar os DOIS lados da mesma regra.** O registrar recebe `ClockInterface`
+e passa `ocorridoEm` explicitamente — sem isso o marco viria do `new \DateTimeImmutable()` do construtor
+da entidade, enquanto a janela de 5 minutos seria medida pelo relógio injetado. Os dois lados andariam
+separados e o funcional de "passou dos 5 minutos" (Etapa 8) seria intestável de forma determinística.
+`RegistrarAnotacaoUseCase` ainda tem esse desalinhamento; aqui ele não nasceu.
+
+**A revisão pegou 7 pontos que a suíte verde não pegava** — entre eles o relógio acima, o fail-open da
+comparação de ids (dois `null` são "iguais" para o `!==`, e a guarda liberava), e o fato de que
+**nenhum teste executava a query nova**: o repositório era mock nos 14 unitários, então filtro de tenant,
+filtro de tipo e desempate por id não eram provados por nada. Daí o teste de integração.
+
+**Injetar defeito com `perl -0pi` casa a PRIMEIRA ocorrência do arquivo, não a do método que você quer.**
+Três injeções "não pegaram" e o alarme era falso: as regex bateram no `doCaso()`, que tem linhas
+idênticas às da query nova. Refeitas mirando o bloco do método certo, as três derrubaram o teste
+esperado. **Injeção de defeito que passa verde exige conferir se o defeito foi mesmo aplicado onde você
+pensa** — senão a prova vira teatro. 12 defeitos foram injetados no total; cada um derrubou o teste
+correspondente.
+
+### O que a Etapa 2 devolveu para o dono
+
+Duas decisões que a spec não resolve. O código segue a spec literal nas duas, e **cada uma está travada
+por um teste** — se a decisão mudar, é o teste que quebra, não o comportamento em silêncio.
+
+**1. Desfazer em cascata dentro dos 5 minutos.** A condição 4 ("é a mais recente") ordena as remoções,
+não as limita: desfeita a última, a penúltima vira a mais recente e — se ainda dentro dos 5 minutos
+dela — também pode ser desfeita. Em cliques sucessivos o autor limpa tudo que qualificou nos últimos
+5 minutos. É coerente com a finalidade (mesmo engano, mesma janela, mesma pessoa), mas cada remoção
+desconta 1 do trabalho de cobrança dele na Central. Limitar a UMA remoção por janela é decisão sua.
+Teste que trava: `cascataDentroDaJanela`.
+
+**2. Caso encerrado NÃO impede desfazer** — e isso diverge do vizinho: `ExcluirAnotacaoUseCase` bloqueia
+exclusão em caso encerrado, com teste. Aqui não bloqueia, porque em caso encerrado nem a qualificação
+corretiva por cima seria possível (§17 recusa novos lançamentos): bloquear o desfazer tornaria o engano
+permanente e sem saída, e a janela aqui é de 5 minutos, não 48 horas. O mesmo argumento serviria para a
+anotação, onde o projeto escolheu o contrário — **o domínio ficou com duas regras opostas para "remover
+evento por engano"**. Uniformizar é decisão sua. Teste que trava: `casoEncerradoAindaDesfaz`.
+
+## Etapa 3 — PRÓXIMA
+
+Leitura da página. `MontarDetalheCasoUseCase` passa a somar os quatro totais do cabeçalho (§1.2), a
+contagem de obrigações em aberto, o `PrescricaoOutput` (§1.3) e a lista de `QualificacaoContatoOutput`
+(§3.4); `MontarDetalheObjetoUseCase` ganha `fichaCobrada` e os vizinhos na carteira (§4, §1.5).
+
+Atenção aos pontos que a spec já fixou: os totais somam sobre **exatamente** o conjunto que a aba Dívida
+lista, no UseCase e nunca no Twig (§1.2); o relógio é `EncargosVivos::agora()` (§1.3); a listinha de
+qualificação passa `$ehMaisRecente = true` só para a primeira linha, que é o que decide o botão desfazer
+no servidor (`QualificacaoContatoOutput::tentarDe`).
 
 ## Comandos
 
