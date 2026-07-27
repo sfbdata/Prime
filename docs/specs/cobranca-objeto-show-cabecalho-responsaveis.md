@@ -46,6 +46,28 @@ mostrava hoje.
 aba Dívida lista (avulsas + parcelas dos grupos de acordo vigente), nunca no Twig. É dinheiro, e o
 UseCase é onde há teste. Mesma regra que já vale para os totais da aba Honorários.
 
+**"Em aberto" tem DUAS exclusões, não uma** (a segunda entrou em 2026-07-27, na Etapa 8, por achado
+BLOQUEANTE da revisão da frente inteira):
+
+1. obrigação **quitada**;
+2. **parcela de acordo rompido/cancelado** (`parcelaDeAcordoDesfeito`).
+
+A segunda não é detalhe: romper um acordo **devolve a obrigação original ao exigível** e deixa as
+parcelas mortas na lista solta. Somar as duas contava o **mesmo dinheiro duas vezes** nos quatro
+cards, na linha `N obrigações em aberto` e na escolha da competência da prescrição — e a própria aba
+Dívida logo abaixo rotula essa parcela como *"histórico, fora do total em aberto"*. Com a exclusão, o
+conjunto somado aqui é **idêntico** ao de `ObrigacaoRepository::doCasoExigiveis`, que é quem governa o
+`saldoExigivel`; é isso que faz a explicação do quadro acima ("um é bruto, o outro é líquido de
+pagamentos") continuar verdadeira.
+
+O **rodapé da aba Honorários** (`honorariosDasObrigacoes`) segue somando **tudo que a aba lista**,
+inclusive a parcela morta e a quitada — ele existe para fechar com as linhas visíveis. Só o recorte
+`A receber` (`honorariosEmAberto`) é que aplica as duas exclusões.
+
+⚠️ **Isto muda um número já em produção**: o `A receber` da aba Honorários passa a ser menor em
+qualquer caso que tenha acordo rompido/cancelado com parcela não quitada. É correção de dobra, não
+regressão — mas é mudança visível, e o dono precisa saber antes de publicar.
+
 ### 1.3 Coluna direita — prescrição
 
 Caixa em destaque, o elemento dominante do cabeçalho.
@@ -53,8 +75,13 @@ Caixa em destaque, o elemento dominante do cabeçalho.
 - **Competência mais antiga** = obrigação **em aberto** com o `vencimentoOriginal` mais antigo.
 - **Prazo limite** = vencimento + `PRAZO_PADRAO_ANOS` (5), constante única em `CalculadoraPrescricao`.
   Fica pronta para virar configuração da carteira depois; hoje não vale uma migração.
-- **Severidade por faixa de dias restantes:** ≤ 0 esgotado · ≤ 90 crítico · ≤ 180 atenção · acima disso
-  informativo.
+- **Severidade por faixa de dias restantes:** **< 0 esgotado** · ≤ 90 crítico · ≤ 180 atenção · acima
+  disso informativo.
+  > Corrigido em 2026-07-27 (Etapa 8): a redação original dizia `≤ 0 esgotado`, o que poria o **dia
+  > exato do prazo** na faixa "esgotado". No dia do prazo ainda dá para ajuizar, e dizer
+  > `Prazo esgotado em <hoje>` faria o gestor abandonar uma cobrança ainda viável — o erro mais caro
+  > que esta caixa pode cometer. O código sempre implementou `< 0`; o texto é que estava errado.
+  > `CalculadoraPrescricaoTest::faixas` trava o dia zero como **crítica**.
 - Quando o prazo já passou: `Prazo esgotado em dd/mm/aaaa`.
 - **Sem obrigação em aberto → a caixa não aparece.** Não há o que prescrever.
 - **Aviso obrigatório** de que é estimativa a partir do vencimento mais antigo. O sistema conta dias;
@@ -162,11 +189,16 @@ da cobrança inteira.
 
 `RegistrarQualificacaoContatoUseCase`:
 
-- gate `resources.cobranca.gerenciar`;
 - recusa caso encerrado (mesma exceção que anotação e contato usam);
 - grava `tipo`, `descricao` = rótulo da qualificação, `dados = {qualificacao: <value>}`, `usuario`,
   `ocorridoEm` — todo o metadado que o dono pediu;
 - o evento aparece no Histórico normal, junto dos demais.
+
+> **O gate `resources.cobranca.gerenciar` é do CONTROLLER, não do UseCase** (esclarecido em 2026-07-27,
+> Etapa 8; a redação original o atribuía ao UseCase). É o padrão do projeto: o UseCase não conhece
+> request nem sessão, e quem sabe *quem* está pedindo é a camada HTTP. Consequência a assumir: um
+> segundo chamador (um command, uma API) nasceria **sem gate** — quem criar um tem de repetir a
+> checagem. `QualificacaoContatoControllerTest::testRegistrarExigeCapacidadeDeGerenciar` é a prova.
 
 ### 3.4 Listinha
 

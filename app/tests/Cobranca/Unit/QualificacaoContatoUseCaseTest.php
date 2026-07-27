@@ -161,17 +161,18 @@ final class QualificacaoContatoUseCaseTest extends TestCase
     // ------------------------------------------------------------------------------ desfazer
 
     #[Test]
-    #[TestDox('O autor desfaz o próprio clique dentro dos 5 minutos e recebe o caso de volta')]
+    #[TestDox('O autor desfaz o próprio clique dentro dos 5 minutos')]
     public function autorDesfazDentroDaJanela(): void
     {
+        // O UseCase é `void` desde a Etapa 8 (o id do caso que ele devolvia não era consumido por
+        // ninguém). Quem prova o happy path é a expectativa sobre `remover`, que é mais forte do que o
+        // retorno era: ela exige que o evento removido seja EXATAMENTE o resolvido, e com flush.
         $evento = $this->qualificacao();
         $this->eventoRepository->method('findOneByIdDoTenant')->willReturn($evento);
         $this->eventoRepository->method('ultimaQualificacaoDoCaso')->willReturn($evento);
         $this->eventoRepository->expects($this->once())->method('remover')->with($evento, true);
 
-        $sut = $this->desfazer('2026-07-27 14:03:00');
-
-        self::assertSame(42, $sut->executar(5, $this->tenant, $this->autor));
+        $this->desfazer('2026-07-27 14:03:00')->executar(5, $this->tenant, $this->autor);
     }
 
     #[Test]
@@ -246,7 +247,7 @@ final class QualificacaoContatoUseCaseTest extends TestCase
         $this->eventoRepository->method('ultimaQualificacaoDoCaso')->willReturn($penultima);
         $this->eventoRepository->expects($this->once())->method('remover')->with($penultima, true);
 
-        self::assertSame(42, $this->desfazer('2026-07-27 14:02:00')->executar(5, $this->tenant, $this->autor));
+        $this->desfazer('2026-07-27 14:02:00')->executar(5, $this->tenant, $this->autor);
         self::assertSame(6, $ultima->getId(), 'a que saiu antes era mesmo outra entrada');
     }
 
@@ -301,7 +302,7 @@ final class QualificacaoContatoUseCaseTest extends TestCase
         $this->eventoRepository->method('ultimaQualificacaoDoCaso')->willReturn($evento);
         $this->eventoRepository->expects($this->once())->method('remover')->with($evento, true);
 
-        self::assertSame(42, $this->desfazer('2026-07-27 14:01:00')->executar(5, $this->tenant, $this->autor));
+        $this->desfazer('2026-07-27 14:01:00')->executar(5, $this->tenant, $this->autor);
     }
 
     // -------------------------------------------------------------------------------- apoio

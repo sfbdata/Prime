@@ -61,8 +61,14 @@ final class DesfazerQualificacaoContatoUseCase
     ) {
     }
 
-    /** @return int id do caso a que a qualificação pertencia (o chamador redireciona para lá) */
-    public function executar(int $eventoId, Tenant $tenant, User $usuario): int
+    /**
+     * Sem retorno, decidido na Etapa 8 (2026-07-27). A Etapa 2 devolvia o id do CASO "para o redirect",
+     * e o retorno nasceu morto: o controller volta para a página do OBJETO, e resolve esse objeto ANTES
+     * de remover — depois da remoção o evento já não leva a lugar nenhum. Pior que peso morto, era um
+     * contrato falso: quem lesse o `@return` acreditaria que o destino da volta é o caso. Quem precisar
+     * de um valor aqui um dia que o declare com o destino verdadeiro, em vez de herdar este.
+     */
+    public function executar(int $eventoId, Tenant $tenant, User $usuario): void
     {
         // Guarda multi-tenant: evento de outro escritório não existe para quem pede.
         $evento = $this->eventoRepository->findOneByIdDoTenant($eventoId, $tenant);
@@ -95,9 +101,6 @@ final class DesfazerQualificacaoContatoUseCase
             throw new QualificacaoNaoDesfazivelException();
         }
 
-        $casoId = (int) $caso->getId();
         $this->eventoRepository->remover($evento, true);
-
-        return $casoId;
     }
 }

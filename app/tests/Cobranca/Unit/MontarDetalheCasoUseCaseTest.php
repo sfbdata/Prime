@@ -342,6 +342,51 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         self::assertSame(120000, $detalhe->totalAtualizadoEmAberto);
     }
 
+    /**
+     * Achado BLOQUEANTE da revisão da frente inteira (Etapa 8): romper um acordo devolve a obrigação
+     * ORIGINAL ao exigível **e** deixa as parcelas mortas na lista solta. Somar as duas contava o mesmo
+     * dinheiro DUAS VEZES, no card mais visível da página — e a própria aba Dívida rotula a parcela como
+     * "histórico, fora do total em aberto", então a tela se contradizia.
+     *
+     * O cenário é montado com valores DIFERENTES entre o original e as parcelas de propósito: se a
+     * exclusão cair, nenhum dos quatro cards passa por acidente.
+     */
+    #[Test]
+    #[TestDox('parcela de acordo ROMPIDO fica fora dos cards e da contagem, mas continua no rodapé da aba Honorários')]
+    public function osTotaisIgnoramParcelaDeAcordoRompido(): void
+    {
+        $caso = $this->casoComAcordoRompido(
+            original: 'Janeiro/2026',                            // 120000 — VOLTOU ao exigível
+            parcelas: ['Parcela 1 de 2', 'Parcela 2 de 2'],      // 60000 cada — mortas
+        );
+
+        $detalhe = $this->useCase->executar($caso);
+
+        self::assertSame(1, $detalhe->obrigacoesEmAbertoQtd, 'só a original restaurada está em aberto');
+        self::assertSame(
+            120000,
+            $detalhe->totalPrincipalEmAberto,
+            'a original restaurada, e NÃO ela mais as duas parcelas mortas (240000) — isso seria o mesmo dinheiro duas vezes',
+        );
+        self::assertSame(3000, $detalhe->totalEncargosEmAberto, 'só os encargos da original');
+        self::assertSame(24000, $detalhe->honorariosEmAberto, 'a parcela morta não é recebível: o acordo que a criou caiu');
+        self::assertSame(147000, $detalhe->totalAtualizadoEmAberto);
+        self::assertSame(
+            $detalhe->totalPrincipalEmAberto + $detalhe->totalEncargosEmAberto + $detalhe->honorariosEmAberto,
+            $detalhe->totalAtualizadoEmAberto,
+        );
+
+        // …mas o RODAPÉ da aba Honorários continua somando tudo que a aba LISTA — a parcela morta
+        // aparece lá rotulada, e um rodapé que não fechasse com as linhas visíveis seria outro defeito.
+        self::assertSame(44000, $detalhe->honorariosDasObrigacoes, '24000 da original + 10000 de cada parcela morta');
+
+        // E a prescrição não pode eleger uma parcela morta como "competência mais antiga": não há o que
+        // ajuizar numa parcela que o rompimento do acordo já descartou. As parcelas vencem ANTES da
+        // original de propósito — sem a exclusão, uma delas venceria a escolha.
+        self::assertNotNull($detalhe->prescricao);
+        self::assertSame('Janeiro/2026', $detalhe->prescricao->obrigacaoDescricao);
+    }
+
     // -------------------------------------------------------------- cabeçalho: prescrição (§1.3)
 
     #[Test]
@@ -545,6 +590,46 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         foreach ($parcelas as $descricao) {
             $obrigacoes[] = $this->novaObrigacao($caso, $id++, 60000, $descricao)
                 ->setAcordoOrigem($acordo);
+        }
+
+        $this->obrigacaoRepository->method('doCaso')->willReturn($obrigacoes);
+        $this->acordoRepository->method('doCaso')->willReturn([$acordo]);
+
+        return $caso;
+    }
+
+    /**
+     * Espelho do `casoComAcordoVigente` para o acordo ROMPIDO. As duas diferenças que importam:
+     * o acordo não é vigente (então `substituidaPorAcordo` é FALSE e a original volta para a lista
+     * solta, exatamente como `doCasoExigiveis` a devolve ao saldo) e as parcelas viram
+     * `parcelaDeAcordoDesfeito`, caindo na lista solta junto — que é a origem do dobro.
+     *
+     * @param list<string> $parcelas
+     */
+    private function casoComAcordoRompido(string $original, array $parcelas): CasoCobranca
+    {
+        $caso = $this->casoPersistido();
+
+        $acordo = (new Acordo())
+            ->setTenant($this->tenant)
+            ->setCaso($caso)
+            ->setStatus(StatusAcordo::Rompido)
+            ->setDataAcordo(new \DateTimeImmutable('2026-03-01'));
+        (new \ReflectionProperty(Acordo::class, 'id'))->setValue($acordo, 1);
+
+        $obrigacoes = [
+            $this->novaObrigacao($caso, 200, 120000, $original, '2026-09-01')
+                ->setAcordoSubstituto($acordo)
+                ->definirEncargos(2000, 1000, 0, 24000, new \DateTimeImmutable(self::AGORA)),
+        ];
+
+        $id = 300;
+        foreach ($parcelas as $descricao) {
+            // Vencimento ANTERIOR ao da original: sem a exclusão, a parcela morta venceria a escolha da
+            // competência mais antiga na prescrição, e o teste acima acusaria.
+            $obrigacoes[] = $this->novaObrigacao($caso, $id++, 60000, $descricao, '2026-04-01')
+                ->setAcordoOrigem($acordo)
+                ->definirEncargos(500, 0, 0, 10000, new \DateTimeImmutable(self::AGORA));
         }
 
         $this->obrigacaoRepository->method('doCaso')->willReturn($obrigacoes);

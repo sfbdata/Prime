@@ -26,7 +26,15 @@ final class PrescricaoOutput
     public const SEVERIDADE_ESGOTADA = 'esgotada';
 
     public function __construct(
-        /** Id da obrigação mais antiga em aberto — o link "Ver competência" aponta para ela. */
+        /**
+         * Id da obrigação mais antiga em aberto: é a identidade do que a caixa está medindo.
+         *
+         * ⚠️ O template NÃO o consome hoje — o `Ver competência` leva à aba Dívida inteira
+         * (`#secao-divida`), porque não existe âncora por obrigação para onde apontar. O campo fica
+         * porque é a identidade da competência escolhida, e é por ele que o teste prova que a regra
+         * "a mais antiga EM ABERTO" elegeu a linha certa; sem ele a prova seria pela descrição, que
+         * não é única. Se um dia nascer a âncora por obrigação, o link passa a usar este id.
+         */
         public readonly int $obrigacaoId,
         public readonly string $obrigacaoDescricao,
         /** Mês/ano de referência da competência mais antiga (o vencimento da obrigação). */

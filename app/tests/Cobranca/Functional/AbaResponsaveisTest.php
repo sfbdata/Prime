@@ -581,6 +581,88 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         self::assertCount(0, $aba->filter('[data-acao="editar-ficha"]'), 'e para o "Editar" do cabeçalho da aba');
     }
 
+    // ───────────────────────────── Anti duplo-submit dos forms crus ─────────────────────────────
+
+    /**
+     * O achado da revisão da Etapa 6: `data-disable-on-submit` era INERTE nesta página. O handler
+     * existia só em `cobranca/pessoa/show.html.twig`, e ele varre apenas o DOM daquela página — os
+     * forms daqui carregavam um atributo que ninguém lia, e um duplo clique gravava DUAS
+     * qualificações (cada uma contando como trabalho de cobrança na Central, com o desfazer removendo
+     * uma por vez). O handler foi copiado para `objeto/show.html.twig`, mas até aqui NADA impedia que
+     * ele fosse removido de novo.
+     *
+     * As DUAS pontas são asseridas de propósito, porque cada uma sozinha passa verde no defeito da
+     * outra: só o markup continuaria verde com o handler apagado (que é literalmente o bug original),
+     * e só o handler continuaria verde se os forms perdessem o atributo. PHPUnit não executa JS — o
+     * que se prova aqui é que o gancho e quem o lê continuam existindo, no mesmo documento.
+     */
+    #[TestDox('Os forms CRUS da aba carregam o gancho anti duplo-submit E a página carrega o handler que o lê')]
+    public function testFormsDaAbaEstaoProtegidosContraDuploSubmit(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        // Um telefone não-atual faz nascer o form de "Marcar como atual"; a qualificação recente do
+        // próprio usuário faz nascer o do "desfazer". Sem os dois, o cenário cobriria só 4 dos 6 forms.
+        $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: false);
+        $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: true);
+        $this->qualificar($tenant, $caso, $usuario, QualificacaoContato::RecusaPagamento, new \DateTimeImmutable('-1 minute'));
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful();
+
+        // Ponta 1 — o markup. TODO form da aba, sem lista de exceções: um form novo sem o gancho
+        // derruba este teste em vez de nascer desprotegido em silêncio.
+        $forms = $crawler->filter('#tab-responsaveis form');
+        self::assertCount(6, $forms, '3 de qualificação + desfazer + marcar telefone atual + adicionar telefone');
+
+        $semGancho = $forms->reduce(
+            static fn (Crawler $form): bool => $form->attr('data-disable-on-submit') === null,
+        );
+        self::assertCount(
+            0,
+            $semGancho,
+            'form da aba sem `data-disable-on-submit`: ' . implode(', ', $semGancho->each(
+                static fn (Crawler $f): string => (string) $f->attr('action'),
+            )),
+        );
+
+        // Cada form tem de ter um `button[type=submit]` — é ele que o handler desabilita. Um form que
+        // submeta por outro caminho carregaria o gancho e continuaria clicável duas vezes.
+        foreach ($forms->each(static fn (Crawler $f): Crawler => $f) as $form) {
+            self::assertGreaterThanOrEqual(
+                1,
+                $form->filter('button[type="submit"]')->count(),
+                'o handler desabilita o `button[type=submit]`: sem ele o gancho não protege nada',
+            );
+        }
+
+        // Ponta 2 — o handler. Não há seletor CSS para "existe uma função que lê este atributo", então
+        // aqui se checa o texto do `<script>` (mesmo critério e mesma justificativa do
+        // `ObjetoShowContratoJsTest`, que trava os outros ganchos de JS desta página).
+        //
+        // ⚠️ A checagem é por LITERAL: reformatar a linha do `querySelectorAll` em `show.html.twig`
+        // (trocar aspas simples por duplas, quebrar a linha) derruba este teste com o handler intacto.
+        // É falso-VERMELHO, não falso-verde — quem reformatar ajusta a string aqui e segue. O inverso
+        // (afrouxar para um regex tolerante) devolveria o risco de dar verde com o handler morto, que é
+        // exatamente o defeito que este teste existe para pegar.
+        $html = (string) $client->getResponse()->getContent();
+        $posHandler = strpos($html, "querySelectorAll('.cobrancas-page form[data-disable-on-submit]')");
+        self::assertNotFalse($posHandler, 'o handler anti duplo-submit sumiu de objeto/show.html.twig — o gancho volta a ser inerte');
+
+        // E ele fica ANTES do guard de bootstrap, de propósito: a proteção não depende do bundle e não
+        // pode cair junto se ele não carregar. Trocar a ordem devolve o duplo-submit em toda página
+        // onde o CDN/asset falhe — exatamente quando o usuário mais clica de novo.
+        $posGuard = strpos($html, "typeof bootstrap === 'undefined'");
+        self::assertNotFalse($posGuard);
+        self::assertLessThan(
+            $posGuard,
+            $posHandler,
+            'o handler tem de rodar ANTES do `return` do guard de bootstrap, senão morre junto com o bundle',
+        );
+    }
+
     // ── apoio ────────────────────────────────────────────────────────────────────────────────────
 
     private function abrirAba(KernelBrowser $client, CasoCobranca $caso): Crawler

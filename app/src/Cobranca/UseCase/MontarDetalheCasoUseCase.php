@@ -147,9 +147,12 @@ final class MontarDetalheCasoUseCase
         }
 
         // Os quatro cards de dinheiro do cabeçalho (spec §1.2) saem do MESMO laço e do MESMO conjunto
-        // que os totais da aba Honorários: `$listadasNaAba` restrito ao que ainda não foi quitado. Somar
-        // aqui (e não no Twig) é o que permite ter teste — e é o que garante que o cabeçalho nunca
-        // discorde da soma das linhas que a aba Dívida mostra logo abaixo.
+        // que os totais da aba Honorários: `$listadasNaAba` restrito ao que está EM ABERTO. Somar aqui
+        // (e não no Twig) é o que permite ter teste — e é o que garante que o cabeçalho nunca discorde
+        // da soma das linhas que a aba Dívida mostra logo abaixo.
+        //
+        // "Em aberto" tem DUAS exclusões, não uma (a segunda entrou na Etapa 8, achado da revisão da
+        // frente inteira): não quitada E não parcela de acordo desfeito. Ver o `continue` abaixo.
         $honorariosDasObrigacoes = 0;
         $honorariosEmAberto = 0;
         $totalPrincipalEmAberto = 0;
@@ -157,9 +160,20 @@ final class MontarDetalheCasoUseCase
         $obrigacoesEmAbertoQtd = 0;
         $emAberto = [];
         foreach ($listadasNaAba as $listada) {
+            // O total do RODAPÉ da aba Honorários soma tudo que a aba LISTA, inclusive a parcela morta
+            // e a quitada — é o número que tem de fechar com as linhas visíveis, e por isso fica antes
+            // das duas exclusões abaixo.
             $honorariosDasObrigacoes += $listada->honorarios;
 
-            if ($listada->quitada()) {
+            // Parcela de acordo ROMPIDO/CANCELADO continua LISTADA (a aba Dívida a rotula "histórico,
+            // fora do total em aberto") mas está fora do exigível: romper o acordo devolveu a obrigação
+            // ORIGINAL ao saldo, e somar as duas contaria o MESMO dinheiro duas vezes — no card mais
+            // visível da página, e com encargo de snapshot velho, porque `EncargosVivos` só hidrata as
+            // exigíveis. Com esta exclusão o conjunto somado aqui passa a ser exatamente o de
+            // `ObrigacaoRepository::doCasoExigiveis`, que é quem governa o `saldoExigivel`: a diferença
+            // entre o BRUTO (card `Total atualizado`) e o LÍQUIDO (linha `Total em aberto`) volta a ser
+            // só o que já foi recebido, que é a explicação que a §1.2 dá ao gestor.
+            if ($listada->parcelaDeAcordoDesfeito || $listada->quitada()) {
                 continue;
             }
 

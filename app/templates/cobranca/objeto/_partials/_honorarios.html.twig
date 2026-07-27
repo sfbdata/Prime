@@ -25,8 +25,12 @@
     </div>
 
     {# ── Os dois números que respondem "quanto rendeu e quanto falta" ──
-       `A receber` é RECORTE de `honorariosDasObrigacoes` (só o não quitado), não uma terceira conta: por
-       isso os dois totais das listas abaixo continuam batendo linha a linha. Deliberadamente NÃO existe
+       `A receber` é RECORTE de `honorariosDasObrigacoes` — o que ainda está EM ABERTO —, não uma terceira
+       conta. O recorte tem DUAS exclusões: a obrigação já quitada e a parcela de acordo rompido/cancelado
+       (esta última desde 2026-07-27: ela continua LISTADA e somada no rodapé, porque a aba a mostra, mas
+       não é recebível — romper o acordo devolveu a obrigação original ao saldo, e contar as duas cobraria
+       honorário duas vezes sobre a mesma dívida). Por isso o rodapé da lista continua batendo linha a
+       linha com o que está na tela, e `A receber` pode ser MENOR que ele. Deliberadamente NÃO existe
        um "total geral" somando os dois — receber e ter recebido são estados diferentes do mesmo
        honorário, e somá-los produziria um número que não significa nada. #}
     <div class="cob-hon-cards mb-4">

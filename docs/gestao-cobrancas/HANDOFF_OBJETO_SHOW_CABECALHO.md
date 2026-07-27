@@ -8,14 +8,16 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, HEAD da Etapa 7 (`10e8864`) sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`**, HEAD da Etapa 8 sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
-| Migration | **nenhuma prevista**, e é decisão de projeto (ver §3.1 da spec) |
-| Suíte | `tests/Cobranca` **1226/1226** verde ao fim da Etapa 7 (a etapa não acrescentou teste — ver por quê lá embaixo) |
+| Migration | **nenhuma**, e é decisão de projeto (ver §3.1 da spec) |
+| Suíte | **completa 2705/2705** · `tests/Cobranca` **1228/1228** |
+| Etapas | **as 8 fechadas** |
 | Publicado | **nada** |
 
-⚠️ **Duas decisões do dono estão abertas na Etapa 2** — o código segue a spec literal nas duas, e as
-duas estão travadas por teste. Ver "O que a Etapa 2 devolveu para o dono", no fim deste documento.
+⚠️ **O que ainda depende de você** está reunido em "O que falta para publicar", no fim deste
+documento — inclusive **uma mudança de número já em produção** (aba Honorários) que saiu do
+BLOQUEANTE da revisão final.
 
 ### Por que master, e não uma branch própria
 
@@ -80,7 +82,7 @@ Não commite junto.
 - [x] **5 — Template do cabeçalho** (duas colunas, cards, prescrição, ações, setas) — `4ae2fee`
 - [x] **6 — Template da aba Responsáveis + painel de qualificação** — `a8619c2`
 - [x] **7 — CSS de acabamento** — `10e8864`
-- [ ] **8 — Testes** (unitários e funcionais) e suíte completa
+- [x] **8 — Fechamento de testes**, revisão da frente inteira e correções
 
 O dono faz o smoke no navegador dele. **Não abra o Playwright.**
 
@@ -153,7 +155,7 @@ RegistrarQualificacaoContatoUseCase::executar(
 
 DesfazerQualificacaoContatoUseCase::executar(
     int $eventoId, Tenant $tenant, User $usuario
-): int   // id do caso, para o redirect
+): void  // era `: int` (id do caso); virou void na Etapa 8 — ver "O resíduo da Etapa 4, resolvido"
 ```
 
 Sem Input DTO nos dois, de propósito: não há formulário a validar — o registrar recebe um enum vindo de
@@ -561,10 +563,167 @@ container for menor que ele, a coluna sobra para fora e a página inteira entra 
 `minmax(min(9.5rem, 100%), 1fr)` é o que impede isso — e é a razão de a grade dos cards não precisar de
 nenhuma media query.
 
+## Etapa 8 — FEITA
+
+### A §5 da spec, conferida item a item — e o resultado incômodo
+
+Os **oito** itens da §5 (quatro unitários, quatro funcionais) **já estavam cobertos** pelas Etapas 1–6.
+A conferência foi feita contra os arquivos, não contra o handoff:
+
+| Item da §5 | Onde já estava |
+|---|---|
+| Registrar: tipo, rótulo, payload, autor; recusa caso encerrado | `QualificacaoContatoUseCaseTest` (`registraComTodoOMetadado`, `payloadGuardaOValorDoEnum`, `casoEncerradoNaoQualifica`) |
+| Desfazer: janela, 5 min, outro usuário, não-mais-recente, outro tipo | idem (`autorDesfazDentroDaJanela`, `foraDaJanelaNaoDesfaz`, `limiteExatoAindaDesfaz`, `outroUsuarioNaoDesfaz`, `penultimaNaoDesfaz`, `outroTipoNaoDesfaz`) |
+| `CalculadoraPrescricao`: faixas, esgotado, sem obrigação, mais antiga | `CalculadoraPrescricaoTest` (provider `faixas` cobre as 4 severidades, uma linha de cada lado de cada fronteira) |
+| Totais do cabeçalho: mesmo conjunto da aba Dívida, ignoram quitada | `MontarDetalheCasoUseCaseTest::osTotaisDoCabecalhoSomamSoAsObrigacoesEmAberto` + `…IgnoramObrigacaoSubstituidaPorAcordoVigente` |
+| Registrar (funcional): happy, CSRF, cross-tenant 404, encerrado | `QualificacaoContatoControllerTest` (6 testes) |
+| Desfazer (funcional): happy, 4 recusas, cross-tenant | idem (8 testes) |
+| Navegação: seta desabilitada na primeira e na última | `CabecalhoObjetoShowTest::testSetasDeNavegacaoEntreUnidades` (assere as DUAS pontas) |
+| Aba Responsáveis: telefones da ficha + faixa de qualificação | `AbaResponsaveisTest` (`testListaDeTelefonesVemDaFicha`, `testFaixaDeQualificacaoUsaOsItensAtuais`) |
+
+**Nada foi recriado.** A §5 estar coberta ANTES da etapa que se chama "testes" é consequência de cada
+etapa ter escrito os próprios; o que a Etapa 8 acrescentou é o que a §5 **não** pedia e ninguém cobria.
+
+### O teste novo: anti duplo-submit (`AbaResponsaveisTest::testFormsDaAbaEstaoProtegidosContraDuploSubmit`)
+
+A Etapa 6 registrou duas vezes que o handler anti duplo-submit "não tem teste automatizado (é JS)".
+**Meio verdade.** PHPUnit não executa JS, mas `ObjetoShowContratoJsTest` já provava que dá para travar
+o *contrato* — e sem isso nada impedia que o handler fosse apagado outra vez, devolvendo o defeito
+original (duplo clique gravando DUAS qualificações, cada uma contando na Central).
+
+O teste assere as **duas pontas**, porque cada uma sozinha passa verde no defeito da outra:
+
+1. **markup** — todo `<form>` de `#tab-responsaveis` (são 6: 3 de qualificação, desfazer, marcar
+   telefone atual, adicionar telefone) carrega `data-disable-on-submit`, e cada um tem um
+   `button[type="submit"]` — que é literalmente o que o handler procura;
+2. **handler** — a página carrega o `querySelectorAll` que lê esse atributo, **antes** do guard
+   `typeof bootstrap === 'undefined'`.
+
+A varredura é sem lista de exceções: um form novo na aba sem o gancho derruba o teste.
+
+**6 injeções de defeito, 6 derrubaram o teste** — gancho fora do form de registrar · handler apagado ·
+handler movido para depois do guard de bootstrap · `type="submit"` removido do botão do desfazer ·
+gancho fora do mini-form de telefone · gancho fora do "Marcar como atual".
+
+⚠️ A sétima tentativa "não pegou" e **o culpado era o `sed`**: mirei a linha 69 e o botão estava na 68
+— o `sed` acertou a linha do texto `desfazer`, não a do `<button>`. Refeita com `perl -0` ancorado na
+intenção de CSRF do desfazer, caiu na hora. É a **terceira vez** nesta frente que uma injeção "que não
+pega" é culpa da injeção. **Sempre confira que o defeito foi aplicado onde você pensa** — o `grep`
+depois do `sed` custa 2 segundos e evita um alarme falso.
+
+### O resíduo da Etapa 4, resolvido: `executar` virou `void`
+
+`DesfazerQualificacaoContatoUseCase::executar` devolvia o id do caso e **ninguém consumia**. Removido.
+
+O motivo não é higiene, é que o retorno **mentia**: o docblock dizia "o chamador redireciona para lá",
+e o chamador redireciona para a página do **objeto** — que ele resolve *antes* de remover, justamente
+porque depois da remoção o evento não leva a lugar nenhum. Quem herdasse esse contrato mandaria o
+usuário para o lugar errado. As 3 asserções `assertSame(42, …)` viraram chamadas simples; o happy path
+continua provado por `expects($this->once())->method('remover')->with($evento, true)`, que é **mais
+forte** que o retorno era (exige que o evento removido seja o resolvido, e com flush).
+
+### A revisão da frente inteira achou 1 BLOQUEANTE que 7 revisões por-etapa não viram
+
+É a mesma lição da frente de encargos, e ela se repetiu literalmente: **o achado caro estava na costura
+entre etapas**, não dentro de nenhuma.
+
+**BLOQUEANTE — os cards contavam o mesmo dinheiro duas vezes em caso com acordo rompido.** Romper ou
+cancelar um acordo faz duas coisas: **devolve a obrigação original ao exigível** e deixa as **parcelas
+mortas** na lista solta (`agruparPorAcordo`, caso 3). O laço dos totais filtrava só por `quitada()` —
+e parcela morta sem pagamento não está quitada. Resultado: original **mais** parcelas somando juntas
+nos quatro cards, na linha `N obrigações em aberto` e na escolha da competência da prescrição. Pior:
+a própria aba Dívida, três centímetros abaixo, rotula essa linha como *"histórico, fora do total em
+aberto"* — a página se contradizia. E como `EncargosVivos` só hidrata as exigíveis, os encargos dessas
+parcelas eram snapshot velho, misturando datas dentro do card `Juros e multa`.
+
+Correção em `MontarDetalheCasoUseCase`: `if ($listada->parcelaDeAcordoDesfeito || $listada->quitada())`.
+Com ela o conjunto somado passa a ser **idêntico** ao de `doCasoExigiveis` — que é quem governa o
+`saldoExigivel` —, e a explicação que a §1.2 dá ao gestor ("um é bruto, o outro é líquido de
+pagamentos") volta a ser verdadeira: a diferença entre os dois vira **só** o que já foi recebido.
+
+O rodapé da aba Honorários (`honorariosDasObrigacoes`) **continua somando tudo que a aba lista** — ele
+existe para fechar com as linhas visíveis, e a parcela morta aparece lá rotulada. A soma dele ficou
+**antes** do `continue`, de propósito.
+
+Travado por `MontarDetalheCasoUseCaseTest::osTotaisIgnoramParcelaDeAcordoRompido`, com os dois defeitos
+injetados e derrubados: remover a exclusão (o defeito original) e mover o `honorariosDasObrigacoes`
+para depois do `continue` (que quebraria o rodapé).
+
+⚠️ **Isto muda um número já em produção.** O `A receber` da aba Honorários (`honorariosEmAberto`) é o
+mesmo campo do card `Honorários` do cabeçalho — decisão da Etapa 3, para não existirem dois números com
+o mesmo nome. Corrigir o cabeçalho corrige a aba junto. **É correção de dobra, não regressão**, mas é
+mudança visível em qualquer caso com acordo rompido/cancelado e parcela não quitada. Medido no
+`saas_ux` (o banco da `:8080`): **11 acordos, todos ativos, zero rompidos** — ou seja, **o smoke não
+vai mostrar nem o defeito nem a correção**. Em produção não foi medido.
+
+### Menores da revisão, aplicados
+
+- **Spec §1.3 corrigida**: dizia `≤ 0 esgotado`, o que poria o **dia exato do prazo** na faixa
+  "esgotado". No dia do prazo ainda dá para ajuizar; dizer `Prazo esgotado em <hoje>` faria o gestor
+  abandonar cobrança viável — o erro mais caro que essa caixa pode cometer. O código sempre fez `< 0`;
+  **o texto é que estava errado**, e o teste já travava o comportamento certo.
+- **Spec §3.3 corrigida**: atribuía o gate `resources.cobranca.gerenciar` ao UseCase; ele é do
+  **controller** (padrão do projeto — UseCase não conhece request). Registrada a consequência: um
+  segundo chamador nasceria sem gate.
+- **`PrescricaoOutput::$obrigacaoId`**: o docblock prometia que o `Ver competência` apontava para ele;
+  o link vai para a aba Dívida inteira, porque não existe âncora por obrigação. Docblock corrigido, o
+  campo fica (é por ele que o teste prova qual competência foi eleita).
+- **Comentário no teste novo** sobre a dependência do literal de JS (falso-vermelho, nunca
+  falso-verde — e afrouxar para regex tolerante devolveria o risco que o teste existe para pegar).
+
+### O que a revisão levantou e NÃO foi mexido (decisão sua)
+
+1. **O badge `Qualificação incompleta` fica fora do gate de PII.** Ele é renderizado para todos; o
+   `podeAbrirFicha` só decide se vira link ou `<span>`. Para quem não tem a capacidade, ele revela
+   *metadado* da ficha protegida ("esta pessoa não tem CPF, ou estado civil, ou endereço") e é
+   **inacionável** — essa pessoa não pode abrir a ficha para corrigir. Não é vazamento de dado (é
+   ausência de dado), e a §2.1 pede o badge no cabeçalho da aba sem condicionar. Deixei como está.
+   Gatear é uma linha; a decisão é sua.
+2. **Sem índice `(carteira_id, identificacao, id)` para as setas de navegação.** As duas consultas de
+   vizinho fazem o Postgres ordenar a carteira inteira **duas vezes por page-load**. Irrelevante hoje
+   (121 objetos), relevante numa carteira de milhares. Índice é migration, e esta frente decidiu não
+   ter nenhuma — fica como follow-up.
+3. **Risco a medir em PRODUÇÃO, não em dev.** A lista de telefones passou a vir de `PessoaTelefone` e a
+   faixa §2.4 do e-mail/endereço **marcado como atual**. Pessoa com a coluna-sombra
+   `cobranca_pessoa.telefone` preenchida mas **sem** linha correspondente passaria a exibir "Nenhum
+   telefone cadastrado" para quem tem a capacidade — informação que a aba mostrava antes. Medido:
+   **0 divergências** no `saas` e no `saas_ux`. Na produção, rode antes de publicar:
+   ```sql
+   select count(*) from cobranca_pessoa p
+   where coalesce(p.telefone,'') != ''
+     and not exists (select 1 from cobranca_pessoa_telefone t where t.pessoa_id = p.id);
+   ```
+
+### O que segue SEM prova automatizada (a lista honesta)
+
+- **Etapa 7 (CSS) inteira** — PHPUnit não lê `.css` e o projeto não tem regressão visual. O smoke é a
+  única prova. Confirmado pela revisão.
+- **O comportamento do anti duplo-submit** — o teste novo prova que o gancho e quem o lê existem no
+  mesmo documento, na ordem certa. Que um duplo clique *de fato* não grave duas vezes, só o navegador
+  diz.
+- **Duas defesas em profundidade**, medidas na Etapa 6 e reconfirmadas: o filtro de `tenant` em
+  `vizinhosNaCarteira` (o teste põe o objeto alheio em outra carteira, então o filtro de carteira já
+  basta) e o `{% elseif podeAbrirFicha %}` do "Marcar como atual" (o gate de PII já esconde a lista
+  inteira). Removê-las sozinhas deixa a suíte verde — os comentários nos testes dizem isso.
+
+---
+
+## O que falta para publicar
+
+1. **Seu smoke** em `localhost:8080` (`saas_ux`). O roteiro da Etapa 7 está lá em cima; some a ele o
+   duplo clique nos botões de qualificação, que é o único jeito de provar o handler.
+2. **Duas decisões abertas desde a Etapa 2** (cascata do desfazer dentro dos 5 minutos · caso encerrado
+   não impedir desfazer) — cada uma travada por um teste nomeado, então mudar de ideia quebra teste em
+   vez de mudar comportamento em silêncio.
+3. **Ciente da mudança no `A receber` da aba Honorários** (BLOQUEANTE acima) — é o único número já
+   publicado que esta frente altera.
+4. **Rodar a query do item 3 de "não foi mexido"** na produção, antes do deploy.
+5. **Publicar**: `push` é seu. Sem migration.
+
 ## Comandos
 
 ```bash
 docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Cobranca/Unit'
 docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/Cobranca'
-docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'   # suíte completa, só na Etapa 8
+docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit'   # suíte completa
 ```
