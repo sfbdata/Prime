@@ -293,14 +293,26 @@ abstract class CobrancaWebTestCase extends JusPrimeWebTestCase
      * antes de chamar — o token é empurrado/desempurrado na `RequestStack` só para o `SessionTokenStorage`
      * achar a sessão da request corrente; `framework.test: true` (ambiente de teste) mantém essa mesma
      * sessão viva entre requisições do MESMO client, sem depender de cookie roundtrip.
+     *
+     * ⚠️ O `save()` no fim NÃO é cosmético (achado de 2026-07-27). Gerar o token fora de um ciclo
+     * request/response grava-o só no objeto de sessão em memória: quem persiste a sessão é o
+     * `kernel.response`, que aqui não roda. Sem o `save()` explícito a requisição seguinte carrega a
+     * sessão ANTERIOR — sem o token —, e o POST é recusado por CSRF **haja o que houver**. Isso fazia
+     * qualquer teste que esperasse RECUSA passar pelo motivo errado: a regra que ele dizia provar nunca
+     * chegava a ser exercida. Vale só para intenção STATEFUL (as de `isCsrfTokenValid` no controller);
+     * `submit`/`authenticate`/`logout` são stateless (`config/packages/csrf.yaml`) e não passam por aqui.
      */
     protected function tokenCsrf(KernelBrowser $client, string $intencao): string
     {
         $requestStack = static::getContainer()->get(RequestStack::class);
-        $requestStack->push($client->getRequest());
+        $request = $client->getRequest();
+        $requestStack->push($request);
 
         try {
-            return (string) static::getContainer()->get(CsrfTokenManagerInterface::class)->getToken($intencao);
+            $token = (string) static::getContainer()->get(CsrfTokenManagerInterface::class)->getToken($intencao);
+            $request->getSession()->save();
+
+            return $token;
         } finally {
             $requestStack->pop();
         }
