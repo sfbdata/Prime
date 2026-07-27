@@ -8,10 +8,10 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, HEAD da Etapa 6 sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`**, HEAD da Etapa 7 (`10e8864`) sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma prevista**, e é decisão de projeto (ver §3.1 da spec) |
-| Suíte | `tests/Cobranca` **1226/1226** verde ao fim da Etapa 6 (+21 testes novos) |
+| Suíte | `tests/Cobranca` **1226/1226** verde ao fim da Etapa 7 (a etapa não acrescentou teste — ver por quê lá embaixo) |
 | Publicado | **nada** |
 
 ⚠️ **Duas decisões do dono estão abertas na Etapa 2** — o código segue a spec literal nas duas, e as
@@ -78,8 +78,8 @@ Não commite junto.
 - [x] **3 — Leitura da página** (totais do cabeçalho, prescrição, ficha da cobrada, vizinhos na carteira) — `29c4cbf`
 - [x] **4 — Rotas** (registrar / desfazer qualificação) — `fd9b2b5`
 - [x] **5 — Template do cabeçalho** (duas colunas, cards, prescrição, ações, setas) — `4ae2fee`
-- [x] **6 — Template da aba Responsáveis + painel de qualificação**
-- [ ] **7 — CSS**
+- [x] **6 — Template da aba Responsáveis + painel de qualificação** — `a8619c2`
+- [x] **7 — CSS de acabamento** — `10e8864`
 - [ ] **8 — Testes** (unitários e funcionais) e suíte completa
 
 O dono faz o smoke no navegador dele. **Não abra o Playwright.**
@@ -492,6 +492,74 @@ total**. A tela nova vai nascer com `Qualificação incompleta` e faixa quase to
 unidades, e "Nenhum telefone cadastrado" na quase totalidade. **O sinal nasce saturado** — não é bug da aba,
 é o estado do cadastro. Vale decidir se o badge deve mesmo aparecer nesse volume ou se ele só faz sentido
 depois de uma campanha de qualificação.
+
+## Etapa 7 — FEITA (`10e8864`)
+
+**Um arquivo só: `app/public/css/cobrancas.css` (+246 / −5). Nenhum Twig, nenhum PHP.** Todos os ganchos
+que a etapa precisava já existiam — nada faltou, nada foi acrescentado ao HTML.
+
+O bloco novo fica no fim do arquivo, sob o cabeçalho `CABEÇALHO + ABA RESPONSÁVEIS do objeto — Etapa 7`,
+com as três regras que valem para tudo (cor só por variável · as colunas continuam sendo da grade do
+Bootstrap · nada estoura no celular) escritas lá em cima do bloco.
+
+| Região | O que ganhou |
+|---|---|
+| `.cob-cab-trilha` | flex que quebra, links discretos com hover no accent, nível atual em destaque |
+| `.cob-cab-nav` | glifo maior, ponta desabilitada apagada, hover no accent (vence o `btn-outline-secondary`) |
+| `.cob-cab-cards` | grade `auto-fit` de piso 9.5rem: 4 → 2 → 1 pela largura do CONTAINER, sem media query |
+| `.cob-cab-card.is-total` | tint translúcido do accent + valor maior — diz "leia este" sem um quinto elemento |
+| `.cob-cab-card-nota` | menor que o rótulo, sem caixa-alta: é contexto do total, não um segundo dado |
+| `.cob-presc` | caixa com topo/destaque/detalhe/aviso e as 3 severidades |
+| `.cob-resp-qualif` | faixa em flex: rótulo pequeno em cima, valor embaixo; `endereco` com base maior |
+| `.cob-resp-telefone` | número tabular, hover no accent, quebra de linha garantida |
+| `.cob-resp-rodape` | só o respiro de quando os dois botões quebram em linhas diferentes |
+| `.cob-qualif` | vira cartão próprio; botões em coluna e largura cheia; listinha com rolagem |
+| `.cob-qualif-item` | `desfazer` cinza → vermelho no hover (nunca o índigo padrão do `btn-link`) |
+
+### A única mudança que não é "só somar CSS": `.cob-resumo`
+
+O bloco da UX rápida (`§6.1`, já em produção) foi **editado no lugar**, não duplicado: rótulo e valor
+passaram para a **mesma linha** e o valor caiu de `1.5rem` para `1.05rem`. Motivo: aquele bloco nasceu
+sendo o dinheiro do cabeçalho, e a Etapa 5 pôs **quatro cards acima dele**. Mantido o tamanho antigo, o
+`saldoExigivel` gritaria mais alto que o `Total atualizado` — invertendo exatamente a hierarquia que a
+§1.2 fixa. O código de cor (vencido em `danger`, zerado em `success`) **fica**: é ele que separa os dois
+números de relance. O elemento só existe nesta página (conferido por grep), então a mudança não vaza.
+
+### ⚠️ O que ficou SEM prova automatizada — que é tudo
+
+**A Etapa 7 não acrescentou nenhum teste, e isso é um fato a assumir, não uma pendência disfarçada.**
+Nada da etapa mudou estrutura: nenhum elemento nasceu, sumiu ou trocou de classe/atributo, então não há
+asserção de renderização que pudesse ficar vermelha antes e verde depois. PHPUnit não lê `.css`, e o
+projeto não tem teste de regressão visual. Consequência prática: **o smoke do dono é a única prova desta
+etapa.** Vale olhar, nos dois temas e em pelo menos uma largura de celular:
+
+1. os 4 cards em 4 → 2 → 1 colunas conforme a largura, com `Total atualizado` destacado;
+2. a caixa de prescrição nas severidades que o dado do `saas_ux` produzir (a `sev-info` é neutra **de
+   propósito**: pintar de verde um prazo que ainda corre sugere "resolvido");
+3. a linha fina `Total em aberto / Total vencido` **menor** que os cards, com o vencido em vermelho;
+4. a faixa de qualificação e a lista de telefones sem estourar a largura no celular;
+5. o painel de qualificação como cartão, com os três botões em coluna e largura cheia.
+
+Segue também sem prova o que a Etapa 6 já havia registrado: o handler anti duplo-submit (é JS).
+
+### O que a Etapa 7 ensinou
+
+**Duas regras minhas nasceram mortas e foram removidas antes do commit.** A primeira sublinhava o
+`desfazer` no hover — o botão carrega `.text-decoration-none`, que é `!important`, então a declaração
+nunca ia valer (ficou só a cor, que funciona). A segunda apertava o `mb-3` do mini-form de telefone com
+`!important` — arquivo que não usa `!important` em lugar nenhum não ganha o primeiro por acabamento;
+virou uma `margin-bottom: -.5rem` no container, que recolhe o mesmo vão sem brigar com a utilitária.
+
+**Divisor de lista: duplicar ou não, depende de a utilitária ser condicional.** O `border-top` entre
+telefones e entre linhas da listinha vem do Twig com `{{ not loop.first ? ' border-top' : '' }}` —
+condicional, logo **não** repeti no CSS: duas fontes divergiriam no dia em que uma mudasse. Já o
+`width: 100%` dos botões do painel repete o `w-100` do Twig de propósito, porque é incondicional e
+idêntico, e assim o empilhamento é do componente. O critério está escrito no próprio CSS.
+
+**`minmax(9.5rem, 1fr)` sem o `min()` estoura a tela.** Numa grade `auto-fit`, o piso é piso mesmo: se o
+container for menor que ele, a coluna sobra para fora e a página inteira entra em rolagem horizontal.
+`minmax(min(9.5rem, 100%), 1fr)` é o que impede isso — e é a razão de a grade dos cards não precisar de
+nenhuma media query.
 
 ## Comandos
 
