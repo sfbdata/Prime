@@ -74,3 +74,12 @@ if (!$this->checker->canAccessModule($user, 'clientes')) {
 ## Heurística dos 5-10-20
 
 Cada action deve ter no máximo ~20 linhas; cada controller no máximo ~10 actions; cada action no máximo ~5 variáveis locais. Se ultrapassar, extrair para UseCase.
+
+## `make:controller` / `make:crud` — não use
+
+Escreva o controller à mão seguindo este arquivo.
+
+- **`make:controller`** gera em `src/Controller/` (não em `app/src/<Dominio>/Controller/`), sem permissão, sem DTO e sem UseCase. Sobra só o `<?php` — não economiza nada e ancora no lugar errado.
+- **`make:crud`** é ativamente perigoso: o template gera `findAll()` **sem filtro de tenant**, `persist()`/`flush()` direto na action e a entidade ligada direto no form. Isso rompe o isolamento multi-tenant e pula a camada DTO/UseCase.
+
+Para **descobrir** rotas já existentes, use `debug:router` em vez de grepar — ver a tabela no `CLAUDE.md` da raiz.

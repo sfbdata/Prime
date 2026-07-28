@@ -124,5 +124,25 @@ Após remover, rodar `doctrine:schema:validate` no container para pegar
 relações inversas órfãs (inversedBy, mappedBy) que grep não encontra:
 
 ```bash
+# só o mapeamento (é o que interessa aqui)
+docker exec jusprime_php_dev bash -c 'cd app && php bin/console doctrine:schema:validate --skip-sync'
+
+# mapeamento + sincronia com o banco
 docker exec jusprime_php_dev bash -c 'cd app && php bin/console doctrine:schema:validate'
 ```
+
+⚠️ O comando faz **duas** checagens independentes e sai com erro se qualquer uma falhar. No dev o bloco
+*Database* costuma acusar dessincronia por motivo alheio (migration de outra frente ainda não aplicada) —
+isso **não** quer dizer que o mapeamento está errado. Leia qual bloco falhou; use `--skip-sync` para
+isolar o mapeamento.
+
+## `make:entity` — não use
+
+Escreva a entidade à mão a partir do esqueleto acima.
+
+O gerador até sabe fazer id UUID (é uma das opções), mas grava em `src/Entity/` — não em
+`app/src/<Dominio>/Entity/` — e produz uma classe anêmica sem `tenant`, sem `#[ORM\Table(name:)]`
+em `snake_case` e sem as invariantes de domínio. Sobra mais trabalho de correção do que de escrita.
+
+Comandos que **valem** nesta camada: `doctrine:mapping:info` (o que está mapeado de fato),
+`doctrine:schema:validate --skip-sync` (acima) e `make:migration` depois de alterar o mapeamento.

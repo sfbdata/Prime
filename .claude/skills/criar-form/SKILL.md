@@ -84,3 +84,12 @@ Em forms com upload de arquivo:
 - Validar mimetype + extensão + tamanho antes de persistir (no UseCase ou via `#[Assert\File]` no DTO)
 - Nunca salvar o arquivo diretamente no controller
 - Usar `ArquivoStorageService` (ou `ArquivoStorageInterface`) para persistência do arquivo
+
+## `make:form` — não use
+
+Gera em `src/Form/` (não em `app/src/<Dominio>/Form/`) e, quando apontado para uma entidade, monta o
+`data_class` na **entidade** — o oposto da regra desta camada, que exige `data_class` no **Input DTO**.
+Escreva à mão a partir do esqueleto acima.
+
+Comando útil de verdade nesta camada: `debug:form` (lista os tipos de form disponíveis e as opções de
+cada um) e `debug:form <Tipo>` para um específico.

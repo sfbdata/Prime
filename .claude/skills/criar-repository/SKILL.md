@@ -106,3 +106,12 @@ public function listarResumido(Tenant $tenant): array
 | Query estática simples | DQL |
 | Features PG específicas (CTE, tsvector, GIN) | DBAL raw SQL |
 | Listagem para view | DQL `NEW` com DTO |
+
+## Geradores — o repositório nasce junto com a entidade, e nós não usamos o gerador
+
+Não existe `make:repository`: quem cria o repositório é o `make:entity`, que **não usamos** (ver skill
+`criar-entity`). Escreva o repositório à mão a partir do esqueleto acima — em especial porque o gerador
+nunca colocaria o filtro de tenant, que aqui é obrigatório.
+
+Cuidado redobrado com qualquer código gerado que chame `findAll()` / `findBy()` sem tenant: é a violação
+de isolamento mais comum e o `make:crud` a produz por padrão.

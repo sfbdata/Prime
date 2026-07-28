@@ -86,6 +86,66 @@ por esse uid. Se um upload falhar com *Permission denied* (dirs como `uid 33`/`w
 alinhe o dono: `docker exec -u 0 jusprime_php_dev chown -R 1000:1000 /var/www/app/public/uploads`. Em
 ambiente de **teste** isso não acontece (config aponta para `var/uploads-test/*`, gravável).
 
+## Console do Symfony — pergunte ao framework antes de grepar
+
+O `debug:*` lê o **container real** (o que o Symfony efetivamente montou). O `grep` lê o que o código
+*parece* dizer. Antes de caçar rota, serviço, config, filtro Twig ou mapeamento no código-fonte, rode o
+comando: é mais rápido e é autoritativo. Todos rodam via `docker exec` (ver seção acima).
+
+| Quero saber | Comando |
+|---|---|
+| que rotas existem · URL/controller de uma rota | `debug:router` · `debug:router <nome_da_rota>` |
+| se um serviço está registrado e qual a classe | `debug:container <trecho>` |
+| o que dá para injetar por type-hint no construtor | `debug:autowiring <trecho>` |
+| a config **efetiva** de um bundle (após o merge) | `debug:config <bundle>` |
+| filtros/funções/globais Twig disponíveis | `debug:twig` |
+| quais entidades estão mapeadas | `doctrine:mapping:info` |
+| se o **mapeamento** Doctrine está são | `doctrine:schema:validate --skip-sync` |
+| se o **banco** está em dia com o mapeamento | `doctrine:schema:validate` |
+| quem escuta um evento | `debug:event-dispatcher <evento>` |
+| se Twig / YAML / container quebrou | `lint:twig templates` · `lint:yaml config` · `lint:container` |
+
+Duas pegadinhas medidas neste projeto: `debug:container --show-private` **não existe** no 7.4 (serviços
+privados já aparecem por padrão); e `doctrine:schema:validate` faz **duas** checagens independentes —
+falha no bloco *Database* significa banco fora de sincronia, **não** mapeamento errado (use `--skip-sync`
+para isolar o mapeamento).
+
+### Geradores (`make:*`) — a maioria NÃO serve aqui
+
+O MakerBundle está instalado, mas gera no layout **padrão** do Symfony (`src/Entity/`, `src/Controller/`,
+`src/Form/`) — não em `app/src/<Dominio>/` — e sem nada da nossa arquitetura. Não existe `maker.yaml`
+reconfigurando isso.
+
+**Pode usar, com a ressalva de cada um:**
+
+| Comando | Ressalva |
+|---|---|
+| `make:migration` | ⚠️ **Sempre leia o SQL gerado antes de aplicar.** O diff é contra o banco do dev, então arrasta alteração de outra frente ainda não aplicada; e o Doctrine **não sabe mapear índice funcional**, então tenta `DROP INDEX` em índices criados por SQL cru (hoje: `idx_cobranca_pessoa_tenant_cpf_digitos`, `..._cnpj_digitos`, `uniq_cobranca_obrigacao_ref_externa` — a `Version20260710130000` já avisa disso no comentário). Apague do arquivo gerado o que não é seu. |
+| `make:factory` | Precisa de `--test`, senão grava em `src/Factory/`. Nosso lugar é `app/tests/Factory/<Dominio>/`. |
+| `make:test` (e `unit`/`functional`) | Grava na raiz de `tests/`; mover para `app/tests/<Dominio>/Unit\|Functional/`. |
+| `make:command` | Cai no lugar certo (`src/Command/` já é onde moram). Sem ressalva. |
+| `make:voter` | Cria `src/Security/Voter/`, pasta que hoje não existe — confira antes se o caso não é `PermissionChecker`. |
+
+Antes de aceitar qualquer arquivo gerado, confira namespace e destino.
+
+**Não use:** `make:crud`, `make:controller`, `make:form`, `make:entity`. O `make:crud` é o pior: o template
+dele gera `findAll()` **sem filtro de tenant**, `persist()`/`flush()` direto no controller e a entidade
+ligada direto no form — viola o isolamento multi-tenant e a camada DTO/UseCase de uma vez. Nesses quatro
+casos escreva à mão seguindo a skill da camada (`criar-*`).
+
+## Documentação oficial — conferir, não lembrar
+
+O conhecimento do modelo tem data de corte e não distingue "eu sei" de "eu acho". Em dúvida sobre **como o
+framework funciona** (assinatura de método, opção de config, comportamento, deprecação), consulte a doc
+oficial antes de escrever — não infira de memória nem copie padrão de outro projeto:
+
+- Symfony 7.4 → `https://symfony.com/doc/7.4/<tema>.html` (`/doc/current/` aponta para a versão mais nova, que não é necessariamente a nossa)
+- Doctrine ORM 3.x → `https://www.doctrine-project.org/projects/doctrine-orm/en/3.6/`
+- Comportamento de um comando → `php bin/console <cmd> --help` (autoritativo para a versão instalada aqui)
+
+Isso vale para o **framework**. As regras **da casa** (multi-tenancy, UseCase, nomes de pasta) não estão em
+documentação nenhuma — moram nos `CLAUDE.md` por camada e nas skills `criar-*`.
+
 ## Git — commit local permitido, publicação é humana
 
 Claude Code **pode** preparar staging (`git add`) e criar **commits locais** (`git commit`) — revisando antes `git status`, o diff e os arquivos staged, sem `git add .` cego que arraste alteração fora do escopo. Comandos de leitura (`status`, `diff`, `log`, `show`, `branch`) seguem livres.
