@@ -78,6 +78,10 @@ para factories — detalhes em `app/tests/CLAUDE.md`.
 Testes E2E (Playwright, fora do container, na raiz `e2e/`): `cd e2e && npm test`
 (`npm run test:headed` / `npm run test:ui` para depurar).
 
+**O smoke no navegador é do dono.** Não abra o Playwright por conta própria — nem para "conferir se ficou
+bom". Só quando ele pedir, com essas palavras. Entregue a mudança com a suíte verde e **diga o que precisa
+ser olhado na tela**; quem olha é ele. Vale para as ferramentas `mcp__playwright__*` e para `npx playwright`.
+
 Nunca rodar `php`, `composer` ou `bin/console` fora do container.
 
 **Uploads em DEV (permissão):** o container roda como `${UID:-1000}` (bind-mount do repo). Os diretórios
