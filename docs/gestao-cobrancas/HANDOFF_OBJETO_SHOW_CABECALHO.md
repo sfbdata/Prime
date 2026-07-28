@@ -8,16 +8,20 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`** — **PUBLICADO em 2026-07-28**: `origin/master` = `113e558` |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma**, e é decisão de projeto (ver §3.1 da spec) |
 | Suíte | **completa 2708/2708** · `tests/Cobranca` **1231/1231** |
 | Etapas | **as 8 fechadas** + **rodada pós-smoke #1** (3 pedidos do dono, abaixo) |
-| Publicado | **nada** |
+| Publicado | **sim, os 15 commits da frente** (`4f3b594`…`113e558`) |
+| Deploy | ⏳ **FALTA** — prod é imagem baked: `./scripts/deploy-prod-tls.sh` na VPS (rebuild). Sem migration. |
 
-### Rodada pós-smoke #1 — 2026-07-27 (3 pedidos do dono, FEITOS)
+⚠️ **O push saiu ANTES do smoke do dono** — a ordem prevista era smoke → push. Quem pegar esta frente
+não deve tratar o roteiro de smoke abaixo como opcional: ele agora é conferência **pós-publicação**, e
+o que ele achar vira correção sobre um master já publicado (mas ainda **não deployado** — enquanto o
+rebuild não roda, produção segue no código anterior).
 
-Não estava commitada quando esta linha foi escrita; a suíte completa está verde com ela aplicada.
+### Rodada pós-smoke #1 — 2026-07-27 (3 pedidos do dono, FEITOS — commit `113e558`)
 
 1. **O cabeçalho passou a mostrar o VENCIDO.** Os quatro cards (Principal · Juros e multa ·
    Honorários · **Total vencido**) somam só as obrigações em aberto **que já venceram**, e a linha
