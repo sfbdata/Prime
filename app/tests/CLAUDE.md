@@ -110,6 +110,13 @@ docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit tests/<Dominio>/
 docker exec jusprime_php_dev bash -c 'cd app && php bin/phpunit --coverage-text'
 ```
 
+## Geradores (`make:factory`, `make:test`) — servem, mas gravam no lugar errado
+
+- `make:factory` **precisa** de `--test`; sem o flag grava em `src/Factory/`. O lugar aqui é `tests/Factory/<Dominio>/`.
+- `make:test` (e `make:unit-test` / `make:functional-test`) grava na raiz de `tests/`; mover para `tests/<Dominio>/Unit/` ou `tests/<Dominio>/Functional/` e corrigir o namespace.
+
+Em ambos, o esqueleto é neutro — o valor está no que você escreve depois, não no que o gerador entrega.
+
 ## Testes legados — não confiar sem verificar
 
 Testes existentes escritos antes deste guia podem ter problemas silenciosos. Antes de usar um teste legado como garantia de segurança para refatoração, verifique:

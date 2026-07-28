@@ -145,4 +145,5 @@ O gerador até sabe fazer id UUID (é uma das opções), mas grava em `src/Entit
 em `snake_case` e sem as invariantes de domínio. Sobra mais trabalho de correção do que de escrita.
 
 Comandos que **valem** nesta camada: `doctrine:mapping:info` (o que está mapeado de fato),
-`doctrine:schema:validate --skip-sync` (acima) e `make:migration` depois de alterar o mapeamento.
+`doctrine:schema:validate --skip-sync` (acima) e `make:migration` depois de alterar o mapeamento —
+este último nunca aceito puro: compare com o ruído de base antes (regra no `CLAUDE.md` da raiz).

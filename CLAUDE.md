@@ -105,39 +105,34 @@ comando: é mais rápido e é autoritativo. Todos rodam via `docker exec` (ver s
 | quem escuta um evento | `debug:event-dispatcher <evento>` |
 | se Twig / YAML / container quebrou | `lint:twig templates` · `lint:yaml config` · `lint:container` |
 
-Duas pegadinhas medidas neste projeto: `debug:container --show-private` **não existe** no 7.4 (serviços
-privados já aparecem por padrão); e `doctrine:schema:validate` faz **duas** checagens independentes —
-falha no bloco *Database* significa banco fora de sincronia, **não** mapeamento errado (use `--skip-sync`
-para isolar o mapeamento).
+### Geradores (`make:*`) — não servem aqui, com uma exceção
 
-### Geradores (`make:*`) — a maioria NÃO serve aqui
+O MakerBundle gera no layout **padrão** do Symfony (`src/Entity/`, `src/Controller/`, `src/Form/`), não em
+`app/src/<Dominio>/`, e sem tenant, DTO ou UseCase. O único ajuste de namespace (`maker.root_namespace`) é
+global — não há como apontá-lo para o layout de domínio. Escreva à mão seguindo a skill da camada
+(`criar-*`); cada uma registra o que o gerador correspondente faria de errado. Ressalvas dos geradores de
+teste → `app/tests/CLAUDE.md`.
 
-O MakerBundle está instalado, mas gera no layout **padrão** do Symfony (`src/Entity/`, `src/Controller/`,
-`src/Form/`) — não em `app/src/<Dominio>/` — e sem nada da nossa arquitetura. Não existe `maker.yaml`
-reconfigurando isso.
+**A exceção é `make:migration`**, que é o caminho normal — mas o arquivo gerado nunca vale puro:
 
-**Pode usar, com a ressalva de cada um:**
+```bash
+# 1. ANTES de gerar: fotografe a divergência que já existia (essa não é sua)
+docker exec jusprime_php_dev bash -c 'cd app && php bin/console doctrine:schema:update --dump-sql'
+# 2. gere a migration
+# 3. compare: tudo que já aparecia no passo 1 sai do arquivo gerado
+```
 
-| Comando | Ressalva |
-|---|---|
-| `make:migration` | ⚠️ **Sempre leia o SQL gerado antes de aplicar.** O diff é contra o banco do dev, então arrasta alteração de outra frente ainda não aplicada; e o Doctrine **não sabe mapear índice funcional**, então tenta `DROP INDEX` em índices criados por SQL cru (hoje: `idx_cobranca_pessoa_tenant_cpf_digitos`, `..._cnpj_digitos`, `uniq_cobranca_obrigacao_ref_externa` — a `Version20260710130000` já avisa disso no comentário). Apague do arquivo gerado o que não é seu. |
-| `make:factory` | Precisa de `--test`, senão grava em `src/Factory/`. Nosso lugar é `app/tests/Factory/<Dominio>/`. |
-| `make:test` (e `unit`/`functional`) | Grava na raiz de `tests/`; mover para `app/tests/<Dominio>/Unit\|Functional/`. |
-| `make:command` | Cai no lugar certo (`src/Command/` já é onde moram). Sem ressalva. |
-| `make:voter` | Cria `src/Security/Voter/`, pasta que hoje não existe — confira antes se o caso não é `PermissionChecker`. |
+Duas fontes de lixo no diff, ambas silenciosas: alteração de **outra frente** ainda não aplicada no dev, e
+`DROP INDEX` em **índice funcional** — o Doctrine não sabe representá-lo no mapeamento, então propõe apagar
+índices criados por SQL cru (a `Version20260710130000` já avisa disso num comentário). Aceitar um desses
+`DROP` não quebra nada visível: derruba performance e, se o índice for `unique`, deixa entrar duplicata.
 
-Antes de aceitar qualquer arquivo gerado, confira namespace e destino.
+## Documentação oficial — conferir quando não há precedente aqui
 
-**Não use:** `make:crud`, `make:controller`, `make:form`, `make:entity`. O `make:crud` é o pior: o template
-dele gera `findAll()` **sem filtro de tenant**, `persist()`/`flush()` direto no controller e a entidade
-ligada direto no form — viola o isolamento multi-tenant e a camada DTO/UseCase de uma vez. Nesses quatro
-casos escreva à mão seguindo a skill da camada (`criar-*`).
-
-## Documentação oficial — conferir, não lembrar
-
-O conhecimento do modelo tem data de corte e não distingue "eu sei" de "eu acho". Em dúvida sobre **como o
-framework funciona** (assinatura de método, opção de config, comportamento, deprecação), consulte a doc
-oficial antes de escrever — não infira de memória nem copie padrão de outro projeto:
+O conhecimento do modelo tem data de corte e não distingue "eu sei" de "eu acho". O gatilho é objetivo, não
+depende de eu me sentir inseguro: **vou usar uma API do Symfony/Doctrine que não tem precedente neste
+repositório?** (atributo, opção de config, método ou serviço que um `grep` em `app/` não encontra). Se não
+tem, confira na doc antes de escrever — é justamente o caso em que estou tirando da memória.
 
 - Symfony 7.4 → `https://symfony.com/doc/7.4/<tema>.html` (`/doc/current/` aponta para a versão mais nova, que não é necessariamente a nossa)
 - Doctrine ORM 3.x → `https://www.doctrine-project.org/projects/doctrine-orm/en/3.6/`
