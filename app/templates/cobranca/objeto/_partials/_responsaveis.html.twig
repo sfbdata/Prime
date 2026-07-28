@@ -105,28 +105,29 @@
     <div class="row g-3">
         <div class="col-12 col-lg-8 cob-resp-conteudo">
             {% if cobradaAtual %}
-            {# ── §2.2 Card da pessoa cobrada ─────────────────────────────────────────────────────── #}
-            {% set partes = cobradaAtual.nome|split(' ')|filter(p => p is not empty) %}
-            {% set iniciais = (partes|length > 1
-                ? (partes|first|slice(0, 1) ~ partes|last|slice(0, 1))
-                : cobradaAtual.nome|slice(0, 2))|upper %}
+            {# ── §2.2 Bloco da pessoa cobrada ─────────────────────────────────────────────────────
+               2026-07-28: saiu o avatar de iniciais e saiu o fundo verde (do bloco e do rótulo
+               `Responsável atual`), a pedido do dono — as iniciais não informavam nada que o nome logo
+               abaixo já não dissesse, e o verde competia por atenção com o resto da aba.
+
+               Ainda em 2026-07-28, segunda rodada: o NOME subiu para primeira linha e `Responsável
+               atual` / `papel · desde` desceram para uma linha de metadados discreta sob ele. Quem é a
+               pessoa é o que se lê primeiro; o papel e a data qualificam. O chip com borda virou texto
+               corrido pelo mesmo motivo — a pílula pesava mais que a informação que carregava. #}
             <div class="cob-resp-atual">
-                <div class="d-flex align-items-start gap-3 flex-wrap">
-                    <div class="jp-pessoa-avatar" aria-hidden="true">{{ iniciais }}</div>
-                    <div class="flex-grow-1 min-w-0">
-                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                            <span class="badge text-bg-success">Responsável atual</span>
-                            <span class="jp-chip" data-meta="papel-desde">{{ cobradaAtual.papelLabel }} · desde {{ cobradaAtual.dataInicio|date('m/Y') }}</span>
-                            {# O vínculo pode estar ENCERRADO e a pessoa seguir sendo a cobrada atual (o
-                               encerramento do vínculo não troca quem se cobra). O selo diz isso. #}
-                            {% if not cobradaAtual.ativo %}<span class="badge text-bg-secondary" data-selo="vinculo-encerrado">Vínculo encerrado</span>{% endif %}
-                        </div>
-                        <p class="jp-pessoa-nome mt-1" title="{{ cobradaAtual.nome }}">{{ cobradaAtual.nome }}</p>
-                        {% if not cobradaAtual.ativo and cobradaAtual.motivoEncerramento %}
-                        <div class="text-secondary small"><i class="bi bi-info-circle me-1"></i>Encerramento: {{ cobradaAtual.motivoEncerramento }}</div>
-                        {% endif %}
-                    </div>
+                <p class="jp-pessoa-nome" title="{{ cobradaAtual.nome }}">{{ cobradaAtual.nome }}</p>
+                <div class="cob-resp-meta d-flex align-items-center gap-2 flex-wrap">
+                    <span class="cob-resp-rotulo-atual">Responsável atual</span>
+                    <span aria-hidden="true">·</span>
+                    <span data-meta="papel-desde">{{ cobradaAtual.papelLabel }} · desde {{ cobradaAtual.dataInicio|date('m/Y') }}</span>
+                    {# O vínculo pode estar ENCERRADO e a pessoa seguir sendo a cobrada atual (o
+                       encerramento do vínculo não troca quem se cobra). O selo diz isso — e continua
+                       sendo badge, não texto corrido: é estado excepcional, não metadado de rotina. #}
+                    {% if not cobradaAtual.ativo %}<span class="badge text-bg-secondary" data-selo="vinculo-encerrado">Vínculo encerrado</span>{% endif %}
                 </div>
+                {% if not cobradaAtual.ativo and cobradaAtual.motivoEncerramento %}
+                <div class="text-secondary small"><i class="bi bi-info-circle me-1"></i>Encerramento: {{ cobradaAtual.motivoEncerramento }}</div>
+                {% endif %}
             </div>
 
             {# ── §2.3 Telefones, da FICHA da pessoa ──────────────────────────────────────────────────

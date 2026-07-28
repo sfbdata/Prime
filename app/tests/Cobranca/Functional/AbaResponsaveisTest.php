@@ -123,7 +123,7 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
 
     // ───────────────────────────── §2.2 Card da pessoa cobrada ─────────────────────────────
 
-    #[TestDox('§2.2: o card traz avatar de iniciais, papel · desde mm/aaaa e o selo de vínculo encerrado')]
+    #[TestDox('§2.2: o bloco traz nome, rótulo sem fundo, papel · desde mm/aaaa e o selo de vínculo encerrado')]
     public function testCardDaPessoaCobrada(): void
     {
         $client = static::createClient();
@@ -140,14 +140,27 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
 
         $card = $this->abrirAba($client, $caso)->filter('.cob-resp-atual');
 
-        self::assertCount(1, $card, 'exatamente um card de pessoa cobrada');
-        self::assertSame('JS', trim($card->filter('.jp-pessoa-avatar')->text()), 'as iniciais são do PRIMEIRO e do ÚLTIMO nome');
+        self::assertCount(1, $card, 'exatamente um bloco de pessoa cobrada');
         self::assertStringContainsString('Joana Ribeiro Souza', $card->filter('.jp-pessoa-nome')->text());
+        // O avatar de iniciais e o fundo verde saíram em 2026-07-28 (pedido do dono: menos poluição).
+        // Estas duas asserções são o que impede a volta silenciosa: o círculo não pode reaparecer, e o
+        // rótulo `Responsável atual` tem de continuar existindo SEM o badge colorido do Bootstrap.
+        self::assertCount(0, $card->filter('.jp-pessoa-avatar'), 'o círculo de iniciais foi removido');
+        self::assertCount(0, $card->filter('.badge.text-bg-success'), 'nada de fundo verde no bloco da pessoa');
+        self::assertSame('Responsável atual', trim($card->filter('.cob-resp-rotulo-atual')->text()));
         self::assertSame(
             'Proprietário · desde 03/2024',
             trim($card->filter('[data-meta="papel-desde"]')->text()),
             'o papel e o mês/ano de início ficam na mesma linha, como a §2.2 pede',
         );
+        // Ordem pedida pelo dono: o NOME primeiro, os metadados (rótulo + papel · desde) na linha de
+        // baixo. Sem esta asserção a inversão voltaria sem ninguém notar — o texto continuaria todo lá.
+        self::assertStringContainsString(
+            'jp-pessoa-nome',
+            (string) $card->children()->first()->attr('class'),
+            'o nome é o primeiro elemento do bloco',
+        );
+        self::assertCount(1, $card->filter('.cob-resp-meta .cob-resp-rotulo-atual'), 'o rótulo mora na linha de metadados, sob o nome');
         self::assertCount(1, $card->filter('[data-selo="vinculo-encerrado"]'), 'vínculo com dataFim tem de exibir o selo');
     }
 
@@ -294,6 +307,15 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
             $form->attr('action'),
         );
         self::assertCount(1, $form->filter('input[name="adicionar_telefone[numero]"]'), 'o campo do número tem de vir do Form Type');
+
+        // 2026-07-28 (terceira rodada): o + ficou discreto e ganhou a dica ao lado. O `+` sozinho não
+        // dizia o que fazia para quem nunca clicou; a dica é o texto que a referência aprovada pede.
+        self::assertStringNotContainsString(
+            'jp-btn-accent',
+            (string) $botao->attr('class'),
+            'o + é oferta, não ação primária — nada de botão verde cheio',
+        );
+        self::assertSame('Clique em + para adicionar.', trim($aba->filter('[data-dica="adicionar-telefone"]')->text()));
     }
 
     #[TestDox('§2.3: adicionar por AJAX devolve a lista já atualizada, sem redirect')]

@@ -28,7 +28,12 @@
        deixava um vão morto enorme à direita de números de 8-9 dígitos. #}
     <ul class="list-unstyled mb-0 cob-resp-telefone-lista">
         {% for t in ficha.telefones %}
-        <li class="cob-resp-telefone d-flex align-items-center gap-2 flex-wrap py-2{{ not loop.first ? ' border-top' : '' }}" data-telefone="{{ t.id }}">
+        {# 2026-07-28: cada número virou um cartão com borda e sombra (referência aprovada pelo dono).
+           Com isso caiu o `border-top` que separava a segunda linha em diante — a borda do próprio
+           cartão já é o divisor, e manter os dois desenharia uma linha dupla entre vizinhos. O padding
+           também saiu do Twig (`py-2`) e foi para o CSS, junto do resto da moldura: com a caixa, o
+           respiro horizontal e o vertical viraram a mesma decisão. #}
+        <li class="cob-resp-telefone d-flex align-items-center gap-2 flex-wrap" data-telefone="{{ t.id }}">
             <i class="bi {{ t.atual ? 'bi-telephone-fill text-success' : 'bi-telephone text-secondary' }}" aria-hidden="true"></i>
             <div class="flex-grow-1 min-w-0">
                 <a href="tel:{{ t.numero|e('url') }}">{{ t.numero }}</a>
@@ -113,13 +118,21 @@
        tema, que era o que desencontrava o botão do campo. Sem ele, os dois são itens de flex do mesmo
        tamanho (`-sm`), centrados, sem margem para compensar. `maxlength` é repetido aqui porque passar
        `attr` no widget SUBSTITUI o do Form Type inteiro — omitir seria perder o limite de 20. #}
+    {# 2026-07-28: o `+` deixou de ser botão de ação primária (verde cheio, `jp-btn-accent`) e virou
+       um alvo discreto de borda tracejada, com a dica ao lado — como na referência aprovada. Ele
+       convida sem competir com o que importa na tela, que são os números já cadastrados.
+       A dica é `aria-hidden`: o botão já se anuncia por `aria-label`, e ler as duas coisas seguidas
+       ("Adicionar telefone. Clique em + para adicionar.") só faria barulho em leitor de tela. #}
     {% if formTelefoneCobrada is not null %}
-    <button type="button" class="btn btn-sm jp-btn-accent cob-resp-telefone-add mt-2"
-            data-bs-toggle="collapse" data-bs-target="#cobRespTelefoneNovo"
-            aria-expanded="false" aria-controls="cobRespTelefoneNovo"
-            data-acao="abrir-novo-telefone" aria-label="Adicionar telefone" title="Adicionar telefone">
-        <i class="bi bi-plus-lg"></i>
-    </button>
+    <div class="cob-resp-telefone-adicionar d-flex align-items-center gap-2 flex-wrap mt-2">
+        <button type="button" class="btn btn-sm cob-resp-telefone-add"
+                data-bs-toggle="collapse" data-bs-target="#cobRespTelefoneNovo"
+                aria-expanded="false" aria-controls="cobRespTelefoneNovo"
+                data-acao="abrir-novo-telefone" aria-label="Adicionar telefone" title="Adicionar telefone">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+        <span class="cob-resp-telefone-dica" data-dica="adicionar-telefone" aria-hidden="true">Clique em + para adicionar.</span>
+    </div>
 
     <div class="collapse cob-resp-telefone-novo mt-2" id="cobRespTelefoneNovo">
         {{ form_start(formTelefoneCobrada, {
