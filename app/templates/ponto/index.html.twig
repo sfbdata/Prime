@@ -108,7 +108,10 @@
                 exportarFolhaHabilitado: true,
                 mostrarBancoHoras: true,
                 mostrarJustificativas: true,
-                editarBatidasHabilitado: false
+                editarBatidasHabilitado: false,
+                justificarFaltanteHabilitado: true,
+                esquecimentosRegistrados: esquecimentosRegistrados,
+                dataHoje: dataHoje
             } only %}
 
             {% include 'ponto/_justificativas_list.html.twig' with {justificativas: justificativas} only %}
@@ -117,6 +120,8 @@
 </div>
 
 {% include 'ponto/_justificativa_form.html.twig' with {tiposJustificativa: tiposJustificativa} only %}
+
+{% include 'ponto/_justificativa_esquecimento_modal.html.twig' with {competenciaSelecionada: competenciaSelecionada} only %}
 
 {# Modal: Editar justificativa pendente #}
 <div class="modal fade" id="modalEditarJustificativa" tabindex="-1" aria-labelledby="modalEditarJustificativaLabel" aria-hidden="true">

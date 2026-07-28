@@ -11,6 +11,14 @@
 {% set editarBatidasRotaDelete = editarBatidasRotaDelete|default('') %}
 {% set editarBatidasParametros = editarBatidasParametros|default({}) %}
 {% set jornadaInfo = jornadaInfo|default(null) %}
+{# Atalho do colaborador: "+" na batida faltante abre o modal de Esquecimento de Registro.
+   Inerte por padrão — quem não passa os parâmetros renderiza exatamente o HTML de antes. #}
+{% set justificarFaltanteHabilitado = justificarFaltanteHabilitado|default(false) %}
+{% set esquecimentosRegistrados = esquecimentosRegistrados|default({}) %}
+{# Sem dataHoje o atalho não aparece: o default é fail-closed de propósito, para que esquecer de
+   passá-lo não faça a regra de "nada de dia futuro" sumir em silêncio. #}
+{% set dataHoje = dataHoje|default(null) %}
+{% set rotulosBatida = {entrada: 'Entrada', repouso: 'Repouso', retorno: 'Retorno', saida: 'Saída'} %}
 
 <div class="card card-outline card-info mb-3">
     <div class="card-header d-flex align-items-center gap-2 flex-wrap">
@@ -121,6 +129,15 @@
                                 {% endif %}
                             </td>
 
+                            {# O atalho "+" só vale para dia que JÁ tem alguma batida (esqueceu uma das
+                               quatro). Dia sem batida nenhuma só está na folha por causa da própria
+                               justificativa — tipicamente atestado ou folga já abonados; oferecer "+" ali
+                               convidaria a criar batida num dia fechado, que pode virar hora extra. #}
+                            {% set diaTemBatida = (linha.entradaId ?? null) is not null
+                                or (linha.repousoId ?? null) is not null
+                                or (linha.retornoId ?? null) is not null
+                                or (linha.saidaId   ?? null) is not null %}
+
                             {# Macro para célula editável #}
                             {% for tipoInfo in [
                                 {campo: 'entrada', id: linha.entradaId ?? null},
@@ -155,6 +172,26 @@
                                                 </button>
                                             {% endif %}
                                         </div>
+                                    {% elseif justificarFaltanteHabilitado and tipoInfo.id is null %}
+                                        {% set chaveEsquecimento = linha.chaveDia ~ '|' ~ tipoInfo.campo %}
+                                        {% if esquecimentosRegistrados[chaveEsquecimento] is defined %}
+                                            <span class="text-warning" title="Esquecimento desta batida já justificado">
+                                                <i class="bi bi-hourglass-split"></i>
+                                            </span>
+                                        {% elseif diaTemBatida
+                                            and not linha.fimSemana|default(false)
+                                            and not linha.isFeriado|default(false)
+                                            and not linha.antesDoPrimeiroRegistro|default(false)
+                                            and (dataHoje is not null and linha.chaveDia <= dataHoje) %}
+                                            <button type="button"
+                                                    class="btn btn-link btn-sm p-0 text-secondary"
+                                                    title="Esqueci de registrar a {{ rotulosBatida[tipoInfo.campo] }} deste dia"
+                                                    data-esquecimento-dia="{{ linha.chaveDia }}"
+                                                    data-esquecimento-campo="{{ tipoInfo.campo }}"
+                                                    data-esquecimento-rotulo="{{ rotulosBatida[tipoInfo.campo] }}">
+                                                <i class="bi bi-plus-circle"></i>
+                                            </button>
+                                        {% endif %}
                                     {% else %}
                                         {{ horario }}
                                     {% endif %}

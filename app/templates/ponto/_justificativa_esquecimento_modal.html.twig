@@ -1,0 +1,74 @@
+{# Atalho da folha: o "+" da célula vazia abre este modal.
+   Data, tipo e qual batida vêm do botão clicado — o colaborador digita só a hora.
+   Envia pela mesma rota do modal completo (ponto_justificativa_nova). #}
+<div class="modal fade" id="modalEsquecimentoRegistro" tabindex="-1" aria-labelledby="modalEsquecimentoRegistroLabel" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="{{ path('ponto_justificativa_nova') }}">
+                <input type="hidden" name="justificativa_ponto[_token]" value="{{ csrf_token('justificativa_ponto') }}">
+                <input type="hidden" name="justificativa_ponto[tipo]" value="esquecimento_registro">
+                <input type="hidden" name="justificativa_ponto[datas]" id="esquecimentoData">
+                <input type="hidden" name="justificativa_ponto[tipoRegistroEsquecido]" id="esquecimentoCampo">
+                <input type="hidden" name="competencia" value="{{ competenciaSelecionada }}">
+
+                <div class="modal-header py-2">
+                    <h5 class="modal-title" id="modalEsquecimentoRegistroLabel">
+                        <i class="bi bi-clock-history me-2"></i>Registro esquecido
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p class="mb-3">
+                        <span id="esquecimentoResumo" class="fw-semibold"></span>
+                    </p>
+                    <label for="esquecimentoHora" class="form-label">Horário que deveria ter sido registrado</label>
+                    <input type="time" name="justificativa_ponto[horaRegistroEsquecido]" id="esquecimentoHora" class="form-control" required>
+                    <div class="form-text">Enviado para aprovação do administrador.</div>
+                </div>
+
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-send me-1"></i>Enviar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    var modalEl = document.getElementById('modalEsquecimentoRegistro');
+    if (!modalEl) { return; }
+
+    var campoData   = document.getElementById('esquecimentoData');
+    var campoBatida = document.getElementById('esquecimentoCampo');
+    var campoHora   = document.getElementById('esquecimentoHora');
+    var resumo      = document.getElementById('esquecimentoResumo');
+
+    function formatarData(chaveDia) {
+        var partes = chaveDia.split('-');
+
+        return partes[2] + '/' + partes[1] + '/' + partes[0];
+    }
+
+    // Delegação: os botões "+" ficam dentro da tabela da folha, que é um partial separado.
+    document.addEventListener('click', function (evento) {
+        var botao = evento.target.closest('[data-esquecimento-dia]');
+        if (!botao) { return; }
+
+        campoData.value    = botao.dataset.esquecimentoDia;
+        campoBatida.value  = botao.dataset.esquecimentoCampo;
+        campoHora.value    = '';
+        resumo.textContent = botao.dataset.esquecimentoRotulo + ' de ' + formatarData(botao.dataset.esquecimentoDia);
+
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    });
+
+    modalEl.addEventListener('shown.bs.modal', function () {
+        campoHora.focus();
+    });
+}());
+</script>

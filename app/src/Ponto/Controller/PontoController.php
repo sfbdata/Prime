@@ -146,6 +146,28 @@ final class PontoController extends AbstractController
 
         $homeOfficeHoje = $homeOfficeResolver->estaLiberado($user, $tenant, $agora);
 
+        $justificativasDaCompetencia = $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado);
+
+        // Atalho "+" da folha: célula que já tem esquecimento pendente ou abonado não oferece o
+        // botão de novo, para não gerar fila duplicada no gestor. 'abonado' entra porque a
+        // aprovação em lote não cria o RegistroPonto — a célula segue vazia com a justificativa
+        // já deferida. Reaproveita a lista acima; nenhuma query nova.
+        $esquecimentosRegistrados = [];
+        foreach ($justificativasDaCompetencia as $justificativaDaCompetencia) {
+            if ($justificativaDaCompetencia->getTipo() !== 'esquecimento_registro') {
+                continue;
+            }
+            if (!in_array($justificativaDaCompetencia->getStatus(), ['pendente', 'abonado'], true)) {
+                continue;
+            }
+            $tipoEsquecido = $justificativaDaCompetencia->getTipoRegistroEsquecido();
+            $dataEsquecida = $justificativaDaCompetencia->getData();
+            if ($tipoEsquecido === null || $dataEsquecida === null) {
+                continue;
+            }
+            $esquecimentosRegistrados[$dataEsquecida->format('Y-m-d') . '|' . $tipoEsquecido] = true;
+        }
+
         return $this->render('ponto/index.html.twig', [
             'homeOfficeHoje' => $homeOfficeHoje,
             'folhaRows' => $folhaRows,
@@ -159,9 +181,11 @@ final class PontoController extends AbstractController
             'minimoMinutosRepouso'           => $jornadaTenant?->getMinimoMinutosRepouso() ?? 60,
             'validacaoRepousoHabilitada'     => $jornadaTenant?->isValidacaoRepousoHabilitada() ?? true,
             'duracaoJornadaDiariaMinutos'    => $duracaoJornadaDiariaMinutos,
-            'justificativas'     => $justificativaRepository->findByUserAndCompetencia($user, $anoSelecionado, $mesSelecionado),
+            'justificativas'     => $justificativasDaCompetencia,
             'justificativaForm'  => $justificativaForm->createView(),
             'tiposJustificativa' => TipoJustificativa::asPlanarChoices(),
+            'esquecimentosRegistrados' => $esquecimentosRegistrados,
+            'dataHoje'                 => $hojeStr,
         ]);
     }
 
@@ -175,6 +199,13 @@ final class PontoController extends AbstractController
         /** @var User $user */
         $user = $this->getUser();
         $tenant = $this->assertAccess($user);
+
+        // Competência de origem (fora do form): devolve o colaborador ao mês que ele estava vendo.
+        // Sem isso, justificar um dia do mês anterior joga de volta no mês corrente.
+        $competenciaOrigem = (string) $request->request->get('competencia', '');
+        $voltaParaFolha = preg_match('/^\d{4}-\d{2}$/D', $competenciaOrigem) === 1
+            ? ['competencia' => $competenciaOrigem]
+            : [];
 
         $form = $this->createForm(JustificativaPontoType::class);
         $form->handleRequest($request);
@@ -193,7 +224,7 @@ final class PontoController extends AbstractController
                 $horaRegEsquecida = $form->get('horaRegistroEsquecido')->getData();
                 if (!in_array($tipoRegEsquecido, RegistroPonto::TIPOS_VALIDOS, true) || $horaRegEsquecida === null) {
                     $this->addFlash('warning', 'Informe o tipo e o horário do registro esquecido.');
-                    return $this->redirectToRoute('ponto_index');
+                    return $this->redirectToRoute('ponto_index', $voltaParaFolha);
                 }
             }
 
@@ -201,22 +232,22 @@ final class PontoController extends AbstractController
 
             if (empty($datasArray)) {
                 $this->addFlash('warning', 'Selecione ao menos uma data para justificar.');
-                return $this->redirectToRoute('ponto_index');
+                return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
             if ($abonoParcial && count($datasArray) > 1) {
                 $this->addFlash('warning', 'Abono parcial só pode ser aplicado a uma única data.');
-                return $this->redirectToRoute('ponto_index');
+                return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
             if ($tipo === 'esquecimento_registro' && count($datasArray) > 1) {
                 $this->addFlash('warning', 'Esquecimento de Registro só pode ser aplicado a uma única data.');
-                return $this->redirectToRoute('ponto_index');
+                return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
             if ($abonoParcial && ($horaInicio === null || $horaFim === null || $horaInicio >= $horaFim)) {
                 $this->addFlash('warning', 'Informe os horários de saída e retorno corretamente para o abono parcial.');
-                return $this->redirectToRoute('ponto_index');
+                return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
             $hoje = new \DateTimeImmutable('today');
@@ -236,7 +267,7 @@ final class PontoController extends AbstractController
             }
 
             if (empty($datasValidas)) {
-                return $this->redirectToRoute('ponto_index');
+                return $this->redirectToRoute('ponto_index', $voltaParaFolha);
             }
 
             // Upload do atestado
@@ -305,7 +336,7 @@ final class PontoController extends AbstractController
             }
         }
 
-        return $this->redirectToRoute('ponto_index');
+        return $this->redirectToRoute('ponto_index', $voltaParaFolha);
     }
 
     #[Route('/justificativa/{id}/editar', name: 'ponto_justificativa_editar', methods: ['GET', 'POST'])]

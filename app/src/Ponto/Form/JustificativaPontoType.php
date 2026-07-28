@@ -72,12 +72,12 @@ class JustificativaPontoType extends AbstractType
                 'mapped'      => false,
                 'required'    => false,
                 'constraints' => [
-                    new File([
-                        'maxSize'          => '10M',
-                        'mimeTypes'        => ['application/pdf', 'image/jpeg', 'image/png'],
-                        'mimeTypesMessage' => 'Somente PDF, JPEG ou PNG são aceitos.',
-                        'maxSizeMessage'   => 'O arquivo não pode exceder 10 MB.',
-                    ]),
+                    new File(
+                        maxSize: '10M',
+                        mimeTypes: ['application/pdf', 'image/jpeg', 'image/png'],
+                        maxSizeMessage: 'O arquivo não pode exceder 10 MB.',
+                        mimeTypesMessage: 'Somente PDF, JPEG ou PNG são aceitos.',
+                    ),
                 ],
             ])
 ;
