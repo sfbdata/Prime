@@ -943,10 +943,14 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         $crawlerDepois = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
         self::assertResponseIsSuccessful();
         self::assertStringContainsString('27,20', $crawlerDepois->filter('#secao-divida .jp-obr .col-juros')->text());
-        // Saldo do caso (cabeçalho): 170,00 + 27,20 de juros (multa/correção seguem 0, herdadas da
-        // carteira neutra) = 197,20. O valor mudou de lugar na reorganização de UX (hero → `.cob-resumo`
-        // no cabeçalho), mas continua sendo o "Total em aberto" — o primeiro item do resumo.
-        self::assertStringContainsString('197,20', $crawlerDepois->filter('.cob-resumo-item')->eq(0)->text());
+        // Total do caso (cabeçalho): 170,00 + 27,20 de juros (multa/correção seguem 0, herdadas da
+        // carteira neutra) = 197,20. O valor já andou pela tela: hero → linha fina `.cob-resumo` →
+        // card `Total vencido` (2026-07-27, quando a linha fina saiu e os cards passaram a somar o
+        // vencido). A obrigação deste teste venceu há meses, então ela entra no card.
+        self::assertStringContainsString(
+            '197,20',
+            $crawlerDepois->filter('.cob-cab-card[data-card="total"]')->text(),
+        );
     }
 
     // ── FIX crítico (Task 9): rehidratação do override de taxa no modal de Editar ──

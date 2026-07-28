@@ -12,6 +12,11 @@ escrito aqui — e cada divergência está justificada.
 
 Duas colunas a partir de 992px; empilha abaixo disso.
 
+O cabeçalho inteiro vive numa **faixa** (`.cob-cab-painel`) destacada do corpo branco da página, e os
+quatro cards de dinheiro são **blocos cheios** sobre ela. É o contraste da maquete, e ele tem função:
+sobre a faixa, card claro com borda fina (a primeira entrega) desaparece no fundo. Acrescentado em
+2026-07-27, junto com a revisão da §1.3.
+
 ### 1.1 Coluna esquerda — identidade
 
 - **Trilha:** `Carteira <nome> › Unidade <identificação>`. O `Cond. Top Life` do meio da maquete é o
@@ -24,23 +29,38 @@ Duas colunas a partir de 992px; empilha abaixo disso.
 
 ### 1.2 Coluna esquerda — dinheiro
 
-Quatro cards que **somam entre si**, na ordem da maquete:
+Quatro cards que **somam entre si**, na ordem da maquete, todos sobre as obrigações **em aberto que
+já venceram**:
 
 | Card | Conteúdo |
 |---|---|
-| Principal | Σ `valorOriginal` das obrigações em aberto |
-| Juros e multa | Σ (`juros` + `multa` + `correcao`) das obrigações em aberto |
-| Honorários | Σ `honorarios` das obrigações em aberto |
-| **Total atualizado** | soma dos três acima, com a data do relógio da hidratação |
+| Principal | Σ `valorOriginal` das obrigações vencidas |
+| Juros e multa | Σ (`juros` + `multa` + `correcao`) das obrigações vencidas |
+| Honorários | Σ `honorarios` das obrigações vencidas |
+| **Total vencido** | soma dos três acima, com a data do relógio da hidratação |
 
-Abaixo, **linha fina** com `Total em aberto` e `Total vencido` — os dois valores que o cabeçalho já
-mostrava hoje.
-
-> **Por que os dois conjuntos convivem.** `Total atualizado` é o **bruto**: principal + encargos, sem
-> abater o que já foi recebido. `Total em aberto` é o **saldo exigível**, líquido de pagamentos, e é
-> ele que governa o botão *Encerrar cobrança* e o alerta de "pronto para encerrar". São contas
-> diferentes com resultados diferentes. Trocar uma pela outra em silêncio faria o gestor conferir o
-> número errado; por isso nenhuma sai da tela. Decidido com o dono em 2026-07-27.
+> **Revisto em 2026-07-27, decisão do dono.** Até aqui os cards eram sobre o **em aberto** e havia,
+> abaixo deles, uma **linha fina** com `Total em aberto` (saldo exigível) e `Total vencido`. Os dois
+> conjuntos saíram: o valor que o cabeçalho destaca **é o vencido**, e com isso a linha fina virou
+> repetição. O que muda de verdade:
+>
+> 1. **Recorte novo (terceiro).** Além de *não quitada* e *não parcela de acordo desfeito*, os cards
+>    exigem `vencimentoOriginal <= hoje`. A régua é a MESMA de `CalculadoraSaldo::saldoVencido`, com o
+>    mesmo relógio — duas definições de "vencido" no módulo seria o começo de uma divergência.
+> 2. **A parcela a vencer sai dos cards e fica em todo o resto**: continua na aba Dívida, na contagem
+>    `N obrigações em aberto` da §1.1 e no `A receber` da aba Honorários. São perguntas diferentes.
+> 3. **O `saldoExigivel` sai da tela** (não do sistema): segue governando o botão *Encerrar cobrança*,
+>    o "pronto para encerrar" e o tooltip que diz quanto falta.
+> 4. **Consequência assumida:** os cards são **brutos**. Pagamento PARCIAL numa obrigação vencida não
+>    os reduz — só a quitação tira a obrigação da soma —, e agora não há mais o número líquido ao lado
+>    para comparar. Isso já valia para os cards antes; o que saiu foi o contraponto.
+> 5. **Caso-limite:** cobrança sem nada vencido mostra os quatro cards zerados. É a resposta certa
+>    para a pergunta que o cabeçalho passou a fazer, e a linha meta continua dizendo que há obrigação
+>    em aberto.
+>
+> Provas: `MontarDetalheCasoUseCaseTest::osTotaisDoCabecalhoSomamSoOVencido` e
+> `::comNadaVencidoOsCardsZeram`; `CabecalhoObjetoShowTest::testCardsSomamSoOVencido` e
+> `::testCardsSaoBrutosENaoOSaldo` (este último também trava que a linha fina não volta por descuido).
 
 **Onde os totais são somados:** no `MontarDetalheCasoUseCase`, sobre **exatamente** o conjunto que a
 aba Dívida lista (avulsas + parcelas dos grupos de acordo vigente), nunca no Twig. É dinheiro, e o
@@ -57,12 +77,14 @@ parcelas mortas na lista solta. Somar as duas contava o **mesmo dinheiro duas ve
 cards, na linha `N obrigações em aberto` e na escolha da competência da prescrição — e a própria aba
 Dívida logo abaixo rotula essa parcela como *"histórico, fora do total em aberto"*. Com a exclusão, o
 conjunto somado aqui é **idêntico** ao de `ObrigacaoRepository::doCasoExigiveis`, que é quem governa o
-`saldoExigivel`; é isso que faz a explicação do quadro acima ("um é bruto, o outro é líquido de
-pagamentos") continuar verdadeira.
+`saldoExigivel` — e é sobre esse conjunto que o recorte do **vencido** é aplicado depois, só para os
+cards.
 
 O **rodapé da aba Honorários** (`honorariosDasObrigacoes`) segue somando **tudo que a aba lista**,
-inclusive a parcela morta e a quitada — ele existe para fechar com as linhas visíveis. Só o recorte
-`A receber` (`honorariosEmAberto`) é que aplica as duas exclusões.
+inclusive a parcela morta e a quitada — ele existe para fechar com as linhas visíveis. O recorte
+`A receber` (`honorariosEmAberto`) aplica as duas exclusões e **não** a do vencido: é a aba
+Honorários, não o cabeçalho. O card `Honorários` (`honorariosVencidos`) é que aplica as três — os dois
+campos existem por isso, e a diferença entre eles é o honorário do que ainda não venceu.
 
 ⚠️ **Isto muda um número já em produção**: o `A receber` da aba Honorários passa a ser menor em
 qualquer caso que tenha acordo rompido/cancelado com parcela não quitada. É correção de dobra, não
@@ -70,7 +92,15 @@ regressão — mas é mudança visível, e o dono precisa saber antes de publica
 
 ### 1.3 Coluna direita — prescrição
 
-Caixa em destaque, o elemento dominante do cabeçalho.
+Caixa em forma de **aviso** (barra de severidade à esquerda, fundo em tint), não de cartão de
+relatório. Uma frase que resolve a leitura sozinha, uma linha de detalhe, e nada mais.
+
+> **Revisto em 2026-07-27, a pedido do dono:** a primeira entrega tinha rótulo `PRESCRIÇÃO` em
+> caixa-alta, o número em 1,4rem, três frases de detalhe e duas linhas de ressalva — *"não precisa
+> de muita explicação"*. Ficaram: `Risco de prescrição em N dias` (era `Faltam N dias` — a frase
+> agora diz o **que** está em jogo, não só o prazo), uma linha de detalhe e a ressalva em uma linha.
+> Saiu do detalhe a derivação `Prazo de 5 anos → limite em …`: o gestor quer a **data limite**, não
+> a conta que a produziu. `CabecalhoObjetoShowTest::testCaixaDePrescricao` trava a frase nova.
 
 - **Competência mais antiga** = obrigação **em aberto** com o `vencimentoOriginal` mais antigo.
 - **Prazo limite** = vencimento + `PRAZO_PADRAO_ANOS` (5), constante única em `CalculadoraPrescricao`.
@@ -84,8 +114,15 @@ Caixa em destaque, o elemento dominante do cabeçalho.
   > `CalculadoraPrescricaoTest::faixas` trava o dia zero como **crítica**.
 - Quando o prazo já passou: `Prazo esgotado em dd/mm/aaaa`.
 - **Sem obrigação em aberto → a caixa não aparece.** Não há o que prescrever.
-- **Aviso obrigatório** de que é estimativa a partir do vencimento mais antigo. O sistema conta dias;
-  não emite parecer jurídico, e a tela não pode sugerir que emite.
+- **A ressalva de estimativa SAIU** (2026-07-27, decisão do dono). Ela dizia *"Estimativa — não
+  considera interrupção nem suspensão do prazo"* e já tinha sido encurtada de duas linhas para uma na
+  mesma data; agora não é mais exibida.
+  > O cálculo **não mudou**: `CalculadoraPrescricao` continua contando dias a partir do vencimento
+  > mais antigo, sem conhecer interrupção nem suspensão — a nota da classe segue valendo, e a caixa
+  > continua sendo indicação de risco, não parecer. O que a spec exigia era a ressalva **na tela**, e
+  > essa exigência foi revogada pelo dono. Se um dia ela precisar voltar sem ocupar linha, o lugar é o
+  > tooltip da frase de destaque. `CabecalhoObjetoShowTest::testCaixaDePrescricao` trava a ausência,
+  > para o texto não voltar por acidente.
 - `Ver competência` abre a aba Dívida (mesmo mecanismo `data-abrir-aba` que os alertas já usam).
 
 O relógio é o `EncargosVivos::agora()` — o mesmo que rege o resto da página. Nada de `new
@@ -105,6 +142,13 @@ O relógio é o `EncargosVivos::agora()` — o mesmo que rege o resto da página
 
 Setas `‹ ›` para a unidade anterior/próxima **da mesma carteira**, ordenadas por
 `identificacao ASC, id ASC`.
+
+**Lugar:** **acima do painel do cabeçalho**, em linha própria (`.cob-cab-nav-linha`), encostadas à
+direita — decidido pelo dono em 2026-07-27. É o terceiro endereço delas: nasceram ao lado do título,
+passaram para a direita da caixa de prescrição e vieram para fora da faixa, onde não disputam atenção
+com o dinheiro nem com a prescrição. `CabecalhoObjetoShowTest::testSetasDeNavegacaoEntreUnidades`
+trava as três pontas: estão na linha própria, **não** estão dentro de `.cob-cab-painel` e **não**
+estão na coluna da identidade.
 
 > Deliberadamente **não** uso a ordem da listagem da carteira (`atualizadoEm DESC`): ela muda sozinha
 > a cada registro, e a mesma seta levaria a lugares diferentes a cada visita.

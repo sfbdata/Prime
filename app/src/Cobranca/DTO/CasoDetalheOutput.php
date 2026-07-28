@@ -43,8 +43,14 @@ final class CasoDetalheOutput
         public readonly string $statusBadgeClass,
         public readonly bool $encerrado,
         public readonly bool $prontoParaEncerrar,
+        /**
+         * Saldo exigível do caso (líquido de pagamentos e liquidações). NÃO é mais exibido no
+         * cabeçalho — desde 2026-07-27 a linha fina `Total em aberto`/`Total vencido` saiu da tela —,
+         * mas continua governando o encerramento (`prontoParaEncerrar`), os alertas e o tooltip do
+         * botão `Encerrar cobrança` ("Faltam X"). O par `saldoVencido` foi removido junto com a linha:
+         * o vencido agora é o que os quatro cards somam, no BRUTO.
+         */
         public readonly int $saldoExigivel,
-        public readonly int $saldoVencido,
         public readonly string $formaHonorariosLabel,
         public readonly ?string $percentualHonorarios,
         public readonly ?int $pastaJudicialId,
@@ -84,32 +90,42 @@ final class CasoDetalheOutput
          */
         public readonly int $honorariosDasObrigacoes = 0,
         /**
-         * Recorte do anterior: só o que ainda NÃO foi quitado. É o honorário que falta receber.
+         * Recorte do anterior: só o que ainda NÃO foi quitado. É o honorário que falta receber, e é o
+         * `A receber` da aba Honorários.
          *
-         * É TAMBÉM o card `Honorários` do cabeçalho (spec §1.2), e não há um segundo campo com o mesmo
-         * número: o conjunto somado é idêntico (as listadas na aba Dívida que não estão quitadas) e a
-         * regra é a mesma. Duplicar o valor sob outro nome só criaria dois lugares para divergir.
+         * ⚠️ Não confundir com `honorariosVencidos`, o card `Honorários` do cabeçalho: até 2026-07-27
+         * os dois eram o MESMO número e um campo só servia aos dois lugares. Deixaram de ser quando o
+         * cabeçalho passou a somar só o vencido — a aba continua sobre TUDO que está em aberto, porque
+         * a parcela a vencer é honorário a receber do mesmo jeito. Os dois campos existem por isso, e
+         * a diferença entre eles é exatamente o honorário das obrigações que ainda não venceram.
          */
         public readonly int $honorariosEmAberto = 0,
         public readonly int $honorariosRecebidos = 0,
         /**
          * Os quatro cards de dinheiro do cabeçalho (spec §1.2), em centavos. Somados AQUI (no UseCase) e
          * nunca no Twig, sobre EXATAMENTE o mesmo conjunto que a aba Dívida lista — `obrigacoesAvulsas`
-         * mais as parcelas dos `gruposAcordo` —, restrito ao que ainda não foi quitado. É a mesma regra
-         * dos totais da aba Honorários acima, pelo mesmo motivo: é dinheiro, e aqui há teste.
+         * mais as parcelas dos `gruposAcordo` —, restrito ao que ainda não foi quitado E JÁ VENCEU. É a
+         * mesma regra dos totais da aba Honorários acima, pelo mesmo motivo: é dinheiro, e aqui há teste.
+         *
+         * O recorte do VENCIDO entrou em 2026-07-27, por decisão do dono: o cabeçalho responde "quanto
+         * está vencido hoje", não "quanto existe em aberto". A régua é a de `CalculadoraSaldo::saldoVencido`
+         * (`vencimentoOriginal <= hoje`), para não haver duas definições de vencido no módulo.
          *
          * Os quatro fecham entre si por construção:
-         * `totalAtualizadoEmAberto = totalPrincipalEmAberto + totalEncargosEmAberto + honorariosEmAberto`.
+         * `totalAtualizadoVencido = totalPrincipalVencido + totalEncargosVencido + honorariosVencidos`.
          *
-         * ⚠️ Este é o BRUTO (principal + encargos), NÃO o saldo exigível: `saldoExigivel` acima é
-         * líquido dos pagamentos já recebidos e é ele que governa o encerramento (spec §1.2, nota). São
-         * contas diferentes de propósito — trocar uma pela outra faz o gestor conferir o número errado.
+         * ⚠️ Este é o BRUTO, NÃO o saldo exigível: `saldoExigivel` acima é líquido dos pagamentos já
+         * recebidos. Um pagamento PARCIAL numa obrigação vencida não muda estes cards (a obrigação segue
+         * em aberto e entra pelo valor cheio); só a quitação a tira da soma. Era assim antes também — o
+         * que saiu da tela em 2026-07-27 foi a linha fina que mostrava o líquido ao lado.
          */
-        public readonly int $totalPrincipalEmAberto = 0,
-        /** Σ (juros + multa + correção) das em aberto — o card `Juros e multa` (a correção entra junto). */
-        public readonly int $totalEncargosEmAberto = 0,
-        public readonly int $totalAtualizadoEmAberto = 0,
-        /** Data do relógio da hidratação: o "atualizado em" que o card `Total atualizado` exibe. */
+        public readonly int $totalPrincipalVencido = 0,
+        /** Σ (juros + multa + correção) das vencidas — o card `Juros e multa` (a correção entra junto). */
+        public readonly int $totalEncargosVencido = 0,
+        /** Σ `honorarios` das vencidas — o card `Honorários`. Ver a ⚠️ de `honorariosEmAberto` acima. */
+        public readonly int $honorariosVencidos = 0,
+        public readonly int $totalAtualizadoVencido = 0,
+        /** Data do relógio da hidratação: o "atualizado em" que o card `Total vencido` exibe. */
         public readonly ?\DateTimeImmutable $totaisAtualizadosEm = null,
         /** `N obrigações em aberto` da linha meta (spec §1.1) — contadas sobre o mesmo conjunto acima. */
         public readonly int $obrigacoesEmAbertoQtd = 0,

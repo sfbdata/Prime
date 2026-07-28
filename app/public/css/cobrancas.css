@@ -589,19 +589,11 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
    Só variáveis Bootstrap (`--bs-*`) e o accent do módulo (`--jp-accent`): claro e escuro saem do mesmo
    código, sem cor solta. */
 
-/* Resumo do cabeçalho (§6.1) — os mesmos dois valores que ficavam no hero, agora legíveis sem rolar.
-   ⚠️ Etapa 7 do redesenho do cabeçalho: este bloco virou a LINHA FINA da spec
-   `cobranca-objeto-show-cabecalho-responsaveis.md` §1.2 — ele agora fica ABAIXO dos quatro cards
-   `.cob-cab-cards`, e o card `Total atualizado` é quem manda no dinheiro. Por isso rótulo e valor
-   passaram a ficar na MESMA linha e o valor caiu de 1.5rem para 1.05rem: mantido do tamanho antigo,
-   o saldo exigível gritaria mais alto que o total do card e inverteria a hierarquia que a §1.2 fixa.
-   O código de cor (vencido/zerado) fica: é ele que separa os dois números de relance. */
-.cob-resumo { display: flex; flex-wrap: wrap; gap: .3rem 1.5rem; }
-.cob-resumo-item { display: flex; align-items: baseline; gap: .4rem; min-width: 0; }
-.cob-resumo-label { font-size: .78rem; color: var(--bs-secondary-color); font-weight: 600; }
-.cob-resumo-valor { font-size: 1.05rem; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
-.cob-resumo-valor.is-vencido { color: var(--bs-danger); }
-.cob-resumo-valor.saldo-zerado { color: var(--bs-success); }
+/* O resumo do cabeçalho (§6.1) — a linha fina `.cob-resumo` com `Total em aberto` e `Total vencido` —
+   SAIU da tela em 2026-07-27: os quatro cards passaram a somar o vencido e a linha virou repetição.
+   As regras foram removidas junto (CSS órfão é o que faz a próxima pessoa procurar um bloco que não
+   existe mais). Se a linha voltar, ela nasce de novo com a hierarquia da §1.2: rótulo e valor na
+   mesma linha, valor menor que o do card `Total vencido`, que é quem manda no dinheiro. */
 
 /* Barra de atividades (§6.2) — conteúdo e ação na mesma região. Texto SEMPRE junto do ícone (§6.2:
    "não usar apenas ícone em ação importante"). Quebra permitida, mas com `row-gap` para não parecer
@@ -775,7 +767,36 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
       coluna de piso X sobra da tela quando o container é menor que X.
 ═══════════════════════════════════════════════════════════════════════════════════════════════ */
 
-/* ── §1 Cabeçalho: colunas e identidade ─────────────────────────────────────────────────────── */
+/* ── §1 Cabeçalho: a faixa, as colunas e a identidade ───────────────────────────────────────────
+   A maquete não põe o cabeçalho no branco da página: ele é uma FAIXA destacada, e é dela que vem a
+   leitura de "cockpit" — identidade e dinheiro num painel, o trabalho no corpo branco abaixo. O tom
+   é `--bs-secondary-bg` com um sopro do accent do módulo (a maquete usa azul; o módulo é verde, e
+   cor aqui vem de variável, nunca de hex). Os dois lados do `color-mix` trocam sozinhos com o tema. */
+.cob-cab-painel {
+    border: 1px solid var(--bs-border-color);
+    border-radius: .9rem;
+    padding: 1rem 1.15rem 1.15rem;
+    background: color-mix(in srgb, var(--bs-secondary-bg) 92%, var(--jp-accent));
+}
+
+/* Os cards de dinheiro são blocos CHEIOS sobre a faixa (maquete §1.2) — não dá para pintá-los com
+   `--bs-tertiary-bg` como antes, porque sobre a faixa eles sumiriam. Este é o único par de cores
+   local do bloco, e existe declarado NOS DOIS TEMAS de propósito: a regra do topo proíbe hex CLARO
+   fixo (que vira placa branca no escuro), e o que há aqui é uma superfície escura em ambos —
+   no tema escuro ela é mais funda que o fundo da página, então continua lendo como bloco. */
+.cob-cab {
+    --cob-card-forte-bg: #2b3038;
+    --cob-card-forte-fg: #f1f3f5;
+    --cob-card-forte-rot: rgba(255, 255, 255, .62);
+    --cob-card-forte-borda: rgba(255, 255, 255, .09);
+}
+html[data-bs-theme="dark"] .cob-cab {
+    --cob-card-forte-bg: #12161c;
+    --cob-card-forte-fg: #e9ecef;
+    --cob-card-forte-rot: rgba(255, 255, 255, .55);
+    --cob-card-forte-borda: rgba(255, 255, 255, .07);
+}
+
 .cob-cab-identidade, .cob-cab-lateral { min-width: 0; }
 /* O `h1` mantém o tamanho responsivo do Bootstrap (o resto do sistema usa o mesmo) — só ganha
    quebra: `objeto.identificacao` vem do cadastro e pode ser uma sequência longa sem espaço. */
@@ -791,13 +812,21 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .cob-cab-trilha-sep { opacity: .5; }
 .cob-cab-trilha-atual { color: var(--bs-body-color); font-weight: 600; overflow-wrap: anywhere; }
 
-/* Setas ‹ › entre unidades (§1.5). Glifo maior que o texto do botão, para o alvo ser óbvio; na
-   ponta da carteira a seta vem `.disabled` do Twig e aqui ela só apaga — o estado é decidido no
-   servidor (`objetoAnteriorId`/`objetoProximoId` nulos), nunca no CSS. */
+/* Setas ‹ › entre unidades (§1.5). Desde 2026-07-27 elas moram ACIMA do painel, encostadas à direita
+   (`.cob-cab-nav-linha`), e não mais dentro da coluna da direita — daí não haver mais o flex
+   `.cob-cab-topo` que dividia a linha com a caixa de prescrição.
+
+   Glifo maior que o texto do botão, para o alvo ser óbvio; na ponta da carteira a seta vem `.disabled`
+   do Twig e aqui ela só apaga — o estado é decidido no servidor (`objetoAnteriorId`/`objetoProximoId`
+   nulos), nunca no CSS. */
 .cob-cab-nav .btn {
     min-width: 2.1rem; padding: .1rem .4rem; font-size: 1.15rem; line-height: 1.4;
     color: var(--bs-secondary-color);
 }
+/* Fora do painel a seta já está sobre o fundo da página: a superfície explícita fica para não depender
+   de onde a linha estiver, e porque a ponta desabilitada continua sem pastilha de propósito — o
+   apagado sozinho já diria, e a falta de superfície reforça. */
+.cob-cab-nav .btn:not(.disabled) { background-color: var(--bs-body-bg); }
 .cob-cab-nav .btn.disabled { opacity: .4; }
 /* Vence o `:hover` do `.btn-outline-secondary` (que inverteria para fundo cinza sólido): o módulo
    sinaliza interação com o accent, não com o cinza do Bootstrap. */
@@ -818,85 +847,95 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
     grid-template-columns: repeat(auto-fit, minmax(min(9.5rem, 100%), 1fr));
 }
 .cob-cab-card {
-    display: flex; flex-direction: column; gap: .1rem; min-width: 0;
-    border: 1px solid var(--bs-border-color); border-radius: .625rem;
-    padding: .6rem .8rem; background: var(--bs-tertiary-bg);
+    display: flex; flex-direction: column; gap: .15rem; min-width: 0;
+    border: 1px solid var(--cob-card-forte-borda); border-radius: .625rem;
+    padding: .7rem .9rem; background: var(--cob-card-forte-bg);
 }
 .cob-cab-card-rot {
     font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em;
-    color: var(--bs-secondary-color);
+    color: var(--cob-card-forte-rot);
 }
 .cob-cab-card-val {
-    font-size: 1.15rem; font-weight: 700; line-height: 1.15;
-    font-variant-numeric: tabular-nums; color: var(--bs-body-color); overflow-wrap: anywhere;
+    font-size: 1.2rem; font-weight: 700; line-height: 1.15;
+    font-variant-numeric: tabular-nums; color: var(--cob-card-forte-fg); overflow-wrap: anywhere;
 }
 /* A nota "atualizado em dd/mm/aaaa" é CONTEXTO do total, não um segundo dado: menor que o rótulo e
    sem caixa-alta, para não disputar leitura com o valor logo acima. */
 .cob-cab-card-nota { font-size: .68rem; color: var(--bs-secondary-color); margin-top: .05rem; }
 
 /* `Total atualizado` é a soma dos três anteriores — o destaque diz "leia este" sem precisar de um
-   quinto elemento explicando a relação. Tint translúcido do accent (nunca hex): sai legível nos dois
-   temas e é o mesmo tratamento que `.cob-proxima-faixa` e `.cob-resp-atual` já usam. */
+   quinto elemento explicando a relação. Ele é o card CLARO no meio dos escuros (maquete §1.2): a
+   inversão sozinha já o separa, sem precisar de tamanho maior que o dos outros três. O `color-mix`
+   parte do fundo da página, então o card acompanha o tema em vez de fixar um verde claro. */
 .cob-cab-card.is-total {
-    border-color: rgba(var(--jp-accent-rgb), .35);
-    background: rgba(var(--jp-accent-rgb), .09);
+    border-color: rgba(var(--jp-accent-rgb), .45);
+    background: color-mix(in srgb, var(--bs-body-bg) 88%, var(--jp-accent));
 }
 .cob-cab-card.is-total .cob-cab-card-rot { color: var(--jp-accent); }
 .cob-cab-card.is-total .cob-cab-card-val { font-size: 1.35rem; color: var(--jp-accent); }
 
 /* Rótulo que esconde explicação atrás de tooltip avisa que é clicável-de-mouse-parado. Só nos
    RÓTULOS: nos botões desabilitados o cursor certo é `not-allowed`, logo abaixo. */
-.cob-cab-card-rot[data-bs-toggle="tooltip"], .cob-resumo-label[data-bs-toggle="tooltip"] {
+.cob-cab-card-rot[data-bs-toggle="tooltip"] {
     cursor: help;
     text-decoration: underline dotted var(--bs-border-color);
     text-underline-offset: .2em;
 }
+/* Dentro do card cheio, o pontilhado tem de sair do próprio rótulo: `--bs-border-color` é cor de
+   borda de superfície CLARA e some sobre o fundo escuro do card. */
+.cob-cab-card .cob-cab-card-rot[data-bs-toggle="tooltip"] { text-decoration-color: currentColor; }
 
-/* ── §1.3 Caixa de prescrição — o elemento dominante do cabeçalho ───────────────────────────────
+/* ── §1.3 Caixa de prescrição ────────────────────────────────────────────────────────────────────
    A caixa só existe quando há obrigação em aberto (guard no Twig, `caso.prescricao`), e a severidade
-   vem pronta da `CalculadoraPrescricao`. O CSS só pinta a faixa que o servidor escolheu. */
+   vem pronta da `CalculadoraPrescricao`. O CSS só pinta a faixa que o servidor escolheu.
+
+   Forma: AVISO, como na maquete — barra de severidade à esquerda, uma frase em negrito que já
+   resolve a leitura, o detalhe abaixo e o `Ver competência` discreto no canto. Ela não precisa mais
+   ser "o elemento dominante" por tamanho de fonte: quem domina agora é a barra colorida.
+
+   A grade de duas colunas existe só para o link subir para a linha do título sem posicionamento
+   absoluto (que sobreporia o texto quando a coluna aperta). Detalhe e aviso atravessam as duas. */
 .cob-presc {
-    display: flex; flex-direction: column; gap: .3rem; min-width: 0;
-    border: 1px solid var(--bs-border-color); border-radius: var(--cob-radius);
-    padding: .95rem 1.1rem; background: var(--bs-tertiary-bg);
-}
-.cob-presc-topo {
-    display: flex; align-items: center; gap: .4rem;
-    font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-    color: var(--bs-secondary-color);
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .15rem .75rem;
+    align-items: start; min-width: 0;
+    border: 1px solid var(--bs-border-color); border-left-width: .3rem;
+    border-radius: var(--cob-radius);
+    padding: .8rem 1rem; background: var(--bs-body-bg);
 }
 .cob-presc-destaque {
-    font-size: 1.4rem; font-weight: 700; line-height: 1.15; color: var(--bs-body-color);
+    grid-column: 1; display: flex; align-items: baseline; gap: .45rem; min-width: 0;
+    font-size: 1.02rem; font-weight: 700; line-height: 1.3; color: var(--bs-body-color);
     overflow-wrap: anywhere;
 }
-.cob-presc-detalhe { color: var(--bs-secondary-color); overflow-wrap: anywhere; }
+.cob-presc-destaque > .bi { font-size: .95em; flex: none; }
+.cob-presc-detalhe { grid-column: 1 / -1; color: var(--bs-secondary-color); overflow-wrap: anywhere; }
 .cob-presc-detalhe strong { color: var(--bs-body-color); font-weight: 600; }
-/* O aviso de estimativa é OBRIGATÓRIO (§1.3) e não pode virar rodapé decorativo: fica separado por
-   uma divisória suave, legível, só um degrau abaixo do detalhe. */
-.cob-presc-aviso {
-    margin-top: .15rem; padding-top: .45rem;
-    border-top: 1px dashed color-mix(in srgb, var(--bs-border-color), transparent 35%);
-    color: var(--bs-secondary-color);
+/* O aviso de estimativa (`.cob-presc-aviso`) saiu da caixa em 2026-07-27, a pedido do dono, e as
+   regras dele saíram junto para não sobrar CSS órfão. A caixa ficou com destaque, detalhe e link. */
+/* O link fica na linha do título, à direita, e discreto — a ação principal da caixa é LER. */
+.cob-presc-link {
+    grid-column: 2; grid-row: 1; justify-self: end; white-space: nowrap;
+    color: var(--bs-secondary-color); text-decoration: none;
 }
-.cob-presc-link { align-self: flex-start; margin-top: .35rem; }
+.cob-presc-link:hover, .cob-presc-link:focus-visible { color: var(--jp-accent); text-decoration: underline; }
 
-/* As três severidades. Tint translúcido + `--bs-*-text-emphasis` no texto: o Bootstrap 5.3 redefine
-   essas variáveis no tema escuro, então o mesmo código serve aos dois. `sev-info` (prazo folgado) é
-   deliberadamente NEUTRO — pintar de verde um prazo que ainda corre sugere "resolvido". */
+/* As três severidades: a barra da esquerda em cor cheia, o fundo em tint translúcido e o título em
+   `--bs-*-text-emphasis` — variáveis que o Bootstrap 5.3 redefine no tema escuro, então o mesmo
+   código serve aos dois. `sev-info` (prazo folgado) é deliberadamente NEUTRO: pintar de verde um
+   prazo que ainda corre sugere "resolvido". */
 .cob-presc.sev-danger {
-    border-color: rgba(var(--bs-danger-rgb), .4); background: rgba(var(--bs-danger-rgb), .08);
+    border-color: rgba(var(--bs-danger-rgb), .25); border-left-color: var(--bs-danger);
+    background: rgba(var(--bs-danger-rgb), .09);
 }
-.cob-presc.sev-danger .cob-presc-topo,
 .cob-presc.sev-danger .cob-presc-destaque { color: var(--bs-danger-text-emphasis); }
 
 .cob-presc.sev-warning {
-    border-color: rgba(var(--bs-warning-rgb), .45); background: rgba(var(--bs-warning-rgb), .1);
+    border-color: rgba(var(--bs-warning-rgb), .3); border-left-color: var(--bs-warning);
+    background: rgba(var(--bs-warning-rgb), .1);
 }
-.cob-presc.sev-warning .cob-presc-topo,
 .cob-presc.sev-warning .cob-presc-destaque { color: var(--bs-warning-text-emphasis); }
 
-.cob-presc.sev-info { border-color: var(--bs-border-color); background: var(--bs-tertiary-bg); }
-.cob-presc.sev-info .cob-presc-topo { color: var(--bs-secondary-color); }
+.cob-presc.sev-info { border-left-color: var(--bs-secondary-color); }
 
 /* ── §1.4 Ações do cabeçalho ────────────────────────────────────────────────────────────────────
    `Simular acordo` e `Planilha atualizada` entram desabilitados de propósito (não existem ainda). O
@@ -905,6 +944,19 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .cob-cab-acoes [data-bs-toggle="tooltip"]:has(> .btn:disabled),
 .cob-resp-telefone [data-bs-toggle="tooltip"]:has(> .btn:disabled),
 .cob-resp-rodape [data-bs-toggle="tooltip"]:has(> .btn:disabled) { cursor: not-allowed; }
+
+/* Sobre a faixa, botão de contorno transparente afunda no fundo. Os habilitados ganham a superfície
+   da página e viram pastilhas, como na maquete; os desabilitados NÃO ganham — ficarem rentes à faixa
+   é uma pista a mais de que não dá para clicar. O hover é o mesmo accent das setas, para o módulo
+   sinalizar interação sempre da mesma forma. Só o `-secondary`: o `-danger` do `Encerrar cobrança`
+   tem hover próprio (vermelho cheio) e perdê-lo custaria a leitura de ação destrutiva. */
+.cob-cab-acoes .btn-outline-secondary:not(:disabled) { background-color: var(--bs-body-bg); }
+.cob-cab-acoes .btn-outline-secondary:not(:disabled):hover,
+.cob-cab-acoes .btn-outline-secondary:not(:disabled):focus-visible {
+    background-color: rgba(var(--jp-accent-rgb), .12);
+    border-color: rgba(var(--jp-accent-rgb), .4);
+    color: var(--jp-accent);
+}
 
 /* ── §2 Aba Responsáveis ────────────────────────────────────────────────────────────────────────
    `.cob-resp-atual` (card da cobrada) e `.cob-resp-accordion` já vinham do Ajuste 10 e continuam

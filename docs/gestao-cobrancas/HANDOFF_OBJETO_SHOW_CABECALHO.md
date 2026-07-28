@@ -8,12 +8,39 @@ Leia a spec antes de escrever qualquer linha — ela registra o que foi cortado 
 
 | | |
 |---|---|
-| Branch | **`master`**, HEAD da Etapa 8 sobre `origin/master` `6e93b43` — **não publicado** |
+| Branch | **`master`**, sobre `origin/master` `6e93b43` — **não publicado** |
 | Worktree | nenhuma — trabalho direto no checkout principal |
 | Migration | **nenhuma**, e é decisão de projeto (ver §3.1 da spec) |
-| Suíte | **completa 2705/2705** · `tests/Cobranca` **1228/1228** |
-| Etapas | **as 8 fechadas** |
+| Suíte | **completa 2708/2708** · `tests/Cobranca` **1231/1231** |
+| Etapas | **as 8 fechadas** + **rodada pós-smoke #1** (3 pedidos do dono, abaixo) |
 | Publicado | **nada** |
+
+### Rodada pós-smoke #1 — 2026-07-27 (3 pedidos do dono, FEITOS)
+
+Não estava commitada quando esta linha foi escrita; a suíte completa está verde com ela aplicada.
+
+1. **O cabeçalho passou a mostrar o VENCIDO.** Os quatro cards (Principal · Juros e multa ·
+   Honorários · **Total vencido**) somam só as obrigações em aberto **que já venceram**, e a linha
+   fina `Total em aberto` / `Total vencido` **saiu da tela**. O `saldoExigivel` continua vivo no
+   servidor (encerramento, alertas, tooltip do `Encerrar cobrança`) — só não é mais exibido.
+   - Campos do DTO renomeados: `totalPrincipalVencido`, `totalEncargosVencido`, **`honorariosVencidos`
+     (novo)** e `totalAtualizadoVencido`; `CasoDetalheOutput::saldoVencido` **deixou de existir** (e a
+     query de `CalculadoraSaldo::saldoVencido` saiu do caminho desta página junto).
+   - ⚠️ **`honorariosEmAberto` e o card `Honorários` deixaram de ser o mesmo número**: a aba
+     Honorários (`A receber`) continua sobre TUDO que está em aberto; o card é só do vencido.
+   - **Consequência assumida** (está na spec §1.2): os cards são brutos e **pagamento parcial não os
+     reduz** — e agora não há mais o número líquido ao lado. Cobrança sem nada vencido mostra os
+     quatro cards zerados.
+2. **A ressalva de prescrição saiu** ("Estimativa — não considera interrupção nem suspensão do
+   prazo"). O cálculo não mudou; a exigência da §1.3 foi revogada pelo dono e o teste agora trava a
+   **ausência** do texto.
+3. **As setas ‹ › foram para ACIMA do painel**, em linha própria encostada à direita
+   (`.cob-cab-nav-linha`) — terceiro endereço delas.
+
+Provas novas (as três injetadas com defeito e confirmadas): `MontarDetalheCasoUseCaseTest::osTotaisDoCabecalhoSomamSoOVencido`,
+`::comNadaVencidoOsCardsZeram` e `CabecalhoObjetoShowTest::testCardsSomamSoOVencido`. O CSS desta
+rodada (posição das setas) continua **sem prova automatizada**, como todo o CSS da Etapa 7 — só o
+lugar delas no DOM tem teste.
 
 ### 👉 Chat novo começa por aqui
 

@@ -147,7 +147,8 @@ final class MontarDetalheCasoUseCase
         }
 
         // Os quatro cards de dinheiro do cabeçalho (spec §1.2) saem do MESMO laço e do MESMO conjunto
-        // que os totais da aba Honorários: `$listadasNaAba` restrito ao que está EM ABERTO. Somar aqui
+        // que os totais da aba Honorários: `$listadasNaAba` restrito ao que está EM ABERTO — e, desde
+        // 2026-07-27, restrito TAMBÉM ao que já venceu (ver o `if` do vencido lá embaixo). Somar aqui
         // (e não no Twig) é o que permite ter teste — e é o que garante que o cabeçalho nunca discorde
         // da soma das linhas que a aba Dívida mostra logo abaixo.
         //
@@ -155,8 +156,9 @@ final class MontarDetalheCasoUseCase
         // frente inteira): não quitada E não parcela de acordo desfeito. Ver o `continue` abaixo.
         $honorariosDasObrigacoes = 0;
         $honorariosEmAberto = 0;
-        $totalPrincipalEmAberto = 0;
-        $totalEncargosEmAberto = 0;
+        $totalPrincipalVencido = 0;
+        $totalEncargosVencido = 0;
+        $honorariosVencidos = 0;
         $obrigacoesEmAbertoQtd = 0;
         $emAberto = [];
         foreach ($listadasNaAba as $listada) {
@@ -180,10 +182,24 @@ final class MontarDetalheCasoUseCase
             ++$obrigacoesEmAbertoQtd;
             $emAberto[] = $listada;
             $honorariosEmAberto += $listada->honorarios;
-            $totalPrincipalEmAberto += $listada->valorOriginal;
+
+            // ── Terceiro recorte, só para os cards do cabeçalho: VENCIDO (decisão do dono, 2026-07-27)
+            // O cabeçalho deixou de mostrar "em aberto" e passou a mostrar "vencido" — a parcela que
+            // ainda vai vencer não é cobrança de hoje, e o gestor conferia dois pares de números
+            // (os cards em aberto × a linha fina com o vencido) que respondiam a perguntas diferentes.
+            // A régua é a MESMA de `CalculadoraSaldo::saldoVencido` (`vencimentoOriginal <= hoje`, com
+            // o mesmo relógio), para os cards e o conceito de vencido do resto do módulo não divergirem.
+            // `honorariosEmAberto` acima NÃO entra neste recorte: ele é o `A receber` da aba Honorários,
+            // que continua sendo sobre tudo que está em aberto.
+            if ($listada->vencimentoOriginal > $hoje) {
+                continue;
+            }
+
+            $totalPrincipalVencido += $listada->valorOriginal;
             // Os três encargos, e não `valorAtual - valorOriginal`: a subtração daria o mesmo número
             // (INV-E1) mas esconderia de qual parcela ele veio, e o card se chama "Juros e multa".
-            $totalEncargosEmAberto += $listada->juros + $listada->multa + $listada->correcao;
+            $totalEncargosVencido += $listada->juros + $listada->multa + $listada->correcao;
+            $honorariosVencidos += $listada->honorarios;
         }
 
         // Extraído para variável (antes era montado direto no construtor) porque agora é lido DUAS vezes:
@@ -225,7 +241,6 @@ final class MontarDetalheCasoUseCase
             encerrado: $status === StatusCaso::Encerrado,
             prontoParaEncerrar: $status !== StatusCaso::Encerrado && $saldoExigivel === 0,
             saldoExigivel: $saldoExigivel,
-            saldoVencido: $this->calculadoraSaldo->saldoVencido($caso, $hoje),
             formaHonorariosLabel: $formaHonorarios->label(),
             percentualHonorarios: $percentualHonorarios,
             pastaJudicialId: $caso->getPastaJudicial()?->getId(),
@@ -254,11 +269,12 @@ final class MontarDetalheCasoUseCase
             honorariosDasObrigacoes: $honorariosDasObrigacoes,
             honorariosEmAberto: $honorariosEmAberto,
             honorariosRecebidos: $honorariosRecebidos,
-            totalPrincipalEmAberto: $totalPrincipalEmAberto,
-            totalEncargosEmAberto: $totalEncargosEmAberto,
-            // O card `Total atualizado` é a soma dos outros três, não uma quinta conta: assim ele fecha
+            totalPrincipalVencido: $totalPrincipalVencido,
+            totalEncargosVencido: $totalEncargosVencido,
+            honorariosVencidos: $honorariosVencidos,
+            // O card `Total vencido` é a soma dos outros três, não uma quarta conta: assim ele fecha
             // com o que está exibido ao lado, sempre.
-            totalAtualizadoEmAberto: $totalPrincipalEmAberto + $totalEncargosEmAberto + $honorariosEmAberto,
+            totalAtualizadoVencido: $totalPrincipalVencido + $totalEncargosVencido + $honorariosVencidos,
             totaisAtualizadosEm: $hoje,
             obrigacoesEmAbertoQtd: $obrigacoesEmAbertoQtd,
             // Mesmo relógio, mesmo conjunto: a prescrição olha a competência mais antiga entre EXATAMENTE

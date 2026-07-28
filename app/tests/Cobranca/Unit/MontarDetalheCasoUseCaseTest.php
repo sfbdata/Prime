@@ -282,7 +282,9 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
     // ------------------------------------------------- cabeçalho: os quatro cards de dinheiro (§1.2)
 
     /**
-     * O cabeçalho soma sobre o MESMO conjunto que a aba Dívida lista, restrito ao que não está quitado.
+     * O cabeçalho soma sobre o MESMO conjunto que a aba Dívida lista, restrito ao que não está quitado
+     * (e, desde 2026-07-27, ao que já venceu — aqui todas venceram; o recorte tem teste próprio logo
+     * abaixo).
      *
      * A obrigação quitada tem valor DIFERENTE em todas as colunas (principal, encargos, honorários): se
      * o filtro `quitada()` cair, os quatro cards se movem juntos e nenhum passa por acidente.
@@ -305,20 +307,83 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         $detalhe = $this->useCase->executar($caso);
 
         self::assertSame(2, $detalhe->obrigacoesEmAbertoQtd, 'a quitada não conta na linha meta');
-        self::assertSame(130000, $detalhe->totalPrincipalEmAberto, '100000 + 30000, sem os 50000 da quitada');
-        self::assertSame(8000, $detalhe->totalEncargosEmAberto, 'juros+multa+correção só das em aberto');
-        self::assertSame(23000, $detalhe->honorariosEmAberto, 'o card Honorários é o honorário em aberto');
-        self::assertSame(161000, $detalhe->totalAtualizadoEmAberto);
+        self::assertSame(130000, $detalhe->totalPrincipalVencido, '100000 + 30000, sem os 50000 da quitada');
+        self::assertSame(8000, $detalhe->totalEncargosVencido, 'juros+multa+correção só das em aberto');
+        self::assertSame(23000, $detalhe->honorariosVencidos, 'o card Honorários é o honorário vencido em aberto');
+        self::assertSame(161000, $detalhe->totalAtualizadoVencido);
         self::assertSame(
-            $detalhe->totalPrincipalEmAberto + $detalhe->totalEncargosEmAberto + $detalhe->honorariosEmAberto,
-            $detalhe->totalAtualizadoEmAberto,
-            'o Total atualizado é a soma dos três cards exibidos ao lado, sempre',
+            $detalhe->totalPrincipalVencido + $detalhe->totalEncargosVencido + $detalhe->honorariosVencidos,
+            $detalhe->totalAtualizadoVencido,
+            'o Total vencido é a soma dos três cards exibidos ao lado, sempre',
         );
         self::assertEquals(new \DateTimeImmutable(self::AGORA), $detalhe->totaisAtualizadosEm);
 
         // Blindagem: o total da aba Honorários continua contando TODAS (inclusive a quitada) — os dois
         // números convivem e respondem perguntas diferentes.
         self::assertSame(33000, $detalhe->honorariosDasObrigacoes);
+        // E o `A receber` da aba Honorários é sobre o EM ABERTO, não sobre o vencido: aqui as duas em
+        // aberto venceram, então os dois números coincidem — o teste do recorte abaixo os separa.
+        self::assertSame(23000, $detalhe->honorariosEmAberto);
+    }
+
+    /**
+     * O recorte que o dono pediu em 2026-07-27: o cabeçalho responde "quanto está vencido hoje". A
+     * obrigação que ainda vai vencer continua em aberto — conta na linha meta, aparece na aba Dívida e
+     * entra no `A receber` da aba Honorários —, mas fica FORA dos quatro cards.
+     *
+     * Os valores da futura são diferentes em todas as colunas de propósito: se o recorte cair, nenhum
+     * dos quatro cards passa por acidente.
+     */
+    #[Test]
+    #[TestDox('os quatro cards somam só o VENCIDO — a obrigação a vencer fica de fora')]
+    public function osTotaisDoCabecalhoSomamSoOVencido(): void
+    {
+        $caso = $this->casoPersistido();
+
+        // AGORA = 2026-07-20.
+        $vencida = $this->novaObrigacao($caso, 101, 100000, 'Vencida', '2026-05-01')
+            ->definirEncargos(5000, 2000, 1000, 20000, new \DateTimeImmutable(self::AGORA));
+        $aVencer = $this->novaObrigacao($caso, 102, 70000, 'A vencer', '2026-09-01')
+            ->definirEncargos(300, 100, 0, 7000, new \DateTimeImmutable(self::AGORA));
+
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$vencida, $aVencer]);
+
+        $detalhe = $this->useCase->executar($caso);
+
+        self::assertSame(100000, $detalhe->totalPrincipalVencido, 'só a vencida — 170000 seria o recorte antigo');
+        self::assertSame(8000, $detalhe->totalEncargosVencido, 'os encargos da futura ficam fora');
+        self::assertSame(20000, $detalhe->honorariosVencidos);
+        self::assertSame(128000, $detalhe->totalAtualizadoVencido);
+
+        // O que NÃO muda com o recorte: a futura continua em aberto para todo o resto da tela.
+        self::assertSame(2, $detalhe->obrigacoesEmAbertoQtd, 'a linha meta conta as duas — é outra pergunta');
+        self::assertSame(27000, $detalhe->honorariosEmAberto, 'o `A receber` da aba Honorários inclui a futura');
+        self::assertSame(27000, $detalhe->honorariosDasObrigacoes);
+    }
+
+    /**
+     * Caso-limite do recorte: NADA vencido. Os quatro cards vão a zero — e é a resposta correta, porque
+     * a pergunta que o cabeçalho faz é "quanto está vencido hoje". A tela não fica muda: a linha meta
+     * continua dizendo que há obrigação em aberto.
+     */
+    #[Test]
+    #[TestDox('com tudo a vencer os quatro cards zeram, mas a obrigação segue contada como em aberto')]
+    public function comNadaVencidoOsCardsZeram(): void
+    {
+        $caso = $this->casoPersistido();
+
+        $aVencer = $this->novaObrigacao($caso, 101, 70000, 'A vencer', '2026-09-01')
+            ->definirEncargos(300, 100, 0, 7000, new \DateTimeImmutable(self::AGORA));
+        $this->obrigacaoRepository->method('doCaso')->willReturn([$aVencer]);
+
+        $detalhe = $this->useCase->executar($caso);
+
+        self::assertSame(0, $detalhe->totalPrincipalVencido);
+        self::assertSame(0, $detalhe->totalEncargosVencido);
+        self::assertSame(0, $detalhe->honorariosVencidos);
+        self::assertSame(0, $detalhe->totalAtualizadoVencido);
+        self::assertSame(1, $detalhe->obrigacoesEmAbertoQtd);
+        self::assertSame(7000, $detalhe->honorariosEmAberto);
     }
 
     /**
@@ -338,8 +403,8 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         $detalhe = $this->useCase->executar($caso);
 
         self::assertSame(2, $detalhe->obrigacoesEmAbertoQtd);
-        self::assertSame(120000, $detalhe->totalPrincipalEmAberto, '2 × 60000, e NÃO 240000');
-        self::assertSame(120000, $detalhe->totalAtualizadoEmAberto);
+        self::assertSame(120000, $detalhe->totalPrincipalVencido, '2 × 60000, e NÃO 240000');
+        self::assertSame(120000, $detalhe->totalAtualizadoVencido);
     }
 
     /**
@@ -365,15 +430,15 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         self::assertSame(1, $detalhe->obrigacoesEmAbertoQtd, 'só a original restaurada está em aberto');
         self::assertSame(
             120000,
-            $detalhe->totalPrincipalEmAberto,
+            $detalhe->totalPrincipalVencido,
             'a original restaurada, e NÃO ela mais as duas parcelas mortas (240000) — isso seria o mesmo dinheiro duas vezes',
         );
-        self::assertSame(3000, $detalhe->totalEncargosEmAberto, 'só os encargos da original');
-        self::assertSame(24000, $detalhe->honorariosEmAberto, 'a parcela morta não é recebível: o acordo que a criou caiu');
-        self::assertSame(147000, $detalhe->totalAtualizadoEmAberto);
+        self::assertSame(3000, $detalhe->totalEncargosVencido, 'só os encargos da original');
+        self::assertSame(24000, $detalhe->honorariosVencidos, 'a parcela morta não é recebível: o acordo que a criou caiu');
+        self::assertSame(147000, $detalhe->totalAtualizadoVencido);
         self::assertSame(
-            $detalhe->totalPrincipalEmAberto + $detalhe->totalEncargosEmAberto + $detalhe->honorariosEmAberto,
-            $detalhe->totalAtualizadoEmAberto,
+            $detalhe->totalPrincipalVencido + $detalhe->totalEncargosVencido + $detalhe->honorariosVencidos,
+            $detalhe->totalAtualizadoVencido,
         );
 
         // …mas o RODAPÉ da aba Honorários continua somando tudo que a aba LISTA — a parcela morta
@@ -425,7 +490,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
 
         self::assertNull($detalhe->prescricao);
         self::assertSame(0, $detalhe->obrigacoesEmAbertoQtd);
-        self::assertSame(0, $detalhe->totalAtualizadoEmAberto);
+        self::assertSame(0, $detalhe->totalAtualizadoVencido);
     }
 
     // ------------------------------------------------ aba Responsáveis: listinha de qualificação (§3.4)
@@ -618,7 +683,7 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         (new \ReflectionProperty(Acordo::class, 'id'))->setValue($acordo, 1);
 
         $obrigacoes = [
-            $this->novaObrigacao($caso, 200, 120000, $original, '2026-09-01')
+            $this->novaObrigacao($caso, 200, 120000, $original, '2026-05-01')
                 ->setAcordoSubstituto($acordo)
                 ->definirEncargos(2000, 1000, 0, 24000, new \DateTimeImmutable(self::AGORA)),
         ];
@@ -638,7 +703,13 @@ final class MontarDetalheCasoUseCaseTest extends TestCase
         return $caso;
     }
 
-    private function novaObrigacao(CasoCobranca $caso, int $id, int $valorOriginal, ?string $descricao = null, string $vencimento = '2026-09-01'): Obrigacao
+    /**
+     * O vencimento default é ANTERIOR ao relógio (`AGORA` = 2026-07-20) de propósito: desde 2026-07-27
+     * os quatro cards do cabeçalho só somam o VENCIDO, e um default no futuro zeraria todos eles em
+     * todo teste que não se importa com data — escondendo o que aquele teste queria provar. Quem testa
+     * o recorte do vencido passa a data explicitamente.
+     */
+    private function novaObrigacao(CasoCobranca $caso, int $id, int $valorOriginal, ?string $descricao = null, string $vencimento = '2026-05-01'): Obrigacao
     {
         $o = (new Obrigacao())
             ->setTenant($this->tenant)

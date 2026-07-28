@@ -31,10 +31,11 @@ use Symfony\Component\DomCrawler\Crawler;
  * onde um cabeçalho erra em silêncio — trocando um campo por outro de nome parecido, com a tela
  * continuando bonita e o gestor conferindo o número errado.
  *
- * ⚠️ O par mais perigoso desta tela: `totalAtualizadoEmAberto` (card **Total atualizado**) é o valor
- * BRUTO das obrigações em aberto; `saldoExigivel` (linha fina, **Total em aberto**) é o LÍQUIDO de
- * pagamentos, e é ele que governa o encerramento. Os dois convivem de propósito (§1.2), e
- * `testTotalAtualizadoNaoEOSaldoExigivel` existe para que trocar um pelo outro no Twig quebre.
+ * ⚠️ Os quatro cards somam o VENCIDO e no BRUTO (§1.2, revisto em 2026-07-27). São dois recortes que
+ * se erram em silêncio, e cada um tem teste próprio para que errá-lo quebre:
+ *  - **vencido** — a obrigação que ainda vai vencer fica fora (`testCardsSomamSoOVencido`);
+ *  - **bruto** — pagamento parcial NÃO reduz os cards; quem é líquido é o `saldoExigivel`, que desde
+ *    2026-07-27 não aparece mais na tela, só governa o encerramento (`testCardsSaoBrutosENaoOSaldo`).
  */
 #[CoversClass(ObjetoController::class)]
 final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
@@ -108,7 +109,7 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         self::assertSame('1 obrigação em aberto', trim($meta->filter('[data-meta="obrigacoes-em-aberto"]')->text()));
     }
 
-    #[TestDox('§1.2: os quatro cards aparecem e o Total atualizado é a soma exata dos três acima')]
+    #[TestDox('§1.2: os quatro cards aparecem e o Total vencido é a soma exata dos três acima')]
     public function testOsQuatroCardsSomamEntreSi(): void
     {
         $client = static::createClient();
@@ -128,7 +129,7 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         $honorarios = $this->valorDoCard($cabecalho, 'honorarios');
         $total = $this->valorDoCard($cabecalho, 'total');
 
-        self::assertSame(100000, $principal, 'o card Principal é a soma dos valores originais em aberto');
+        self::assertSame(100000, $principal, 'o card Principal é a soma dos valores originais vencidos');
         // Encargos e honorários são calculados AO VIVO pela cascata: cravar o número aqui duplicaria a
         // fórmula dentro do teste. O que se afirma é que eles CHEGARAM (não-zero) e que a soma fecha.
         self::assertGreaterThan(0, $encargos, 'a carteira cobra juros e multa — o card não pode estar zerado');
@@ -136,18 +137,60 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         self::assertSame(
             $principal + $encargos + $honorarios,
             $total,
-            'o card Total atualizado tem de ser a soma dos três, centavo a centavo',
+            'o card Total vencido tem de ser a soma dos três, centavo a centavo',
         );
 
         self::assertMatchesRegularExpression(
             '/atualizado em \d{2}\/\d{2}\/\d{4}/',
             $cabecalho->filter('.cob-cab-card[data-card="total"] .cob-cab-card-nota')->text(),
-            'o Total atualizado diz de quando é o número',
+            'o Total vencido diz de quando é o número',
         );
     }
 
-    #[TestDox('§1.2: o card Total atualizado é o BRUTO — não é o saldo exigível da linha fina')]
-    public function testTotalAtualizadoNaoEOSaldoExigivel(): void
+    #[TestDox('§1.2: os cards somam SÓ o vencido — a obrigação a vencer fica de fora')]
+    public function testCardsSomamSoOVencido(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        // Carteira NEUTRA (o default da factory): sem encargo nem honorário o número é determinístico,
+        // e o que sobra na diferença é exatamente o recorte do vencido.
+        [, $caso] = $this->semearGrafo($tenant);
+
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Competência vencida',
+            'valorOriginal' => 100000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('-120 days'),
+        ]);
+        // A VENCER: está em aberto, aparece na aba Dívida e conta na linha meta — mas não é cobrança
+        // de hoje, e desde 2026-07-27 o cabeçalho não a soma. Trocar o recorte de volta para "em
+        // aberto" faz o Principal virar 1.700,00 e este teste quebrar.
+        ObrigacaoFactory::createOne([
+            'tenant' => $tenant, 'caso' => $caso, 'descricao' => 'Competência futura',
+            'valorOriginal' => 70000, 'encargosReconhecidos' => 0,
+            'vencimentoOriginal' => new \DateTimeImmutable('+30 days'),
+        ]);
+
+        $crawler = $this->abrir($client, $caso->getObjeto()->getId());
+        $cabecalho = $crawler->filter('.cob-cab');
+
+        self::assertSame(100000, $this->valorDoCard($cabecalho, 'principal'), 'só a vencida entra no Principal');
+        self::assertSame(100000, $this->valorDoCard($cabecalho, 'total'), 'e o Total vencido segue a mesma régua');
+        self::assertStringContainsString(
+            'Total vencido',
+            $cabecalho->filter('.cob-cab-card[data-card="total"]')->text(),
+            'o card do total diz que é do vencido — o rótulo é o que explica o recorte ao gestor',
+        );
+
+        // A linha meta continua contando o que está EM ABERTO (as duas): são perguntas diferentes, e a
+        // §1.1 não mudou. Se um dia mudar, que seja por decisão, não por arrasto do recorte dos cards.
+        self::assertSame(
+            '2 obrigações em aberto',
+            trim($crawler->filter('.cob-cab-meta [data-meta="obrigacoes-em-aberto"]')->text()),
+        );
+    }
+
+    #[TestDox('§1.2: os cards são BRUTOS (pagamento parcial não os reduz) e a linha fina saiu da tela')]
+    public function testCardsSaoBrutosENaoOSaldo(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
@@ -162,7 +205,7 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         ]);
 
         // Pagamento PARCIAL: a obrigação continua em aberto (entra nos cards pelo valor cheio), mas o
-        // saldo exigível já desconta o que entrou.
+        // saldo exigível — que já não aparece na tela — desconta o que entrou.
         $pagamento = PagamentoFactory::createOne([
             'tenant' => $tenant, 'caso' => $caso, 'valorDivida' => 40000, 'valorHonorarios' => 0,
         ]);
@@ -172,17 +215,22 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
 
         $cabecalho = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cab');
 
-        $total = $this->valorDoCard($cabecalho, 'total');
-        $emAberto = $this->centavos($cabecalho->filter('.cob-resumo-item')->eq(0)->filter('.cob-resumo-valor')->text());
+        self::assertSame(
+            100000,
+            $this->valorDoCard($cabecalho, 'total'),
+            'o card Total vencido é o bruto: não abate pagamento. Ligar o saldo exigível (60.000) aqui quebra',
+        );
 
-        self::assertSame(100000, $total, 'o card Total atualizado é o bruto: não abate pagamento');
-        self::assertSame(60000, $emAberto, 'o Total em aberto é o saldo exigível: 1.000,00 menos os 400,00 pagos');
-        self::assertNotSame($total, $emAberto, 'os dois números são contas diferentes e ficam na tela de propósito');
-        self::assertStringContainsString('Total em aberto', $cabecalho->filter('.cob-resumo-item')->eq(0)->text());
-        self::assertStringContainsString('Total vencido', $cabecalho->filter('.cob-resumo-item')->eq(1)->text());
+        // A linha fina `Total em aberto` / `Total vencido` saiu do cabeçalho em 2026-07-27 (decisão do
+        // dono): o vencido virou o card, e o saldo exigível deixou de ser exibido — ele segue vivo no
+        // `prontoParaEncerrar` e no tooltip do `Encerrar cobrança`, que têm testes próprios.
+        // O texto é conferido na coluna da identidade (onde a linha morava) e não no cabeçalho inteiro:
+        // o tooltip do `Encerrar cobrança` desabilitado fala em "total em aberto" de propósito.
+        self::assertCount(0, $cabecalho->filter('.cob-resumo'), 'a linha fina não volta por descuido');
+        self::assertStringNotContainsString('Total em aberto', $cabecalho->filter('.cob-cab-identidade')->text());
     }
 
-    #[TestDox('§1.3: a caixa de prescrição mostra os dias restantes, o aviso de estimativa e o Ver competência')]
+    #[TestDox('§1.3: a caixa de prescrição mostra os dias restantes, a competência mais antiga e o Ver competência')]
     public function testCaixaDePrescricao(): void
     {
         $client = static::createClient();
@@ -206,17 +254,24 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
 
         self::assertCount(1, $caixa, 'com obrigação em aberto a caixa tem de aparecer');
         self::assertSame('critica', $caixa->attr('data-severidade'), 'faltando ~60 dias, a faixa é crítica');
-        self::assertMatchesRegularExpression('/Faltam \d+ dias/', $caixa->filter('.cob-presc-destaque')->text());
+        // A frase do destaque é o conteúdo da caixa, não enfeite: ela sozinha diz o que está em jogo
+        // (risco) e em quanto tempo. Era "Faltam N dias" até 2026-07-27, quando o dono pediu a forma
+        // da maquete — trocar a frase de volta sem trocar esta linha deixaria a caixa muda.
+        self::assertMatchesRegularExpression(
+            '/Risco de prescrição em \d+ dias/',
+            $caixa->filter('.cob-presc-destaque')->text(),
+        );
         self::assertStringContainsString(
             'Competência antiga',
             $caixa->filter('.cob-presc-detalhe')->text(),
             'a caixa aponta a competência MAIS ANTIGA em aberto, não a recente',
         );
 
-        // O aviso de estimativa é OBRIGATÓRIO (§1.3): o sistema conta dias, não emite parecer jurídico.
-        $aviso = $caixa->filter('.cob-presc-aviso')->text();
-        self::assertStringContainsString('Estimativa', $aviso);
-        self::assertStringContainsString('interrupção', $aviso, 'o aviso tem de dizer o que a conta NÃO considera');
+        // A ressalva "Estimativa — não considera interrupção nem suspensão do prazo" SAIU a pedido do
+        // dono (2026-07-27). A caixa ficou com destaque, detalhe e link, e é isso que se afirma aqui —
+        // a asserção existe para que o texto não volte por acidente, e sim por decisão.
+        self::assertCount(0, $caixa->filter('.cob-presc-aviso'));
+        self::assertStringNotContainsString('Estimativa', $caixa->text());
 
         $link = $caixa->filter('.cob-presc-link');
         self::assertSame('divida', $link->attr('data-abrir-aba'), 'Ver competência abre a aba Dívida pelo mecanismo já existente');
@@ -301,7 +356,20 @@ final class CabecalhoObjetoShowTest extends CobrancaWebTestCase
         $primeiro = $this->objetoComCaso($tenant, $carteira, 'Unidade 100');
         $ultimo = $this->objetoComCaso($tenant, $carteira, 'Unidade 300');
 
-        $meio = $this->abrir($client, $caso->getObjeto()->getId())->filter('.cob-cab-nav');
+        // As setas moram ACIMA do painel do cabeçalho, encostadas à direita (§1.5, decidido pelo dono
+        // em 2026-07-27 — antes ficavam ao lado do título, depois ao lado da caixa de prescrição).
+        // Ancoro na linha própria E afirmo que elas NÃO estão dentro do painel: sem a segunda asserção
+        // o teste passaria de novo se elas voltassem para dentro da faixa.
+        $pagina = $this->abrir($client, $caso->getObjeto()->getId());
+        self::assertCount(
+            1,
+            $pagina->filter('.content-header .cob-cab-nav-linha > .cob-cab-nav'),
+            'as setas ficam na linha própria acima do painel',
+        );
+        self::assertCount(0, $pagina->filter('.cob-cab-painel .cob-cab-nav'), 'e não dentro do painel');
+        self::assertCount(0, $pagina->filter('.cob-cab-identidade .cob-cab-nav'));
+
+        $meio = $pagina->filter('.cob-cab-nav');
         self::assertSame(
             '/cobrancas/objetos/' . $primeiro->getId(),
             $meio->filter('[data-nav="anterior"]')->attr('href'),

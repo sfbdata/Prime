@@ -23,8 +23,46 @@
         {# ── Cabeçalho redesenhado (spec `cobranca-objeto-show-cabecalho-responsaveis.md` §1) ──────────
            Duas colunas a partir de 992px (`col-lg-*`), empilhando abaixo disso: identidade + dinheiro à
            esquerda, prescrição + ações à direita. O CSS de acabamento é da Etapa 7; a estrutura já se
-           sustenta na grade do Bootstrap para não haver uma janela em que a página fique quebrada. #}
-        <div class="cob-cab row g-3 mt-3">
+           sustenta na grade do Bootstrap para não haver uma janela em que a página fique quebrada.
+
+           O `.cob-cab-painel` é a faixa da maquete: o cabeçalho inteiro vira um painel destacado do
+           corpo branco da página. É wrapper e nada mais — a grade de duas colunas segue sendo a `.row`
+           de dentro (pôr padding na própria `.row` brigaria com as margens negativas do gutter). #}
+        {# ── Setas ‹ › entre unidades da MESMA carteira (§1.5) ──────────────────────────────────────
+           ACIMA do cabeçalho e encostadas à direita, fora da faixa (decidido pelo dono em 2026-07-27).
+           É o terceiro lugar em que elas moram: nasceram ao lado do título, passaram pelo topo da
+           coluna da direita e vieram para cá — fora do painel elas param de disputar atenção com o
+           dinheiro e com a prescrição, e ficam no eixo da navegação, junto da subnav.
+
+           A ordem é `identificacao ASC, id ASC`, decidida no repositório: a ordem da listagem
+           (`atualizadoEm DESC`) muda sozinha a cada registro e a mesma seta levaria a lugares
+           diferentes a cada visita. Ponta da lista → `null` no DTO → seta desabilitada; o template não
+           recalcula vizinhança nenhuma. #}
+        <div class="cob-cab-nav-linha d-flex justify-content-end mt-3">
+            <div class="cob-cab-nav btn-group btn-group-sm" role="group" aria-label="Navegar entre unidades da carteira">
+                {% if objeto.objetoAnteriorId %}
+                <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoAnteriorId}) }}"
+                   class="btn btn-outline-secondary" data-nav="anterior"
+                   data-bs-toggle="tooltip" title="Unidade anterior da carteira"
+                   aria-label="Unidade anterior da carteira">‹</a>
+                {% else %}
+                <span class="btn btn-outline-secondary disabled" data-nav="anterior" aria-disabled="true"
+                      data-bs-toggle="tooltip" title="Esta é a primeira unidade da carteira">‹</span>
+                {% endif %}
+                {% if objeto.objetoProximoId %}
+                <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId}) }}"
+                   class="btn btn-outline-secondary" data-nav="proximo"
+                   data-bs-toggle="tooltip" title="Próxima unidade da carteira"
+                   aria-label="Próxima unidade da carteira">›</a>
+                {% else %}
+                <span class="btn btn-outline-secondary disabled" data-nav="proximo" aria-disabled="true"
+                      data-bs-toggle="tooltip" title="Esta é a última unidade da carteira">›</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="cob-cab-painel mt-2">
+        <div class="cob-cab row g-3">
             <div class="col-12 col-lg-7 cob-cab-identidade">
                 {# Trilha de DOIS níveis (§1.1). O `Cond. Top Life` da maquete (o cliente da carteira)
                    saiu por decisão do dono: a hierarquia real do sistema é Carteira › Unidade. Este link
@@ -36,36 +74,13 @@
                     <span class="cob-cab-trilha-atual">Unidade {{ objeto.identificacao }}</span>
                 </nav>
 
+                {# As setas ‹ › ficavam aqui, ao lado do título. Em 2026-07-27 foram para a direita da
+                   caixa de prescrição e, no mesmo dia, para a linha própria ACIMA do painel — é lá que
+                   elas estão, e a §1.5 registra as três posições para ninguém refazer o caminho. #}
                 <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
                     <h1 class="m-0 d-flex align-items-center gap-2"><i class="bi bi-box-seam"></i>{{ objeto.identificacao }}</h1>
                     <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
                     {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success" data-bs-toggle="tooltip" title="Saldo exigível zerado — o gestor pode encerrar (SPEC §17)">Pronto para encerrar</span>{% endif %}
-
-                    {# ── Setas ‹ › entre unidades da MESMA carteira (§1.5) ──
-                       A ordem é `identificacao ASC, id ASC`, decidida no repositório: a ordem da listagem
-                       (`atualizadoEm DESC`) muda sozinha a cada registro e a mesma seta levaria a lugares
-                       diferentes a cada visita. Ponta da lista → `null` no DTO → seta desabilitada; o
-                       template não recalcula vizinhança nenhuma. #}
-                    <div class="cob-cab-nav btn-group btn-group-sm ms-auto" role="group" aria-label="Navegar entre unidades da carteira">
-                        {% if objeto.objetoAnteriorId %}
-                        <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoAnteriorId}) }}"
-                           class="btn btn-outline-secondary" data-nav="anterior"
-                           data-bs-toggle="tooltip" title="Unidade anterior da carteira"
-                           aria-label="Unidade anterior da carteira">‹</a>
-                        {% else %}
-                        <span class="btn btn-outline-secondary disabled" data-nav="anterior" aria-disabled="true"
-                              data-bs-toggle="tooltip" title="Esta é a primeira unidade da carteira">‹</span>
-                        {% endif %}
-                        {% if objeto.objetoProximoId %}
-                        <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoProximoId}) }}"
-                           class="btn btn-outline-secondary" data-nav="proximo"
-                           data-bs-toggle="tooltip" title="Próxima unidade da carteira"
-                           aria-label="Próxima unidade da carteira">›</a>
-                        {% else %}
-                        <span class="btn btn-outline-secondary disabled" data-nav="proximo" aria-disabled="true"
-                              data-bs-toggle="tooltip" title="Esta é a última unidade da carteira">›</span>
-                        {% endif %}
-                    </div>
                 </div>
 
                 {# Linha meta (§1.1). `Matrícula` da maquete NÃO entra: o sistema tem `referenciaExterna`,
@@ -77,85 +92,77 @@
                 </div>
 
                 {# ── Os quatro cards que SOMAM ENTRE SI (§1.2) ────────────────────────────────────────
-                   Principal + Juros e multa + Honorários = Total atualizado, por construção no
+                   Principal + Juros e multa + Honorários = Total vencido, por construção no
                    `MontarDetalheCasoUseCase` (é dinheiro: soma-se onde há teste, nunca no Twig).
 
-                   ⚠️ `totalAtualizadoEmAberto` é o valor BRUTO — principal + encargos + honorários das
-                   obrigações em aberto, SEM abater o que já foi recebido. Não é o `saldoExigivel` da
-                   linha fina abaixo, que é líquido de pagamentos e é quem governa o encerramento. São
-                   contas diferentes com resultados diferentes, e as duas ficam na tela de propósito.
-                   Trocar uma pela outra aqui faz o gestor conferir o número errado. #}
+                   Desde 2026-07-27 os quatro são sobre o VENCIDO, não sobre tudo que está em aberto —
+                   decisão do dono. Com isso a linha fina `Total em aberto` / `Total vencido` que ficava
+                   aqui embaixo saiu: o vencido virou o próprio card, e o saldo exigível deixou de ser
+                   exibido (continua governando o `Encerrar cobrança` e o tooltip que diz o que falta).
+
+                   ⚠️ Os quatro são BRUTOS: pagamento PARCIAL não os reduz (a obrigação segue em aberto
+                   e entra pelo valor cheio); só a quitação tira a obrigação da soma. Isso já era assim
+                   antes — o que mudou é que não há mais o número líquido ao lado para comparar. #}
                 <div class="cob-cab-cards mt-3">
                     <div class="cob-cab-card" data-card="principal">
-                        <span class="cob-cab-card-rot">Principal</span>
-                        <span class="cob-cab-card-val">{{ caso.totalPrincipalEmAberto|centavos }}</span>
+                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Valor original das obrigações vencidas até hoje.">Principal</span>
+                        <span class="cob-cab-card-val">{{ caso.totalPrincipalVencido|centavos }}</span>
                     </div>
                     <div class="cob-cab-card" data-card="encargos">
-                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Juros, multa e correção monetária das obrigações em aberto.">Juros e multa</span>
-                        <span class="cob-cab-card-val">{{ caso.totalEncargosEmAberto|centavos }}</span>
+                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Juros, multa e correção monetária das obrigações vencidas até hoje.">Juros e multa</span>
+                        <span class="cob-cab-card-val">{{ caso.totalEncargosVencido|centavos }}</span>
                     </div>
                     <div class="cob-cab-card" data-card="honorarios">
-                        <span class="cob-cab-card-rot">Honorários</span>
-                        <span class="cob-cab-card-val">{{ caso.honorariosEmAberto|centavos }}</span>
+                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Honorários das obrigações vencidas até hoje. A aba Honorários mostra o A receber, que inclui também as parcelas a vencer.">Honorários</span>
+                        <span class="cob-cab-card-val">{{ caso.honorariosVencidos|centavos }}</span>
                     </div>
                     <div class="cob-cab-card is-total" data-card="total">
-                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Valor bruto das obrigações em aberto (principal + encargos + honorários), antes de abater pagamentos.">Total atualizado</span>
-                        <span class="cob-cab-card-val">{{ caso.totalAtualizadoEmAberto|centavos }}</span>
+                        <span class="cob-cab-card-rot" data-bs-toggle="tooltip" title="Soma das obrigações vencidas até hoje (principal + juros e multa + honorários), antes de abater pagamentos.">Total vencido</span>
+                        <span class="cob-cab-card-val">{{ caso.totalAtualizadoVencido|centavos }}</span>
                         {% if caso.totaisAtualizadosEm %}
                         <span class="cob-cab-card-nota">atualizado em {{ caso.totaisAtualizadosEm|date('d/m/Y') }}</span>
                         {% endif %}
                     </div>
                 </div>
-
-                {# Linha fina com os DOIS valores que o cabeçalho já mostrava (§1.2). `Total em aberto` é o
-                   saldo exigível, líquido de pagamentos — é ele que governa o botão `Encerrar cobrança`. #}
-                <div class="cob-resumo mt-2">
-                    <div class="cob-resumo-item">
-                        <span class="cob-resumo-label" data-bs-toggle="tooltip" title="Saldo exigível: obrigações exigíveis menos pagamentos e liquidações (SPEC §10).">Total em aberto</span>
-                        <span class="cob-resumo-valor {{ caso.saldoExigivel == 0 and not caso.encerrado ? 'saldo-zerado' : '' }}">{{ caso.saldoExigivel|centavos }}</span>
-                    </div>
-                    <div class="cob-resumo-item">
-                        <span class="cob-resumo-label">Total vencido</span>
-                        <span class="cob-resumo-valor {{ caso.saldoVencido > 0 ? 'is-vencido' : '' }}">{{ caso.saldoVencido|centavos }}</span>
-                    </div>
-                </div>
             </div>
 
             <div class="col-12 col-lg-5 cob-cab-lateral">
-                {# ── Prescrição (§1.3): o elemento dominante do cabeçalho ──────────────────────────────
+                {# ── Prescrição (§1.3) ─────────────────────────────────────────────────────────────────
                    `caso.prescricao` é `null` quando não há obrigação em aberto — e aí a caixa nem nasce,
                    porque não há o que prescrever. A severidade, o prazo e os dias vêm prontos do
                    `CalculadoraPrescricao`; o template só escolhe a cor e a frase. #}
                 {% if caso.prescricao %}
                 {% set presc = caso.prescricao %}
                 {% set sevClasse = {'esgotada': 'sev-danger', 'critica': 'sev-danger', 'atencao': 'sev-warning'}[presc.severidade]|default('sev-info') %}
+                {# A forma é a do aviso da maquete, não a de um cartão de relatório: uma frase que já diz
+                   tudo (`Risco de prescrição em N dias`), uma linha de detalhe e nada mais. O rótulo
+                   `PRESCRIÇÃO` em caixa-alta saiu — a própria frase o diz —, e o detalhe perdeu a
+                   derivação do prazo (`Prazo de 5 anos →`), que era conta na cara do gestor. #}
                 <div class="cob-presc {{ sevClasse }}" data-severidade="{{ presc.severidade }}">
-                    <div class="cob-presc-topo">
-                        <i class="bi {{ presc.esgotada ? 'bi-x-octagon' : 'bi-hourglass-split' }}"></i>
-                        <span class="cob-presc-rotulo">Prescrição</span>
-                    </div>
                     <div class="cob-presc-destaque">
+                        <i class="bi {{ presc.esgotada ? 'bi-x-octagon-fill' : 'bi-exclamation-triangle-fill' }}"></i>
+                        <span>
                         {% if presc.esgotada %}
                             Prazo esgotado em {{ presc.prazoLimite|date('d/m/Y') }}
                         {% else %}
-                            Faltam {{ presc.diasRestantes }} {{ presc.diasRestantes == 1 ? 'dia' : 'dias' }}
+                            Risco de prescrição em {{ presc.diasRestantes }} {{ presc.diasRestantes == 1 ? 'dia' : 'dias' }}
                         {% endif %}
+                        </span>
                     </div>
                     <div class="cob-presc-detalhe small">
-                        Competência mais antiga em aberto: <strong>{{ presc.obrigacaoDescricao }}</strong>,
+                        Competência mais antiga <strong>{{ presc.obrigacaoDescricao }}</strong>,
                         vencida em {{ presc.vencimentoMaisAntigo|date('d/m/Y') }}.
-                        Prazo de {{ presc.prazoAnos }} anos → limite em {{ presc.prazoLimite|date('d/m/Y') }}.
+                        Prazo limite para ajuizamento: {{ presc.prazoLimite|date('d/m/Y') }}.
                     </div>
-                    {# Aviso OBRIGATÓRIO (§1.3): o sistema conta dias, não emite parecer. Sem esta linha a
-                       tela sugere uma certeza jurídica que o cálculo não tem — ele desconhece interrupção
-                       e suspensão do prazo. Não remova sem ler a nota da `CalculadoraPrescricao`. #}
-                    <div class="cob-presc-aviso small">
-                        <i class="bi bi-info-circle me-1"></i>Estimativa a partir do vencimento mais antigo em aberto.
-                        Não considera marcos de interrupção ou suspensão — confira antes de ajuizar.
-                    </div>
+                    {# A ressalva "Estimativa — não considera interrupção nem suspensão do prazo" ficava
+                       aqui e SAIU a pedido do dono (2026-07-27), depois de já ter sido encurtada para uma
+                       linha. O cálculo continua sendo o mesmo: `CalculadoraPrescricao` conta dias a partir
+                       do vencimento mais antigo e não conhece interrupção nem suspensão do prazo — a nota
+                       da classe explica. O que mudou é que a tela não diz mais isso; se um dia precisar
+                       voltar sem ocupar linha, o lugar é o tooltip da frase de destaque acima. #}
                     {# Mesmo mecanismo `data-abrir-aba` dos alertas do topo: o alvo mora dentro de um pane
                        oculto, e navegador nenhum rola até elemento invisível. #}
-                    <a href="#secao-divida" data-abrir-aba="divida" class="btn btn-sm btn-outline-secondary cob-presc-link">Ver competência</a>
+                    <a href="#secao-divida" data-abrir-aba="divida" class="cob-presc-link small">Ver competência</a>
                 </div>
                 {% endif %}
 
@@ -207,12 +214,14 @@
                 </div>
             </div>
         </div>
+        </div>{# /.cob-cab-painel #}
     </div>
 </section>
 
 <section class="content mt-3">
     <div class="container-fluid">
-        {# O hero do dinheiro (Ajuste 11) subiu para o cabeçalho como `.cob-resumo` (SPEC UX §6.1) e o
+        {# O hero do dinheiro (Ajuste 11) subiu para o cabeçalho (SPEC UX §6.1) — hoje são os quatro
+           cards do vencido; a linha fina `.cob-resumo` que os acompanhava saiu em 2026-07-27 — e o
            bloco de honorários virou a aba Honorários. `Editar configuração de encargos` continua sendo
            ação do contexto financeiro — agora dentro da aba Dívida (SPEC UX §14.1).
 
