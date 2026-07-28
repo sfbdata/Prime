@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Cobranca\DTO;
 
 use App\Cobranca\Entity\PessoaTelefone;
+use App\Cobranca\Enum\TipoTelefone;
 
 /**
  * Leitura de um item da lista de telefones da Pessoa (spec de qualificação §4/§7), para a ficha
@@ -18,6 +19,8 @@ final class PessoaTelefoneItemOutput
         public readonly string $numero,
         public readonly bool $atual,
         public readonly \DateTimeImmutable $criadoEm,
+        /** Nulo no telefone anterior a 2026-07-28: ninguém declarou o tipo, e o sistema não chuta. */
+        public readonly ?TipoTelefone $tipo = null,
     ) {
     }
 
@@ -28,6 +31,7 @@ final class PessoaTelefoneItemOutput
             numero: $telefone->getNumero(),
             atual: $telefone->isAtual(),
             criadoEm: $telefone->getCriadoEm(),
+            tipo: $telefone->getTipo(),
         );
     }
 }

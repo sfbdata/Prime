@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Twig;
 
+use App\Cobranca\Enum\TipoTelefone;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFilter;
 
@@ -21,7 +22,54 @@ final class CobrancaExtension extends AbstractExtension
             new TwigFilter('centavos', $this->centavos(...)),
             new TwigFilter('centavos_curto', $this->centavosCurto(...)),
             new TwigFilter('tempo_relativo', $this->tempoRelativo(...)),
+            new TwigFilter('telefone_br', $this->telefoneBr(...)),
+            new TwigFilter('telefone_url', $this->telefoneUrl(...)),
         ];
+    }
+
+    /**
+     * Número cru → máscara brasileira (2026-07-28): `(99) 99999-9999` com 11 dígitos, `(99) 9999-9999`
+     * com 10. Sem DDD, agrupa o que dá: `99999-9999` com 9 e `9999-9999` com 8.
+     *
+     * A regra é a CONTAGEM DE DÍGITOS, não o tipo do telefone: WhatsApp/fixo é capacidade de contato,
+     * e um fixo comercial com WhatsApp continua tendo 10 dígitos.
+     *
+     * Qualquer outra contagem volta EXATAMENTE como está — inclusive lixo de importação ("teste",
+     * 7 dígitos, 12 dígitos). Formatar o que não bate exigiria inventar ou descartar dígito, e o
+     * número errado formatado bonito é pior que o número errado à vista: ele deixa de parecer errado.
+     */
+    public function telefoneBr(?string $numero): string
+    {
+        $numero = trim((string) $numero);
+        $digitos = preg_replace('/\D/', '', $numero) ?? '';
+
+        return match (strlen($digitos)) {
+            11 => sprintf('(%s) %s-%s', substr($digitos, 0, 2), substr($digitos, 2, 5), substr($digitos, 7)),
+            10 => sprintf('(%s) %s-%s', substr($digitos, 0, 2), substr($digitos, 2, 4), substr($digitos, 6)),
+            9 => sprintf('%s-%s', substr($digitos, 0, 5), substr($digitos, 5)),
+            8 => sprintf('%s-%s', substr($digitos, 0, 4), substr($digitos, 4)),
+            default => $numero,
+        };
+    }
+
+    /**
+     * Para onde o número leva ao ser clicado. WhatsApp com número discável (10 ou 11 dígitos) abre a
+     * conversa em `wa.me`; todo o resto continua em `tel:`, como sempre foi.
+     *
+     * O `55` é fixo porque `wa.me` exige DDI e a base é brasileira — o mesmo pressuposto que a máscara
+     * de exibição já faz. Número torto marcado como WhatsApp (importação suja, 7 dígitos) NÃO vira
+     * `wa.me`: o link abriria uma conversa com ninguém. Cai em `tel:`, que ao menos disca o que existe.
+     */
+    public function telefoneUrl(?string $numero, ?TipoTelefone $tipo = null): string
+    {
+        $numero = trim((string) $numero);
+        $digitos = preg_replace('/\D/', '', $numero) ?? '';
+
+        if ($tipo === TipoTelefone::WhatsApp && \in_array(strlen($digitos), [10, 11], true)) {
+            return 'https://wa.me/55' . $digitos;
+        }
+
+        return 'tel:' . rawurlencode($numero);
     }
 
     /** Centavos inteiros → "R$ 1.234,56". */

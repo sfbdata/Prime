@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\DTO;
 
+use App\Cobranca\Enum\TipoTelefone;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -36,4 +37,12 @@ final class EditarTelefonePessoaInput
     #[Assert\NotBlank(message: 'Informe o telefone.', normalizer: 'trim')]
     #[Assert\Length(max: 20, maxMessage: 'O telefone pode ter no máximo {{ limit }} caracteres.')]
     public ?string $numero = null;
+
+    /**
+     * WhatsApp ou telefone comum (2026-07-28). Aqui o default é NULO, não `Fixo` como no adicionar: a
+     * edição parte do que já está gravado, e o formulário manda de volta o que o gestor viu marcado.
+     * Um default `Fixo` neste DTO reescreveria como "fixo" todo telefone legado editado por qualquer
+     * outro motivo (corrigir um dígito, por exemplo) — inventando o dado que a frente decidiu não inventar.
+     */
+    public ?TipoTelefone $tipo = null;
 }

@@ -717,6 +717,9 @@
 
 {% block javascripts %}
 {{ parent() }}
+{# Máscara de digitação do telefone (2026-07-28). `defer` porque ela só escuta o `document` —
+   não precisa rodar antes do HTML existir, e nada nesta página depende dela para carregar. #}
+<script src="{{ asset('js/telefone-mascara.js') }}" defer></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     /* Anti duplo-submit dos forms CRUS desta página (aba Responsáveis: os três botões de qualificação,

@@ -16,6 +16,7 @@ use App\Cobranca\DTO\MarcarEnderecoAtualInput;
 use App\Cobranca\DTO\MarcarTelefoneAtualInput;
 use App\Cobranca\DTO\VincularPessoaAObjetoInput;
 use App\Cobranca\Entity\Pessoa;
+use App\Cobranca\Enum\TipoTelefone;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaEmailNaoEncontradoException;
 use App\Cobranca\Exception\PessoaEnderecoNaoEncontradoException;
@@ -378,6 +379,9 @@ final class PessoaController extends AbstractController
         $input->pessoaId = $id;
         $input->telefoneId = $itemId;
         $input->numero = (string) $request->request->get('numero');
+        // `tryFrom` e não `from`: valor fora do enum (form adulterado, campo velho) vira NULO, que o
+        // UseCase lê como "não mexer no tipo" — em vez de estourar 500 numa correção de telefone.
+        $input->tipo = TipoTelefone::tryFrom((string) $request->request->get('tipo', ''));
 
         // Sem Form Type: campo único numa ação POR LINHA da lista. As regras do número seguem no DTO
         // (fonte única com a rota da aba), validadas aqui — ver `primeiroErroDeValidacao`.

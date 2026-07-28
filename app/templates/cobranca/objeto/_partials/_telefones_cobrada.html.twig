@@ -21,6 +21,11 @@
    - `ficha` (PessoaFichaOutput, não nulo) · `podeAbrirFicha` (capacidade `resources.cobranca.gerenciar`)
    - `formTelefoneCobrada` (FormView | null) · `objetoId` (int — dono da rota de adicionar)
 ─────────────────────────────────────────────────────────────────────────── #}
+{# As duas opções de tipo vêm do PRÓPRIO enum (`enum_cases`), não de uma lista repetida no template nem
+   de variável passada pelo controller: este partial é renderizado em três caminhos (o `show`, a resposta
+   AJAX de adicionar e a de editar/excluir), e qualquer um deles que esquecesse de passar a lista deixaria
+   o formulário sem opção nenhuma — em produção, calado (`strict_variables` só está ligado em `test`). #}
+{% set tiposDeTelefone = enum_cases('App\\Cobranca\\Enum\\TipoTelefone') %}
 <div class="cob-resp-telefones mt-3">
     <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>Telefones <span class="badge text-bg-secondary">{{ ficha.telefones|length }}</span></h6>
     {% if ficha.telefones|length > 0 %}
@@ -34,9 +39,22 @@
            também saiu do Twig (`py-2`) e foi para o CSS, junto do resto da moldura: com a caixa, o
            respiro horizontal e o vertical viraram a mesma decisão. #}
         <li class="cob-resp-telefone d-flex align-items-center gap-2 flex-wrap" data-telefone="{{ t.id }}">
-            <i class="bi {{ t.atual ? 'bi-telephone-fill text-success' : 'bi-telephone text-secondary' }}" aria-hidden="true"></i>
+            {# Ícone POR TIPO (2026-07-28): WhatsApp mostra o próprio símbolo; fixo — e o telefone legado,
+               que não tem tipo declarado — segue com o ícone de telefone de sempre. O verde continua
+               significando "é o número ATUAL", não o tipo: são duas informações diferentes no mesmo lugar.
+               O `-fill` existe só no `bi-telephone`; no `bi-whatsapp` quem distingue o atual é a cor. #}
+            {% set icone = t.tipo ? t.tipo.icone() : 'bi-telephone' %}
+            {% set icone = (icone == 'bi-telephone' and t.atual) ? 'bi-telephone-fill' : icone %}
+            <i class="bi {{ icone }} {{ t.atual ? 'text-success' : 'text-secondary' }}" aria-hidden="true"></i>
             <div class="flex-grow-1 min-w-0">
-                <a href="tel:{{ t.numero|e('url') }}">{{ t.numero }}</a>
+                {# WhatsApp discável abre a conversa; todo o resto disca. Quem decide é o filtro
+                   `telefone_url`, para a aba e a ficha nunca divergirem no destino do clique.
+                   O `target="_blank"` segue o destino REAL, não o tipo: número torto marcado como
+                   WhatsApp cai em `tel:`, e abrir uma discagem em aba nova não faz sentido nenhum. #}
+                {% set destino = t.numero|telefone_url(t.tipo) %}
+                <a href="{{ destino }}"
+                   {% if destino starts with 'https:' %}target="_blank" rel="noopener"{% endif %}
+                   title="{{ t.tipo ? t.tipo.label() : 'Telefone' }}">{{ t.numero|telefone_br }}</a>
                 <span class="small text-secondary">· cadastrado em {{ t.criadoEm|date('d/m/Y') }}</span>
                 {# O selo `Atual` é INFORMAÇÃO, não ação: mudou de lado junto com o hover das ações
                    (2026-07-28). No grupo de ações ele sumiria com os botões, e o "qual é o número bom"
@@ -84,8 +102,22 @@
                       data-form="editar-telefone" data-disable-on-submit="true"
                       class="d-flex align-items-center gap-2 flex-wrap mt-2">
                     <input type="hidden" name="_token" value="{{ csrf_token('editar_telefone_' ~ t.id) }}">
-                    <input type="text" name="numero" value="{{ t.numero }}" maxlength="20"
+                    <input type="text" name="numero" value="{{ t.numero|telefone_br }}" maxlength="20"
+                           inputmode="tel" data-mascara="telefone" placeholder="(00) 00000-0000"
                            class="form-control form-control-sm" aria-label="Número do telefone">
+                    {# Os dois tipos (2026-07-28). Nenhum vem marcado quando o telefone é LEGADO (tipo
+                       nulo): assim quem abriu a edição só para corrigir um dígito não sai declarando
+                       "isto é fixo" sem ter dito nada — o UseCase lê tipo ausente como "não mexer". #}
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Tipo do telefone">
+                        {% for opcao in tiposDeTelefone %}
+                        <input type="radio" class="btn-check" name="tipo" value="{{ opcao.value }}"
+                               id="tipoTel{{ t.id }}{{ opcao.value }}" autocomplete="off"
+                               {{ t.tipo == opcao ? 'checked' : '' }}>
+                        <label class="btn btn-outline-secondary" for="tipoTel{{ t.id }}{{ opcao.value }}">
+                            <i class="bi {{ opcao.icone() }} me-1"></i>{{ opcao.label() }}
+                        </label>
+                        {% endfor %}
+                    </div>
                     <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar</button>
                     <button type="button" class="btn btn-sm btn-outline-secondary"
                             data-bs-toggle="collapse" data-bs-target="#editarTelefone{{ t.id }}">Cancelar</button>
@@ -139,12 +171,29 @@
             action: path('cobranca_objeto_telefone_adicionar', {id: objetoId}),
             attr: {'data-disable-on-submit': 'true', 'data-form': 'adicionar-telefone', 'class': 'd-flex align-items-center gap-2 flex-wrap'},
         }) }}
+        {# `inputmode` e `data-mascara` são REPETIDOS aqui de propósito: como o comentário acima avisa,
+           `attr` no widget substitui o do Form Type inteiro — sem repetir, o campo desta tela perderia
+           a máscara de digitação que o da ficha tem. #}
         {{ form_widget(formTelefoneCobrada.numero, {attr: {
             'class': 'form-control form-control-sm',
             'maxlength': 20,
-            'placeholder': 'Novo telefone',
+            'inputmode': 'tel',
+            'data-mascara': 'telefone',
+            'placeholder': '(00) 00000-0000',
             'aria-label': 'Novo telefone',
         }}) }}
+        {# Os dois tipos, renderizados um a um para virarem `btn-check` do Bootstrap (o widget inteiro
+           sairia como rádio solto do tema de formulário). Aqui `Fixo` VEM MARCADO — é o default do
+           Input DTO e o comportamento de hoje: quem não tocar no campo cadastra o que já cadastrava. #}
+        <div class="btn-group btn-group-sm" role="group" aria-label="Tipo do telefone">
+            {% for opcao in formTelefoneCobrada.tipo %}
+            {% set caso = tiposDeTelefone|filter(c => c.value == opcao.vars.value)|first %}
+            {{ form_widget(opcao, {attr: {'class': 'btn-check', 'autocomplete': 'off'}}) }}
+            <label class="btn btn-outline-secondary" for="{{ opcao.vars.id }}">
+                <i class="bi {{ caso.icone() }} me-1"></i>{{ opcao.vars.label }}
+            </label>
+            {% endfor %}
+        </div>
         <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-plus-lg me-1"></i>Adicionar telefone</button>
         {{ form_end(formTelefoneCobrada) }}
     </div>

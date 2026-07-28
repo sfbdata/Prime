@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\Entity;
 
+use App\Cobranca\Enum\TipoTelefone;
 use App\Cobranca\Repository\PessoaTelefoneRepository;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
@@ -37,6 +38,13 @@ class PessoaTelefone implements TenantAware, Auditavel
 
     #[ORM\Column(length: 20)]
     private string $numero = '';
+
+    /**
+     * WhatsApp ou telefone comum (2026-07-28). NULLABLE: o dado anterior a esta frente não tem tipo e
+     * ninguém o declarou — ver a justificativa em {@see TipoTelefone}.
+     */
+    #[ORM\Column(length: 20, nullable: true, enumType: TipoTelefone::class)]
+    private ?TipoTelefone $tipo = null;
 
     #[ORM\Column(type: 'boolean')]
     private bool $atual = false;
@@ -99,6 +107,18 @@ class PessoaTelefone implements TenantAware, Auditavel
     public function setNumero(string $numero): self
     {
         $this->numero = $numero;
+
+        return $this;
+    }
+
+    public function getTipo(): ?TipoTelefone
+    {
+        return $this->tipo;
+    }
+
+    public function setTipo(?TipoTelefone $tipo): self
+    {
+        $this->tipo = $tipo;
 
         return $this;
     }

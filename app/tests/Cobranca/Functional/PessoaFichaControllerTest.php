@@ -9,6 +9,7 @@ use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Entity\PessoaEmail;
 use App\Cobranca\Entity\PessoaEndereco;
 use App\Cobranca\Entity\PessoaTelefone;
+use App\Cobranca\Enum\TipoTelefone;
 use App\Entity\Auth\User;
 use App\Entity\Tenant\Tenant;
 use App\Tests\Factory\Cobranca\PessoaFactory;
@@ -265,6 +266,78 @@ final class PessoaFichaControllerTest extends CobrancaWebTestCase
         self::assertCount(1, $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $pessoaId]), 'corrigir não cria linha nova');
         self::assertSame('(41) 91111-1111', $em->find(PessoaTelefone::class, $telefone->getId())?->getNumero());
         self::assertSame('(41) 91111-1111', $em->find(Pessoa::class, $pessoaId)?->getTelefone(), 'a sombra segue o atual corrigido');
+    }
+
+    // ─────────── Tipo do telefone na FICHA: WhatsApp × Telefone (2026-07-28) ───────────
+    //
+    // A mesma dupla de opções existe na aba Responsáveis do objeto (`AbaResponsaveisTest`). São duas
+    // telas sobre a MESMA lista: o que se prova aqui é que a ficha não ficou para trás.
+
+    #[TestDox('Tipo na ficha: adicionar como WhatsApp grava o tipo e a lista mostra o link da conversa')]
+    public function testAdicionarTelefoneComoWhatsAppNaFicha(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+        $pessoaId = (int) $pessoa->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/pessoas/' . $pessoaId);
+        $token = $this->tokenDoFormulario($crawler, 'adicionar_telefone');
+
+        $client->request('POST', '/cobrancas/pessoas/' . $pessoaId . '/telefones', [
+            'adicionar_telefone' => ['numero' => '(41) 99999-0000', 'tipo' => 'whatsapp', '_token' => $token],
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/pessoas/' . $pessoaId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $telefones = $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $pessoaId]);
+        self::assertSame(TipoTelefone::WhatsApp, $telefones[0]->getTipo());
+
+        $ficha = $client->request('GET', '/cobrancas/pessoas/' . $pessoaId);
+        self::assertStringContainsString('https://wa.me/5541999990000', $ficha->html());
+        self::assertStringContainsString('bi-whatsapp', $ficha->html());
+    }
+
+    #[TestDox('Tipo na ficha: corrigir só o número não apaga o tipo já declarado')]
+    public function testEditarTelefoneNaFichaPreservaOTipo(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+
+        $telefone = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 91111-111', true);
+        $telefone->setTipo(TipoTelefone::WhatsApp);
+        static::getContainer()->get(EntityManagerInterface::class)->flush();
+        $pessoaId = (int) $pessoa->getId();
+        $acaoUrl = '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $telefone->getId() . '/editar';
+
+        $crawler = $client->request('GET', '/cobrancas/pessoas/' . $pessoaId);
+        $token = (string) $crawler->filter('form[action="' . $acaoUrl . '"] input[name="_token"]')->attr('value');
+
+        // Sem `tipo` no POST — quem só conserta um dígito não pode apagar o que alguém declarou.
+        $client->request('POST', $acaoUrl, ['numero' => '(41) 91111-1111', '_token' => $token]);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $gravado = $em->find(PessoaTelefone::class, $telefone->getId());
+        self::assertSame('(41) 91111-1111', $gravado?->getNumero());
+        self::assertSame(TipoTelefone::WhatsApp, $gravado?->getTipo());
+    }
+
+    #[TestDox('Máscara na ficha: número gravado sem formatação aparece mascarado na lista')]
+    public function testNumeroSemFormatacaoApareceMascaradoNaFicha(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+        // Como veio da importação: 11 dígitos crus. É o caso que a máscara existe para resolver.
+        $this->criarTelefone($tenant, $pessoa, $usuario, '41999990000', true);
+
+        $ficha = $client->request('GET', '/cobrancas/pessoas/' . $pessoa->getId());
+
+        self::assertStringContainsString('(41) 99999-0000', $ficha->html(), 'a lista mostra o número mascarado');
     }
 
     #[TestDox('Corrigir telefone com CSRF inválido: número intacto e erro na tela')]

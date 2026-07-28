@@ -13,6 +13,7 @@ use App\Cobranca\Entity\PessoaTelefone;
 use App\Cobranca\Enum\EstadoCivil;
 use App\Cobranca\Enum\QualificacaoContato;
 use App\Cobranca\Enum\StatusCaso;
+use App\Cobranca\Enum\TipoTelefone;
 use App\Cobranca\Enum\TipoEventoHistorico;
 use App\Cobranca\Enum\TipoVinculo;
 use App\Entity\Auth\User;
@@ -256,9 +257,18 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         // Só o ATUAL avisa que a exclusão vai promover outro número.
         self::assertSame('1', $botaoExcluir->attr('data-atual'));
 
-        // A maquete pedia esses selos POR TELEFONE. O contato registrado não guarda a qual telefone se
-        // referia — exibi-los seria inventar o vínculo, e a §2.3 os proíbe até a frente que os crie.
-        self::assertStringNotContainsStringIgnoringCase('WhatsApp', $lista->text());
+        // A maquete pedia selos de CONTATO por telefone ("WhatsApp 21/07", "Não atende"). O contato
+        // registrado não guarda a qual telefone se referia — exibi-los seria inventar o vínculo, e a
+        // §2.3 os proíbe até a frente que o crie.
+        //
+        // 2026-07-28: a asserção deixou de ser "a palavra WhatsApp não aparece". Ela passou a aparecer
+        // legitimamente como TIPO do telefone — que é declarado por quem cadastra, não inferido de um
+        // evento de contato. O que continua proibido é o selo de contato: WhatsApp seguido de DATA.
+        self::assertDoesNotMatchRegularExpression(
+            '/whatsapp\s*\d{2}\/\d{2}/i',
+            $lista->text(),
+            'selo de contato por telefone (WhatsApp + data) exigiria um vínculo que o dado não tem',
+        );
         self::assertStringNotContainsStringIgnoringCase('Não atende', $lista->text());
     }
 
@@ -504,6 +514,189 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         // A coluna-sombra é o que as listagens leem sem N+1: sem ela, a correção do ATUAL ficaria
         // invisível justamente onde o telefone mais aparece.
         self::assertSame('(21) 3333-1111', $em->getRepository(Pessoa::class)->find($cobrada->getId())?->getTelefone());
+    }
+
+    // ─────────────── Tipo do telefone: WhatsApp × Telefone (2026-07-28) ───────────────
+
+    #[TestDox('tipo: adicionar como WhatsApp grava o tipo e a lista devolve o link do wa.me')]
+    public function testAdicionarTelefoneComoWhatsApp(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'adicionar_telefone');
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones',
+            ['adicionar_telefone' => ['numero' => '(21) 98888-7777', 'tipo' => 'whatsapp', '_token' => $token]],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($dados['ok']);
+
+        // O fragmento devolvido é o que substitui o bloco na tela: se o link e o ícone não vierem
+        // nele, o número aparece como fixo até a página ser recarregada.
+        self::assertStringContainsString('https://wa.me/5521988887777', $dados['html'], 'WhatsApp discável abre a conversa');
+        self::assertStringContainsString('bi-whatsapp', $dados['html'], 'e mostra o símbolo do WhatsApp');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $telefones = $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]);
+        self::assertSame(TipoTelefone::WhatsApp, $telefones[0]->getTipo());
+    }
+
+    #[TestDox('tipo: adicionar como Telefone mantém o ícone e o link de discagem de sempre')]
+    public function testAdicionarTelefoneComoFixo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'adicionar_telefone');
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones',
+            ['adicionar_telefone' => ['numero' => '(21) 3333-1111', 'tipo' => 'fixo', '_token' => $token]],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($dados['ok']);
+        self::assertStringNotContainsString('wa.me', $dados['html'], 'fixo não vira link de WhatsApp');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $telefones = $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]);
+        self::assertSame(TipoTelefone::Fixo, $telefones[0]->getTipo());
+    }
+
+    #[TestDox('tipo: o formulário de adicionar nasce com Telefone marcado — é o comportamento de hoje')]
+    public function testFormularioDeAdicionarNasceComFixoMarcado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $this->cobradaVinculada($tenant, $caso);
+
+        $aba = $this->abrirAba($client, $caso);
+        $marcado = $aba->filter('[data-form="adicionar-telefone"] input[name="adicionar_telefone[tipo]"][checked]');
+
+        self::assertCount(1, $marcado, 'exatamente uma das duas opções vem marcada');
+        self::assertSame('fixo', $marcado->attr('value'));
+    }
+
+    #[TestDox('tipo: corrigir um telefone pode marcá-lo como WhatsApp')]
+    public function testEditarTelefoneMarcaComoWhatsApp(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $telefone = $this->telefone($tenant, $cobrada, '(21) 98888-7777', atual: true);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeEdicao($crawler, (int) $telefone->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId(),
+            ['numero' => '(21) 98888-7777', 'tipo' => 'whatsapp', '_token' => $token],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $telefones = $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]);
+        self::assertSame(TipoTelefone::WhatsApp, $telefones[0]->getTipo());
+    }
+
+    #[TestDox('tipo: corrigir só o número NÃO apaga o tipo que já estava marcado')]
+    public function testEditarSemTipoPreservaOTipoGravado(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $telefone = $this->telefone($tenant, $cobrada, '(21) 98888-777', atual: true);
+        $telefone->setTipo(TipoTelefone::WhatsApp);
+        $this->salvar();
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeEdicao($crawler, (int) $telefone->getId());
+
+        // POST sem o campo `tipo` — é o que uma página aberta antes desta frente mandaria, e é o que o
+        // navegador manda se nenhum rádio estiver marcado. Apagar o tipo aqui seria perder dado que
+        // alguém declarou, num gesto que só queria consertar um dígito.
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId(),
+            ['numero' => '(21) 98888-7777', '_token' => $token],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful();
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $telefones = $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]);
+        self::assertSame('(21) 98888-7777', $telefones[0]->getNumero(), 'o número foi corrigido');
+        self::assertSame(TipoTelefone::WhatsApp, $telefones[0]->getTipo(), 'e o tipo continuou o mesmo');
+    }
+
+    #[TestDox('tipo: telefone legado (sem tipo) abre a edição com os dois rádios em branco')]
+    public function testEdicaoDeTelefoneLegadoNaoPreMarcaTipo(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $telefone = $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+
+        $aba = $this->abrirAba($client, $caso);
+        $radios = $aba->filter('#editarTelefone' . $telefone->getId() . ' input[name="tipo"]');
+
+        self::assertCount(2, $radios, 'as duas opções aparecem na edição');
+        self::assertCount(0, $radios->filter('[checked]'), 'nenhuma vem marcada: o legado não declarou tipo');
+    }
+
+    #[TestDox('tipo: número torto marcado como WhatsApp NÃO vira link de conversa')]
+    public function testWhatsAppComNumeroTortoNaoViraLink(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        // 7 dígitos: existe assim no banco hoje, vindo de importação. `wa.me` com isso abriria conversa
+        // com ninguém — o link tem de cair em `tel:`, que ao menos disca o que existe.
+        $telefone = $this->telefone($tenant, $cobrada, '6666666', atual: true);
+        $telefone->setTipo(TipoTelefone::WhatsApp);
+        $this->salvar();
+
+        $lista = $this->abrirAba($client, $caso)->filter('.cob-resp-telefones');
+
+        self::assertStringNotContainsString('wa.me', $lista->html());
+        self::assertStringContainsString('tel:6666666', $lista->html());
+        // O ícone continua sendo o do WhatsApp: o tipo foi declarado, quem não serve é o número.
+        self::assertStringContainsString('bi-whatsapp', $lista->html());
     }
 
     #[TestDox('§2.3: corrigir com número em branco é recusado e não muda nada')]

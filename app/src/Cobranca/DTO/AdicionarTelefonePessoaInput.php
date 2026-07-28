@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Cobranca\DTO;
 
+use App\Cobranca\Enum\TipoTelefone;
 use Symfony\Component\Validator\Constraints as Assert;
 
 /**
@@ -23,4 +24,11 @@ final class AdicionarTelefonePessoaInput
     #[Assert\NotBlank(message: 'Informe o telefone.', normalizer: 'trim')]
     #[Assert\Length(max: 20, maxMessage: 'O telefone pode ter no máximo {{ limit }} caracteres.')]
     public ?string $numero = null;
+
+    /**
+     * WhatsApp ou telefone comum (2026-07-28). NÃO é `NotNull`: o form já nasce com `Fixo` marcado, e
+     * exigir a escolha só transformaria "esqueci de clicar" em erro de validação para um campo que
+     * tem default óbvio. Nulo grava nulo — o mesmo estado do telefone legado, que não afirma nada.
+     */
+    public ?TipoTelefone $tipo = TipoTelefone::Fixo;
 }

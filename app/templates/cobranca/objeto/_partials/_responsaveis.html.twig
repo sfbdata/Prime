@@ -199,7 +199,7 @@
             <div class="jp-pessoa-contatos mt-3" data-faixa="qualificacao-restrita">
                 {% if cobradaAtual.cpf %}<span><i class="bi bi-person-vcard"></i><span class="jp-contato-label">CPF:</span> {{ cobradaAtual.cpf }}</span>{% endif %}
                 {% if cobradaAtual.cnpj %}<span><i class="bi bi-building"></i><span class="jp-contato-label">CNPJ:</span> {{ cobradaAtual.cnpj }}</span>{% endif %}
-                {% if cobradaAtual.telefone %}<a href="tel:{{ cobradaAtual.telefone|e('url') }}"><i class="bi bi-telephone"></i><span class="jp-contato-label">Telefone:</span> {{ cobradaAtual.telefone }}</a>{% endif %}
+                {% if cobradaAtual.telefone %}<a href="tel:{{ cobradaAtual.telefone|e('url') }}"><i class="bi bi-telephone"></i><span class="jp-contato-label">Telefone:</span> {{ cobradaAtual.telefone|telefone_br }}</a>{% endif %}
                 {% if cobradaAtual.email %}<a href="mailto:{{ cobradaAtual.email|e('url') }}"><i class="bi bi-envelope"></i><span class="jp-contato-label">E-mail:</span> {{ cobradaAtual.email }}</a>{% endif %}
             </div>
             {% endif %}
@@ -256,7 +256,7 @@
                             <div class="jp-pessoa-contatos mb-2">
                                 {% if v.cpf %}<span><i class="bi bi-person-vcard"></i><span class="jp-contato-label">CPF:</span> {{ v.cpf }}</span>{% endif %}
                                 {% if v.cnpj %}<span><i class="bi bi-building"></i><span class="jp-contato-label">CNPJ:</span> {{ v.cnpj }}</span>{% endif %}
-                                {% if v.telefone %}<a href="tel:{{ v.telefone|e('url') }}"><i class="bi bi-telephone"></i><span class="jp-contato-label">Telefone:</span> {{ v.telefone }}</a>{% endif %}
+                                {% if v.telefone %}<a href="tel:{{ v.telefone|e('url') }}"><i class="bi bi-telephone"></i><span class="jp-contato-label">Telefone:</span> {{ v.telefone|telefone_br }}</a>{% endif %}
                                 {# E-mail de terceiro vinculado só para quem gerencia: a lista de envolvidos que
                                    esta aba substituiu mostrava documento e telefone, nunca e-mail. Ampliar a
                                    exposição de PII para o perfil sem capacidade seria mudança de permissão —

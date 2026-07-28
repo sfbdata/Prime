@@ -14,6 +14,7 @@ use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\QualificacaoContato;
+use App\Cobranca\Enum\TipoTelefone;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
 use App\Cobranca\Exception\PessoaTelefoneNaoEncontradoException;
@@ -326,6 +327,9 @@ final class ObjetoController extends AbstractController
         $input->pessoaId = $pessoa->getId();
         $input->telefoneId = $itemId;
         $input->numero = (string) $request->request->get('numero');
+        // `tryFrom` e não `from`: valor fora do enum (form adulterado, campo velho) vira NULO, que o
+        // UseCase lê como "não mexer no tipo" — em vez de estourar 500 numa correção de telefone.
+        $input->tipo = TipoTelefone::tryFrom((string) $request->request->get('tipo', ''));
 
         // Sem Form Type: o campo é um só e a ação é POR LINHA da lista — um FormView por telefone
         // inflaria o fragmento devolvido no AJAX sem trazer nada que o CSRF por item já não dê. As

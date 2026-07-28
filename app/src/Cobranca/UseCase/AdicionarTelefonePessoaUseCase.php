@@ -49,6 +49,8 @@ final class AdicionarTelefonePessoaUseCase
         $telefone->setTenant($tenant);
         $telefone->setPessoa($pessoa);
         $telefone->setNumero(trim((string) $input->numero));
+        // WhatsApp ou fixo (2026-07-28). Nulo é aceito e significa "não declarado" — ver `TipoTelefone`.
+        $telefone->setTipo($input->tipo);
         $telefone->setAtual($primeiroDaLista);
         $telefone->setCriadoPor($criadoPor);
 

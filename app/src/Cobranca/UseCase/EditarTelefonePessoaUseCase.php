@@ -55,6 +55,14 @@ final class EditarTelefonePessoaUseCase
 
         $telefone->setNumero(trim((string) $input->numero));
 
+        // Tipo NULO no input significa "não mexer", e não "apagar o tipo" (2026-07-28). O telefone
+        // legado não tem tipo e o formulário dele nasce com os dois rádios em branco: quem só corrige
+        // um dígito não pode acabar declarando "isto é fixo" sem ter dito nada. E requisição antiga,
+        // sem o campo, deixa de apagar em silêncio um tipo que alguém já tinha marcado.
+        if ($input->tipo !== null) {
+            $telefone->setTipo($input->tipo);
+        }
+
         if ($telefone->isAtual()) {
             $pessoa->sincronizarTelefoneSombra($telefone->getNumero());
         }
