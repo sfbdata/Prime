@@ -54,13 +54,20 @@ class PessoaTelefoneRepository extends ServiceEntityRepository
         return $this->findOneBy(['id' => $id, 'tenant' => $tenant]);
     }
 
-    /** Lista os telefones da pessoa em ordem de linha do tempo (`criadoEm ASC`). */
+    /**
+     * Lista os telefones da pessoa em ordem de linha do tempo (`criadoEm ASC`).
+     *
+     * O desempate por `id` não é enfeite: dois números cadastrados no MESMO segundo (o caso comum de
+     * quem cadastra dois telefones seguidos, e o normal em teste) deixavam a ordem por conta do banco —
+     * a mesma lista podia sair em ordens diferentes entre duas leituras.
+     */
     public function listarPorPessoa(Pessoa $pessoa): array
     {
         return $this->createQueryBuilder('t')
             ->andWhere('t.pessoa = :pessoa')
             ->setParameter('pessoa', $pessoa)
             ->orderBy('t.criadoEm', 'ASC')
+            ->addOrderBy('t.id', 'ASC')
             ->getQuery()
             ->getResult();
     }

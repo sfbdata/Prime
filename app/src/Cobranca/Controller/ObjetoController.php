@@ -9,6 +9,7 @@ use App\Cobranca\DTO\CriarPessoaVinculadaInput;
 use App\Cobranca\DTO\EditarConfiguracaoObjetoInput;
 use App\Cobranca\DTO\EditarTelefonePessoaInput;
 use App\Cobranca\DTO\ExcluirTelefonePessoaInput;
+use App\Cobranca\DTO\MarcarTelefoneAtualInput;
 use App\Cobranca\DTO\PessoaFichaOutput;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Entity\Pessoa;
@@ -33,6 +34,7 @@ use App\Cobranca\UseCase\CriarPessoaVinculadaAoObjetoUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoObjetoUseCase;
 use App\Cobranca\UseCase\EditarTelefonePessoaUseCase;
 use App\Cobranca\UseCase\ExcluirTelefonePessoaUseCase;
+use App\Cobranca\UseCase\MarcarTelefoneAtualUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
 use App\Cobranca\UseCase\MontarFichaPessoaUseCase;
 use App\Entity\Tenant\Tenant;
@@ -84,6 +86,9 @@ final class ObjetoController extends AbstractController
         // por-item, que validam o Input DTO sem passar por Form Type (ver `primeiroErroDeValidacao`).
         private readonly EditarTelefonePessoaUseCase $editarTelefonePessoa,
         private readonly ExcluirTelefonePessoaUseCase $excluirTelefonePessoa,
+        // Trocar qual número é o ATUAL sem sair da aba (2026-07-28). O UseCase é o mesmo que a ficha
+        // da pessoa usa — aqui muda só o HTTP (fragmento em AJAX no lugar do redirect para a ficha).
+        private readonly MarcarTelefoneAtualUseCase $marcarTelefoneAtual,
         private readonly ValidatorInterface $validator,
     ) {
     }
@@ -233,11 +238,18 @@ final class ObjetoController extends AbstractController
                 $this->criarPessoaVinculada->executar($input, $id, $tenant, $this->usuarioLogado());
                 $this->addFlash('success', 'Pessoa cadastrada e vinculada ao objeto.');
             } catch (ObjetoNaoEncontradoException | PessoaNaoEncontradaException $e) {
+                // ⚠️ Daqui para baixo o EntityManager está FECHADO. O UseCase envolve as cinco gravações
+                // num `wrapInTransaction`, e o Doctrine fecha o EM ao desfazer (`EntityManager::close()`
+                // antes do `rollBack()`). Flash e redirect não tocam o banco, então este caminho funciona
+                // — mas qualquer leitura ou gravação acrescentada abaixo estoura `EntityManagerClosed`.
+                // Precisando de banco aqui, o caminho é `resetManager()` antes, de propósito e explícito.
                 $this->addFlash('danger', $e->getMessage());
             }
         } else {
             // B5: modal de ação estática (action fixo no Twig) — sem URL a repor. Reidratado inline no show.
-            $this->tratarFormInvalido($request, $form, $id, 'novaPessoa', 'modalNovaPessoa', 'criar_pessoa_vinculada');
+            // O modal é o ÚNICO de pessoa desde 2026-07-28 (`#modalFichaPessoa`); ele reabre em modo
+            // CADASTRO, que é o estado renderizado pelo Twig e o default do auto-open (sem gatilho).
+            $this->tratarFormInvalido($request, $form, $id, 'novaPessoa', 'modalFichaPessoa', 'criar_pessoa_vinculada');
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $id]);
@@ -352,6 +364,57 @@ final class ObjetoController extends AbstractController
         $this->addFlash('success', 'Telefone corrigido.');
 
         return $this->respostaTelefone($request, $id, true, 'Telefone corrigido.', $this->montarFichaPessoa->executar($pessoa));
+    }
+
+    /**
+     * Troca qual telefone da pessoa COBRADA é o ATUAL, sem sair da aba (2026-07-28).
+     *
+     * Era a ÚNICA ação da lista que ainda ia pela rota da ficha (`cobranca_pessoa_telefone_atual`) —
+     * e aquela rota termina sempre em `cobranca_pessoa_show`, então quem trocava o número durante a
+     * ligação perdia a página do objeto. Aqui vale o mesmo par de caras das outras três: fragmento
+     * pronto em AJAX, PRG para `?aba=responsaveis` sem JavaScript. A rota da ficha segue intacta,
+     * servindo a página da pessoa.
+     *
+     * O CSRF é o MESMO nome de intenção por item (`marcar_telefone_atual_<id>`) que a ficha usa: o
+     * token é por telefone justamente para que um token genérico não aceite trocar o alvo da ação.
+     */
+    #[Route('/{id}/responsaveis/telefones/{itemId}/atual', name: 'cobranca_objeto_telefone_atual', methods: ['POST'], requirements: ['id' => '\d+', 'itemId' => '\d+'])]
+    public function marcarTelefoneAtualDaCobrada(int $id, int $itemId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $pessoa = $this->cobradaDoObjetoOuFalha($id, $tenant);
+        if ($pessoa === null) {
+            return $this->respostaTelefone($request, $id, false, 'Este objeto não tem pessoa cobrada.', null);
+        }
+
+        if (!$this->isCsrfTokenValid('marcar_telefone_atual_' . $itemId, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->respostaTelefone($request, $id, false, 'Token de segurança inválido.', null);
+        }
+
+        $input = new MarcarTelefoneAtualInput();
+        $input->pessoaId = $pessoa->getId();
+        $input->telefoneId = $itemId;
+
+        try {
+            $telefone = $this->marcarTelefoneAtual->executar($input, $tenant);
+        } catch (PessoaNaoEncontradaException | PessoaTelefoneNaoEncontradoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->respostaTelefone($request, $id, false, $e->getMessage(), null);
+        }
+
+        // A mensagem DIZ qual número passou a valer: a lista se reordena (o atual sobe para o topo) e
+        // sem o número escrito o gestor teria de conferir na tela o que acabou de pedir.
+        $mensagem = $telefone->getNumero() . ' passou a ser o telefone atual.';
+        $this->addFlash('success', $mensagem);
+
+        return $this->respostaTelefone($request, $id, true, $mensagem, $this->montarFichaPessoa->executar($pessoa));
     }
 
     /**

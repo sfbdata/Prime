@@ -584,29 +584,141 @@
 </div>
 {% endif %}
 
-{# Nova pessoa (cadastra + vincula ao objeto — gatilho no card da pessoa) #}
+{# ── Modal ÚNICO de pessoa: CADASTRAR e EDITAR na mesma casca ────────────────────────────────────────
+   Spec `docs/specs/cobranca-modal-unico-pessoa.md`. Até 2026-07-28 as duas ações não se pareciam:
+   cadastrar era um modal de 6 campos soltos e editar mandava o gestor para outra página. Agora as duas
+   abrem AQUI, com as mesmas três abas — Qualificação · Endereços · Telefones e E-mails.
+
+   Os dois modos moram no mesmo elemento porque o que se compartilha é a CASCA (título, rodapé, tamanho,
+   ordem das abas) — dois modais irmãos divergiriam no primeiro ajuste de largura. O que muda entre eles
+   é o corpo, e ele é diferente de verdade:
+
+   - CADASTRO: conteúdo estático, um form só, um POST. A pessoa ainda não existe, então não há lista a
+     exibir nem "marcar como atual" a oferecer — cada aba pede UM item, que nasce sendo o atual dela.
+   - EDIÇÃO: corpo carregado por AJAX de `cobranca_pessoa_ficha_modal`, que devolve os quatro blocos da
+     ficha (o mesmo partial que a página da pessoa usa). Cada bloco grava sozinho, como sempre gravou.
+
+   O gate é o `formNovaPessoa`: ele só existe com a capacidade `resources.cobranca.gerenciar`, que é
+   exatamente a mesma que a rota do fragmento exige e a mesma do `podeAbrirFicha` da aba. Sem ela não há
+   modal nenhum — e os gatilhos da aba também não são renderizados. #}
 {% if formNovaPessoa %}
-<div class="modal fade" id="modalNovaPessoa" tabindex="-1" aria-labelledby="tituloNovaPessoa" aria-hidden="true">
-    <div class="modal-dialog">
+<div class="modal fade" id="modalFichaPessoa" tabindex="-1" aria-labelledby="tituloFichaPessoa" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            {{ form_start(formNovaPessoa, {action: path('cobranca_objeto_pessoa_criar', {id: objeto.objetoId})}) }}
             <div class="modal-header">
-                <h5 class="modal-title" id="tituloNovaPessoa"><i class="bi bi-person-plus me-1"></i>Nova pessoa</h5>
+                <h5 class="modal-title" id="tituloFichaPessoa">
+                    <i class="bi bi-person-vcard me-1"></i><span data-titulo="ficha-pessoa">Nova pessoa</span>
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
             </div>
-            <div class="modal-body">
-                {{ form_row(formNovaPessoa.nome) }}
-                {{ form_row(formNovaPessoa.tipoVinculo) }}
-                {{ form_row(formNovaPessoa.cpf) }}
-                {{ form_row(formNovaPessoa.cnpj) }}
-                {{ form_row(formNovaPessoa.telefone) }}
-                {{ form_row(formNovaPessoa.email) }}
+
+            {# ── Modo CADASTRO ─────────────────────────────────────────────────────────────────────── #}
+            <div data-modo="cadastro">
+                {{ form_start(formNovaPessoa, {
+                    action: path('cobranca_objeto_pessoa_criar', {id: objeto.objetoId}),
+                    attr: {'data-form': 'nova-pessoa'},
+                }) }}
+                <div class="modal-body">
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="abaNovaQualif" data-bs-toggle="tab" data-bs-target="#paneNovaQualif"
+                                    type="button" role="tab" aria-controls="paneNovaQualif" aria-selected="true" data-aba="qualificacao">
+                                <i class="bi bi-person-badge me-1"></i>Qualificação
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="abaNovaEnd" data-bs-toggle="tab" data-bs-target="#paneNovaEnd"
+                                    type="button" role="tab" aria-controls="paneNovaEnd" aria-selected="false" data-aba="enderecos">
+                                <i class="bi bi-geo-alt me-1"></i>Endereços
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="abaNovaCont" data-bs-toggle="tab" data-bs-target="#paneNovaCont"
+                                    type="button" role="tab" aria-controls="paneNovaCont" aria-selected="false" data-aba="contatos">
+                                <i class="bi bi-telephone me-1"></i>Telefones e E-mails
+                            </button>
+                        </li>
+                    </ul>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="paneNovaQualif" role="tabpanel" aria-labelledby="abaNovaQualif" tabindex="0">
+                            {{ form_row(formNovaPessoa.nome) }}
+                            {# O tipo de vínculo é o único campo que NÃO é da pessoa: é a ligação dela com este
+                               objeto. Fica aqui, junto do nome, por ser obrigatório e por não haver aba onde
+                               ele caiba melhor — na edição ele simplesmente não existe (o vínculo já foi
+                               criado, e trocá-lo é outra ação, no accordion da aba). #}
+                            {{ form_row(formNovaPessoa.tipoVinculo) }}
+                            <div class="row g-2">
+                                <div class="col-md-6">{{ form_row(formNovaPessoa.cpf) }}</div>
+                                <div class="col-md-6">{{ form_row(formNovaPessoa.cnpj) }}</div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-6">{{ form_row(formNovaPessoa.dataNascimento) }}</div>
+                                <div class="col-md-6">{{ form_row(formNovaPessoa.estadoCivil) }}</div>
+                            </div>
+                            {{ form_row(formNovaPessoa.profissao) }}
+                            <div class="row g-2">
+                                <div class="col-md-6">{{ form_row(formNovaPessoa.rg) }}</div>
+                                <div class="col-md-6">{{ form_row(formNovaPessoa.orgaoEmissorRg) }}</div>
+                            </div>
+                            {{ form_row(formNovaPessoa.observacao) }}
+                        </div>
+
+                        <div class="tab-pane fade" id="paneNovaEnd" role="tabpanel" aria-labelledby="abaNovaEnd" tabindex="0">
+                            {# Um endereço, opcional COMO BLOCO (`validarEnderecoCompleto` no Input): ou vem
+                               vazio, ou vem inteiro. O aviso diz isso antes de o gestor descobrir pelo erro. #}
+                            <p class="text-secondary small">Opcional. Se preencher, informe o endereço completo — ele entra como o endereço atual da pessoa.</p>
+                            <div class="row g-2">
+                                <div class="col-md-8">{{ form_row(formNovaPessoa.enderecoLogradouro) }}</div>
+                                <div class="col-md-4">{{ form_row(formNovaPessoa.enderecoNumero) }}</div>
+                                <div class="col-md-6">{{ form_row(formNovaPessoa.enderecoComplemento) }}</div>
+                                <div class="col-md-6">{{ form_row(formNovaPessoa.enderecoBairro) }}</div>
+                                <div class="col-md-5">{{ form_row(formNovaPessoa.enderecoCidade) }}</div>
+                                <div class="col-md-3">{{ form_row(formNovaPessoa.enderecoUf) }}</div>
+                                <div class="col-md-4">{{ form_row(formNovaPessoa.enderecoCep) }}</div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="paneNovaCont" role="tabpanel" aria-labelledby="abaNovaCont" tabindex="0">
+                            <p class="text-secondary small">Opcionais. Cada um entra como o contato atual da pessoa; os próximos são adicionados depois, pela edição.</p>
+                            {{ form_row(formNovaPessoa.telefone) }}
+                            {# O tipo sai um a um para virar `btn-check` do Bootstrap, como na lista da aba —
+                               o widget inteiro sairia como rádio solto do tema de formulário. #}
+                            <div class="btn-group btn-group-sm mb-3" role="group" aria-label="Tipo do telefone">
+                                {% for opcao in formNovaPessoa.tipoTelefone %}
+                                {% set caso = enum_cases('App\\Cobranca\\Enum\\TipoTelefone')|filter(c => c.value == opcao.vars.value)|first %}
+                                {{ form_widget(opcao, {attr: {'class': 'btn-check', 'autocomplete': 'off'}}) }}
+                                <label class="btn btn-outline-secondary" for="{{ opcao.vars.id }}">
+                                    <i class="bi {{ caso.icone() }} me-1"></i>{{ opcao.vars.label }}
+                                </label>
+                                {% endfor %}
+                            </div>
+                            {{ form_row(formNovaPessoa.email) }}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Cadastrar e vincular</button>
+                </div>
+                {{ form_end(formNovaPessoa) }}
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="submit" class="btn jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Cadastrar e vincular</button>
+
+            {# ── Modo EDIÇÃO ───────────────────────────────────────────────────────────────────────── #}
+            <div data-modo="edicao" hidden>
+                {# O corpo chega por AJAX. O texto de espera é o que o gestor vê enquanto a ficha carrega —
+                   e é o que fica na tela se a rede falhar, junto do aviso de erro no rodapé. #}
+                <div class="modal-body" data-alvo="ficha-pessoa">
+                    <p class="text-secondary mb-0"><i class="bi bi-hourglass-split me-1"></i>Carregando a ficha…</p>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    {# Aviso de cada gravação (o modal não lê flash: a página não recarrega entre elas). #}
+                    <span class="small" data-aviso="ficha" role="status" aria-live="polite"></span>
+                    {# Não há "Salvar" aqui de propósito: cada bloco da ficha grava sozinho, na hora — é a
+                       regra que preserva o histórico das listas (spec de qualificação §6). Um botão de
+                       salvar no rodapé prometeria uma gravação em lote que não existe. #}
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fechar</button>
+                </div>
             </div>
-            {{ form_end(formNovaPessoa) }}
         </div>
     </div>
 </div>
@@ -858,6 +970,165 @@ document.addEventListener('DOMContentLoaded', function () {
         var campo = painel.querySelector('input[type="text"]');
         if (campo) { campo.focus(); }
     });
+
+    /* ── Modal único de pessoa: cadastrar e editar (2026-07-28) ─────────────────────────────────────
+       Spec `docs/specs/cobranca-modal-unico-pessoa.md`. Um elemento, dois modos. Quem decide qual é o
+       GATILHO que abriu (`data-modo` no botão), lido em `show.bs.modal` — assim os dois caminhos passam
+       pelo mesmo lugar e nenhum deles precisa saber do outro.
+
+       Sem gatilho (`relatedTarget` nulo) o modo é `cadastro`: é o caso do auto-open do B5, que reabre o
+       modal quando a última criação falhou na validação — e é também o estado que o Twig renderiza. */
+    var modalFicha = document.getElementById('modalFichaPessoa');
+    if (modalFicha) {
+        var alvoFicha = modalFicha.querySelector('[data-alvo="ficha-pessoa"]');
+        var avisoFicha = modalFicha.querySelector('[data-aviso="ficha"]');
+        var tituloFicha = modalFicha.querySelector('[data-titulo="ficha-pessoa"]');
+        var blocoCadastro = modalFicha.querySelector('[data-modo="cadastro"]');
+        var blocoEdicao = modalFicha.querySelector('[data-modo="edicao"]');
+        /* Houve gravação nesta abertura? A aba por baixo (nome, telefones, faixa de qualificação e o
+           badge `Qualificação incompleta`) é montada no servidor e não sabe do que aconteceu aqui —
+           então ela é recarregada ao FECHAR, e só se algo mudou de fato. */
+        var fichaAlterada = false;
+        var espera = '<p class="text-secondary mb-0"><i class="bi bi-hourglass-split me-1"></i>Carregando a ficha…</p>';
+
+        var avisarFicha = function (texto, ok) {
+            if (!avisoFicha) { return; }
+            /* textContent: a mensagem vem do servidor, mas aqui ela é TEXTO — nunca marcação. */
+            avisoFicha.textContent = texto || '';
+            avisoFicha.className = 'small ' + (ok ? 'text-success' : 'text-danger');
+        };
+
+        modalFicha.addEventListener('show.bs.modal', function (evento) {
+            var gatilho = evento.relatedTarget;
+            var modo = (gatilho && gatilho.dataset.modo) || 'cadastro';
+            fichaAlterada = false;
+            avisarFicha('', true);
+
+            if (modo !== 'edicao') {
+                if (blocoCadastro) { blocoCadastro.hidden = false; }
+                if (blocoEdicao) { blocoEdicao.hidden = true; }
+                if (tituloFicha) { tituloFicha.textContent = 'Nova pessoa'; }
+
+                return;
+            }
+
+            if (blocoCadastro) { blocoCadastro.hidden = true; }
+            if (blocoEdicao) { blocoEdicao.hidden = false; }
+            /* textContent: nome é dado do usuário. */
+            if (tituloFicha) { tituloFicha.textContent = gatilho.dataset.pessoaNome || 'Ficha da pessoa'; }
+            if (!alvoFicha) { return; }
+            alvoFicha.innerHTML = espera;
+
+            /* A URL vem PRONTA do Twig (`data-url`), não montada aqui: rota é assunto do roteador, e
+               concatenar caminho em JavaScript é como uma renomeação de rota vira 404 silencioso. */
+            var url = gatilho.dataset.url;
+            if (!url || !window.fetch) {
+                avisarFicha('Não foi possível carregar a ficha.', false);
+
+                return;
+            }
+
+            fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            }).then(function (resposta) {
+                if (!resposta.ok) { throw new Error('HTTP ' + resposta.status); }
+
+                return resposta.text();
+            }).then(function (html) {
+                alvoFicha.innerHTML = html;
+            }).catch(function () {
+                alvoFicha.innerHTML = '<p class="text-danger mb-0">Não foi possível carregar a ficha desta pessoa.</p>';
+            });
+        });
+
+        /* Recarrega a página SE houve gravação — a aba por baixo ficou desatualizada. Sem gravação
+           nenhuma (abriu, olhou e fechou), recarregar seria só piscar a tela à toa.
+
+           Sem recarregar, o corpo é LIMPO: o fragmento carrega a ficha inteira (telefones, endereços,
+           e-mail, estado civil) e ela ficaria pendurada no DOM, escondida, até a próxima navegação —
+           inclusive por baixo do modal reaberto em modo cadastro. */
+        modalFicha.addEventListener('hidden.bs.modal', function () {
+            if (fichaAlterada) {
+                window.location.reload();
+
+                return;
+            }
+            if (alvoFicha) { alvoFicha.innerHTML = espera; }
+        });
+
+        /* Cada bloco da ficha grava sozinho, sem fechar o modal: o POST vai por fetch para a MESMA rota
+           de sempre e a resposta traz o fragmento inteiro das abas, já atualizado. Delegado no modal
+           porque o conteúdo é substituído a cada gravação — um listener preso ao form morreria no
+           primeiro envio.
+
+           `defaultPrevented` é o guard do confirm() de excluir telefone (a ficha usa `onsubmit` nativo):
+           sem ele, cancelar a confirmação ainda mandaria o POST daqui. */
+        modalFicha.addEventListener('submit', function (evento) {
+            var form = evento.target;
+            if (evento.defaultPrevented) { return; }
+            if (!form || !form.closest || !form.closest('[data-alvo="ficha-pessoa"]')) { return; }
+            if (!window.fetch || !window.FormData) { return; }
+
+            evento.preventDefault();
+            var botao = form.querySelector('button[type="submit"]');
+            if (botao) { botao.disabled = true; }
+
+            var respondeu = false;
+            fetch(form.getAttribute('action'), {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin',
+            }).then(function (resposta) {
+                respondeu = true;
+                if (!resposta.ok) { throw new Error('HTTP ' + resposta.status); }
+
+                return resposta.json();
+            }).then(function (dados) {
+                if (!dados.ok || !dados.html || !alvoFicha) {
+                    /* RECUSA: o fragmento NÃO é trocado. Ele é remontado do que está no banco, então
+                       repô-lo apagaria o que o gestor acabou de digitar — sete campos de endereço a
+                       perder por um CEP errado. Fica tudo na tela e o rodapé diz o que corrigir. */
+                    if (botao) { botao.disabled = false; }
+                    avisarFicha(dados.mensagem, false);
+
+                    return;
+                }
+
+                alvoFicha.innerHTML = dados.html;
+                fichaAlterada = true;
+                avisarFicha(dados.mensagem, true);
+            }).catch(function () {
+                if (botao) { botao.disabled = false; }
+                if (respondeu) {
+                    /* O servidor RESPONDEU e a falha veio depois (HTTP ruim, sessão expirada devolvendo
+                       o HTML do login, JSON quebrado). Reenviar aqui repetiria um POST que pode já ter
+                       gravado — telefone ou endereço em duplicata. Avisa e deixa a decisão com quem
+                       está na tela. */
+                    avisarFicha('Não foi possível confirmar a gravação. Recarregue a página para conferir.', false);
+
+                    return;
+                }
+                /* Não houve resposta nenhuma (rede fora): aí não há o que duplicar. Em vez de engolir o
+                   que foi digitado, o form vai do jeito tradicional — a mesma rota responde com o PRG
+                   de sempre. `form.submit()` não dispara o evento `submit`, então não reentra aqui. */
+                form.submit();
+            });
+        });
+
+        /* Campo obrigatório numa ABA ESCONDIDA trava o envio sem dizer por quê: o navegador tenta focar
+           um campo que não está na tela e a validação nativa não tem onde desenhar a mensagem. Ao
+           primeiro `invalid`, abrimos a aba dona do campo. Captura (`true`) porque o evento `invalid`
+           não borbulha. */
+        modalFicha.addEventListener('invalid', function (evento) {
+            if (typeof bootstrap === 'undefined') { return; }
+            var pane = evento.target.closest ? evento.target.closest('.tab-pane') : null;
+            if (!pane || pane.classList.contains('active')) { return; }
+            var gatilhoAba = modalFicha.querySelector('[data-bs-target="#' + pane.id + '"]');
+            if (gatilhoAba) { bootstrap.Tab.getOrCreateInstance(gatilhoAba).show(); }
+        }, true);
+    }
 
     if (typeof bootstrap === 'undefined') { return; }
     document.querySelectorAll('.cobrancas-page [data-bs-toggle="tooltip"]').forEach(function (el) {

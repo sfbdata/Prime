@@ -36,6 +36,13 @@ final class CriarPessoaUseCase
         $pessoa->setEmail($this->normalizar($input->email));
         $pessoa->setTelefone($this->normalizar($input->telefone));
         $pessoa->setObservacao($this->normalizar($input->observacao));
+        // Qualificação (2026-07-28): os cinco campos que antes só a EDIÇÃO da ficha preenchia. Todos
+        // opcionais — nulo entra nulo, que é o estado de quem cadastra só o nome, como sempre foi.
+        $pessoa->setDataNascimento($input->dataNascimento);
+        $pessoa->setEstadoCivil($input->estadoCivil);
+        $pessoa->setProfissao($this->normalizar($input->profissao));
+        $pessoa->setRg($this->normalizar($input->rg));
+        $pessoa->setOrgaoEmissorRg($this->normalizar($input->orgaoEmissorRg));
         $pessoa->setCriadoPor($criadoPor);
 
         $this->pessoaRepository->salvar($pessoa, true);

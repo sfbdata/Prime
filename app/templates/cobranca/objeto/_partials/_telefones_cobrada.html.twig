@@ -12,9 +12,12 @@
    `[data-selo="telefone-atual"]`, `[data-acao=...]` e `[data-form="adicionar-telefone"]`).
 
    2026-07-28: EDITAR e EXCLUIR saíram do limbo (eram botões desabilitados, por falta de rota) e
-   agora agem. As três rotas do bloco — adicionar, editar, excluir — respondem igual: fragmento
-   pronto em AJAX, redirect para `?aba=responsaveis` sem JavaScript. Editar é INLINE na linha;
-   excluir passa pelo modal compartilhado do `show`, que mostra qual número vai embora.
+   agora agem. As QUATRO rotas do bloco — adicionar, editar, marcar como atual, excluir — respondem
+   igual: fragmento pronto em AJAX, redirect para `?aba=responsaveis` sem JavaScript. Editar é INLINE
+   na linha; excluir passa pelo modal compartilhado do `show`, que mostra qual número vai embora.
+
+   Ainda em 2026-07-28: o telefone ATUAL passou a encabeçar a lista e "Marcar como atual" ganhou rota
+   no objeto — antes era a única ação daqui que ainda desviava para a ficha da pessoa.
 
    Contexto (passado EXPLICITAMENTE no include — `strict_variables` só está ligado em `test`, então
    uma variável renomeada sumiria em silêncio na produção):
@@ -26,13 +29,20 @@
    AJAX de adicionar e a de editar/excluir), e qualquer um deles que esquecesse de passar a lista deixaria
    o formulário sem opção nenhuma — em produção, calado (`strict_variables` só está ligado em `test`). #}
 {% set tiposDeTelefone = enum_cases('App\\Cobranca\\Enum\\TipoTelefone') %}
+{# O ATUAL PRIMEIRO (2026-07-28, pedido do dono). A ficha entrega a lista como linha do tempo
+   (`criadoEm ASC`) e continua assim na página da pessoa, onde o histórico é o assunto. AQUI o assunto
+   é ligar: o número que vale tem de ser o primeiro que se lê, sem varrer a lista atrás do selo `Atual`.
+   Quem não é o atual mantém a ordem cronológica entre si — só o topo muda.
+   A reordenação é de EXIBIÇÃO e mora no partial de propósito: os três caminhos que o renderizam (o
+   `show` e as respostas AJAX) herdam a mesma ordem, e a ficha da pessoa não é afetada. #}
+{% set telefonesEmOrdem = ficha.telefones|filter(t => t.atual)|merge(ficha.telefones|filter(t => not t.atual)) %}
 <div class="cob-resp-telefones mt-3">
     <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>Telefones <span class="badge text-bg-secondary">{{ ficha.telefones|length }}</span></h6>
     {% if ficha.telefones|length > 0 %}
     {# A lista encolhe até o conteúdo (`width: fit-content` no CSS): esticada na largura toda ela
        deixava um vão morto enorme à direita de números de 8-9 dígitos. #}
     <ul class="list-unstyled mb-0 cob-resp-telefone-lista">
-        {% for t in ficha.telefones %}
+        {% for t in telefonesEmOrdem %}
         {# 2026-07-28: cada número virou um cartão com borda e sombra (referência aprovada pelo dono).
            Com isso caiu o `border-top` que separava a segunda linha em diante — a borda do próprio
            cartão já é o divisor, e manter os dois desenharia uma linha dupla entre vizinhos. O padding
@@ -64,8 +74,12 @@
             {# Ações: fora do fluxo e transparentes até o hover/foco da linha (§CSS `.cob-resp-telefone-acoes`).
                Fora do fluxo porque, reservando espaço, a linha voltaria a ser tão larga quanto antes. #}
             <div class="cob-resp-telefone-acoes d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
+                {# `data-form` terminado em `-telefone`: é o que faz o handler do `show` mandar este POST
+                   por fetch e trocar o bloco no lugar, como já fazia com adicionar/corrigir/excluir. A
+                   rota é a do OBJETO (a da ficha levava o gestor para a página da pessoa). #}
                 {% if not t.atual and podeAbrirFicha %}
-                <form method="POST" action="{{ path('cobranca_pessoa_telefone_atual', {id: ficha.id, itemId: t.id}) }}" data-disable-on-submit="true">
+                <form method="POST" action="{{ path('cobranca_objeto_telefone_atual', {id: objetoId, itemId: t.id}) }}"
+                      data-form="marcar-telefone" data-disable-on-submit="true">
                     <input type="hidden" name="_token" value="{{ csrf_token('marcar_telefone_atual_' ~ t.id) }}">
                     <button type="submit" class="btn btn-sm btn-outline-secondary" data-acao="marcar-telefone-atual">Marcar como atual</button>
                 </form>
@@ -134,9 +148,8 @@
     {# Mini-form inline de adicionar (§2.3). A rota é a do OBJETO (`cobranca_objeto_telefone_adicionar`),
        não a da ficha: quem adiciona um número durante a ligação continua na aba, com a lista trocada
        na hora pelo JS. Sem JavaScript a mesma rota responde com redirect para `?aba=responsaveis` —
-       nos dois caminhos o desvio para `cobranca_pessoa_show` acabou (2026-07-28).
-       "Marcar como atual", acima, AINDA leva para a ficha: é a rota da pessoa, e mudá-la não estava no
-       pedido.
+       nos dois caminhos o desvio para `cobranca_pessoa_show` acabou (2026-07-28) — inclusive para o
+       "Marcar como atual" acima, que foi o último a sair da rota da pessoa.
 
        Nasce FECHADO: o `+` LOGO ABAIXO do último telefone é quem abre — é ali que a lista termina e o
        número novo vai aparecer, então é onde a mão já está. E VOLTA a fechar depois de cadastrar: o
@@ -174,7 +187,13 @@
         {# `inputmode` e `data-mascara` são REPETIDOS aqui de propósito: como o comentário acima avisa,
            `attr` no widget substitui o do Form Type inteiro — sem repetir, o campo desta tela perderia
            a máscara de digitação que o da ficha tem. #}
-        {{ form_widget(formTelefoneCobrada.numero, {attr: {
+        {# O `id` é FORÇADO com prefixo próprio (achado da revisão de 2026-07-28). Este bloco e o modal
+           `#modalFichaPessoa` renderizam o MESMO `AdicionarTelefoneType` na MESMA página, e o Symfony
+           deriva o id do nome do form — os dois sairiam como `adicionar_telefone_*`. Com id repetido, o
+           `for` do label do modal aponta para o campo DAQUI: clicar em "WhatsApp" lá dentro marcava o
+           rádio desta aba, e o do modal nunca mudava. O nome do campo (o que vai no POST) não muda —
+           só o id —, então a rota continua lendo exatamente o que lia. #}
+        {{ form_widget(formTelefoneCobrada.numero, {id: 'cobRespTelefoneNumero', attr: {
             'class': 'form-control form-control-sm',
             'maxlength': 20,
             'inputmode': 'tel',
@@ -188,13 +207,20 @@
         <div class="btn-group btn-group-sm" role="group" aria-label="Tipo do telefone">
             {% for opcao in formTelefoneCobrada.tipo %}
             {% set caso = tiposDeTelefone|filter(c => c.value == opcao.vars.value)|first %}
-            {{ form_widget(opcao, {attr: {'class': 'btn-check', 'autocomplete': 'off'}}) }}
-            <label class="btn btn-outline-secondary" for="{{ opcao.vars.id }}">
+            {# Mesmo motivo do campo acima: id próprio, senão o `for` do label do modal casa com o rádio
+               desta aba. É o `for`/`id` que faz o `btn-check` do Bootstrap funcionar — sem par exclusivo
+               o clique marca a caixa errada, em silêncio. #}
+            {% set idOpcao = 'cobRespTelefoneTipo' ~ opcao.vars.value %}
+            {{ form_widget(opcao, {id: idOpcao, attr: {'class': 'btn-check', 'autocomplete': 'off'}}) }}
+            <label class="btn btn-outline-secondary" for="{{ idOpcao }}">
                 <i class="bi {{ caso.icone() }} me-1"></i>{{ opcao.vars.label }}
             </label>
             {% endfor %}
         </div>
         <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-plus-lg me-1"></i>Adicionar telefone</button>
+        {# O token sai explícito só para levar id próprio — mesmo motivo dos campos acima. Renderizado
+           aqui, o `form_end` não o repete (campo já renderizado não volta no `form_rest`). #}
+        {{ form_widget(formTelefoneCobrada._token, {id: 'cobRespTelefoneToken'}) }}
         {{ form_end(formTelefoneCobrada) }}
     </div>
     {% endif %}

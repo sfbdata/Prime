@@ -1,0 +1,62 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Ficha da pessoa em ABAS — corpo do modal único da aba Responsáveis
+   (`docs/specs/cobranca-modal-unico-pessoa.md`). Três abas, na ordem que o dono pediu:
+   Qualificação · Endereços · Telefones e E-mails (os dois últimos juntos, de propósito).
+
+   NÃO tem marcação própria dos blocos: inclui os QUATRO partials que a página da ficha já usa. É o que
+   mantém as duas telas com a mesma lista, o mesmo selo `Atual` e as mesmas ações — o histórico e a
+   regra "um atual por lista" continuam morando num lugar só.
+
+   É renderizado em DOIS caminhos: pela rota `cobranca_pessoa_ficha_modal` (abertura do modal) e pela
+   resposta AJAX de cada mutação da ficha (`PessoaController::respostaFicha`), que o JS troca no lugar.
+   Por isso ele não pode depender de nada do `show` do objeto: o contexto é só o que
+   `PessoaController::contextoDaFicha` entrega — `pessoa` (PessoaFichaOutput), `formQualificacao`,
+   `formEndereco`, `formTelefone`, `formEmail`.
+
+   O `id` das abas leva o id da pessoa: dois modais nunca convivem na tela, mas o fragmento é trocado
+   por JS dentro de uma página que TEM outros collapses/abas — colisão de id aqui derrubaria o alvo do
+   Bootstrap sem erro nenhum no console.
+─────────────────────────────────────────────────────────────────────────── #}
+<div class="cob-ficha-abas" data-ficha-pessoa="{{ pessoa.id }}">
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="abaFichaQualif{{ pessoa.id }}" data-bs-toggle="tab"
+                    data-bs-target="#paneFichaQualif{{ pessoa.id }}" type="button" role="tab"
+                    aria-controls="paneFichaQualif{{ pessoa.id }}" aria-selected="true" data-aba="qualificacao">
+                <i class="bi bi-person-badge me-1"></i>Qualificação
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="abaFichaEnd{{ pessoa.id }}" data-bs-toggle="tab"
+                    data-bs-target="#paneFichaEnd{{ pessoa.id }}" type="button" role="tab"
+                    aria-controls="paneFichaEnd{{ pessoa.id }}" aria-selected="false" data-aba="enderecos">
+                <i class="bi bi-geo-alt me-1"></i>Endereços
+                <span class="badge text-bg-secondary ms-1">{{ pessoa.enderecos|length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="abaFichaCont{{ pessoa.id }}" data-bs-toggle="tab"
+                    data-bs-target="#paneFichaCont{{ pessoa.id }}" type="button" role="tab"
+                    aria-controls="paneFichaCont{{ pessoa.id }}" aria-selected="false" data-aba="contatos">
+                <i class="bi bi-telephone me-1"></i>Telefones e E-mails
+                <span class="badge text-bg-secondary ms-1">{{ pessoa.telefones|length + pessoa.emails|length }}</span>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="paneFichaQualif{{ pessoa.id }}" role="tabpanel"
+             aria-labelledby="abaFichaQualif{{ pessoa.id }}" tabindex="0">
+            {{ include('cobranca/pessoa/_partials/_qualificacao.html.twig') }}
+        </div>
+        <div class="tab-pane fade" id="paneFichaEnd{{ pessoa.id }}" role="tabpanel"
+             aria-labelledby="abaFichaEnd{{ pessoa.id }}" tabindex="0">
+            {{ include('cobranca/pessoa/_partials/_lista_enderecos.html.twig') }}
+        </div>
+        <div class="tab-pane fade" id="paneFichaCont{{ pessoa.id }}" role="tabpanel"
+             aria-labelledby="abaFichaCont{{ pessoa.id }}" tabindex="0">
+            {{ include('cobranca/pessoa/_partials/_lista_telefones.html.twig') }}
+            {{ include('cobranca/pessoa/_partials/_lista_emails.html.twig') }}
+        </div>
+    </div>
+</div>

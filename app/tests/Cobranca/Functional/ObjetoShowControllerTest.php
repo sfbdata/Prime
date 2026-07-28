@@ -209,7 +209,7 @@ final class ObjetoShowControllerTest extends CobrancaWebTestCase
         // Já o CADASTRO de envolvidos não depende do caso estar aberto — os UseCases de vínculo não olham
         // o encerramento, e a UI não pode ser mais restritiva que o servidor (era assim antes do Ajuste 10).
         self::assertGreaterThan(0, $crawler->filter('[data-bs-target="#modalVincularPessoaObjeto"]')->count());
-        self::assertGreaterThan(0, $crawler->filter('[data-bs-target="#modalNovaPessoa"]')->count());
+        self::assertGreaterThan(0, $crawler->filter('[data-bs-target="#modalFichaPessoa"]')->count());
     }
 
     #[TestDox('Ajuste 10: sem movimentação financeira o extrato não oferece registrar pagamento')]

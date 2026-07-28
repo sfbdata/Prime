@@ -20,12 +20,21 @@
    - (editar/excluir telefone ENTRARAM em 2026-07-28, com rota própria — ver `_telefones_cobrada`.)
 
    Nenhuma regra nova: o accordion é a mesma `objeto.vinculos` de antes e cada ação abre o MESMO modal
-   (#modalVincularPessoaObjeto, #modalNovaPessoa, #modalAlterarPessoa, #modalEncerrarVinculo).
+   (#modalVincularPessoaObjeto, #modalFichaPessoa, #modalAlterarPessoa, #modalEncerrarVinculo).
+
+   2026-07-28 (spec `docs/specs/cobranca-modal-unico-pessoa.md`): CADASTRAR e EDITAR pessoa passaram a
+   ser a mesma tela — o modal `#modalFichaPessoa`, com as abas Qualificação · Endereços · Telefones e
+   E-mails. Com isso os três gatilhos de edição desta aba (o "Editar" da cobrada, o de cada vinculado no
+   accordion e o badge `Qualificação incompleta`) deixaram de LINKAR para `cobranca_pessoa_show`: viraram
+   botões que abrem o modal, carregando o fragmento da ficha por AJAX. A rota da página continua de pé,
+   alcançável por URL direta — o que saiu foram os links daqui. Decisão do dono, com a consequência
+   aceita: sem JavaScript esta aba não tem caminho para editar.
 
    2026-07-28: ADICIONAR telefone deixou de usar a rota da ficha (que sempre terminava em
    `cobranca_pessoa_show`) e passou a ter rota própria no objeto — o bloco de telefones virou o partial
    `_telefones_cobrada.html.twig`, que a rota devolve pronto para o JS trocar sem recarregar a página.
-   "Marcar como atual" CONTINUA na rota da pessoa, e continua levando para a ficha.
+   "Marcar como atual" seguiu o mesmo caminho na sequência: rota no objeto, resposta trocada no lugar,
+   e o telefone atual passou a encabeçar a lista.
 
    Contexto herdado do show: `objeto`, `caso`, `podeGerenciar`, os forms dos modais,
    `formTelefoneCobrada` e `qualificacoesDoPainel`.
@@ -61,11 +70,18 @@
                    Sem a capacidade a rota da ficha nega, então aí ele vira aviso sem link em vez de um
                    clique que cai em "sem acesso". #}
                 {% if podeAbrirFicha %}
-                <a href="{{ path('cobranca_pessoa_show', {id: ficha.id}) }}" class="badge text-bg-warning text-decoration-none"
-                   data-badge="qualificacao-incompleta"
-                   data-bs-toggle="tooltip" title="Falta CPF/CNPJ, estado civil ou endereço — clique para completar a ficha.">
+                {# 2026-07-28: abre o MODAL em vez de levar para a página da ficha (spec
+                   `cobranca-modal-unico-pessoa.md`). `title` e não tooltip do Bootstrap: `data-bs-toggle`
+                   aqui já é do modal, e os dois disputariam o mesmo atributo. #}
+                <button type="button" class="badge text-bg-warning border-0"
+                        data-badge="qualificacao-incompleta"
+                        data-bs-toggle="modal" data-bs-target="#modalFichaPessoa"
+                        data-modo="edicao"
+                        data-url="{{ path('cobranca_pessoa_ficha_modal', {id: ficha.id}) }}"
+                        data-pessoa-nome="{{ (cobradaAtual ? cobradaAtual.nome : '')|e('html_attr') }}"
+                        title="Falta CPF/CNPJ, estado civil ou endereço — clique para completar a ficha.">
                     <i class="bi bi-exclamation-triangle me-1"></i>Qualificação incompleta
-                </a>
+                </button>
                 {% else %}
                 <span class="badge text-bg-warning" data-badge="qualificacao-incompleta">
                     <i class="bi bi-exclamation-triangle me-1"></i>Qualificação incompleta
@@ -83,10 +99,17 @@
                 <i class="bi bi-arrow-left-right me-1"></i>Trocar responsável
             </button>
             {% endif %}
+            {# 2026-07-28: "Editar" abre o modal único (mesma casca do "Cadastrar nova pessoa"), em vez de
+               tirar o gestor da cobrança que ele está trabalhando. A URL do fragmento vai PRONTA no
+               `data-url` — o JS não monta rota. #}
             {% if cobradaAtual and podeAbrirFicha %}
-            <a href="{{ path('cobranca_pessoa_show', {id: cobradaAtual.pessoaId}) }}" class="btn btn-sm btn-outline-secondary" data-acao="editar-ficha">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="editar-ficha"
+                    data-bs-toggle="modal" data-bs-target="#modalFichaPessoa"
+                    data-modo="edicao"
+                    data-url="{{ path('cobranca_pessoa_ficha_modal', {id: cobradaAtual.pessoaId}) }}"
+                    data-pessoa-nome="{{ cobradaAtual.nome|e('html_attr') }}">
                 <i class="bi bi-pencil me-1"></i>Editar
-            </a>
+            </button>
             {% endif %}
             {# O card que esta aba substituiu oferecia encerrar vínculo para TODOS os vínculos ativos,
                inclusive o da cobrada atual — e o `EncerrarVinculoUseCase` aceita esse caso (só recusa
@@ -132,7 +155,8 @@
 
             {# ── §2.3 Telefones, da FICHA da pessoa ──────────────────────────────────────────────────
                `objeto.fichaCobrada.telefones` (linha do tempo `criadoEm ASC`): "adicionar" nunca apaga o
-               anterior, e exatamente um é o `atual`. `cobradaAtual.telefone` é a COLUNA-SOMBRA de
+               anterior, e exatamente um é o `atual`. Quem reordena para pôr o atual no topo é o partial,
+               na exibição — a ficha da pessoa continua lendo a mesma lista em ordem cronológica. `cobradaAtual.telefone` é a COLUNA-SOMBRA de
                `Pessoa`, escrita pelo bridge `Pessoa::setTelefone()` junto com a linha `atual` da lista —
                não é derivada dela na leitura. Mostrar só a sombra esconde todos os outros números, que é
                justamente o que o dono pediu para acabar.
@@ -228,7 +252,8 @@
                         </button></li>
                         {% endif %}
                         {% if formNovaPessoa %}
-                        <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalNovaPessoa">
+                        {# Mesmo modal do "Editar", em modo cadastro (spec `cobranca-modal-unico-pessoa.md`). #}
+                        <li><button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#modalFichaPessoa" data-modo="cadastro">
                             <i class="bi bi-person-plus me-2"></i>Cadastrar nova pessoa
                         </button></li>
                         {% endif %}
@@ -280,10 +305,16 @@
                                     <i class="bi bi-arrow-left-right me-1"></i>Definir como atual
                                 </button>
                                 {% endif %}
+                                {# O MESMO modal do "Editar" da cobrada, com outra pessoa — é o ponto do
+                                   pedido: editar é uma coisa só, venha de onde vier. #}
                                 {% if podeAbrirFicha %}
-                                <a href="{{ path('cobranca_pessoa_show', {id: v.pessoaId}) }}" class="btn btn-sm btn-outline-secondary">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-acao="editar-ficha"
+                                        data-bs-toggle="modal" data-bs-target="#modalFichaPessoa"
+                                        data-modo="edicao"
+                                        data-url="{{ path('cobranca_pessoa_ficha_modal', {id: v.pessoaId}) }}"
+                                        data-pessoa-nome="{{ v.nome|e('html_attr') }}">
                                     <i class="bi bi-pencil me-1"></i>Editar
-                                </a>
+                                </button>
                                 {% endif %}
                                 {% if v.ativo and formEncerrarVinculo %}
                                 <button type="button" class="btn btn-sm btn-outline-danger"

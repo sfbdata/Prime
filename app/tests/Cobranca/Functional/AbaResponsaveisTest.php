@@ -83,10 +83,15 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         $badge = $this->abrirAba($client, $caso)->filter('[data-badge="qualificacao-incompleta"]');
 
         self::assertCount(1, $badge, 'sem CPF/CNPJ a qualificação está incompleta');
+        // 2026-07-28: o badge deixou de linkar para a página da ficha e passou a ABRIR O MODAL, que é
+        // onde se corrige agora. O destino continua sendo verificado — sem ele o badge seria só uma
+        // reclamação — só que o destino virou o fragmento que o modal carrega.
+        self::assertSame('#modalFichaPessoa', $badge->attr('data-bs-target'));
+        self::assertSame('edicao', $badge->attr('data-modo'));
         self::assertSame(
-            '/cobrancas/pessoas/' . $cobrada->getId(),
-            $badge->attr('href'),
-            'o badge tem de LEVAR À FICHA — é lá que se corrige; sem link ele seria só uma reclamação',
+            '/cobrancas/pessoas/' . $cobrada->getId() . '/ficha-modal',
+            $badge->attr('data-url'),
+            'o badge tem de LEVAR À FICHA — é lá que se corrige',
         );
     }
 
@@ -197,17 +202,54 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
 
         self::assertMatchesRegularExpression('/cadastrado em \d{2}\/\d{2}\/\d{4}/', $linhas->first()->text(), 'cada linha diz de quando é o número');
 
-        // "Marcar como atual" nos outros dois, apontando para a rota que já existe, com o token da
-        // intenção por ITEM (`marcar_telefone_atual_<id>`) — token genérico aceitaria trocar o alvo.
+        // "Marcar como atual" nos outros dois, apontando para a rota do OBJETO (desde 2026-07-28 — a
+        // da pessoa jogava o gestor na ficha), com o token da intenção por ITEM
+        // (`marcar_telefone_atual_<id>`) — token genérico aceitaria trocar o alvo.
         $botoes = $lista->filter('[data-acao="marcar-telefone-atual"]');
         self::assertCount(2, $botoes, 'os dois não-atuais oferecem a troca');
         $form = $botoes->first()->closest('form');
         self::assertNotNull($form);
         self::assertMatchesRegularExpression(
-            '#^/cobrancas/pessoas/' . $cobrada->getId() . '/telefones/\d+/atual$#',
+            '#^/cobrancas/objetos/' . $caso->getObjeto()->getId() . '/responsaveis/telefones/\d+/atual$#',
             (string) $form->attr('action'),
         );
         self::assertNotSame('', (string) $form->filter('input[name="_token"]')->attr('value'), 'sem token a rota recusa');
+        // O sufixo `-telefone` é o que faz o handler do `show` mandar este POST por fetch e trocar o
+        // bloco no lugar. Sem ele o form volta a recarregar a página inteira — que é o que o dono
+        // pediu para acabar. É o único elo entre este form e o JS, e ele some sem barulho.
+        self::assertSame('marcar-telefone', $form->attr('data-form'));
+    }
+
+    #[TestDox('§2.3: o telefone ATUAL encabeça a lista, e o resto segue a linha do tempo')]
+    public function testTelefoneAtualEncabecaALista(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+
+        // O atual é o do MEIO na ordem de cadastro: assim nem "o primeiro" nem "o último" da linha do
+        // tempo acertariam por acaso — só a reordenação por `atual` põe este número no topo.
+        $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: false);
+        $atual = $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: true);
+        $this->telefone($tenant, $cobrada, '(21) 3333-3333', atual: false);
+
+        $linhas = $this->abrirAba($client, $caso)->filter('.cob-resp-telefones .cob-resp-telefone');
+
+        self::assertCount(3, $linhas);
+        self::assertSame(
+            (string) $atual->getId(),
+            (string) $linhas->first()->attr('data-telefone'),
+            'o número que vale tem de ser o primeiro que se lê — ninguém deveria varrer a lista atrás do selo',
+        );
+        self::assertCount(1, $linhas->first()->filter('[data-selo="telefone-atual"]'));
+        // Os outros dois continuam presentes (reordenar não pode esconder ninguém). A ordem ENTRE eles
+        // não é asserida: `listarPorPessoa` ordena só por `criadoEm`, e no teste os três nascem no
+        // mesmo segundo — asserir isso aqui seria um teste instável por empate de timestamp.
+        // ⚠️ `$linhas->text()` devolve só o texto do PRIMEIRO nó; a lista inteira sai por `each`.
+        $textoDaLista = implode(' ', $linhas->each(static fn (Crawler $linha): string => $linha->text()));
+        self::assertStringContainsString('(21) 3333-1111', $textoDaLista);
+        self::assertStringContainsString('(21) 3333-3333', $textoDaLista);
     }
 
     #[TestDox('§2.3: editar/excluir AGEM (não são mais botões mortos) e os selos WhatsApp/Não atende NÃO existem')]
@@ -869,6 +911,170 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         self::assertNull($em->getRepository(Pessoa::class)->find($cobrada->getId())?->getTelefone());
     }
 
+    #[TestDox('§2.3: marcar como atual por AJAX troca o selo e devolve a lista já reordenada')]
+    public function testMarcarTelefoneAtualPorAjaxTrocaSemSairDaPagina(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $antigo = $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+        $novo = $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: false);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeMarcarAtual($crawler, (int) $novo->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $novo->getId() . '/atual',
+            ['_token' => $token],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        // Nada de redirect: a resposta é o fragmento pronto, que o JS troca no lugar. Um 302 aqui
+        // significaria que a página inteira recarregou — o defeito que esta rota veio corrigir.
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertTrue($dados['ok']);
+        self::assertSame('(21) 99999-2222 passou a ser o telefone atual.', $dados['mensagem']);
+
+        $fragmento = new Crawler((string) $dados['html']);
+        $linhas = $fragmento->filter('.cob-resp-telefone');
+        self::assertCount(2, $linhas, 'trocar o atual não some com o número anterior');
+        self::assertSame((string) $novo->getId(), (string) $linhas->first()->attr('data-telefone'), 'o novo atual sobe para o topo');
+        self::assertCount(1, $fragmento->filter('[data-selo="telefone-atual"]'), 'exatamente um selo Atual');
+        self::assertCount(
+            1,
+            $fragmento->filter('[data-telefone="' . $novo->getId() . '"] [data-selo="telefone-atual"]'),
+            'o selo tem de estar na linha que acabou de ser marcada',
+        );
+        self::assertCount(
+            1,
+            $fragmento->filter('[data-telefone="' . $antigo->getId() . '"] [data-acao="marcar-telefone-atual"]'),
+            'o que perdeu o posto passa a oferecer a troca de volta',
+        );
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertTrue($em->getRepository(PessoaTelefone::class)->find($novo->getId())?->isAtual());
+        self::assertFalse($em->getRepository(PessoaTelefone::class)->find($antigo->getId())?->isAtual());
+        // A coluna-sombra da Pessoa acompanha: é ela que as listagens leem.
+        self::assertSame('(21) 99999-2222', $em->getRepository(Pessoa::class)->find($cobrada->getId())?->getTelefone());
+    }
+
+    #[TestDox('§2.3: sem AJAX, marcar como atual volta para a PRÓPRIA aba (e não para a ficha)')]
+    public function testMarcarTelefoneAtualSemAjaxVoltaParaAAba(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+        $novo = $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: false);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeMarcarAtual($crawler, (int) $novo->getId());
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $novo->getId() . '/atual', [
+            '_token' => $token,
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=responsaveis');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertTrue($em->getRepository(PessoaTelefone::class)->find($novo->getId())?->isAtual(), 'sem JavaScript a troca também grava');
+    }
+
+    #[TestDox('§2.3: marcar como atual com token de OUTRO telefone é recusado (CSRF por item)')]
+    public function testMarcarTelefoneAtualComTokenDeOutroItemNaoGrava(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+        $alvo = $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: false);
+        $outro = $this->telefone($tenant, $cobrada, '(21) 3333-3333', atual: false);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $tokenDoOutro = $this->tokenDeMarcarAtual($crawler, (int) $outro->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $alvo->getId() . '/atual',
+            ['_token' => $tokenDoOutro],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertFalse($dados['ok']);
+        self::assertSame('Token de segurança inválido.', $dados['mensagem']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertFalse($em->getRepository(PessoaTelefone::class)->find($alvo->getId())?->isAtual(), 'o token do vizinho não move o alvo');
+    }
+
+    #[TestDox('§2.3: marcar como atual em objeto de OUTRO escritório responde 404 (anti-IDOR)')]
+    public function testMarcarTelefoneAtualEmObjetoDeOutroTenant(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        $outroTenant = $this->tenantAvulso();
+        [, $casoAlheio] = $this->semearGrafo($outroTenant);
+        $cobradaAlheia = $casoAlheio->getPessoaCobradaAtual();
+        self::assertNotNull($cobradaAlheia);
+        $this->telefone($outroTenant, $cobradaAlheia, '(21) 3333-1111', atual: true);
+        $alvoAlheio = $this->telefone($outroTenant, $cobradaAlheia, '(21) 99999-2222', atual: false);
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $casoAlheio->getObjeto()->getId() . '/responsaveis/telefones/' . $alvoAlheio->getId() . '/atual',
+            ['_token' => 'token-deliberadamente-podre'],
+        );
+        self::assertResponseStatusCodeSame(404);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        // Mesmo motivo do teste de corrigir/excluir: com o filtro `tenant` ligado a consulta devolveria
+        // null e a prova seria sobre o filtro, não sobre o dado.
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        self::assertFalse($em->getRepository(PessoaTelefone::class)->find($alvoAlheio->getId())?->isAtual(), 'o telefone do vizinho continua como estava');
+    }
+
+    #[TestDox('§2.3: sem a capacidade de gerenciar, marcar como atual é barrado no servidor')]
+    public function testMarcarTelefoneAtualExigeCapacidadeDeGerenciar(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+        $alvo = $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: false);
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $caso->getObjeto()->getId() . '/responsaveis/telefones/' . $alvo->getId() . '/atual',
+            ['_token' => 'token-qualquer'],
+        );
+        // Destino EXPLÍCITO: `semAcesso()` vai para a homepage — um redirect sem alvo aceitaria também
+        // a recusa por CSRF (`?aba=responsaveis`) e deixaria o gate sem prova.
+        self::assertResponseRedirects('/');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertFalse($em->getRepository(PessoaTelefone::class)->find($alvo->getId())?->isAtual());
+    }
+
     #[TestDox('§2.3: sem AJAX, corrigir e excluir voltam para a PRÓPRIA aba')]
     public function testEditarEExcluirSemAjaxVoltamParaAAba(): void
     {
@@ -1052,7 +1258,7 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         self::assertCount(1, $itens->filter('.js-definir-cobrada'), 'Definir como atual preservado');
         self::assertCount(1, $itens->filter('[data-bs-target="#modalEncerrarVinculo"]'), 'Encerrar vínculo preservado');
         self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalVincularPessoaObjeto"]', 'Adicionar pessoa: vincular existente');
-        self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalNovaPessoa"]', 'Adicionar pessoa: cadastrar nova');
+        self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalFichaPessoa"]', 'Adicionar pessoa: cadastrar nova');
     }
 
     #[TestDox('§2.6: o rodapé volta para a carteira e avança para a próxima unidade; na última, desabilitado')]
@@ -1461,6 +1667,14 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
     private function tokenDeEdicao(Crawler $crawler, int $telefoneId): string
     {
         return (string) $crawler->filter('#editarTelefone' . $telefoneId . ' input[name="_token"]')->attr('value');
+    }
+
+    /** O de marcar como atual mora no `<input>` do form daquela linha (rota do objeto, desde 2026-07-28). */
+    private function tokenDeMarcarAtual(Crawler $crawler, int $telefoneId): string
+    {
+        return (string) $crawler
+            ->filter('form[action$="/telefones/' . $telefoneId . '/atual"] input[name="_token"]')
+            ->attr('value');
     }
 
     /** O de excluir mora no botão que abre o modal compartilhado, não num `<input>`. */

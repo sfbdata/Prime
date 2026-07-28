@@ -49,6 +49,8 @@ use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormInterface;
+use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -173,7 +175,42 @@ final class PessoaController extends AbstractController
         }
 
         $pessoa = $this->resolverPessoa($id, $tenant);
-        $ficha = $this->montarFichaPessoa->executar($pessoa);
+
+        return $this->render('cobranca/pessoa/show.html.twig', $this->contextoDaFicha($pessoa));
+    }
+
+    /**
+     * O MESMO conteúdo da ficha, em fragmento, para o modal único da aba Responsáveis
+     * (`docs/specs/cobranca-modal-unico-pessoa.md`): as três abas com os quatro blocos que a página já
+     * mostra. Rota separada — e não um parâmetro do `show` — porque o que ela devolve não é uma página:
+     * não estende o `base.html.twig` e não serve para navegação.
+     *
+     * Mesma capacidade e mesma resolução tenant-safe do `show`: o modal não vê nada além do que a
+     * página protegida já mostrava.
+     */
+    #[Route('/pessoas/{id}/ficha-modal', name: 'cobranca_pessoa_ficha_modal', methods: ['GET'], requirements: ['id' => '\d+'])]
+    public function fichaModal(int $id): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $pessoa = $this->resolverPessoa($id, $tenant);
+
+        return $this->render('cobranca/pessoa/_partials/_ficha_abas.html.twig', $this->contextoDaFicha($pessoa));
+    }
+
+    /**
+     * Os quatro blocos da ficha (qualificação + as três listas) prontos para renderizar. Existe para a
+     * PÁGINA e o FRAGMENTO do modal montarem exatamente o mesmo contexto — dois montadores paralelos
+     * divergiriam no dia em que um campo entrasse só de um lado.
+     *
+     * @return array{pessoa: \App\Cobranca\DTO\PessoaFichaOutput, formQualificacao: FormView, formEndereco: FormView, formTelefone: FormView, formEmail: FormView}
+     */
+    private function contextoDaFicha(Pessoa $pessoa): array
+    {
+        $id = (int) $pessoa->getId();
 
         $qualificacaoInput = new EditarQualificacaoPessoaInput();
         $qualificacaoInput->pessoaId = $id;
@@ -196,12 +233,45 @@ final class PessoaController extends AbstractController
         $emailInput = new AdicionarEmailPessoaInput();
         $emailInput->pessoaId = $id;
 
-        return $this->render('cobranca/pessoa/show.html.twig', [
-            'pessoa' => $ficha,
+        return [
+            'pessoa' => $this->montarFichaPessoa->executar($pessoa),
             'formQualificacao' => $this->createForm(EditarQualificacaoPessoaType::class, $qualificacaoInput)->createView(),
             'formEndereco' => $this->createForm(AdicionarEnderecoType::class, $enderecoInput)->createView(),
             'formTelefone' => $this->createForm(AdicionarTelefoneType::class, $telefoneInput)->createView(),
             'formEmail' => $this->createForm(AdicionarEmailType::class, $emailInput)->createView(),
+        ];
+    }
+
+    /**
+     * Resposta das mutações da ficha, com DOIS caras (o mesmo par que as rotas de telefone do objeto já
+     * usam): em AJAX — o modal — devolve o fragmento das abas já atualizado, para o JS trocar no lugar
+     * sem fechar o que o gestor estava fazendo; fora dele, o PRG de sempre para a página da ficha, que
+     * continua funcionando exatamente como funcionava.
+     *
+     * A ficha é remontada DEPOIS da gravação: é ela que traz o item novo, na mesma ordem e com o mesmo
+     * selo `Atual` que o `show` mostraria.
+     *
+     * O FLASH mora aqui, e só no caminho sem AJAX (achado da revisão de 2026-07-28). No modal ninguém
+     * lê flash — a mensagem volta no JSON e aparece no rodapé na hora —, mas ela ficava gravada na
+     * sessão assim mesmo: cinco edições seguidas viravam cinco avisos empilhados no recarregamento que
+     * fecha o modal, inclusive os erros que o gestor já tinha corrigido ali dentro.
+     */
+    private function respostaFicha(Request $request, Pessoa $pessoa, bool $ok, string $mensagem, bool $jaAvisado = false): Response
+    {
+        if (!$request->isXmlHttpRequest()) {
+            // `$jaAvisado`: o form inválido já passou pelo `flashErrosDoForm`, que mostra TODOS os erros
+            // — o comportamento da página desde sempre. Flashar aqui de novo só repetiria o primeiro.
+            if (!$jaAvisado) {
+                $this->addFlash($ok ? 'success' : 'danger', $mensagem);
+            }
+
+            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $pessoa->getId()]);
+        }
+
+        return $this->json([
+            'ok' => $ok,
+            'mensagem' => $mensagem,
+            'html' => $this->renderView('cobranca/pessoa/_partials/_ficha_abas.html.twig', $this->contextoDaFicha($pessoa)),
         ]);
     }
 
@@ -213,25 +283,28 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         $input = new EditarQualificacaoPessoaInput();
         $input->pessoaId = $id;
         $form = $this->createForm(EditarQualificacaoPessoaType::class, $input);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $this->editarQualificacaoPessoa->executar($input, $tenant);
-                $this->addFlash('success', 'Qualificação atualizada.');
-            } catch (PessoaNaoEncontradaException $e) {
-                $this->addFlash('danger', $e->getMessage());
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            if (!$request->isXmlHttpRequest()) {
+                $this->flashErrosDoForm($form);
             }
-        } else {
-            $this->flashErrosDoForm($form);
+
+            return $this->respostaFicha($request, $pessoa, false, $this->primeiroErro($form, 'Não foi possível salvar a qualificação.'), jaAvisado: true);
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        try {
+            $this->editarQualificacaoPessoa->executar($input, $tenant);
+        } catch (PessoaNaoEncontradaException $e) {
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
+        }
+
+        return $this->respostaFicha($request, $pessoa, true, 'Qualificação atualizada.');
     }
 
     #[Route('/pessoas/{id}/enderecos', name: 'cobranca_pessoa_endereco_adicionar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -242,25 +315,28 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         $input = new AdicionarEnderecoPessoaInput();
         $input->pessoaId = $id;
         $form = $this->createForm(AdicionarEnderecoType::class, $input);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $this->adicionarEnderecoPessoa->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Endereço adicionado.');
-            } catch (PessoaNaoEncontradaException $e) {
-                $this->addFlash('danger', $e->getMessage());
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            if (!$request->isXmlHttpRequest()) {
+                $this->flashErrosDoForm($form);
             }
-        } else {
-            $this->flashErrosDoForm($form);
+
+            return $this->respostaFicha($request, $pessoa, false, $this->primeiroErro($form, 'Não foi possível adicionar o endereço.'), jaAvisado: true);
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        try {
+            $this->adicionarEnderecoPessoa->executar($input, $tenant, $this->usuarioLogado());
+        } catch (PessoaNaoEncontradaException $e) {
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
+        }
+
+        return $this->respostaFicha($request, $pessoa, true, 'Endereço adicionado.');
     }
 
     #[Route('/pessoas/{id}/enderecos/{itemId}/atual', name: 'cobranca_pessoa_endereco_atual', methods: ['POST'], requirements: ['id' => '\d+', 'itemId' => '\d+'])]
@@ -271,12 +347,10 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         if (!$this->isCsrfTokenValid('marcar_endereco_atual_' . $itemId, (string) $request->request->get('_token'))) {
-            $this->addFlash('danger', 'Token de segurança inválido.');
-
-            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+            return $this->respostaFicha($request, $pessoa, false, 'Token de segurança inválido.');
         }
 
         $input = new MarcarEnderecoAtualInput();
@@ -285,12 +359,11 @@ final class PessoaController extends AbstractController
 
         try {
             $this->marcarEnderecoAtual->executar($input, $tenant);
-            $this->addFlash('success', 'Endereço marcado como atual.');
         } catch (PessoaNaoEncontradaException | PessoaEnderecoNaoEncontradoException $e) {
-            $this->addFlash('danger', $e->getMessage());
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        return $this->respostaFicha($request, $pessoa, true, 'Endereço marcado como atual.');
     }
 
     #[Route('/pessoas/{id}/telefones', name: 'cobranca_pessoa_telefone_adicionar', methods: ['POST'], requirements: ['id' => '\d+'])]
@@ -301,25 +374,28 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         $input = new AdicionarTelefonePessoaInput();
         $input->pessoaId = $id;
         $form = $this->createForm(AdicionarTelefoneType::class, $input);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $this->adicionarTelefonePessoa->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'Telefone adicionado.');
-            } catch (PessoaNaoEncontradaException $e) {
-                $this->addFlash('danger', $e->getMessage());
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            if (!$request->isXmlHttpRequest()) {
+                $this->flashErrosDoForm($form);
             }
-        } else {
-            $this->flashErrosDoForm($form);
+
+            return $this->respostaFicha($request, $pessoa, false, $this->primeiroErro($form, 'Não foi possível adicionar o telefone.'), jaAvisado: true);
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        try {
+            $this->adicionarTelefonePessoa->executar($input, $tenant, $this->usuarioLogado());
+        } catch (PessoaNaoEncontradaException $e) {
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
+        }
+
+        return $this->respostaFicha($request, $pessoa, true, 'Telefone adicionado.');
     }
 
     #[Route('/pessoas/{id}/telefones/{itemId}/atual', name: 'cobranca_pessoa_telefone_atual', methods: ['POST'], requirements: ['id' => '\d+', 'itemId' => '\d+'])]
@@ -330,12 +406,10 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         if (!$this->isCsrfTokenValid('marcar_telefone_atual_' . $itemId, (string) $request->request->get('_token'))) {
-            $this->addFlash('danger', 'Token de segurança inválido.');
-
-            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+            return $this->respostaFicha($request, $pessoa, false, 'Token de segurança inválido.');
         }
 
         $input = new MarcarTelefoneAtualInput();
@@ -344,12 +418,11 @@ final class PessoaController extends AbstractController
 
         try {
             $this->marcarTelefoneAtual->executar($input, $tenant);
-            $this->addFlash('success', 'Telefone marcado como atual.');
         } catch (PessoaNaoEncontradaException | PessoaTelefoneNaoEncontradoException $e) {
-            $this->addFlash('danger', $e->getMessage());
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        return $this->respostaFicha($request, $pessoa, true, 'Telefone marcado como atual.');
     }
 
     /**
@@ -367,12 +440,10 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         if (!$this->isCsrfTokenValid('editar_telefone_' . $itemId, (string) $request->request->get('_token'))) {
-            $this->addFlash('danger', 'Token de segurança inválido.');
-
-            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+            return $this->respostaFicha($request, $pessoa, false, 'Token de segurança inválido.');
         }
 
         $input = new EditarTelefonePessoaInput();
@@ -387,19 +458,16 @@ final class PessoaController extends AbstractController
         // (fonte única com a rota da aba), validadas aqui — ver `primeiroErroDeValidacao`.
         $erro = $this->primeiroErroDeValidacao($input);
         if ($erro !== null) {
-            $this->addFlash('danger', $erro);
-
-            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+            return $this->respostaFicha($request, $pessoa, false, $erro);
         }
 
         try {
             $this->editarTelefonePessoa->executar($input, $tenant);
-            $this->addFlash('success', 'Telefone corrigido.');
         } catch (PessoaNaoEncontradaException | PessoaTelefoneNaoEncontradoException $e) {
-            $this->addFlash('danger', $e->getMessage());
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        return $this->respostaFicha($request, $pessoa, true, 'Telefone corrigido.');
     }
 
     /**
@@ -415,12 +483,10 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         if (!$this->isCsrfTokenValid('excluir_telefone_' . $itemId, (string) $request->request->get('_token'))) {
-            $this->addFlash('danger', 'Token de segurança inválido.');
-
-            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+            return $this->respostaFicha($request, $pessoa, false, 'Token de segurança inválido.');
         }
 
         $input = new ExcluirTelefonePessoaInput();
@@ -429,14 +495,27 @@ final class PessoaController extends AbstractController
 
         try {
             $promovido = $this->excluirTelefonePessoa->executar($input, $tenant);
-            $this->addFlash('success', $promovido === null
-                ? 'Telefone excluído.'
-                : 'Telefone excluído. ' . $promovido->getNumero() . ' passou a ser o atual.');
         } catch (PessoaNaoEncontradaException | PessoaTelefoneNaoEncontradoException $e) {
-            $this->addFlash('danger', $e->getMessage());
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        $mensagem = $promovido === null
+            ? 'Telefone excluído.'
+            : 'Telefone excluído. ' . $promovido->getNumero() . ' passou a ser o atual.';
+        return $this->respostaFicha($request, $pessoa, true, $mensagem);
+    }
+
+    /**
+     * Primeira mensagem de erro do form, para o aviso inline do modal (que não lê flash). O padrão
+     * cobre o form recusado sem erro nomeado — CSRF inválido, por exemplo.
+     */
+    private function primeiroErro(FormInterface $form, string $padrao): string
+    {
+        foreach ($form->getErrors(true) as $erro) {
+            return $erro->getMessage();
+        }
+
+        return $padrao;
     }
 
     /**
@@ -460,25 +539,28 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         $input = new AdicionarEmailPessoaInput();
         $input->pessoaId = $id;
         $form = $this->createForm(AdicionarEmailType::class, $input);
         $form->handleRequest($request);
 
-        if ($form->isSubmitted() && $form->isValid()) {
-            try {
-                $this->adicionarEmailPessoa->executar($input, $tenant, $this->usuarioLogado());
-                $this->addFlash('success', 'E-mail adicionado.');
-            } catch (PessoaNaoEncontradaException $e) {
-                $this->addFlash('danger', $e->getMessage());
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            if (!$request->isXmlHttpRequest()) {
+                $this->flashErrosDoForm($form);
             }
-        } else {
-            $this->flashErrosDoForm($form);
+
+            return $this->respostaFicha($request, $pessoa, false, $this->primeiroErro($form, 'Não foi possível adicionar o e-mail.'), jaAvisado: true);
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        try {
+            $this->adicionarEmailPessoa->executar($input, $tenant, $this->usuarioLogado());
+        } catch (PessoaNaoEncontradaException $e) {
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
+        }
+
+        return $this->respostaFicha($request, $pessoa, true, 'E-mail adicionado.');
     }
 
     #[Route('/pessoas/{id}/emails/{itemId}/atual', name: 'cobranca_pessoa_email_atual', methods: ['POST'], requirements: ['id' => '\d+', 'itemId' => '\d+'])]
@@ -489,12 +571,10 @@ final class PessoaController extends AbstractController
             return $this->semAcesso();
         }
 
-        $this->resolverPessoa($id, $tenant);
+        $pessoa = $this->resolverPessoa($id, $tenant);
 
         if (!$this->isCsrfTokenValid('marcar_email_atual_' . $itemId, (string) $request->request->get('_token'))) {
-            $this->addFlash('danger', 'Token de segurança inválido.');
-
-            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+            return $this->respostaFicha($request, $pessoa, false, 'Token de segurança inválido.');
         }
 
         $input = new MarcarEmailAtualInput();
@@ -503,12 +583,11 @@ final class PessoaController extends AbstractController
 
         try {
             $this->marcarEmailAtual->executar($input, $tenant);
-            $this->addFlash('success', 'E-mail marcado como atual.');
         } catch (PessoaNaoEncontradaException | PessoaEmailNaoEncontradoException $e) {
-            $this->addFlash('danger', $e->getMessage());
+            return $this->respostaFicha($request, $pessoa, false, $e->getMessage());
         }
 
-        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        return $this->respostaFicha($request, $pessoa, true, 'E-mail marcado como atual.');
     }
 
     /**

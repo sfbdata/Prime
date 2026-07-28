@@ -301,7 +301,7 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
 
         // Ações consolidadas na aba, reusando os modais existentes — sem rota nova.
         self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalVincularPessoaObjeto"]', 'Adicionar pessoa: vincular existente');
-        self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalNovaPessoa"]', 'Adicionar pessoa: cadastrar nova');
+        self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalFichaPessoa"]', 'Adicionar pessoa: cadastrar nova');
         self::assertSelectorExists('#tab-responsaveis [data-bs-target="#modalEncerrarVinculo"]', 'Encerrar vínculo segue disponível');
 
         // "Definir como atual": um clique abre o modal de troca JÁ com a pessoa escolhida. O motivo
@@ -413,7 +413,7 @@ final class ObjetoShowUxReorganizacaoTest extends CobrancaWebTestCase
         self::assertSelectorExists('#tab-responsaveis .cob-resp-atual');
         self::assertSelectorNotExists('#tab-responsaveis .js-definir-cobrada', 'sem capacidade não se troca o responsável');
         self::assertSelectorNotExists('#tab-responsaveis [data-bs-target="#modalVincularPessoaObjeto"]');
-        self::assertSelectorNotExists('#tab-responsaveis [data-bs-target="#modalNovaPessoa"]');
+        self::assertSelectorNotExists('#tab-responsaveis [data-bs-target="#modalFichaPessoa"]');
         self::assertSelectorNotExists('#tab-responsaveis [data-bs-target="#modalEncerrarVinculo"]');
     }
 
