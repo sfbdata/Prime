@@ -1,0 +1,87 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Telefones da pessoa COBRADA — bloco §2.3 da aba Responsáveis.
+
+   Extraído de `_responsaveis.html.twig` em 2026-07-28 para virar FONTE ÚNICA: o mesmo fragmento é
+   renderizado no `show` e devolvido pela rota `cobranca_objeto_telefone_adicionar` na resposta AJAX,
+   que o JS troca no lugar. Sem isso, a lista atualizada teria de ser remontada em JavaScript e o selo
+   `Atual`, o contador e o estado vazio passariam a ter duas implementações — uma delas fatalmente
+   divergindo da outra.
+
+   A marcação é a MESMA de antes da extração (classes e `data-*` preservados: os testes funcionais e
+   o JS dependem de `.cob-resp-telefones`, `.cob-resp-telefone`, `[data-telefone]`,
+   `[data-selo="telefone-atual"]`, `[data-acao=...]` e `[data-form="adicionar-telefone"]`).
+
+   Contexto (passado EXPLICITAMENTE no include — `strict_variables` só está ligado em `test`, então
+   uma variável renomeada sumiria em silêncio na produção):
+   - `ficha` (PessoaFichaOutput, não nulo) · `podeAbrirFicha` (capacidade `resources.cobranca.gerenciar`)
+   - `formTelefoneCobrada` (FormView | null) · `objetoId` (int — dono da rota de adicionar)
+─────────────────────────────────────────────────────────────────────────── #}
+<div class="cob-resp-telefones mt-3">
+    <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>Telefones <span class="badge text-bg-secondary">{{ ficha.telefones|length }}</span></h6>
+    {% if ficha.telefones|length > 0 %}
+    {# A lista encolhe até o conteúdo (`width: fit-content` no CSS): esticada na largura toda ela
+       deixava um vão morto enorme à direita de números de 8-9 dígitos. #}
+    <ul class="list-unstyled mb-0 cob-resp-telefone-lista">
+        {% for t in ficha.telefones %}
+        <li class="cob-resp-telefone d-flex align-items-center gap-2 flex-wrap py-2{{ not loop.first ? ' border-top' : '' }}" data-telefone="{{ t.id }}">
+            <i class="bi {{ t.atual ? 'bi-telephone-fill text-success' : 'bi-telephone text-secondary' }}" aria-hidden="true"></i>
+            <div class="flex-grow-1 min-w-0">
+                <a href="tel:{{ t.numero|e('url') }}">{{ t.numero }}</a>
+                <span class="small text-secondary">· cadastrado em {{ t.criadoEm|date('d/m/Y') }}</span>
+                {# O selo `Atual` é INFORMAÇÃO, não ação: mudou de lado junto com o hover das ações
+                   (2026-07-28). No grupo de ações ele sumiria com os botões, e o "qual é o número bom"
+                   é justamente o que a linha precisa dizer sem passar o mouse. #}
+                {% if t.atual %}<span class="badge text-bg-success ms-1" data-selo="telefone-atual">Atual</span>{% endif %}
+            </div>
+            {# Ações: fora do fluxo e transparentes até o hover/foco da linha (§CSS `.cob-resp-telefone-acoes`).
+               Fora do fluxo porque, reservando espaço, a linha voltaria a ser tão larga quanto antes. #}
+            <div class="cob-resp-telefone-acoes d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
+                {% if not t.atual and podeAbrirFicha %}
+                <form method="POST" action="{{ path('cobranca_pessoa_telefone_atual', {id: ficha.id, itemId: t.id}) }}" data-disable-on-submit="true">
+                    <input type="hidden" name="_token" value="{{ csrf_token('marcar_telefone_atual_' ~ t.id) }}">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" data-acao="marcar-telefone-atual">Marcar como atual</button>
+                </form>
+                {% endif %}
+                {# Editar e excluir NÃO TÊM ROTA (§2.3): entram desabilitados em vez de virarem
+                   cliques mortos. Tooltip do Bootstrap não dispara em elemento `disabled` —
+                   daí o `<span>` por fora, mesmo padrão do `Simular acordo` do cabeçalho. #}
+                {% for acao in [
+                    {chave: 'editar-telefone', icone: 'bi-pencil', rotulo: 'Editar telefone'},
+                    {chave: 'excluir-telefone', icone: 'bi-trash', rotulo: 'Excluir telefone'},
+                ] %}
+                <span class="d-inline-block" data-bs-toggle="tooltip" title="{{ acao.rotulo }} ainda não tem função — o histórico de telefones só acrescenta.">
+                    <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="{{ acao.chave }}" aria-label="{{ acao.rotulo }}" disabled>
+                        <i class="bi {{ acao.icone }}"></i>
+                    </button>
+                </span>
+                {% endfor %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-muted small mb-0">Nenhum telefone cadastrado.</p>
+    {% endif %}
+
+    {# Mini-form inline de adicionar (§2.3). A rota é a do OBJETO (`cobranca_objeto_telefone_adicionar`),
+       não a da ficha: quem adiciona um número durante a ligação continua na aba, com a lista trocada
+       na hora pelo JS. Sem JavaScript a mesma rota responde com redirect para `?aba=responsaveis` —
+       nos dois caminhos o desvio para `cobranca_pessoa_show` acabou (2026-07-28).
+       "Marcar como atual", acima, AINDA leva para a ficha: é a rota da pessoa, e mudá-la não estava no
+       pedido. #}
+    {% if formTelefoneCobrada is not null %}
+    <div class="cob-resp-telefone-novo mt-2">
+        {{ form_start(formTelefoneCobrada, {
+            action: path('cobranca_objeto_telefone_adicionar', {id: objetoId}),
+            attr: {'data-disable-on-submit': 'true', 'data-form': 'adicionar-telefone', 'class': 'd-flex align-items-end gap-2 flex-wrap'},
+        }) }}
+        <div>{{ form_row(formTelefoneCobrada.numero) }}</div>
+        <button type="submit" class="btn btn-sm jp-btn-accent mb-3"><i class="bi bi-plus-lg me-1"></i>Adicionar telefone</button>
+        {{ form_end(formTelefoneCobrada) }}
+    </div>
+    {% endif %}
+
+    {# Alvo do aviso do fetch (sucesso ou erro). Fica FORA do form porque o form é substituído junto
+       com o resto do bloco — mas dentro do bloco, para que o próximo envio o zere sozinho. #}
+    <div class="cob-resp-telefone-aviso small mt-1" data-aviso="telefone" role="status" aria-live="polite"></div>
+</div>

@@ -7,6 +7,7 @@ namespace App\Cobranca\Controller;
 use App\Cobranca\DTO\AdicionarTelefonePessoaInput;
 use App\Cobranca\DTO\CriarPessoaVinculadaInput;
 use App\Cobranca\DTO\EditarConfiguracaoObjetoInput;
+use App\Cobranca\DTO\PessoaFichaOutput;
 use App\Cobranca\Entity\ObjetoCobranca;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\QualificacaoContato;
@@ -22,12 +23,15 @@ use App\Cobranca\Repository\ObjetoCobrancaRepository;
 use App\Cobranca\Repository\PessoaRepository;
 use App\Cobranca\Service\MontadorModaisCaso;
 use App\Cobranca\Service\ResolvedorConfigEncargos;
+use App\Cobranca\UseCase\AdicionarTelefonePessoaUseCase;
 use App\Cobranca\UseCase\CriarPessoaVinculadaAoObjetoUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoObjetoUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
+use App\Cobranca\UseCase\MontarFichaPessoaUseCase;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\Form\FormInterface;
 use Symfony\Component\Form\FormView;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -63,6 +67,10 @@ final class ObjetoController extends AbstractController
         // cascata). Nenhum cálculo passa por aqui — o dinheiro continua sendo resolvido no
         // `EncargosVivos`, na leitura de cada obrigação.
         private readonly ResolvedorConfigEncargos $resolvedorConfigEncargos,
+        // Aba Responsáveis: gravar o telefone da cobrada e remontar a ficha para devolver a lista
+        // atualizada sem recarregar a página (2026-07-28). Ambos já existiam, servindo a ficha da pessoa.
+        private readonly AdicionarTelefonePessoaUseCase $adicionarTelefonePessoa,
+        private readonly MontarFichaPessoaUseCase $montarFichaPessoa,
     ) {
     }
 
@@ -219,6 +227,112 @@ final class ObjetoController extends AbstractController
         }
 
         return $this->redirectToRoute('cobranca_objeto_show', ['id' => $id]);
+    }
+
+    /**
+     * Adiciona um telefone à pessoa COBRADA sem tirar o gestor da aba Responsáveis (2026-07-28).
+     *
+     * Por que uma rota no objeto e não a da ficha (`cobranca_pessoa_telefone_adicionar`): aquela rota
+     * não sabe de onde veio e sempre termina em `cobranca_pessoa_show` — quem cadastrava um número
+     * durante a ligação era jogado para outra página. Esta sabe qual objeto chamou, então sabe o que
+     * devolver: em AJAX, o fragmento da lista já atualizado (a página não recarrega e a aba não muda);
+     * sem JavaScript, um redirect de volta para a PRÓPRIA aba. A rota da ficha segue intacta, servindo
+     * a página da pessoa.
+     *
+     * Gravar continua sendo trabalho do `AdicionarTelefonePessoaUseCase` (regra do "primeiro nasce
+     * atual" e sombra `Pessoa::telefone` incluídas): aqui não há regra nova, só HTTP.
+     */
+    #[Route('/{id}/responsaveis/telefones', name: 'cobranca_objeto_telefone_adicionar', methods: ['POST'], requirements: ['id' => '\d+'])]
+    public function adicionarTelefoneDaCobrada(int $id, Request $request): Response
+    {
+        // Mesma capacidade que a rota da ficha exige e que o gate de PII da aba usa para mostrar a
+        // lista: quem não pode ver os telefones também não pode acrescentar um.
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        // Anti-IDOR: o objeto tem de ser do próprio escritório.
+        $objeto = $this->objetoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($objeto === null) {
+            throw $this->createNotFoundException('Objeto de cobrança não encontrado.');
+        }
+
+        $caso = $this->casoRepository->casoAncoraDoObjeto($objeto);
+        $pessoa = $caso?->getPessoaCobradaAtual();
+        if ($pessoa === null) {
+            return $this->respostaTelefone($request, $id, false, 'Este objeto não tem pessoa cobrada.', null);
+        }
+
+        $input = new AdicionarTelefonePessoaInput();
+        $input->pessoaId = $pessoa->getId();
+        $form = $this->createForm(AdicionarTelefoneType::class, $input);
+        $form->handleRequest($request);
+
+        if (!$form->isSubmitted() || !$form->isValid()) {
+            $this->flashErrosDoForm($form);
+
+            return $this->respostaTelefone($request, $id, false, $this->primeiroErro($form), null);
+        }
+
+        try {
+            $this->adicionarTelefonePessoa->executar($input, $tenant, $this->usuarioLogado());
+        } catch (PessoaNaoEncontradaException $e) {
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->respostaTelefone($request, $id, false, $e->getMessage(), null);
+        }
+
+        $this->addFlash('success', 'Telefone adicionado.');
+
+        // A ficha é remontada DEPOIS da gravação: é ela que traz a lista com o item novo, na mesma
+        // ordem e com o mesmo selo `Atual` que o `show` mostraria.
+        return $this->respostaTelefone($request, $id, true, 'Telefone adicionado.', $this->montarFichaPessoa->executar($pessoa));
+    }
+
+    /**
+     * Resposta única das duas caras da rota de telefone.
+     *
+     * AJAX recebe JSON com o fragmento pronto (`html`) — renderizar no servidor mantém o selo `Atual`,
+     * o contador, o estado vazio e o CSRF do mini-form com UMA implementação só; remontar a lista em
+     * JavaScript criaria a segunda. Requisição normal recebe o PRG de sempre, agora para a própria aba
+     * (`?aba=responsaveis`, que o JS do show já sabe restaurar) em vez da ficha da pessoa.
+     *
+     * A recusa vai com 200 e `ok: false` de propósito: para o handler do navegador, "o servidor não
+     * aceitou este número" e "a rede caiu" são casos diferentes — o primeiro mostra a mensagem, o
+     * segundo reenvia o form pelo caminho tradicional. Um 4xx aqui embaralharia os dois.
+     */
+    private function respostaTelefone(Request $request, int $objetoId, bool $ok, string $mensagem, ?PessoaFichaOutput $ficha): Response
+    {
+        if (!$request->isXmlHttpRequest()) {
+            return $this->redirectToRoute('cobranca_objeto_show', ['id' => $objetoId, 'aba' => 'responsaveis']);
+        }
+
+        return $this->json([
+            'ok' => $ok,
+            'mensagem' => $mensagem,
+            'html' => $ficha === null ? null : $this->renderView('cobranca/objeto/_partials/_telefones_cobrada.html.twig', [
+                'ficha' => $ficha,
+                // Chegar aqui já provou a capacidade (o gate no topo da action), que é exatamente o que
+                // `podeAbrirFicha` significa no Twig.
+                'podeAbrirFicha' => true,
+                'formTelefoneCobrada' => $this->telefoneCobradaView($ficha->id),
+                'objetoId' => $objetoId,
+            ]),
+        ]);
+    }
+
+    /**
+     * Primeira mensagem de erro do form, para o aviso inline do AJAX (que não lê flash). O fallback
+     * cobre o form recusado sem erro nomeado — CSRF inválido, por exemplo.
+     */
+    private function primeiroErro(FormInterface $form): string
+    {
+        foreach ($form->getErrors(true) as $erro) {
+            return $erro->getMessage();
+        }
+
+        return 'Não foi possível adicionar o telefone.';
     }
 
     /**

@@ -223,19 +223,167 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         self::assertStringNotContainsStringIgnoringCase('Não atende', $lista->text());
     }
 
-    #[TestDox('§2.3: o mini-form inline de adicionar telefone aponta para a rota da ficha')]
+    #[TestDox('§2.3: o mini-form inline de adicionar telefone aponta para a rota do OBJETO, não para a da ficha')]
     public function testMiniFormDeAdicionarTelefone(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $this->cobradaVinculada($tenant, $caso);
+
+        $form = $this->abrirAba($client, $caso)->filter('[data-form="adicionar-telefone"]');
+
+        self::assertCount(1, $form, 'o mini-form de adicionar telefone é inline, na própria aba');
+        // A rota da FICHA (`/cobrancas/pessoas/{id}/telefones`) sempre termina em `cobranca_pessoa_show`
+        // e tirava o gestor da cobrança. Apontar para o objeto é o que permite responder com o
+        // fragmento (AJAX) ou com o redirect de volta para esta aba (2026-07-28).
+        self::assertSame(
+            '/cobrancas/objetos/' . $caso->getObjeto()->getId() . '/responsaveis/telefones',
+            $form->attr('action'),
+        );
+        self::assertCount(1, $form->filter('input[name="adicionar_telefone[numero]"]'), 'o campo do número tem de vir do Form Type');
+    }
+
+    #[TestDox('§2.3: adicionar por AJAX devolve a lista já atualizada, sem redirect')]
+    public function testAdicionarTelefonePorAjaxDevolveAListaAtualizada(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        // Um número JÁ cadastrado: o fragmento devolvido tem de trazer a lista INTEIRA (o novo mais o
+        // antigo), não só o item recém-criado — é ele que substitui o bloco na tela.
+        $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'adicionar_telefone');
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $caso->getObjeto()->getId() . '/responsaveis/telefones',
+            ['adicionar_telefone' => ['numero' => '(21) 98888-7777', '_token' => $token]],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful('o AJAX responde a página nenhuma — nem redirect');
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertTrue($dados['ok']);
+        self::assertStringContainsString('(21) 98888-7777', $dados['html'], 'o número novo tem de vir no fragmento');
+        self::assertStringContainsString('(21) 3333-1111', $dados['html'], 'o fragmento é a lista inteira, não só o item novo');
+        self::assertStringContainsString('data-form="adicionar-telefone"', $dados['html'], 'o fragmento traz o mini-form de volta (com CSRF novo)');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $telefones = $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]);
+        self::assertCount(2, $telefones, 'adicionar acrescenta — nada do que existia é apagado');
+    }
+
+    #[TestDox('§2.3: sem AJAX, adicionar volta para a PRÓPRIA aba e não para a ficha da pessoa')]
+    public function testAdicionarTelefoneSemAjaxVoltaParaAAba(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDoFormulario($crawler, 'adicionar_telefone');
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones', [
+            'adicionar_telefone' => ['numero' => '(21) 98888-7777', '_token' => $token],
+        ]);
+
+        // O `?aba=responsaveis` é o que o JS do show consome para reabrir esta aba: sem ele o gestor
+        // voltaria na aba Cobrança. E o destino ser o OBJETO é o fim do desvio para `cobranca_pessoa_show`.
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=responsaveis');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertCount(1, $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]));
+    }
+
+    #[TestDox('§2.3: número em branco é recusado com mensagem e não grava nada')]
+    public function testAdicionarTelefoneEmBrancoNaoGrava(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
         $cobrada = $this->cobradaVinculada($tenant, $caso);
 
-        $form = $this->abrirAba($client, $caso)->filter('[data-form="adicionar-telefone"]');
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        $token = $this->tokenDoFormulario($crawler, 'adicionar_telefone');
 
-        self::assertCount(1, $form, 'o mini-form de adicionar telefone é inline, na própria aba');
-        self::assertSame('/cobrancas/pessoas/' . $cobrada->getId() . '/telefones', $form->attr('action'));
-        self::assertCount(1, $form->filter('input[name="adicionar_telefone[numero]"]'), 'o campo do número tem de vir do Form Type');
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $caso->getObjeto()->getId() . '/responsaveis/telefones',
+            ['adicionar_telefone' => ['numero' => '', '_token' => $token]],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertFalse($dados['ok']);
+        self::assertSame('Informe o telefone.', $dados['mensagem'], 'a recusa tem de dizer O QUE está errado');
+        self::assertNull($dados['html'], 'lista recusada não troca o bloco da tela');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertCount(0, $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]));
+    }
+
+    #[TestDox('§2.3: objeto de outro escritório responde 404 mesmo com token podre (anti-IDOR)')]
+    public function testAdicionarTelefoneEmObjetoDeOutroTenant(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        $outroTenant = $this->tenantAvulso();
+        [, $casoAlheio] = $this->semearGrafo($outroTenant);
+        $cobradaAlheia = $casoAlheio->getPessoaCobradaAtual();
+        self::assertNotNull($cobradaAlheia);
+
+        $client->request('POST', '/cobrancas/objetos/' . $casoAlheio->getObjeto()->getId() . '/responsaveis/telefones', [
+            'adicionar_telefone' => ['numero' => '(21) 98888-7777', '_token' => 'token-deliberadamente-podre'],
+        ]);
+
+        self::assertResponseStatusCodeSame(404);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertCount(
+            0,
+            $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobradaAlheia->getId()]),
+            'nada pode ser gravado na pessoa do vizinho',
+        );
+    }
+
+    #[TestDox('§2.3: sem a capacidade de gerenciar, adicionar telefone é barrado no servidor')]
+    public function testAdicionarTelefoneExigeCapacidadeDeGerenciar(): void
+    {
+        $client = static::createClient();
+        // Operador com o MÓDULO cobranças (vê a página) mas sem `resources.cobranca.gerenciar` — o
+        // mesmo gate que esconde a lista de telefones pelo PII tem de barrar a escrita.
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+
+        $client->request('GET', '/cobrancas/objetos/' . $caso->getObjeto()->getId());
+        self::assertResponseIsSuccessful('o operador enxerga a página; o que ele não pode é escrever');
+
+        $client->request('POST', '/cobrancas/objetos/' . $caso->getObjeto()->getId() . '/responsaveis/telefones', [
+            'adicionar_telefone' => ['numero' => '(21) 98888-7777', '_token' => 'token-qualquer'],
+        ]);
+
+        // Destino EXPLÍCITO: `semAcesso()` vai para a homepage. Um `assertResponseRedirects()` sem alvo
+        // aceitaria também o redirect de recusa por CSRF (`?aba=responsaveis`) e deixaria o gate sem prova.
+        self::assertResponseRedirects('/');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertCount(0, $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]));
     }
 
     // ───────────────────────────── §2.4 Faixa de qualificação ─────────────────────────────

@@ -19,9 +19,13 @@
      vínculo. Ligar contato↔telefone é frente própria, com migração;
    - editar/excluir telefone: não há rota; entram desabilitados, como os botões do cabeçalho.
 
-   Nenhuma regra nova: o accordion é a mesma `objeto.vinculos` de antes, cada ação abre o MESMO modal
-   (#modalVincularPessoaObjeto, #modalNovaPessoa, #modalAlterarPessoa, #modalEncerrarVinculo) e as
-   rotas de telefone são as da ficha da pessoa, que já existiam.
+   Nenhuma regra nova: o accordion é a mesma `objeto.vinculos` de antes e cada ação abre o MESMO modal
+   (#modalVincularPessoaObjeto, #modalNovaPessoa, #modalAlterarPessoa, #modalEncerrarVinculo).
+
+   2026-07-28: ADICIONAR telefone deixou de usar a rota da ficha (que sempre terminava em
+   `cobranca_pessoa_show`) e passou a ter rota própria no objeto — o bloco de telefones virou o partial
+   `_telefones_cobrada.html.twig`, que a rota devolve pronto para o JS trocar sem recarregar a página.
+   "Marcar como atual" CONTINUA na rota da pessoa, e continua levando para a ficha.
 
    Contexto herdado do show: `objeto`, `caso`, `podeGerenciar`, os forms dos modais,
    `formTelefoneCobrada` e `qualificacoesDoPainel`.
@@ -140,64 +144,15 @@
                já mostrava antes da Etapa 6 (documento, telefone e e-mail da cobrada) — nada foi tirado de
                ninguém, só não foi ampliado em silêncio. Voltar atrás é decisão do dono. #}
             {% if ficha is not null and podeAbrirFicha %}
-            <div class="cob-resp-telefones mt-3">
-                <h6 class="mb-2"><i class="bi bi-telephone me-1"></i>Telefones <span class="badge text-bg-secondary">{{ ficha.telefones|length }}</span></h6>
-                {% if ficha.telefones|length > 0 %}
-                <ul class="list-unstyled mb-0">
-                    {% for t in ficha.telefones %}
-                    <li class="cob-resp-telefone d-flex align-items-center gap-2 flex-wrap py-2{{ not loop.first ? ' border-top' : '' }}" data-telefone="{{ t.id }}">
-                        <i class="bi {{ t.atual ? 'bi-telephone-fill text-success' : 'bi-telephone text-secondary' }}" aria-hidden="true"></i>
-                        <div class="flex-grow-1 min-w-0">
-                            <a href="tel:{{ t.numero|e('url') }}">{{ t.numero }}</a>
-                            <span class="small text-secondary">· cadastrado em {{ t.criadoEm|date('d/m/Y') }}</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-auto">
-                            {% if t.atual %}
-                            <span class="badge text-bg-success" data-selo="telefone-atual">Atual</span>
-                            {% elseif podeAbrirFicha %}
-                            <form method="POST" action="{{ path('cobranca_pessoa_telefone_atual', {id: ficha.id, itemId: t.id}) }}" data-disable-on-submit="true">
-                                <input type="hidden" name="_token" value="{{ csrf_token('marcar_telefone_atual_' ~ t.id) }}">
-                                <button type="submit" class="btn btn-sm btn-outline-secondary" data-acao="marcar-telefone-atual">Marcar como atual</button>
-                            </form>
-                            {% endif %}
-                            {# Editar e excluir NÃO TÊM ROTA (§2.3): entram desabilitados em vez de virarem
-                               cliques mortos. Tooltip do Bootstrap não dispara em elemento `disabled` —
-                               daí o `<span>` por fora, mesmo padrão do `Simular acordo` do cabeçalho. #}
-                            {% for acao in [
-                                {chave: 'editar-telefone', icone: 'bi-pencil', rotulo: 'Editar telefone'},
-                                {chave: 'excluir-telefone', icone: 'bi-trash', rotulo: 'Excluir telefone'},
-                            ] %}
-                            <span class="d-inline-block" data-bs-toggle="tooltip" title="{{ acao.rotulo }} ainda não tem função — o histórico de telefones só acrescenta.">
-                                <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="{{ acao.chave }}" aria-label="{{ acao.rotulo }}" disabled>
-                                    <i class="bi {{ acao.icone }}"></i>
-                                </button>
-                            </span>
-                            {% endfor %}
-                        </div>
-                    </li>
-                    {% endfor %}
-                </ul>
-                {% else %}
-                <p class="text-muted small mb-0">Nenhum telefone cadastrado.</p>
-                {% endif %}
-
-                {# Mini-form inline de adicionar (§2.3). A rota é a da FICHA e VOLTA PARA ELA: quem
-                   adiciona telefone daqui termina na ficha da pessoa, não nesta aba. Mesmo desvio vale
-                   para "Marcar como atual" acima. É consequência conhecida de reusar as rotas que já
-                   existem, como a spec §2.3 manda — mudar o destino exigiria um `?voltar=` nas duas
-                   rotas de pessoa, o que sai do escopo da Etapa 6. Registrado no handoff da frente. #}
-                {% if formTelefoneCobrada is not null %}
-                <div class="cob-resp-telefone-novo mt-2">
-                    {{ form_start(formTelefoneCobrada, {
-                        action: path('cobranca_pessoa_telefone_adicionar', {id: ficha.id}),
-                        attr: {'data-disable-on-submit': 'true', 'data-form': 'adicionar-telefone', 'class': 'd-flex align-items-end gap-2 flex-wrap'},
-                    }) }}
-                    <div>{{ form_row(formTelefoneCobrada.numero) }}</div>
-                    <button type="submit" class="btn btn-sm jp-btn-accent mb-3"><i class="bi bi-plus-lg me-1"></i>Adicionar telefone</button>
-                    {{ form_end(formTelefoneCobrada) }}
-                </div>
-                {% endif %}
-            </div>
+            {# O bloco inteiro mora num partial próprio desde 2026-07-28: a rota de adicionar telefone
+               devolve ESTE mesmo fragmento na resposta AJAX, e o JS o troca no lugar sem recarregar a
+               página. Contexto explícito pelo motivo já explicado no include do painel de qualificação. #}
+            {{ include('cobranca/objeto/_partials/_telefones_cobrada.html.twig', {
+                ficha: ficha,
+                podeAbrirFicha: podeAbrirFicha,
+                formTelefoneCobrada: formTelefoneCobrada,
+                objetoId: objeto.objetoId,
+            }) }}
 
             {# ── §2.4 Faixa de qualificação ──────────────────────────────────────────────────────────
                Dado real da ficha; `não informado` quando vazio. O e-mail e o endereço são os marcados
@@ -228,7 +183,7 @@
                         {%- if enderecoAtual -%}
                             {{ enderecoAtual.logradouro }}, {{ enderecoAtual.numero }}
                             {{- enderecoAtual.complemento ? ' — ' ~ enderecoAtual.complemento : '' }} ·
-                            {{ enderecoAtual.bairro }} · {{ enderecoAtual.cidade }}/{{ enderecoAtual.uf }} · CEP {{ enderecoAtual.cep }}
+                            {{ enderecoAtual.bairro }} · CEP {{ enderecoAtual.cep }} · {{ enderecoAtual.cidade }}/{{ enderecoAtual.uf }}
                         {%- else -%}
                             não informado
                         {%- endif -%}

@@ -18,7 +18,9 @@ html[data-bs-theme="dark"] .cobrancas-page {
 .cobrancas-page .content-header h1 > .bi { color: var(--jp-accent); }
 
 /* ── Sub-navegação (Carteiras × Casos) ─────────────────────────── */
-.cobranca-subnav { display: flex; gap: .25rem; }
+/* `wrap` porque no `cobranca_objeto_show` ela divide a linha com as setas ‹ ›: sem isso, em tela
+   estreita os quatro itens espremeriam em vez de quebrar. */
+.cobranca-subnav { display: flex; flex-wrap: wrap; gap: .25rem; }
 .cobranca-subnav-item {
     display: inline-flex; align-items: center; gap: .4rem;
     padding: .4rem .85rem; border-radius: .5rem;
@@ -514,7 +516,11 @@ a.dash-card:hover { border-color: var(--jp-accent); background: rgba(var(--jp-ac
 .cob-proxima-faixa.atrasada > .bi, .cob-proxima-faixa.atrasada .cob-proxima-rotulo { color: var(--bs-warning-text-emphasis); }
 
 /* ── Aba Responsáveis ── responsável atual em destaque, demais em accordion. */
+/* `fit-content`: o card acompanha o nome + os selos em vez de atravessar a coluna inteira com meio
+   metro de verde vazio à direita (pedido do dono, 2026-07-28). O `max-width` é quem garante que nome
+   longo continue quebrando/reticenciando dentro da coluna em vez de estourá-la. */
 .cob-resp-atual {
+    width: fit-content; max-width: 100%;
     border: 1px solid rgba(var(--jp-accent-rgb), .30); background: rgba(var(--jp-accent-rgb), .06);
     border-radius: var(--cob-radius); padding: 1.1rem 1.25rem;
 }
@@ -798,9 +804,13 @@ html[data-bs-theme="dark"] .cob-cab {
 }
 
 .cob-cab-identidade, .cob-cab-lateral { min-width: 0; }
-/* O `h1` mantém o tamanho responsivo do Bootstrap (o resto do sistema usa o mesmo) — só ganha
-   quebra: `objeto.identificacao` vem do cadastro e pode ser uma sequência longa sem espaço. */
-.cob-cab-identidade h1 { min-width: 0; overflow-wrap: anywhere; }
+/* O `h1` sai do tamanho padrão do Bootstrap (2.5rem): `objeto.identificacao` costuma ser um nome
+   longo de unidade, que nesse corpo ocupava duas linhas e roubava o cabeçalho dos números. Continua
+   sendo o maior texto da coluna — só que agora não maior que o card do total. `overflow-wrap`
+   porque a identificação vem do cadastro e pode ser uma sequência longa sem espaço. */
+.cob-cab-identidade h1 {
+    font-size: 1.5rem; min-width: 0; overflow-wrap: anywhere;
+}
 
 /* Trilha de dois níveis (§1.1). Discreta: é orientação, não conteúdo — o título é que manda. */
 .cob-cab-trilha {
@@ -839,15 +849,20 @@ html[data-bs-theme="dark"] .cob-cab {
 .cob-cab-meta { overflow-wrap: anywhere; }
 
 /* ── §1.2 Os quatro cards que somam entre si ────────────────────────────────────────────────────
-   `auto-fit` + piso de 9.5rem: quatro numa linha na coluna larga, dois a dois quando ela aperta, um
-   embaixo do outro no telefone — sem media query, porque quem estreita a coluna tanto pode ser o
-   viewport quanto a própria grade de duas colunas do cabeçalho. */
+   Flex com quebra em vez de grade de colunas iguais: cada card ocupa a largura do próprio conteúdo
+   (o mais largo entre rótulo, valor e nota), então R$ 1.200,00 não fica dentro de uma caixa
+   dimensionada para R$ 1.234.567,89 — pedido do dono. Quando a coluna aperta (viewport estreito ou
+   a própria grade de duas colunas do cabeçalho), eles quebram sozinhos, sem media query.
+   `max-width: 100%` impede que um valor muito longo estoure a linha. */
 .cob-cab-cards {
-    display: grid; gap: .6rem;
-    grid-template-columns: repeat(auto-fit, minmax(min(9.5rem, 100%), 1fr));
+    display: flex; flex-wrap: wrap; gap: .6rem;
 }
+/* `justify-content: center` porque os cards têm a MESMA altura (o do total é mais alto por causa da
+   nota "atualizado em"): sem ele, rótulo e valor colam no topo e sobra um vazio embaixo nos outros
+   três. Centralizado, a folga se divide em cima e embaixo e a linha fica alinhada. */
 .cob-cab-card {
-    display: flex; flex-direction: column; gap: .15rem; min-width: 0;
+    display: flex; flex-direction: column; justify-content: center;
+    gap: .15rem; min-width: 0; max-width: 100%;
     border: 1px solid var(--cob-card-forte-borda); border-radius: .625rem;
     padding: .7rem .9rem; background: var(--cob-card-forte-bg);
 }
@@ -968,6 +983,36 @@ html[data-bs-theme="dark"] .cob-cab {
    aplicada no Twig a partir da segunda linha — NÃO é repetido aqui de propósito: duas fontes para a
    mesma linha divergiriam no dia em que uma das duas mudasse. O que é do CSS é o resto. */
 .cob-resp-telefone { min-width: 0; }
+/* Mesma ideia do card da cobrada: a lista encolhe até o conteúdo. Fica na UL (e não em cada LI) de
+   propósito — assim todas as linhas terminam na mesma coluna e o `border-top` entre elas continua
+   sendo um divisor reto, em vez de virar um serrilhado do tamanho de cada número. */
+.cob-resp-telefone-lista { width: fit-content; max-width: 100%; }
+
+/* Ações da linha (marcar como atual / editar / excluir) só aparecem no hover — ou no foco por
+   teclado, que é o que salva quem navega por Tab. Duas escolhas que parecem detalhe e não são:
+   - FORA DO FLUXO (`position: absolute`, à direita da lista): reservando espaço, a linha voltaria a
+     ter a largura de antes, e o `fit-content` acima seria decorativo. O `max-width` da lista abre a
+     faixa onde elas cabem sem estourar a coluna;
+   - `opacity` + `pointer-events`, NÃO `visibility: hidden`/`display: none`: elemento escondido por
+     essas duas sai da ordem de tabulação, e aí `:focus-within` nunca dispararia — as ações ficariam
+     inalcançáveis sem mouse. Com `opacity`, o botão continua focável; o `pointer-events: none` é que
+     impede clique fantasma na área transparente.
+   Só onde há mouse de verdade (`hover: hover`) e largura para a faixa lateral: em toque e no celular
+   as ações seguem no fluxo e sempre visíveis, porque lá "passar o mouse" não existe. */
+@media (hover: hover) and (min-width: 768px) {
+    .cob-resp-telefone-lista { max-width: calc(100% - 16rem); }
+    .cob-resp-telefone { position: relative; }
+    .cob-resp-telefone-acoes {
+        position: absolute; left: 100%; top: 50%; transform: translateY(-50%);
+        margin-left: .75rem; white-space: nowrap;
+        opacity: 0; pointer-events: none; transition: opacity .12s ease-in-out;
+    }
+    .cob-resp-telefone:hover .cob-resp-telefone-acoes,
+    .cob-resp-telefone:focus-within .cob-resp-telefone-acoes { opacity: 1; pointer-events: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cob-resp-telefone-acoes { transition: none; }
+}
 .cob-resp-telefone a {
     color: var(--bs-body-color); text-decoration: none; font-weight: 600;
     font-variant-numeric: tabular-nums; overflow-wrap: anywhere;

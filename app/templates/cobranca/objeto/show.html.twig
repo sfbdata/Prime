@@ -17,9 +17,6 @@
 <div class="cobrancas-page">
 <section class="content-header">
     <div class="container-fluid">
-        {# B3: esta era a única página do módulo que perdia a subnav — o usuário caía num beco sem saída. #}
-        {{ include('cobranca/_partials/_subnav.html.twig', {ativo: 'carteiras'}) }}
-
         {# ── Cabeçalho redesenhado (spec `cobranca-objeto-show-cabecalho-responsaveis.md` §1) ──────────
            Duas colunas a partir de 992px (`col-lg-*`), empilhando abaixo disso: identidade + dinheiro à
            esquerda, prescrição + ações à direita. O CSS de acabamento é da Etapa 7; a estrutura já se
@@ -37,9 +34,14 @@
            A ordem é `identificacao ASC, id ASC`, decidida no repositório: a ordem da listagem
            (`atualizadoEm DESC`) muda sozinha a cada registro e a mesma seta levaria a lugares
            diferentes a cada visita. Ponta da lista → `null` no DTO → seta desabilitada; o template não
-           recalcula vizinhança nenhuma. #}
-        <div class="cob-cab-nav-linha d-flex justify-content-end mt-3">
-            <div class="cob-cab-nav btn-group btn-group-sm" role="group" aria-label="Navegar entre unidades da carteira">
+           recalcula vizinhança nenhuma.
+
+           Elas dividem a linha com a subnav do módulo (B3: esta era a única página que perdia a
+           subnav e virava beco sem saída): navegação de módulo à esquerda, navegação entre unidades
+           à direita, no mesmo eixo. Em tela estreita a linha quebra e as setas caem embaixo. #}
+        <div class="cob-cab-nav-linha d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+            {{ include('cobranca/_partials/_subnav.html.twig', {ativo: 'carteiras'}) }}
+            <div class="cob-cab-nav btn-group btn-group-sm ms-auto" role="group" aria-label="Navegar entre unidades da carteira">
                 {% if objeto.objetoAnteriorId %}
                 <a href="{{ path('cobranca_objeto_show', {id: objeto.objetoAnteriorId}) }}"
                    class="btn btn-outline-secondary" data-nav="anterior"
@@ -692,6 +694,71 @@ document.addEventListener('DOMContentLoaded', function () {
         form.addEventListener('submit', function () {
             var btn = form.querySelector('button[type="submit"]');
             if (btn) { btn.disabled = true; }
+        });
+    });
+
+    /* Adicionar telefone na aba Responsáveis SEM sair da página (2026-07-28). O POST vai por fetch
+       para `cobranca_objeto_telefone_adicionar`, que responde com o bloco `.cob-resp-telefones` já
+       renderizado; trocamos o bloco no lugar e pronto — a aba continua a mesma e nada recarrega.
+
+       O listener é DELEGADO no documento porque o form some a cada troca de bloco: um listener preso
+       ao form morreria no primeiro envio. Pelo mesmo motivo o anti duplo-submit do bloco acima (preso
+       form a form no carregamento) não alcança o form novo — quem desabilita o botão daqui em diante
+       é este handler, e o bloco que volta do servidor já traz um botão limpo.
+
+       Sem `fetch` (ou se a rede/servidor falhar) o form é enviado do jeito tradicional: a MESMA rota
+       responde com redirect para `?aba=responsaveis`, então nem sem JavaScript se cai na ficha da
+       pessoa. Nunca engolimos o cadastro. */
+    var avisarTelefone = function (escopo, texto, ok) {
+        var alvo = escopo ? escopo.querySelector('[data-aviso="telefone"]') : null;
+        if (!alvo) { return; }
+        /* textContent: a mensagem vem do servidor, mas aqui ela é TEXTO — nunca marcação. */
+        alvo.textContent = texto || '';
+        alvo.className = 'cob-resp-telefone-aviso small mt-1 ' + (ok ? 'text-success' : 'text-danger');
+    };
+
+    document.addEventListener('submit', function (evento) {
+        var form = evento.target;
+        if (!form || !form.matches || !form.matches('[data-form="adicionar-telefone"]')) { return; }
+        if (!window.fetch || !window.FormData) { return; }
+
+        evento.preventDefault();
+        var botao = form.querySelector('button[type="submit"]');
+        if (botao) { botao.disabled = true; }
+
+        fetch(form.getAttribute('action'), {
+            method: 'POST',
+            body: new FormData(form),
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin',
+        }).then(function (resposta) {
+            if (!resposta.ok) { throw new Error('HTTP ' + resposta.status); }
+
+            return resposta.json();
+        }).then(function (dados) {
+            var bloco = document.querySelector('.cob-resp-telefones');
+            if (!dados.ok || !dados.html || !bloco) {
+                /* Recusa do servidor (número vazio, por exemplo): a lista não muda, só o aviso. */
+                if (botao) { botao.disabled = false; }
+                avisarTelefone(bloco, dados.mensagem, false);
+
+                return;
+            }
+
+            bloco.outerHTML = dados.html;
+            var novo = document.querySelector('.cob-resp-telefones');
+            if (novo && typeof bootstrap !== 'undefined') {
+                novo.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+                    new bootstrap.Tooltip(el);
+                });
+            }
+            avisarTelefone(novo, dados.mensagem, true);
+            var campo = novo ? novo.querySelector('[data-form="adicionar-telefone"] input[type="text"]') : null;
+            if (campo) { campo.focus(); }
+        }).catch(function () {
+            /* `form.submit()` não dispara o evento `submit`, então não reentra aqui. */
+            if (botao) { botao.disabled = false; }
+            form.submit();
         });
     });
 
