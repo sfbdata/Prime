@@ -17,7 +17,10 @@ final class AdicionarTelefonePessoaInput
     #[Assert\Positive(message: 'Pessoa inválida.')]
     public ?int $pessoaId = null;
 
-    #[Assert\NotBlank(message: 'Informe o telefone.')]
+    // `normalizer: trim` (2026-07-28): `NotBlank` sozinho aceita `'   '` — só `''`/null/[] são vazios
+    // para ele — e o UseCase apara antes de gravar. Sem o normalizador, três espaços entravam como
+    // telefone EM BRANCO. Achado ao cobrir a rota de EDITAR, que tem o mesmo par validação+trim.
+    #[Assert\NotBlank(message: 'Informe o telefone.', normalizer: 'trim')]
     #[Assert\Length(max: 20, maxMessage: 'O telefone pode ter no máximo {{ limit }} caracteres.')]
     public ?string $numero = null;
 }

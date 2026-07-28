@@ -7,12 +7,16 @@ namespace App\Cobranca\Controller;
 use App\Cobranca\DTO\AdicionarTelefonePessoaInput;
 use App\Cobranca\DTO\CriarPessoaVinculadaInput;
 use App\Cobranca\DTO\EditarConfiguracaoObjetoInput;
+use App\Cobranca\DTO\EditarTelefonePessoaInput;
+use App\Cobranca\DTO\ExcluirTelefonePessoaInput;
 use App\Cobranca\DTO\PessoaFichaOutput;
 use App\Cobranca\Entity\ObjetoCobranca;
+use App\Cobranca\Entity\Pessoa;
 use App\Cobranca\Enum\FormaHonorarios;
 use App\Cobranca\Enum\QualificacaoContato;
 use App\Cobranca\Exception\ObjetoNaoEncontradoException;
 use App\Cobranca\Exception\PessoaNaoEncontradaException;
+use App\Cobranca\Exception\PessoaTelefoneNaoEncontradoException;
 use App\Cobranca\Form\AdicionarTelefoneType;
 use App\Cobranca\Form\CriarPessoaVinculadaType;
 use App\Cobranca\Form\EditarConfiguracaoObjetoType;
@@ -26,8 +30,11 @@ use App\Cobranca\Service\ResolvedorConfigEncargos;
 use App\Cobranca\UseCase\AdicionarTelefonePessoaUseCase;
 use App\Cobranca\UseCase\CriarPessoaVinculadaAoObjetoUseCase;
 use App\Cobranca\UseCase\EditarConfiguracaoObjetoUseCase;
+use App\Cobranca\UseCase\EditarTelefonePessoaUseCase;
+use App\Cobranca\UseCase\ExcluirTelefonePessoaUseCase;
 use App\Cobranca\UseCase\MontarDetalheObjetoUseCase;
 use App\Cobranca\UseCase\MontarFichaPessoaUseCase;
+use App\Entity\Tenant\Tenant;
 use App\Service\PermissionChecker;
 use App\Service\Tenant\TenantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -37,6 +44,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Camada HTTP da página unificada do Objeto de Cobrança (ajuste 2). Abrir o objeto = ver a cobrança
@@ -71,6 +79,11 @@ final class ObjetoController extends AbstractController
         // atualizada sem recarregar a página (2026-07-28). Ambos já existiam, servindo a ficha da pessoa.
         private readonly AdicionarTelefonePessoaUseCase $adicionarTelefonePessoa,
         private readonly MontarFichaPessoaUseCase $montarFichaPessoa,
+        // Corrigir e excluir telefone na própria aba (2026-07-28). O `validator` serve às rotas
+        // por-item, que validam o Input DTO sem passar por Form Type (ver `primeiroErroDeValidacao`).
+        private readonly EditarTelefonePessoaUseCase $editarTelefonePessoa,
+        private readonly ExcluirTelefonePessoaUseCase $excluirTelefonePessoa,
+        private readonly ValidatorInterface $validator,
     ) {
     }
 
@@ -252,14 +265,7 @@ final class ObjetoController extends AbstractController
             return $this->semAcesso();
         }
 
-        // Anti-IDOR: o objeto tem de ser do próprio escritório.
-        $objeto = $this->objetoRepository->findOneByIdDoTenant($id, $tenant);
-        if ($objeto === null) {
-            throw $this->createNotFoundException('Objeto de cobrança não encontrado.');
-        }
-
-        $caso = $this->casoRepository->casoAncoraDoObjeto($objeto);
-        $pessoa = $caso?->getPessoaCobradaAtual();
+        $pessoa = $this->cobradaDoObjetoOuFalha($id, $tenant);
         if ($pessoa === null) {
             return $this->respostaTelefone($request, $id, false, 'Este objeto não tem pessoa cobrada.', null);
         }
@@ -288,6 +294,134 @@ final class ObjetoController extends AbstractController
         // A ficha é remontada DEPOIS da gravação: é ela que traz a lista com o item novo, na mesma
         // ordem e com o mesmo selo `Atual` que o `show` mostraria.
         return $this->respostaTelefone($request, $id, true, 'Telefone adicionado.', $this->montarFichaPessoa->executar($pessoa));
+    }
+
+    /**
+     * Corrige o número de um telefone da pessoa COBRADA, sem sair da aba (2026-07-28).
+     *
+     * Mesma dupla de caras da rota de adicionar (fragmento em AJAX, PRG sem JavaScript) e mesma
+     * capacidade. O CSRF é POR ITEM (`editar_telefone_<id>`), como o "marcar como atual": token
+     * genérico aceitaria trocar o alvo da edição por outro telefone da mesma pessoa.
+     */
+    #[Route('/{id}/responsaveis/telefones/{itemId}', name: 'cobranca_objeto_telefone_editar', methods: ['POST'], requirements: ['id' => '\d+', 'itemId' => '\d+'])]
+    public function editarTelefoneDaCobrada(int $id, int $itemId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $pessoa = $this->cobradaDoObjetoOuFalha($id, $tenant);
+        if ($pessoa === null) {
+            return $this->respostaTelefone($request, $id, false, 'Este objeto não tem pessoa cobrada.', null);
+        }
+
+        if (!$this->isCsrfTokenValid('editar_telefone_' . $itemId, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->respostaTelefone($request, $id, false, 'Token de segurança inválido.', null);
+        }
+
+        $input = new EditarTelefonePessoaInput();
+        $input->pessoaId = $pessoa->getId();
+        $input->telefoneId = $itemId;
+        $input->numero = (string) $request->request->get('numero');
+
+        // Sem Form Type: o campo é um só e a ação é POR LINHA da lista — um FormView por telefone
+        // inflaria o fragmento devolvido no AJAX sem trazer nada que o CSRF por item já não dê. As
+        // regras do número continuam no DTO (fonte única com a rota da ficha), validadas aqui.
+        $erro = $this->primeiroErroDeValidacao($input);
+        if ($erro !== null) {
+            $this->addFlash('danger', $erro);
+
+            return $this->respostaTelefone($request, $id, false, $erro, null);
+        }
+
+        try {
+            $this->editarTelefonePessoa->executar($input, $tenant);
+        } catch (PessoaNaoEncontradaException | PessoaTelefoneNaoEncontradoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->respostaTelefone($request, $id, false, $e->getMessage(), null);
+        }
+
+        $this->addFlash('success', 'Telefone corrigido.');
+
+        return $this->respostaTelefone($request, $id, true, 'Telefone corrigido.', $this->montarFichaPessoa->executar($pessoa));
+    }
+
+    /**
+     * Exclui um telefone da pessoa COBRADA, sem sair da aba (2026-07-28).
+     *
+     * Excluir o telefone ATUAL promove o mais recente que sobrou (decisão do dono) — quem faz isso é
+     * o UseCase; aqui só se conta ao gestor QUAL número virou o atual, senão a lista muda de selo
+     * sozinha e ele descobre por conta própria.
+     */
+    #[Route('/{id}/responsaveis/telefones/{itemId}/excluir', name: 'cobranca_objeto_telefone_excluir', methods: ['POST'], requirements: ['id' => '\d+', 'itemId' => '\d+'])]
+    public function excluirTelefoneDaCobrada(int $id, int $itemId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $pessoa = $this->cobradaDoObjetoOuFalha($id, $tenant);
+        if ($pessoa === null) {
+            return $this->respostaTelefone($request, $id, false, 'Este objeto não tem pessoa cobrada.', null);
+        }
+
+        if (!$this->isCsrfTokenValid('excluir_telefone_' . $itemId, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->respostaTelefone($request, $id, false, 'Token de segurança inválido.', null);
+        }
+
+        $input = new ExcluirTelefonePessoaInput();
+        $input->pessoaId = $pessoa->getId();
+        $input->telefoneId = $itemId;
+
+        try {
+            $promovido = $this->excluirTelefonePessoa->executar($input, $tenant);
+        } catch (PessoaNaoEncontradaException | PessoaTelefoneNaoEncontradoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->respostaTelefone($request, $id, false, $e->getMessage(), null);
+        }
+
+        $mensagem = $promovido === null
+            ? 'Telefone excluído.'
+            : 'Telefone excluído. ' . $promovido->getNumero() . ' passou a ser o atual.';
+        $this->addFlash('success', $mensagem);
+
+        return $this->respostaTelefone($request, $id, true, $mensagem, $this->montarFichaPessoa->executar($pessoa));
+    }
+
+    /**
+     * A pessoa cobrada do objeto, com as duas guardas anti-IDOR: o objeto tem de ser do próprio
+     * escritório (404 se não for) e a cobrada sai do caso âncora dele. `null` = objeto sem cobrada,
+     * que as rotas tratam como recusa comum (não é erro do gestor, e não é 404 do objeto).
+     */
+    private function cobradaDoObjetoOuFalha(int $id, Tenant $tenant): ?Pessoa
+    {
+        $objeto = $this->objetoRepository->findOneByIdDoTenant($id, $tenant);
+        if ($objeto === null) {
+            throw $this->createNotFoundException('Objeto de cobrança não encontrado.');
+        }
+
+        return $this->casoRepository->casoAncoraDoObjeto($objeto)?->getPessoaCobradaAtual();
+    }
+
+    /**
+     * Primeira violação das regras do DTO, em texto — `null` quando está tudo certo. Existe para as
+     * rotas por-item, que não passam por Form Type mas usam o MESMO Input do resto do domínio.
+     */
+    private function primeiroErroDeValidacao(object $input): ?string
+    {
+        foreach ($this->validator->validate($input) as $violacao) {
+            return (string) $violacao->getMessage();
+        }
+
+        return null;
     }
 
     /**

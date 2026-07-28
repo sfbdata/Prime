@@ -196,26 +196,52 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         self::assertNotSame('', (string) $form->filter('input[name="_token"]')->attr('value'), 'sem token a rota recusa');
     }
 
-    #[TestDox('§2.3: editar/excluir entram desabilitados e os selos WhatsApp/Não atende NÃO existem')]
-    public function testTelefonesSemSelosInventadosEComAcoesDesabilitadas(): void
+    #[TestDox('§2.3: editar/excluir AGEM (não são mais botões mortos) e os selos WhatsApp/Não atende NÃO existem')]
+    public function testTelefonesTemAcoesQueAgemESemSelosInventados(): void
     {
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
         $cobrada = $this->cobradaVinculada($tenant, $caso);
-        $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: true);
+        $telefone = $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: true);
+        $objetoId = $caso->getObjeto()->getId();
 
         $lista = $this->abrirAba($client, $caso)->filter('.cob-resp-telefones');
 
+        // Até 2026-07-28 os dois nasciam `disabled` por falta de rota. Agora agem — e nenhum dos dois
+        // pode voltar a ser botão morto sem derrubar este teste.
         foreach (['editar-telefone', 'excluir-telefone'] as $acao) {
             $botao = $lista->filter('[data-acao="' . $acao . '"]');
             self::assertCount(1, $botao, "sumiu o botão {$acao}");
-            self::assertNotNull($botao->attr('disabled'), "{$acao} tem de nascer desabilitado — não há rota");
-            // Tooltip do Bootstrap não dispara em elemento `disabled`: o título mora no span de fora.
-            $embrulho = $lista->filterXPath('//span[@data-bs-toggle="tooltip"][.//button[@data-acao="' . $acao . '"]]');
-            self::assertCount(1, $embrulho, "{$acao} precisa do span com o tooltip por fora");
-            self::assertNotSame('', (string) $embrulho->attr('title'));
+            self::assertNull($botao->attr('disabled'), "{$acao} não pode mais nascer desabilitado — a rota existe");
         }
+
+        // Editar é INLINE: o botão abre o painel da própria linha, que traz o form apontando para a
+        // rota do OBJETO (a da ficha levaria o gestor para outra página) e o número já preenchido.
+        self::assertSame(
+            '#editarTelefone' . $telefone->getId(),
+            $lista->filter('[data-acao="editar-telefone"]')->attr('data-bs-target'),
+        );
+        $formEditar = $lista->filter('#editarTelefone' . $telefone->getId() . ' form');
+        self::assertCount(1, $formEditar);
+        self::assertSame(
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId(),
+            $formEditar->attr('action'),
+        );
+        self::assertSame('(21) 99999-2222', $formEditar->filter('input[name="numero"]')->attr('value'));
+        self::assertNotSame('', (string) $formEditar->filter('input[name="_token"]')->attr('value'), 'CSRF por item');
+
+        // Excluir passa pelo modal compartilhado: o botão carrega a rota, o token DAQUELE item e o
+        // número, que é o que a confirmação mostra. Token genérico aceitaria trocar o alvo.
+        $botaoExcluir = $lista->filter('[data-acao="excluir-telefone"]');
+        self::assertSame(
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId() . '/excluir',
+            $botaoExcluir->attr('data-url'),
+        );
+        self::assertNotSame('', (string) $botaoExcluir->attr('data-token'));
+        self::assertSame('(21) 99999-2222', $botaoExcluir->attr('data-numero'));
+        // Só o ATUAL avisa que a exclusão vai promover outro número.
+        self::assertSame('1', $botaoExcluir->attr('data-atual'));
 
         // A maquete pedia esses selos POR TELEFONE. O contato registrado não guarda a qual telefone se
         // referia — exibi-los seria inventar o vínculo, e a §2.3 os proíbe até a frente que os crie.
@@ -229,11 +255,37 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         $client = static::createClient();
         [, $tenant] = $this->criarAdminLogado($client);
         [, $caso] = $this->semearGrafo($tenant);
-        $this->cobradaVinculada($tenant, $caso);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        // Um telefone cadastrado para que exista lista — é em relação a ela que a posição do `+` é
+        // verificada mais abaixo. Sem nenhum número a aba mostra o estado vazio, e "abaixo do último
+        // telefone" não teria o que ancorar.
+        $this->telefone($tenant, $cobrada, '(21) 99999-2222', atual: true);
 
-        $form = $this->abrirAba($client, $caso)->filter('[data-form="adicionar-telefone"]');
+        $aba = $this->abrirAba($client, $caso);
+        $form = $aba->filter('[data-form="adicionar-telefone"]');
 
         self::assertCount(1, $form, 'o mini-form de adicionar telefone é inline, na própria aba');
+
+        // 2026-07-28: o form deixou de ficar sempre aberto. O único gatilho é o `+` LOGO ABAIXO do
+        // último telefone, e o painel nasce COLAPSADO — mas continua no DOM, com o CSRF já renderizado
+        // (é o que permite abrir sem ida ao servidor, e o que os testes de POST abaixo consomem).
+        $botao = $aba->filter('[data-acao="abrir-novo-telefone"]');
+        self::assertCount(1, $botao, 'o bloco de telefones tem o botão + de adicionar telefone');
+        self::assertSame('#cobRespTelefoneNovo', $botao->attr('data-bs-target'), 'o + tem de apontar para o painel do form');
+        self::assertSame('collapse', $botao->attr('data-bs-toggle'));
+
+        $painel = $aba->filter('#cobRespTelefoneNovo');
+        self::assertCount(1, $painel);
+        self::assertStringContainsString('collapse', (string) $painel->attr('class'), 'o painel do form é um collapse');
+        self::assertStringNotContainsString('show', (string) $painel->attr('class'), 'e nasce fechado — quem só consulta a lista não vê o campo');
+        self::assertCount(1, $painel->filter('[data-form="adicionar-telefone"]'), 'o form mora dentro do painel colapsado');
+        // O + fica FORA do collapse: dentro, fechar o form o levaria junto e não haveria como reabrir.
+        self::assertCount(0, $painel->filter('[data-acao="abrir-novo-telefone"]'), 'o + não pode morar dentro do collapse que ele abre');
+        // E DEPOIS da lista, que é onde o pedido o pôs — logo abaixo do último telefone.
+        $ordem = $aba->filter('.cob-resp-telefone-lista, [data-acao="abrir-novo-telefone"]')->each(
+            static fn ($no) => $no->attr('data-acao') === 'abrir-novo-telefone' ? 'botao' : 'lista',
+        );
+        self::assertSame(['lista', 'botao'], $ordem, 'o + vem abaixo do último telefone, não no cabeçalho da lista');
         // A rota da FICHA (`/cobrancas/pessoas/{id}/telefones`) sempre termina em `cobranca_pessoa_show`
         // e tirava o gestor da cobrança. Apontar para o objeto é o que permite responder com o
         // fragmento (AJAX) ou com o redirect de volta para esta aba (2026-07-28).
@@ -273,6 +325,13 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         self::assertStringContainsString('(21) 98888-7777', $dados['html'], 'o número novo tem de vir no fragmento');
         self::assertStringContainsString('(21) 3333-1111', $dados['html'], 'o fragmento é a lista inteira, não só o item novo');
         self::assertStringContainsString('data-form="adicionar-telefone"', $dados['html'], 'o fragmento traz o mini-form de volta (com CSRF novo)');
+        // ...e traz o mini-form FECHADO: depois de cadastrar, o campo some até alguém apertar o `+` de
+        // novo (pedido do dono, 2026-07-28). Esta é a metade da regra que o servidor decide; a outra é
+        // o JS não reabrir o painel, e essa nenhum teste de PHP alcança — vai no smoke.
+        $fragmento = new Crawler($dados['html']);
+        $painel = $fragmento->filter('#cobRespTelefoneNovo');
+        self::assertCount(1, $painel);
+        self::assertStringNotContainsString('show', (string) $painel->attr('class'), 'o fragmento devolve o mini-form colapsado');
 
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
@@ -384,6 +443,315 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         $em = static::getContainer()->get(EntityManagerInterface::class);
         $em->clear();
         self::assertCount(0, $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]));
+    }
+
+    // ─────────────────── §2.3 Corrigir e excluir telefone (2026-07-28) ───────────────────
+
+    #[TestDox('§2.3: corrigir por AJAX troca o número no lugar e devolve a lista atualizada')]
+    public function testEditarTelefonePorAjaxCorrigeONumero(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $telefone = $this->telefone($tenant, $cobrada, '(21) 3333-111', atual: true);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeEdicao($crawler, (int) $telefone->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId(),
+            ['numero' => '(21) 3333-1111', '_token' => $token],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        self::assertResponseIsSuccessful();
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertTrue($dados['ok']);
+        self::assertStringContainsString('(21) 3333-1111', $dados['html']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $telefones = $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]);
+        self::assertCount(1, $telefones, 'corrigir mexe na MESMA linha — não cria uma nova');
+        self::assertSame('(21) 3333-1111', $telefones[0]->getNumero());
+        // A coluna-sombra é o que as listagens leem sem N+1: sem ela, a correção do ATUAL ficaria
+        // invisível justamente onde o telefone mais aparece.
+        self::assertSame('(21) 3333-1111', $em->getRepository(Pessoa::class)->find($cobrada->getId())?->getTelefone());
+    }
+
+    #[TestDox('§2.3: corrigir com número em branco é recusado e não muda nada')]
+    public function testEditarTelefoneEmBrancoNaoGrava(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $telefone = $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeEdicao($crawler, (int) $telefone->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId(),
+            ['numero' => '   ', '_token' => $token],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertFalse($dados['ok']);
+        self::assertSame('Informe o telefone.', $dados['mensagem'], 'a recusa tem de dizer O QUE está errado');
+        self::assertNull($dados['html'], 'recusa não troca o bloco da tela');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame('(21) 3333-1111', $em->getRepository(PessoaTelefone::class)->find($telefone->getId())?->getNumero());
+    }
+
+    #[TestDox('§2.3: corrigir com token de OUTRO telefone é recusado (CSRF por item)')]
+    public function testEditarTelefoneComTokenDeOutroItemNaoGrava(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $alvo = $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+        $outro = $this->telefone($tenant, $cobrada, '(21) 4444-2222', atual: false);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        // Token do OUTRO item, contra o alvo: é exatamente o que o token por intenção existe para
+        // recusar. Um `csrf_token('editar_telefone')` genérico deixaria isto passar.
+        $tokenDoOutro = $this->tokenDeEdicao($crawler, (int) $outro->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $alvo->getId(),
+            ['numero' => '(21) 9999-9999', '_token' => $tokenDoOutro],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertFalse($dados['ok']);
+        self::assertSame('Token de segurança inválido.', $dados['mensagem']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame('(21) 3333-1111', $em->getRepository(PessoaTelefone::class)->find($alvo->getId())?->getNumero());
+    }
+
+    #[TestDox('§2.3: excluir o telefone ATUAL promove o mais recente que sobrou e avisa qual foi')]
+    public function testExcluirTelefoneAtualPromoveOMaisRecente(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $antigo = $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: false);
+        $meio = $this->telefone($tenant, $cobrada, '(21) 4444-2222', atual: false);
+        $atual = $this->telefone($tenant, $cobrada, '(21) 99999-3333', atual: true);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeExclusao($crawler, (int) $atual->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $atual->getId() . '/excluir',
+            ['_token' => $token],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertTrue($dados['ok']);
+        // A mensagem DIZ qual número virou o atual: sem isso o selo muda de linha e o gestor descobre
+        // sozinho — decisão do dono de promover o sucessor exige contar o que aconteceu.
+        self::assertSame('Telefone excluído. (21) 4444-2222 passou a ser o atual.', $dados['mensagem']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->getRepository(PessoaTelefone::class)->find($atual->getId()), 'a linha some do banco');
+        self::assertTrue($em->getRepository(PessoaTelefone::class)->find($meio->getId())?->isAtual());
+        self::assertFalse($em->getRepository(PessoaTelefone::class)->find($antigo->getId())?->isAtual());
+        self::assertSame('(21) 4444-2222', $em->getRepository(Pessoa::class)->find($cobrada->getId())?->getTelefone());
+    }
+
+    #[TestDox('§2.3: excluir um item do histórico não mexe em quem é o atual')]
+    public function testExcluirTelefoneDoHistoricoNaoPromoveNinguem(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $velho = $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: false);
+        $atual = $this->telefone($tenant, $cobrada, '(21) 99999-3333', atual: true);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeExclusao($crawler, (int) $velho->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $velho->getId() . '/excluir',
+            ['_token' => $token],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+
+        self::assertTrue($dados['ok']);
+        self::assertSame('Telefone excluído.', $dados['mensagem'], 'sem promoção não se anuncia promoção');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->getRepository(PessoaTelefone::class)->find($velho->getId()));
+        self::assertTrue($em->getRepository(PessoaTelefone::class)->find($atual->getId())?->isAtual());
+    }
+
+    #[TestDox('§2.3: excluir o ÚNICO telefone deixa a pessoa sem telefone (sombra zerada)')]
+    public function testExcluirOUnicoTelefoneZeraASombra(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $unico = $this->telefone($tenant, $cobrada, '(21) 99999-3333', atual: true);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $token = $this->tokenDeExclusao($crawler, (int) $unico->getId());
+
+        $client->request(
+            'POST',
+            '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $unico->getId() . '/excluir',
+            ['_token' => $token],
+            [],
+            ['HTTP_X_REQUESTED_WITH' => 'XMLHttpRequest'],
+        );
+
+        $dados = json_decode((string) $client->getResponse()->getContent(), true);
+        self::assertTrue($dados['ok']);
+        self::assertSame('Telefone excluído.', $dados['mensagem']);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertCount(0, $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]));
+        // Deixar a sombra com o número apagado faria as listagens seguirem mostrando um telefone que
+        // não existe mais em lugar nenhum.
+        self::assertNull($em->getRepository(Pessoa::class)->find($cobrada->getId())?->getTelefone());
+    }
+
+    #[TestDox('§2.3: sem AJAX, corrigir e excluir voltam para a PRÓPRIA aba')]
+    public function testEditarEExcluirSemAjaxVoltamParaAAba(): void
+    {
+        $client = static::createClient();
+        [, $tenant] = $this->criarAdminLogado($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $telefone = $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $tokenEditar = $this->tokenDeEdicao($crawler, (int) $telefone->getId());
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId(), [
+            'numero' => '(21) 3333-2222',
+            '_token' => $tokenEditar,
+        ]);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=responsaveis');
+
+        $crawler = $client->request('GET', '/cobrancas/objetos/' . $objetoId);
+        $tokenExcluir = $this->tokenDeExclusao($crawler, (int) $telefone->getId());
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId() . '/excluir', [
+            '_token' => $tokenExcluir,
+        ]);
+        self::assertResponseRedirects('/cobrancas/objetos/' . $objetoId . '?aba=responsaveis');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertCount(0, $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $cobrada->getId()]));
+    }
+
+    #[TestDox('§2.3: corrigir/excluir telefone de objeto de OUTRO escritório responde 404 (anti-IDOR)')]
+    public function testEditarEExcluirTelefoneEmObjetoDeOutroTenant(): void
+    {
+        $client = static::createClient();
+        $this->criarAdminLogado($client);
+        $outroTenant = $this->tenantAvulso();
+        [, $casoAlheio] = $this->semearGrafo($outroTenant);
+        $cobradaAlheia = $casoAlheio->getPessoaCobradaAtual();
+        self::assertNotNull($cobradaAlheia);
+        $telefoneAlheio = $this->telefone($outroTenant, $cobradaAlheia, '(21) 3333-1111', atual: true);
+        $objetoAlheio = (int) $casoAlheio->getObjeto()->getId();
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoAlheio . '/responsaveis/telefones/' . $telefoneAlheio->getId(), [
+            'numero' => '(21) 9999-9999',
+            '_token' => 'token-deliberadamente-podre',
+        ]);
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoAlheio . '/responsaveis/telefones/' . $telefoneAlheio->getId() . '/excluir', [
+            '_token' => 'token-deliberadamente-podre',
+        ]);
+        self::assertResponseStatusCodeSame(404);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        // ⚠️ O filtro `tenant` fica LIGADO no EM depois da última request (TenantFilterListener), com o
+        // tenant do usuário logado. Consultar o telefone do vizinho com ele ligado devolve null — e a
+        // asserção "sobreviveu" falharia por motivo errado, ou pior: um "assertCount(0)" passaria
+        // mesmo se o dado tivesse vazado. Desligar aqui é o que faz a prova ser sobre o DADO.
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $sobrevivente = $em->getRepository(PessoaTelefone::class)->find($telefoneAlheio->getId());
+        self::assertNotNull($sobrevivente, 'o telefone do vizinho continua lá');
+        self::assertSame('(21) 3333-1111', $sobrevivente->getNumero(), 'e intacto');
+    }
+
+    #[TestDox('§2.3: sem a capacidade de gerenciar, corrigir e excluir são barrados no servidor')]
+    public function testEditarEExcluirTelefoneExigemCapacidadeDeGerenciar(): void
+    {
+        $client = static::createClient();
+        // Mesmo gate do PII que esconde a lista: quem não pode VER os telefones não pode mexer neles.
+        [, $tenant] = $this->criarOperadorSemCapacidade($client);
+        [, $caso] = $this->semearGrafo($tenant);
+        $cobrada = $this->cobradaVinculada($tenant, $caso);
+        $telefone = $this->telefone($tenant, $cobrada, '(21) 3333-1111', atual: true);
+        $objetoId = (int) $caso->getObjeto()->getId();
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId(), [
+            'numero' => '(21) 9999-9999',
+            '_token' => 'token-qualquer',
+        ]);
+        // Destino EXPLÍCITO: `semAcesso()` vai para a homepage — um redirect sem alvo aceitaria também
+        // a recusa por CSRF (`?aba=responsaveis`) e deixaria o gate sem prova.
+        self::assertResponseRedirects('/');
+
+        $client->request('POST', '/cobrancas/objetos/' . $objetoId . '/responsaveis/telefones/' . $telefone->getId() . '/excluir', [
+            '_token' => 'token-qualquer',
+        ]);
+        self::assertResponseRedirects('/');
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        $sobrevivente = $em->getRepository(PessoaTelefone::class)->find($telefone->getId());
+        self::assertNotNull($sobrevivente);
+        self::assertSame('(21) 3333-1111', $sobrevivente->getNumero());
     }
 
     // ───────────────────────────── §2.4 Faixa de qualificação ─────────────────────────────
@@ -763,7 +1131,11 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         // Ponta 1 — o markup. TODO form da aba, sem lista de exceções: um form novo sem o gancho
         // derruba este teste em vez de nascer desprotegido em silêncio.
         $forms = $crawler->filter('#tab-responsaveis form');
-        self::assertCount(6, $forms, '3 de qualificação + desfazer + marcar telefone atual + adicionar telefone');
+        self::assertCount(
+            8,
+            $forms,
+            '3 de qualificação + desfazer + marcar telefone atual + adicionar telefone + 1 de corrigir POR telefone (2)',
+        );
 
         $semGancho = $forms->reduce(
             static fn (Crawler $form): bool => $form->attr('data-disable-on-submit') === null,
@@ -863,6 +1235,25 @@ final class AbaResponsaveisTest extends CobrancaWebTestCase
         if ($comEndereco) {
             $this->endereco($tenant, $pessoa, 'Rua das Acácias', '100', atual: true);
         }
+    }
+
+    /**
+     * Os tokens de corrigir/excluir são RASPADOS DA PÁGINA, não gerados pelo `tokenCsrf()`. É de
+     * propósito: assim o POST só passa se o template tiver emitido a MESMA intenção que o controller
+     * valida (`editar_telefone_<id>` / `excluir_telefone_<id>`). Com o token gerado à parte, trocar a
+     * intenção no Twig deixaria a suíte verde e a tela quebrada.
+     */
+    private function tokenDeEdicao(Crawler $crawler, int $telefoneId): string
+    {
+        return (string) $crawler->filter('#editarTelefone' . $telefoneId . ' input[name="_token"]')->attr('value');
+    }
+
+    /** O de excluir mora no botão que abre o modal compartilhado, não num `<input>`. */
+    private function tokenDeExclusao(Crawler $crawler, int $telefoneId): string
+    {
+        return (string) $crawler
+            ->filter('[data-acao="excluir-telefone"][data-url$="/telefones/' . $telefoneId . '/excluir"]')
+            ->attr('data-token');
     }
 
     private function telefone(Tenant $tenant, Pessoa $pessoa, string $numero, bool $atual): PessoaTelefone

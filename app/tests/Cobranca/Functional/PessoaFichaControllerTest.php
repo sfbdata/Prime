@@ -240,6 +240,142 @@ final class PessoaFichaControllerTest extends CobrancaWebTestCase
         self::assertFalse($segundoFresh->isAtual(), 'CSRF inválido: o novo NÃO vira atual');
     }
 
+    #[TestDox('Corrigir telefone na ficha: troca o número na MESMA linha e leva a sombra junto')]
+    public function testEditarTelefoneNaFichaHappy(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+
+        $telefone = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 91111-111', true);
+        $pessoaId = (int) $pessoa->getId();
+        $acaoUrl = '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $telefone->getId() . '/editar';
+
+        // Token RASPADO da ficha: assim o POST só passa se o Twig tiver emitido a MESMA intenção que o
+        // controller valida (`editar_telefone_<id>`).
+        $crawler = $client->request('GET', '/cobrancas/pessoas/' . $pessoaId);
+        $token = (string) $crawler->filter('form[action="' . $acaoUrl . '"] input[name="_token"]')->attr('value');
+
+        $client->request('POST', $acaoUrl, ['numero' => '(41) 91111-1111', '_token' => $token]);
+
+        self::assertResponseRedirects('/cobrancas/pessoas/' . $pessoaId);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertCount(1, $em->getRepository(PessoaTelefone::class)->findBy(['pessoa' => $pessoaId]), 'corrigir não cria linha nova');
+        self::assertSame('(41) 91111-1111', $em->find(PessoaTelefone::class, $telefone->getId())?->getNumero());
+        self::assertSame('(41) 91111-1111', $em->find(Pessoa::class, $pessoaId)?->getTelefone(), 'a sombra segue o atual corrigido');
+    }
+
+    #[TestDox('Corrigir telefone com CSRF inválido: número intacto e erro na tela')]
+    public function testEditarTelefoneNaFichaCsrfInvalido(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+
+        $telefone = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 91111-1111', true);
+        $pessoaId = (int) $pessoa->getId();
+
+        $client->request('POST', '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $telefone->getId() . '/editar', [
+            'numero' => '(41) 90000-0000',
+            '_token' => 'token-invalido',
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/pessoas/' . $pessoaId);
+        $client->followRedirect();
+        self::assertStringContainsString('Token de segurança inválido.', (string) $client->getResponse()->getContent());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertSame('(41) 91111-1111', $em->find(PessoaTelefone::class, $telefone->getId())?->getNumero());
+    }
+
+    #[TestDox('Excluir telefone na ficha: some do banco e o mais recente que sobrou vira o atual')]
+    public function testExcluirTelefoneNaFichaPromoveSucessor(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+
+        $antigo = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 91111-1111', false);
+        $atual = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 92222-2222', true);
+        $pessoaId = (int) $pessoa->getId();
+        $acaoUrl = '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $atual->getId() . '/excluir';
+
+        $crawler = $client->request('GET', '/cobrancas/pessoas/' . $pessoaId);
+        $token = (string) $crawler->filter('form[action="' . $acaoUrl . '"] input[name="_token"]')->attr('value');
+
+        $client->request('POST', $acaoUrl, ['_token' => $token]);
+
+        self::assertResponseRedirects('/cobrancas/pessoas/' . $pessoaId);
+        $client->followRedirect();
+        // A mensagem DIZ qual número virou o atual — a promoção não pode ser silenciosa.
+        self::assertStringContainsString('(41) 91111-1111 passou a ser o atual', (string) $client->getResponse()->getContent());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNull($em->find(PessoaTelefone::class, $atual->getId()), 'a linha some do banco');
+        self::assertTrue($em->find(PessoaTelefone::class, $antigo->getId())?->isAtual());
+        self::assertSame('(41) 91111-1111', $em->find(Pessoa::class, $pessoaId)?->getTelefone());
+    }
+
+    #[TestDox('Excluir telefone com CSRF inválido: a linha continua lá')]
+    public function testExcluirTelefoneNaFichaCsrfInvalido(): void
+    {
+        $client = static::createClient();
+        [$usuario, $tenant] = $this->criarAdminLogado($client);
+        $pessoa = PessoaFactory::createOne(['tenant' => $tenant])->_real();
+
+        $telefone = $this->criarTelefone($tenant, $pessoa, $usuario, '(41) 91111-1111', true);
+        $pessoaId = (int) $pessoa->getId();
+
+        $client->request('POST', '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $telefone->getId() . '/excluir', [
+            '_token' => 'token-invalido',
+        ]);
+
+        self::assertResponseRedirects('/cobrancas/pessoas/' . $pessoaId);
+        $client->followRedirect();
+        self::assertStringContainsString('Token de segurança inválido.', (string) $client->getResponse()->getContent());
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        self::assertNotNull($em->find(PessoaTelefone::class, $telefone->getId()));
+    }
+
+    #[TestDox('IDOR: corrigir/excluir telefone de pessoa de OUTRO tenant → 404 e nada muda')]
+    public function testEditarEExcluirTelefoneCrossTenant404(): void
+    {
+        $client = static::createClient();
+        [$usuario] = $this->criarAdminLogado($client);
+        $outroTenant = $this->tenantAvulso();
+        $pessoaAlheia = PessoaFactory::createOne(['tenant' => $outroTenant])->_real();
+        $telefoneAlheio = $this->criarTelefone($outroTenant, $pessoaAlheia, $usuario, '(41) 91111-1111', true);
+        $pessoaId = (int) $pessoaAlheia->getId();
+
+        $client->request('POST', '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $telefoneAlheio->getId() . '/editar', [
+            'numero' => '(41) 90000-0000',
+            '_token' => 'qualquer',
+        ]);
+        self::assertResponseStatusCodeSame(404);
+
+        $client->request('POST', '/cobrancas/pessoas/' . $pessoaId . '/telefones/' . $telefoneAlheio->getId() . '/excluir', [
+            '_token' => 'qualquer',
+        ]);
+        self::assertResponseStatusCodeSame(404);
+
+        $em = static::getContainer()->get(EntityManagerInterface::class);
+        $em->clear();
+        // O filtro `tenant` fica ligado no EM depois da request, com o tenant do logado: sem desligar,
+        // a consulta abaixo devolveria null e a prova seria sobre o filtro, não sobre o DADO.
+        if ($em->getFilters()->isEnabled('tenant')) {
+            $em->getFilters()->disable('tenant');
+        }
+        $sobrevivente = $em->find(PessoaTelefone::class, $telefoneAlheio->getId());
+        self::assertNotNull($sobrevivente, 'o telefone do vizinho continua lá');
+        self::assertSame('(41) 91111-1111', $sobrevivente->getNumero(), 'e intacto');
+    }
+
     #[TestDox('Marcar e-mail como atual: troca a flag e preserva o anterior na lista')]
     public function testMarcarEmailAtualHappy(): void
     {

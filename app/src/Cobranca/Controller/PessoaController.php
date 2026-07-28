@@ -8,7 +8,9 @@ use App\Cobranca\DTO\AdicionarEmailPessoaInput;
 use App\Cobranca\DTO\AdicionarEnderecoPessoaInput;
 use App\Cobranca\DTO\AdicionarTelefonePessoaInput;
 use App\Cobranca\DTO\EditarQualificacaoPessoaInput;
+use App\Cobranca\DTO\EditarTelefonePessoaInput;
 use App\Cobranca\DTO\EncerrarVinculoInput;
+use App\Cobranca\DTO\ExcluirTelefonePessoaInput;
 use App\Cobranca\DTO\MarcarEmailAtualInput;
 use App\Cobranca\DTO\MarcarEnderecoAtualInput;
 use App\Cobranca\DTO\MarcarTelefoneAtualInput;
@@ -34,7 +36,9 @@ use App\Cobranca\UseCase\AdicionarEmailPessoaUseCase;
 use App\Cobranca\UseCase\AdicionarEnderecoPessoaUseCase;
 use App\Cobranca\UseCase\AdicionarTelefonePessoaUseCase;
 use App\Cobranca\UseCase\EditarQualificacaoPessoaUseCase;
+use App\Cobranca\UseCase\EditarTelefonePessoaUseCase;
 use App\Cobranca\UseCase\EncerrarVinculoUseCase;
+use App\Cobranca\UseCase\ExcluirTelefonePessoaUseCase;
 use App\Cobranca\UseCase\MarcarEmailAtualUseCase;
 use App\Cobranca\UseCase\MarcarEnderecoAtualUseCase;
 use App\Cobranca\UseCase\MarcarTelefoneAtualUseCase;
@@ -48,6 +52,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 /**
  * Mutações de Pessoa e Vínculo (Onda 8B-E) + ficha da pessoa (spec de qualificação §7, Ponto #1-B).
@@ -77,6 +82,12 @@ final class PessoaController extends AbstractController
         private readonly MarcarEnderecoAtualUseCase $marcarEnderecoAtual,
         private readonly MarcarTelefoneAtualUseCase $marcarTelefoneAtual,
         private readonly MarcarEmailAtualUseCase $marcarEmailAtual,
+        // Corrigir e excluir telefone (2026-07-28). A mesma dupla existe na aba Responsáveis do
+        // objeto; aqui é o PRG de sempre da ficha. O `validator` cobre as rotas por-item, que usam o
+        // Input DTO sem Form Type (campo único + CSRF por item, como o "marcar como atual").
+        private readonly EditarTelefonePessoaUseCase $editarTelefonePessoa,
+        private readonly ExcluirTelefonePessoaUseCase $excluirTelefonePessoa,
+        private readonly ValidatorInterface $validator,
     ) {
     }
 
@@ -338,6 +349,103 @@ final class PessoaController extends AbstractController
         }
 
         return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+    }
+
+    /**
+     * Corrige o NÚMERO de um telefone da ficha (2026-07-28). A mesma ação existe na aba Responsáveis
+     * do objeto, servida por `ObjetoController` — o UseCase é o mesmo; muda só o destino da volta.
+     *
+     * CSRF por item (`editar_telefone_<id>`), como o "marcar como atual" logo acima: token genérico
+     * aceitaria trocar o alvo da edição por outro telefone da mesma pessoa.
+     */
+    #[Route('/pessoas/{id}/telefones/{itemId}/editar', name: 'cobranca_pessoa_telefone_editar', methods: ['POST'], requirements: ['id' => '\d+', 'itemId' => '\d+'])]
+    public function editarTelefone(int $id, int $itemId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $this->resolverPessoa($id, $tenant);
+
+        if (!$this->isCsrfTokenValid('editar_telefone_' . $itemId, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        }
+
+        $input = new EditarTelefonePessoaInput();
+        $input->pessoaId = $id;
+        $input->telefoneId = $itemId;
+        $input->numero = (string) $request->request->get('numero');
+
+        // Sem Form Type: campo único numa ação POR LINHA da lista. As regras do número seguem no DTO
+        // (fonte única com a rota da aba), validadas aqui — ver `primeiroErroDeValidacao`.
+        $erro = $this->primeiroErroDeValidacao($input);
+        if ($erro !== null) {
+            $this->addFlash('danger', $erro);
+
+            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        }
+
+        try {
+            $this->editarTelefonePessoa->executar($input, $tenant);
+            $this->addFlash('success', 'Telefone corrigido.');
+        } catch (PessoaNaoEncontradaException | PessoaTelefoneNaoEncontradoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+    }
+
+    /**
+     * Exclui um telefone da ficha (2026-07-28). Excluir o ATUAL promove o mais recente que sobrou
+     * (decisão do dono) — quem faz isso é o UseCase; aqui só se diz QUAL número passou a ser o atual,
+     * senão o selo muda de linha sozinho e o gestor descobre por conta própria.
+     */
+    #[Route('/pessoas/{id}/telefones/{itemId}/excluir', name: 'cobranca_pessoa_telefone_excluir', methods: ['POST'], requirements: ['id' => '\d+', 'itemId' => '\d+'])]
+    public function excluirTelefone(int $id, int $itemId, Request $request): Response
+    {
+        $tenant = $this->tenantComCapacidade('resources.cobranca.gerenciar');
+        if ($tenant === null) {
+            return $this->semAcesso();
+        }
+
+        $this->resolverPessoa($id, $tenant);
+
+        if (!$this->isCsrfTokenValid('excluir_telefone_' . $itemId, (string) $request->request->get('_token'))) {
+            $this->addFlash('danger', 'Token de segurança inválido.');
+
+            return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+        }
+
+        $input = new ExcluirTelefonePessoaInput();
+        $input->pessoaId = $id;
+        $input->telefoneId = $itemId;
+
+        try {
+            $promovido = $this->excluirTelefonePessoa->executar($input, $tenant);
+            $this->addFlash('success', $promovido === null
+                ? 'Telefone excluído.'
+                : 'Telefone excluído. ' . $promovido->getNumero() . ' passou a ser o atual.');
+        } catch (PessoaNaoEncontradaException | PessoaTelefoneNaoEncontradoException $e) {
+            $this->addFlash('danger', $e->getMessage());
+        }
+
+        return $this->redirectToRoute('cobranca_pessoa_show', ['id' => $id]);
+    }
+
+    /**
+     * Primeira violação das regras do DTO, em texto — `null` quando está tudo certo. Existe para as
+     * rotas por-item, que não passam por Form Type mas usam o MESMO Input do resto do domínio.
+     */
+    private function primeiroErroDeValidacao(object $input): ?string
+    {
+        foreach ($this->validator->validate($input) as $violacao) {
+            return (string) $violacao->getMessage();
+        }
+
+        return null;
     }
 
     #[Route('/pessoas/{id}/emails', name: 'cobranca_pessoa_email_adicionar', methods: ['POST'], requirements: ['id' => '\d+'])]

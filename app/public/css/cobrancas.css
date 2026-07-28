@@ -1010,6 +1010,19 @@ html[data-bs-theme="dark"] .cob-cab {
     .cob-resp-telefone:hover .cob-resp-telefone-acoes,
     .cob-resp-telefone:focus-within .cob-resp-telefone-acoes { opacity: 1; pointer-events: auto; }
 }
+/* Edição inline da linha (2026-07-28). O campo precisa de largura MÁXIMA porque a lista encolhe até o
+   conteúdo (`fit-content` acima): solto, um input de largura padrão esticaria a lista inteira e o
+   `border-top` entre as linhas junto — a lista mudaria de tamanho só por alguém abrir uma edição.
+   O mini-form de adicionar segue a mesma medida: os dois campos são o mesmo campo, em lugares
+   diferentes, e larguras distintas denunciariam a coincidência como acidente. */
+.cob-resp-telefone-editar .form-control,
+.cob-resp-telefone-novo .form-control { max-width: 12rem; }
+
+/* O aviso ("Telefone adicionado.") só ocupa espaço quando TEM texto. Vazio é o estado normal da tela,
+   e uma margem fixa deixaria um vão morto embaixo da lista o tempo todo; com margem pequena demais, a
+   mensagem nascia colada na linha de cima. `:empty` resolve os dois casos com uma regra. */
+.cob-resp-telefone-aviso:not(:empty) { margin-top: .75rem; }
+
 @media (prefers-reduced-motion: reduce) {
     .cob-resp-telefone-acoes { transition: none; }
 }

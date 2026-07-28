@@ -548,6 +548,42 @@
 </div>
 {% endif %}
 
+{# Exclusão de telefone da cobrada (aba Responsáveis). Um modal só, compartilhado por todas as linhas
+   da lista: o clique injeta a action, o token daquele item e o número — sem isso a confirmação diria
+   "excluir telefone?" sem dizer QUAL, que é o problema que o `confirm()` do navegador tinha.
+
+   O gate é o mesmo do mini-form de adicionar (`formTelefoneCobrada` só existe com a capacidade
+   `resources.cobranca.gerenciar` e com ficha): sem ele os botões da lista nem são renderizados, e um
+   modal sem gatilho seria marcação morta. A rota exige a mesma capacidade, então nada se perde. #}
+{% if formTelefoneCobrada is not null %}
+<div class="modal fade" id="modalExcluirTelefone" tabindex="-1" aria-labelledby="tituloExcluirTelefone" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formExcluirTelefone" data-form="excluir-telefone" data-disable-on-submit="true">
+                <input type="hidden" name="_token" id="tokenExcluirTelefone" value="">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloExcluirTelefone"><i class="bi bi-trash me-1"></i>Excluir telefone</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-2">Este número sai da lista e <strong>não dá para desfazer</strong>.</p>
+                    <p class="fw-semibold mb-2" id="numeroExcluirTelefone"></p>
+                    {# Só aparece quando o alvo é o ATUAL: o gestor precisa saber, ANTES de confirmar, que
+                       a exclusão vai promover outro número — senão o selo muda de linha sozinho. #}
+                    <p class="text-secondary small mb-0 d-none" id="avisoAtualExcluirTelefone">
+                        <i class="bi bi-info-circle me-1"></i>Este é o telefone atual. Ao excluir, o mais recente que sobrar passa a ser o atual.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Excluir telefone</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {# Nova pessoa (cadastra + vincula ao objeto — gatilho no card da pessoa) #}
 {% if formNovaPessoa %}
 <div class="modal fade" id="modalNovaPessoa" tabindex="-1" aria-labelledby="tituloNovaPessoa" aria-hidden="true">
@@ -697,9 +733,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    /* Adicionar telefone na aba Responsáveis SEM sair da página (2026-07-28). O POST vai por fetch
-       para `cobranca_objeto_telefone_adicionar`, que responde com o bloco `.cob-resp-telefones` já
-       renderizado; trocamos o bloco no lugar e pronto — a aba continua a mesma e nada recarrega.
+    /* Adicionar / corrigir / excluir telefone na aba Responsáveis SEM sair da página (2026-07-28). O
+       POST vai por fetch para a rota do objeto correspondente; as TRÊS respondem igual — o bloco
+       `.cob-resp-telefones` já renderizado — então um handler só serve as três (`data-form` terminado
+       em `-telefone`). Trocamos o bloco no lugar e pronto: a aba continua a mesma e nada recarrega.
 
        O listener é DELEGADO no documento porque o form some a cada troca de bloco: um listener preso
        ao form morreria no primeiro envio. Pelo mesmo motivo o anti duplo-submit do bloco acima (preso
@@ -714,12 +751,52 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!alvo) { return; }
         /* textContent: a mensagem vem do servidor, mas aqui ela é TEXTO — nunca marcação. */
         alvo.textContent = texto || '';
-        alvo.className = 'cob-resp-telefone-aviso small mt-1 ' + (ok ? 'text-success' : 'text-danger');
+        /* Sem classe de margem: o espaçamento é do CSS e só existe com texto (`:not(:empty)`) — este
+           className é reescrito a cada aviso e precisa bater com o que o Twig renderiza. */
+        alvo.className = 'cob-resp-telefone-aviso small ' + (ok ? 'text-success' : 'text-danger');
     };
+
+    /* A confirmação de exclusão mora num modal FORA do bloco trocado pelo fetch — sem fechar na mão
+       ele continuaria aberto por cima da lista já atualizada (ou por cima do aviso de recusa). */
+    var fecharModalExcluirTelefone = function () {
+        var modal = document.getElementById('modalExcluirTelefone');
+        if (!modal || typeof bootstrap === 'undefined') { return; }
+        var instancia = bootstrap.Modal.getInstance(modal);
+        if (instancia) { instancia.hide(); }
+    };
+
+    /* Gatilho do modal de exclusão: injeta ação, token e o número daquela linha. DELEGADO porque os
+       botões são recriados a cada troca do bloco — um listener preso ao botão morreria na primeira
+       exclusão (o `.js-excluir-anotacao`, que não é delegado, tem esse limite por não trocar o DOM).
+       Sem o bundle do Bootstrap o botão não abre nada — mesma condição de todo modal desta página, e
+       de resto sem ele a própria aba Responsáveis não abriria (as abas são componente do Bootstrap). */
+    document.addEventListener('click', function (evento) {
+        var botao = evento.target.closest ? evento.target.closest('.js-excluir-telefone') : null;
+        if (!botao) { return; }
+
+        var form = document.getElementById('formExcluirTelefone');
+        var token = document.getElementById('tokenExcluirTelefone');
+        var numero = document.getElementById('numeroExcluirTelefone');
+        var aviso = document.getElementById('avisoAtualExcluirTelefone');
+        var modal = document.getElementById('modalExcluirTelefone');
+        if (!form || !modal || typeof bootstrap === 'undefined') { return; }
+
+        form.setAttribute('action', botao.dataset.url || '');
+        if (token) { token.value = botao.dataset.token || ''; }
+        /* textContent: número é dado do usuário — texto, nunca marcação. */
+        if (numero) { numero.textContent = botao.dataset.numero || ''; }
+        if (aviso) { aviso.classList.toggle('d-none', botao.dataset.atual !== '1'); }
+        var enviar = form.querySelector('button[type="submit"]');
+        if (enviar) { enviar.disabled = false; }
+
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+    });
 
     document.addEventListener('submit', function (evento) {
         var form = evento.target;
-        if (!form || !form.matches || !form.matches('[data-form="adicionar-telefone"]')) { return; }
+        /* `adicionar-telefone`, `editar-telefone` e `excluir-telefone` — as três rotas devolvem o
+           mesmo fragmento. O sufixo evita ter de repetir a lista aqui a cada ação nova. */
+        if (!form || !form.matches || !form.matches('form[data-form$="-telefone"]')) { return; }
         if (!window.fetch || !window.FormData) { return; }
 
         evento.preventDefault();
@@ -738,8 +815,10 @@ document.addEventListener('DOMContentLoaded', function () {
         }).then(function (dados) {
             var bloco = document.querySelector('.cob-resp-telefones');
             if (!dados.ok || !dados.html || !bloco) {
-                /* Recusa do servidor (número vazio, por exemplo): a lista não muda, só o aviso. */
+                /* Recusa do servidor (número vazio, por exemplo): a lista não muda, só o aviso. O
+                   modal de exclusão fecha junto, senão a recusa ficaria escrita ATRÁS dele. */
                 if (botao) { botao.disabled = false; }
+                fecharModalExcluirTelefone();
                 avisarTelefone(bloco, dados.mensagem, false);
 
                 return;
@@ -753,13 +832,28 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             }
             avisarTelefone(novo, dados.mensagem, true);
-            var campo = novo ? novo.querySelector('[data-form="adicionar-telefone"] input[type="text"]') : null;
-            if (campo) { campo.focus(); }
+
+            fecharModalExcluirTelefone();
+
+            /* O mini-form NÃO é reaberto: o bloco volta do servidor colapsado e fica assim até alguém
+               apertar o `+` de novo (pedido do dono, 2026-07-28). Houve uma versão que o reabria para
+               quem tivesse um segundo número na mão — na prática o campo ficava aberto sozinho depois
+               de cada cadastro. Quem vai digitar outro número aperta o `+`; quem não vai, vê a lista. */
         }).catch(function () {
             /* `form.submit()` não dispara o evento `submit`, então não reentra aqui. */
             if (botao) { botao.disabled = false; }
             form.submit();
         });
+    });
+
+    /* Abrir o mini-form de telefone pelo `+` põe o cursor no campo — senão sobra um clique a mais para
+       algo que só existe para digitar. Delegado no documento (os eventos do Bootstrap borbulham) porque
+       o painel é trocado a cada cadastro; um listener preso ao elemento morreria na primeira troca. */
+    document.addEventListener('shown.bs.collapse', function (evento) {
+        var painel = evento.target;
+        if (!painel || !painel.matches || !painel.matches('.cob-resp-telefone-novo')) { return; }
+        var campo = painel.querySelector('input[type="text"]');
+        if (campo) { campo.focus(); }
     });
 
     if (typeof bootstrap === 'undefined') { return; }

@@ -440,6 +440,20 @@ class Pessoa implements TenantAware, Auditavel
         return $this;
     }
 
+    /**
+     * Tira o item da coleção EM MEMÓRIA (`ExcluirTelefonePessoaUseCase`). Quem apaga a linha no banco
+     * é o repositório (`remover()`): a associação não tem `orphanRemoval`, então sair da coleção
+     * sozinho não deletaria nada. O `setPessoa(null)` NÃO acontece de propósito — a coluna é
+     * `nullable: false`, e o que se quer aqui é que a mesma request pare de enxergar o item na lista
+     * (a tela é remontada logo em seguida), não que a linha vire órfã antes do DELETE.
+     */
+    public function removerTelefone(PessoaTelefone $telefone): self
+    {
+        $this->telefones->removeElement($telefone);
+
+        return $this;
+    }
+
     /** @return Collection<int, PessoaEmail> */
     public function getEmails(): Collection
     {

@@ -11,6 +11,11 @@
    o JS dependem de `.cob-resp-telefones`, `.cob-resp-telefone`, `[data-telefone]`,
    `[data-selo="telefone-atual"]`, `[data-acao=...]` e `[data-form="adicionar-telefone"]`).
 
+   2026-07-28: EDITAR e EXCLUIR saíram do limbo (eram botões desabilitados, por falta de rota) e
+   agora agem. As três rotas do bloco — adicionar, editar, excluir — respondem igual: fragmento
+   pronto em AJAX, redirect para `?aba=responsaveis` sem JavaScript. Editar é INLINE na linha;
+   excluir passa pelo modal compartilhado do `show`, que mostra qual número vai embora.
+
    Contexto (passado EXPLICITAMENTE no include — `strict_variables` só está ligado em `test`, então
    uma variável renomeada sumiria em silêncio na produção):
    - `ficha` (PessoaFichaOutput, não nulo) · `podeAbrirFicha` (capacidade `resources.cobranca.gerenciar`)
@@ -42,20 +47,46 @@
                     <button type="submit" class="btn btn-sm btn-outline-secondary" data-acao="marcar-telefone-atual">Marcar como atual</button>
                 </form>
                 {% endif %}
-                {# Editar e excluir NÃO TÊM ROTA (§2.3): entram desabilitados em vez de virarem
-                   cliques mortos. Tooltip do Bootstrap não dispara em elemento `disabled` —
-                   daí o `<span>` por fora, mesmo padrão do `Simular acordo` do cabeçalho. #}
-                {% for acao in [
-                    {chave: 'editar-telefone', icone: 'bi-pencil', rotulo: 'Editar telefone'},
-                    {chave: 'excluir-telefone', icone: 'bi-trash', rotulo: 'Excluir telefone'},
-                ] %}
-                <span class="d-inline-block" data-bs-toggle="tooltip" title="{{ acao.rotulo }} ainda não tem função — o histórico de telefones só acrescenta.">
-                    <button type="button" class="btn btn-sm btn-outline-secondary is-disabled" data-acao="{{ acao.chave }}" aria-label="{{ acao.rotulo }}" disabled>
-                        <i class="bi {{ acao.icone }}"></i>
-                    </button>
-                </span>
-                {% endfor %}
+                {# Editar e excluir GANHARAM ROTA em 2026-07-28 (antes eram botões desabilitados).
+                   `data-bs-toggle` é do collapse/modal, então o rótulo vai em `title`/`aria-label`,
+                   e não em tooltip do Bootstrap — que disputaria o mesmo atributo. #}
+                {% if podeAbrirFicha %}
+                <button type="button" class="btn btn-sm btn-outline-secondary"
+                        data-bs-toggle="collapse" data-bs-target="#editarTelefone{{ t.id }}"
+                        aria-expanded="false" aria-controls="editarTelefone{{ t.id }}"
+                        data-acao="editar-telefone" aria-label="Editar telefone" title="Corrigir este número">
+                    <i class="bi bi-pencil"></i>
+                </button>
+                {# A confirmação de exclusão é um modal compartilhado no `show` (mesmo padrão da
+                   anotação): o clique injeta ação, token e o número que vai sumir. `confirm()` do
+                   navegador não diria QUAL número está prestes a ir embora. #}
+                <button type="button" class="btn btn-sm btn-outline-danger js-excluir-telefone"
+                        data-acao="excluir-telefone" aria-label="Excluir telefone" title="Excluir este número"
+                        data-url="{{ path('cobranca_objeto_telefone_excluir', {id: objetoId, itemId: t.id}) }}"
+                        data-token="{{ csrf_token('excluir_telefone_' ~ t.id) }}"
+                        data-numero="{{ t.numero|e('html_attr') }}"
+                        data-atual="{{ t.atual ? '1' : '0' }}">
+                    <i class="bi bi-trash"></i>
+                </button>
+                {% endif %}
             </div>
+            {# Edição INLINE, na própria linha: o campo já vem com o número atual e some ao salvar (o
+               bloco inteiro volta do servidor colapsado). Fica fora do grupo de ações porque aquele é
+               posicionado FORA DO FLUXO no desktop — dentro dele, o form abriria por cima da lista. #}
+            {% if podeAbrirFicha %}
+            <div class="collapse w-100 cob-resp-telefone-editar" id="editarTelefone{{ t.id }}">
+                <form method="POST" action="{{ path('cobranca_objeto_telefone_editar', {id: objetoId, itemId: t.id}) }}"
+                      data-form="editar-telefone" data-disable-on-submit="true"
+                      class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                    <input type="hidden" name="_token" value="{{ csrf_token('editar_telefone_' ~ t.id) }}">
+                    <input type="text" name="numero" value="{{ t.numero }}" maxlength="20"
+                           class="form-control form-control-sm" aria-label="Número do telefone">
+                    <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            data-bs-toggle="collapse" data-bs-target="#editarTelefone{{ t.id }}">Cancelar</button>
+                </form>
+            </div>
+            {% endif %}
         </li>
         {% endfor %}
     </ul>
@@ -68,20 +99,49 @@
        na hora pelo JS. Sem JavaScript a mesma rota responde com redirect para `?aba=responsaveis` —
        nos dois caminhos o desvio para `cobranca_pessoa_show` acabou (2026-07-28).
        "Marcar como atual", acima, AINDA leva para a ficha: é a rota da pessoa, e mudá-la não estava no
-       pedido. #}
+       pedido.
+
+       Nasce FECHADO: o `+` LOGO ABAIXO do último telefone é quem abre — é ali que a lista termina e o
+       número novo vai aparecer, então é onde a mão já está. E VOLTA a fechar depois de cadastrar: o
+       bloco que a rota devolve vem colapsado e o JS não o reabre mais (era o comportamento até
+       2026-07-28; o dono pediu o contrário — o gesto acabou quando o número entrou na lista).
+
+       O botão fica FORA do collapse de propósito: dentro, ele sumiria junto com o form ao fechar e não
+       haveria como reabrir.
+
+       O campo sai por `form_widget` (e não `form_row`): o `form_row` traz rótulo e a margem `mb-3` do
+       tema, que era o que desencontrava o botão do campo. Sem ele, os dois são itens de flex do mesmo
+       tamanho (`-sm`), centrados, sem margem para compensar. `maxlength` é repetido aqui porque passar
+       `attr` no widget SUBSTITUI o do Form Type inteiro — omitir seria perder o limite de 20. #}
     {% if formTelefoneCobrada is not null %}
-    <div class="cob-resp-telefone-novo mt-2">
+    <button type="button" class="btn btn-sm jp-btn-accent cob-resp-telefone-add mt-2"
+            data-bs-toggle="collapse" data-bs-target="#cobRespTelefoneNovo"
+            aria-expanded="false" aria-controls="cobRespTelefoneNovo"
+            data-acao="abrir-novo-telefone" aria-label="Adicionar telefone" title="Adicionar telefone">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+
+    <div class="collapse cob-resp-telefone-novo mt-2" id="cobRespTelefoneNovo">
         {{ form_start(formTelefoneCobrada, {
             action: path('cobranca_objeto_telefone_adicionar', {id: objetoId}),
-            attr: {'data-disable-on-submit': 'true', 'data-form': 'adicionar-telefone', 'class': 'd-flex align-items-end gap-2 flex-wrap'},
+            attr: {'data-disable-on-submit': 'true', 'data-form': 'adicionar-telefone', 'class': 'd-flex align-items-center gap-2 flex-wrap'},
         }) }}
-        <div>{{ form_row(formTelefoneCobrada.numero) }}</div>
-        <button type="submit" class="btn btn-sm jp-btn-accent mb-3"><i class="bi bi-plus-lg me-1"></i>Adicionar telefone</button>
+        {{ form_widget(formTelefoneCobrada.numero, {attr: {
+            'class': 'form-control form-control-sm',
+            'maxlength': 20,
+            'placeholder': 'Novo telefone',
+            'aria-label': 'Novo telefone',
+        }}) }}
+        <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-plus-lg me-1"></i>Adicionar telefone</button>
         {{ form_end(formTelefoneCobrada) }}
     </div>
     {% endif %}
 
     {# Alvo do aviso do fetch (sucesso ou erro). Fica FORA do form porque o form é substituído junto
-       com o resto do bloco — mas dentro do bloco, para que o próximo envio o zere sozinho. #}
-    <div class="cob-resp-telefone-aviso small mt-1" data-aviso="telefone" role="status" aria-live="polite"></div>
+       com o resto do bloco — mas dentro do bloco, para que o próximo envio o zere sozinho.
+
+       Sem classe de margem: o respiro vem do CSS e só quando há texto (`:not(:empty)`). Com `mt-1`
+       fixo, a mensagem nascia colada na linha de cima — e um `mt-` maior deixaria um vão permanente
+       aqui embaixo mesmo com o aviso vazio, que é o estado normal da tela. #}
+    <div class="cob-resp-telefone-aviso small" data-aviso="telefone" role="status" aria-live="polite"></div>
 </div>

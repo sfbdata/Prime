@@ -1,6 +1,10 @@
 {# ───────────────────────────────────────────────────────────────────────────
    Lista de telefones da pessoa (spec §4/§7): linha do tempo `criadoEm ASC`, nunca perde histórico —
    "adicionar" só acrescenta, "marcar atual" só troca a flag (o item anterior permanece na lista).
+
+   2026-07-28: entraram CORRIGIR e EXCLUIR, as ações explícitas que a §7 já previa à parte. Elas não
+   contradizem o "nunca perde histórico": corrigir é para o número digitado errado, e excluir é para o
+   registro que não deveria existir. Trocar de telefone continua sendo adicionar + marcar atual.
    Contexto herdado do show: `pessoa` (PessoaFichaOutput) e `formTelefone` (AdicionarTelefoneType).
 ─────────────────────────────────────────────────────────────────────────── #}
 <div class="card cobranca-card mb-3">
@@ -14,7 +18,7 @@
         {% if pessoa.telefones|length > 0 %}
         <ul class="list-unstyled mb-0">
             {% for t in pessoa.telefones %}
-            <li class="d-flex align-items-center gap-2 flex-wrap py-2{{ not loop.first ? ' border-top' : '' }}">
+            <li class="d-flex align-items-center gap-2 flex-wrap py-2{{ not loop.first ? ' border-top' : '' }}" data-telefone="{{ t.id }}">
                 <i class="bi {{ t.atual ? 'bi-telephone-fill text-success' : 'bi-telephone text-secondary' }}" aria-hidden="true"></i>
                 <div class="flex-grow-1" style="min-width: 0;">
                     <a href="tel:{{ t.numero|e('url') }}">{{ t.numero }}</a>
@@ -29,6 +33,39 @@
                             <button type="submit" class="btn btn-sm btn-outline-secondary">Marcar como atual</button>
                         </form>
                     {% endif %}
+                    {# Corrigir e excluir (2026-07-28): as MESMAS ações da aba Responsáveis do objeto,
+                       aqui no PRG de sempre da ficha. Corrigir é para o número errado; a troca de
+                       telefone da pessoa continua sendo adicionar + marcar atual, que não apaga nada. #}
+                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                            data-bs-toggle="collapse" data-bs-target="#editarTelefoneFicha{{ t.id }}"
+                            aria-expanded="false" aria-controls="editarTelefoneFicha{{ t.id }}"
+                            data-acao="editar-telefone" aria-label="Editar telefone" title="Corrigir este número">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    {# `onsubmit` com confirm() nativo: a ficha não tem o modal compartilhado do `show`,
+                       e aqui o número está na MESMA linha do botão — quem clica está olhando para ele.
+                       O aviso diz o que a exclusão faz de diferente quando o alvo é o atual. #}
+                    <form method="POST" action="{{ path('cobranca_pessoa_telefone_excluir', {id: pessoa.id, itemId: t.id}) }}"
+                          data-disable-on-submit="true"
+                          onsubmit="return confirm({{ (t.atual
+                              ? 'Excluir ' ~ t.numero ~ '? Este é o telefone atual — o mais recente que sobrar passa a ser o atual.'
+                              : 'Excluir ' ~ t.numero ~ '? Não dá para desfazer.')|json_encode }});">
+                        <input type="hidden" name="_token" value="{{ csrf_token('excluir_telefone_' ~ t.id) }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" data-acao="excluir-telefone" aria-label="Excluir telefone" title="Excluir este número">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                </div>
+                <div class="collapse w-100" id="editarTelefoneFicha{{ t.id }}">
+                    <form method="POST" action="{{ path('cobranca_pessoa_telefone_editar', {id: pessoa.id, itemId: t.id}) }}"
+                          data-disable-on-submit="true" class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                        <input type="hidden" name="_token" value="{{ csrf_token('editar_telefone_' ~ t.id) }}">
+                        <input type="text" name="numero" value="{{ t.numero }}" maxlength="20"
+                               class="form-control form-control-sm" style="max-width: 12rem;" aria-label="Número do telefone">
+                        <button type="submit" class="btn btn-sm jp-btn-accent"><i class="bi bi-check-lg me-1"></i>Salvar</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                data-bs-toggle="collapse" data-bs-target="#editarTelefoneFicha{{ t.id }}">Cancelar</button>
+                    </form>
                 </div>
             </li>
             {% endfor %}

@@ -31,6 +31,21 @@ class PessoaTelefoneRepository extends ServiceEntityRepository
     }
 
     /**
+     * Exclusão física da linha (`ExcluirTelefonePessoaUseCase`). Não há soft delete aqui: o item
+     * excluído é o que NÃO deveria estar na lista — mantê-lo escondido só recriaria, invisível, o
+     * problema que a exclusão resolve. O histórico legítimo (troca de número) nunca passa por aqui:
+     * ele é preservado por adicionar + marcar atual.
+     */
+    public function remover(PessoaTelefone $entidade, bool $flush = false): void
+    {
+        $this->getEntityManager()->remove($entidade);
+
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
+    /**
      * Busca tenant-safe por id — o filtro SQL do Doctrine NÃO se aplica a find() por PK
      * (risco cross-tenant). Sempre passar o tenant explícito.
      */
