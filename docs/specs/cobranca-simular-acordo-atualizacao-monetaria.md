@@ -192,8 +192,13 @@ impresso, dizendo que é simulação por índice oficial e que não substitui o 
 em ordem, e última competência publicada da série). Um índice extra nas mesmas colunas seria
 redundante e o Doctrine o descarta ao gerar a migration.
 
-> **Nota de PK — `integer`, não `uuid` (decisão do dono, 29/07/2026).** As duas tabelas desta feature
-> usam `integer` auto-increment. Esta spec pedia `uuid`, mas `symfony/uid` não está instalado e
+> **Nota de PK — `integer`, não `uuid`.** *(Implementado primeiro, decidido depois: a Parte 2 foi
+> escrita com `integer`, a divergência foi levada ao dono como pendência aberta, e ele **ratificou**
+> em 29/07/2026. Registrado nessa ordem de propósito — spec ajustada ao código já escrito é
+> precedente ruim, e quem ler daqui a seis meses tem direito de saber qual veio antes.)*
+>
+> As duas tabelas desta feature usam `integer` auto-increment. Esta spec pedia `uuid`, mas
+> `symfony/uid` não está instalado e
 > nenhuma das ~40 entidades do projeto usa UUID. O que o uuid compraria é id não-enumerável em URL —
 > e disso quem cuida é o guarda cross-tenant que o §7.2 exige (404, nunca 403, para não revelar
 > existência), que é defesa mais forte e já obrigatória. Adotar uuid em uma feature só deixaria o
@@ -250,11 +255,14 @@ filtrar em PHP**. Confiar na janela produziria importação silenciosamente vazi
 altera e não mexe nem no `importado_em`), roda a carga histórica (a partir de 01/1994) e o incremento
 mensal com o mesmo comando. Opções: `--serie` e `--dry-run`. Lock por `flock`, como o cron do DJEN.
 Não sobrescreve valor já gravado sem registrar a alteração — cada revisão sai na tela e no log com o
-valor anterior e o novo. Sai com `FAILURE` quando qualquer série falha **ou volta vazia**, para o
-cron alarmar em vez de deixar a tabela silenciosamente incompleta.
+valor anterior e o novo. Sai com `FAILURE` quando qualquer série falha, **volta vazia** ou
+quando **o lock está ocupado**, para o cron alarmar em vez de deixar a tabela silenciosamente
+incompleta. Falha numa série não descarta as que já terminaram: cada série é uma unidade de trabalho
+própria, com `flush` ao fim e descarte do parcial em caso de erro.
 
-**Cron mensal** (decisão do dono, 29/07/2026), no dia 11 — o INPC do mês sai por volta do dia 7–10 do
-mês seguinte. Mesmo padrão do cron do DJEN, no host da VPS:
+**Cron mensal** — a periodicidade foi escolhida pelo dono em 29/07/2026, entre mensal e diário. O
+**dia 11 às 4h** é decisão de implementação, não do dono: o INPC do mês sai por volta do dia 7–10 do
+mês seguinte, e as 4h seguem o horário do cron do DJEN. Mesmo padrão dele, no host da VPS:
 
 ```
 0 4 11 * * docker exec -w /var/www/app jusprime_php_prod php bin/console app:importar-indices-monetarios >> /var/log/jusprime-indices.log 2>&1

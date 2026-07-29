@@ -110,11 +110,15 @@ final class ClienteSgsBcb implements ClienteSgsBcbInterface
             }
 
             $competencia = $this->competencia($registro['data'] ?? null, $serie);
-            $variacao = $this->variacao($registro['valor'] ?? null, $serie, $competencia);
 
+            // O recorte vem ANTES da validação do valor de propósito: a série 188 cobre desde
+            // 04/1979 e traz ~177 competências que nunca entram na tabela. Um valor ausente ou
+            // estranho em 1980 não pode derrubar a importação de um dado que seria descartado.
             if ($competencia < self::COMPETENCIA_MINIMA) {
                 continue;
             }
+
+            $variacao = $this->variacao($registro['valor'] ?? null, $serie, $competencia);
 
             if (isset($serieNormalizada[$competencia])) {
                 throw new ImportacaoIndicesException(sprintf(
@@ -156,7 +160,17 @@ final class ClienteSgsBcb implements ClienteSgsBcbInterface
         return sprintf('%s-%s-01', $ano, $mes);
     }
 
-    /** Mantém o valor como STRING: ele vai para BCMath e para numeric(12,6) sem passar por float. */
+    /**
+     * Devolve o valor como o BCB publicou ('0.14', não '0.140000') — é o contrato desta classe —,
+     * mas só depois de garantir que ele **caberia** em `numeric(12,6)`.
+     *
+     * A checagem é a mesma da entidade de propósito. Antes o cliente aceitava `.14`, `1e-5` e
+     * `0.1234567`, que a `IndiceMonetario` recusa: a exceção estourava lá adiante, na construção da
+     * entidade, com parte da importação já feita. Recusar aqui mantém a falha numa fronteira só, e
+     * a série inteira é abortada — meia série gravada é pior que série nenhuma.
+     *
+     * String do início ao fim: o valor vai para BCMath e para `numeric(12,6)` sem passar por float.
+     */
     private function variacao(mixed $valor, SerieIndice $serie, string $competencia): string
     {
         if (!is_string($valor) && !is_int($valor) && !is_float($valor)) {
@@ -169,9 +183,9 @@ final class ClienteSgsBcb implements ClienteSgsBcbInterface
 
         $texto = trim((string) $valor);
 
-        if (is_numeric($texto) === false) {
+        if (VariacaoPercentual::ehArmazenavel($texto) === false) {
             throw new ImportacaoIndicesException(sprintf(
-                'Variação "%s" não é numérica (competência %s, série %s).',
+                'Variação "%s" não é um decimal que caiba em numeric(12,6) (competência %s, série %s).',
                 $texto,
                 $competencia,
                 $serie->codigoSgs(),

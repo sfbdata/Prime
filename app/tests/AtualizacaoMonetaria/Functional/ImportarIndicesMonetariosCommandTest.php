@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\AtualizacaoMonetaria\Functional;
 
+use App\AtualizacaoMonetaria\Command\ImportarIndicesMonetariosCommand;
 use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\AtualizacaoMonetaria\Enum\SerieIndice;
 use App\AtualizacaoMonetaria\Repository\IndiceMonetarioRepository;
 use App\AtualizacaoMonetaria\Service\ClienteSgsBcb;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Console\Application;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -18,6 +20,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpClient\MockHttpClient;
 use Symfony\Component\HttpClient\Response\MockResponse;
 
+#[CoversClass(ImportarIndicesMonetariosCommand::class)]
 final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
 {
     #[Test]
@@ -210,12 +213,128 @@ final class ImportarIndicesMonetariosCommandTest extends KernelTestCase
     {
         self::bootKernel();
         $container = static::getContainer();
-        $this->injetarBcb($container, ['188' => [['data' => '01/06/2026', 'valor' => '0.14']]]);
+        $chamou = false;
+        $container->set(ClienteSgsBcb::class, new ClienteSgsBcb(
+            new MockHttpClient(function () use (&$chamou): MockResponse {
+                $chamou = true;
+
+                return new MockResponse('[]');
+            }),
+            'https://api.bcb.gov.br',
+        ));
 
         $tester = $this->rodar(['--serie' => 'IGPM']);
 
         self::assertSame(Command::FAILURE, $tester->getStatusCode());
+        // Contar linhas não provaria nada: o nome do teste promete que a rede não foi tocada.
+        self::assertFalse($chamou, 'série inválida não pode chegar a consultar o BCB');
         self::assertSame(0, \count($container->get(IndiceMonetarioRepository::class)->findAll()));
+    }
+
+    /**
+     * Lock ocupado tem de ALARMAR, não sair calado (achado A1 da revisão).
+     *
+     * Em cron mensal, um lockfile preso (processo morto sem liberar, container reiniciado no meio)
+     * custa um mês inteiro de índice. `flock` é por descritor aberto: o handle que este teste segura
+     * bloqueia o handle que o command abre, mesmo dentro do mesmo processo.
+     */
+    #[Test]
+    public function lockOcupadoAbortaComFailureEmVezDeSairCalado(): void
+    {
+        self::bootKernel();
+        $container = static::getContainer();
+        $this->injetarBcb($container, ['188' => [['data' => '01/06/2026', 'valor' => '0.14']]]);
+
+        $caminho = sys_get_temp_dir() . '/' . ImportarIndicesMonetariosCommand::ARQUIVO_LOCK;
+        $handle = fopen($caminho, 'c');
+        self::assertIsResource($handle);
+        self::assertTrue(flock($handle, \LOCK_EX | \LOCK_NB), 'o teste precisa segurar o lock primeiro');
+
+        try {
+            $tester = $this->rodar();
+
+            self::assertSame(
+                Command::FAILURE,
+                $tester->getStatusCode(),
+                'sair com SUCCESS aqui deixaria o cron mensal perder o mês sem ninguém saber',
+            );
+            self::assertSame(0, \count($container->get(IndiceMonetarioRepository::class)->findAll()));
+        } finally {
+            flock($handle, \LOCK_UN);
+            fclose($handle);
+        }
+    }
+
+    /**
+     * `--dry-run` não pode nem AGENDAR insert, nem mutar entidade gerenciada (achado A4 da revisão).
+     *
+     * O teste anterior de dry-run rodava com a tabela vazia, então o ramo de revisão nunca era
+     * exercitado — e o `findAll()` (que é SELECT) não enxergaria um `persist` sem `flush`. As duas
+     * guardas se cobriam mutuamente. Aqui cada uma cai sozinha: a UnitOfWork denuncia o insert
+     * agendado, e a entidade gerenciada em memória denuncia a revisão aplicada.
+     */
+    #[Test]
+    public function dryRunNaoAgendaInsertNemMutaEntidadeJaGravada(): void
+    {
+        self::bootKernel();
+        $container = static::getContainer();
+        $em = $container->get(EntityManagerInterface::class);
+        $this->gravar($em, SerieIndice::INPC, '2026-06-01', '0.140000');
+        $em->clear();
+
+        $existente = $container->get(IndiceMonetarioRepository::class)
+            ->findOneBy(['serie' => SerieIndice::INPC, 'competencia' => new \DateTimeImmutable('2026-06-01')]);
+        self::assertInstanceOf(IndiceMonetario::class, $existente);
+
+        // 06/2026 revisado (0.14 → 0.19) e 05/2026 inédito: exercita os DOIS ramos sob dry-run.
+        $this->injetarBcb($container, ['188' => [
+            ['data' => '01/05/2026', 'valor' => '0.65'],
+            ['data' => '01/06/2026', 'valor' => '0.19'],
+        ]]);
+
+        $tester = $this->rodar(['--serie' => 'INPC', '--dry-run' => true]);
+
+        self::assertSame(Command::SUCCESS, $tester->getStatusCode(), $tester->getDisplay());
+        self::assertSame(
+            '0.140000',
+            $existente->getVariacaoPct(),
+            'dry-run não pode aplicar a revisão nem na entidade em memória',
+        );
+        self::assertSame(
+            [],
+            $em->getUnitOfWork()->getScheduledEntityInsertions(),
+            'dry-run não pode nem agendar o insert do índice novo',
+        );
+        // E continua CONTANDO certo — é o que faz o dry-run servir para alguma coisa.
+        self::assertStringContainsString('1 novo(s), 1 revisão(ões)', $tester->getDisplay());
+    }
+
+    /**
+     * Invariante violada numa série não pode descartar o que as outras já importaram (achado A3).
+     *
+     * O cliente recusa na fronteira o que não caberia em `numeric(12,6)`, então a série malformada
+     * morre nele — mas o importante é o que acontece com as outras: a 188 vem antes e a 29543
+     * depois, e as duas têm de sobreviver.
+     */
+    #[Test]
+    public function valorImpossivelNumaSerieNaoDescartaAsSeriesJaImportadas(): void
+    {
+        self::bootKernel();
+        $container = static::getContainer();
+        $this->injetarBcb($container, [
+            '188' => [['data' => '01/06/2026', 'valor' => '0.14']],
+            '433' => [['data' => '01/06/2026', 'valor' => '0.1234567']],   // 7 casas: não cabe
+            '29543' => [['data' => '01/07/2026', 'valor' => '0.706607']],
+        ]);
+
+        $tester = $this->rodar();
+
+        self::assertSame(Command::FAILURE, $tester->getStatusCode());
+
+        $repositorio = $container->get(IndiceMonetarioRepository::class);
+        self::assertSame(1, \count($repositorio->findBy(['serie' => SerieIndice::INPC])), 'a série anterior tem de sobreviver');
+        self::assertSame(1, \count($repositorio->findBy(['serie' => SerieIndice::TAXA_LEGAL])), 'a série seguinte tem de rodar');
+        self::assertSame(0, \count($repositorio->findBy(['serie' => SerieIndice::IPCA])));
     }
 
     /**

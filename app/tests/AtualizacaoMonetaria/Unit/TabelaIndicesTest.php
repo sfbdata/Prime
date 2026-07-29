@@ -7,6 +7,7 @@ namespace App\Tests\AtualizacaoMonetaria\Unit;
 use App\AtualizacaoMonetaria\Enum\SerieIndice;
 use App\AtualizacaoMonetaria\Service\TabelaIndices;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -110,5 +111,53 @@ final class TabelaIndicesTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
 
         new TabelaIndices(['IGPM' => ['2020-01-01' => '0.500000']]);
+    }
+
+    /**
+     * Achado A2 da revisão. O motor da Parte 3 fabrica tabelas à mão nos testes, e uma chave sem o
+     * dia (`'2020-01'`) fazia `variacao()` devolver **null** em silêncio: a correção sairia zerada e
+     * o teste falharia por "diferença de centavos", mandando quem depura caçar erro na fórmula.
+     */
+    #[Test]
+    #[DataProvider('provedorCompetenciaInvalida')]
+    public function competenciaForaDoFormatoAaaaMm01EhRecusadaNaEntrada(string $competencia): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new TabelaIndices(['INPC' => [$competencia => '0.190000']]);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function provedorCompetenciaInvalida(): iterable
+    {
+        yield 'sem o dia' => ['2020-01'];
+        yield 'dia diferente de 1' => ['2020-02-15'];
+        yield 'formato brasileiro' => ['01/01/2020'];
+        yield 'mês inexistente' => ['2020-13-01'];
+        yield 'texto' => ['competência'];
+        yield 'vazio' => [''];
+    }
+
+    /**
+     * A tabela guarda exatamente a forma que o banco devolve — o motor compara e acumula essas
+     * strings, e uma tabela fabricada com '0.19' faria o teste divergir do que roda em produção.
+     */
+    #[Test]
+    public function valorEhCanonizadoParaAFormaDeNumeric12x6(): void
+    {
+        $tabela = new TabelaIndices(['INPC' => ['2020-01-01' => '0.19', '2020-02-01' => '-0.2']]);
+
+        self::assertSame('0.190000', $tabela->variacao(SerieIndice::INPC, new \DateTimeImmutable('2020-01-01')));
+        self::assertSame('-0.200000', $tabela->variacao(SerieIndice::INPC, new \DateTimeImmutable('2020-02-01')));
+    }
+
+    #[Test]
+    public function valorImpossivelEhRecusadoNaEntrada(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        new TabelaIndices(['INPC' => ['2020-01-01' => '0.1234567']]);
     }
 }

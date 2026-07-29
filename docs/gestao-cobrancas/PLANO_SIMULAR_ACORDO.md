@@ -270,16 +270,17 @@ dev, rodar de novo não muda nada, e os testes da pasta passam.
 
 ### ✅ Executada em 29/07/2026 — o que as partes seguintes precisam saber
 
-Entregue: enum `SerieIndice`, `ClienteSgsBcb` (+ `ClienteSgsBcbInterface`), entidade
-`IndiceMonetario`, `IndiceMonetarioRepository`, `TabelaIndices`, command
-`app:importar-indices-monetarios`, migration `Version20260729142925` e 30 testes
-(`tests/AtualizacaoMonetaria/{Unit,Functional}`). Suíte completa 2876/2876.
+Entregue: enum `SerieIndice`, `ClienteSgsBcb` (+ `ClienteSgsBcbInterface`), `VariacaoPercentual`,
+entidade `IndiceMonetario`, `IndiceMonetarioRepository`, `TabelaIndices`, command
+`app:importar-indices-monetarios`, migration `Version20260729142925`, a fixture das séries reais e
+**58 métodos de teste / 109 casos** em `tests/AtualizacaoMonetaria/{Unit,Functional}`.
+Suíte completa **2921/2921** (medida em 29/07/2026, depois das correções da revisão).
 
 **`bcmath` estava AUSENTE da imagem e foi instalado (commit `6b38d39`).** As Restrições globais deste
 plano mandam "cálculo intermediário em BCMath com escala 10", mas o `Dockerfile` (estágio `base`, o
 mesmo de dev e prod) não instalava a extensão — o motor da Parte 3 não rodaria. Corrigido: `bcmath`
 entrou no `docker-php-ext-install`, imagem de dev **já reconstruída e conferida**
-(`bcadd('0.1','0.2',10)` = `0.3000000000`), suíte 2876/2876 na imagem nova.
+(`bcadd('0.1','0.2',10)` = `0.3000000000`), suíte verde na imagem nova.
 **⏳ Pendente: prod.** A imagem de produção só ganha a extensão no próximo
 `./scripts/deploy-prod-tls.sh` na VPS (o script já faz rebuild). Enquanto isso não acontecer, **não
 suba nada que dependa do motor de cálculo** — o código quebraria em runtime lá, não aqui.
@@ -591,7 +592,7 @@ Cada chat atualiza esta tabela ao terminar sua parte. É o que permite ao próxi
 | Parte | Status | Commit | Suíte | Notas |
 |---|---|---|---|---|
 | 1 | ✅ concluída (29/07/2026) | `662b070` esqueleto · segundo commit com a captura | n/a (sem código) | 22 casos + 5 medições auxiliares + LEIA-ME. 5 divergências entre spec e tela real registradas acima |
-| 2 | ✅ concluída (29/07/2026) | `35475d0` · `7238298` · `6b38d39` (bcmath) | 2876/2876 | Migration `Version20260729142925`. `bcmath` instalado na imagem — **falta o rebuild em PROD** |
+| 2 | ✅ concluída (29/07/2026), revisada e corrigida | `35475d0` `7238298` `6b38d39` `9232836` `172e5ae` `e604af4` + o das correções | 2921/2921 | Migration `Version20260729142925`. `bcmath` instalado na imagem — **falta o rebuild em PROD**. 10 achados da revisão corrigidos |
 | 3 | ⬜ não iniciada | — | — | |
 | 4 | ⬜ não iniciada | — | — | |
 | 5 | ⬜ não iniciada | — | — | |

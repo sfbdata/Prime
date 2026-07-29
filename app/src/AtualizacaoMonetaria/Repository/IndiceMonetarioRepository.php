@@ -16,7 +16,8 @@ use Doctrine\Persistence\ManagerRegistry;
 // ⚠️ **Sem filtro de tenant, de propósito.** É a única exceção do projeto à regra de isolamento,
 // justificada na spec §7.1: índice oficial de inflação é dado público, igual para todo escritório.
 // Nenhum método aqui recebe Tenant porque nenhuma linha desta tabela pertence a um.
-// Não-final: permite substituição por mock nos testes.
+// Não-final porque nenhum dos ~83 repositórios do projeto é — a `ServiceEntityRepository` do
+// DoctrineBundle é estendida em toda parte e fechar só esta destoaria sem ganho.
 class IndiceMonetarioRepository extends ServiceEntityRepository
 {
     public function __construct(ManagerRegistry $registry)

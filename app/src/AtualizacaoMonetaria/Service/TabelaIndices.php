@@ -20,6 +20,15 @@ final class TabelaIndices
     private array $variacoes = [];
 
     /**
+     * Valida série, competência e valor na entrada — não confie em quem monta.
+     *
+     * O motor da Parte 3 vai fabricar tabelas à mão nos testes, e o modo de falha silencioso aqui é
+     * caro: uma chave `'2020-01'` (sem o dia) faz `variacao()` devolver `null`, a correção sai
+     * **zerada**, e o teste falha por "diferença de centavos" mandando quem depura caçar erro na
+     * fórmula. Por isso a chave tem de ser uma data real no dia 1, e o valor passa pela mesma
+     * canonização de `numeric(12,6)` que a entidade usa — assim o que o motor lê de uma tabela
+     * fabricada tem exatamente a forma do que ele leria do banco.
+     *
      * @param array<string, array<string, string>> $variacoes série => competência 'Y-m-01' => variação
      */
     public function __construct(array $variacoes = [])
@@ -31,9 +40,36 @@ final class TabelaIndices
                 throw new \InvalidArgumentException(sprintf('Série desconhecida na tabela: "%s".', $serie));
             }
 
-            ksort($competencias);
-            $this->variacoes[$serieValida->value] = $competencias;
+            $normalizadas = [];
+            foreach ($competencias as $competencia => $variacao) {
+                $chave = self::exigirCompetencia((string) $competencia, $serieValida);
+                $normalizadas[$chave] = VariacaoPercentual::canonizar($variacao);
+            }
+
+            ksort($normalizadas);
+            $this->variacoes[$serieValida->value] = $normalizadas;
         }
+    }
+
+    private static function exigirCompetencia(string $competencia, SerieIndice $serie): string
+    {
+        if (preg_match('/^(\d{4})-(\d{2})-01$/', $competencia, $partes) !== 1) {
+            throw new \InvalidArgumentException(sprintf(
+                'Competência "%s" da série %s deve estar no formato AAAA-MM-01.',
+                $competencia,
+                $serie->value,
+            ));
+        }
+
+        if (checkdate((int) $partes[2], 1, (int) $partes[1]) === false) {
+            throw new \InvalidArgumentException(sprintf(
+                'Competência "%s" da série %s não existe no calendário.',
+                $competencia,
+                $serie->value,
+            ));
+        }
+
+        return $competencia;
     }
 
     /** Variação percentual do mês, ou null se a competência não foi publicada/importada. */

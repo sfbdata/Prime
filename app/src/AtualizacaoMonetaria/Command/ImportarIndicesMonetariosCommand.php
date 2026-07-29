@@ -9,6 +9,7 @@ use App\AtualizacaoMonetaria\Enum\SerieIndice;
 use App\AtualizacaoMonetaria\Exception\ImportacaoIndicesException;
 use App\AtualizacaoMonetaria\Repository\IndiceMonetarioRepository;
 use App\AtualizacaoMonetaria\Service\ClienteSgsBcbInterface;
+use App\AtualizacaoMonetaria\Service\VariacaoPercentual;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -44,6 +45,9 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 final class ImportarIndicesMonetariosCommand extends Command
 {
+    /** Público para o teste do lock não duplicar o caminho. */
+    public const ARQUIVO_LOCK = 'jusprime-importar-indices-monetarios.lock';
+
     /** @var resource|null */
     private $lockHandle = null;
 
@@ -74,9 +78,14 @@ final class ImportarIndicesMonetariosCommand extends Command
         }
 
         if ($this->adquirirLock() === false) {
-            $io->warning('Outra importação de índices já está em andamento. Abortando.');
+            // FAILURE, não SUCCESS: em cron MENSAL, sair calado aqui custa um mês inteiro de índice.
+            // Lockfile preso por processo morto ou container reiniciado no meio produz exatamente o
+            // estado que o exit code existe para denunciar. Alarme falso numa execução manual
+            // concorrente é muito mais barato que um mês faltando sem ninguém saber.
+            $io->error('Outra importação de índices já está em andamento — nada foi importado.');
+            $this->logger->error('Importação de índices abortada: lock ocupado.');
 
-            return Command::SUCCESS;
+            return Command::FAILURE;
         }
 
         try {
@@ -94,10 +103,35 @@ final class ImportarIndicesMonetariosCommand extends Command
             $totalInalterados = 0;
 
             foreach ($series as $serie) {
+                // Uma série por unidade de trabalho: cada uma que termina é gravada por si, e a que
+                // falha no meio não leva junto o que as anteriores já importaram.
                 try {
                     $variacoes = $this->cliente->baixarSerie($serie);
-                } catch (ImportacaoIndicesException $e) {
+
+                    if ($variacoes === []) {
+                        // NÃO apaga nem zera: o que está gravado continua valendo. Só alarma.
+                        ++$vazias;
+                        $io->error(sprintf(
+                            'Série %s voltou VAZIA do BCB — nada foi apagado, mas a série pode estar desatualizada.',
+                            $serie->value,
+                        ));
+                        $this->logger->error('Série de índices voltou vazia do BCB.', ['serie' => $serie->value]);
+
+                        continue;
+                    }
+
+                    $resumo = $this->importarSerie($serie, $variacoes, $agora, $dryRun);
+
+                    if ($dryRun === false) {
+                        $this->em->flush();
+                    }
+                } catch (ImportacaoIndicesException | \InvalidArgumentException $e) {
+                    // InvalidArgumentException vem das invariantes de IndiceMonetario/VariacaoPercentual.
+                    // O cliente já recusa na fronteira o que não caberia em numeric(12,6), então aqui é
+                    // defesa em profundidade: sem ela, uma invariante violada na 3ª série derrubaria o
+                    // comando inteiro e descartaria as duas primeiras, já importadas.
                     ++$falhas;
+                    $this->em->clear();   // descarta o trabalho PARCIAL desta série
                     $io->error(sprintf('Série %s: %s', $serie->value, $e->getMessage()));
                     $this->logger->error('Falha ao importar série de índices.', [
                         'serie' => $serie->value,
@@ -107,23 +141,13 @@ final class ImportarIndicesMonetariosCommand extends Command
                     continue;
                 }
 
-                if ($variacoes === []) {
-                    // NÃO apaga nem zera: o que está gravado continua valendo. Só alarma.
-                    ++$vazias;
-                    $io->error(sprintf(
-                        'Série %s voltou VAZIA do BCB — nada foi apagado, mas a série pode estar desatualizada.',
-                        $serie->value,
-                    ));
-                    $this->logger->error('Série de índices voltou vazia do BCB.', ['serie' => $serie->value]);
-
-                    continue;
-                }
-
-                $resumo = $this->importarSerie($serie, $variacoes, $agora, $dryRun, $revisoes);
-
                 $totalNovos += $resumo['novos'];
                 $totalRevisados += $resumo['revisados'];
                 $totalInalterados += $resumo['inalterados'];
+                // Só entram no relatório as revisões de série que chegou ao fim.
+                foreach ($resumo['revisoes'] as $revisao) {
+                    $revisoes[] = $revisao;
+                }
                 $linhas[] = [
                     $serie->value,
                     $resumo['novos'],
@@ -132,10 +156,6 @@ final class ImportarIndicesMonetariosCommand extends Command
                     $resumo['primeira'],
                     $resumo['ultima'],
                 ];
-            }
-
-            if ($dryRun === false) {
-                $this->em->flush();
             }
 
             if ($linhas !== []) {
@@ -169,17 +189,16 @@ final class ImportarIndicesMonetariosCommand extends Command
     }
 
     /**
-     * @param array<string, string>                     $variacoes competência 'Y-m-01' => variação
-     * @param list<array{string, string, string, string}> $revisoes  acumulador, por referência
+     * @param array<string, string> $variacoes competência 'Y-m-01' => variação
      *
-     * @return array{novos: int, revisados: int, inalterados: int, primeira: string, ultima: string}
+     * @return array{novos: int, revisados: int, inalterados: int, primeira: string, ultima: string,
+     *               revisoes: list<array{string, string, string, string}>}
      */
     private function importarSerie(
         SerieIndice $serie,
         array $variacoes,
         \DateTimeImmutable $agora,
         bool $dryRun,
-        array &$revisoes,
     ): array {
         // Uma consulta por série (não uma por mês): são ~570 competências no INPC.
         $existentes = $this->repositorio->mapaPorCompetencia($serie);
@@ -187,6 +206,7 @@ final class ImportarIndicesMonetariosCommand extends Command
         $novos = 0;
         $revisados = 0;
         $inalterados = 0;
+        $revisoes = [];
 
         foreach ($variacoes as $chave => $variacao) {
             $existente = $existentes[$chave] ?? null;
@@ -215,7 +235,7 @@ final class ImportarIndicesMonetariosCommand extends Command
 
             ++$revisados;
             $anterior = $existente->getVariacaoPct();
-            $novo = IndiceMonetario::canonizarVariacao($variacao);
+            $novo = VariacaoPercentual::canonizar($variacao);
             $competencia = substr($chave, 0, 7);
 
             $revisoes[] = [$serie->value, $competencia, $anterior, $novo];
@@ -237,6 +257,7 @@ final class ImportarIndicesMonetariosCommand extends Command
             'novos' => $novos,
             'revisados' => $revisados,
             'inalterados' => $inalterados,
+            'revisoes' => $revisoes,
             'primeira' => substr((string) reset($competencias), 0, 7),
             'ultima' => substr((string) end($competencias), 0, 7),
         ];
@@ -274,7 +295,7 @@ final class ImportarIndicesMonetariosCommand extends Command
      */
     private function adquirirLock(): bool
     {
-        $handle = fopen(sys_get_temp_dir() . '/jusprime-importar-indices-monetarios.lock', 'c');
+        $handle = fopen(sys_get_temp_dir() . '/' . self::ARQUIVO_LOCK, 'c');
 
         if ($handle === false) {
             return false;

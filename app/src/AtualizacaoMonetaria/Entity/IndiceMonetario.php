@@ -6,6 +6,7 @@ namespace App\AtualizacaoMonetaria\Entity;
 
 use App\AtualizacaoMonetaria\Enum\SerieIndice;
 use App\AtualizacaoMonetaria\Repository\IndiceMonetarioRepository;
+use App\AtualizacaoMonetaria\Service\VariacaoPercentual;
 use Doctrine\ORM\Mapping as ORM;
 
 /**
@@ -47,7 +48,7 @@ class IndiceMonetario
         private \DateTimeImmutable $importadoEm,
     ) {
         $this->competencia = self::normalizarCompetencia($competencia);
-        $this->variacaoPct = self::canonizar($variacaoPct);
+        $this->variacaoPct = VariacaoPercentual::canonizar($variacaoPct);
     }
 
     /**
@@ -68,64 +69,13 @@ class IndiceMonetario
     }
 
     /**
-     * Põe a variação na forma canônica de `numeric(12,6)` — sinal + parte inteira sem zeros à
-     * esquerda + exatamente 6 casas.
-     *
-     * É essa canonização que permite comparar duas leituras do índice com `!==`, sem BCMath (que
-     * **não está instalado nesta imagem**) e sem float: o PostgreSQL devolve '0.140000' onde o BCB
-     * mandou '0.14', e comparar as strings cruas acusaria revisão de índice em toda reimportação.
-     * Recusa o que a coluna não guardaria fielmente (mais de 6 casas, mais de 6 dígitos inteiros,
-     * notação científica) em vez de arredondar por conta própria.
-     */
-    public static function canonizarVariacao(string $variacaoPct): string
-    {
-        return self::canonizar($variacaoPct);
-    }
-
-    /**
      * O índice publicado é outro? Responde sem mexer em nada — é o que permite ao importador
      * contar as revisões no `--dry-run` sem sujar o EntityManager.
      */
     public function variacaoDivergeDe(string $variacaoPct): bool
     {
-        return self::canonizar($variacaoPct) !== self::canonizar($this->variacaoPct);
-    }
-
-    private static function canonizar(string $variacaoPct): string
-    {
-        $texto = trim($variacaoPct);
-
-        if (preg_match('/^([+-]?)(\d+)(?:\.(\d*))?$/', $texto, $partes) !== 1) {
-            throw new \InvalidArgumentException(sprintf(
-                'Variação "%s" não é um decimal simples.',
-                $variacaoPct,
-            ));
-        }
-
-        [, $sinal, $inteiro, $decimal] = $partes + [3 => ''];
-
-        if (\strlen(ltrim($inteiro, '0')) > 6) {
-            throw new \InvalidArgumentException(sprintf(
-                'Variação "%s" excede a parte inteira de numeric(12,6).',
-                $variacaoPct,
-            ));
-        }
-
-        if (\strlen($decimal) > 6) {
-            throw new \InvalidArgumentException(sprintf(
-                'Variação "%s" tem mais de 6 casas decimais e não cabe em numeric(12,6).',
-                $variacaoPct,
-            ));
-        }
-
-        $inteiro = ltrim($inteiro, '0');
-        $inteiro = $inteiro === '' ? '0' : $inteiro;
-        $decimal = str_pad($decimal, 6, '0');
-
-        // '-0.000000' e '0.000000' são o mesmo número: sem isso, zero negativo passaria por revisão.
-        $negativo = $sinal === '-' && ($inteiro !== '0' || $decimal !== '000000');
-
-        return ($negativo ? '-' : '') . $inteiro . '.' . $decimal;
+        return VariacaoPercentual::canonizar($variacaoPct)
+            !== VariacaoPercentual::canonizar($this->variacaoPct);
     }
 
     public function getId(): ?int
@@ -177,7 +127,7 @@ class IndiceMonetario
             return false;
         }
 
-        $this->variacaoPct = self::canonizar($variacaoPct);
+        $this->variacaoPct = VariacaoPercentual::canonizar($variacaoPct);
         $this->importadoEm = $importadoEm;
 
         return true;

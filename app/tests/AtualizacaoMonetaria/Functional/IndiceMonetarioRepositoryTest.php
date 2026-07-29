@@ -8,9 +8,11 @@ use App\AtualizacaoMonetaria\Entity\IndiceMonetario;
 use App\AtualizacaoMonetaria\Enum\SerieIndice;
 use App\AtualizacaoMonetaria\Repository\IndiceMonetarioRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
 
+#[CoversClass(IndiceMonetarioRepository::class)]
 final class IndiceMonetarioRepositoryTest extends KernelTestCase
 {
     private EntityManagerInterface $em;
@@ -100,6 +102,9 @@ final class IndiceMonetarioRepositoryTest extends KernelTestCase
     {
         $this->gravar(SerieIndice::INPC, ['2026-05-01' => '0.65', '2026-06-01' => '0.14']);
         $this->gravar(SerieIndice::IPCA, ['2026-06-01' => '0.16']);
+        // Sem o clear, as entidades voltariam do identity map e o assert provaria a canonização do
+        // construtor, não a ida e volta por numeric(12,6) — que é o que o nome do teste promete.
+        $this->em->clear();
 
         $mapa = $this->repositorio->mapaPorCompetencia(SerieIndice::INPC);
 

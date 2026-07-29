@@ -17,6 +17,11 @@ use App\AtualizacaoMonetaria\Exception\ImportacaoIndicesException;
 interface ClienteSgsBcbInterface
 {
     /**
+     * Competências **em ordem crescente** — o importador usa a primeira e a última chave para
+     * relatar a cobertura da série, então a ordenação faz parte do contrato, não é detalhe da
+     * implementação. Valores como o BCB publica ('0.14', não '0.140000'), mas garantidamente
+     * armazenáveis em `numeric(12,6)`.
+     *
      * @return array<string, string> competência 'Y-m-01' => variação percentual (string, para BCMath)
      *
      * @throws ImportacaoIndicesException em qualquer falha de rede ou de conteúdo
