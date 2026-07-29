@@ -307,6 +307,24 @@ TabelaIndices::primeiraCompetencia(...) · competencias(...) · quantidade(...) 
 `TabelaIndices` é imutável e sem I/O; qualquer dia do mês resolve para a competência (um valor de
 15/01/2020 acha o índice de 01/2020). Variações são **string** do BCB ao motor, nunca float.
 
+**A Parte 3 monta a tabela assim** — não tente ler do banco:
+
+```php
+use App\Tests\AtualizacaoMonetaria\TabelaIndicesDeFixture;
+$tabela = TabelaIndicesDeFixture::carregar();   // séries reais congeladas, offline
+```
+
+O `CasosReferenciaTjdftTest` é **unitário** (sem kernel, sem banco) e o `saas_test` tem
+`indice_monetario` **vazia** — o importador nunca roda em teste, e o DAMA faz rollback por teste.
+Por isso as séries reais foram congeladas em `Fixtures/indices-bcb.json` (804 competências, geradas
+da carga verificada de 29/07/2026; instruções de regeneração no docblock de `TabelaIndicesDeFixture`).
+Congelar também mantém os 22 casos reprodutíveis se o IBGE revisar um índice antigo.
+
+`FixtureIndicesBcbTest` guarda esse arquivo: cobertura por série, **ausência de buracos**, valores de
+referência e forma canônica de `numeric(12,6)`. Provado por injeção — remover um mês do meio derruba
+4 testes com a mensagem apontando a competência. Se ele falhar, o problema é o **dado**, não a
+fórmula: não vá caçar centavo no motor.
+
 **Fatos medidos que valem para as partes seguintes:**
 
 1. **A última competência publicada é POR SÉRIE, não global.** Em 29/07/2026 a taxa legal já tinha
