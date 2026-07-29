@@ -29,7 +29,7 @@ pública, conforme o manual.
 | # | Decisão | Escolha |
 |---|---|---|
 | 1 | Seções internas do tribunal (PJE, participantes, cálculos da unidade) | **Fora de escopo** — não existem na calculadora pública |
-| 2 | Período coberto pela tabela de índices | **01/1994 até hoje** (Plano Real em diante, sem conversão de moeda antiga) |
+| 2 | Período coberto pela tabela de índices | **01/1994 até hoje** (Plano Real em diante, sem conversão de moeda antiga). O dono afirmou depois que **nenhuma dívida do escritório é anterior a 2000** — logo 1994–1999 é folga, não requisito, e a armadilha da janela de datas do BCB (§8) deixa de ter efeito prático. A carga continua desde 1994 porque a série inteira cabe em uma requisição e custa o mesmo |
 | 3 | Relação com a dívida do objeto | **Pré-preenche, não grava** — é simulação; não altera saldo, obrigação nem histórico |
 | 4 | Persistência das simulações | **Penduradas no objeto de cobrança** (por tenant), não em lista global |
 | 5 | Campos Processo / Credor / Devedor | **Mantidos e pré-preenchidos**, editáveis |
