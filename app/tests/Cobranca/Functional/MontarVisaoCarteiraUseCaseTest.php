@@ -249,6 +249,137 @@ final class MontarVisaoCarteiraUseCaseTest extends KernelTestCase
         self::assertFalse($resultado['casos'][0]->temDocumentos);
     }
 
+    /** Caso com identificação do objeto e nome da pessoa cobrada escolhidos a dedo (busca livre). */
+    private function casoNomeado(Tenant $tenant, Carteira $carteira, string $identificacao, string $nomePessoa): CasoCobranca
+    {
+        $objeto = ObjetoCobrancaFactory::createOne([
+            'tenant' => $tenant, 'carteira' => $carteira, 'identificacao' => $identificacao,
+        ])->_real();
+
+        return CasoCobrancaFactory::createOne([
+            'tenant' => $tenant,
+            'objeto' => $objeto,
+            'pessoaCobradaAtual' => PessoaFactory::createOne(['tenant' => $tenant, 'nome' => $nomePessoa]),
+        ])->_real();
+    }
+
+    #[TestDox('Busca livre: casa por trecho da IDENTIFICAÇÃO do objeto')]
+    public function testBuscaPorIdentificacaoDoObjeto(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+        $alvo = $this->casoNomeado($tenant, $carteira, 'CONTRATO-9911', 'Devedor Um');
+        $this->casoNomeado($tenant, $carteira, 'CONTRATO-2200', 'Devedor Dois');
+
+        $this->em->clear();
+
+        $resultado = $this->sut->executar($carteira, '9911');
+
+        self::assertCount(1, $resultado['casos']);
+        self::assertSame($alvo->getId(), $resultado['casos'][0]->id);
+    }
+
+    #[TestDox('Busca livre: casa por trecho do NOME da pessoa cobrada')]
+    public function testBuscaPorNomeDaPessoaCobrada(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+        $alvo = $this->casoNomeado($tenant, $carteira, 'CONTRATO-1', 'Marcos Vinicius Teixeira');
+        $this->casoNomeado($tenant, $carteira, 'CONTRATO-2', 'Helena Prado');
+
+        $this->em->clear();
+
+        $resultado = $this->sut->executar($carteira, 'vinicius');
+
+        self::assertCount(1, $resultado['casos']);
+        self::assertSame($alvo->getId(), $resultado['casos'][0]->id);
+    }
+
+    #[TestDox('Busca livre: ignora acento nos dois sentidos (UNACCENT), como no Expediente')]
+    public function testBuscaIgnoraAcento(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+        $comAcento = $this->casoNomeado($tenant, $carteira, 'CONTRATO-1', 'João Gonçalves');
+        $semAcento = $this->casoNomeado($tenant, $carteira, 'CONTRATO-2', 'Ana Luiza Sao Paulo');
+
+        $this->em->clear();
+
+        // Termo sem acento acha o nome COM acento…
+        $semTermo = $this->sut->executar($carteira, 'joao goncalves');
+        self::assertCount(1, $semTermo['casos']);
+        self::assertSame($comAcento->getId(), $semTermo['casos'][0]->id);
+
+        // …e o termo COM acento acha o nome gravado sem ele.
+        $comTermo = $this->sut->executar($carteira, 'são paulo');
+        self::assertCount(1, $comTermo['casos']);
+        self::assertSame($semAcento->getId(), $comTermo['casos'][0]->id);
+    }
+
+    #[TestDox('Busca livre: filtra SÓ a lista — o cabeçalho segue somando a carteira inteira')]
+    public function testBuscaNaoMexeNoCabecalho(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+
+        $alvo = $this->casoNomeado($tenant, $carteira, 'CONTRATO-ALVO', 'Devedor Alvo');
+        $this->obrigacao($tenant, $alvo, 100000, '2026-06-01');
+
+        $outro = $this->casoNomeado($tenant, $carteira, 'CONTRATO-OUTRO', 'Devedor Outro');
+        $this->obrigacao($tenant, $outro, 250000, '2026-06-01');
+
+        $this->em->clear();
+
+        $semFiltro = $this->sut->executar($carteira);
+        $comFiltro = $this->sut->executar($carteira, 'ALVO');
+
+        self::assertCount(2, $semFiltro['casos']);
+        self::assertCount(1, $comFiltro['casos'], 'a lista respeita a busca');
+        self::assertSame($alvo->getId(), $comFiltro['casos'][0]->id);
+
+        self::assertSame(
+            $semFiltro['carteira']->saldoConsolidado,
+            $comFiltro['carteira']->saldoConsolidado,
+            'buscar não muda o quanto a carteira tem a receber',
+        );
+        self::assertSame($semFiltro['carteira']->totalObjetos, $comFiltro['carteira']->totalObjetos);
+        self::assertSame($semFiltro['carteira']->totalCasos, $comFiltro['carteira']->totalCasos);
+    }
+
+    #[TestDox('Busca livre: termo que não casa com nada devolve lista vazia (e cabeçalho intacto)')]
+    public function testBuscaSemResultado(): void
+    {
+        $tenant = $this->tenant();
+        $carteira = $this->carteira($tenant);
+        $caso = $this->casoNomeado($tenant, $carteira, 'CONTRATO-1', 'Devedor Um');
+        $this->obrigacao($tenant, $caso, 100000, '2026-06-01');
+
+        $this->em->clear();
+
+        $resultado = $this->sut->executar($carteira, 'zzzz-nao-existe');
+
+        self::assertSame([], $resultado['casos']);
+        self::assertSame(100000, $resultado['carteira']->saldoConsolidado);
+    }
+
+    #[TestDox('Busca livre: não atravessa tenant — termo que casa em B não traz nada em A')]
+    public function testBuscaNaoVazaEntreTenants(): void
+    {
+        $tenantA = $this->tenant();
+        $carteiraA = $this->carteira($tenantA);
+        $this->casoNomeado($tenantA, $carteiraA, 'CONTRATO-A', 'Devedor de A');
+
+        $tenantB = $this->tenant();
+        $carteiraB = $this->carteira($tenantB);
+        $this->casoNomeado($tenantB, $carteiraB, 'CONTRATO-SEGREDO-B', 'Devedor de B');
+
+        $this->em->clear();
+
+        $resultado = $this->sut->executar($carteiraA, 'SEGREDO-B');
+
+        self::assertSame([], $resultado['casos'], 'busca de um escritório não alcança o outro');
+    }
+
     #[TestDox('Grampo (#6): NÃO conta documento de objeto de OUTRO tenant')]
     public function testGrampoNaoContaDocumentoDeOutroTenant(): void
     {

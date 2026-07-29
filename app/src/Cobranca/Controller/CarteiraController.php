@@ -115,7 +115,7 @@ final class CarteiraController extends AbstractController
     }
 
     #[Route('/carteiras/{id}', name: 'cobranca_carteira_show', methods: ['GET'], requirements: ['id' => '\d+'])]
-    public function show(int $id): Response
+    public function show(int $id, Request $request): Response
     {
         $tenant = $this->tenantComModulo();
         if ($tenant === null) {
@@ -127,11 +127,23 @@ final class CarteiraController extends AbstractController
             throw $this->createNotFoundException('Carteira de cobrança não encontrada.');
         }
 
-        $visao = $this->montarVisaoCarteira->executar($carteira);
+        // Busca livre da lista de cobranças (objeto ou pessoa cobrada). Filtra SÓ a tabela — os
+        // agregados do cabeçalho seguem sendo os da carteira inteira (regra no UseCase).
+        $busca = trim((string) $request->query->get('busca', ''));
+        $visao = $this->montarVisaoCarteira->executar($carteira, $busca);
 
-        return $this->render('cobranca/carteira/show.html.twig', [
+        $dados = [
             'carteira' => $visao['carteira'],
             'casos' => $visao['casos'],
+            'filtros' => ['busca' => $busca],
+        ];
+
+        // Contrato do `filtro-tabela.js`: no XHR devolve só o innerHTML do [data-filtro-resultado].
+        if ($request->isXmlHttpRequest()) {
+            return $this->render('cobranca/carteira/_resultado_casos.html.twig', $dados);
+        }
+
+        return $this->render('cobranca/carteira/show.html.twig', $dados + [
             'forms' => $this->formulariosDaCarteira($carteira, $tenant),
             'ajudaCarteira' => self::ajudaDosCampos(),
             // Documentos da carteira (Ajuste #5): lista cronológica abaixo da configuração.

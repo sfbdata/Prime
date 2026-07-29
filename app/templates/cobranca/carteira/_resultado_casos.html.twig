@@ -1,0 +1,60 @@
+{# ───────────────────────────────────────────────────────────────────────────
+   Fragmento trocável da lista de cobranças da carteira (dentro de
+   [data-filtro-resultado]). Reexecutado a cada busca por public/js/filtro-tabela.js —
+   no XHR o controller devolve SÓ este arquivo.
+   Recebe Output DTOs (CasoResumoOutput), nunca entidades cruas.
+─────────────────────────────────────────────────────────────────────────── #}
+{% set busca = filtros.busca|default('') %}
+
+<div class="table-responsive">
+    {% if casos|length > 0 %}
+    <table class="table mb-0">
+        <thead>
+            <tr>
+                <th class="ps-3">Objeto</th>
+                <th>Pessoa cobrada</th>
+                <th style="width:110px">Estado</th>
+                <th class="text-end" style="width:130px">Saldo exigível</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for caso in casos %}
+            <tr class="cobranca-row-link{{ caso.temVencido ? ' cobranca-row-vencido' : '' }}" style="cursor:pointer;" data-href="{{ path('cobranca_objeto_show', {id: caso.objetoId}) }}">
+                <td class="ps-3 align-middle">
+                    <span class="fw-semibold">{{ caso.objetoIdentificacao }}</span>
+                    {% if caso.temDocumentos %}<i class="bi bi-paperclip text-muted ms-1" title="Possui documentos anexados" aria-label="Possui documentos anexados" data-bs-toggle="tooltip"></i>{% endif %}
+                    {% if caso.objetoDescricao %}<div class="text-muted small">{{ caso.objetoDescricao }}</div>{% endif %}
+                </td>
+                <td class="align-middle">{{ caso.pessoaCobradaNome }}</td>
+                <td class="align-middle">
+                    <span class="badge {{ caso.statusBadgeClass }}">{{ caso.statusLabel }}</span>
+                    {% if caso.prontoParaEncerrar %}<span class="badge text-bg-success ms-1" data-bs-toggle="tooltip" title="Saldo exigível zerado — pode ser encerrado">Pronto</span>{% endif %}
+                </td>
+                <td class="align-middle text-end fw-semibold">{{ caso.saldoExigivel|centavos }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="cobranca-empty">
+        <div class="empty-ico"><i class="bi bi-briefcase"></i></div>
+        {% if busca is not empty %}
+            <p class="empty-title">Nenhuma cobrança encontrada</p>
+            <p class="text-muted small mb-0">Ajuste ou limpe a busca aplicada.</p>
+        {% else %}
+            <p class="empty-title">Nenhuma cobrança nesta carteira</p>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+{# Tooltips do fragmento: o innerHTML é substituído a cada busca, então quem foi ligado no
+   DOMContentLoaded morre junto. O motor recria os <script> do fragmento ao injetá-lo. #}
+<script>
+(function () {
+    if (typeof bootstrap === 'undefined') { return; }
+    document.querySelectorAll('.cobrancas-page [data-bs-toggle="tooltip"]').forEach(function (el) {
+        bootstrap.Tooltip.getOrCreateInstance(el);
+    });
+})();
+</script>

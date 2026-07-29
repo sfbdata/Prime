@@ -209,6 +209,53 @@ class CasoCobrancaRepository extends ServiceEntityRepository
     }
 
     /**
+     * IDs dos casos da carteira que casam com a busca livre da página da carteira — identificação
+     * ou descrição do OBJETO, ou nome da PESSOA COBRADA. `UNACCENT(LOWER(...))` dos dois lados
+     * (mesma receita do Expediente, `PastaRepository::aplicarFiltros`): "joao" acha "João" e
+     * vice-versa.
+     *
+     * Devolve só IDs de propósito: a página precisa do saldo consolidado da carteira INTEIRA no
+     * cabeçalho — que é derivado (`CalculadoraSaldo`), não coluna, e por isso exige carregar todos
+     * os casos. Filtrar o `daCarteira()` arrastaria o cabeçalho junto; esta consulta é rasa e só
+     * roda quando há busca. Escopo por tenant da carteira, como todo o resto.
+     *
+     * @return array<int, true> id do caso => true (conjunto de presença)
+     */
+    public function idsDaCarteiraCasandoBusca(Carteira $carteira, string $busca): array
+    {
+        $termo = trim($busca);
+        if ($termo === '') {
+            return [];
+        }
+
+        // leftJoin na pessoa (não inner): mantém a mesma semântica de junção do `daCarteira`, e caso
+        // sem pessoa simplesmente não casa pelo nome.
+        $linhas = $this->createQueryBuilder('c')
+            ->select('c.id')
+            ->innerJoin('c.objeto', 'o')
+            ->leftJoin('c.pessoaCobradaAtual', 'p')
+            ->andWhere('o.carteira = :carteira')
+            ->andWhere('c.tenant = :tenant')
+            ->andWhere(
+                'UNACCENT(LOWER(o.identificacao)) LIKE UNACCENT(:busca)'
+                . ' OR UNACCENT(LOWER(o.descricao)) LIKE UNACCENT(:busca)'
+                . ' OR UNACCENT(LOWER(p.nome)) LIKE UNACCENT(:busca)'
+            )
+            ->setParameter('carteira', $carteira)
+            ->setParameter('tenant', $carteira->getTenant())
+            ->setParameter('busca', '%' . mb_strtolower($termo) . '%')
+            ->getQuery()
+            ->getResult();
+
+        $ids = [];
+        foreach ($linhas as $linha) {
+            $ids[(int) $linha['id']] = true;
+        }
+
+        return $ids;
+    }
+
+    /**
      * TODOS os casos do tenant (opcionalmente de uma carteira), mais recentes primeiro — base da
      * agregação tenant-wide do Dashboard e da Central de Alertas (Etapa 9). Tenant SEMPRE explícito no
      * WHERE. Inclui casos encerrados de propósito: o "valor total recuperado" (all-time) precisa deles;

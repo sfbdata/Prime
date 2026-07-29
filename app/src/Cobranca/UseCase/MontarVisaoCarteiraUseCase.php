@@ -31,11 +31,20 @@ final class MontarVisaoCarteiraUseCase
     }
 
     /**
+     * @param string $busca busca livre da página (objeto ou pessoa cobrada); vazia = sem filtro.
+     *                      Filtra SÓ a lista — os agregados do cabeçalho (saldo consolidado, nº de
+     *                      objetos e de casos) continuam sendo os da carteira INTEIRA: buscar não
+     *                      muda o quanto a carteira tem a receber.
+     *
      * @return array{carteira: CarteiraDetalheOutput, casos: list<CasoResumoOutput>}
      */
-    public function executar(Carteira $carteira): array
+    public function executar(Carteira $carteira, string $busca = ''): array
     {
         $casos = $this->casoRepository->daCarteira($carteira);
+        $busca = trim($busca);
+        $idsCasando = $busca !== ''
+            ? $this->casoRepository->idsDaCarteiraCasandoBusca($carteira, $busca)
+            : null;
 
         // Saldos derivados em LOTE (uma carga tenant-scoped) — fim do N+1 de saldoExigivel+saldoVencido
         // por caso. Mesma regra dos métodos por-caso (via `CalculadoraSaldo::saldosDosCasos`).
@@ -56,7 +65,13 @@ final class MontarVisaoCarteiraUseCase
         $casosOutput = [];
         foreach ($casos as $caso) {
             $saldo = $saldos[$caso->getId() ?? 0] ?? ['exigivel' => 0, 'vencido' => 0];
+            // O consolidado soma TODOS os casos, inclusive os que a busca esconde da lista.
             $saldoConsolidado += $saldo['exigivel'];
+
+            if ($idsCasando !== null && !isset($idsCasando[$caso->getId() ?? 0])) {
+                continue;
+            }
+
             $objetoId = $caso->getObjeto()?->getId() ?? 0;
             $casosOutput[] = CasoResumoOutput::fromEntity(
                 $caso,
