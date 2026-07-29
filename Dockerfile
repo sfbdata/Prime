@@ -1,5 +1,8 @@
 FROM php:8.2-fpm AS base
 
+# bcmath: aritmética decimal exata, sem float. É o que a calculadora de atualização monetária
+# (App\AtualizacaoMonetaria) usa para o cálculo intermediário com escala 10 — dinheiro em float
+# acumula erro de arredondamento e o resultado deixa de bater com o do TJDFT ao centavo.
 RUN apt-get update && apt-get install -y \
     git \
     unzip \
@@ -15,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     ghostscript \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j1 \
+        bcmath \
         pdo \
         pdo_pgsql \
         zip \
